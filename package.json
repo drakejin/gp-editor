@@ -1,0 +1,12 @@
+{
+  "name": "gp-editor",
+  "private": true,
+  "description": "Guitar Pro editor — monorepo root (packages/gp-core, apps/desktop)",
+  "scripts": {
+    "test": "npm --prefix packages/gp-core test",
+    "coverage": "npm --prefix packages/gp-core run coverage",
+    "typecheck": "npm --prefix packages/gp-core run typecheck && npm --prefix apps/desktop run typecheck",
+    "build:mac": "npm --prefix apps/desktop run build:macos",
+    "start": "npm --prefix apps/desktop start"
+  }
+}
