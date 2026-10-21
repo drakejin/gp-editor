@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 coverage/
 *.log
+# Fan transcriptions without a redistribution license — fetched by packages/gp-core/test/fixtures/fetch-gtp.sh
+packages/gp-core/test/fixtures/guitarpro1/
+packages/gp-core/test/fixtures/guitarpro2/

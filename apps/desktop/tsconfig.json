@@ -2,7 +2,14 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+    "lib": ["es2022"],
+    "noUncheckedIndexedAccess": true,
+    // Type `react-native` imports against the macOS fork, which adds the desktop props
+    // (keyDownEvents, draggedTypes, onDrop …) this app uses.
+    "paths": {
+      "react-native": ["./node_modules/react-native-macos"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "exclude": ["**/node_modules", "**/Pods", "macos/build", "ios", "android"]
 }

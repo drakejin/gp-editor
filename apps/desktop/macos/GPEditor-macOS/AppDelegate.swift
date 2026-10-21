@@ -8,11 +8,25 @@ struct GPEditorApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
   var body: some Scene {
-    Window("GPEditor", id: "main") {
+    Window("GP Editor", id: "main") {
       ReactNativeView(factory: appDelegate.reactNativeFactory)
     }
-    .defaultSize(width: 1280, height: 720)
+    .defaultSize(width: 1280, height: 800)
+    .commands {
+      CommandGroup(replacing: .newItem) {
+        Button("Open…") {
+          NotificationCenter.default.post(name: GPEditorNotification.openCommand, object: nil)
+        }
+        .keyboardShortcut("o")
+      }
+    }
   }
+}
+
+// Names shared with GPFiles.m, which forwards them to JS.
+enum GPEditorNotification {
+  static let openCommand = Notification.Name("GPEditorOpenCommand")
+  static let openURLs = Notification.Name("GPEditorOpenURLs")
 }
 
 // MARK: - App Delegate
@@ -22,14 +36,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   let reactNativeFactory: RCTReactNativeFactory
 
   override init() {
-    super.init()
-
+    // Stored properties must be set before super.init() (Swift 6 rejects the template's order).
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    super.init()
+  }
+
+  // Finder "Open With", dropping a file on the dock icon, `open -a`.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    NotificationCenter.default.post(name: GPEditorNotification.openURLs, object: urls)
   }
 }
 
