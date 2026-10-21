@@ -11,7 +11,9 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/components/` | toolbar, track list, song header, tab score (`TabScore` → rows → `TabMeasure`) |
 | `src/native/gp-files.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events, window title |
 | `scripts/hermes-smoke/run.sh` | reads every gp-core fixture inside the Hermes VM shipped in the pods |
-| `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded |
+| `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded; `GPEDITOR_APP=…` tests another copy |
+| `scripts/release/package.sh` | arm64 and universal release zips + SHA256SUMS in `macos/build/release/` |
+| `scripts/qa/run.sh` | runs a QA script (`macos/GPEditor-macOS/GPQADriver.m`) on an unsandboxed copy: scripted clicks/keys + PNG snapshots |
 
 ```bash
 npm install && npm run pods
@@ -24,4 +26,5 @@ scripts/e2e-open.sh
 
 Notes
 - `macos/.xcode.env.local` (git-ignored) pins `NODE_BINARY` for the Xcode bundle phase; point it at Node 24.
-- The app is sandboxed with user-selected file access; files reach it through the open panel, drag and drop, or Finder.
+- The app is sandboxed (`GPEditor.entitlements`: App Sandbox, user-selected read-write files, network client for Metro);
+  files reach it through the open panel, drag and drop, or Finder. Release builds do not get `get-task-allow`.

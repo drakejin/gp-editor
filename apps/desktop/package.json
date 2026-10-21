@@ -1,6 +1,6 @@
 {
   "name": "gp-editor-desktop",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "start": "react-native start",
@@ -9,7 +9,8 @@
     "pods": "pod install --project-directory=macos",
     "lint": "eslint .",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package:macos": "scripts/release/package.sh"
   },
   "dependencies": {
     "react": "19.2.0",

@@ -3,10 +3,11 @@
 # each one loads (the app logs its new window title, which is set only after a successful parse) and that
 # the app is still running afterwards. Needs a Release build (npm run build:macos).
 # Usage: scripts/e2e-open.sh [file ...]   — default: one fixture per format
+#        GPEDITOR_APP=/path/GPEditor.app scripts/e2e-open.sh   — test another copy (e.g. an unpacked release zip)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="${APP_DIR}/macos/build/DerivedData/Build/Products/Release/GPEditor.app"
+APP="${GPEDITOR_APP:-${APP_DIR}/macos/build/DerivedData/Build/Products/Release/GPEditor.app}"
 FIXTURES="${APP_DIR}/../../packages/gp-core/test/fixtures"
 TIMEOUT_TICKS=40   # × 0.5 s
 

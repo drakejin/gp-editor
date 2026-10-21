@@ -16,6 +16,19 @@ The goal is to open every Guitar Pro file:
 
 The format is detected from the file content, not the extension.
 
+## Download
+
+[Releases](https://github.com/drakejin/gp-editor/releases) carry two macOS builds:
+
+| file | Macs |
+| --- | --- |
+| `GPEditor-<version>-macos-arm64.zip` | Apple silicon (M1 and later) |
+| `GPEditor-<version>-macos-universal.zip` | Apple silicon and Intel |
+
+Unzip, move `GPEditor.app` to Applications and open it. The app is ad-hoc signed (no Apple Developer ID, not notarized),
+so the first launch is blocked: open **System Settings ▸ Privacy & Security** and click **Open Anyway**, or run
+`xattr -dr com.apple.quarantine /Applications/GPEditor.app` once. Requires macOS 14 or later.
+
 ## Layout
 
 ```
@@ -38,6 +51,12 @@ npm --prefix packages/gp-core install
 npm --prefix apps/desktop install
 npm --prefix apps/desktop run pods          # pod install for macos/
 npm run build:mac                           # Release .app → apps/desktop/macos/build/DerivedData/Build/Products/Release/GPEditor.app
+```
+
+Release zips (arm64 and universal, with SHA256SUMS) from the Release build:
+
+```bash
+npm --prefix apps/desktop run package:macos   # → apps/desktop/macos/build/release/
 ```
 
 Development with Metro and fast refresh:
@@ -67,5 +86,5 @@ Saving back to a Guitar Pro file is not implemented yet.
 
 ## License
 
-`packages/gp-core` follows TuxGuitar's readers (LGPL-2.1) and is licensed LGPL-2.1-or-later.
+`packages/gp-core` follows TuxGuitar's readers (LGPL-2.1) and is licensed LGPL-2.1-or-later (`packages/gp-core/LICENSE`).
 Test fixtures come from the alphaTab test suite (MPL-2.0); see `packages/gp-core/test/fixtures/README.md`.
