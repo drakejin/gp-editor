@@ -91,7 +91,8 @@ export function measureTicks(numerator: number, denominator: number): number {
   return Math.round((numerator * QUARTER_TIME * 4) / denominator);
 }
 
-const NOTE_VALUES: readonly NoteValue[] = [1, 2, 4, 8, 16, 32, 64];
+/** Every note value, longest (whole) first. */
+export const NOTE_VALUES: readonly [NoteValue, ...NoteValue[]] = [1, 2, 4, 8, 16, 32, 64];
 
 export function isNoteValue(value: number): value is NoteValue {
   return (NOTE_VALUES as readonly number[]).includes(value);
@@ -103,4 +104,27 @@ export function toNoteValue(value: number): NoteValue {
     return value;
   }
   return value < 1 ? 1 : 64;
+}
+
+/** A note value without dots or tuplet. */
+export function plainDuration(value: NoteValue): Duration {
+  return { value, dotted: false, doubleDotted: false, tuplet: NORMAL_TUPLET };
+}
+
+/** TGDuration.getShortestDuration: a 64th in a 7:4 tuplet. */
+const SHORTEST_DURATION: Duration = { value: 64, dotted: false, doubleDotted: false, tuplet: { enters: 7, times: 4 } };
+
+/**
+ * TGDuration.fromTime: the longest plain duration that fits in `ticks`, else the shortest duration.
+ * (TuxGuitar first looks `ticks` up in a map keyed by "precise" durations, whose smallest key is
+ * 110880; tick lengths never reach it, so that lookup is left out.)
+ */
+export function durationFromTicks(ticks: number): Duration {
+  for (const value of NOTE_VALUES) {
+    const duration = plainDuration(value);
+    if (ticks >= durationTicks(duration)) {
+      return duration;
+    }
+  }
+  return SHORTEST_DURATION;
 }

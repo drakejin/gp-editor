@@ -1,5 +1,22 @@
 export * from './model/song';
-export * from './model/defaults';
+// Reader-internal helpers in defaults (NOTE_VALUES, plainDuration) stay out of the public API.
+export {
+  DEFAULT_CHANNEL,
+  DEFAULT_PERCUSSION_BANK,
+  DEFAULT_PERCUSSION_CHANNEL,
+  EMPTY_NOTE_EFFECT,
+  EMPTY_SONG_INFO,
+  NORMAL_TUPLET,
+  NO_STROKE,
+  QUARTER,
+  RED,
+  STANDARD_TUNING,
+  durationFromTicks,
+  durationTicks,
+  isNoteValue,
+  measureTicks,
+  toNoteValue,
+} from './model/defaults';
 export { readSong } from './read-song';
 export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';

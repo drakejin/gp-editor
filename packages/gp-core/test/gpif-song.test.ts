@@ -252,6 +252,27 @@ describe('gpifToSong: beats and notes', () => {
     expect(velocities).toEqual([15, 31, 47, 63, 79, 95, 111, 127, 95]);
   });
 
+  it('ignores names from the file that match built-in object properties', () => {
+    // Arrange: names such as "constructor" must fall back to the defaults, not hit Object.prototype
+    const rhythms = '<Rhythm id="0"><NoteValue>constructor</NoteValue></Rhythm>';
+    const bars = '<Bar id="0"><Clef>toString</Clef><SimileMark>constructor</SimileMark><Voices>0 -1 -1 -1</Voices></Bar>';
+    const beats = '<Beat id="0"><Dynamic>constructor</Dynamic><Rhythm ref="0"/><Notes>0</Notes></Beat>';
+    const notes = '<Note id="0"><Properties><Property name="String"><String>0</String></Property>'
+      + '<Property name="Fret"><Fret>3</Fret></Property>'
+      + '<Property name="HarmonicType"><HType>__proto__</HType></Property></Properties></Note>';
+
+    // Act
+    const song = toSong({ rhythms, bars, beats, notes });
+
+    // Assert
+    const measure = at(at(song.tracks, 0).measures, 0);
+    const voice = at(measure.beats, 0).voices[0];
+    expect(voice?.duration.value).toBe(4);
+    expect(voice?.notes[0]?.velocity).toBe(95);
+    expect(voice?.notes[0]?.effect.harmonic?.type).toBe('natural'); // unknown harmonic names are natural, as in TuxGuitar
+    expect(measure.clef).toBe('treble');
+  });
+
   it('reads note values, dots, tuplets and keeps four voice slots', () => {
     // Arrange
     const rhythms = '<Rhythm id="0"><NoteValue>Eighth</NoteValue><AugmentationDot count="2"/></Rhythm>'

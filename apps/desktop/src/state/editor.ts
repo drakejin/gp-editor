@@ -32,11 +32,11 @@ export type EditorAction =
   | { readonly type: 'loaded'; readonly document: OpenDocument }
   | { readonly type: 'loadFailed'; readonly message: string }
   | { readonly type: 'dismissError' }
-  | { readonly type: 'selectTrack'; readonly index: number }
+  | { readonly type: 'selectTrack'; readonly trackIndex: number }
   | { readonly type: 'selectNote'; readonly address?: NoteAddress }
-  | { readonly type: 'setFret'; readonly fret: number }
-  | { readonly type: 'shiftFret'; readonly delta: number }
-  | { readonly type: 'shiftString'; readonly delta: number }
+  | { readonly type: 'setNoteFret'; readonly fret: number }
+  | { readonly type: 'shiftNoteFret'; readonly delta: number }
+  | { readonly type: 'shiftNoteString'; readonly delta: number }
   | { readonly type: 'deleteNote' }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
@@ -61,14 +61,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'dismissError':
       return { ...state, error: undefined };
     case 'selectTrack':
-      return selectTrack(state, action.index);
+      return selectTrack(state, action.trackIndex);
     case 'selectNote':
       return { ...state, selection: action.address };
-    case 'setFret':
+    case 'setNoteFret':
       return applyEdit(state, (song, at) => setNoteFret(song, at, action.fret));
-    case 'shiftFret':
+    case 'shiftNoteFret':
       return applyEdit(state, (song, at) => setNoteFret(song, at, (findNote(song, at)?.fret ?? 0) + action.delta));
-    case 'shiftString':
+    case 'shiftNoteString':
       return applyEdit(state, (song, at) => setNoteString(song, at, (findNote(song, at)?.string ?? 0) + action.delta));
     case 'deleteNote':
       return applyEdit(state, deleteNote);
@@ -79,12 +79,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
   }
 }
 
-function selectTrack(state: EditorState, index: number): EditorState {
+function selectTrack(state: EditorState, trackIndex: number): EditorState {
   const trackCount = state.document?.song.tracks.length ?? 0;
-  if (index < 0 || index >= trackCount) {
+  if (trackIndex < 0 || trackIndex >= trackCount) {
     return state;
   }
-  return { ...state, trackIndex: index, selection: undefined };
+  return { ...state, trackIndex, selection: undefined };
 }
 
 /** Runs an edit on the selected note and records the previous song for undo. */

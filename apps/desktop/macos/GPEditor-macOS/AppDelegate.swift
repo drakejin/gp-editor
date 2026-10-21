@@ -15,7 +15,8 @@ struct GPEditorApp: App {
     .commands {
       CommandGroup(replacing: .newItem) {
         Button("Open…") {
-          NotificationCenter.default.post(name: GPEditorNotification.openCommand, object: nil)
+          // Notification names: GPEditorNotifications.h (bridging header), shared with GPFiles.m.
+          NotificationCenter.default.post(name: .GPEditorOpenCommand, object: nil)
         }
         .keyboardShortcut("o")
       }
@@ -23,11 +24,6 @@ struct GPEditorApp: App {
   }
 }
 
-// Names shared with GPFiles.m, which forwards them to JS.
-enum GPEditorNotification {
-  static let openCommand = Notification.Name("GPEditorOpenCommand")
-  static let openURLs = Notification.Name("GPEditorOpenURLs")
-}
 
 // MARK: - App Delegate
 
@@ -48,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // Finder "Open With", dropping a file on the dock icon, `open -a`.
   func application(_ application: NSApplication, open urls: [URL]) {
-    NotificationCenter.default.post(name: GPEditorNotification.openURLs, object: urls)
+    NotificationCenter.default.post(name: .GPEditorOpenURLs, object: urls)
   }
 }
 

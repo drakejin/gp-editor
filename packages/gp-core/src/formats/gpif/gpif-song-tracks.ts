@@ -2,11 +2,12 @@
 import {
   DEFAULT_CHANNEL,
   DEFAULT_PERCUSSION_BANK,
+  DEFAULT_PERCUSSION_CHANNEL,
   STANDARD_TUNING,
 } from '../../model/defaults';
 import type { Channel, GuitarString, Lyrics, Measure, Rgb, Track } from '../../model/song';
-import { createChannelName } from '../gtp/shared';
-import { DEFAULT_PERCUSSION_CHANNEL, type GpifDocument, type GpifTrack } from './gpif-document';
+import { createChannelName } from '../common/channels';
+import type { GpifDocument, GpifTrack } from './gpif-document';
 import type { TrackLayout } from './gpif-measure';
 
 const PERCUSSION_STRING_COUNT = 6;

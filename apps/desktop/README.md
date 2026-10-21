@@ -9,7 +9,7 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/state/editor.ts` | reducer: open document, selection, edits with undo/redo |
 | `src/lib/layout.ts` | tab staff geometry and line breaking (pure, unit tested) |
 | `src/components/` | toolbar, track list, song header, tab score (`TabScore` → rows → `TabMeasure`) |
-| `src/native/gpFiles.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events, window title |
+| `src/native/gp-files.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events, window title |
 | `scripts/hermes-smoke/run.sh` | reads every gp-core fixture inside the Hermes VM shipped in the pods |
 | `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded |
 

@@ -1,6 +1,6 @@
 // File access for the JS side: the open panel, reading a file the user picked or dropped,
 // and files handed to the app by Finder ("Open With", dock drop) or the File ▸ Open… menu.
-// AppDelegate.swift posts the notifications named below; this module forwards them as events.
+// AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -8,8 +8,8 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <os/log.h>
 
-static NSString *const kOpenCommandNotification = @"GPEditorOpenCommand";
-static NSString *const kOpenURLsNotification = @"GPEditorOpenURLs";
+#import "GPEditorNotifications.h"
+
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 
@@ -23,7 +23,7 @@ static NSMutableArray<NSString *> *pendingPaths;
 __attribute__((constructor)) static void GPFilesQueueOpenedURLs(void)
 {
   pendingPaths = [NSMutableArray array];
-  [[NSNotificationCenter defaultCenter] addObserverForName:kOpenURLsNotification
+  [[NSNotificationCenter defaultCenter] addObserverForName:GPEditorOpenURLsNotification
                                                     object:nil
                                                      queue:[NSOperationQueue mainQueue]
                                                 usingBlock:^(NSNotification *note) {
@@ -50,8 +50,8 @@ RCT_EXPORT_MODULE();
 {
   if (self = [super init]) {
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center addObserver:self selector:@selector(onOpenCommand:) name:kOpenCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onOpenURLs:) name:kOpenURLsNotification object:nil];
+    [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
   }
   return self;
 }

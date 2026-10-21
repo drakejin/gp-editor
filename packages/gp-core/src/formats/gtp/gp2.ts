@@ -2,10 +2,10 @@
 import { UnsupportedFormatError } from '../../errors';
 import type { ByteReader } from '../../io/byte-reader';
 import type { Song } from '../../model/song';
+import { velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { type LegacyDialect, readLegacySong } from './legacy-shared';
-import { velocityFromGp } from './shared';
 
 const SUPPORTED_VERSIONS: ReadonlySet<string> = new Set(['FICHIER GUITAR PRO v2.20', 'FICHIER GUITAR PRO v2.21']);
 

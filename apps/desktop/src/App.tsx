@@ -7,12 +7,12 @@ import { TabScore } from './components/TabScore';
 import { type ToolbarCommand, Toolbar } from './components/Toolbar';
 import { TrackList } from './components/TrackList';
 import { base64ToBytes } from './lib/base64';
-import { type DigitEntry, nextFretEntry } from './lib/fretInput';
+import { type DigitEntry, nextFretEntry } from './lib/fret-input';
 import { adjacentNote } from './lib/navigation';
-import { focusView } from './native/focusView';
-import { type OpenedFile, readFile, setDocumentTitle, showOpenDialog, subscribeFileEvents } from './native/gpFiles';
+import { focusView } from './native/focus-view';
+import { type OpenedFile, readFile, setDocumentTitle, showOpenDialog, subscribeFileEvents } from './native/gp-files';
 import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer } from './state/editor';
-import { usePalette } from './theme';
+import { type Palette, usePalette } from './theme';
 
 const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -30,16 +30,6 @@ const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
 ];
-
-const TOOLBAR_ACTIONS: Readonly<Record<Exclude<ToolbarCommand, 'open'>, EditorAction>> = {
-  undo: { type: 'undo' },
-  redo: { type: 'redo' },
-  fretDown: { type: 'shiftFret', delta: -1 },
-  fretUp: { type: 'shiftFret', delta: 1 },
-  stringUp: { type: 'shiftString', delta: -1 },
-  stringDown: { type: 'shiftString', delta: 1 },
-  delete: { type: 'deleteNote' },
-};
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error while opening the file';
@@ -97,7 +87,7 @@ export default function App() {
   }, []);
 
   const onCommand = useCallback(
-    (command: ToolbarCommand) => (command === 'open' ? void openDialog() : dispatch(TOOLBAR_ACTIONS[command])),
+    (command: ToolbarCommand) => (command.type === 'openFile' ? void openDialog() : dispatch(command)),
     [openDialog],
   );
 
@@ -156,9 +146,9 @@ export default function App() {
         <View style={styles.body}>
           <TrackList
             tracks={song.tracks}
-            selectedIndex={state.trackIndex}
+            selectedTrackIndex={state.trackIndex}
             palette={palette}
-            onSelect={(index) => dispatch({ type: 'selectTrack', index })}
+            onSelectTrack={(trackIndex) => dispatch({ type: 'selectTrack', trackIndex })}
           />
           <View style={styles.main}>
             <SongHeader song={song} fileName={state.document.fileName} palette={palette} />
@@ -172,7 +162,7 @@ export default function App() {
           </View>
         </View>
       ) : (
-        <EmptyState isLoading={state.isLoading} onOpen={openDialog} />
+        <EmptyState isLoading={state.isLoading} palette={palette} onOpen={openDialog} />
       )}
     </View>
   );
@@ -187,24 +177,29 @@ function keyAction(key: string, metaKey: boolean, shiftKey: boolean, lastDigit: 
   if (DIGITS.includes(key)) {
     const entry = nextFretEntry(lastDigit.current, Number(key), Date.now());
     lastDigit.current = entry;
-    return { type: 'setFret', fret: entry.value };
+    return { type: 'setNoteFret', fret: entry.value };
   }
   const simple: Readonly<Record<string, KeyResult>> = {
     Backspace: { type: 'deleteNote' },
     Delete: { type: 'deleteNote' },
-    ArrowUp: { type: 'shiftString', delta: -1 },
-    ArrowDown: { type: 'shiftString', delta: 1 },
+    ArrowUp: { type: 'shiftNoteString', delta: -1 },
+    ArrowDown: { type: 'shiftNoteString', delta: 1 },
     ArrowLeft: 'previous',
     ArrowRight: 'next',
-    '-': { type: 'shiftFret', delta: -1 },
-    '=': { type: 'shiftFret', delta: 1 },
+    '-': { type: 'shiftNoteFret', delta: -1 },
+    '=': { type: 'shiftNoteFret', delta: 1 },
     Escape: { type: 'selectNote', address: undefined },
   };
   return simple[key];
 }
 
-function EmptyState({ isLoading, onOpen }: { isLoading: boolean; onOpen: () => void }) {
-  const palette = usePalette();
+interface EmptyStateProps {
+  readonly isLoading: boolean;
+  readonly palette: Palette;
+  readonly onOpen: () => void;
+}
+
+function EmptyState({ isLoading, palette, onOpen }: EmptyStateProps) {
   return (
     <View style={styles.empty}>
       {isLoading ? (

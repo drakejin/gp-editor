@@ -2,18 +2,17 @@
 import { ByteReader } from '../../io/byte-reader';
 import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../model/defaults';
 import type { Beat, Chord, Grace, Note, NoteEffect, Song, TimeSignature, TripletFeel } from '../../model/song';
+import { BEND_MAX_POSITION, bendValueFromGp, tremoloBarValueFromGp } from '../common/bend-units';
+import { artificialHarmonicOffset } from '../common/harmonics';
+import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import {
-  artificialHarmonicOffset,
-  BEND_MAX_POSITION,
   type BeatEffects,
-  bendValue,
   buildChord,
   type ChannelRegistry,
   type ChannelSlot,
   clefFromTuning,
-  DEFAULT_VELOCITY,
   EMPTY_VOICE,
   findTiedFret,
   GRACE_TRANSITIONS,
@@ -32,6 +31,7 @@ import {
   readKeySignature,
   readMarker,
   readMeasureHeaders,
+  readMixTableValues,
   readSimpleChord,
   readSongInfo,
   readSongMeasures,
@@ -41,12 +41,12 @@ import {
   readTrackChannel,
   readTrackList,
   resolveFret,
+  skipMixTransitions,
   skipVersion,
+  type TrackDraft,
   type TrackListRead,
   type TrackLyrics,
   type TrackStep,
-  tremoloBarValue,
-  velocityFromGp,
   withBend,
 } from './shared';
 
@@ -137,7 +137,17 @@ function readTrackGp34(
   const offset = reader.readInt();
   const color = readColor(reader);
   const { channelId, isPercussion } = channel;
-  const draft = { number, name, channelId, strings, color, offset, isPercussion, solo: false, mute: false };
+  const draft: TrackDraft = {
+    number,
+    name,
+    channelId,
+    strings,
+    color,
+    offset,
+    isPercussion,
+    solo: false,
+    mute: false,
+  };
   return { track: { draft, clef: clefFromTuning(strings, isPercussion) }, registry: channel.registry };
 }
 
@@ -155,13 +165,19 @@ export function readMeasureGp34(reader: ByteReader, job: MeasureJob, dialect: Gp
   return { beats, tempo };
 }
 
-interface BeatRead {
+interface Gp34BeatRead {
   readonly beat: Beat;
   readonly ticks: number;
   readonly tempo?: number;
 }
 
-function readBeatGp34(reader: ByteReader, job: MeasureJob, dialect: Gp34Dialect, start: number, beats: readonly Beat[]): BeatRead {
+function readBeatGp34(
+  reader: ByteReader,
+  job: MeasureJob,
+  dialect: Gp34Dialect,
+  start: number,
+  beats: readonly Beat[],
+): Gp34BeatRead {
   const flags = reader.readUnsignedByte();
   if ((flags & 0x40) !== 0) {
     reader.readUnsignedByte(); // beat status: TuxGuitar reads empty beats as rests
@@ -231,13 +247,9 @@ export function readGraceGp34(reader: ByteReader): Grace {
 /** GP3/GP4 mix-table change; only the tempo is kept (TuxGuitar's readMixChange). */
 export function readMixChangeGp3(reader: ByteReader): number | undefined {
   reader.readByte(); // instrument
-  const values = Array.from({ length: 6 }, () => reader.readByte()); // volume, pan, chorus, reverb, phaser, tremolo
+  const values = readMixTableValues(reader);
   const tempo = reader.readInt();
-  values.forEach((value) => {
-    if (value >= 0) {
-      reader.readByte(); // transition duration
-    }
-  });
+  skipMixTransitions(reader, values);
   if (tempo < 0) {
     return undefined;
   }
@@ -288,7 +300,7 @@ function readSpecialEffectGp3(reader: ByteReader, effect: NoteEffect): NoteEffec
   const type = reader.readUnsignedByte();
   const value = reader.readInt();
   if (type === 0) {
-    const dive = tremoloBarValue(-value);
+    const dive = tremoloBarValueFromGp(-value);
     const points = [
       { position: 0, value: 0 },
       { position: Math.round(BEND_MAX_POSITION / 2), value: dive },
@@ -308,7 +320,7 @@ function readNoteEffectsGp3(reader: ByteReader, effect: NoteEffect): NoteEffect 
     letRing: (flags & 0x08) !== 0,
   };
   if ((flags & 0x01) !== 0) {
-    result = withBend(result, readBendPoints(reader, bendValue));
+    result = withBend(result, readBendPoints(reader, bendValueFromGp));
   }
   if ((flags & 0x10) !== 0) {
     result = { ...result, grace: readGraceGp34(reader) };

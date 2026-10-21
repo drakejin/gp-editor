@@ -18,15 +18,19 @@ const FORMAT_LABEL: Readonly<Record<Song['source']['format'], string>> = {
   gp7: 'Guitar Pro 7+',
 };
 
+/** GP1–GP4 have one author field that fills both words and music; show it once. */
+export function authorCredits(words: string, music: string): string[] {
+  if (words !== '' && words === music) {
+    return [`Words & Music: ${words}`];
+  }
+  return [music ? `Music: ${music}` : '', words ? `Words: ${words}` : ''];
+}
+
 export function SongHeader({ song, fileName, palette }: SongHeaderProps) {
   const { info } = song;
-  const credits = [
-    info.artist,
-    info.album,
-    info.music ? `Music: ${info.music}` : '',
-    info.words ? `Words: ${info.words}` : '',
-    info.transcriber ? `Tab: ${info.transcriber}` : '',
-  ].filter((part) => part.length > 0);
+  const credits = [info.artist, info.album, ...authorCredits(info.words, info.music), info.transcriber ? `Tab: ${info.transcriber}` : ''].filter(
+    (part) => part.length > 0,
+  );
   return (
     <View style={[styles.container, { backgroundColor: palette.paper, borderColor: palette.border }]}>
       <View style={styles.titleRow}>

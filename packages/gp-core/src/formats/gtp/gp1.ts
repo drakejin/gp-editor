@@ -1,10 +1,10 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP1InputStream (LGPL-2.1).
 import { UnsupportedFormatError } from '../../errors';
 import type { Song } from '../../model/song';
+import { DEFAULT_VELOCITY } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { type LegacyDialect, readLegacySong } from './legacy-shared';
-import { DEFAULT_VELOCITY } from './shared';
 
 /** SUPPORTED_VERSIONS: header string → version code. */
 const VERSION_CODES: ReadonlyMap<string, number> = new Map([

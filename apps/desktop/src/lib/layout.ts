@@ -20,7 +20,7 @@ export const TAB = {
 /** Natural width of a beat by its shortest note value. */
 const BEAT_WIDTH: Readonly<Record<number, number>> = { 1: 64, 2: 48, 4: 36, 8: 30, 16: 26, 32: 24, 64: 22 };
 const DOT_EXTRA = 6;
-/** A row that is at least this full is stretched to the full width. */
+/** The last row is stretched to the full width only when it is at least this full. */
 const JUSTIFY_THRESHOLD = 0.75;
 
 export interface BeatLayout {
@@ -87,7 +87,7 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo };
 }
 
-/** Greedy line breaking; rows that are mostly full are stretched to `availableWidth`. */
+/** Greedy line breaking. Every row but the last is stretched to `availableWidth`; the last one only when mostly full. */
 export function layoutRows(measures: readonly MeasureLayout[], availableWidth: number): RowLayout[] {
   const rows: MeasureLayout[][] = [];
   let current: MeasureLayout[] = [];
@@ -104,12 +104,12 @@ export function layoutRows(measures: readonly MeasureLayout[], availableWidth: n
   if (current.length > 0) {
     rows.push(current);
   }
-  return rows.map((row) => ({ measures: justify(row, availableWidth) }));
+  return rows.map((row, index) => ({ measures: justify(row, availableWidth, index === rows.length - 1) }));
 }
 
-function justify(row: readonly MeasureLayout[], availableWidth: number): readonly MeasureLayout[] {
+function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {
   const natural = row.reduce((sum, measure) => sum + measure.width, 0);
-  if (natural <= 0 || natural > availableWidth || natural < availableWidth * JUSTIFY_THRESHOLD) {
+  if (natural <= 0 || natural > availableWidth || (isLastRow && natural < availableWidth * JUSTIFY_THRESHOLD)) {
     return row;
   }
   const scale = availableWidth / natural;

@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentReader#readTracks / #readChords (LGPL-2.1).
+import { DEFAULT_PERCUSSION_CHANNEL } from '../../model/defaults';
 import {
-  DEFAULT_PERCUSSION_CHANNEL,
   type GpifChord,
   type GpifChordDiagram,
   type GpifLyricsLine,

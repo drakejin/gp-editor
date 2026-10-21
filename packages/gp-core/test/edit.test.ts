@@ -57,16 +57,16 @@ function makeSong(): Song {
   };
 }
 
-const FIRST_NOTE: NoteAddress = { track: 0, measure: 0, beat: 0, voice: 0, note: 0 };
+const FIRST_NOTE: NoteAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, noteIndex: 0 };
 
 describe('findNote', () => {
   it('returns the note at an address', () => {
-    expect(findNote(makeSong(), { ...FIRST_NOTE, note: 1 })).toMatchObject({ string: 3, fret: 2 });
+    expect(findNote(makeSong(), { ...FIRST_NOTE, noteIndex: 1 })).toMatchObject({ string: 3, fret: 2 });
   });
 
   it('returns undefined for an address outside the song', () => {
-    expect(findNote(makeSong(), { ...FIRST_NOTE, beat: 9 })).toBeUndefined();
-    expect(findNote(makeSong(), { ...FIRST_NOTE, track: -1 })).toBeUndefined();
+    expect(findNote(makeSong(), { ...FIRST_NOTE, beatIndex: 9 })).toBeUndefined();
+    expect(findNote(makeSong(), { ...FIRST_NOTE, trackIndex: -1 })).toBeUndefined();
   });
 });
 
@@ -100,7 +100,7 @@ describe('setNoteFret', () => {
 
   it('returns the same song for an address that does not exist', () => {
     const song = makeSong();
-    expect(setNoteFret(song, { ...FIRST_NOTE, note: 5 }, 3)).toBe(song);
+    expect(setNoteFret(song, { ...FIRST_NOTE, noteIndex: 5 }, 3)).toBe(song);
   });
 });
 
@@ -125,7 +125,7 @@ describe('deleteNote', () => {
   });
 
   it('turns the voice into a rest when its last note is removed', () => {
-    const address = { ...FIRST_NOTE, beat: 1 };
+    const address = { ...FIRST_NOTE, beatIndex: 1 };
     const voice = deleteNote(makeSong(), address).tracks[0]?.measures[0]?.beats[1]?.voices[0];
     expect(voice?.notes).toEqual([]);
     expect(voice?.isEmpty).toBe(false);
@@ -133,6 +133,6 @@ describe('deleteNote', () => {
 
   it('returns the same song for an address that does not exist', () => {
     const song = makeSong();
-    expect(deleteNote(song, { ...FIRST_NOTE, voice: 3 })).toBe(song);
+    expect(deleteNote(song, { ...FIRST_NOTE, voiceIndex: 3 })).toBe(song);
   });
 });

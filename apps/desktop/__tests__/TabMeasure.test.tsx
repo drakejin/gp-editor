@@ -25,7 +25,7 @@ function render(selectionNote?: number) {
         trackIndex={0}
         header={song.measureHeaders[0]!}
         layout={layoutMeasure(song, 0, 0)}
-        selection={selectionNote === undefined ? undefined : { track: 0, measure: 0, beat: 0, voice: 0, note: selectionNote }}
+        selection={selectionNote === undefined ? undefined : { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, noteIndex: selectionNote }}
         palette={PALETTE}
         onSelectNote={onSelectNote}
       />,
@@ -45,7 +45,7 @@ describe('TabMeasure', () => {
     const { renderer, onSelectNote } = render();
     const fret = renderer.root.findAll((node) => typeof node.props.onPress === 'function')[1]!;
     ReactTestRenderer.act(() => fret.props.onPress());
-    expect(onSelectNote).toHaveBeenCalledWith({ track: 0, measure: 0, beat: 0, voice: 0, note: 1 });
+    expect(onSelectNote).toHaveBeenCalledWith({ trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, noteIndex: 1 });
   });
 
   it('highlights the selected note', () => {

@@ -15,16 +15,16 @@ import type {
   TripletFeel,
   Voice,
 } from '../../model/song';
+import { bendValueFromGp } from '../common/bend-units';
+import { artificialHarmonicOffset } from '../common/harmonics';
+import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { readBeatEffectsGp45 } from './gp4';
 import {
-  artificialHarmonicOffset,
   type BeatEffects,
-  bendValue,
   buildChord,
   type ChannelSlot,
-  DEFAULT_VELOCITY,
   EMPTY_VOICE,
   findTiedFret,
   GRACE_TRANSITIONS,
@@ -41,6 +41,7 @@ import {
   readLyrics,
   readMarker,
   readMeasureHeaders,
+  readMixTableValues,
   readSongInfo,
   readSongMeasures,
   readStringNotes,
@@ -50,9 +51,10 @@ import {
   readTremoloPicking,
   readTrill,
   resolveFret,
+  skipMixTransitions,
   skipVersion,
+  type TrackDraft,
   type TrackStep,
-  velocityFromGp,
   withBend,
   withHarmonic,
   withTremoloPicking,
@@ -173,7 +175,7 @@ function readTrackGp5(
   const { channelId, isPercussion } = channel;
   const solo = (flags & 0x10) !== 0;
   const mute = (flags & 0x20) !== 0;
-  const draft = { number, name, channelId, strings, color, offset, isPercussion, solo, mute };
+  const draft: TrackDraft = { number, name, channelId, strings, color, offset, isPercussion, solo, mute };
   return { track: { draft, clef }, registry: channel.registry };
 }
 
@@ -206,13 +208,13 @@ interface BeatJob {
   readonly isV510: boolean;
 }
 
-interface BeatRead {
+interface Gp5BeatRead {
   readonly beats: readonly Beat[];
   readonly ticks: number;
   readonly tempo?: number;
 }
 
-function readBeatGp5(reader: ByteReader, beatJob: BeatJob): BeatRead {
+function readBeatGp5(reader: ByteReader, beatJob: BeatJob): Gp5BeatRead {
   const { job, beats } = beatJob;
   const flags = reader.readUnsignedByte();
   const markedEmpty = (flags & 0x40) !== 0 ? (reader.readUnsignedByte() & 0x02) === 0 : true;
@@ -275,14 +277,10 @@ function readChordGp5(reader: ByteReader, stringCount: number): Chord | undefine
 function readMixChangeGp5(reader: ByteReader, isV510: boolean): number | undefined {
   reader.readByte(); // instrument
   reader.skip(16); // RSE instrument
-  const values = Array.from({ length: 6 }, () => reader.readByte()); // volume, pan, chorus, reverb, phaser, tremolo
+  const values = readMixTableValues(reader);
   reader.readStringByteSizeOfInteger(); // tempo name
   const tempo = reader.readInt();
-  values.forEach((value) => {
-    if (value >= 0) {
-      reader.readByte(); // transition duration
-    }
-  });
+  skipMixTransitions(reader, values);
   if (tempo >= 0) {
     reader.skip(isV510 ? 2 : 1); // tempo transition duration (v5.10: and "hide tempo")
   }
@@ -330,7 +328,7 @@ function readNoteEffectsGp5(reader: ByteReader, effect: NoteEffect): NoteEffect 
   const flags2 = reader.readUnsignedByte();
   let result = effect;
   if ((flags1 & 0x01) !== 0) {
-    result = withBend(result, readBendPoints(reader, bendValue));
+    result = withBend(result, readBendPoints(reader, bendValueFromGp));
   }
   if ((flags1 & 0x10) !== 0) {
     result = { ...result, grace: readGraceGp5(reader) };

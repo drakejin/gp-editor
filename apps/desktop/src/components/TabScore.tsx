@@ -49,7 +49,7 @@ export function TabScore({ song, trackIndex, selection, palette, onSelectNote }:
                 trackIndex={trackIndex}
                 header={header}
                 layout={layout}
-                selection={selection?.measure === layout.measureIndex ? selection : undefined}
+                selection={selection?.measureIndex === layout.measureIndex ? selection : undefined}
                 palette={palette}
                 onSelectNote={onSelectNote}
               />

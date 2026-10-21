@@ -13,8 +13,9 @@ import type {
   Voice,
 } from '../../model/song';
 import type { GpifBar, GpifBeat, GpifChord, GpifDocument, GpifVoice } from './gpif-document';
-import { rhythmDuration, strokeValue } from './gpif-duration';
+import { rhythmDuration, strokeValueFromTicks } from './gpif-duration';
 import { type GraceSource, buildNote, notePosition } from './gpif-note';
+import { lookupName } from './xml';
 
 /** Guitar Pro 6+ bars have up to four voices; every beat keeps all four slots. */
 export const MAX_VOICES = 4;
@@ -59,7 +60,7 @@ export function buildMeasure(
   const shift = header.number === 1 ? firstMeasureShift(drafts, header) : 0;
   return {
     headerIndex,
-    clef: CLEFS[bar?.clef ?? ''] ?? 'treble',
+    clef: lookupName(CLEFS, bar?.clef) ?? 'treble',
     keySignature: layout.isPercussion || Math.abs(accidentals) > MAX_ACCIDENTALS ? 0 : accidentals,
     beats: drafts.map((draft) => toBeat(draft, shift)),
   };
@@ -75,7 +76,7 @@ function resolveBar(doc: GpifDocument, masterBarIndex: number, barIndex: number)
   let index = masterBarIndex;
   let bar = barAt(doc, index, barIndex);
   while (bar?.simileMark !== undefined) {
-    const step = SIMILE_STEPS[bar.simileMark];
+    const step = lookupName(SIMILE_STEPS, bar.simileMark);
     if (step === undefined) {
       return bar;
     }
@@ -157,7 +158,7 @@ function draftAt(drafts: Map<number, BeatDraft>, start: number): BeatDraft {
 function applyBeatProperties(draft: BeatDraft, beat: GpifBeat, layout: TrackLayout): void {
   const brush = strokeDirection(beat.brush);
   if (draft.stroke.direction === 'none' && brush !== 'none') {
-    draft.stroke = { direction: brush, value: strokeValue(beat.brushDuration) };
+    draft.stroke = { direction: brush, value: strokeValueFromTicks(beat.brushDuration) };
   }
   if (draft.pickStroke === 'none') {
     draft.pickStroke = strokeDirection(beat.pickStroke);

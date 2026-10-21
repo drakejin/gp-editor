@@ -1,16 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Note, NoteAddress } from '@gp-editor/core';
+import type { EditorAction } from '../state/editor';
 import type { Palette } from '../theme';
 
-export type ToolbarCommand =
-  | 'open'
-  | 'undo'
-  | 'redo'
-  | 'fretDown'
-  | 'fretUp'
-  | 'stringUp'
-  | 'stringDown'
-  | 'delete';
+/** What a toolbar button does: an editor action, or opening a file. */
+export type ToolbarCommand = EditorAction | { readonly type: 'openFile' };
 
 interface ToolbarProps {
   readonly palette: Palette;
@@ -23,41 +17,41 @@ interface ToolbarProps {
 }
 
 interface ButtonSpec {
-  readonly command: ToolbarCommand;
   readonly label: string;
-  readonly enabled: boolean;
+  readonly command: ToolbarCommand;
+  readonly isEnabled: boolean;
 }
 
 export function Toolbar({ palette, hasDocument, canUndo, canRedo, selection, selectedNote, onCommand }: ToolbarProps) {
   const hasNote = selectedNote !== undefined;
   const buttons: readonly ButtonSpec[] = [
-    { command: 'open', label: 'Open…', enabled: true },
-    { command: 'undo', label: 'Undo', enabled: canUndo },
-    { command: 'redo', label: 'Redo', enabled: canRedo },
-    { command: 'fretDown', label: 'Fret −', enabled: hasNote },
-    { command: 'fretUp', label: 'Fret +', enabled: hasNote },
-    { command: 'stringUp', label: 'String ↑', enabled: hasNote },
-    { command: 'stringDown', label: 'String ↓', enabled: hasNote },
-    { command: 'delete', label: 'Delete', enabled: hasNote },
+    { label: 'Open…', command: { type: 'openFile' }, isEnabled: true },
+    { label: 'Undo', command: { type: 'undo' }, isEnabled: canUndo },
+    { label: 'Redo', command: { type: 'redo' }, isEnabled: canRedo },
+    { label: 'Fret −', command: { type: 'shiftNoteFret', delta: -1 }, isEnabled: hasNote },
+    { label: 'Fret +', command: { type: 'shiftNoteFret', delta: 1 }, isEnabled: hasNote },
+    { label: 'String ↑', command: { type: 'shiftNoteString', delta: -1 }, isEnabled: hasNote },
+    { label: 'String ↓', command: { type: 'shiftNoteString', delta: 1 }, isEnabled: hasNote },
+    { label: 'Delete', command: { type: 'deleteNote' }, isEnabled: hasNote },
   ];
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       {buttons
-        .filter((button) => hasDocument || button.command === 'open')
+        .filter((button) => hasDocument || button.command.type === 'openFile')
         .map((button) => (
           <Pressable
-            key={button.command}
-            disabled={!button.enabled}
+            key={button.label}
+            disabled={!button.isEnabled}
             onPress={() => onCommand(button.command)}
-            style={[styles.button, { borderColor: palette.border, opacity: button.enabled ? 1 : 0.4 }]}
+            style={[styles.button, { borderColor: palette.border, opacity: button.isEnabled ? 1 : 0.4 }]}
           >
-            <Text style={[styles.label, { color: button.command === 'open' ? palette.accent : palette.text }]}>{button.label}</Text>
+            <Text style={[styles.label, { color: button.command.type === 'openFile' ? palette.accent : palette.text }]}>{button.label}</Text>
           </Pressable>
         ))}
       <View style={styles.spacer} />
       {selection !== undefined && selectedNote !== undefined ? (
         <Text style={[styles.status, { color: palette.muted }]}>
-          Bar {selection.measure + 1} · beat {selection.beat + 1} · voice {selection.voice + 1} · string {selectedNote.string} · fret{' '}
+          Bar {selection.measureIndex + 1} · beat {selection.beatIndex + 1} · voice {selection.voiceIndex + 1} · string {selectedNote.string} · fret{' '}
           {selectedNote.fret}
         </Text>
       ) : hasDocument ? (

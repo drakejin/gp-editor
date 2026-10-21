@@ -2,11 +2,11 @@
 import {
   DEFAULT_PERCUSSION_BANK,
   DEFAULT_PERCUSSION_CHANNEL,
+  durationFromTicks,
   durationTicks,
   measureTicks,
-  NORMAL_TUPLET,
 } from '../../model/defaults';
-import type { Beat, Channel, Duration, Measure, MeasureHeader, NoteValue, Song, Track, Voice } from '../../model/song';
+import type { Beat, Channel, Duration, Measure, MeasureHeader, Song, Track, Voice } from '../../model/song';
 
 /**
  * GTPSongNormalizer: percussion channels get program 0 and the percussion bank, and channels routed
@@ -125,29 +125,4 @@ function longestVoiceDuration(beat: Beat, end: number): Duration | undefined {
 function withFirstDuration(beat: Beat, duration: Duration): Beat {
   const [first, ...others] = beat.voices;
   return first === undefined ? beat : { ...beat, voices: [{ ...first, duration }, ...others] };
-}
-
-const PLAIN_VALUES: readonly NoteValue[] = [1, 2, 4, 8, 16, 32, 64];
-
-/** TGDuration.getShortestDuration */
-const SHORTEST_DURATION: Duration = {
-  value: 64,
-  dotted: false,
-  doubleDotted: false,
-  tuplet: { enters: 7, times: 4 },
-};
-
-/**
- * TGDuration.fromTime: the longest plain duration that fits in `ticks`, else the shortest duration.
- * (TuxGuitar first looks `ticks` up in a map keyed by "precise" durations, whose smallest key is
- * 110880; tick distances inside a measure never reach it, so that lookup is left out.)
- */
-function durationFromTicks(ticks: number): Duration {
-  for (const value of PLAIN_VALUES) {
-    const duration: Duration = { value, dotted: false, doubleDotted: false, tuplet: NORMAL_TUPLET };
-    if (ticks >= durationTicks(duration)) {
-      return duration;
-    }
-  }
-  return SHORTEST_DURATION;
 }

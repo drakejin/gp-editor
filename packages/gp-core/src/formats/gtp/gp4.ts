@@ -2,6 +2,8 @@
 import { ByteReader } from '../../io/byte-reader';
 import { EMPTY_NOTE_EFFECT } from '../../model/defaults';
 import type { Chord, Harmonic, NoteEffect, SlideType, Song, TripletFeel } from '../../model/song';
+import { bendValueFromGp, tremoloBarValueFromGp } from '../common/bend-units';
+import { artificialHarmonicOffset, harmonicFretOffset } from '../common/harmonics';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import {
@@ -14,11 +16,8 @@ import {
   readTracksGp34,
 } from './gp3';
 import {
-  artificialHarmonicOffset,
   type BeatEffects,
-  bendValue,
   buildChord,
-  harmonicFretOffset,
   readBendPoints,
   readChannelSlots,
   readInts,
@@ -32,7 +31,6 @@ import {
   readTremoloPicking,
   readTrill,
   skipVersion,
-  tremoloBarValue,
   withBend,
   withHarmonic,
   withTremoloBar,
@@ -84,7 +82,7 @@ export function readBeatEffectsGp45(reader: ByteReader, firstStroke: 'up' | 'dow
     effect = { ...effect, tapping: type === 1, slapping: type === 2, popping: type === 3 };
   }
   if ((flags2 & 0x04) !== 0) {
-    effect = withTremoloBar(effect, readBendPoints(reader, tremoloBarValue));
+    effect = withTremoloBar(effect, readBendPoints(reader, tremoloBarValueFromGp));
   }
   const stroke = (flags1 & 0x40) !== 0 ? readStroke(reader, firstStroke) : undefined;
   const pickStroke = (flags2 & 0x02) !== 0 ? readPickStroke(reader) : undefined;
@@ -114,7 +112,7 @@ function readNoteEffectsGp4(reader: ByteReader, effect: NoteEffect, fret: number
     staccato: (flags2 & 0x01) !== 0,
   };
   if ((flags1 & 0x01) !== 0) {
-    result = withBend(result, readBendPoints(reader, bendValue));
+    result = withBend(result, readBendPoints(reader, bendValueFromGp));
   }
   if ((flags1 & 0x10) !== 0) {
     result = { ...result, grace: readGraceGp34(reader) };

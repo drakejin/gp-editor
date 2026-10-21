@@ -12,14 +12,20 @@ export function noteAddresses(song: Song, trackIndex: number): NoteAddress[] {
         voice.notes
           .map((note, noteIndex) => ({ note, noteIndex }))
           .sort((a, b) => a.note.string - b.note.string)
-          .map(({ noteIndex }) => ({ track: trackIndex, measure: measureIndex, beat: beatIndex, voice: voiceIndex, note: noteIndex })),
+          .map(({ noteIndex }) => ({ trackIndex: trackIndex, measureIndex: measureIndex, beatIndex: beatIndex, voiceIndex: voiceIndex, noteIndex: noteIndex })),
       ),
     ),
   );
 }
 
 function sameAddress(a: NoteAddress, b: NoteAddress): boolean {
-  return a.track === b.track && a.measure === b.measure && a.beat === b.beat && a.voice === b.voice && a.note === b.note;
+  return (
+    a.trackIndex === b.trackIndex &&
+    a.measureIndex === b.measureIndex &&
+    a.beatIndex === b.beatIndex &&
+    a.voiceIndex === b.voiceIndex &&
+    a.noteIndex === b.noteIndex
+  );
 }
 
 /** The note before (-1) or after (+1) `from`; the first note when nothing is selected. */

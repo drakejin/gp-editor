@@ -14,9 +14,11 @@
 		7B968A8E7AE0ED8FEBAF2784 /* GPQADriver.m in Sources */ = {isa = PBXBuildFile; fileRef = 89281E13275E110D08059BD1 /* GPQADriver.m */; };
 		7E0A0CB5DA042CE3CC5EB78A /* GPFiles.m in Sources */ = {isa = PBXBuildFile; fileRef = 7B5C850793C3BDD397E243FD /* GPFiles.m */; };
 		9A66AFF641DF9BDDFB007D61 /* libPods-GPEditor-macOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CF0C11CC956B7AFDCE28DA7B /* libPods-GPEditor-macOS.a */; };
+		BFC621603125EDCC1263118A /* GPEditorNotifications.m in Sources */ = {isa = PBXBuildFile; fileRef = 080F334520A0F698E37A64BE /* GPEditorNotifications.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		080F334520A0F698E37A64BE /* GPEditorNotifications.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPEditorNotifications.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* GPEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GPEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		514201492437B4B30078DB4F /* GPEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GPEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5142014C2437B4B30078DB4F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -26,9 +28,11 @@
 		561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7B5C850793C3BDD397E243FD /* GPFiles.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPFiles.m; sourceTree = "<group>"; };
 		89281E13275E110D08059BD1 /* GPQADriver.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPQADriver.m; sourceTree = "<group>"; };
+		AF194A0272A26BB1C7AB399B /* GPEditor-macOS-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "GPEditor-macOS-Bridging-Header.h"; sourceTree = "<group>"; };
 		B296AF2AE229D8927C732C47 /* Pods-GPEditor-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.release.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		BB8B0ADDC0790FF74FF7D211 /* Pods-GPEditor-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.debug.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		CF0C11CC956B7AFDCE28DA7B /* libPods-GPEditor-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GPEditor-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E56BC27C9E2B69AFBEEE9440 /* GPEditorNotifications.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPEditorNotifications.h; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -69,6 +73,9 @@
 				514201592437B4B40078DB4F /* GPEditor.entitlements */,
 				7B5C850793C3BDD397E243FD /* GPFiles.m */,
 				89281E13275E110D08059BD1 /* GPQADriver.m */,
+				E56BC27C9E2B69AFBEEE9440 /* GPEditorNotifications.h */,
+				080F334520A0F698E37A64BE /* GPEditorNotifications.m */,
+				AF194A0272A26BB1C7AB399B /* GPEditor-macOS-Bridging-Header.h */,
 			);
 			path = "GPEditor-macOS";
 			sourceTree = "<group>";
@@ -327,6 +334,7 @@
 				5142014D2437B4B30078DB4F /* AppDelegate.swift in Sources */,
 				7E0A0CB5DA042CE3CC5EB78A /* GPFiles.m in Sources */,
 				7B968A8E7AE0ED8FEBAF2784 /* GPQADriver.m in Sources */,
+				BFC621603125EDCC1263118A /* GPEditorNotifications.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -394,6 +402,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = GPEditor;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "GPEditor-macOS/GPEditor-macOS-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
@@ -417,6 +426,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = GPEditor;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "GPEditor-macOS/GPEditor-macOS-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

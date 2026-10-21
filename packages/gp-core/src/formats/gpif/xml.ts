@@ -179,3 +179,11 @@ export function parseIntList(text: string | undefined, separator: string): numbe
     .filter((part) => part !== '')
     .map((part) => parseJavaInt(part, 0));
 }
+
+/**
+ * The value for a name read from the file in a table of known GPIF names, or undefined when the name is unknown.
+ * Own properties only: a name such as "constructor" must not resolve to an inherited Object property.
+ */
+export function lookupName<T>(table: Readonly<Record<string, T>>, name: string | undefined): T | undefined {
+  return name !== undefined && Object.prototype.hasOwnProperty.call(table, name) ? table[name] : undefined;
+}

@@ -50,6 +50,13 @@ describe('layoutRows', () => {
     expect(rows[1]!.measures[0]!.width).toBe(300);
   });
 
+  it('stretches a short row in the middle of the score but not the last row', () => {
+    const rows = layoutRows([measure(0, 200), measure(1, 600), measure(2, 200)], 700);
+    expect(rows.map((row) => row.measures.map((m) => m.measureIndex))).toEqual([[0], [1], [2]]);
+    expect(rows[0]!.measures[0]!.width).toBeCloseTo(700);
+    expect(rows[2]!.measures[0]!.width).toBe(200);
+  });
+
   it('keeps an oversized measure on its own row unscaled', () => {
     const rows = layoutRows([measure(0, 900)], 700);
     expect(rows[0]!.measures[0]!.width).toBe(900);

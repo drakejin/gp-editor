@@ -2,7 +2,7 @@ import { findNote } from '@gp-editor/core';
 import { type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
 
-const AT = { track: 0, measure: 0, beat: 0, voice: 0, note: 0 };
+const AT = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, noteIndex: 0 };
 
 function loadedState(): EditorState {
   const song = makeSong([[beat(960, [note(1, 3), note(2, 5)])]]);
@@ -31,7 +31,7 @@ describe('editorReducer', () => {
 
   it('ignores edits without a selection', () => {
     const state = loadedState();
-    expect(editorReducer(state, { type: 'setFret', fret: 7 })).toBe(state);
+    expect(editorReducer(state, { type: 'setNoteFret', fret: 7 })).toBe(state);
   });
 
   it('sets, shifts and deletes the selected note with undo history', () => {
@@ -39,8 +39,8 @@ describe('editorReducer', () => {
     const start = selected();
 
     // Act
-    const typed = editorReducer(start, { type: 'setFret', fret: 12 });
-    const bumped = editorReducer(typed, { type: 'shiftFret', delta: 1 });
+    const typed = editorReducer(start, { type: 'setNoteFret', fret: 12 });
+    const bumped = editorReducer(typed, { type: 'shiftNoteFret', delta: 1 });
 
     // Assert
     expect(findNote(bumped.document!.song, AT)?.fret).toBe(13);
@@ -51,16 +51,16 @@ describe('editorReducer', () => {
 
   it('moves the note between strings and refuses an occupied one', () => {
     const start = selected();
-    expect(editorReducer(start, { type: 'shiftString', delta: 1 })).toBe(start);
+    expect(editorReducer(start, { type: 'shiftNoteString', delta: 1 })).toBe(start);
     const moved = editorReducer(
-      editorReducer(start, { type: 'selectNote', address: { ...AT, note: 1 } }),
-      { type: 'shiftString', delta: 1 },
+      editorReducer(start, { type: 'selectNote', address: { ...AT, noteIndex: 1 } }),
+      { type: 'shiftNoteString', delta: 1 },
     );
-    expect(findNote(moved.document!.song, { ...AT, note: 1 })?.string).toBe(3);
+    expect(findNote(moved.document!.song, { ...AT, noteIndex: 1 })?.string).toBe(3);
   });
 
   it('undoes and redoes edits', () => {
-    const edited = editorReducer(selected(), { type: 'setFret', fret: 9 });
+    const edited = editorReducer(selected(), { type: 'setNoteFret', fret: 9 });
     const undone = editorReducer(edited, { type: 'undo' });
     expect(findNote(undone.document!.song, AT)?.fret).toBe(3);
     expect(undone.future).toHaveLength(1);
@@ -71,10 +71,10 @@ describe('editorReducer', () => {
   });
 
   it('keeps the selection across undo and redo while the note exists', () => {
-    const edited = editorReducer(selected(), { type: 'setFret', fret: 9 });
+    const edited = editorReducer(selected(), { type: 'setNoteFret', fret: 9 });
     expect(editorReducer(edited, { type: 'undo' }).selection).toEqual(AT);
     const deleted = editorReducer(
-      editorReducer(selected(), { type: 'selectNote', address: { ...AT, note: 1 } }),
+      editorReducer(selected(), { type: 'selectNote', address: { ...AT, noteIndex: 1 } }),
       { type: 'deleteNote' },
     );
     const restored = editorReducer(deleted, { type: 'undo' });
@@ -85,14 +85,14 @@ describe('editorReducer', () => {
   it('caps the undo history', () => {
     let state = selected();
     for (let i = 0; i < HISTORY_LIMIT + 5; i++) {
-      state = editorReducer(state, { type: 'setFret', fret: i % 2 === 0 ? 1 : 2 });
+      state = editorReducer(state, { type: 'setNoteFret', fret: i % 2 === 0 ? 1 : 2 });
     }
     expect(state.past).toHaveLength(HISTORY_LIMIT);
   });
 
   it('selects only existing tracks and clears the note selection', () => {
     const state = selected();
-    expect(editorReducer(state, { type: 'selectTrack', index: 3 })).toBe(state);
-    expect(editorReducer(state, { type: 'selectTrack', index: 0 }).selection).toBeUndefined();
+    expect(editorReducer(state, { type: 'selectTrack', trackIndex: 3 })).toBe(state);
+    expect(editorReducer(state, { type: 'selectTrack', trackIndex: 0 }).selection).toBeUndefined();
   });
 });

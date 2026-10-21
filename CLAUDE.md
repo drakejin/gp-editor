@@ -10,10 +10,12 @@ Goal: read every Guitar Pro file — GP1/GP2 (.gtp), GP3 (.gp3), GP4 (.gp4), GP5
 | `packages/gp-core/` | Pure TypeScript, no React. Format detection, readers, song model. Runs in Node (tests) and Hermes (app) — no Node APIs, no global TextDecoder in `src/`. |
 | `packages/gp-core/src/model/` | `song.ts` = the format-independent model every reader returns. `defaults.ts` = constants and tick helpers. |
 | `packages/gp-core/src/io/` | `ByteReader` (little-endian cursor, GTPInputStream-style string helpers), text decoding. |
+| `packages/gp-core/src/formats/common/` | Guitar Pro facts shared by both reader families: GM channel names, harmonic table, velocity scale, bend/whammy units. |
 | `packages/gp-core/src/formats/gtp/` | GP1–GP5 binary readers. |
 | `packages/gp-core/src/formats/gpif/` | GP6 (.gpx, BCFZ/BCFS container) and GP7/8 (.gp, zip) — both hold a GPIF XML document. |
+| `packages/gp-core/src/edit/` | Immutable edit operations on a `Song` (`setNoteFret`, `setNoteString`, `deleteNote`). |
 | `packages/gp-core/test/` | Vitest. `fixtures/guitarproN/` real files (see its README). `helpers/invariants.ts` = checks every reader output must pass. |
-| `apps/desktop/` | React Native app with the macOS target (`macos/`, Xcode + CocoaPods). |
+| `apps/desktop/` | React Native app with the macOS target (`macos/`, Xcode + CocoaPods). See its README for the QA driver, Hermes smoke and E2E scripts. |
 
 ## Commands
 
@@ -37,3 +39,24 @@ npm run build:mac   # Release build of the macOS app (xcodebuild)
 - Strings are numbered from 1 = highest string. Ticks: `QUARTER_TIME` (960) per quarter note.
 - Tests: Vitest, AAA, descriptive names. Every reader has a fixture sweep (all files in its folder parse
   and pass `assertSongInvariants`) plus value checks for specific files.
+
+## Naming (one vocabulary for the whole repo)
+
+- **Model words come from `src/model/song.ts`**: song, track, measure + measure header (GPIF's raw `<MasterBar>`/`<Bar>` keep
+  their names only inside `formats/gpif`), beat, voice, note, string, fret, tempo, `velocity` (MIDI value; the raw Guitar Pro
+  value is a `dynamic`), `channelId` (model) vs `gmChannel` (raw MIDI channel in the file).
+- **0-based positions end in `Index`** (`trackIndex`, `Measure.headerIndex`, `NoteAddress.measureIndex`);
+  **1-based musical numbering is `number`** (`Track.number`, `MeasureHeader.number`, `GuitarString.number`, `trackNumber`).
+- **Verbs**: `read*` consumes bytes/XML; `parse*` interprets one already-extracted raw value; `build*` assembles model
+  objects; `to*` / `*From*` are pure conversions; `resolve*` picks among fallbacks; `set*` / `shift*` / `delete*` are edits
+  that return a new `Song`. Editor actions are named after the gp-core function they run (`setNoteFret`, `shiftNoteFret`,
+  `shiftNoteString`, `deleteNote`).
+- **Booleans** `is*` / `has*` / `can*`. **Constants** `UPPER_SNAKE_CASE`, including grouped objects (`TAB`, `FRET_BOX`).
+- **Files**: modules are kebab-case (`byte-reader.ts`, `fret-input.ts`); React components are PascalCase (`TabMeasure.tsx`);
+  a test file is named after the module it tests (`fret-input.test.ts`).
+- **One home per fact**: shared Guitar Pro facts in `formats/common`, model helpers (`durationTicks`, `durationFromTicks`,
+  `NOTE_VALUES`) in `model/defaults.ts`; never re-declare them in a reader. Tables keyed by text from a file are read with
+  `lookupName` (own properties only).
+- **App**: props interfaces are `XxxProps`; callbacks are `onXxx`; `palette` is passed as a prop below `App`
+  (only `App` calls `usePalette()`); notification names shared by Swift and Objective-C live in `GPEditorNotifications.h`.
+

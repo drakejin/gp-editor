@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseNote and its effect helpers (LGPL-2.1).
+import { durationFromTicks } from '../../model/defaults';
 import type {
   Bend,
   BendPoint,
@@ -13,31 +14,25 @@ import type {
   SlideType,
   Trill,
 } from '../../model/song';
+import { artificialHarmonicOffsetAtFret } from '../common/harmonics';
+import {
+  BEND_MAX_POSITION,
+  bendPositionFromGp,
+  bendValueFromGp,
+  tremoloBarValueFromGp,
+} from '../common/bend-units';
 import type { GpifBeat, GpifBendCurve, GpifNote } from './gpif-document';
 import { drumkitMidi } from './gpif-drumkit';
-import { durationFromTicks, dynamicVelocity, tremoloPickingDuration } from './gpif-duration';
+import { dynamicVelocity, tremoloPickingDuration } from './gpif-duration';
+import { lookupName } from './xml';
 
 /** GPIF curves: offsets 0–100, values in 1/100 tone; the model uses 0–12 positions and quarter tones. */
 const GP_CURVE_POSITION = 100;
-const GP_QUARTER_TONE = 25;
-const MAX_POSITION = 12;
 const DEFAULT_MIDDLE_OFFSET = 50;
 /** Middle offsets equal to 12 are skipped, as TuxGuitar does. */
 const SKIPPED_MIDDLE_OFFSET = 12;
-/** TuxGuitar clamps the whammy bar to ±12 semitones (here ±24 quarter tones). */
-const MAX_WHAMMY_VALUE = 24;
 /** Trill speeds are stored with 480 ticks per quarter; the model uses 960. */
 const TRILL_TICKS_FACTOR = 2;
-
-/** TGEffectHarmonic.NATURAL_FREQUENCIES: [harmonic fret, semitones above the fretted note]. */
-const NATURAL_FREQUENCIES: readonly (readonly [number, number])[] = [
-  [12, 12],
-  [9, 28],
-  [5, 24],
-  [7, 19],
-  [4, 28],
-  [3, 31],
-];
 
 /** A grace beat (GPIF stores grace notes on their own beat, before the note they decorate). */
 export interface GraceSource {
@@ -155,15 +150,7 @@ function optionalEffects(note: GpifNote, position: NotePosition, context: NoteCo
 }
 
 function curvePosition(offset: number): number {
-  return Math.round((offset * MAX_POSITION) / GP_CURVE_POSITION);
-}
-
-function bendValue(value: number): number {
-  return Math.round(value / GP_QUARTER_TONE);
-}
-
-function whammyValue(value: number): number {
-  return Math.min(MAX_WHAMMY_VALUE, Math.max(-MAX_WHAMMY_VALUE, Math.round(value / GP_QUARTER_TONE)));
+  return bendPositionFromGp(offset, GP_CURVE_POSITION);
 }
 
 /** GPXDocumentParser#parseBend. */
@@ -172,14 +159,14 @@ function parseBend(note: GpifNote): Bend | undefined {
   if (!note.bendEnabled || curve.originValue === undefined || curve.destinationValue === undefined) {
     return undefined;
   }
-  const origin = bendValue(curve.originValue);
-  const destination = bendValue(curve.destinationValue);
+  const origin = bendValueFromGp(curve.originValue);
+  const destination = bendValueFromGp(curve.destinationValue);
   const points: BendPoint[] = [{ position: 0, value: origin }];
   if (curve.originOffset !== undefined) {
     points.push({ position: curvePosition(curve.originOffset), value: origin });
   }
   if (curve.middleValue !== undefined) {
-    const middle = bendValue(curve.middleValue);
+    const middle = bendValueFromGp(curve.middleValue);
     for (const offset of [curve.middleOffset1, curve.middleOffset2]) {
       if (offset !== SKIPPED_MIDDLE_OFFSET) {
         points.push({ position: curvePosition(offset ?? DEFAULT_MIDDLE_OFFSET), value: middle });
@@ -194,7 +181,7 @@ function curveEnd(curve: GpifBendCurve, destination: number): BendPoint[] {
   if (curve.destinationOffset !== undefined && curve.destinationOffset < GP_CURVE_POSITION) {
     points.push({ position: curvePosition(curve.destinationOffset), value: destination });
   }
-  points.push({ position: MAX_POSITION, value: destination });
+  points.push({ position: BEND_MAX_POSITION, value: destination });
   return points;
 }
 
@@ -204,19 +191,20 @@ function parseTremoloBar(beat: GpifBeat): Bend | undefined {
   if (!beat.whammyBarEnabled || curve.originValue === undefined || curve.destinationValue === undefined) {
     return undefined;
   }
-  const origin = whammyValue(curve.originValue);
+  const origin = tremoloBarValueFromGp(curve.originValue);
   const points: BendPoint[] = [{ position: 0, value: origin }];
   if (curve.originOffset !== undefined) {
     points.push({ position: curvePosition(curve.originOffset), value: origin });
   }
-  return { points: [...points, ...whammyMiddle(curve), ...curveEnd(curve, whammyValue(curve.destinationValue))] };
+  const destination = tremoloBarValueFromGp(curve.destinationValue);
+  return { points: [...points, ...whammyMiddle(curve), ...curveEnd(curve, destination)] };
 }
 
 function whammyMiddle(curve: GpifBendCurve): BendPoint[] {
   if (curve.middleValue === undefined) {
     return [];
   }
-  const value = whammyValue(curve.middleValue);
+  const value = tremoloBarValueFromGp(curve.middleValue);
   const offset1 = curve.middleOffset1 ?? DEFAULT_MIDDLE_OFFSET;
   const offset2 = curve.middleOffset2 ?? DEFAULT_MIDDLE_OFFSET;
   const origin = curve.originOffset;
@@ -248,10 +236,9 @@ function parseHarmonic(note: GpifNote, fret: number): Harmonic | undefined {
   if (name === '' || name === 'noharmonic') {
     return undefined;
   }
-  const type = HARMONIC_TYPES[name] ?? 'natural';
+  const type = lookupName(HARMONIC_TYPES, name) ?? 'natural';
   if (type === 'artificial') {
-    const frequency = NATURAL_FREQUENCIES.find(([harmonicFret]) => harmonicFret === note.harmonicFret);
-    return { type, data: frequency?.[1] ?? 0 };
+    return { type, data: artificialHarmonicOffsetAtFret(note.harmonicFret) };
   }
   if (type === 'tapped' && note.harmonicFret >= 0) {
     return { type, data: fret + note.harmonicFret };

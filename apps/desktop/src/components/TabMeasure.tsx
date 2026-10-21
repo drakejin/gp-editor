@@ -26,7 +26,7 @@ function TabMeasureView(props: TabMeasureProps) {
   const { track, header, layout, palette } = props;
   const stringCount = track.strings.length;
   const measure = track.measures[layout.measureIndex];
-  const beams = measureBeams(track, header, layout);
+  const beams = measureBeams(measure?.beats ?? [], header, layout);
   return (
     <View style={{ width: layout.width, height: staffHeight(stringCount) }}>
       <MeasureHeading header={header} layout={layout} palette={palette} />
@@ -58,8 +58,7 @@ function TabMeasureView(props: TabMeasureProps) {
 }
 
 /** Beams for the rhythm voice of each beat, grouped by the bar's time signature. */
-function measureBeams(track: Track, header: MeasureHeader, layout: MeasureLayout): BeamLayout {
-  const beats = track.measures[layout.measureIndex]?.beats ?? [];
+function measureBeams(beats: readonly Beat[], header: MeasureHeader, layout: MeasureLayout): BeamLayout {
   const rhythm = layout.beats.map((beatLayout) => {
     const beat = beats[beatLayout.beatIndex];
     const voice = beat === undefined ? undefined : primaryVoice(beat);
@@ -190,14 +189,14 @@ interface FretNumberProps extends BeatViewProps {
 }
 
 function FretNumber({ trackIndex, layout, beatIndex, voiceIndex, noteIndex, label, string, x, selection, palette, onSelectNote }: FretNumberProps) {
-  const address: NoteAddress = { track: trackIndex, measure: layout.measureIndex, beat: beatIndex, voice: voiceIndex, note: noteIndex };
+  const address: NoteAddress = { trackIndex: trackIndex, measureIndex: layout.measureIndex, beatIndex: beatIndex, voiceIndex: voiceIndex, noteIndex: noteIndex };
   const isSelected =
     selection !== undefined &&
-    selection.track === trackIndex &&
-    selection.measure === layout.measureIndex &&
-    selection.beat === beatIndex &&
-    selection.voice === voiceIndex &&
-    selection.note === noteIndex;
+    selection.trackIndex === trackIndex &&
+    selection.measureIndex === layout.measureIndex &&
+    selection.beatIndex === beatIndex &&
+    selection.voiceIndex === voiceIndex &&
+    selection.noteIndex === noteIndex;
   return (
     <Pressable
       onPress={() => onSelectNote(address)}

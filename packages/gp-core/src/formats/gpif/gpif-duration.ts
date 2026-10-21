@@ -1,9 +1,11 @@
-// Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseRhythm / #parseDynamic and TGDuration#fromTime (LGPL-2.1).
-import { NORMAL_TUPLET, durationTicks } from '../../model/defaults';
+// Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseRhythm / #parseDynamic (LGPL-2.1).
+import { NORMAL_TUPLET, NOTE_VALUES, plainDuration } from '../../model/defaults';
 import type { Duration, NoteValue, Tuplet } from '../../model/song';
+import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { GpifRhythm } from './gpif-document';
+import { lookupName } from './xml';
 
-const NOTE_VALUES: Readonly<Record<string, NoteValue>> = {
+const RHYTHM_NOTE_VALUES: Readonly<Record<string, NoteValue>> = {
   // Longer than whole and shorter than 64th do not exist in the model: use the nearest value
   // (TuxGuitar leaves them at its default, a quarter note).
   Long: 1,
@@ -27,7 +29,7 @@ export function rhythmDuration(rhythm: GpifRhythm | undefined): Duration {
     return plainDuration(QUARTER_VALUE);
   }
   return {
-    value: NOTE_VALUES[rhythm.noteValue ?? ''] ?? QUARTER_VALUE,
+    value: lookupName(RHYTHM_NOTE_VALUES, rhythm.noteValue) ?? QUARTER_VALUE,
     dotted: rhythm.augmentationDotCount === 1,
     doubleDotted: rhythm.augmentationDotCount === 2,
     tuplet: tupletOf(rhythm.primaryTupletNum, rhythm.primaryTupletDen),
@@ -38,36 +40,13 @@ function tupletOf(enters: number, times: number): Tuplet {
   return enters > 0 && times > 0 && !(enters === 1 && times === 1) ? { enters, times } : NORMAL_TUPLET;
 }
 
-export function plainDuration(value: NoteValue): Duration {
-  return { value, dotted: false, doubleDotted: false, tuplet: NORMAL_TUPLET };
-}
-
-const PLAIN_VALUES: readonly [NoteValue, ...NoteValue[]] = [1, 2, 4, 8, 16, 32, 64];
-
-/** TuxGuitar's shortest duration: a 64th in a 7:4 tuplet. */
-const SHORTEST: Duration = { value: 64, dotted: false, doubleDotted: false, tuplet: { enters: 7, times: 4 } };
-
-/**
- * TGDuration.fromTime(factory, time): the longest plain note value that fits in `ticks`, else the
- * shortest duration. (Its exact-match table is keyed by "precise" times and never matches ticks.)
- */
-export function durationFromTicks(ticks: number): Duration {
-  for (const value of PLAIN_VALUES) {
-    const duration = plainDuration(value);
-    if (ticks >= durationTicks(duration)) {
-      return duration;
-    }
-  }
-  return SHORTEST;
-}
-
 /** Tremolo picking `<Tremolo>1/8</Tremolo>` → TGDuration value QUARTER * 8 = 32nd notes. */
 export function tremoloPickingDuration(tremolo: readonly number[] | undefined): Duration | undefined {
   if (tremolo === undefined || tremolo.length !== 2) {
     return undefined;
   }
   const value = QUARTER_VALUE * (tremolo[1] ?? 0);
-  return plainDuration(nearest(PLAIN_VALUES, value));
+  return plainDuration(nearest(NOTE_VALUES, value));
 }
 
 /** The candidate closest to `value` on a log scale (note values are powers of two). */
@@ -83,26 +62,27 @@ const DEFAULT_STROKE_VALUE = 32;
 const STROKE_TICKS_TIMES_VALUE = 1920;
 
 /** Stroke speed (note value) for a brush duration in ticks (XProperty 687935489). */
-export function strokeValue(brushTicks: number | undefined): number {
+export function strokeValueFromTicks(brushTicks: number | undefined): number {
   if (brushTicks === undefined || brushTicks <= 0) {
     return DEFAULT_STROKE_VALUE;
   }
   return nearest(STROKE_VALUES, STROKE_TICKS_TIMES_VALUE / brushTicks);
 }
 
-/** TGVelocities for GPIF dynamics. */
-const VELOCITIES: Readonly<Record<string, number>> = {
-  PPP: 15,
-  PP: 31,
-  P: 47,
-  MP: 63,
-  MF: 79,
-  F: 95,
-  FF: 111,
-  FFF: 127,
+/** GPIF dynamic names as GP dynamics (1 = ppp … 8 = fff). */
+const DYNAMICS: Readonly<Record<string, number>> = {
+  PPP: 1,
+  PP: 2,
+  P: 3,
+  MP: 4,
+  MF: 5,
+  F: 6,
+  FF: 7,
+  FFF: 8,
 };
-const DEFAULT_VELOCITY = 95;
 
+/** MIDI velocity of a GPIF dynamic; a missing or unknown dynamic is TGVelocities.DEFAULT. */
 export function dynamicVelocity(dynamic: string | undefined): number {
-  return VELOCITIES[dynamic ?? ''] ?? DEFAULT_VELOCITY;
+  const value = lookupName(DYNAMICS, dynamic);
+  return value === undefined ? DEFAULT_VELOCITY : velocityFromGp(value);
 }

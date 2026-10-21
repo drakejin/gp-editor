@@ -3,8 +3,6 @@
 /** Which GPIF dialect: 6 = Guitar Pro 6 (.gpx), 7 = Guitar Pro 7/8 (.gp). */
 export type GpifVersion = 6 | 7;
 
-export const DEFAULT_PERCUSSION_CHANNEL = 9;
-
 export interface GpifScore {
   readonly title: string;
   readonly subTitle: string;

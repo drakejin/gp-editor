@@ -6,6 +6,7 @@ import {
   DEFAULT_PERCUSSION_CHANNEL,
   measureTicks,
   NORMAL_TUPLET,
+  plainDuration,
   QUARTER,
   toNoteValue,
 } from '../../model/defaults';
@@ -37,66 +38,23 @@ import type {
   Tuplet,
   Voice,
 } from '../../model/song';
+import { bendPositionFromGp } from '../common/bend-units';
+import { createChannelName } from '../common/channels';
+import { GTP_VERSION_BLOCK } from '../detect';
 import { normalizeSong } from './normalize';
 
-/** GP stores bend values in 1/100 tones: 25 = a quarter tone. */
-const GP_BEND_QUARTER_TONE = 25;
-/** GP bend positions run 0…60; ours (TGEffectBend.MAX_POSITION_LENGTH) 0…12. */
+/** GP3–GP5 bend positions run 0…60. */
 const GP_BEND_POSITION = 60;
-export const BEND_MAX_POSITION = 12;
-/** Tremolo bar values are clamped to ±24 quarter tones (one octave either way). */
-const TREMOLO_BAR_LIMIT = 24;
-
-/** TGVelocities */
-const MIN_VELOCITY = 15;
-const VELOCITY_INCREMENT = 16;
-const MAX_VELOCITY = 127;
-export const DEFAULT_VELOCITY = MIN_VELOCITY + VELOCITY_INCREMENT * 5;
 
 const GTP_CHANNEL_COUNT = 64;
-const VERSION_BLOCK_SIZE = 30;
 /** Frets read for tied notes must be below this, else TuxGuitar uses 0. */
 const MAX_TIED_FRET = 100;
 const STRING_SLOTS = 7;
 /** Strings tuned at or below this MIDI pitch get a bass clef (GP3/GP4). */
 const BASS_CLEF_TUNING = 34;
 
-/**
- * TGEffectHarmonic.NATURAL_FREQUENCIES: [harmonic fret, semitones above the fretted note].
- * TuxGuitar stores an index into this table as harmonic data.
- */
-export const NATURAL_FREQUENCIES: readonly (readonly [number, number])[] = [
-  [12, 12],
-  [9, 28],
-  [5, 24],
-  [7, 19],
-  [4, 28],
-  [3, 31],
-];
-
-/** Semitone offset of the artificial harmonic TuxGuitar stores as data index `index`. */
-export function artificialHarmonicOffset(index: number): number {
-  return NATURAL_FREQUENCIES[index]?.[1] ?? 0;
-}
-
-/** Fret offset of the harmonic TuxGuitar stores as data index `index`. */
-export function harmonicFretOffset(index: number): number {
-  return NATURAL_FREQUENCIES[index]?.[0] ?? 0;
-}
-
 /** Second voice of a beat that does not use it (TGBeat always holds MAX_VOICES = 2 voices). */
 export const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
-
-/** Math.round without negative zero (Java's Math.round has none). */
-function round(value: number): number {
-  return Math.round(value) + 0;
-}
-
-/** GP dynamic (1 = ppp … 8 = fff) to MIDI velocity, kept in 0…127. */
-export function velocityFromGp(value: number): number {
-  const velocity = MIN_VELOCITY + VELOCITY_INCREMENT * value - VELOCITY_INCREMENT;
-  return Math.min(MAX_VELOCITY, Math.max(0, velocity));
-}
 
 /** Wraps any failure of `read` in a GpFormatError that says where it happened. */
 export function withContext<T>(context: string, read: () => T): T {
@@ -109,10 +67,10 @@ export function withContext<T>(context: string, read: () => T): T {
 }
 
 export function skipVersion(reader: ByteReader): void {
-  reader.readStringByte(VERSION_BLOCK_SIZE);
+  reader.readStringByte(GTP_VERSION_BLOCK);
 }
 
-export function readInts(reader: ByteReader, count: number): number[] {
+export function readInts(reader: ByteReader, count: number): readonly number[] {
   return Array.from({ length: count }, () => reader.readInt());
 }
 
@@ -202,7 +160,7 @@ export interface ChannelRegistry {
   readonly gmChannels: ReadonlyMap<number, number>;
 }
 
-export const EMPTY_REGISTRY: ChannelRegistry = { channels: [], gmChannels: new Map() };
+const EMPTY_REGISTRY: ChannelRegistry = { channels: [], gmChannels: new Map() };
 
 /** TGTrack's channel id when the file names no valid channel. */
 const NO_CHANNEL = -1;
@@ -232,50 +190,13 @@ export function assignChannel(
   };
 }
 
-/** General MIDI program names, as TuxGuitar's messages.properties (midi.instrument-N) spells them. */
-export const GM_INSTRUMENT_NAMES: readonly string[] = [
-  'Acoustic Grand Piano', 'Bright Acoustic Piano', 'Electric Grand Piano', 'Honky-Tonk Piano',
-  'Electric Piano 1', 'Electric Piano 2', 'Harpsichord', 'Clavinet', 'Celesta', 'Glockenspiel', 'Music Box',
-  'Vibraphone', 'Marimba', 'Xylophone', 'Tubular Bells', 'Dulcimer', 'Hammond Organ', 'Percussive Organ',
-  'Rock Organ', 'Church Organ', 'Reed Organ', 'Accordion', 'Harmonica', 'Tango Accordion',
-  'Nylon String Acoustic Guitar', 'Steel String Acoustic Guitar', 'Jazz Electric Guitar', 'Clean Electric Guitar',
-  'Muted Electric Guitar', 'Overdrive Electric Guitar', 'Distortion Electric Guitar', 'Harmonics Electric Guitar',
-  'Acoustic Bass', 'Fingered Electric Bass', 'Picked Electric Bass', 'Fretless Electric Bass', 'Slap Bass 1',
-  'Slap Bass 2', 'Synth Bass 1', 'Synth Bass 2', 'Violin', 'Viola', 'Cello', 'Contrabass', 'Tremolo Strings',
-  'Pizzicato Strings', 'Orchestral Harp', 'Timpani', 'String Ensemble', 'Slower String Ensemble',
-  'Synth Strings 1', 'Synth Strings 2', 'Choir Aahs', 'Voice Oohs', 'Synth Choir', 'Orchestra Hit', 'Trumpet',
-  'Trombone', 'Tuba', 'Muted Trumpet', 'French Horn', 'Brass Section', 'Synth Brass 1', 'Synth Brass 2',
-  'Soprano Sax', 'Alto Sax', 'Tenor Sax', 'Baritone Sax', 'Oboe', 'English Horn', 'Bassoon', 'Clarinet',
-  'Piccolo', 'Flute', 'Recorder', 'Pan Flute', 'Blown Bottle', 'Shakuhachi', 'Whistle', 'Ocarina',
-  'Synth Lead 1 - Square Wave', 'Synth Lead 2 - Saw Wave', 'Synth Lead 3 - Calliope', 'Synth Lead 4 - Chiff',
-  'Synth Lead 5 - Charang', 'Synth Lead 6 - Voice', 'Synth Lead 7 - Fifths Saw', 'Synth Lead 8 - Bass and Lead',
-  'Synth Pad 1 - New Age', 'Synth Pad 2 - Warm', 'Synth Pad 3 - Polysynth', 'Synth Pad 4 - Choir',
-  'Synth Pad 5 - Bowed', 'Synth Pad 6 - Metallic', 'Synth Pad 7 - Halo', 'Synth Pad 8 - Sweep',
-  'Synth FX 1 - Rain', 'Synth FX 2 - Soundtrack', 'Synth FX 3 - Crystal', 'Synth FX 4 - Atmosphere',
-  'Synth FX 5 - Brightness', 'Synth FX 6 - Goblins', 'Synth FX 7 - Echo Drops', 'Synth FX 8 - Sci-Fi', 'Sitar',
-  'Banjo', 'Shamisen', 'Koto', 'Kalimba', 'Bag Pipe', 'Fiddle', 'Shanai', 'Tinkle Bell', 'Agogô', 'Steel Drums',
-  'Woodblock', 'Taiko Drum', 'Melodic Tom', 'Synth Drum', 'Reverse Cymbal', 'Guitar Fret Noise', 'Breath Noise',
-  'Seashore', 'Bird Tweet', 'Telephone Ring', 'Helicopter', 'Applause', 'Gunshot',
-];
-
-const PERCUSSION_CHANNEL_PREFIX = 'DrumKit';
-const DEFAULT_CHANNEL_PREFIX = 'Untitled';
-
-/** TGSongManager.createChannelNameFromProgram: "<instrument> N" with the first unused N. */
-export function createChannelName(existing: readonly Channel[], program: number, isPercussion: boolean): string {
-  const prefix = isPercussion ? PERCUSSION_CHANNEL_PREFIX : (GM_INSTRUMENT_NAMES[program] ?? DEFAULT_CHANNEL_PREFIX);
-  const taken = new Set(existing.map((channel) => channel.name));
-  let number = 1;
-  while (taken.has(`${prefix} ${number}`)) {
-    number++;
-  }
-  return `${prefix} ${number}`;
-}
-
 // ---------------------------------------------------------------- measure headers and tracks
 
 /** A measure header before its start and tempo are known (they come from reading the measures). */
 export type HeaderDraft = Omit<MeasureHeader, 'start' | 'tempo'>;
+
+/** A track before its measures are read. */
+export type TrackDraft = Omit<Track, 'measures'>;
 
 /** GP3/GP4 alternate endings: a count, turned into the endings not used since the last repeat open. */
 export function parseRepeatAlternative(previous: readonly HeaderDraft[], value: number): number {
@@ -327,7 +248,7 @@ export function readMeasureHeaders(count: number, songKey: number, readHeader: R
 
 /** A track before its measures are read, plus the clef its measures get. */
 export interface TrackRead {
-  readonly draft: Omit<Track, 'measures'>;
+  readonly draft: TrackDraft;
   readonly clef: Clef;
 }
 
@@ -432,7 +353,11 @@ export interface NoteContext {
 }
 
 /** Reads the string bitmask (bit 6 = string 1) and one note per set bit the track has a string for. */
-export function readStringNotes(reader: ByteReader, stringCount: number, readNote: (string: number) => Note): Note[] {
+export function readStringNotes(
+  reader: ByteReader,
+  stringCount: number,
+  readNote: (string: number) => Note,
+): readonly Note[] {
   const stringFlags = reader.readUnsignedByte();
   const notes: Note[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -521,6 +446,25 @@ export function readPickStroke(reader: ByteReader): StrokeDirection | undefined 
   return (direction & 0x02) !== 0 ? 'down' : undefined;
 }
 
+// ---------------------------------------------------------------- mix-table changes
+
+/** Volume, pan, chorus, reverb, phaser and tremolo. */
+const MIX_TABLE_VALUE_COUNT = 6;
+
+/** GP3–GP5 mix-table values, one signed byte each (negative = unchanged). */
+export function readMixTableValues(reader: ByteReader): readonly number[] {
+  return Array.from({ length: MIX_TABLE_VALUE_COUNT }, () => reader.readByte());
+}
+
+/** Skips the transition-duration byte that follows the tempo for each changed (≥ 0) mix-table value. */
+export function skipMixTransitions(reader: ByteReader, values: readonly number[]): void {
+  values.forEach((value) => {
+    if (value >= 0) {
+      reader.readByte();
+    }
+  });
+}
+
 // ---------------------------------------------------------------- note effects
 
 /** GP4/GP5 bend and tremolo bar: type and value (skipped), then the points. */
@@ -532,19 +476,9 @@ export function readBendPoints(reader: ByteReader, toValue: (raw: number) => num
     const position = reader.readInt();
     const value = reader.readInt();
     reader.readByte(); // vibrato
-    points.push({ position: round((position * BEND_MAX_POSITION) / GP_BEND_POSITION), value: toValue(value) });
+    points.push({ position: bendPositionFromGp(position, GP_BEND_POSITION), value: toValue(value) });
   }
   return points;
-}
-
-/** GP bend value to quarter tones. */
-export function bendValue(raw: number): number {
-  return round(raw / GP_BEND_QUARTER_TONE);
-}
-
-/** GP tremolo bar value to quarter tones (TuxGuitar divides by 50, giving semitones). */
-export function tremoloBarValue(raw: number): number {
-  return Math.min(TREMOLO_BAR_LIMIT, Math.max(-TREMOLO_BAR_LIMIT, bendValue(raw)));
 }
 
 export function withBend(effect: NoteEffect, points: readonly BendPoint[]): NoteEffect {
@@ -553,10 +487,6 @@ export function withBend(effect: NoteEffect, points: readonly BendPoint[]): Note
 
 export function withTremoloBar(effect: NoteEffect, points: readonly BendPoint[]): NoteEffect {
   return points.length > 0 ? { ...effect, tremoloBar: { points } } : effect;
-}
-
-function plainDuration(value: Duration['value']): Duration {
-  return { value, dotted: false, doubleDotted: false, tuplet: NORMAL_TUPLET };
 }
 
 export function readTremoloPicking(reader: ByteReader): TremoloPicking | undefined {

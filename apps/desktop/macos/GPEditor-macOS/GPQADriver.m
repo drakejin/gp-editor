@@ -13,8 +13,9 @@
 
 #import <AppKit/AppKit.h>
 
+#import "GPEditorNotifications.h"
+
 static NSString *const kScriptVariable = @"GPEDITOR_QA_SCRIPT";
-static NSString *const kOpenURLsNotification = @"GPEditorOpenURLs";
 static const int64_t kStartDelaySeconds = 3;
 
 @interface GPQADriver : NSObject
@@ -88,7 +89,7 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   [window makeKeyAndOrderFront:nil];
   if (step[@"open"] != nil) {
     NSURL *url = [NSURL fileURLWithPath:step[@"open"]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:kOpenURLsNotification object:@[ url ]];
+    [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorOpenURLsNotification object:@[ url ]];
     return 1.0;
   }
   if (step[@"wait"] != nil) {

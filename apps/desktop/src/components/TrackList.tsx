@@ -5,17 +5,17 @@ import type { Palette } from '../theme';
 
 interface TrackListProps {
   readonly tracks: readonly Track[];
-  readonly selectedIndex: number;
+  readonly selectedTrackIndex: number;
   readonly palette: Palette;
-  readonly onSelect: (index: number) => void;
+  readonly onSelectTrack: (trackIndex: number) => void;
 }
 
-export function TrackList({ tracks, selectedIndex, palette, onSelect }: TrackListProps) {
+export function TrackList({ tracks, selectedTrackIndex, palette, onSelectTrack }: TrackListProps) {
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <Text style={[styles.heading, { color: palette.muted }]}>TRACKS</Text>
-      {tracks.map((track, index) => {
-        const isSelected = index === selectedIndex;
+      {tracks.map((track, trackIndex) => {
+        const isSelected = trackIndex === selectedTrackIndex;
         const details = [
           track.isPercussion ? 'drums' : tuningLabel(track.strings.map((s) => s.tuning)),
           `${track.strings.length} str`,
@@ -24,7 +24,7 @@ export function TrackList({ tracks, selectedIndex, palette, onSelect }: TrackLis
         return (
           <Pressable
             key={track.number}
-            onPress={() => onSelect(index)}
+            onPress={() => onSelectTrack(trackIndex)}
             style={[styles.item, isSelected ? { backgroundColor: palette.selection } : null]}
           >
             <View style={[styles.swatch, { backgroundColor: `rgb(${track.color.r},${track.color.g},${track.color.b})` }]} />
