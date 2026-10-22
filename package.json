@@ -2,6 +2,7 @@
   "name": "gp-editor",
   "private": true,
   "description": "Guitar Pro editor — monorepo root (packages/gp-core, apps/desktop)",
+  "license": "LGPL-2.1-or-later",
   "scripts": {
     "test": "npm --prefix packages/gp-core test",
     "coverage": "npm --prefix packages/gp-core run coverage",

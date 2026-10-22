@@ -86,5 +86,6 @@ Saving back to a Guitar Pro file is not implemented yet.
 
 ## License
 
-`packages/gp-core` follows TuxGuitar's readers (LGPL-2.1) and is licensed LGPL-2.1-or-later (`packages/gp-core/LICENSE`).
+GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
+`packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 Test fixtures come from the alphaTab test suite (MPL-2.0); see `packages/gp-core/test/fixtures/README.md`.
