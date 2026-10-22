@@ -21,3 +21,11 @@ export class UnexpectedEndOfFileError extends GpFormatError {
     this.name = 'UnexpectedEndOfFileError';
   }
 }
+
+/** A transcription (a model's answer for one page of sheet music) that cannot be turned into a song. */
+export class TranscriptionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TranscriptionError';
+  }
+}
