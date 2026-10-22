@@ -4,6 +4,18 @@
  * Values arrive from outside, so parseTranscriptionPage checks every field before anything is built from them.
  */
 
+/**
+ * More tracks than any score holds; track indexes and track lists beyond it are refused. The builder makes one track
+ * per index up to the highest one seen, so an unchecked index from a model's answer would be an allocation size.
+ */
+export const MAX_TRANSCRIBED_TRACKS = 16;
+/** Longer lists than a page of music holds are refused too, so no answer can make the parser allocate without bound. */
+export const MAX_TRANSCRIBED_MEASURES = 256;
+/** Two voices for every track. */
+export const MAX_TRANSCRIBED_PARTS = MAX_TRANSCRIBED_TRACKS * 2;
+export const MAX_TRANSCRIBED_BEATS = 128;
+export const MAX_TRANSCRIBED_NOTES = 12;
+
 export type TranscribedInstrument = 'guitar' | 'bass';
 
 export type TranscribedDuration = 'whole' | 'half' | 'quarter' | 'eighth' | '16th' | '32nd' | '64th';

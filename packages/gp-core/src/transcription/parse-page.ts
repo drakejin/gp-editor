@@ -16,6 +16,13 @@ import {
   withoutUndefined,
 } from './parse-values';
 import { parsePitch } from './pitch';
+import {
+  MAX_TRANSCRIBED_BEATS,
+  MAX_TRANSCRIBED_MEASURES,
+  MAX_TRANSCRIBED_NOTES,
+  MAX_TRANSCRIBED_PARTS,
+  MAX_TRANSCRIBED_TRACKS,
+} from './types';
 import type {
   TranscribedBeat,
   TranscribedEffect,
@@ -63,7 +70,14 @@ function parseTrack(value: unknown, path: string): TranscribedTrack {
 }
 
 function parseTracks(value: unknown): readonly TranscribedTrack[] | undefined {
-  return value === undefined || value === null ? undefined : readList(value, 'tracks').map((track, index) => parseTrack(track, `tracks[${index}]`));
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const tracks = readList(value, 'tracks');
+  if (tracks.length > MAX_TRANSCRIBED_TRACKS) {
+    throw new TranscriptionError(`tracks: ${tracks.length} tracks (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
+  }
+  return tracks.map((track, index) => parseTrack(track, `tracks[${index}]`));
 }
 
 /** Known effects in the order given, each once; anything else is left out. */
@@ -99,7 +113,7 @@ function parseBeat(value: unknown, path: string): TranscribedBeat {
     throw new TranscriptionError(`${path}.duration: expected one of ${TRANSCRIBED_DURATIONS.join(', ')}`);
   }
   const rest = toFlag(beat.rest);
-  const notes = rest ? [] : readOptionalList(beat.notes, `${path}.notes`).map((note, index) => parseNote(note, `${path}.notes[${index}]`));
+  const notes = rest ? [] : readOptionalList(beat.notes, `${path}.notes`, MAX_TRANSCRIBED_NOTES).map((note, index) => parseNote(note, `${path}.notes[${index}]`));
   return withoutUndefined({
     duration,
     dots: toPositive(toClampedInteger(beat.dots, 0, MAX_DOTS)),
@@ -109,10 +123,13 @@ function parseBeat(value: unknown, path: string): TranscribedBeat {
   });
 }
 
-/** A part's track index; checked against the page's tracks when the page lists them. */
+/** A part's track index: 0…MAX_TRANSCRIBED_TRACKS − 1, and below the page's track count when the page lists tracks. */
 function parseTrackIndex(value: unknown, path: string, trackCount: number | undefined): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new TranscriptionError(`${path}: expected a track index (0 or more)`);
+  }
+  if (value >= MAX_TRANSCRIBED_TRACKS) {
+    throw new TranscriptionError(`${path}: ${value} is out of range (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
   }
   if (trackCount !== undefined && value >= trackCount) {
     throw new TranscriptionError(`${path}: ${value} is out of range (the page lists ${countOf(trackCount, 'track')})`);
@@ -123,7 +140,7 @@ function parseTrackIndex(value: unknown, path: string, trackCount: number | unde
 function parsePart(value: unknown, path: string, trackCount: number | undefined): TranscribedPart {
   const part = readObject(value, path);
   const track = parseTrackIndex(part.track, `${path}.track`, trackCount);
-  const beats = readList(part.beats, `${path}.beats`).map((beat, index) => parseBeat(beat, `${path}.beats[${index}]`));
+  const beats = readList(part.beats, `${path}.beats`, MAX_TRANSCRIBED_BEATS).map((beat, index) => parseBeat(beat, `${path}.beats[${index}]`));
   return { track, beats };
 }
 
@@ -141,7 +158,7 @@ function parseTimeSignature(value: unknown, path: string): TranscribedMeasure['t
 
 function parseMeasure(value: unknown, path: string, trackCount: number | undefined): TranscribedMeasure {
   const measure = readObject(value, path);
-  const parts = readOptionalList(measure.parts, `${path}.parts`).map((part, index) => parsePart(part, `${path}.parts[${index}]`, trackCount));
+  const parts = readOptionalList(measure.parts, `${path}.parts`, MAX_TRANSCRIBED_PARTS).map((part, index) => parsePart(part, `${path}.parts[${index}]`, trackCount));
   return withoutUndefined({
     timeSignature: parseTimeSignature(measure.timeSignature, `${path}.timeSignature`),
     tempo: parseTempo(measure.tempo),
@@ -170,7 +187,7 @@ export function parseTranscriptionPage(value: unknown): TranscriptionPage {
   const page = readObject(value, 'page');
   const tracks = parseTracks(page.tracks);
   const trackCount = tracks !== undefined && tracks.length > 0 ? tracks.length : undefined;
-  const measures = readList(page.measures, 'measures').map((measure, index) => parseMeasure(measure, `measures[${index}]`, trackCount));
+  const measures = readList(page.measures, 'measures', MAX_TRANSCRIBED_MEASURES).map((measure, index) => parseMeasure(measure, `measures[${index}]`, trackCount));
   const warnings = parseWarnings(page.warnings);
   return withoutUndefined({ song: parseSongInfo(page.song), tracks, measures, warnings: warnings.length === 0 ? undefined : warnings });
 }

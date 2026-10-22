@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { TranscriptionError } from '../src/errors';
 import { parseTranscriptionPage } from '../src/transcription/parse-page';
+import {
+  MAX_TRANSCRIBED_BEATS,
+  MAX_TRANSCRIBED_MEASURES,
+  MAX_TRANSCRIBED_NOTES,
+  MAX_TRANSCRIBED_PARTS,
+  MAX_TRANSCRIBED_TRACKS,
+} from '../src/transcription/types';
 import { TRANSCRIPTION_TOOL } from '../src/transcription/tool';
 import { BASS, GUITAR, bar, page, play, rest, run, tab, written } from './helpers/transcription-pages';
 
@@ -70,6 +77,33 @@ describe('parseTranscriptionPage: well-formed pages', () => {
 
     // Assert
     expect(parsed).toEqual({ measures: [{ parts: [{ track: 5, beats: [{ duration: 'whole', rest: true }] }] }] });
+  });
+
+  it('refuses a track index beyond any score, so a wild answer cannot make the builder allocate millions of tracks', () => {
+    // Arrange
+    const page = { measures: [{ parts: [{ track: 100_000_000, beats: [rest('whole')] }] }] };
+
+    // Act + Assert
+    expect(() => parseTranscriptionPage(page)).toThrow(TranscriptionError);
+    expect(() => parseTranscriptionPage(page)).toThrow(`at most ${MAX_TRANSCRIBED_TRACKS} tracks`);
+    expect(parseTranscriptionPage({ measures: [{ parts: [{ track: MAX_TRANSCRIBED_TRACKS - 1, beats: [rest('whole')] }] }] }).measures).toHaveLength(1);
+    const tooMany = Array.from({ length: MAX_TRANSCRIBED_TRACKS + 1 }, (_, i) => ({ name: `T${i}`, instrument: 'guitar', tuning: [], capo: 0 }));
+    expect(() => parseTranscriptionPage({ tracks: tooMany, measures: [] })).toThrow(`at most ${MAX_TRANSCRIBED_TRACKS} tracks`);
+  });
+
+  it('refuses lists longer than any page holds: measures, parts, beats and notes', () => {
+    // Arrange
+    const quarter = { duration: 'quarter', notes: [{ string: 1, fret: 0 }] };
+    const measures = (count: number) => Array.from({ length: count }, () => ({ parts: [] }));
+    const part = (beats: number) => ({ track: 0, beats: Array.from({ length: beats }, () => quarter) });
+    const chord = (notes: number) => ({ duration: 'quarter', notes: Array.from({ length: notes }, (_, i) => ({ string: 1 + (i % 6), fret: i })) });
+
+    // Act + Assert
+    expect(() => parseTranscriptionPage({ measures: measures(MAX_TRANSCRIBED_MEASURES + 1) })).toThrow(`at most ${MAX_TRANSCRIBED_MEASURES}`);
+    expect(() => parseTranscriptionPage({ measures: [{ parts: Array.from({ length: MAX_TRANSCRIBED_PARTS + 1 }, () => part(1)) }] })).toThrow(`at most ${MAX_TRANSCRIBED_PARTS}`);
+    expect(() => parseTranscriptionPage({ measures: [{ parts: [part(MAX_TRANSCRIBED_BEATS + 1)] }] })).toThrow(`at most ${MAX_TRANSCRIBED_BEATS}`);
+    expect(() => parseTranscriptionPage({ measures: [{ parts: [{ track: 0, beats: [chord(MAX_TRANSCRIBED_NOTES + 1)] }] }] })).toThrow(TranscriptionError);
+    expect(parseTranscriptionPage({ measures: measures(MAX_TRANSCRIBED_MEASURES) }).measures).toHaveLength(MAX_TRANSCRIBED_MEASURES);
   });
 
   it('accepts every duration and effect the tool schema offers', () => {

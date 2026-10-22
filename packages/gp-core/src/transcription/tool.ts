@@ -3,6 +3,14 @@
  * schema mirrors types.ts. The import forces the call (`tool_choice`), so the answer is always this structure.
  */
 
+import {
+  MAX_TRANSCRIBED_BEATS,
+  MAX_TRANSCRIBED_MEASURES,
+  MAX_TRANSCRIBED_NOTES,
+  MAX_TRANSCRIBED_PARTS,
+  MAX_TRANSCRIBED_TRACKS,
+} from './types';
+
 const DURATIONS = ['whole', 'half', 'quarter', 'eighth', '16th', '32nd', '64th'] as const;
 const EFFECTS = ['hammer', 'slide', 'bend', 'vibrato', 'palmMute', 'letRing', 'deadNote', 'ghostNote', 'accent', 'harmonic'] as const;
 
@@ -25,7 +33,7 @@ const BEAT_SCHEMA = {
     dots: { type: 'integer', minimum: 0, maximum: 2 },
     tuplet: { type: 'integer', minimum: 0, maximum: 12, description: '3 for a triplet, 0 for none.' },
     rest: { type: 'boolean' },
-    notes: { type: 'array', items: NOTE_SCHEMA, description: 'All notes struck together (a chord) on this beat.' },
+    notes: { type: 'array', items: NOTE_SCHEMA, maxItems: MAX_TRANSCRIBED_NOTES, description: 'All notes struck together (a chord) on this beat.' },
   },
   required: ['duration'],
   additionalProperties: false,
@@ -47,9 +55,13 @@ const MEASURE_SCHEMA = {
     alternateEnding: { type: 'integer', minimum: 0, maximum: 8 },
     parts: {
       type: 'array',
+      maxItems: MAX_TRANSCRIBED_PARTS,
       items: {
         type: 'object',
-        properties: { track: { type: 'integer', minimum: 0 }, beats: { type: 'array', items: BEAT_SCHEMA } },
+        properties: {
+          track: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_TRACKS - 1 },
+          beats: { type: 'array', items: BEAT_SCHEMA, maxItems: MAX_TRANSCRIBED_BEATS },
+        },
         required: ['track', 'beats'],
         additionalProperties: false,
       },
@@ -72,6 +84,7 @@ export const TRANSCRIPTION_TOOL = {
       },
       tracks: {
         type: 'array',
+        maxItems: MAX_TRANSCRIBED_TRACKS,
         items: {
           type: 'object',
           properties: {
@@ -84,7 +97,7 @@ export const TRANSCRIPTION_TOOL = {
           additionalProperties: false,
         },
       },
-      measures: { type: 'array', items: MEASURE_SCHEMA },
+      measures: { type: 'array', items: MEASURE_SCHEMA, maxItems: MAX_TRANSCRIBED_MEASURES },
       warnings: { type: 'array', items: { type: 'string' } },
     },
     required: ['measures'],
