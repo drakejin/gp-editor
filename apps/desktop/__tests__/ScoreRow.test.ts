@@ -41,7 +41,7 @@ describe('isSameRow', () => {
     const quiet = { ...note(1, 3), velocity: 47 };
     const song = makeSong([[beat(960, [quiet])], [], [], [beat(header(4).start, [note(1, 3)])]]);
     const before: ScoreRowProps = {
-      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 3)] }, geometry: rowGeometry('notationAndTab', 6, 1, true),
+      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 3)] }, geometry: rowGeometry('notationAndTab', 6, { hasDynamics: true }),
     };
     const track = song.tracks[0]!;
     const louder = { ...song, tracks: [{ ...track, measures: [{ ...track.measures[0]!, beats: [beat(960, [note(1, 3)])] }, ...track.measures.slice(1)] }] };
@@ -57,7 +57,7 @@ describe('isSameRow', () => {
     // Arrange
     const song = makeSong([[beat(960, [note(1, 3)])], [], [beat(header(3).start, [note(1, 5)])]]);
     const before: ScoreRowProps = {
-      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 2)] }, geometry: rowGeometry('notationAndTab', 6, 1, true),
+      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 2)] }, geometry: rowGeometry('notationAndTab', 6, { hasDynamics: true }),
     };
     const track = song.tracks[0]!;
     const refretted = { ...song, tracks: [{ ...track, measures: [{ ...track.measures[0]!, beats: [beat(960, [note(1, 7)])] }, ...track.measures.slice(1)] }] };

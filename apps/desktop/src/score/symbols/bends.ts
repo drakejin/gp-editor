@@ -1,4 +1,4 @@
-import type { BendPoint } from '@gp-editor/core';
+import type { BendPoint, Measure } from '@gp-editor/core';
 import { bendLabel } from '../../lib/notation';
 import type { DrawCommand } from '../draw';
 import { arrowhead, dashedSpan, verticalArrow } from './shapes';
@@ -149,6 +149,15 @@ function preBend(value: number, geometry: BendGeometry): DrawCommand[] {
     ),
     ...label(value, geometry.startX, tip, geometry),
   ];
+}
+
+/** Whether any note of the track bends off the string: only then do its rows make room for the arrows (`rowGeometry`). */
+export function hasBends(measures: readonly Measure[]): boolean {
+  return measures
+    .flatMap(measure => measure.beats)
+    .flatMap(beat => beat.voices)
+    .flatMap(voice => voice.notes)
+    .some(note => note.effect.bend?.points.some(point => point.value > 0) === true);
 }
 
 /** Arrows, holds and amounts of a bend; nothing for a bend that never leaves the string. */

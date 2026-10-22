@@ -1,7 +1,8 @@
 import { TAB } from '../src/lib/layout';
 import { ROW, SCORE_MODES, type ScoreMode, rowGeometry, showsFretboard, showsNotation, showsTab, toScoreMode } from '../src/score/geometry';
 import { NOTATION, notationBandHeight } from '../src/score/notation';
-import { TAB_MARKS } from '../src/score/symbols/tab-geometry';
+import { BEND } from '../src/score/symbols/bends';
+import { BEND_TIP, TAB_MARKS } from '../src/score/symbols/tab-geometry';
 import { makeSong } from '../test-support/songs';
 
 const GUITAR = makeSong([[]]).tracks[0]!;
@@ -38,7 +39,7 @@ describe('what each score mode shows', () => {
 describe('the dynamics band', () => {
   it('is left out when the track never changes dynamic', () => {
     // Act
-    const geometries = SCORE_MODES.map((mode) => rowGeometry(mode, 6, 1));
+    const geometries = SCORE_MODES.map((mode) => rowGeometry(mode, 6));
 
     // Assert
     expect(geometries.map((geometry) => geometry.dynamicsY)).toEqual([undefined, undefined, undefined]);
@@ -46,8 +47,8 @@ describe('the dynamics band', () => {
 
   it.each(SCORE_MODES)('makes a %s row taller by the band', (mode) => {
     // Act
-    const plain = rowGeometry(mode, 6, 1);
-    const withDynamics = rowGeometry(mode, 6, 1, true);
+    const plain = rowGeometry(mode, 6);
+    const withDynamics = rowGeometry(mode, 6, { hasDynamics: true });
 
     // Assert
     expect(withDynamics.height).toBe(plain.height + ROW.dynamics);
@@ -55,7 +56,7 @@ describe('the dynamics band', () => {
 
   it('goes under the notation staff, above the tab marks, when both staves are shown', () => {
     // Act
-    const geometry = rowGeometry('notationAndTab', 6, 2, true);
+    const geometry = rowGeometry('notationAndTab', 6, { markLaneCount: 2, hasDynamics: true });
 
     // Assert
     expect(geometry.dynamicsY).toBeGreaterThan(geometry.notationTop! + notationBandHeight() - NOTATION.above);
@@ -64,7 +65,7 @@ describe('the dynamics band', () => {
 
   it('goes under the notation staff in notation-only rows', () => {
     // Act
-    const geometry = rowGeometry('notation', 6, 1, true);
+    const geometry = rowGeometry('notation', 6, { hasDynamics: true });
 
     // Assert
     expect(geometry.dynamicsY).toBeGreaterThan(geometry.notationTop! + notationBandHeight() - NOTATION.above);
@@ -73,7 +74,7 @@ describe('the dynamics band', () => {
 
   it('goes under the rhythm of the tab staff in tab-only rows', () => {
     // Act
-    const geometry = rowGeometry('tab', 6, 1, true);
+    const geometry = rowGeometry('tab', 6, { hasDynamics: true });
 
     // Assert
     expect(geometry.dynamicsY).toBeGreaterThan(geometry.tabTop! + 5 * TAB.stringGap + ROW.rhythm);
@@ -82,10 +83,35 @@ describe('the dynamics band', () => {
 
   it('keeps the tab staff and its marks where they were in tab-only rows', () => {
     // Act
-    const plain = rowGeometry('tab', 6, 1);
-    const withDynamics = rowGeometry('tab', 6, 1, true);
+    const plain = rowGeometry('tab', 6);
+    const withDynamics = rowGeometry('tab', 6, { hasDynamics: true });
 
     // Assert
     expect(withDynamics).toMatchObject({ marksY: plain.marksY, tabTop: plain.tabTop });
+  });
+});
+
+describe('the bend band', () => {
+  it.each<ScoreMode>(['notationAndTab', 'tab'])('makes a %s row taller and lifts the marks off the tab staff', (mode) => {
+    // Act
+    const plain = rowGeometry(mode, 6);
+    const withBends = rowGeometry(mode, 6, { hasBends: true });
+
+    // Assert
+    expect(withBends.height).toBe(plain.height + ROW.bends);
+    expect(withBends.tabTop! - withBends.marksY!).toBe(plain.tabTop! - plain.marksY! + ROW.bends);
+  });
+
+  it('keeps the lowest mark lane above the label of the highest stacked bend', () => {
+    // Arrange
+    const geometry = rowGeometry('tab', 6, { hasBends: true });
+    const highestLabelTop = geometry.tabTop! - BEND_TIP - BEND.maxStack - BEND.labelGap - BEND.labelSize / 2;
+
+    // Assert
+    expect(geometry.marksY! + TAB_MARKS.laneHeight / 2).toBeLessThanOrEqual(highestLabelTop);
+  });
+
+  it('is left out of notation-only rows', () => {
+    expect(rowGeometry('notation', 6, { hasBends: true })).toEqual(rowGeometry('notation', 6));
   });
 });

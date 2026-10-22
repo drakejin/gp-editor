@@ -5,7 +5,8 @@ import type {
   PolygonCommand,
   TextCommand,
 } from '../src/score/draw';
-import { type BendPlacement, bendArrows } from '../src/score/symbols/bends';
+import { type BendPlacement, bendArrows, hasBends } from '../src/score/symbols/bends';
+import { beat, makeSong, note } from '../test-support/songs';
 
 const PLACEMENT: BendPlacement = {
   startX: 20,
@@ -128,5 +129,21 @@ describe('custom bends', () => {
     );
     expect(ofKind(commands, 'text').map(t => t.text)).toEqual(['2']);
     expect(ofKind(commands, 'polygon')).toHaveLength(4);
+  });
+});
+
+describe('hasBends', () => {
+  it('finds a bent note in any bar of the track', () => {
+    // Arrange
+    const bend = { points: points([0, 0], [6, 4], [12, 4]) };
+    const song = makeSong([[beat(960, [note(1, 5)])], [beat(4800, [note(3, 7, { bend })])]]);
+
+    // Act + Assert
+    expect(hasBends(song.tracks[0]!.measures)).toBe(true);
+  });
+
+  it('is false when no note bends', () => {
+    const song = makeSong([[beat(960, [note(1, 5)])]]);
+    expect(hasBends(song.tracks[0]!.measures)).toBe(false);
   });
 });

@@ -28,7 +28,7 @@ function bar(number: number, dynamics: readonly DynamicName[], pickStroke: Strok
 function engraveSong(song: Song, mode: ScoreMode): { commands: DrawCommand[]; geometry: ReturnType<typeof rowGeometry>; xOf: (m: number, b: number) => number } {
   const track = song.tracks[0]!;
   const markLanes = tabMarkLanes(track.measures);
-  const geometry = rowGeometry(mode, track.strings.length, markLanes.length, hasDynamicChanges(track.measures));
+  const geometry = rowGeometry(mode, track.strings.length, { markLaneCount: markLanes.length, hasDynamics: hasDynamicChanges(track.measures) });
   const headerWidth = rowHeaderWidth(mode, track);
   const row = { measures: song.measureHeaders.map((_, i) => layoutMeasure(song, 0, i)) };
   const placed = placeRow(row, headerWidth);
@@ -102,7 +102,7 @@ describe('dynamics in a row', () => {
 
     // Assert
     expect(geometry.dynamicsY).toBeUndefined();
-    expect(geometry.height).toBe(rowGeometry('notationAndTab', 6, 0).height);
+    expect(geometry.height).toBe(rowGeometry('notationAndTab', 6, { markLaneCount: 0 }).height);
     expect(texts(commands).filter((c) => Object.values(DYNAMIC_GLYPHS).some((g) => g.text === c.text))).toHaveLength(0);
   });
 });

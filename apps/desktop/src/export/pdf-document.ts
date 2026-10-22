@@ -5,6 +5,7 @@ import { type DrawCommand, scaleCommands, translateCommands } from '../score/dra
 import { hasDynamicChanges } from '../score/dynamics';
 import { type RowGeometry, SCORE_MODE_LABELS, type ScoreMode, rowGeometry } from '../score/geometry';
 import { engraveRow, rowHeaderWidth } from '../score/row';
+import { hasBends } from '../score/symbols/bends';
 import { type TabMarkKind, tabMarkLanes } from '../score/tab';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE, type PaperId, type PaperSize } from './paper';
 import { type TitleBlock, engraveTitleBlock, fitFontSize } from './title-block';
@@ -86,9 +87,14 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   const printWidth = paper.width - 2 * PAGE.margin;
   const titleBlock = engraveTitleBlock(song, trackIndex, title, printWidth, PRINT_PALETTE);
   const track = song.tracks[trackIndex];
-  // Lanes and the dynamics band of the whole track, so every row has one height, as on screen.
-  const markLanes = tabMarkLanes(track?.measures ?? []);
-  const geometry = rowGeometry(mode, track?.strings.length ?? 6, markLanes.length, hasDynamicChanges(track?.measures ?? []));
+  // Lanes, the dynamics band and the bend band of the whole track, so every row has one height, as on screen.
+  const trackMeasures = track?.measures ?? [];
+  const markLanes = tabMarkLanes(trackMeasures);
+  const geometry = rowGeometry(mode, track?.strings.length ?? 6, {
+    markLaneCount: markLanes.length,
+    hasDynamics: hasDynamicChanges(trackMeasures),
+    hasBends: hasBends(trackMeasures),
+  });
   const headerWidth = track === undefined ? 0 : rowHeaderWidth(mode, track);
   // Rows are laid out at screen size across the printable width, then printed at PRINT_SCALE; a measure too wide for
   // a line is squeezed instead of running off the page.
