@@ -88,7 +88,7 @@ function measureTuplets(measure: Measure): readonly Tuplet[] {
 }
 
 /** Rests for `ticks` of unused time, plain or in one of `tuplets`; undefined when none can write it. */
-function gapRests(ticks: number, tuplets: readonly Tuplet[]): VoiceEvents | undefined {
+export function gapRests(ticks: number, tuplets: readonly Tuplet[]): VoiceEvents | undefined {
   if (ticks <= 0) {
     return [];
   }

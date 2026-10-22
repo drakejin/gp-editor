@@ -5,7 +5,7 @@ import type { Beat, Song, Stroke, StrokeDirection } from '../model/song';
 import type { BeatAddress } from './addresses';
 import { updateBeat } from './song-paths';
 
-const STROKE_DIRECTIONS: readonly StrokeDirection[] = ['none', 'up', 'down'];
+export const STROKE_DIRECTIONS: readonly StrokeDirection[] = ['none', 'up', 'down'];
 
 /** The stroke to store: NO_STROKE for direction none; undefined for an unknown direction or speed. */
 function normalizeStroke(stroke: Stroke): Stroke | undefined {

@@ -11,9 +11,9 @@ import { isSameDuration } from './timeline';
 /** Grace note lengths: 1 = 64th, 2 = 32nd, 3 = 16th (TGEffectGrace). */
 const MIN_GRACE_DURATION = 1;
 const MAX_GRACE_DURATION = 3;
-const GRACE_TRANSITIONS: readonly GraceTransition[] = ['none', 'slide', 'bend', 'hammer'];
+export const GRACE_TRANSITIONS: readonly GraceTransition[] = ['none', 'slide', 'bend', 'hammer'];
 
-function isGraceDuration(duration: number): boolean {
+export function isGraceDuration(duration: number): boolean {
   return Number.isInteger(duration) && duration >= MIN_GRACE_DURATION && duration <= MAX_GRACE_DURATION;
 }
 
