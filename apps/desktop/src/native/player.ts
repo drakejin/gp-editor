@@ -15,7 +15,7 @@ export interface SoundBank {
 
 export interface SoundBanks {
   readonly banks: readonly SoundBank[];
-  /** Empty when there is no bank at all (AVMIDIPlayer then uses its own). */
+  /** Empty when there is no bank at all (the synth then uses its own). */
   readonly selectedId: string;
 }
 
@@ -23,13 +23,14 @@ interface GPPlayerModule {
   play(base64Midi: string, fromSeconds: number): Promise<void>;
   stop(): Promise<void>;
   position(): Promise<PlayerPosition>;
+  setProgram(channel: number, program: number): Promise<void>;
   soundBanks(): Promise<SoundBanks>;
   selectSoundBank(id: string): Promise<SoundBanks>;
   addSoundBank(): Promise<SoundBanks | null>;
   removeSoundBank(id: string): Promise<SoundBanks>;
 }
 
-/** JS side of macos/GPEditor-macOS/GPPlayer.m (AVMIDIPlayer with the selected sound bank, see GPSoundBanks.m). */
+/** JS side of macos/GPEditor-macOS/GPPlayer.m (GPMidiEngine with the selected sound bank, see GPSoundBanks.m). */
 const native = NativeModules.GPPlayer as GPPlayerModule | undefined;
 
 function requireNative(): GPPlayerModule {
@@ -45,6 +46,11 @@ export function playMidi(base64Midi: string, fromSeconds = 0): Promise<void> {
 
 export function stopMidi(): Promise<void> {
   return native === undefined ? Promise.resolve() : native.stop();
+}
+
+/** Switches a MIDI channel of the playing song to another program now (a track's instrument changed). */
+export function setMidiProgram(midiChannel: number, program: number): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setProgram(midiChannel, program);
 }
 
 export function playerPosition(): Promise<PlayerPosition> {

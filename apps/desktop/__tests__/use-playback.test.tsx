@@ -7,12 +7,14 @@ const mockPlayer = {
   play: jest.fn<Promise<void>, [string, number?]>(),
   stop: jest.fn(() => Promise.resolve()),
   position: jest.fn(() => Promise.resolve({ seconds: 0.1, isPlaying: true })),
+  setProgram: jest.fn((_channel: number, _program: number) => Promise.resolve()),
 };
 
 jest.mock('../src/native/player', () => ({
   playMidi: (base64: string, from?: number) => mockPlayer.play(base64, from),
   stopMidi: () => mockPlayer.stop(),
   playerPosition: () => mockPlayer.position(),
+  setMidiProgram: (channel: number, program: number) => mockPlayer.setProgram(channel, program),
 }));
 
 const song = makeSong([[beat(960, [note(1, 0)])]]);
@@ -285,31 +287,70 @@ describe('usePlayback while the song is edited', () => {
     hook.unmount();
   });
 
-  it('restarts at the bar being played when a track’s instrument changes, so the new sound is heard', async () => {
+  const GUITAR = { id: 1, name: 'Guitar', program: 25, bank: 0, volume: 127, balance: 64, chorus: 0, reverb: 0, phaser: 0, tremolo: 0, isPercussion: false };
+
+  it('switches a track’s instrument live while playing: a program change, no restart', async () => {
     // Arrange
     mockPlayer.play.mockResolvedValue(undefined);
-    const withChannel = { ...threeBars, channels: [{ id: 1, name: 'Guitar', program: 25, bank: 0, volume: 127, balance: 64, chorus: 0, reverb: 0, phaser: 0, tremolo: 0, isPercussion: false }] };
+    const withChannel = { ...threeBars, channels: [GUITAR] };
     const hook = renderEditableHook(withChannel);
     ReactTestRenderer.act(() => hook.current().start(1));
     await settle();
 
     // Act
-    hook.setSong({ ...withChannel, channels: withChannel.channels.map((channel) => ({ ...channel, program: 30 })) });
+    hook.setSong({ ...withChannel, channels: [{ ...GUITAR, program: 30 }] });
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
 
     // Assert
-    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    expect(mockPlayer.setProgram.mock.calls).toEqual([[0, 30], [1, 30]]);
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
     expect(hook.current().isPlaying).toBe(true);
     hook.unmount();
   });
 
-  it('restarts on request (a new sound bank) only while playing', async () => {
+  it('restarts once, after the clicks stop, when the MIDI channels themselves changed', async () => {
+    // Arrange: each edit adds a channel, which a live program change cannot follow
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong({ ...withChannel, channels: [GUITAR, { ...GUITAR, id: 2 }] });
+    hook.setSong({ ...withChannel, channels: [GUITAR, { ...GUITAR, id: 2 }, { ...GUITAR, id: 3 }] });
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('restarts on request (a new sound bank) only while playing, and not after a stop', async () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderEditableHook(threeBars);
     ReactTestRenderer.act(() => hook.current().restart());
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(mockPlayer.play).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => hook.current().start(0));
     await settle();
     ReactTestRenderer.act(() => hook.current().restart());
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    ReactTestRenderer.act(() => hook.current().restart());
+    ReactTestRenderer.act(() => hook.current().stop());
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
     hook.unmount();
   });

@@ -65,10 +65,13 @@ export { setTrackProgram } from './edit/track-sound';
 export { GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex } from './formats/common/channels';
 export { type RepeatChange, setKeySignature, setRepeat, setTempo, setTimeSignature } from './edit/measure-headers';
 export {
+  type ChannelRoute,
   type MidiOptions,
   type MidiRender,
   type ScorePosition,
   type TimelineEntry,
+  UNROUTED,
+  buildChannelRoutes,
   positionAt,
   renderMidi,
   timelineIndexAt,

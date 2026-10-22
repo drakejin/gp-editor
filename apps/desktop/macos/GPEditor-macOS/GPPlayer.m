@@ -1,19 +1,19 @@
-// MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) with AVMIDIPlayer and the
+// MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) on GPMidiEngine with the
 // selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added). JS polls
-// -position to follow the playing beat.
+// -position to follow the playing beat, and changes a channel's program live when a track's instrument changes.
 
-#import <AVFoundation/AVFoundation.h>
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+#import "GPMidiEngine.h"
 #import "GPSoundBanks.h"
 
 @interface GPPlayer : NSObject <RCTBridgeModule>
 @end
 
 @implementation GPPlayer {
-  AVMIDIPlayer *_player;
+  GPMidiEngine *_engine;
 }
 
 RCT_EXPORT_MODULE();
@@ -28,32 +28,40 @@ RCT_EXPORT_MODULE();
   return dispatch_get_main_queue();
 }
 
+- (GPMidiEngine *)engine
+{
+  if (_engine == nil) {
+    _engine = [GPMidiEngine new];
+  }
+  return _engine;
+}
+
 RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
-  [_player stop];
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
   if (data == nil) {
+    [self.engine stop];
     reject(@"bad_midi", @"The MIDI data is not valid base64", nil);
     return;
   }
   NSError *error = nil;
-  // nil (no bank at all) makes AVMIDIPlayer use its default bank.
-  AVMIDIPlayer *player = [[AVMIDIPlayer alloc] initWithData:data soundBankURL:[GPSoundBanks selectedBankURL] error:&error];
-  if (player == nil) {
-    reject(@"player_failed", error.localizedDescription ?: @"Could not create the MIDI player", error);
+  if (![self.engine playData:data fromSeconds:seconds bankURL:[GPSoundBanks selectedBankURL] error:&error]) {
+    reject(@"player_failed", error.localizedDescription ?: @"Could not play the song", error);
     return;
   }
-  [player prepareToPlay];
-  player.currentPosition = MAX(0, seconds);
-  [player play:nil];
-  _player = player;
   resolve(nil);
 }
 
 RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
-  [_player stop];
-  _player = nil;
+  [_engine stop];
+  resolve(nil);
+}
+
+/** A channel's instrument changes now, in the playing song (a track's instrument was picked). */
+RCT_EXPORT_METHOD(setProgram : (double)channel program : (double)program resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [_engine setProgram:(UInt8)program onChannel:(UInt8)channel];
   resolve(nil);
 }
 
@@ -111,11 +119,7 @@ RCT_EXPORT_METHOD(removeSoundBank : (NSString *)bankId resolve : (RCTPromiseReso
 
 RCT_EXPORT_METHOD(position : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
-  AVMIDIPlayer *player = _player;
-  resolve(@{
-    @"seconds" : @(player == nil ? 0 : player.currentPosition),
-    @"isPlaying" : @(player != nil && player.isPlaying && player.currentPosition < player.duration),
-  });
+  resolve(@{@"seconds" : @(_engine.positionSeconds), @"isPlaying" : @(_engine.isPlaying)});
 }
 
 @end
