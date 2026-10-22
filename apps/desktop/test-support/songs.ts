@@ -1,5 +1,25 @@
-import { EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, RED } from '@gp-editor/core';
+import { DEFAULT_CHANNEL, EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, RED } from '@gp-editor/core';
 import type { Beat, Duration, MeasureHeader, Note, NoteEffect, Song } from '@gp-editor/core';
+
+export interface StringsOptions {
+  /** GM program of the track's channel; the song keeps no channel when left out. */
+  readonly program?: number;
+  /** Capo fret. */
+  readonly offset?: number;
+  readonly isPercussion?: boolean;
+}
+
+/** The song with its first track on other strings (string 1 first), optionally a channel program, capo or drums. */
+export function onStrings(song: Song, tuning: readonly number[], options: StringsOptions = {}): Song {
+  const [track, ...others] = song.tracks;
+  if (track === undefined) {
+    return song;
+  }
+  const strings = tuning.map((open, i) => ({ number: i + 1, tuning: open }));
+  const tuned = { ...track, strings, offset: options.offset ?? track.offset, isPercussion: options.isPercussion ?? track.isPercussion };
+  const channels = options.program === undefined ? song.channels : [{ ...DEFAULT_CHANNEL, id: track.channelId, program: options.program }];
+  return { ...song, channels, tracks: [tuned, ...others] };
+}
 
 export function note(string: number, fret: number, effect: Partial<NoteEffect> = {}): Note {
   return { string, fret, velocity: 95, isTied: false, effect: { ...EMPTY_NOTE_EFFECT, ...effect } };

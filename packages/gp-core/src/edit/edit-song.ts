@@ -9,6 +9,9 @@ export { type StringAddress, findNote } from './addresses';
 /** Highest fret an edit may set (TuxGuitar's TGTrack.DEFAULT_MAX_FRET). */
 export const MAX_FRET = 29;
 
+/** Frets of the neck the app draws, and that tunings are fitted to (a 24-fret guitar or bass). */
+export const NECK_FRETS = 24;
+
 /**
  * New song with the fret at the position set (clamped to 0…MAX_FRET); adds a note when the string is empty.
  * Same song when the position does not exist.

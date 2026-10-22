@@ -117,11 +117,16 @@ export default function App() {
           mode={state.mode}
           cursor={cursor}
           playing={playback.playing}
+          notice={state.notice}
           palette={palette}
           onSelectTrack={index =>
             dispatch({ type: 'selectTrack', trackIndex: index })
           }
           onPressBeat={commands.onPressBeat}
+          onSetTrackTuning={(index, tuning) =>
+            dispatch({ type: 'setTrackTuning', trackIndex: index, tuning })
+          }
+          onDismissNotice={() => dispatch({ type: 'dismissNotice' })}
         />
       ) : (
         <EmptyState

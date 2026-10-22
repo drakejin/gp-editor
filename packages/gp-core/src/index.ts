@@ -11,6 +11,7 @@ export {
   QUARTER,
   RED,
   NOTE_VALUES,
+  STANDARD_BASS_TUNING,
   STANDARD_TUNING,
   durationFromTicks,
   durationTicks,
@@ -25,7 +26,27 @@ export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
 export { GpFormatError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
-export { MAX_FRET, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString } from './edit/edit-song';
+export { MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString } from './edit/edit-song';
+export {
+  type Instrument,
+  type NeckInstrument,
+  TUNING_PRESETS,
+  type TuningPreset,
+  findTuningPreset,
+  resolveInstrument,
+  trackTuning,
+  tuningPresetsFor,
+} from './edit/tuning-presets';
+export {
+  type PitchRange,
+  type PresetFit,
+  type TuningAdvice,
+  canPlayOnTuning,
+  countUnplayableNotes,
+  suggestTunings,
+  trackPitchRange,
+} from './edit/tuning-fit';
+export { type TuningChange, setTrackTuning } from './edit/retune';
 export { type BeatAddress, deleteBeat, insertBeat, setBeatDuration } from './edit/beats';
 export {
   BEND_PRESETS,

@@ -74,6 +74,9 @@ export const DEFAULT_CHANNEL: Omit<Channel, 'id'> = {
 /** Standard guitar tuning, string 1 (high E) first. */
 export const STANDARD_TUNING: readonly number[] = [64, 59, 55, 50, 45, 40];
 
+/** Standard 4-string bass tuning (E A D G), string 1 (G) first. */
+export const STANDARD_BASS_TUNING: readonly number[] = [43, 38, 33, 28];
+
 /**
  * Length of a duration in ticks (QUARTER_TIME per quarter note). Integer maths as in
  * TuxGuitar's TGDuration.getTime, so positions match TuxGuitar's.

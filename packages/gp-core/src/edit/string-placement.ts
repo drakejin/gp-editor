@@ -1,0 +1,160 @@
+import { MAX_FRET, NECK_FRETS } from './edit-song';
+
+const SEMITONES_PER_OCTAVE = 12;
+
+/** A note to put on a string: its pitch counted from the capo (open string + fret) and the string it would rather keep. */
+export interface NoteToPlace {
+  readonly pitch: number;
+  /** 1 = highest string of the new tuning. */
+  readonly preferredString: number;
+}
+
+/** Where a note went. `octaves` is how far its pitch moved (0 = same pitch, 1 = an octave up). */
+export interface StringPlacement {
+  readonly string: number;
+  readonly fret: number;
+  readonly octaves: number;
+}
+
+/** Frets a note may take, counted from the capo. */
+export interface FretRange {
+  /** Last fret of the neck. */
+  readonly neck: number;
+  /** Last fret an edit may set; at least `neck`. */
+  readonly max: number;
+}
+
+/** Frets of the neck (NECK_FRETS) and of an edit (MAX_FRET) left above a capo at `offset`. */
+export function fretRange(offset: number): FretRange {
+  const neck = Math.max(0, NECK_FRETS - offset);
+  return { neck, max: Math.max(neck, MAX_FRET - offset) };
+}
+
+/**
+ * For each string of `from` (index 0 = string 1), the string of `to` its notes would rather keep: the same string when
+ * both tunings have as many strings, else the string whose open pitch is closest (TuxGuitar's
+ * TGTrackManager.allocateNotesToClosestString), so a 7-string's low A goes to the low E of a 6-string.
+ */
+export function homeStrings(from: readonly number[], to: readonly number[]): readonly number[] {
+  if (from.length === to.length) {
+    return from.map((_, i) => i + 1);
+  }
+  return from.map((open) =>
+    to.reduce((best, candidate, i) => (Math.abs(candidate - open) < Math.abs((to[best - 1] ?? 0) - open) ? i + 1 : best), 1),
+  );
+}
+
+/** Strings 1…count, nearest to `preferred` first (the higher string first on a tie). */
+function stringsByPreference(preferred: number, count: number): number[] {
+  return Array.from({ length: count }, (_, i) => i + 1).sort((a, b) => Math.abs(a - preferred) - Math.abs(b - preferred) || a - b);
+}
+
+function fretOf(pitch: number, tuning: readonly number[], string: number): number {
+  return pitch - (tuning[string - 1] ?? Number.POSITIVE_INFINITY);
+}
+
+function fitsFrets(pitch: number, tuning: readonly number[], string: number, lastFret: number): boolean {
+  const fret = fretOf(pitch, tuning, string);
+  return fret >= 0 && fret <= lastFret;
+}
+
+/** Kuhn's augmenting path: gives the note a free string, else frees one by moving its holder. Updates `owners`. */
+function augment(noteIndex: number, options: readonly (readonly number[])[], owners: (number | undefined)[], visited: Set<number>): boolean {
+  const candidates = options[noteIndex] ?? [];
+  const free = candidates.find((string) => owners[string - 1] === undefined);
+  if (free !== undefined) {
+    owners[free - 1] = noteIndex;
+    return true;
+  }
+  for (const string of candidates) {
+    const holder = owners[string - 1];
+    if (!visited.has(string) && holder !== undefined) {
+      visited.add(string);
+      if (augment(holder, options, owners, visited)) {
+        owners[string - 1] = noteIndex;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Note index on each string (index 0 = string 1): as many notes as possible on frets 0…neck. Notes first take their
+ * preferred string in list order; the others go to the nearest free string, moving earlier notes only when that is the
+ * only way to fit them (a maximum matching, so a beat that can be played on the neck always is).
+ */
+function matchOnNeck(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number): readonly (number | undefined)[] {
+  const options = notes.map((note) =>
+    stringsByPreference(note.preferredString, tuning.length).filter((string) => fitsFrets(note.pitch, tuning, string, neck)),
+  );
+  const owners: (number | undefined)[] = tuning.map(() => undefined);
+  notes.forEach((note, noteIndex) => {
+    if (options[noteIndex]?.[0] === note.preferredString && owners[note.preferredString - 1] === undefined) {
+      owners[note.preferredString - 1] = noteIndex;
+    }
+  });
+  notes.forEach((_, noteIndex) => {
+    if (!owners.includes(noteIndex)) {
+      augment(noteIndex, options, owners, new Set());
+    }
+  });
+  return owners;
+}
+
+/** The fewest octaves that bring `pitch` onto frets 0…neck of an open string; undefined when none does. */
+function octavesOnto(pitch: number, open: number, neck: number): number | undefined {
+  const fret = pitch - open;
+  const octaves = fret < 0 ? Math.ceil(-fret / SEMITONES_PER_OCTAVE) : -Math.ceil(Math.max(0, fret - neck) / SEMITONES_PER_OCTAVE);
+  const moved = fret + octaves * SEMITONES_PER_OCTAVE;
+  return moved >= 0 && moved <= neck ? octaves + 0 : undefined;
+}
+
+function placement(pitch: number, tuning: readonly number[], string: number, octaves: number): StringPlacement {
+  return { string, fret: fretOf(pitch + octaves * SEMITONES_PER_OCTAVE, tuning, string), octaves };
+}
+
+/** A note the neck could not hold: a free string up to the edit limit, else the fewest octaves onto a free string's neck. */
+function placeLeftover(note: NoteToPlace, tuning: readonly number[], range: FretRange, free: ReadonlySet<number>): StringPlacement | undefined {
+  const strings = stringsByPreference(note.preferredString, tuning.length).filter((string) => free.has(string));
+  const pastNeck = strings.find((string) => fitsFrets(note.pitch, tuning, string, range.max));
+  if (pastNeck !== undefined) {
+    return placement(note.pitch, tuning, pastNeck, 0);
+  }
+  let best: StringPlacement | undefined;
+  for (const string of strings) {
+    const octaves = octavesOnto(note.pitch, tuning[string - 1] ?? 0, range.neck);
+    if (octaves !== undefined && (best === undefined || Math.abs(octaves) < Math.abs(best.octaves))) {
+      best = placement(note.pitch, tuning, string, octaves);
+    }
+  }
+  return best;
+}
+
+/**
+ * Puts the notes of one beat (all voices) on separate strings of `tuning`, keeping each pitch where it can:
+ * 1. on the neck (frets 0…range.neck): each note on its preferred string, else the nearest free string — earlier notes
+ *    keep their preferred string, and as many notes as possible fit;
+ * 2. a note that does not fit: a free string with a fret up to range.max;
+ * 3. else moved by the fewest octaves onto a free string's neck.
+ * undefined for a note left without a string (more notes than strings).
+ */
+export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], range: FretRange): readonly (StringPlacement | undefined)[] {
+  const owners = matchOnNeck(notes, tuning, range.neck);
+  const placed = notes.map((note, noteIndex): StringPlacement | undefined => {
+    const string = owners.indexOf(noteIndex) + 1;
+    return string > 0 ? placement(note.pitch, tuning, string, 0) : undefined;
+  });
+  const free = new Set(tuning.map((_, i) => i + 1).filter((string) => owners[string - 1] === undefined));
+  return placed.map((existing, noteIndex) => {
+    const note = notes[noteIndex];
+    if (existing !== undefined || note === undefined) {
+      return existing;
+    }
+    const leftover = placeLeftover(note, tuning, range, free);
+    if (leftover !== undefined) {
+      free.delete(leftover.string);
+    }
+    return leftover;
+  });
+}
