@@ -1,4 +1,4 @@
-import type { Palette } from '../theme';
+import { CHROME, type Palette } from '../theme';
 
 /** Paper sizes the PDF export offers. */
 export type PaperId = 'a4' | 'letter';
@@ -54,4 +54,6 @@ export const PRINT_PALETTE: Palette = {
   selection: '#DDDDDD',
   danger: '#000000',
   border: '#BBBBBB',
+  desk: '#FFFFFF',
+  ...CHROME,
 };

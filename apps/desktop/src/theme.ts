@@ -12,7 +12,33 @@ export interface Palette {
   readonly selection: string;
   readonly danger: string;
   readonly border: string;
+  /** Around the score page (Guitar Pro's grey desk). */
+  readonly desk: string;
+  /** Guitar Pro-style dark chrome (top bar, palette, inspector, tracks panel) — dark in both appearances. */
+  readonly chrome: string;
+  /** Top bar and panel headers, a shade darker than `chrome`. */
+  readonly chromeDeep: string;
+  /** Buttons, fields and empty bar cells on the chrome. */
+  readonly chromeRaised: string;
+  readonly chromeBorder: string;
+  readonly chromeText: string;
+  readonly chromeMuted: string;
+  /** Selected / active controls on the chrome (Guitar Pro's blue). */
+  readonly chromeAccent: string;
+  readonly chromeAccentText: string;
 }
+
+/** The chrome looks the same in light and dark mode, as Guitar Pro's does. */
+export const CHROME = {
+  chrome: '#2C2E33',
+  chromeDeep: '#222428',
+  chromeRaised: '#3B3E44',
+  chromeBorder: '#17181B',
+  chromeText: '#E4E6EA',
+  chromeMuted: '#969BA3',
+  chromeAccent: '#3C87F7',
+  chromeAccentText: '#FFFFFF',
+} as const;
 
 const LIGHT: Palette = {
   background: '#ECEDEF',
@@ -26,6 +52,8 @@ const LIGHT: Palette = {
   selection: '#FFD8C7',
   danger: '#C62828',
   border: '#D9D9DE',
+  desk: '#D3D5D9',
+  ...CHROME,
 };
 
 const DARK: Palette = {
@@ -40,6 +68,8 @@ const DARK: Palette = {
   selection: '#6B3A26',
   danger: '#FF6B6B',
   border: '#3A3A3D',
+  desk: '#141416',
+  ...CHROME,
 };
 
 export function usePalette(): Palette {

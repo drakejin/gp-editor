@@ -6,7 +6,7 @@ import {
   notationBandHeight,
   notationRowHeaderWidth,
 } from '../src/score/notation';
-import type { Palette } from '../src/theme';
+import { CHROME, type Palette } from '../src/theme';
 import { makeSong } from '../test-support/songs';
 
 const PALETTE: Palette = {
@@ -21,6 +21,8 @@ const PALETTE: Palette = {
   selection: '#555555',
   danger: '#666666',
   border: '#777777',
+  desk: '#FFFFFF',
+  ...CHROME,
 };
 const TOP = 50;
 const yOf = (position: number) => TOP + ((8 - position) * NOTATION.space) / 2;

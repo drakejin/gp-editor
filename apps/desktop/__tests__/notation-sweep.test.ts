@@ -8,7 +8,7 @@ import {
   notationBandHeight,
   notationRowHeaderWidth,
 } from '../src/score/notation';
-import type { Palette } from '../src/theme';
+import { CHROME, type Palette } from '../src/theme';
 import { listFixtures, readFixture } from '../test-support/fixtures';
 
 const FOLDERS = ['guitarpro3', 'guitarpro5', 'guitarpro7', 'guitarpro8'];
@@ -28,6 +28,8 @@ const PALETTE: Palette = {
   selection: '#FFD8C7',
   danger: '#C62828',
   border: '#D9D9DE',
+  desk: '#FFFFFF',
+  ...CHROME,
 };
 
 interface Fixture {

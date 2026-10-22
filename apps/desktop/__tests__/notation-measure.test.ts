@@ -25,7 +25,7 @@ import {
   engraveNotationMeasure,
 } from '../src/score/notation';
 import { OTTAVA } from '../src/score/notation/metrics';
-import type { Palette } from '../src/theme';
+import { CHROME, type Palette } from '../src/theme';
 import { beat, header, makeSong, note } from '../test-support/songs';
 
 const PALETTE: Palette = {
@@ -40,6 +40,8 @@ const PALETTE: Palette = {
   selection: '#555555',
   danger: '#666666',
   border: '#777777',
+  desk: '#FFFFFF',
+  ...CHROME,
 };
 const TOP = NOTATION.above;
 const SPACE = NOTATION.space;
