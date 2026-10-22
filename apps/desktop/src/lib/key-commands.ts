@@ -48,6 +48,8 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'ArrowRight' },
   { key: 'ArrowLeft', altKey: true },
   { key: 'ArrowRight', altKey: true },
+  { key: 'ArrowLeft', shiftKey: true },
+  { key: 'ArrowRight', shiftKey: true },
   { key: 'Home' },
   { key: 'End' },
   { key: '-' },
@@ -111,7 +113,8 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration, I inserts a beat, Space plays,
- * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy, cut and paste.
+ * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
+ * cut and paste.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
@@ -129,6 +132,9 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   }
   if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
     return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };
+  }
+  if (press.shiftKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
+    return { type: 'extendSelection', step: press.key === 'ArrowLeft' ? -1 : 1 };
   }
   if (press.shiftKey && press.key === 'Backspace') {
     return { type: 'edit', edit: { type: 'deleteBeat' } };

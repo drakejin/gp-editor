@@ -21,6 +21,7 @@ import { TracksPanel } from './components/TracksPanel';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
 import { NotePanelView } from './components/note-panels/NotePanels';
+import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
@@ -38,11 +39,9 @@ import { noNoteHint } from './state/edit-hints';
 import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { playbackStartTempo } from './state/practice';
+import { selectionRange } from './state/selection';
 import type { SongEdit } from './state/song-edits';
 import { type Palette, onChrome, usePalette } from './theme';
-
-/** Until the clipboard hook lands: copy, cut and paste do nothing. */
-const NO_CLIPBOARD = { copy: () => undefined, cut: () => undefined, paste: () => undefined };
 
 export default function App() {
   const palette = usePalette();
@@ -70,6 +69,10 @@ export default function App() {
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel.
   const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch);
+  const clipboard = useClipboard(state, dispatch);
+  const { selectionAnchor } = state;
+  // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.
+  const selection = useMemo(() => selectionRange({ cursor, selectionAnchor }), [cursor, selectionAnchor]);
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -90,7 +93,7 @@ export default function App() {
       }
     },
     closeOverlay: chrome.closeOverlay,
-    clipboard: NO_CLIPBOARD,
+    clipboard,
     keyboardView,
   });
 
@@ -230,6 +233,7 @@ export default function App() {
               mode={state.mode}
               cursor={cursor}
               playing={playback.playing}
+              selection={selection}
               palette={palette}
               zoom={chrome.zoom}
               header={<SongHeader song={document.song} trackIndex={trackIndex} fileName={document.fileName} palette={palette} />}

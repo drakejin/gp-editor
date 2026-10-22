@@ -20,6 +20,12 @@ describe('keyCommand', () => {
     expect(keyCommand(press('ArrowDown', { altKey: true }), digit, 0)).toEqual({ type: 'shiftNoteString', delta: 1 });
   });
 
+  it('selects beats with ⇧← and ⇧→', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('ArrowLeft', { shiftKey: true }), digit, 0)).toEqual({ type: 'extendSelection', step: -1 });
+    expect(keyCommand(press('ArrowRight', { shiftKey: true }), digit, 0)).toEqual({ type: 'extendSelection', step: 1 });
+  });
+
   it('jumps between bars: ⌥←/→ previous and next, Home and End first and last', () => {
     const digit = { current: undefined };
     expect(keyCommand(press('ArrowLeft', { altKey: true }), digit, 0)).toEqual({ type: 'goToBar', jump: 'previous' });
