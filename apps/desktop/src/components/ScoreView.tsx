@@ -7,6 +7,7 @@ import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type PlayingBeat, rowHeaderWidth } from '../score/row';
 import { hasBends } from '../score/symbols/bends';
+import { type BeatRange, clipRange } from '../score/selection-tint';
 import { tabMarkLanes } from '../score/tab';
 import type { Palette } from '../theme';
 import { ScoreRow } from './ScoreRow';
@@ -17,6 +18,8 @@ interface ScoreViewProps {
   readonly mode: ScoreMode;
   readonly cursor?: StringAddress;
   readonly playing?: PlayingBeat;
+  /** Selected beats of the shown track (selectionRange), tinted; keep it the same object while it does not change. */
+  readonly selection?: BeatRange;
   readonly palette: Palette;
   /** Screen points per layout point. */
   readonly zoom: number;
@@ -38,7 +41,7 @@ const SCROLL_POSITION = 0.25;
  * The score as one page on Guitar Pro's grey desk: the title block, then the rows of the shown track, zoomed. The
  * playing row, and the cursor's row when it leaves the view (a bar picked in the bar map), are scrolled into view.
  */
-export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, zoom, header, onPressBeat }: ScoreViewProps) {
+export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, palette, zoom, header, onPressBeat }: ScoreViewProps) {
   const [width, setWidth] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
   const listRef = useRef<FlatList<RowLayout>>(null);
@@ -97,6 +100,7 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, zo
             palette={palette}
             cursor={inRow(cursor?.measureIndex) ? cursor : undefined}
             playing={inRow(playing?.measureIndex) ? playing : undefined}
+            selection={clipRange(selection, item.measures[0]?.measureIndex ?? 0, item.measures[item.measures.length - 1]?.measureIndex ?? 0)}
             markLanes={markLanes}
             zoom={zoom}
             onPress={onPressBeat}
@@ -104,7 +108,7 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, zo
         </View>
       );
     },
-    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, markLanes, zoom, onPressBeat],
+    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, selection, markLanes, zoom, onPressBeat],
   );
 
   return (

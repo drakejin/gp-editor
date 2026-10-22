@@ -1,5 +1,6 @@
 import {
   type Beat,
+  type BeatFragment,
   type Song,
   type SongInfo,
   type StringAddress,
@@ -28,6 +29,14 @@ import { retuneNotice } from '../lib/tuning-hint';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { refusalHint } from './edit-hints';
+import {
+  type ClipboardEdit,
+  cutSelectionAt,
+  extendSelection,
+  pasteBeatsAt,
+  pasteRefusal,
+  settleSelection,
+} from './selection';
 
 /** Undo depth kept in memory. */
 export const HISTORY_LIMIT = 200;
@@ -51,6 +60,11 @@ export interface EditorState {
   readonly trackIndex: number;
   /** Where edits apply: a string position in a beat, which may hold no note yet. */
   readonly cursor?: StringAddress;
+  /**
+   * Where the selection started (extendSelection): the beats from here to the cursor, in the cursor's voice, are
+   * selected. Gone after any other cursor move, an edit or another track.
+   */
+  readonly selectionAnchor?: StringAddress;
   readonly mode: ScoreMode;
   readonly isLoading: boolean;
   readonly error?: string;
@@ -114,6 +128,15 @@ export type EditorAction =
     }
   | { readonly type: 'dismissNotice' }
   | { readonly type: 'dismissHint' }
+  /** The cursor a beat further (as moveCursorBeat), keeping the selection's start where the cursor was. */
+  | { readonly type: 'extendSelection'; readonly step: -1 | 1 }
+  | { readonly type: 'clearSelection' }
+  /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. One undo step. */
+  | { readonly type: 'cutSelection' }
+  /** Inserts beats at the cursor; what follows moves on. One undo step. */
+  | { readonly type: 'pasteBeats'; readonly fragment: BeatFragment }
+  /** The system clipboard could not be read or written. */
+  | { readonly type: 'clipboardFailed'; readonly message: string }
   | { readonly type: 'edit'; readonly edit: SongEdit }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
@@ -130,6 +153,10 @@ export function editorReducer(
   state: EditorState,
   action: EditorAction,
 ): EditorState {
+  return settleSelection(state, reduceEditor(state, action), action);
+}
+
+function reduceEditor(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'loadStarted':
       return { ...state, isLoading: true, error: undefined };
@@ -148,6 +175,8 @@ export function editorReducer(
       return { ...state, error: `Could not save: ${action.message}` };
     case 'exportFailed':
       return { ...state, error: `Could not export the PDF: ${action.message}` };
+    case 'clipboardFailed':
+      return { ...state, error: `Could not use the clipboard: ${action.message}` };
     case 'loadFailed':
       return {
         ...state,
@@ -185,6 +214,10 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       );
     case 'selectVoice':
       return selectVoice(state, action.voiceIndex);
+    case 'extendSelection':
+      return extendSelection(state, action.step);
+    case 'clearSelection':
+      return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:
       return editReducer(state, action);
   }
@@ -227,6 +260,10 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
           );
     case 'edit':
       return applyCursorEdit(state, action.edit);
+    case 'cutSelection':
+      return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
+    case 'pasteBeats':
+      return pasteBeats(state, action.fragment);
     case 'undo':
       return undo(state);
     case 'redo':
@@ -388,6 +425,33 @@ function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
       ? { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 }
       : cursor;
   return { ...edited, cursor: clampCursor(song, moved), hint: undefined };
+}
+
+/** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */
+function applyClipboardEdit(
+  state: EditorState,
+  edit: (song: Song, cursor: StringAddress) => ClipboardEdit,
+): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const result = edit(document.song, cursor);
+  const recorded = recordSong(state, document, result.song);
+  return recorded === state
+    ? state
+    : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: undefined };
+}
+
+/** Pastes at the cursor; when the beats cannot go there (drums and other tracks), the hint says why. */
+function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
+  const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
+  const { document, cursor } = state;
+  const hint =
+    pasted !== state || document === undefined || cursor === undefined
+      ? undefined
+      : pasteRefusal(document.song, cursor, fragment);
+  return hint === undefined || hint === state.hint ? pasted : { ...state, hint };
 }
 
 /** Runs an edit at the cursor and records the previous song for undo. */

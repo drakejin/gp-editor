@@ -6,6 +6,7 @@ import { engraveDynamics } from './dynamics';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
 import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
+import { type BeatRange, engraveSelection } from './selection-tint';
 import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader, stringY } from './tab';
 
 /** Width of the clef column of tab-only rows. */
@@ -35,6 +36,8 @@ export interface RowContext {
   readonly palette: Palette;
   readonly cursor?: StringAddress;
   readonly playing?: PlayingBeat;
+  /** Selected beats (tinted). */
+  readonly selection?: BeatRange;
   /** Effect-mark lanes of the track (`tabMarkLanes`), so every row stacks marks the same way. */
   readonly markLanes?: readonly TabMarkKind[];
 }
@@ -122,6 +125,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),
     ...engraveTab(context, scope),
+    ...engraveSelection(context.selection, layout, context.geometry, track.strings.length, context.palette),
   ];
   return translateCommands(commands, placed.x, 0);
 }

@@ -55,6 +55,9 @@ export {
 export { type TuningChange, setTrackTuning } from './edit/retune';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
+export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
+export { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from './edit/beat-ranges';
+export { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';
 export {
   BEND_PRESETS,
   type BendPresetName,

@@ -23,7 +23,7 @@ import {
 
 /** RSE channel strip parameters: index 11 = pan, 12 = volume (0–1), as alphaTab reads them. */
 /** Upper bound for a diagram's string count (TuxGuitar's TGTrack.MAX_STRINGS); guards against corrupt files. */
-const MAX_DIAGRAM_STRINGS = 25;
+export const MAX_DIAGRAM_STRINGS = 25;
 const CHANNEL_STRIP_BALANCE = 11;
 const CHANNEL_STRIP_VOLUME = 12;
 

@@ -63,9 +63,9 @@ export const TREMOLO_BAR_PRESETS = {
 export type TremoloBarPresetName = keyof typeof TREMOLO_BAR_PRESETS;
 
 /** Slide kinds in the order the model keeps them. */
-const SLIDE_ORDER: readonly SlideType[] = ['shift', 'legato', 'outDownwards', 'outUpwards', 'intoFromBelow', 'intoFromAbove'];
+export const SLIDE_ORDER: readonly SlideType[] = ['shift', 'legato', 'outDownwards', 'outUpwards', 'intoFromBelow', 'intoFromAbove'];
 
-const HARMONIC_TYPES: readonly HarmonicType[] = ['natural', 'artificial', 'tapped', 'pinch', 'semi'];
+export const HARMONIC_TYPES: readonly HarmonicType[] = ['natural', 'artificial', 'tapped', 'pinch', 'semi'];
 
 /** Harmonic types whose `data` means something (artificial: semitone offset, tapped: fret). */
 const HARMONICS_WITH_DATA: readonly HarmonicType[] = ['artificial', 'tapped'];

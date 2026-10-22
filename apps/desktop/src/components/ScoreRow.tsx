@@ -8,6 +8,7 @@ import { scaleCommands } from '../score/draw';
 import { dynamicBefore } from '../score/dynamics';
 import { type RowHit, hitTestRow } from '../score/hit-test';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
+import { type BeatRange, isSameRange } from '../score/selection-tint';
 import type { TabMarkKind } from '../score/tab';
 import type { Palette } from '../theme';
 
@@ -24,6 +25,8 @@ export interface ScoreRowProps {
   readonly cursor?: StringAddress;
   /** Only set when the playing beat is in this row. */
   readonly playing?: PlayingBeat;
+  /** The selected beats inside this row (clipRange), tinted. */
+  readonly selection?: BeatRange;
   readonly markLanes?: readonly TabMarkKind[];
   /** Screen points per layout point (the score zoom); `width` and the geometry are in layout points. */
   readonly zoom: number;
@@ -52,14 +55,15 @@ function ScoreRowView(props: ScoreRowProps) {
 
 /**
  * A row re-renders only when something it draws changed: its measures or headers (edits keep untouched measures
- * identical), the measures on either side (ties, slurs, slides, spans across bar lines; key changes), the cursor or
- * playing beat inside it, mode, size, mark lanes or theme.
+ * identical), the measures on either side (ties, slurs, slides, spans across bar lines; key changes), the cursor,
+ * playing beat or selected beats inside it, mode, size, mark lanes or theme.
  */
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth ||
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || !sameLanes(a.markLanes, b.markLanes) ||
-    !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex
+    !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
+    !isSameRange(a.selection, b.selection)
   ) {
     return false;
   }
