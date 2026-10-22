@@ -2,6 +2,7 @@ import type { Song } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
 import { type RowLayout, layoutMeasure, layoutRows, squeezeRow } from '../lib/layout';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
+import { hasDynamicChanges } from '../score/dynamics';
 import { type RowGeometry, SCORE_MODE_LABELS, type ScoreMode, rowGeometry } from '../score/geometry';
 import { engraveRow, rowHeaderWidth } from '../score/row';
 import { type TabMarkKind, tabMarkLanes } from '../score/tab';
@@ -85,9 +86,9 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   const printWidth = paper.width - 2 * PAGE.margin;
   const titleBlock = engraveTitleBlock(song, trackIndex, title, printWidth, PRINT_PALETTE);
   const track = song.tracks[trackIndex];
-  // Lanes of the whole track, so every row has one height, as on screen.
+  // Lanes and the dynamics band of the whole track, so every row has one height, as on screen.
   const markLanes = tabMarkLanes(track?.measures ?? []);
-  const geometry = rowGeometry(mode, track?.strings.length ?? 6, markLanes.length);
+  const geometry = rowGeometry(mode, track?.strings.length ?? 6, markLanes.length, hasDynamicChanges(track?.measures ?? []));
   const headerWidth = track === undefined ? 0 : rowHeaderWidth(mode, track);
   // Rows are laid out at screen size across the printable width, then printed at PRINT_SCALE; a measure too wide for
   // a line is squeezed instead of running off the page.

@@ -9,6 +9,7 @@ import type {
 import type { MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawAlign, DrawCommand, LineCommand, TextCommand } from '../draw';
+import { hasPickStroke, tabPickStrokes } from './pick-strokes';
 import { dashedSpan, textWidth, wavyLine } from './shapes';
 import {
   type MusicGlyph,
@@ -19,8 +20,9 @@ import {
 import { TAB_MARKS, beatEndX } from './tab-geometry';
 
 /**
- * Effect marks above the tab staff, Guitar Pro style: per-beat labels (T, S, P, A.H., accents …), and spans over
- * consecutive beats (vibrato, trill, tremolo bar, "P.M. - - -┐", "let ring - - -┐"). Each kind present gets a lane.
+ * Effect marks above the tab staff, Guitar Pro style: per-beat labels (T, S, P, A.H., accents …), spans over
+ * consecutive beats (vibrato, trill, tremolo bar, "P.M. - - -┐", "let ring - - -┐") and pick strokes. Each kind
+ * present gets a lane.
  */
 export type TabMarkKind =
   | 'labels'
@@ -28,9 +30,13 @@ export type TabMarkKind =
   | 'trill'
   | 'whammy'
   | 'palmMute'
-  | 'letRing';
+  | 'letRing'
+  | 'pickStroke';
 
-/** Lane order, nearest the staff first. */
+/** Kinds that come from the notes' effects (pick strokes are the beat's). */
+type NoteMarkKind = Exclude<TabMarkKind, 'pickStroke'>;
+
+/** Lane order, nearest the staff first; pick strokes go outermost, like bowing marks. */
 const KIND_ORDER: readonly TabMarkKind[] = [
   'labels',
   'vibrato',
@@ -38,6 +44,7 @@ const KIND_ORDER: readonly TabMarkKind[] = [
   'whammy',
   'palmMute',
   'letRing',
+  'pickStroke',
 ];
 
 const SPAN_LABELS = { palmMute: 'P.M.', letRing: 'let ring' } as const;
@@ -69,7 +76,7 @@ const MARK = {
   quarterLog: 2,
 } as const;
 
-const HAS: Readonly<Record<TabMarkKind, (effect: NoteEffect) => boolean>> = {
+const HAS: Readonly<Record<NoteMarkKind, (effect: NoteEffect) => boolean>> = {
   labels: e =>
     e.tapping ||
     e.slapping ||
@@ -93,7 +100,9 @@ function beatNotes(beat: Beat | undefined): readonly Note[] {
 }
 
 function beatHas(beat: Beat | undefined, kind: TabMarkKind): boolean {
-  return beatNotes(beat).some(note => HAS[kind](note.effect));
+  return kind === 'pickStroke'
+    ? hasPickStroke(beat)
+    : beatNotes(beat).some(note => HAS[kind](note.effect));
 }
 
 /** The kinds of marks in `measures`, in lane order: pass a row's measures to keep each kind at one height across the row. */
@@ -475,6 +484,7 @@ const DRAW: Readonly<
   whammy,
   palmMute: (context, y) => dashedSpans(context, 'palmMute', y),
   letRing: (context, y) => dashedSpans(context, 'letRing', y),
+  pickStroke: tabPickStrokes,
 };
 
 /** Every effect mark of the measure, each kind in its lane (lane 0 at marksY, the others stacked above). */

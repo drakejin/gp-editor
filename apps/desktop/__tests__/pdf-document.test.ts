@@ -1,8 +1,9 @@
-import { QUARTER, type Song } from '@gp-editor/core';
-import { PAGE, PAPER_SIZES } from '../src/export/paper';
+import { DYNAMICS, type DynamicName, QUARTER, type Song } from '@gp-editor/core';
+import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE } from '../src/export/paper';
 import { buildPdfDocument, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
-import { type DrawCommand, SMUFL } from '../src/score/draw';
-import type { ScoreMode } from '../src/score/geometry';
+import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
+import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
+import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
 import { textValues } from '../test-support/score-helpers';
 import { beat, header, makeSong, note } from '../test-support/songs';
 
@@ -19,6 +20,37 @@ function songOfBars(count: number): Song {
 
 function withInfo(song: Song, info: Partial<Song['info']>): Song {
   return { ...song, info: { ...song.info, ...info } };
+}
+
+/** The song with every note from beat `beatIndex` of bar `measureIndex` on played at `dynamic`. */
+function withDynamicFrom(song: Song, measureIndex: number, beatIndex: number, dynamic: DynamicName): Song {
+  const velocity = DYNAMICS.find((entry) => entry.name === dynamic)?.velocity ?? 0;
+  const isAfter = (m: number, b: number) => m > measureIndex || (m === measureIndex && b >= beatIndex);
+  return {
+    ...song,
+    tracks: song.tracks.map((track) => ({
+      ...track,
+      measures: track.measures.map((measure, m) => ({
+        ...measure,
+        beats: measure.beats.map((b, i) =>
+          isAfter(m, i) ? { ...b, voices: b.voices.map((voice) => ({ ...voice, notes: voice.notes.map((n) => ({ ...n, velocity })) })) } : b,
+        ),
+      })),
+    })),
+  };
+}
+
+/** Distances between the tops of successive rows on a page, from the bar numbers in their headings. */
+function rowPitches(page: { readonly commands: readonly DrawCommand[] }): number[] {
+  const numberSize = 9 * PRINT_SCALE;
+  const tops = [
+    ...new Set(
+      page.commands
+        .filter((c): c is TextCommand => c.kind === 'text' && Math.abs(c.size - numberSize) < 0.01 && /^\d+$/.test(c.text) && c.color === PRINT_PALETTE.muted)
+        .map((c) => Math.round(c.y * 100) / 100),
+    ),
+  ].sort((a, b) => a - b);
+  return tops.slice(1).map((top, i) => top - tops[i]!);
 }
 
 interface Bounds {
@@ -227,6 +259,33 @@ describe('buildPdfDocument', () => {
     // Assert
     expect(pdf.pages).toHaveLength(1);
     expect(textValues(pdf.pages[0]?.commands ?? [])).toEqual(expect.arrayContaining(['Sketch', 'Sketch — 1 / 1']));
+  });
+
+  it('prints a dynamic change under its beat, as the screen engraves it', () => {
+    // Arrange: bar 30 goes down to piano from its second beat.
+    const quiet = withDynamicFrom(song, 29, 1, 'p');
+
+    // Act
+    const glyphs = (mode: ScoreMode) => buildPdfDocument(quiet, 0, mode, { paper: 'a4' }).pages.flatMap((page) => textValues(page.commands));
+
+    // Assert
+    SCORE_MODES.forEach((mode) => {
+      expect(glyphs(mode).filter((text) => text === DYNAMIC_GLYPHS.p.text)).toHaveLength(1);
+    });
+    expect(textValues(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages.flatMap((page) => page.commands))).not.toContain(DYNAMIC_GLYPHS.p.text);
+  });
+
+  it('keeps one row height on every page when only one bar changes dynamic, the band reserved in each row', () => {
+    // Arrange
+    const quiet = withDynamicFrom(song, 29, 1, 'p');
+
+    // Act
+    const plainPitches = rowPitches(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
+    const quietPitches = rowPitches(buildPdfDocument(quiet, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
+
+    // Assert
+    expect(new Set(quietPitches).size).toBe(1);
+    expect(quietPitches[0]! - plainPitches[0]!).toBeCloseTo(ROW.dynamics * PRINT_SCALE);
   });
 
   it('makes one page with the title block when the track does not exist', () => {

@@ -66,7 +66,7 @@ export function tremoloStrokes(layout: VoiceLayout): TextCommand[] {
 }
 
 /** Room above a run of chords for a wavy line: past the notes, stems and articulations above them. */
-function waveLine(
+export function waveLine(
   layout: VoiceLayout,
   indexes: readonly number[],
   glyphHeight: number,

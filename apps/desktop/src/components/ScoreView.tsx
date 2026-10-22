@@ -2,6 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } 
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View, type ViewToken } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
+import { hasDynamicChanges } from '../score/dynamics';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type PlayingBeat, rowHeaderWidth } from '../score/row';
@@ -43,9 +44,13 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, zo
   const track = song.tracks[trackIndex];
   const stringCount = track?.strings.length ?? 6;
   const headerWidth = useMemo(() => (track === undefined ? 0 : rowHeaderWidth(mode, track)), [mode, track]);
-  // Lanes for the whole track, so all rows keep one height (the list uses fixed row heights).
+  // Lanes and the dynamics band for the whole track, so all rows keep one height (the list uses fixed row heights).
   const markLanes = useMemo(() => tabMarkLanes(track?.measures ?? []), [track?.measures]);
-  const geometry = useMemo(() => rowGeometry(mode, stringCount, markLanes.length), [mode, stringCount, markLanes.length]);
+  const hasDynamics = useMemo(() => hasDynamicChanges(track?.measures ?? []), [track?.measures]);
+  const geometry = useMemo(
+    () => rowGeometry(mode, stringCount, markLanes.length, hasDynamics),
+    [mode, stringCount, markLanes.length, hasDynamics],
+  );
   const measures = useMemo(() => song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i)), [song, trackIndex]);
   const pageWidth = Math.max(0, width - DESK_MARGIN * 2);
   // Rows are laid out in unzoomed points: a zoomed page holds fewer bars per line, as in Guitar Pro.

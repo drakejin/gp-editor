@@ -1,10 +1,11 @@
 import { memo } from 'react';
 import { type GestureResponderEvent, Pressable } from 'react-native';
-import type { Song, StringAddress } from '@gp-editor/core';
+import type { Song, StringAddress, Track } from '@gp-editor/core';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import type { RowGeometry, ScoreMode } from '../score/geometry';
 import { scaleCommands } from '../score/draw';
+import { dynamicBefore } from '../score/dynamics';
 import { type RowHit, hitTestRow } from '../score/hit-test';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
 import type { TabMarkKind } from '../score/tab';
@@ -67,7 +68,7 @@ export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (trackA === undefined || trackB === undefined || trackA.strings !== trackB.strings || trackA.offset !== trackB.offset) {
     return trackA === trackB;
   }
-  return a.row.measures.length === b.row.measures.length && a.row.measures.every((layout, i) => {
+  return a.row.measures.length === b.row.measures.length && sameDynamicBefore(a, trackA, trackB) && a.row.measures.every((layout, i) => {
     const other = b.row.measures[i];
     const index = layout.measureIndex;
     return (
@@ -83,9 +84,18 @@ export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
 function sameLayout(a: MeasureLayout, b: MeasureLayout): boolean {
   return (
     a.measureIndex === b.measureIndex && a.width === b.width && a.beats.length === b.beats.length &&
-    a.showTimeSignature === b.showTimeSignature && a.showTempo === b.showTempo &&
+    a.showTimeSignature === b.showTimeSignature && a.showTempo === b.showTempo && a.showTripletFeel === b.showTripletFeel &&
     a.keySignatureX === b.keySignatureX && a.timeSignatureX === b.timeSignatureX
   );
+}
+
+/**
+ * The dynamic in force where the row starts decides its first mark, and it can come from any bar before (one note
+ * changed several empty bars back): compared only when the row draws dynamics.
+ */
+function sameDynamicBefore(props: ScoreRowProps, trackA: Track, trackB: Track): boolean {
+  const first = props.row.measures[0]?.measureIndex ?? 0;
+  return props.geometry.dynamicsY === undefined || dynamicBefore(trackA.measures, first) === dynamicBefore(trackB.measures, first);
 }
 
 /** Lanes are rebuilt from the whole track on every edit; only their kinds matter. */

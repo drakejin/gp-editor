@@ -47,6 +47,10 @@ export const ROW = {
   rhythm: 34,
   /** Under the tab staff otherwise. */
   tabBottom: 10,
+  /** Dynamics (p, mf, ff …) under the notation staff, or under the tab staff when notation is hidden. */
+  dynamics: 22,
+  /** Baseline of the dynamics, from the top of their band. */
+  dynamicsBaseline: 13,
   gap: 14,
   sidePadding: 24,
 } as const;
@@ -55,6 +59,8 @@ export const ROW = {
 export interface RowGeometry {
   /** Top line of the notation staff. */
   readonly notationTop?: number;
+  /** Baseline of the dynamics; only when the track changes dynamic (`hasDynamicChanges`). */
+  readonly dynamicsY?: number;
   /** Centre of the lowest effect-mark lane. */
   readonly marksY?: number;
   /** First (highest) string of the tab staff. */
@@ -75,21 +81,33 @@ export function showsFretboard(mode: ScoreMode, track: Track): boolean {
   return showsTab(mode) && !track.isPercussion;
 }
 
-/** `markLaneCount`: effect-mark lanes above the tab staff (one per kind of mark the track uses). */
-export function rowGeometry(mode: ScoreMode, stringCount: number, markLaneCount = 1): RowGeometry {
+/**
+ * `markLaneCount`: effect-mark lanes above the tab staff (one per kind of mark the track uses). `hasDynamics`: the
+ * track changes dynamic somewhere, so every row gets the dynamics band (under the notation staff, else under the tab).
+ */
+export function rowGeometry(mode: ScoreMode, stringCount: number, markLaneCount = 1, hasDynamics = false): RowGeometry {
   let y = ROW.heading;
   let notationTop: number | undefined;
+  let dynamicsY: number | undefined;
   if (showsNotation(mode)) {
     notationTop = y + NOTATION.above;
     y += notationBandHeight();
+    if (hasDynamics) {
+      dynamicsY = y + ROW.dynamicsBaseline;
+      y += ROW.dynamics;
+    }
   }
   if (!showsTab(mode)) {
-    return { notationTop, height: y + ROW.gap };
+    return { notationTop, dynamicsY, height: y + ROW.gap };
   }
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
   const marksY = y + marksBand - ROW.marks / 2;
   const tabTop = y + marksBand;
   y = tabTop + Math.max(0, stringCount - 1) * TAB.stringGap + (mode === 'tab' ? ROW.rhythm : ROW.tabBottom);
-  return { notationTop, marksY, tabTop, height: y + ROW.gap };
+  if (hasDynamics && dynamicsY === undefined) {
+    dynamicsY = y + ROW.dynamicsBaseline;
+    y += ROW.dynamics;
+  }
+  return { notationTop, dynamicsY, marksY, tabTop, height: y + ROW.gap };
 }

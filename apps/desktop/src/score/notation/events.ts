@@ -58,6 +58,8 @@ export interface VoiceEvent {
   readonly direction: VoiceDirection;
   /** The beat's strum (an arrow beside the chord). */
   readonly stroke: StrokeDirection;
+  /** The beat's pick stroke (a bowing mark above the staff). */
+  readonly pickStroke: StrokeDirection;
   /** Staff position of a rest moved clear of another voice; the usual place when absent. */
   readonly restPosition?: number;
   /** Lowest staff position first; empty for a rest. */
@@ -131,6 +133,7 @@ function rawEvents(measure: Measure, layout: MeasureLayout): RawEvent[] {
               duration: voice.duration,
               direction: voice.direction,
               stroke: beat.stroke.direction,
+              pickStroke: beat.pickStroke,
               notes: voice.notes,
             },
           ],

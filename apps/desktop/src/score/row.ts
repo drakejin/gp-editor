@@ -1,7 +1,8 @@
-import { type Song, type StringAddress, type Track, isMeasureOverfull } from '@gp-editor/core';
+import { type Measure, type MeasureHeader, type Song, type StringAddress, type Track, isMeasureOverfull } from '@gp-editor/core';
 import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
+import { engraveDynamics } from './dynamics';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
 import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
@@ -88,6 +89,18 @@ function staffLines(x1: number, x2: number, top: number, count: number, gap: num
   return Array.from({ length: count }, (_, i): DrawCommand => ({ kind: 'line', x1, y1: top + i * gap, x2, y2: top + i * gap, width: 1, color }));
 }
 
+/** One measure of the row with the measures either side of it, and the cursor or playing beat when they are in it. */
+interface MeasureScope {
+  readonly track: Track;
+  readonly header: MeasureHeader;
+  readonly measure: Measure;
+  readonly layout: MeasureLayout;
+  readonly previousMeasure?: Measure;
+  readonly nextMeasure?: Measure;
+  readonly cursor?: StringAddress;
+  readonly playingBeatIndex?: number;
+}
+
 function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure, isRowStart: boolean): DrawCommand[] {
   // The row header already shows the key at a row start; a key change there is not drawn twice.
   const layout = isRowStart ? { ...placed.layout, keySignatureX: undefined } : placed.layout;
@@ -96,28 +109,58 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
   if (header === undefined || measure === undefined) {
     return [];
   }
-  const previousMeasure = track.measures[layout.measureIndex - 1];
-  const nextMeasure = track.measures[layout.measureIndex + 1];
-  const cursor = context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined;
-  const playingBeatIndex = context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined;
-  const commands: DrawCommand[] = [...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header))];
-  const { notationTop, tabTop, marksY } = context.geometry;
-  if (notationTop !== undefined && showsNotation(context.mode)) {
-    const highlight =
-      playingBeatIndex !== undefined ? { beatIndex: playingBeatIndex } : cursor !== undefined ? { beatIndex: cursor.beatIndex, string: cursor.string } : undefined;
-    commands.push(
-      ...engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight }),
-    );
-  }
-  if (tabTop !== undefined && marksY !== undefined && showsTab(context.mode)) {
-    const previousBeat = previousMeasure?.beats[previousMeasure.beats.length - 1];
-    const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string };
-    commands.push(
-      ...engraveTabMeasure({
-        track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
-        top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
-      }),
-    );
-  }
+  const scope: MeasureScope = {
+    track, header, measure, layout,
+    previousMeasure: track.measures[layout.measureIndex - 1],
+    nextMeasure: track.measures[layout.measureIndex + 1],
+    cursor: context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined,
+    playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
+  };
+  const notation = engraveNotation(context, scope);
+  const commands = [
+    ...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header)),
+    ...(notation ?? []),
+    ...engraveMeasureDynamics(context, scope, notation),
+    ...engraveTab(context, scope),
+  ];
   return translateCommands(commands, placed.x, 0);
+}
+
+function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[] | undefined {
+  const { notationTop } = context.geometry;
+  if (notationTop === undefined || !showsNotation(context.mode)) {
+    return undefined;
+  }
+  const { cursor, playingBeatIndex } = scope;
+  const highlight =
+    playingBeatIndex !== undefined ? { beatIndex: playingBeatIndex } : cursor !== undefined ? { beatIndex: cursor.beatIndex, string: cursor.string } : undefined;
+  const { track, header, measure, layout, previousMeasure, nextMeasure } = scope;
+  // Pick strokes go over the tab when it is shown, else over the notation.
+  const showsPickStrokes = !showsTab(context.mode);
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight, showsPickStrokes });
+}
+
+/** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */
+function engraveMeasureDynamics(context: RowContext, scope: MeasureScope, notation: readonly DrawCommand[] | undefined): DrawCommand[] {
+  const { dynamicsY, notationTop } = context.geometry;
+  if (dynamicsY === undefined) {
+    return [];
+  }
+  const staff = notation === undefined || notationTop === undefined ? undefined : { commands: notation, bottomLine: notationTop + (NOTATION_LINES - 1) * STAFF_SPACE };
+  const { layout } = scope;
+  return engraveDynamics({ measures: scope.track.measures, measureIndex: layout.measureIndex, layout, y: dynamicsY, palette: context.palette, staff });
+}
+
+function engraveTab(context: RowContext, scope: MeasureScope): DrawCommand[] {
+  const { tabTop, marksY } = context.geometry;
+  if (tabTop === undefined || marksY === undefined || !showsTab(context.mode)) {
+    return [];
+  }
+  const { track, header, measure, layout, previousMeasure, nextMeasure, cursor, playingBeatIndex } = scope;
+  const previousBeat = previousMeasure?.beats[previousMeasure.beats.length - 1];
+  const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string };
+  return engraveTabMeasure({
+    track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
+    top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
+  });
 }

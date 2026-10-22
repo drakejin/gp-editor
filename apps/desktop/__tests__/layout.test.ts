@@ -22,6 +22,20 @@ describe('layoutMeasure', () => {
     expect(layoutMeasure(song, 0, 2)).toMatchObject({ showTimeSignature: true, showTempo: true });
   });
 
+  it('shows the triplet feel where it changes, and on bar 1 only when it is on', () => {
+    // Arrange
+    const straight = makeSong([[]], [header(1)]);
+    const feels = ['eighth', 'eighth', 'sixteenth', 'none', 'none'] as const;
+    const song = makeSong(feels.map(() => []), feels.map((tripletFeel, i) => header(i + 1, { tripletFeel })));
+
+    // Act
+    const shown = feels.map((_, i) => layoutMeasure(song, 0, i).showTripletFeel);
+
+    // Assert
+    expect(layoutMeasure(straight, 0, 0).showTripletFeel).toBe(false);
+    expect(shown).toEqual([true, false, true, true, false]);
+  });
+
   it('gives empty bars a minimum width and reserves room for repeats', () => {
     const plain = makeSong([[]], [header(1)]);
     const repeated = makeSong([[]], [header(1, { repeatOpen: true })]);
@@ -62,6 +76,7 @@ describe('layoutRows', () => {
     beats: [{ beatIndex: 0, x: width / 2 }],
     showTimeSignature: false,
     showTempo: false,
+    showTripletFeel: false,
   });
 
   it('wraps measures that do not fit and stretches full rows', () => {

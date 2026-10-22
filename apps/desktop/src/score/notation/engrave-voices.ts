@@ -25,6 +25,7 @@ import type { StaffNote, VoiceEvent } from './events';
 import { graceNotes } from './grace';
 import { strokes, tremoloStrokes, trills, vibratos } from './ornaments';
 import { ottavaMarks } from './ottava';
+import { pickStrokes } from './pick-strokes';
 import { rest } from './rests';
 import { legatoMarks } from './slurs';
 import { ties } from './ties';
@@ -48,6 +49,8 @@ export interface VoicesContext {
   readonly entryX: number;
   readonly palette: Palette;
   readonly highlight?: Highlight;
+  /** Pick strokes above the staff (when no tab staff shows them). */
+  readonly showsPickStrokes?: boolean;
 }
 
 function isHighlighted(
@@ -150,5 +153,6 @@ export function engraveVoices(
     ...ties(layout),
     ...ottavaMarks(events, chords, context.top, ink),
     ...techniques(layout),
+    ...(context.showsPickStrokes === true ? pickStrokes(layout) : []),
   ];
 }
