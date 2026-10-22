@@ -12,9 +12,11 @@
 		41D9204DBDAA8BAFD41DAEC1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */; };
 		5142014D2437B4B30078DB4F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5142014C2437B4B30078DB4F /* AppDelegate.swift */; };
 		514201522437B4B40078DB4F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514201512437B4B40078DB4F /* Assets.xcassets */; };
+		5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6E162BDD027D425378732E47 /* GPCommandPainter.m */; };
 		6BE782B480298F0F60BEE438 /* GPAnthropic.m in Sources */ = {isa = PBXBuildFile; fileRef = CD13C4D4A2339F978671239A /* GPAnthropic.m */; };
 		7B968A8E7AE0ED8FEBAF2784 /* GPQADriver.m in Sources */ = {isa = PBXBuildFile; fileRef = 89281E13275E110D08059BD1 /* GPQADriver.m */; };
 		7E0A0CB5DA042CE3CC5EB78A /* GPFiles.m in Sources */ = {isa = PBXBuildFile; fileRef = 7B5C850793C3BDD397E243FD /* GPFiles.m */; };
+		99CD6B1A38D9EA1907080E01 /* GPCommandPainter.h in Headers */ = {isa = PBXBuildFile; fileRef = F466B94CDE374A978392C0FF /* GPCommandPainter.h */; };
 		9A229D0BB7066C13185FAF0A /* GPPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = F854096019B3892178AB5EE4 /* GPPlayer.m */; };
 		9A66AFF641DF9BDDFB007D61 /* libPods-GPEditor-macOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CF0C11CC956B7AFDCE28DA7B /* libPods-GPEditor-macOS.a */; };
 		B994A63BC98C3978F337ECD7 /* GPProjects.m in Sources */ = {isa = PBXBuildFile; fileRef = B2F750C1303D40546281013A /* GPProjects.m */; };
@@ -38,6 +40,7 @@
 		514201562437B4B40078DB4F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		514201592437B4B40078DB4F /* GPEditor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GPEditor.entitlements; sourceTree = "<group>"; };
 		561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6E162BDD027D425378732E47 /* GPCommandPainter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPCommandPainter.m; sourceTree = "<group>"; };
 		7B5C850793C3BDD397E243FD /* GPFiles.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPFiles.m; sourceTree = "<group>"; };
 		89281E13275E110D08059BD1 /* GPQADriver.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPQADriver.m; sourceTree = "<group>"; };
 		A570CDCF479A2A3D0BEBD607 /* Bravura-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = "Bravura-OFL.txt"; sourceTree = "<group>"; };
@@ -51,6 +54,7 @@
 		D7A8F2C42D535BFD55500166 /* GPSoundBanks.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPSoundBanks.h; sourceTree = "<group>"; };
 		E56BC27C9E2B69AFBEEE9440 /* GPEditorNotifications.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPEditorNotifications.h; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F466B94CDE374A978392C0FF /* GPCommandPainter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPCommandPainter.h; sourceTree = "<group>"; };
 		F854096019B3892178AB5EE4 /* GPPlayer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPPlayer.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -112,6 +116,8 @@
 				D0F7A7BF6D821CC9B39BC2FF /* GPSoundBanks.m */,
 				B2F750C1303D40546281013A /* GPProjects.m */,
 				CD13C4D4A2339F978671239A /* GPAnthropic.m */,
+				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
+				6E162BDD027D425378732E47 /* GPCommandPainter.m */,
 			);
 			path = "GPEditor-macOS";
 			sourceTree = "<group>";
@@ -165,6 +171,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F41FBBE684D18DCACBAE8FDE /* GPSoundBanks.h in Headers */,
+				99CD6B1A38D9EA1907080E01 /* GPCommandPainter.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,6 +398,7 @@
 				BD0AEC671CC40A4E675F2348 /* GPSoundBanks.m in Sources */,
 				B994A63BC98C3978F337ECD7 /* GPProjects.m in Sources */,
 				6BE782B480298F0F60BEE438 /* GPAnthropic.m in Sources */,
+				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
