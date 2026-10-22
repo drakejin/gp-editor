@@ -35,9 +35,16 @@ const FLAT_ORDER: readonly number[] = [6, 2, 5, 1, 4, 0, 3];
 const WRITTEN_OCTAVE = 12;
 const FALLBACK_TUNING = 60;
 /** Diatonic step of the bottom line: E4 on the treble staff, G2 on the bass staff. */
-const BOTTOM_LINE_STEP: Readonly<Record<PitchedClef, number>> = { treble: 30, bass: 18 };
+const BOTTOM_LINE_STEP: Readonly<Record<PitchedClef, number>> = {
+  treble: 30,
+  bass: 18,
+};
 
-const ACCIDENTAL_OF: Readonly<Record<Alter, Accidental>> = { [-1]: 'flat', 0: 'natural', 1: 'sharp' };
+const ACCIDENTAL_OF: Readonly<Record<Alter, Accidental>> = {
+  [-1]: 'flat',
+  0: 'natural',
+  1: 'sharp',
+};
 
 const CROSS = true;
 /** General MIDI drums on a five-line percussion staff (positions as on a treble staff). */
@@ -69,7 +76,10 @@ const DRUM_PLACEMENTS: ReadonlyMap<number, DrumPlacement> = new Map(
     ] as const
   ).map(([drum, position, isCross]) => [drum, { position, isCross }]),
 );
-const UNKNOWN_DRUM: DrumPlacement = { position: STAFF.middleLine, isCross: false };
+const UNKNOWN_DRUM: DrumPlacement = {
+  position: STAFF.middleLine,
+  isCross: false,
+};
 
 function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
@@ -91,7 +101,11 @@ export function keyAlter(letter: number, keySignature: number): Alter {
   return 0;
 }
 
-function toSpelled(natural: number, letter: number, alter: Alter): SpelledPitch {
+function toSpelled(
+  natural: number,
+  letter: number,
+  alter: Alter,
+): SpelledPitch {
   return { step: (Math.floor(natural / OCTAVE) - 1) * LETTERS + letter, alter };
 }
 
@@ -111,7 +125,11 @@ export function spellPitch(midi: number, keySignature: number): SpelledPitch {
     return toSpelled(midi, whiteLetter, 0);
   }
   const alter: Alter = clampKey(keySignature) < 0 ? -1 : 1;
-  return toSpelled(midi - alter, LETTER_PITCH_CLASSES.indexOf(mod(midi - alter, OCTAVE)), alter);
+  return toSpelled(
+    midi - alter,
+    LETTER_PITCH_CLASSES.indexOf(mod(midi - alter, OCTAVE)),
+    alter,
+  );
 }
 
 /** Staff position of a diatonic step: 0 = bottom line, 8 = top line. */
@@ -142,11 +160,16 @@ export function drumPlacement(drumNote: number): DrumPlacement {
  * Accidentals to draw for a measure's chords in playing order. An accidental holds for its staff position until the
  * bar line; tied notes are never marked and leave the carried accidental alone.
  */
-export function measureAccidentals(chords: readonly (readonly StaffPitch[])[], keySignature: number): (Accidental | undefined)[][] {
+export function measureAccidentals(
+  chords: readonly (readonly StaffPitch[])[],
+  keySignature: number,
+): (Accidental | undefined)[][] {
   let carried: ReadonlyMap<number, Alter> = new Map();
-  return chords.map((pitches) =>
-    pitches.map((pitch) => {
-      const current = carried.get(pitch.step) ?? keyAlter(mod(pitch.step, LETTERS), keySignature);
+  return chords.map(pitches =>
+    pitches.map(pitch => {
+      const current =
+        carried.get(pitch.step) ??
+        keyAlter(mod(pitch.step, LETTERS), keySignature);
       if (pitch.isTied || current === pitch.alter) {
         return undefined;
       }

@@ -1,4 +1,4 @@
-import type { Beat, MeasureHeader, Song, Voice } from '@gp-editor/core';
+import type { Beat, BendPoint, MeasureHeader, Song, Voice } from '@gp-editor/core';
 
 /** Tab staff geometry, in points. */
 export const TAB = {
@@ -23,6 +23,10 @@ export const TAB = {
 /** Natural width of a beat by its shortest note value. */
 const BEAT_WIDTH: Readonly<Record<number, number>> = { 1: 64, 2: 48, 4: 36, 8: 30, 16: 26, 32: 24, 64: 22 };
 const DOT_EXTRA = 6;
+/** Room each rise or fall of a bend takes on the tab, so its arrows and amounts do not overlap. */
+export const BEND_MOVE_WIDTH = 16;
+/** Fret number and margins around a bend's arrows. */
+const BEND_PADDING = 20;
 /** The last row is stretched to the full width only when it is at least this full. */
 const JUSTIFY_THRESHOLD = 0.75;
 
@@ -68,7 +72,15 @@ function beatWidth(beat: Beat): number {
   }
   const shortest = Math.max(...voices.map((voice) => voice.duration.value));
   const dotted = voices.some((voice) => voice.duration.dotted || voice.duration.doubleDotted);
-  return (BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0);
+  const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => bendMoves(note.effect.bend?.points ?? []))));
+  const bendWidth = moves === 0 ? 0 : BEND_PADDING + moves * BEND_MOVE_WIDTH;
+  return Math.max((BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0), bendWidth);
+}
+
+/** How many times a bend rises or falls. */
+function bendMoves(points: readonly BendPoint[]): number {
+  const sorted = [...points].sort((a, b) => a.position - b.position);
+  return sorted.filter((point, i) => i > 0 && point.value !== sorted[i - 1]?.value).length;
 }
 
 function changed(headers: readonly MeasureHeader[], index: number, pick: (h: MeasureHeader) => string): boolean {

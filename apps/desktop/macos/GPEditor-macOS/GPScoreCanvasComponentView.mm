@@ -99,9 +99,18 @@ static NSString *const kMusicFontName = @"Bravura";
 {
   CGContextSetStrokeColorWithColor(context, [self color:c[@"color"]].CGColor);
   CGContextSetLineWidth(context, [c[@"width"] doubleValue]);
+  NSArray<NSNumber *> *dash = c[@"dash"];
+  if ([dash isKindOfClass:[NSArray class]] && dash.count > 0 && dash.count <= 8) {
+    CGFloat lengths[8];
+    for (NSUInteger i = 0; i < dash.count; i++) {
+      lengths[i] = dash[i].doubleValue;
+    }
+    CGContextSetLineDash(context, 0, lengths, dash.count);
+  }
   CGContextMoveToPoint(context, [c[@"x1"] doubleValue], [c[@"y1"] doubleValue]);
   CGContextAddLineToPoint(context, [c[@"x2"] doubleValue], [c[@"y2"] doubleValue]);
   CGContextStrokePath(context);
+  CGContextSetLineDash(context, 0, NULL, 0);
 }
 
 - (void)drawRect:(NSDictionary *)c in:(CGContextRef)context

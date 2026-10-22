@@ -32,7 +32,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, song model, immutable edit operations, MIDI rendering
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations, MIDI rendering
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
 
@@ -77,17 +77,28 @@ npm run typecheck                           # tsc for both packages
 
 ## Using the app
 
+- **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab, the New button (in the selected view) or the start screen —
+  a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), the Open button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor.
-- **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only, with a 24-fret neck above the score
-  showing every position's note name and the notes of the current beat). Pick a track on the left.
+- **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only). Whenever the tab is shown, a
+  24-fret neck above the score (not for drum tracks) shows every position's note name and the notes of the current beat.
+  Pick a track on the left.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings.
-- **Edit**: type 0–9 at the cursor (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret
-  down/up, ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ deletes it, ⌘Z / ⇧⌘Z undo and redo.
+- **Edit** at the cursor (keys, or the edit bar under the toolbar):
+  - frets: 0–9 (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret down/up,
+    ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ delete the note
+  - duration: `[` longer, `]` shorter, `.` dot, `/` triplet, or the duration buttons
+  - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
+    drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
+  - effects: `H` hammer-on/pull-off, `P` palm mute, `L` let ring, `V` vibrato, `X` dead note, `G` ghost note,
+    `A` accent, `S` slide, `B` bend (½ → full → off), `N` natural harmonic, `T` tie
+  - bars (edit bar): add/delete bar, time signature, tempo, key signature, repeat start/end
+  - ⌘Z / ⇧⌘Z undo and redo
+- **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
+  GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the macOS General MIDI
   sounds; the score and the neck follow the playing beat. Space or Esc stops.
-
-Saving back to a Guitar Pro file is not implemented yet.
 
 ## License
 

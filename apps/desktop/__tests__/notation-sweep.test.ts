@@ -1,7 +1,13 @@
 import { type Song, readSong } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import type { DrawCommand } from '../src/score/draw';
-import { NOTATION, engraveNotationMeasure, engraveNotationRowHeader, notationBandHeight, notationRowHeaderWidth } from '../src/score/notation';
+import {
+  NOTATION,
+  engraveNotationMeasure,
+  engraveNotationRowHeader,
+  notationBandHeight,
+  notationRowHeaderWidth,
+} from '../src/score/notation';
 import type { Palette } from '../src/theme';
 import { listFixtures, readFixture } from '../test-support/fixtures';
 
@@ -30,8 +36,11 @@ interface Fixture {
 }
 
 function readFixtures(): Fixture[] {
-  return FOLDERS.flatMap((folder) =>
-    listFixtures(folder).map((file) => ({ name: `${folder}/${file}`, song: readSong(readFixture(folder, file)) })),
+  return FOLDERS.flatMap(folder =>
+    listFixtures(folder).map(file => ({
+      name: `${folder}/${file}`,
+      song: readSong(readFixture(folder, file)),
+    })),
   );
 }
 
@@ -39,13 +48,25 @@ function readFixtures(): Fixture[] {
 function points(command: DrawCommand): Array<[number, number]> {
   switch (command.kind) {
     case 'line':
-      return [[command.x1, command.y1], [command.x2, command.y2]];
+      return [
+        [command.x1, command.y1],
+        [command.x2, command.y2],
+      ];
     case 'curve':
-      return [[command.x1, command.y1], [command.cx, command.cy], [command.x2, command.y2]];
+      return [
+        [command.x1, command.y1],
+        [command.cx, command.cy],
+        [command.x2, command.y2],
+      ];
     case 'polygon':
-      return command.points.flatMap((value, i, all) => (i % 2 === 0 ? [[value, all[i + 1] ?? NaN] as [number, number]] : []));
+      return command.points.flatMap((value, i, all) =>
+        i % 2 === 0 ? [[value, all[i + 1] ?? NaN] as [number, number]] : [],
+      );
     case 'rect':
-      return [[command.x, command.y], [command.x + command.width, command.y + command.height]];
+      return [
+        [command.x, command.y],
+        [command.x + command.width, command.y + command.height],
+      ];
     case 'circle':
     case 'text':
       return [[command.x, command.y]];
@@ -53,7 +74,13 @@ function points(command: DrawCommand): Array<[number, number]> {
 }
 
 function numbers(command: DrawCommand): number[] {
-  return Object.values(command).flatMap((value) => (typeof value === 'number' ? [value] : Array.isArray(value) ? (value as number[]) : []));
+  return Object.values(command).flatMap(value =>
+    typeof value === 'number'
+      ? [value]
+      : Array.isArray(value)
+      ? (value as number[])
+      : [],
+  );
 }
 
 interface Problem {
@@ -61,25 +88,39 @@ interface Problem {
   readonly command: DrawCommand;
 }
 
-function problems(where: string, commands: readonly DrawCommand[], width: number): Problem[] {
+function problems(
+  where: string,
+  commands: readonly DrawCommand[],
+  width: number,
+): Problem[] {
   const bandTop = -NOTATION.above;
   const bandBottom = notationBandHeight() - NOTATION.above;
   return commands
-    .filter((command) => {
+    .filter(command => {
       const isFinite = numbers(command).every(Number.isFinite);
       const isInside = points(command).every(
-        ([x, y]) => x >= -MARGIN_X && x <= width + MARGIN_X && y >= bandTop - MARGIN_Y && y <= bandBottom + MARGIN_Y,
+        ([x, y]) =>
+          x >= -MARGIN_X &&
+          x <= width + MARGIN_X &&
+          y >= bandTop - MARGIN_Y &&
+          y <= bandBottom + MARGIN_Y,
       );
       return !isFinite || !isInside;
     })
-    .map((command) => ({ where, command }));
+    .map(command => ({ where, command }));
 }
 
-function engraveSong({ name, song }: Fixture): { problems: Problem[]; count: number } {
+function engraveSong({ name, song }: Fixture): {
+  problems: Problem[];
+  count: number;
+} {
   let count = 0;
   const found = song.tracks.flatMap((track, trackIndex) => {
     const first = track.measures[0];
-    const header = first === undefined ? [] : engraveNotationRowHeader(track, first, 0, PALETTE);
+    const header =
+      first === undefined
+        ? []
+        : engraveNotationRowHeader(track, first, 0, PALETTE);
     const headerWidth = notationRowHeaderWidth(track, first?.keySignature ?? 0);
     return [
       ...problems(`${name} track ${trackIndex} header`, header, headerWidth),
@@ -90,9 +131,24 @@ function engraveSong({ name, song }: Fixture): { problems: Problem[]; count: num
           return [];
         }
         const previousMeasure = track.measures[measureIndex - 1];
-        const commands = engraveNotationMeasure({ track, header: measureHeader, measure, layout, previousMeasure, top: 0, palette: PALETTE, highlight: { beatIndex: 0 } });
+        const nextMeasure = track.measures[measureIndex + 1];
+        const commands = engraveNotationMeasure({
+          track,
+          header: measureHeader,
+          measure,
+          layout,
+          previousMeasure,
+          nextMeasure,
+          top: 0,
+          palette: PALETTE,
+          highlight: { beatIndex: 0 },
+        });
         count += commands.length;
-        return problems(`${name} track ${trackIndex} measure ${measureIndex}`, commands, layout.width);
+        return problems(
+          `${name} track ${trackIndex} measure ${measureIndex}`,
+          commands,
+          layout.width,
+        );
       }),
     ];
   });
@@ -111,8 +167,11 @@ describe('notation fixture sweep', () => {
     const results = fixtures.map(engraveSong);
 
     // Act
-    const found = results.flatMap((result) => result.problems);
-    const measures = fixtures.reduce((sum, { song }) => sum + song.tracks.length * song.measureHeaders.length, 0);
+    const found = results.flatMap(result => result.problems);
+    const measures = fixtures.reduce(
+      (sum, { song }) => sum + song.tracks.length * song.measureHeaders.length,
+      0,
+    );
     const commands = results.reduce((sum, result) => sum + result.count, 0);
 
     // Assert

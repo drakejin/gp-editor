@@ -1,10 +1,11 @@
 import { QUARTER_TIME, durationTicks } from '@gp-editor/core';
-import type { TextCommand } from '../draw';
-import type { Chord } from './chords';
+import type { DrawCommand, LineCommand } from '../draw';
+import type { BeamedChords } from './beams';
 import type { VoiceEvent } from './events';
-import { digitGlyphs, musicGlyph } from './glyphs';
-import { NOTATION, TUPLET, positionY } from './metrics';
+import { digitGlyphs, horizontal, musicGlyph, vertical } from './glyphs';
+import { GLYPH_WIDTH, NOTATION, TUPLET, positionY } from './metrics';
 import { restPosition } from './rests';
+import type { VoiceLayout } from './voice-layout';
 
 const WHOLE_NOTE_TICKS = QUARTER_TIME * 4;
 /** Half the height of a rest, in staff positions. */
@@ -16,85 +17,260 @@ function isTuplet(event: VoiceEvent): boolean {
 }
 
 function isSameRatio(a: VoiceEvent, b: VoiceEvent): boolean {
-  return a.duration.tuplet.enters === b.duration.tuplet.enters && a.duration.tuplet.times === b.duration.tuplet.times;
+  return (
+    a.duration.tuplet.enters === b.duration.tuplet.enters &&
+    a.duration.tuplet.times === b.duration.tuplet.times
+  );
+}
+
+/** Runs of consecutive tuplet events of one voice with the same ratio. */
+function tupletRuns(
+  events: readonly VoiceEvent[],
+  voiceIndex: number,
+): number[][] {
+  const indexes = events.flatMap((event, index) =>
+    event.voiceIndex === voiceIndex ? [index] : [],
+  );
+  return indexes
+    .reduce<number[][]>((runs, index, k) => {
+      const event = events[index];
+      const previous = events[indexes[k - 1] ?? -1];
+      if (event === undefined || !isTuplet(event)) {
+        return [...runs, []];
+      }
+      const last = runs[runs.length - 1];
+      const continues =
+        last !== undefined &&
+        last.length > 0 &&
+        previous !== undefined &&
+        isSameRatio(previous, event);
+      return continues
+        ? [...runs.slice(0, -1), [...last, index]]
+        : [...runs, [index]];
+    }, [])
+    .filter(run => run.length > 0);
 }
 
 /**
- * Consecutive tuplet events of one voice, split into groups. A group is complete once it lasts as long as `times`
- * of its shortest plain note value (three triplet eighths = two eighths); a rounding tick per note is allowed.
+ * A group is complete when it lasts `times` notes of one plain value between its shortest and longest notes: three
+ * triplet eighths (two eighths), two triplet sixteenths and a triplet eighth (two sixteenths), three triplet sixteenths
+ * and a dotted triplet eighth (two eighths). A rounding tick per note is allowed.
  */
-function voiceTuplets(events: readonly VoiceEvent[], voiceIndex: number): number[][] {
-  const groups: number[][] = [];
-  let members: number[] = [];
-  let ticks = 0;
-  let unit = Number.POSITIVE_INFINITY;
-  const close = () => {
-    if (members.length > 0) {
-      groups.push(members);
+function isComplete(members: readonly VoiceEvent[]): boolean {
+  const ticks = members.reduce(
+    (sum, event) => sum + durationTicks(event.duration),
+    0,
+  );
+  const values = members.map(event => event.duration.value);
+  const times = members[0]?.duration.tuplet.times ?? 1;
+  // Note values are powers of two: every plain value from the longest to the shortest note of the group.
+  const longest = Math.min(...values);
+  const candidates = Array.from(
+    { length: Math.log2(Math.max(...values) / longest) + 1 },
+    (_, i) => longest * 2 ** i,
+  );
+  return candidates.some(
+    value =>
+      Math.abs(ticks - times * Math.floor(WHOLE_NOTE_TICKS / value)) <=
+      members.length,
+  );
+}
+
+interface Plan {
+  readonly incomplete: number;
+  readonly complete: number;
+  /** Groups in order; incomplete members stand alone here and are joined afterwards. */
+  readonly groups: ReadonlyArray<{
+    readonly members: readonly number[];
+    readonly isComplete: boolean;
+  }>;
+}
+
+function isBetter(a: Plan, b: Plan): boolean {
+  return (
+    a.incomplete < b.incomplete ||
+    (a.incomplete === b.incomplete && a.complete > b.complete)
+  );
+}
+
+const NO_PLAN: Plan = { incomplete: 0, complete: 0, groups: [] };
+
+/** Splits a run into complete groups, leaving as few notes outside one as possible (then making as many groups as possible). */
+function partition(
+  run: readonly number[],
+  events: readonly VoiceEvent[],
+): number[][] {
+  // plans.get(k): the best plan for the members from k to the end of the run.
+  const plans = new Map<number, Plan>([[run.length, NO_PLAN]]);
+  for (let start = run.length - 1; start >= 0; start--) {
+    const rest = plans.get(start + 1) ?? NO_PLAN;
+    let best: Plan = {
+      incomplete: rest.incomplete + 1,
+      complete: rest.complete,
+      groups: [
+        { members: [run[start] ?? -1], isComplete: false },
+        ...rest.groups,
+      ],
+    };
+    for (let end = start; end < run.length; end++) {
+      const members = run.slice(start, end + 1);
+      const after = plans.get(end + 1) ?? NO_PLAN;
+      const candidate: Plan = {
+        incomplete: after.incomplete,
+        complete: after.complete + 1,
+        groups: [{ members, isComplete: true }, ...after.groups],
+      };
+      if (
+        isBetter(candidate, best) &&
+        isComplete(members.flatMap(index => events[index] ?? []))
+      ) {
+        best = candidate;
+      }
     }
-    members = [];
-    ticks = 0;
-    unit = Number.POSITIVE_INFINITY;
-  };
-  events.forEach((event, index) => {
-    if (event.voiceIndex !== voiceIndex) {
-      return;
-    }
-    const first = events[members[0] ?? -1];
-    if (!isTuplet(event) || (first !== undefined && !isSameRatio(first, event))) {
-      close();
-    }
-    if (!isTuplet(event)) {
-      return;
-    }
-    members = [...members, index];
-    ticks += durationTicks(event.duration);
-    unit = Math.min(unit, Math.floor(WHOLE_NOTE_TICKS / event.duration.value));
-    if (ticks + members.length >= event.duration.tuplet.times * unit) {
-      close();
-    }
-  });
-  close();
-  return groups;
+    plans.set(start, best);
+  }
+  return joinIncomplete(plans.get(0)?.groups ?? []);
+}
+
+function joinIncomplete(groups: Plan['groups']): number[][] {
+  return groups
+    .reduce<Array<{ members: number[]; isComplete: boolean }>>(
+      (joined, group) => {
+        const last = joined[joined.length - 1];
+        if (!group.isComplete && last !== undefined && !last.isComplete) {
+          return [
+            ...joined.slice(0, -1),
+            { members: [...last.members, ...group.members], isComplete: false },
+          ];
+        }
+        return [
+          ...joined,
+          { members: [...group.members], isComplete: group.isComplete },
+        ];
+      },
+      [],
+    )
+    .map(group => group.members);
 }
 
 export function tupletGroups(events: readonly VoiceEvent[]): number[][] {
-  const voices = [...new Set(events.map((event) => event.voiceIndex))];
-  return voices.flatMap((voiceIndex) => voiceTuplets(events, voiceIndex));
-}
-
-interface TupletPlacement {
-  readonly events: readonly VoiceEvent[];
-  readonly chords: readonly (Chord | undefined)[];
-  readonly tips: readonly (number | undefined)[];
-  readonly isMultiVoice: boolean;
-  readonly top: number;
+  const voices = [...new Set(events.map(event => event.voiceIndex))];
+  return voices.flatMap(voiceIndex =>
+    tupletRuns(events, voiceIndex).flatMap(run => partition(run, events)),
+  );
 }
 
 /** Vertical reach of an event: its noteheads and stem, or its rest. */
-function reach(index: number, placement: TupletPlacement): number[] {
-  const chord = placement.chords[index];
-  const tip = placement.tips[index];
+function reach(index: number, layout: VoiceLayout): number[] {
+  const chord = layout.chords[index];
+  const tip = layout.tips[index];
   if (chord === undefined) {
-    const event = placement.events[index];
-    const position = event === undefined ? 0 : restPosition(event, placement.isMultiVoice);
-    return [positionY(placement.top, position + REST_REACH), positionY(placement.top, position - REST_REACH)];
+    const event = layout.events[index];
+    const position =
+      event === undefined ? 0 : restPosition(event, layout.isMultiVoice);
+    return [
+      positionY(layout.top, position + REST_REACH),
+      positionY(layout.top, position - REST_REACH),
+    ];
   }
   const half = NOTATION.space / 2;
-  return [...chord.heads.flatMap((head) => [head.y - half, head.y + half]), ...(tip === undefined ? [] : [tip])];
+  return [
+    ...chord.heads.flatMap(head => [head.y - half, head.y + half]),
+    ...(tip === undefined ? [] : [tip]),
+  ];
 }
 
-/** The tuplet number, centred over the group on its stem side. */
-export function tupletNumber(members: readonly number[], placement: TupletPlacement, color: string): TextCommand[] {
-  const first = placement.events[members[0] ?? -1];
+/** Left and right ends of a tuplet bracket: the outer noteheads, stems and rests of the group. */
+function bracketSpan(
+  members: readonly number[],
+  layout: VoiceLayout,
+): readonly [number, number] {
+  const edges = members.flatMap(index => {
+    const chord = layout.chords[index];
+    const x = layout.events[index]?.x ?? 0;
+    return chord === undefined
+      ? [x - GLYPH_WIDTH.rest / 2, x + GLYPH_WIDTH.rest / 2]
+      : [chord.left, Math.max(chord.right, chord.stemX)];
+  });
+  return [Math.min(...edges), Math.max(...edges)];
+}
+
+/** Beamed as one group: every member is a note under the same beam. */
+function isBeamedTogether(
+  members: readonly number[],
+  beamed: readonly BeamedChords[],
+): boolean {
+  return beamed.some(group =>
+    members.every(index =>
+      group.chords.some(chord => chord.eventIndex === index),
+    ),
+  );
+}
+
+function bracket(
+  left: number,
+  right: number,
+  centre: number,
+  numberWidth: number,
+  y: number,
+  isAbove: boolean,
+  color: string,
+): LineCommand[] {
+  const gap = numberWidth / 2 + TUPLET.numberGap;
+  if (right - left < 2 * gap + 2 * TUPLET.hook) {
+    return [];
+  }
+  const hook = isAbove ? TUPLET.hook : -TUPLET.hook;
+  return [
+    vertical(left, y, y + hook, TUPLET.bracketWidth, color),
+    horizontal(left, centre - gap, y, TUPLET.bracketWidth, color),
+    horizontal(centre + gap, right, y, TUPLET.bracketWidth, color),
+    vertical(right, y, y + hook, TUPLET.bracketWidth, color),
+  ];
+}
+
+/** The tuplet number on the stem side of the group, in a bracket unless the group is beamed as one. */
+export function tupletMarks(
+  members: readonly number[],
+  layout: VoiceLayout,
+  beamed: readonly BeamedChords[],
+): DrawCommand[] {
+  const first = layout.events[members[0] ?? -1];
   if (first === undefined) {
     return [];
   }
-  const stemmed = members.flatMap((index) => placement.chords[index] ?? []);
+  const stemmed = members.flatMap(index => layout.chords[index] ?? []);
   const isAbove = (stemmed[0]?.direction ?? 'up') === 'up';
-  const xs = members.map((index) => placement.chords[index]?.stemX ?? placement.events[index]?.x ?? first.x);
-  const ys = members.flatMap((index) => reach(index, placement));
-  const x = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const y = isAbove ? Math.min(...ys) - TUPLET.gap : Math.max(...ys) + TUPLET.gap + TUPLET.height;
-  return [musicGlyph(x, y, digitGlyphs(first.duration.tuplet.enters, TUPLET.digitZero), color, 'center')];
+  const ys = members.flatMap(index => reach(index, layout));
+  const y = isAbove
+    ? Math.min(...ys) - TUPLET.gap
+    : Math.max(...ys) + TUPLET.gap + TUPLET.height;
+  const digits = digitGlyphs(first.duration.tuplet.enters, TUPLET.digitZero);
+  if (isBeamedTogether(members, beamed)) {
+    const xs = members.map(
+      index =>
+        layout.chords[index]?.stemX ?? layout.events[index]?.x ?? first.x,
+    );
+    return [
+      musicGlyph(
+        (Math.min(...xs) + Math.max(...xs)) / 2,
+        y,
+        digits,
+        layout.color,
+        'center',
+      ),
+    ];
+  }
+  const [left, right] = bracketSpan(members, layout);
+  const centre = (left + right) / 2;
+  const lines = bracket(
+    left,
+    right,
+    centre,
+    [...digits].length * TUPLET.digitWidth,
+    y - TUPLET.height / 2,
+    isAbove,
+    layout.color,
+  );
+  return [musicGlyph(centre, y, digits, layout.color, 'center'), ...lines];
 }

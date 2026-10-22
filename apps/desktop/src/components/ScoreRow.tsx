@@ -6,6 +6,7 @@ import { ScoreCanvas } from '../native/score-canvas';
 import type { RowGeometry, ScoreMode } from '../score/geometry';
 import { type RowHit, hitTestRow } from '../score/hit-test';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
+import type { TabMarkKind } from '../score/tab';
 import type { Palette } from '../theme';
 
 export interface ScoreRowProps {
@@ -21,6 +22,7 @@ export interface ScoreRowProps {
   readonly cursor?: StringAddress;
   /** Only set when the playing beat is in this row. */
   readonly playing?: PlayingBeat;
+  readonly markLanes?: readonly TabMarkKind[];
   readonly onPress: (hit: RowHit) => void;
 }
 
@@ -45,12 +47,13 @@ function ScoreRowView(props: ScoreRowProps) {
 
 /**
  * A row re-renders only when something it draws changed: its measures or headers (edits keep untouched measures
- * identical), the measure before it (ties, key changes), the cursor or playing beat inside it, mode, size or theme.
+ * identical), the measures on either side (ties, slurs, slides, spans across bar lines; key changes), the cursor or
+ * playing beat inside it, mode, size, mark lanes or theme.
  */
-function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
+export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.headerWidth !== b.headerWidth ||
-    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress ||
+    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || !sameLanes(a.markLanes, b.markLanes) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex
   ) {
     return false;
@@ -66,6 +69,7 @@ function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
     return (
       other !== undefined && sameLayout(layout, other) &&
       trackA.measures[index] === trackB.measures[index] && trackA.measures[index - 1] === trackB.measures[index - 1] &&
+      trackA.measures[index + 1] === trackB.measures[index + 1] &&
       a.song.measureHeaders[index] === b.song.measureHeaders[index] && a.song.measureHeaders[index - 1] === b.song.measureHeaders[index - 1]
     );
   });
@@ -78,6 +82,11 @@ function sameLayout(a: MeasureLayout, b: MeasureLayout): boolean {
     a.showTimeSignature === b.showTimeSignature && a.showTempo === b.showTempo &&
     a.keySignatureX === b.keySignatureX && a.timeSignatureX === b.timeSignatureX
   );
+}
+
+/** Lanes are rebuilt from the whole track on every edit; only their kinds matter. */
+function sameLanes(a: readonly TabMarkKind[] = [], b: readonly TabMarkKind[] = []): boolean {
+  return a.length === b.length && a.every((kind, i) => kind === b[i]);
 }
 
 function sameAddress(a: StringAddress | undefined, b: StringAddress | undefined): boolean {

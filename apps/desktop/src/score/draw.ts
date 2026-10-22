@@ -19,6 +19,8 @@ export interface LineCommand {
   readonly y2: number;
   readonly width: number;
   readonly color: string;
+  /** Dash pattern in points (on, off, …), e.g. [3, 3] for "let ring ----". Solid when absent. */
+  readonly dash?: readonly number[];
 }
 
 /** Filled rectangle, optionally with rounded corners. */
@@ -78,17 +80,37 @@ export interface PolygonCommand {
   readonly color: string;
 }
 
-export type DrawCommand = LineCommand | RectCommand | CircleCommand | TextCommand | CurveCommand | PolygonCommand;
+export type DrawCommand =
+  | LineCommand
+  | RectCommand
+  | CircleCommand
+  | TextCommand
+  | CurveCommand
+  | PolygonCommand;
 
 /** Shift every command by (dx, dy) — used to place a measure's commands in its row. */
-export function translateCommands(commands: readonly DrawCommand[], dx: number, dy: number): DrawCommand[] {
-  return commands.map((command) => translateCommand(command, dx, dy));
+export function translateCommands(
+  commands: readonly DrawCommand[],
+  dx: number,
+  dy: number,
+): DrawCommand[] {
+  return commands.map(command => translateCommand(command, dx, dy));
 }
 
-function translateCommand(command: DrawCommand, dx: number, dy: number): DrawCommand {
+function translateCommand(
+  command: DrawCommand,
+  dx: number,
+  dy: number,
+): DrawCommand {
   switch (command.kind) {
     case 'line':
-      return { ...command, x1: command.x1 + dx, y1: command.y1 + dy, x2: command.x2 + dx, y2: command.y2 + dy };
+      return {
+        ...command,
+        x1: command.x1 + dx,
+        y1: command.y1 + dy,
+        x2: command.x2 + dx,
+        y2: command.y2 + dy,
+      };
     case 'curve':
       return {
         ...command,
@@ -100,7 +122,12 @@ function translateCommand(command: DrawCommand, dx: number, dy: number): DrawCom
         y2: command.y2 + dy,
       };
     case 'polygon':
-      return { ...command, points: command.points.map((value, i) => value + (i % 2 === 0 ? dx : dy)) };
+      return {
+        ...command,
+        points: command.points.map(
+          (value, i) => value + (i % 2 === 0 ? dx : dy),
+        ),
+      };
     case 'rect':
     case 'circle':
     case 'text':

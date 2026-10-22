@@ -1,9 +1,14 @@
 import type { Beat, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
 import { type BeamLayout, beamGroupTicks, flagCount, layoutBeams } from '../lib/beams';
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
-import { beatMarks, fretLabel } from '../lib/notation';
+import { fretLabel } from '../lib/notation';
 import type { Palette } from '../theme';
 import { type DrawCommand, SMUFL } from './draw';
+import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
+import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
+import { engraveTabTechniques } from './symbols/tab-notes';
+
+export { type TabMarkKind, tabMarkLanes } from './symbols/tab-marks';
 
 /** Where the tab staff of one measure goes and what to emphasise. Coordinates are measure-local (x = 0 at the left edge). */
 export interface TabContext {
@@ -13,9 +18,15 @@ export interface TabContext {
   readonly layout: MeasureLayout;
   /** The beat before this measure's first beat (last beat of the previous measure), for sustained effect marks. */
   readonly previousBeat?: Beat;
+  /** For slurs and slides arriving from the previous measure (its last beat stands in for `previousBeat` when that is absent). */
+  readonly previousMeasure?: Measure;
+  /** For slurs and slides leaving the measure, and spans ("P.M. - - -") that go on past the bar line. */
+  readonly nextMeasure?: Measure;
+  /** Lanes of the effect marks, e.g. `tabMarkLanes(rowMeasures)` so each kind keeps its height across a row; default: this measure's. */
+  readonly markLanes?: readonly TabMarkKind[];
   /** Y of the first (highest) string. */
   readonly top: number;
-  /** Y centre of the effect marks row. */
+  /** Y centre of the lowest effect-mark lane; further lanes stack `TAB_MARKS.laneHeight` above it. */
   readonly marksY: number;
   /** Rhythm stems, beams and rests under the staff (tab-only mode). */
   readonly showRhythm: boolean;
@@ -26,11 +37,7 @@ export interface TabContext {
   readonly playingBeatIndex?: number;
 }
 
-const FRET_BOX = { width: 22, height: 14 } as const;
 const FRET_FONT_SIZE = 11;
-const MARK_FONT_SIZE = 9;
-/** Effect marks start a little left of the beat and read rightwards, like a span label. */
-const MARK_INSET = 8;
 const STEM_GAP = 8;
 const STEM_HEIGHT = 15;
 const HALF_STEM_HEIGHT = 9;
@@ -38,7 +45,7 @@ const BEAM_SPACING = 3;
 const MUSIC_SIZE = 32;
 
 export function stringY(top: number, stringNumber: number): number {
-  return top + (stringNumber - 1) * TAB.stringGap;
+  return tabStringY(top, stringNumber);
 }
 
 export function tabStaffHeight(stringCount: number): number {
@@ -68,6 +75,8 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
       commands.push(...engraveBeat(context, beat, beatLayout, bottom, isBeamed));
     }
   });
+  commands.push(...engraveTabMarks({ ...context, previousBeat: context.previousBeat ?? lastBeat(context.previousMeasure) }));
+  commands.push(...engraveTabTechniques(context));
   if (context.cursor !== undefined) {
     commands.push(...cursorBox(context, context.cursor));
   }
@@ -75,6 +84,10 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
     commands.push(...beamLines(beams, bottom + STEM_GAP, palette));
   }
   return commands;
+}
+
+function lastBeat(measure: Measure | undefined): Beat | undefined {
+  return measure?.beats[measure.beats.length - 1];
 }
 
 function playingColumn(context: TabContext, beatIndex: number, top: number, bottom: number): DrawCommand[] {
@@ -123,18 +136,14 @@ function timeSignature(context: TabContext, x: number, top: number, bottom: numb
 
 function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bottom: number, isBeamed: boolean): DrawCommand[] {
   const { palette, top } = context;
-  const { beatIndex, x } = beatLayout;
+  const { x } = beatLayout;
   const commands: DrawCommand[] = [];
-  const marks = beatMarks(beat, beatIndex === 0 ? context.previousBeat : context.measure.beats[beatIndex - 1]);
-  if (marks.length > 0) {
-    commands.push({ kind: 'text', x: x - MARK_INSET, y: context.marksY, text: marks.join(' '), size: MARK_FONT_SIZE, color: palette.muted, font: 'ui', align: 'left' });
-  }
   beat.voices.forEach((voice, voiceIndex) => {
     voice.notes.forEach((note) => {
       const y = stringY(top, note.string);
       commands.push(
         { kind: 'rect', x: x - FRET_BOX.width / 2, y: y - FRET_BOX.height / 2, width: FRET_BOX.width, height: FRET_BOX.height, color: palette.paper, radius: 3 },
-        { kind: 'text', x, y, text: fretLabel(note), size: FRET_FONT_SIZE, color: voiceIndex > 0 ? palette.accent : palette.text, font: 'mono', align: 'center', bold: true },
+        { kind: 'text', x, y, text: fretLabel(note), size: FRET_FONT_SIZE, color: voiceColor(voiceIndex, palette), font: 'mono', align: 'center', bold: true },
       );
     });
   });

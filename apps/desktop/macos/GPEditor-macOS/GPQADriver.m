@@ -8,6 +8,7 @@
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
+//          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
 //          {"quit": true}]}
 // Coordinates are points in the window's content view, origin top-left. Progress goes to "<script>.log".
 
@@ -90,6 +91,12 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"open"] != nil) {
     NSURL *url = [NSURL fileURLWithPath:step[@"open"]];
     [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorOpenURLsNotification object:@[ url ]];
+    return 1.0;
+  }
+  if (step[@"notify"] != nil) {
+    // Menu commands (e.g. GPEditorSaveCommand) without the menu bar, which needs an active app. "object" is passed on
+    // (GPEditorNewCommand takes the score mode).
+    [[NSNotificationCenter defaultCenter] postNotificationName:step[@"notify"] object:step[@"object"]];
     return 1.0;
   }
   if (step[@"wait"] != nil) {

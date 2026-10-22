@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hermes smoke test: bundle gp-core with Metro and read every fixture in the Hermes VM from the macOS pods.
+# Hermes smoke test: bundle gp-core with Metro, then read every fixture and save it as GP5 in the Hermes VM from the macOS pods.
 # Usage: scripts/hermes-smoke/run.sh   (from apps/desktop; needs `npm run pods` first)
 set -euo pipefail
 

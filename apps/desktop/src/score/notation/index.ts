@@ -4,5 +4,11 @@
  * drum tracks are drawn on a percussion staff.
  */
 export { NOTATION, notationBandHeight } from './metrics';
-export { type NotationContext, engraveNotationMeasure } from './engrave-measure';
-export { engraveNotationRowHeader, notationRowHeaderWidth } from './engrave-header';
+export {
+  type NotationContext,
+  engraveNotationMeasure,
+} from './engrave-measure';
+export {
+  engraveNotationRowHeader,
+  notationRowHeaderWidth,
+} from './engrave-header';

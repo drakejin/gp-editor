@@ -19,7 +19,11 @@ interface OttavaRun {
   readonly chords: readonly Chord[];
 }
 
-function voiceRuns(events: readonly VoiceEvent[], chords: readonly (Chord | undefined)[], voiceIndex: number): OttavaRun[] {
+function voiceRuns(
+  events: readonly VoiceEvent[],
+  chords: readonly (Chord | undefined)[],
+  voiceIndex: number,
+): OttavaRun[] {
   return events.reduce<OttavaRun[]>((runs, event, index) => {
     if (event.voiceIndex !== voiceIndex) {
       return runs;
@@ -28,7 +32,10 @@ function voiceRuns(events: readonly VoiceEvent[], chords: readonly (Chord | unde
     const added = chord === undefined ? [] : [chord];
     const last = runs[runs.length - 1];
     return last !== undefined && last.ottava === event.ottava
-      ? [...runs.slice(0, -1), { ottava: last.ottava, chords: [...last.chords, ...added] }]
+      ? [
+          ...runs.slice(0, -1),
+          { ottava: last.ottava, chords: [...last.chords, ...added] },
+        ]
       : [...runs, { ottava: event.ottava, chords: added }];
   }, []);
 }
@@ -41,20 +48,45 @@ function runMarks(run: OttavaRun, top: number, color: string): DrawCommand[] {
   if (label === undefined || first === undefined || last === undefined) {
     return [];
   }
-  const ys = run.chords.flatMap((chord) => chord.heads.map((head) => head.y));
+  const ys = run.chords.flatMap(chord => chord.heads.map(head => head.y));
   const isAbove = run.ottava > 0;
-  const y = isAbove ? Math.min(top, ...ys) - OTTAVA.gap : Math.max(positionY(top, STAFF.bottomLine), ...ys) + OTTAVA.gap;
-  const lineStart = first.left + label.length * OTTAVA.charWidth + OTTAVA.labelGap;
-  const text: DrawCommand = { kind: 'text', x: first.left, y, text: label, size: OTTAVA.fontSize, color, font: 'ui', align: 'left' };
+  const y = isAbove
+    ? Math.min(top, ...ys) - OTTAVA.gap
+    : Math.max(positionY(top, STAFF.bottomLine), ...ys) + OTTAVA.gap;
+  const lineStart =
+    first.left + label.length * OTTAVA.charWidth + OTTAVA.labelGap;
+  const text: DrawCommand = {
+    kind: 'text',
+    x: first.left,
+    y,
+    text: label,
+    size: OTTAVA.fontSize,
+    color,
+    font: 'ui',
+    align: 'left',
+  };
   if (last.right - lineStart < OTTAVA.minLine) {
     return [text];
   }
   const hook = isAbove ? OTTAVA.hook : -OTTAVA.hook;
-  return [text, horizontal(lineStart, last.right, y, OTTAVA.lineWidth, color), vertical(last.right, y, y + hook, OTTAVA.lineWidth, color)];
+  return [
+    text,
+    horizontal(lineStart, last.right, y, OTTAVA.lineWidth, color),
+    vertical(last.right, y, y + hook, OTTAVA.lineWidth, color),
+  ];
 }
 
 /** Ottava marks for every run of octave-shifted notes in the measure's voices. */
-export function ottavaMarks(events: readonly VoiceEvent[], chords: readonly (Chord | undefined)[], top: number, color: string): DrawCommand[] {
-  const voices = [...new Set(events.map((event) => event.voiceIndex))];
-  return voices.flatMap((voiceIndex) => voiceRuns(events, chords, voiceIndex).flatMap((run) => runMarks(run, top, color)));
+export function ottavaMarks(
+  events: readonly VoiceEvent[],
+  chords: readonly (Chord | undefined)[],
+  top: number,
+  color: string,
+): DrawCommand[] {
+  const voices = [...new Set(events.map(event => event.voiceIndex))];
+  return voices.flatMap(voiceIndex =>
+    voiceRuns(events, chords, voiceIndex).flatMap(run =>
+      runMarks(run, top, color),
+    ),
+  );
 }

@@ -5,6 +5,7 @@ import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type PlayingBeat, rowHeaderWidth } from '../score/row';
+import { tabMarkLanes } from '../score/tab';
 import type { Palette } from '../theme';
 import { ScoreRow } from './ScoreRow';
 
@@ -28,7 +29,9 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, on
   const track = song.tracks[trackIndex];
   const stringCount = track?.strings.length ?? 6;
   const headerWidth = useMemo(() => (track === undefined ? 0 : rowHeaderWidth(mode, track)), [mode, track]);
-  const geometry = useMemo(() => rowGeometry(mode, stringCount), [mode, stringCount]);
+  // Lanes for the whole track, so all rows keep one height (the list uses fixed row heights).
+  const markLanes = useMemo(() => tabMarkLanes(track?.measures ?? []), [track?.measures]);
+  const geometry = useMemo(() => rowGeometry(mode, stringCount, markLanes.length), [mode, stringCount, markLanes.length]);
   const measures = useMemo(() => song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i)), [song, trackIndex]);
   const rowWidth = Math.max(0, width - ROW.sidePadding * 2);
   const rows = useMemo(() => (rowWidth > 0 ? layoutRows(measures, rowWidth - headerWidth) : []), [measures, rowWidth, headerWidth]);
@@ -56,11 +59,12 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, on
           palette={palette}
           cursor={inRow(cursor?.measureIndex) ? cursor : undefined}
           playing={inRow(playing?.measureIndex) ? playing : undefined}
+          markLanes={markLanes}
           onPress={onPressBeat}
         />
       );
     },
-    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, onPressBeat],
+    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, markLanes, onPressBeat],
   );
 
   return (

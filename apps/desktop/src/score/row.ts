@@ -1,11 +1,11 @@
-import type { Song, StringAddress, Track } from '@gp-editor/core';
+import { type Song, type StringAddress, type Track, isMeasureOverfull } from '@gp-editor/core';
 import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
 import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
-import { engraveTabMeasure, engraveTabRowHeader, stringY } from './tab';
+import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader, stringY } from './tab';
 
 /** Width of the clef column of tab-only rows. */
 const TAB_HEADER_WIDTH = 30;
@@ -34,6 +34,8 @@ export interface RowContext {
   readonly palette: Palette;
   readonly cursor?: StringAddress;
   readonly playing?: PlayingBeat;
+  /** Effect-mark lanes of the track (`tabMarkLanes`), so every row stacks marks the same way. */
+  readonly markLanes?: readonly TabMarkKind[];
 }
 
 /** Clef (+ key signature) column at the start of every row, wide enough for the track's largest key signature. */
@@ -95,20 +97,26 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     return [];
   }
   const previousMeasure = track.measures[layout.measureIndex - 1];
+  const nextMeasure = track.measures[layout.measureIndex + 1];
   const cursor = context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined;
   const playingBeatIndex = context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined;
-  const commands: DrawCommand[] = [...engraveHeading(header, layout, context.palette)];
+  const commands: DrawCommand[] = [...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header))];
   const { notationTop, tabTop, marksY } = context.geometry;
   if (notationTop !== undefined && showsNotation(context.mode)) {
     const highlight =
       playingBeatIndex !== undefined ? { beatIndex: playingBeatIndex } : cursor !== undefined ? { beatIndex: cursor.beatIndex, string: cursor.string } : undefined;
-    commands.push(...engraveNotationMeasure({ track, header, measure, layout, previousMeasure, top: notationTop, palette: context.palette, highlight }));
+    commands.push(
+      ...engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight }),
+    );
   }
   if (tabTop !== undefined && marksY !== undefined && showsTab(context.mode)) {
     const previousBeat = previousMeasure?.beats[previousMeasure.beats.length - 1];
     const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string };
     commands.push(
-      ...engraveTabMeasure({ track, header, measure, layout, previousBeat, top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex }),
+      ...engraveTabMeasure({
+        track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
+        top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
+      }),
     );
   }
   return translateCommands(commands, placed.x, 0);

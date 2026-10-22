@@ -1,5 +1,5 @@
-// File access for the JS side: the open panel, reading a file the user picked or dropped,
-// and files handed to the app by Finder ("Open With", dock drop) or the File ▸ Open… menu.
+// File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
+// the app by Finder ("Open With", dock drop), and the File menu (New, Open…, Save, Save As…).
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 
 #import <AppKit/AppKit.h>
@@ -10,8 +10,10 @@
 
 #import "GPEditorNotifications.h"
 
+static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
+static NSString *const kSaveRequestedEvent = @"saveRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -50,8 +52,11 @@ RCT_EXPORT_MODULE();
 {
   if (self = [super init]) {
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self selector:@selector(onNewCommand:) name:GPEditorNewCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
+    [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
   }
   return self;
 }
@@ -63,7 +68,7 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[ kOpenRequestedEvent, kFileOpenedEvent ];
+  return @[ kNewRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
 }
 
 - (void)startObserving
@@ -77,10 +82,33 @@ RCT_EXPORT_MODULE();
   hasListeners = NO;
 }
 
+- (void)onNewCommand:(NSNotification *)note
+{
+  // The JS side checks the mode; an unknown or missing one falls back to score + tab.
+  NSString *mode = [note.object isKindOfClass:[NSString class]] ? note.object : @"";
+  if (hasListeners) {
+    [self sendEventWithName:kNewRequestedEvent body:@{@"mode" : mode}];
+  }
+}
+
 - (void)onOpenCommand:(NSNotification *)note
 {
   if (hasListeners) {
     [self sendEventWithName:kOpenRequestedEvent body:@{}];
+  }
+}
+
+- (void)onSaveCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kSaveRequestedEvent body:@{@"saveAs" : @NO}];
+  }
+}
+
+- (void)onSaveAsCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kSaveRequestedEvent body:@{@"saveAs" : @YES}];
   }
 }
 
@@ -163,6 +191,57 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
     return;
   }
   resolve(payload);
+}
+
+/** Writes base64 bytes to a path; the result names the file like an opened one. */
++ (NSDictionary *)writeBase64:(NSString *)base64 toPath:(NSString *)path error:(NSError **)error
+{
+  NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+  if (data == nil) {
+    if (error != NULL) {
+      *error = [NSError errorWithDomain:@"GPFiles" code:1 userInfo:@{NSLocalizedDescriptionKey : @"The file data is not valid base64"}];
+    }
+    return nil;
+  }
+  if (![data writeToFile:path options:NSDataWritingAtomic error:error]) {
+    return nil;
+  }
+  return @{@"name" : path.lastPathComponent, @"path" : path};
+}
+
+RCT_EXPORT_METHOD(showSaveDialog : (NSString *)base64 suggestedName : (NSString *)suggestedName resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSSavePanel *panel = [NSSavePanel savePanel];
+    UTType *gp5 = [UTType typeWithFilenameExtension:@"gp5"];
+    if (gp5 != nil) {
+      panel.allowedContentTypes = @[ gp5 ];
+    }
+    panel.nameFieldStringValue = suggestedName;
+    panel.message = @"Save as a Guitar Pro 5 file (.gp5)";
+    if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
+      resolve([NSNull null]);
+      return;
+    }
+    NSError *error = nil;
+    NSDictionary *saved = [GPFiles writeBase64:base64 toPath:panel.URL.path error:&error];
+    if (saved == nil) {
+      reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+      return;
+    }
+    resolve(saved);
+  });
+}
+
+RCT_EXPORT_METHOD(writeFile : (NSString *)path base64 : (NSString *)base64 resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSError *error = nil;
+  NSDictionary *saved = [GPFiles writeBase64:base64 toPath:path error:&error];
+  if (saved == nil) {
+    reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+    return;
+  }
+  resolve(saved);
 }
 
 RCT_EXPORT_METHOD(setDocumentTitle : (NSString *)title)

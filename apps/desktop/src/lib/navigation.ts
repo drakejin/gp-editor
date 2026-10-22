@@ -36,12 +36,14 @@ export function adjacentString(song: Song, cursor: StringAddress, delta: number)
 /** A cursor that points inside the song: indexes clamped to what exists, else the track's first beat. */
 export function clampCursor(song: Song, cursor: StringAddress): StringAddress | undefined {
   const track = song.tracks[cursor.trackIndex];
-  const beats = track?.measures[cursor.measureIndex]?.beats ?? [];
+  const measureIndex = Math.min(cursor.measureIndex, (track?.measures.length ?? 1) - 1);
+  const beats = track?.measures[measureIndex]?.beats ?? [];
   if (track === undefined || beats.length === 0) {
     return firstCursor(song, cursor.trackIndex);
   }
   return {
     ...cursor,
+    measureIndex,
     beatIndex: Math.min(cursor.beatIndex, beats.length - 1),
     string: Math.min(Math.max(1, cursor.string), Math.max(1, track.strings.length)),
   };

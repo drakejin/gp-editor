@@ -19,22 +19,49 @@ const WHOLE_REST_POSITION = STAFF.middleLine + 2;
 const VOICE_SHIFT = 4;
 
 export function restPosition(event: VoiceEvent, isMultiVoice: boolean): number {
-  const shift = !isMultiVoice ? 0 : event.voiceIndex === 0 ? VOICE_SHIFT : -VOICE_SHIFT;
-  return (event.duration.value === 1 ? WHOLE_REST_POSITION : STAFF.middleLine) + shift;
+  if (event.restPosition !== undefined) {
+    return event.restPosition;
+  }
+  const shift = !isMultiVoice
+    ? 0
+    : event.voiceIndex === 0
+    ? VOICE_SHIFT
+    : -VOICE_SHIFT;
+  return (
+    (event.duration.value === 1 ? WHOLE_REST_POSITION : STAFF.middleLine) +
+    shift
+  );
 }
 
-export function rest(event: VoiceEvent, isMultiVoice: boolean, top: number, color: string): TextCommand[] {
+export function rest(
+  event: VoiceEvent,
+  isMultiVoice: boolean,
+  top: number,
+  color: string,
+): TextCommand[] {
   const position = restPosition(event, isMultiVoice);
   const glyph = REST_GLYPHS.get(event.duration.value) ?? SMUFL.restQuarter;
   const dotX = event.x + GLYPH_WIDTH.rest / 2 + DOT.gap;
   const dotY = positionY(top, position + (position % 2 === 0 ? 1 : 0));
   return [
     musicGlyph(event.x, positionY(top, position), glyph, color, 'center'),
-    ...Array.from({ length: dotCount(event.duration) }, (_, k) => musicGlyph(dotX + k * DOT.spacing, dotY, SMUFL.augmentationDot, color)),
+    ...Array.from({ length: dotCount(event.duration) }, (_, k) =>
+      musicGlyph(dotX + k * DOT.spacing, dotY, SMUFL.augmentationDot, color),
+    ),
   ];
 }
 
 /** The whole rest of a measure without beats, centred at `x`. */
-export function measureRest(x: number, top: number, color: string): TextCommand {
-  return musicGlyph(x, positionY(top, WHOLE_REST_POSITION), SMUFL.restWhole, color, 'center');
+export function measureRest(
+  x: number,
+  top: number,
+  color: string,
+): TextCommand {
+  return musicGlyph(
+    x,
+    positionY(top, WHOLE_REST_POSITION),
+    SMUFL.restWhole,
+    color,
+    'center',
+  );
 }

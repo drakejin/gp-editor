@@ -4,6 +4,7 @@ import type { ToolbarCommand } from '../components/Toolbar';
 import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, keyCommand } from '../lib/key-commands';
 import { focusView } from '../native/focus-view';
+import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
@@ -19,23 +20,29 @@ interface EditorCommandSources {
   readonly state: EditorState;
   readonly dispatch: Dispatch<EditorAction>;
   readonly playback: Playback;
+  readonly create: (mode: ScoreMode) => void;
   readonly openDialog: () => void;
   readonly openPath: (pathOrUrl: string) => void;
+  readonly save: (saveAs: boolean) => void;
   /** The view that receives keyboard events; focused again after clicks on the score. */
   readonly keyboardView: RefObject<View | null>;
 }
 
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
-  const { dispatch, playback, openDialog, openPath, keyboardView } = sources;
-  const { cursor, trackIndex } = sources.state;
+  const { dispatch, playback, create, openDialog, openPath, save, keyboardView } = sources;
+  const { cursor, trackIndex, mode } = sources.state;
   const lastDigit = useRef<DigitEntry | undefined>(undefined);
   const { isPlaying, start, stop } = playback;
 
   const runCommand = useCallback(
     (command: ToolbarCommand | KeyCommand) => {
-      if (command.type === 'openFile') {
+      if (command.type === 'newFile') {
+        create(mode);
+      } else if (command.type === 'openFile') {
         openDialog();
+      } else if (command.type === 'saveFile') {
+        save(false);
       } else if (command.type === 'togglePlayback') {
         isPlaying ? stop() : start(cursor?.measureIndex ?? 0);
       } else if (command.type === 'stopPlayback') {
@@ -44,7 +51,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [openDialog, isPlaying, stop, start, cursor?.measureIndex, dispatch],
+    [create, mode, openDialog, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
   );
 
   const onPressBeat = useCallback(

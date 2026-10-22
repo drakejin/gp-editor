@@ -37,4 +37,19 @@ describe('keyCommand', () => {
     expect(keyCommand(press('Z', { metaKey: true, shiftKey: true }), digit, 0)).toEqual({ type: 'redo' });
     expect(keyCommand(press('q'), digit, 0)).toBeUndefined();
   });
+
+  it('maps duration, effect and beat keys to cursor edits', () => {
+    const digit = { current: undefined };
+    const edit = (key: string, modifiers = {}) => keyCommand(press(key, modifiers), digit, 0);
+    expect(edit('[')).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: -1 } });
+    expect(edit(']')).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: 1 } });
+    expect(edit('.')).toEqual({ type: 'edit', edit: { type: 'toggleDot' } });
+    expect(edit('/')).toEqual({ type: 'edit', edit: { type: 'toggleTriplet' } });
+    expect(edit('h')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
+    expect(edit('P')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
+    expect(edit('b')).toEqual({ type: 'edit', edit: { type: 'cycleBend' } });
+    expect(edit('i')).toEqual({ type: 'edit', edit: { type: 'insertBeat' } });
+    expect(edit('Backspace', { shiftKey: true })).toEqual({ type: 'edit', edit: { type: 'deleteBeat' } });
+    expect(edit('s', { metaKey: true })).toBeUndefined();
+  });
 });

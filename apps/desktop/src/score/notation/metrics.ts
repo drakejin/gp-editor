@@ -84,6 +84,69 @@ export const TIE = {
   maxHeight: SPACE,
   /** Length of the arc drawn into a note tied from the previous measure. */
   entry: 2.5 * SPACE,
+  /** Height of the halves of a tie across the bar line, so the two halves meet there. */
+  crossHeight: 0.6 * SPACE,
+} as const;
+
+/** Slurs of hammer-ons, pull-offs and legato slides: from notehead centre to notehead centre. */
+export const SLUR = {
+  width: 1.2,
+  offset: 0.6 * SPACE,
+  minHeight: 0.4 * SPACE,
+  maxHeight: 1.2 * SPACE,
+  curvature: 0.12,
+  crossHeight: 0.6 * SPACE,
+} as const;
+
+export const SLIDE = {
+  width: 1.2,
+  gap: 0.3 * SPACE,
+  /** Slides out of and into a note. */
+  shortLength: 1.5 * SPACE,
+  shortRise: SPACE,
+  /** A slide between two notes on the same staff position still slants a little. */
+  minRise: 0.3 * SPACE,
+} as const;
+
+/** Parentheses around a ghost note's notehead. */
+export const PAREN = {
+  gap: 0.1 * SPACE,
+  /** Room the parentheses take on each side of the notehead. */
+  space: 0.6 * SPACE,
+} as const;
+
+export const ARTICULATION = {
+  /** From the notehead or stem to the first articulation, and between stacked ones. */
+  gap: 0.4 * SPACE,
+} as const;
+
+/** Trill, vibrato and tremolo strokes. */
+export const ORNAMENT = {
+  /** Clear of the staff, the notes and their stems. */
+  gap: 0.8 * SPACE,
+  /** Wavy lines end this far before the next note. */
+  endGap: 0.5 * SPACE,
+  /** Tremolo strokes over a note without a stem. */
+  stemlessLift: 2 * SPACE,
+  /** Tremolo strokes sit this far along the stem from the notehead. */
+  stemRatio: 0.55,
+} as const;
+
+export const GRACE = {
+  /** Grace accidentals are drawn at this share of the music font size. */
+  scale: 0.66,
+  gap: 0.4 * SPACE,
+  ledgerExtension: 0.25 * SPACE,
+  ledgerWidth: 1,
+  /** A small slur under a hammered grace note. */
+  slurHeight: 0.5 * SPACE,
+} as const;
+
+/** Strum arrows left of a chord. */
+export const STROKE = {
+  gap: 0.5 * SPACE,
+  overhang: 0.6 * SPACE,
+  width: 1,
 } as const;
 
 export const TUPLET = {
@@ -91,7 +154,14 @@ export const TUPLET = {
   digitZero: 0xe880,
   /** Height of a tuplet digit above its baseline. */
   height: 1.5 * SPACE,
+  /** Advance of a tuplet digit. */
+  digitWidth: 1.25 * SPACE,
   gap: 0.4 * SPACE,
+  /** Bracket of a tuplet that is not beamed as a group. */
+  hook: 0.5 * SPACE,
+  bracketWidth: 0.8,
+  /** Between the number and the bracket lines either side of it. */
+  numberGap: 0.3 * SPACE,
 } as const;
 
 /** Notes beyond these positions are drawn one or more octaves closer to the staff with an 8va / 8vb mark. */

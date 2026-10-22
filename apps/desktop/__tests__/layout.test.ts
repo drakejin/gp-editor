@@ -1,5 +1,5 @@
 import { QUARTER } from '@gp-editor/core';
-import { TAB, layoutMeasure, layoutRows, primaryVoice, staffHeight, stringY } from '../src/lib/layout';
+import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, staffHeight, stringY } from '../src/lib/layout';
 import { beat, header, makeSong, note } from '../test-support/songs';
 
 const EIGHTH = { ...QUARTER, value: 8 as const };
@@ -30,6 +30,28 @@ describe('layoutMeasure', () => {
     const closing = makeSong([[beat(960, [note(1, 0)])]], [header(1, { repeatClose: 2 })]);
     const open = makeSong([[beat(960, [note(1, 0)])]], [header(1)]);
     expect(layoutMeasure(closing, 0, 0).width).toBe(layoutMeasure(open, 0, 0).width + TAB.repeatWidth);
+  });
+});
+
+describe('layoutMeasure with bends', () => {
+  const bend = (...values: number[]) => ({
+    bend: { points: values.map((value, i) => ({ position: Math.round((i * 12) / (values.length - 1)), value })) },
+  });
+
+  it('widens a beat by the rises and falls of its bend so arrows and amounts do not overlap', () => {
+    // Arrange: the same quarter note plain, bent once, and bent, released and bent again
+    const plain = makeSong([[beat(960, [note(1, 3)])]]);
+    const once = makeSong([[beat(960, [note(1, 3, bend(0, 4, 4))])]]);
+    const twice = makeSong([[beat(960, [note(1, 3, bend(0, 4, 0, 4))])]]);
+
+    // Act
+    const plainWidth = layoutMeasure(plain, 0, 0).width;
+    const onceWidth = layoutMeasure(once, 0, 0).width;
+    const twiceWidth = layoutMeasure(twice, 0, 0).width;
+
+    // Assert
+    expect(onceWidth).toBe(plainWidth);
+    expect(twiceWidth - plainWidth).toBeGreaterThanOrEqual(2 * BEND_MOVE_WIDTH);
   });
 });
 

@@ -56,7 +56,9 @@ describe('staff positions and clefs', () => {
 
   it('writes guitar an octave above sounding pitch, including the capo', () => {
     expect(writtenMidi(GUITAR, note(6, 0))).toBe(52); // low E sounds E2, written E3
-    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3))).toBe(64 + 2 + 3 + 12);
+    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3))).toBe(
+      64 + 2 + 3 + 12,
+    );
     expect(writtenMidi(GUITAR, note(9, 0))).toBe(60 + 12); // unknown string falls back to middle C
   });
 
@@ -66,7 +68,9 @@ describe('staff positions and clefs', () => {
     expect(clefKind(GUITAR, 'alto')).toBe('treble');
     expect(clefKind(GUITAR, 'bass')).toBe('bass');
     expect(clefKind(GUITAR, 'neutral')).toBe('percussion');
-    expect(clefKind({ ...GUITAR, isPercussion: true }, 'treble')).toBe('percussion');
+    expect(clefKind({ ...GUITAR, isPercussion: true }, 'treble')).toBe(
+      'percussion',
+    );
   });
 
   it('places common drums and falls back to the middle line', () => {
@@ -81,7 +85,10 @@ describe('staff positions and clefs', () => {
 });
 
 describe('measureAccidentals', () => {
-  const pitch = (midi: number, key = 0, isTied = false) => ({ ...spellPitch(midi, key), isTied });
+  const pitch = (midi: number, key = 0, isTied = false) => ({
+    ...spellPitch(midi, key),
+    isTied,
+  });
 
   it('carries an accidental through the measure and cancels it with a natural', () => {
     // Arrange: C#4, C#4, C4
@@ -95,17 +102,25 @@ describe('measureAccidentals', () => {
   });
 
   it('only carries accidentals at the same staff position', () => {
-    expect(measureAccidentals([[pitch(61)], [pitch(73)]], 0)).toEqual([['sharp'], ['sharp']]);
+    expect(measureAccidentals([[pitch(61)], [pitch(73)]], 0)).toEqual([
+      ['sharp'],
+      ['sharp'],
+    ]);
   });
 
   it('follows the key signature and cancels it with naturals', () => {
     const key = 1; // G major: F#
-    const marks = measureAccidentals([[pitch(66, key)], [pitch(65, key)], [pitch(66, key)]], key);
+    const marks = measureAccidentals(
+      [[pitch(66, key)], [pitch(65, key)], [pitch(66, key)]],
+      key,
+    );
     expect(marks).toEqual([[undefined], ['natural'], ['sharp']]);
   });
 
   it('marks flats in flat keys', () => {
-    expect(measureAccidentals([[pitch(61, -1), pitch(70, -1)]], -1)).toEqual([['flat', undefined]]);
+    expect(measureAccidentals([[pitch(61, -1), pitch(70, -1)]], -1)).toEqual([
+      ['flat', undefined],
+    ]);
   });
 
   it('never marks tied notes and does not let them change the carried accidental', () => {

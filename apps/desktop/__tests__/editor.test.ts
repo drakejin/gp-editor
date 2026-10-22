@@ -1,5 +1,5 @@
 import { findNote } from '@gp-editor/core';
-import { type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
+import { type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
 
 /** Bar 1: beat 0 = strings 1 (fret 3) and 2 (fret 5); bar 2: beat 0 = string 6 (fret 0). */
@@ -17,7 +17,7 @@ describe('editorReducer: loading and modes', () => {
     expect(loading.isLoading).toBe(true);
     expect(editorReducer(loading, { type: 'loadCancelled' }).isLoading).toBe(false);
     const failed = editorReducer(loading, { type: 'loadFailed', message: 'bad header' });
-    expect(failed).toMatchObject({ isLoading: false, error: 'bad header' });
+    expect(failed).toMatchObject({ isLoading: false, error: 'Could not open the file: bad header' });
     expect(editorReducer(failed, { type: 'dismissError' }).error).toBeUndefined();
   });
 
@@ -26,6 +26,20 @@ describe('editorReducer: loading and modes', () => {
     const state = editorReducer(tabMode, { type: 'loaded', document: loadedState().document! });
     expect(state).toMatchObject({ past: [], future: [], trackIndex: 0, mode: 'tab' });
     expect(state.cursor).toEqual({ trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 });
+  });
+
+  it('creates a blank sheet in the chosen view, unsaved and not yet edited', () => {
+    // Arrange
+    const opened = editorReducer(loadedState(), { type: 'setNoteFret', fret: 7 });
+
+    // Act
+    const state = editorReducer(opened, { type: 'created', mode: 'notation' });
+
+    // Assert
+    expect(state).toMatchObject({ mode: 'notation', past: [], future: [], trackIndex: 0, document: { fileName: 'Untitled', path: '' } });
+    expect(state.document!.song.tracks).toHaveLength(1);
+    expect(state.cursor).toEqual({ trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 });
+    expect(isEdited(state)).toBe(false);
   });
 });
 

@@ -1,14 +1,17 @@
 import { useEffect, useReducer, useRef } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { findNote } from '@gp-editor/core';
 import { DocumentView } from './components/DocumentView';
+import { EditBar } from './components/EditBar';
+import { EmptyState } from './components/EmptyState';
 import { Toolbar } from './components/Toolbar';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
 import { HANDLED_KEYS } from './lib/key-commands';
 import { focusView } from './native/focus-view';
-import { INITIAL_EDITOR_STATE, editorReducer } from './state/editor';
+import { INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
+import { cursorVoice } from './state/song-edits';
 import { type Palette, usePalette } from './theme';
 
 export default function App() {
@@ -18,8 +21,17 @@ export default function App() {
   const keyboardView = useRef<View>(null);
   const { document, cursor, trackIndex } = state;
   const playback = usePlayback(document?.song, trackIndex);
-  const { openDialog, openPath } = useDocument(state, dispatch);
-  const commands = useEditorCommands({ state, dispatch, playback, openDialog, openPath, keyboardView });
+  const { create, openDialog, openPath, save } = useDocument(state, dispatch);
+  const commands = useEditorCommands({
+    state,
+    dispatch,
+    playback,
+    create,
+    openDialog,
+    openPath,
+    save,
+    keyboardView,
+  });
 
   const { stop: stopPlayback } = playback;
   useEffect(() => {
@@ -29,7 +41,11 @@ export default function App() {
     }
   }, [document?.fileName, stopPlayback]);
 
-  const errorText = state.error !== undefined ? `Could not open the file: ${state.error}` : playback.error !== undefined ? `Could not play: ${playback.error}` : undefined;
+  const errorText =
+    state.error ??
+    (playback.error !== undefined
+      ? `Could not play: ${playback.error}`
+      : undefined);
   const dismissError = () => {
     dispatch({ type: 'dismissError' });
     playback.dismissError();
@@ -51,12 +67,49 @@ export default function App() {
         canUndo={state.past.length > 0}
         canRedo={state.future.length > 0}
         isPlaying={playback.isPlaying}
+        isEdited={isEdited(state)}
         mode={state.mode}
         cursor={cursor}
-        cursorNote={document !== undefined && cursor !== undefined ? findNote(document.song, cursor) : undefined}
+        cursorNote={
+          document !== undefined && cursor !== undefined
+            ? findNote(document.song, cursor)
+            : undefined
+        }
         onCommand={commands.runCommand}
       />
-      {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
+      {document !== undefined ? (
+        <EditBar
+          palette={palette}
+          voice={
+            cursor === undefined
+              ? undefined
+              : cursorVoice(document.song, cursor)
+          }
+          note={
+            cursor === undefined ? undefined : findNote(document.song, cursor)
+          }
+          header={
+            cursor === undefined
+              ? undefined
+              : document.song.measureHeaders[cursor.measureIndex]
+          }
+          keySignature={
+            cursor === undefined
+              ? 0
+              : document.song.tracks[cursor.trackIndex]?.measures[
+                  cursor.measureIndex
+                ]?.keySignature ?? 0
+          }
+          onEdit={edit => dispatch({ type: 'edit', edit })}
+        />
+      ) : null}
+      {errorText !== undefined ? (
+        <ErrorBanner
+          message={errorText}
+          palette={palette}
+          onDismiss={dismissError}
+        />
+      ) : null}
       {document !== undefined ? (
         <DocumentView
           document={document}
@@ -65,47 +118,39 @@ export default function App() {
           cursor={cursor}
           playing={playback.playing}
           palette={palette}
-          onSelectTrack={(index) => dispatch({ type: 'selectTrack', trackIndex: index })}
+          onSelectTrack={index =>
+            dispatch({ type: 'selectTrack', trackIndex: index })
+          }
           onPressBeat={commands.onPressBeat}
         />
       ) : (
-        <EmptyState isLoading={state.isLoading} palette={palette} onOpen={openDialog} />
+        <EmptyState
+          isLoading={state.isLoading}
+          palette={palette}
+          onCreate={create}
+          onOpen={openDialog}
+        />
       )}
     </View>
   );
 }
 
-function ErrorBanner({ message, palette, onDismiss }: { message: string; palette: Palette; onDismiss: () => void }) {
+function ErrorBanner({
+  message,
+  palette,
+  onDismiss,
+}: {
+  message: string;
+  palette: Palette;
+  onDismiss: () => void;
+}) {
   return (
-    <Pressable onPress={onDismiss} style={[styles.error, { backgroundColor: palette.danger }]}>
+    <Pressable
+      onPress={onDismiss}
+      style={[styles.error, { backgroundColor: palette.danger }]}
+    >
       <Text style={styles.errorText}>{message} (click to dismiss)</Text>
     </Pressable>
-  );
-}
-
-interface EmptyStateProps {
-  readonly isLoading: boolean;
-  readonly palette: Palette;
-  readonly onOpen: () => void;
-}
-
-function EmptyState({ isLoading, palette, onOpen }: EmptyStateProps) {
-  return (
-    <View style={styles.empty}>
-      {isLoading ? (
-        <ActivityIndicator />
-      ) : (
-        <>
-          <Text style={[styles.emptyTitle, { color: palette.text }]}>GP Editor</Text>
-          <Text style={[styles.emptyText, { color: palette.muted }]}>
-            Open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2){'\n'}or drop one onto this window.
-          </Text>
-          <Pressable onPress={onOpen} style={[styles.openButton, { backgroundColor: palette.accent }]}>
-            <Text style={[styles.openButtonText, { color: palette.accentText }]}>Open File… (⌘O)</Text>
-          </Pressable>
-        </>
-      )}
-    </View>
   );
 }
 
@@ -113,9 +158,4 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   error: { paddingHorizontal: 14, paddingVertical: 8 },
   errorText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 28, fontWeight: '800' },
-  emptyText: { fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 20 },
-  openButton: { marginTop: 22, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 8 },
-  openButtonText: { fontSize: 14, fontWeight: '700' },
 });

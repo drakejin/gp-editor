@@ -13,10 +13,16 @@ export function rgbHex(color: Rgb): string {
   return `#${[color.r, color.g, color.b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** Measure number, marker, tempo, alternate endings and repeat count above the staves (measure-local, y 0…ROW.heading). */
-export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, palette: Palette): DrawCommand[] {
+/**
+ * Measure number, marker, tempo, alternate endings and repeat count above the staves (measure-local, y 0…ROW.heading).
+ * The number of an over-full measure is drawn bold in the danger colour.
+ */
+export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, palette: Palette, isOverfull = false): DrawCommand[] {
   const commands: DrawCommand[] = [
-    { kind: 'text', x: 2, y: 8, text: String(header.number), size: 9, color: palette.muted, font: 'ui', align: 'left' },
+    {
+      kind: 'text', x: 2, y: 8, text: String(header.number), size: 9,
+      color: isOverfull ? palette.danger : palette.muted, font: 'ui', align: 'left', bold: isOverfull,
+    },
   ];
   if (header.marker !== undefined) {
     const maxChars = Math.max(1, Math.floor((layout.width - MARKER_LEFT - 4) / MARKER_CHAR_WIDTH));

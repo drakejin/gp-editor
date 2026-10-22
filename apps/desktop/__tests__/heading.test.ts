@@ -19,6 +19,20 @@ describe('engraveHeading', () => {
     expect(marker!.length).toBeLessThan(20);
   });
 
+  it('draws the number of an over-full measure in the danger colour', () => {
+    // Arrange
+    const headers = [header(1)];
+    const song = makeSong([[]], headers);
+
+    // Act
+    const [plain] = engraveHeading(headers[0]!, layoutMeasure(song, 0, 0), PALETTE);
+    const [overfull] = engraveHeading(headers[0]!, layoutMeasure(song, 0, 0), PALETTE, true);
+
+    // Assert
+    expect(plain).toMatchObject({ kind: 'text', text: '1', color: PALETTE.muted });
+    expect(overfull).toMatchObject({ kind: 'text', text: '1', color: PALETTE.danger, bold: true });
+  });
+
   it('formats colors as hex', () => {
     expect(rgbHex({ r: 255, g: 0, b: 16 })).toBe('#ff0010');
   });

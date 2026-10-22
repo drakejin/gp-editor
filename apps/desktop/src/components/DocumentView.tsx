@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import type { StringAddress } from '@gp-editor/core';
 import { beatNotes } from '../lib/beat-notes';
 import type { RowHit } from '../score/hit-test';
-import type { ScoreMode } from '../score/geometry';
+import { type ScoreMode, showsFretboard } from '../score/geometry';
 import type { PlayingBeat } from '../score/row';
 import type { OpenDocument } from '../state/editor';
 import type { Palette } from '../theme';
@@ -23,7 +23,7 @@ interface DocumentViewProps {
   readonly onPressBeat: (hit: RowHit) => void;
 }
 
-/** An open song: tracks on the left; song info, the neck (tab mode) and the score on the right. */
+/** An open song: tracks on the left; song info, the neck (with the tab) and the score on the right. */
 export function DocumentView({ document, trackIndex, mode, cursor, playing, palette, onSelectTrack, onPressBeat }: DocumentViewProps) {
   const { song } = document;
   const track = song.tracks[trackIndex];
@@ -40,7 +40,7 @@ export function DocumentView({ document, trackIndex, mode, cursor, playing, pale
       <TrackList tracks={song.tracks} selectedTrackIndex={trackIndex} palette={palette} onSelectTrack={onSelectTrack} />
       <View style={styles.main}>
         <SongHeader song={song} fileName={document.fileName} palette={palette} />
-        {mode === 'tab' ? (
+        {showsFretboard(mode, track) ? (
           <Fretboard track={track} notes={fretboardNotes} cursorString={playing === undefined ? cursor?.string : undefined} palette={palette} />
         ) : null}
         <ScoreView song={song} trackIndex={trackIndex} mode={mode} cursor={cursor} playing={playing} palette={palette} onPressBeat={onPressBeat} />

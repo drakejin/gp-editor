@@ -1,5 +1,6 @@
 import type { HandledKeyEvent } from 'react-native';
 import type { EditorAction } from '../state/editor';
+import type { SongEdit } from '../state/song-edits';
 import { type DigitEntry, nextFretEntry } from './fret-input';
 
 /** What a key press does: an editor action, or a playback control. */
@@ -31,7 +32,29 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'Escape' },
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
+  { key: 'Backspace', shiftKey: true },
+  ...['[', ']', '.', '/', 'h', 'p', 'l', 'v', 'x', 'g', 'a', 's', 'b', 'n', 't', 'i'].map((key) => ({ key })),
 ];
+
+/** Letter and punctuation keys for edits at the cursor. */
+const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
+  '[': { type: 'shiftNoteValue', step: -1 },
+  ']': { type: 'shiftNoteValue', step: 1 },
+  '.': { type: 'toggleDot' },
+  '/': { type: 'toggleTriplet' },
+  h: { type: 'toggleEffect', effect: 'hammer' },
+  p: { type: 'toggleEffect', effect: 'palmMute' },
+  l: { type: 'toggleEffect', effect: 'letRing' },
+  v: { type: 'toggleEffect', effect: 'vibrato' },
+  x: { type: 'toggleEffect', effect: 'deadNote' },
+  g: { type: 'toggleEffect', effect: 'ghostNote' },
+  a: { type: 'toggleEffect', effect: 'accentuatedNote' },
+  s: { type: 'toggleSlide' },
+  b: { type: 'cycleBend' },
+  n: { type: 'toggleHarmonic' },
+  t: { type: 'toggleTie' },
+  i: { type: 'insertBeat' },
+};
 
 const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
   Backspace: { type: 'deleteNote' },
@@ -48,11 +71,19 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
 
 /**
  * Guitar Pro style keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note,
- * digits type a fret (two quick digits make 10–29), Space plays. `lastDigit` remembers the previous digit.
+ * digits type a fret (two quick digits make 10–29), [ ] . / change the duration, letters toggle effects,
+ * I inserts a beat, ⇧⌫ deletes it, Space plays. `lastDigit` remembers the previous digit.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
   if (press.metaKey && press.key.toLowerCase() === 'z') {
     return press.shiftKey ? { type: 'redo' } : { type: 'undo' };
+  }
+  if (press.shiftKey && press.key === 'Backspace') {
+    return { type: 'edit', edit: { type: 'deleteBeat' } };
+  }
+  const edit = press.metaKey ? undefined : EDIT_KEYS[press.key.toLowerCase()];
+  if (edit !== undefined) {
+    return { type: 'edit', edit };
   }
   if (press.altKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
     return { type: 'shiftNoteString', delta: press.key === 'ArrowUp' ? -1 : 1 };

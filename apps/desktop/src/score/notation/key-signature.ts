@@ -22,23 +22,54 @@ export interface KeyPlacement {
 }
 
 /** Number of accidentals drawn for a key signature on a staff (percussion staves have none). */
-export function keyAccidentalCount(keySignature: number, clef: ClefKind): number {
-  return clef === 'percussion' ? 0 : Math.min(7, Math.abs(Math.trunc(keySignature)));
+export function keyAccidentalCount(key: number, clef: ClefKind): number {
+  return clef === 'percussion' ? 0 : Math.min(7, Math.abs(Math.trunc(key)));
 }
 
-function accidentals(keySignature: number, clef: ClefKind, glyph: string, placement: KeyPlacement): TextCommand[] {
+function accidentals(
+  key: number,
+  clef: ClefKind,
+  glyph: string,
+  placement: KeyPlacement,
+): TextCommand[] {
   if (clef === 'percussion') {
     return [];
   }
-  const positions = (keySignature > 0 ? SHARP_POSITIONS : FLAT_POSITIONS)[clef].slice(0, keyAccidentalCount(keySignature, clef));
-  return positions.map((position, i) => musicGlyph(placement.x + i * placement.advance, positionY(placement.top, position), glyph, placement.color));
+  const positions = (key > 0 ? SHARP_POSITIONS : FLAT_POSITIONS)[clef].slice(
+    0,
+    keyAccidentalCount(key, clef),
+  );
+  return positions.map((position, i) =>
+    musicGlyph(
+      placement.x + i * placement.advance,
+      positionY(placement.top, position),
+      glyph,
+      placement.color,
+    ),
+  );
 }
 
-export function keySignature(key: number, clef: ClefKind, placement: KeyPlacement): TextCommand[] {
-  return accidentals(key, clef, key > 0 ? SMUFL.accidentalSharp : SMUFL.accidentalFlat, placement);
+export function keySignature(
+  key: number,
+  clef: ClefKind,
+  placement: KeyPlacement,
+): TextCommand[] {
+  return accidentals(
+    key,
+    clef,
+    key > 0 ? SMUFL.accidentalSharp : SMUFL.accidentalFlat,
+    placement,
+  );
 }
 
 /** A key change inside a row: the new key, or naturals cancelling the old key when the new one is C. */
-export function keyChange(previousKey: number, key: number, clef: ClefKind, placement: KeyPlacement): TextCommand[] {
-  return key === 0 ? accidentals(previousKey, clef, SMUFL.accidentalNatural, placement) : keySignature(key, clef, placement);
+export function keyChange(
+  previousKey: number,
+  key: number,
+  clef: ClefKind,
+  placement: KeyPlacement,
+): TextCommand[] {
+  return key === 0
+    ? accidentals(previousKey, clef, SMUFL.accidentalNatural, placement)
+    : keySignature(key, clef, placement);
 }

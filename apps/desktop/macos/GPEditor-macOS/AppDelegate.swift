@@ -14,11 +14,32 @@ struct GPEditorApp: App {
     .defaultSize(width: 1280, height: 800)
     .commands {
       CommandGroup(replacing: .newItem) {
+        // Notification names: GPEditorNotifications.h (bridging header), shared with GPFiles.m.
+        Button("New Score + Tab") {
+          NotificationCenter.default.post(name: .GPEditorNewCommand, object: "notationAndTab" as NSString)
+        }
+        .keyboardShortcut("n")
+        Button("New Score") {
+          NotificationCenter.default.post(name: .GPEditorNewCommand, object: "notation" as NSString)
+        }
+        Button("New Tab") {
+          NotificationCenter.default.post(name: .GPEditorNewCommand, object: "tab" as NSString)
+        }
+        Divider()
         Button("Open…") {
-          // Notification names: GPEditorNotifications.h (bridging header), shared with GPFiles.m.
           NotificationCenter.default.post(name: .GPEditorOpenCommand, object: nil)
         }
         .keyboardShortcut("o")
+      }
+      CommandGroup(replacing: .saveItem) {
+        Button("Save") {
+          NotificationCenter.default.post(name: .GPEditorSaveCommand, object: nil)
+        }
+        .keyboardShortcut("s")
+        Button("Save As…") {
+          NotificationCenter.default.post(name: .GPEditorSaveAsCommand, object: nil)
+        }
+        .keyboardShortcut("s", modifiers: [.command, .shift])
       }
     }
   }

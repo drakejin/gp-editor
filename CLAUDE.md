@@ -7,17 +7,18 @@ Goal: read every Guitar Pro file — GP1/GP2 (.gtp), GP3 (.gp3), GP4 (.gp4), GP5
 
 | path | what |
 | --- | --- |
-| `packages/gp-core/` | Pure TypeScript, no React. Format detection, readers, song model. Runs in Node (tests) and Hermes (app) — no Node APIs, no global TextDecoder in `src/`. |
+| `packages/gp-core/` | Pure TypeScript, no React. Format detection, readers, writer, song model, edits, MIDI. Runs in Node (tests) and Hermes (app) — no Node APIs, no global TextDecoder in `src/`. |
 | `packages/gp-core/src/model/` | `song.ts` = the format-independent model every reader returns. `defaults.ts` = constants and tick helpers. |
 | `packages/gp-core/src/io/` | `ByteReader` (little-endian cursor, GTPInputStream-style string helpers), text decoding. |
 | `packages/gp-core/src/formats/common/` | Guitar Pro facts shared by both reader families: GM channel names, harmonic table, velocity scale, bend/whammy units. |
 | `packages/gp-core/src/formats/gtp/` | GP1–GP5 binary readers. |
 | `packages/gp-core/src/formats/gpif/` | GP6 (.gpx, BCFZ/BCFS container) and GP7/8 (.gp, zip) — both hold a GPIF XML document. |
-| `packages/gp-core/src/edit/` | Immutable edit operations on a `Song` (`setNoteFret`, `setNoteString`, `deleteNote`). |
+| `packages/gp-core/src/edit/` | Immutable edit operations on a `Song`: notes (`setNoteFret`, effects, ties, bends), beats (`setBeatDuration`, `insertBeat`, `deleteBeat`), measures and measure headers (time signature, tempo, key, repeats). Beat edits may leave a measure over-full (`isMeasureOverfull`), never drop notes. |
+| `packages/gp-core/src/write/` | `writeSong(song, 'gp5' \| 'gp4' \| 'gp3')` — ports of TuxGuitar's GP3/4/5 output streams; what a format cannot hold is listed in `test/helpers/write-expected.ts`. |
 | `packages/gp-core/test/` | Vitest. `fixtures/guitarproN/` real files (see its README). `helpers/invariants.ts` = checks every reader output must pass. |
 | `packages/gp-core/src/midi/` | Song → Standard MIDI File + playback timeline (port of TuxGuitar's MidiSequenceParser). |
 | `apps/desktop/` | React Native app with the macOS target (`macos/`, Xcode + CocoaPods). See its README for the QA driver, Hermes smoke and E2E scripts. |
-| `apps/desktop/src/score/` | Engravers: pure functions from the song to `DrawCommand`s (`draw.ts`) — tab, notation, heading, fretboard, rows, hit-testing. |
+| `apps/desktop/src/score/` | Engravers: pure functions from the song to `DrawCommand`s (`draw.ts`) — tab, notation, heading, fretboard, rows, hit-testing; `symbols/` holds the shapes notation and tab share (slurs, bends, slides, effect marks). |
 
 ## Commands
 
