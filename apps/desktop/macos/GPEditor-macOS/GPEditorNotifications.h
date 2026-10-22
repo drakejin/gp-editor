@@ -1,5 +1,5 @@
 // Notification names shared by AppDelegate.swift (posts them, via the bridging header), GPFiles.m (forwards them
-// to JS as the "newRequested" / "importPdfRequested" / "openRequested" / "fileOpened" / "saveRequested" events) and GPQADriver.m.
+// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "openRequested" / "fileOpened" / "saveRequested" events) and GPQADriver.m.
 
 #import <Foundation/Foundation.h>
 
@@ -10,6 +10,9 @@ FOUNDATION_EXPORT NSString *const GPEditorNewCommandNotification;
 
 /** File ▸ Import PDF… (⇧⌘I) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorImportPdfCommandNotification;
+
+/** File ▸ Export PDF… (⌘P) was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportCommandNotification;
 
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;

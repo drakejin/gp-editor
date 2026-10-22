@@ -1,5 +1,5 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
-// the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Open…, Save, Save As…).
+// the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Open…, Save, Save As…).
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 
 #import <AppKit/AppKit.h>
@@ -12,6 +12,7 @@
 
 static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
+static NSString *const kExportRequestedEvent = @"exportRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
@@ -56,6 +57,7 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onNewCommand:) name:GPEditorNewCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
     [center addObserver:self selector:@selector(onImportPdfCommand:) name:GPEditorImportPdfCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportCommand:) name:GPEditorExportCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
@@ -70,7 +72,7 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[ kNewRequestedEvent, kImportPdfRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
+  return @[ kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
 }
 
 - (void)startObserving
@@ -97,6 +99,13 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kImportPdfRequestedEvent body:@{}];
+  }
+}
+
+- (void)onExportCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportRequestedEvent body:@{}];
   }
 }
 

@@ -45,6 +45,13 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("s", modifiers: [.command, .shift])
       }
+      // ⌘P exports a PDF (the score as Score + Tab, Score or Tab) in place of the system Print item.
+      CommandGroup(replacing: .printItem) {
+        Button("Export PDF…") {
+          NotificationCenter.default.post(name: .GPEditorExportCommand, object: nil)
+        }
+        .keyboardShortcut("p")
+      }
     }
   }
 }
