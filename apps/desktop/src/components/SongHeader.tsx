@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import type { Palette } from '../theme';
@@ -26,7 +27,7 @@ export function authorCredits(words: string, music: string): string[] {
   return [music ? `Music: ${music}` : '', words ? `Words: ${words}` : ''];
 }
 
-export function SongHeader({ song, fileName, palette }: SongHeaderProps) {
+function SongHeaderView({ song, fileName, palette }: SongHeaderProps) {
   const { info } = song;
   const credits = [info.artist, info.album, ...authorCredits(info.words, info.music), info.transcriber ? `Tab: ${info.transcriber}` : ''].filter(
     (part) => part.length > 0,
@@ -48,6 +49,9 @@ export function SongHeader({ song, fileName, palette }: SongHeaderProps) {
     </View>
   );
 }
+
+/** Memoized: it only changes with its own props, not with the cursor or the playing beat. */
+export const SongHeader = memo(SongHeaderView);
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },

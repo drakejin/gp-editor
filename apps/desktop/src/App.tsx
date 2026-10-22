@@ -51,6 +51,26 @@ export default function App() {
     keyboardView,
   });
 
+  // Stable, so the memoized panels beside the score skip the renders a moving cursor or playing beat causes.
+  const selectTrack = useCallback(
+    (index: number) => dispatch({ type: 'selectTrack', trackIndex: index }),
+    [],
+  );
+  const setTrackTuning = useCallback(
+    (index: number, tuning: readonly number[]) =>
+      dispatch({ type: 'setTrackTuning', trackIndex: index, tuning }),
+    [],
+  );
+  const setTrackProgram = useCallback(
+    (index: number, program: number) =>
+      dispatch({ type: 'setTrackProgram', trackIndex: index, program }),
+    [],
+  );
+  const dismissNotice = useCallback(
+    () => dispatch({ type: 'dismissNotice' }),
+    [],
+  );
+
   const { stop: stopPlayback } = playback;
   useEffect(() => {
     stopPlayback();
@@ -174,17 +194,11 @@ export default function App() {
           playing={playback.playing}
           notice={state.notice}
           palette={palette}
-          onSelectTrack={index =>
-            dispatch({ type: 'selectTrack', trackIndex: index })
-          }
+          onSelectTrack={selectTrack}
           onPressBeat={commands.onPressBeat}
-          onSetTrackTuning={(index, tuning) =>
-            dispatch({ type: 'setTrackTuning', trackIndex: index, tuning })
-          }
-          onSetTrackProgram={(index, program) =>
-            dispatch({ type: 'setTrackProgram', trackIndex: index, program })
-          }
-          onDismissNotice={() => dispatch({ type: 'dismissNotice' })}
+          onSetTrackTuning={setTrackTuning}
+          onSetTrackProgram={setTrackProgram}
+          onDismissNotice={dismissNotice}
         />
       ) : (
         <EmptyState

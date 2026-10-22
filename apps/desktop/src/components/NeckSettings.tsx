@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { memo, useDeferredValue, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { type Song, suggestTrackTunings } from '@gp-editor/core';
 import { neckTitle, tuningHint } from '../lib/tuning-hint';
@@ -21,7 +21,7 @@ interface NeckSettingsProps {
  * note on the 24-fret neck; a click retunes and re-frets the tab), and — when the track is not on a preset that plays
  * it — why, with suggestions. Collapsed it takes one line, so the score keeps its room.
  */
-export function NeckSettings({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice }: NeckSettingsProps) {
+function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice }: NeckSettingsProps) {
   const track = song.tracks[trackIndex];
   // Only the shown track and the channels feed the advice, so edits to other tracks do not recompute it; it trails
   // edits (deferred) so typing on a long track is not held up by it.
@@ -67,6 +67,9 @@ export function NeckSettings({ song, trackIndex, notice, palette, onSetTuning, o
     </View>
   );
 }
+
+/** Memoized: it only changes with its own props, not with the cursor or the playing beat. */
+export const NeckSettings = memo(NeckSettingsView);
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 24, paddingTop: 8 },

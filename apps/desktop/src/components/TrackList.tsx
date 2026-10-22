@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Track } from '@gp-editor/core';
 import type { TrackInstrument } from '../lib/instruments';
@@ -15,7 +16,7 @@ interface TrackListProps {
   readonly onEditInstrument: (trackIndex: number) => void;
 }
 
-export function TrackList({ tracks, instruments, selectedTrackIndex, palette, onSelectTrack, onEditInstrument }: TrackListProps) {
+function TrackListView({ tracks, instruments, selectedTrackIndex, palette, onSelectTrack, onEditInstrument }: TrackListProps) {
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <Text style={[styles.heading, { color: palette.muted }]}>TRACKS</Text>
@@ -69,6 +70,9 @@ function InstrumentLine({ instrument, palette, onPress }: InstrumentLineProps) {
     </Pressable>
   );
 }
+
+/** Memoized: it only changes with its own props, not with the cursor or the playing beat. */
+export const TrackList = memo(TrackListView);
 
 const styles = StyleSheet.create({
   // ScrollView grows by default; the sidebar keeps its width.
