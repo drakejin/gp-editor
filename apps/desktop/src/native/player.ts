@@ -24,6 +24,7 @@ interface GPPlayerModule {
   stop(): Promise<void>;
   position(): Promise<PlayerPosition>;
   setProgram(channel: number, program: number): Promise<void>;
+  setController(channel: number, controller: number, value: number): Promise<void>;
   soundBanks(): Promise<SoundBanks>;
   selectSoundBank(id: string): Promise<SoundBanks>;
   addSoundBank(): Promise<SoundBanks | null>;
@@ -51,6 +52,11 @@ export function stopMidi(): Promise<void> {
 /** Switches a MIDI channel of the playing song to another program now (a track's instrument changed). */
 export function setMidiProgram(midiChannel: number, program: number): Promise<void> {
   return native === undefined ? Promise.resolve() : native.setProgram(midiChannel, program);
+}
+
+/** Sends a control change to a MIDI channel of the playing song now (a track's volume or pan changed). */
+export function setMidiController(midiChannel: number, controller: number, value: number): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setController(midiChannel, controller, value);
 }
 
 export function playerPosition(): Promise<PlayerPosition> {

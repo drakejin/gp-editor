@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
-import { liveProgramChanges } from '../lib/live-programs';
+import { type LiveChange, hasSameMuteAndSolo, liveChannelChanges } from '../lib/live-channels';
 import type { LoopPass } from '../lib/practice-plan';
-import { setMidiProgram } from '../native/player';
+import { setMidiController, setMidiProgram } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, practiceReducer } from '../state/practice';
 import {
@@ -36,6 +36,14 @@ export interface Playback {
 
 /** Quiet time after the last click before a coalesced restart. */
 const RESTART_DELAY_MS = 300;
+
+function sendLiveChange(change: LiveChange): void {
+  const sent =
+    change.kind === 'program'
+      ? setMidiProgram(change.midiChannel, change.value)
+      : setMidiController(change.midiChannel, change.controller, change.value);
+  sent.catch(() => undefined);
+}
 
 function cancelRestart(timer: { current: ReturnType<typeof setTimeout> | undefined }): void {
   if (timer.current !== undefined) {
@@ -97,21 +105,25 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     }, RESTART_DELAY_MS);
   }, [session]);
 
-  // A track's instrument changed (same bars): a live program change on its MIDI channels, heard at once; a restart
-  // only when the MIDI channels themselves changed (e.g. the track got a channel of its own).
+  // A track's instrument, volume or pan changed (same bars): sent live on its MIDI channels, heard at once; a restart
+  // only when the MIDI channels themselves changed (e.g. the track got a channel of its own) or a track was muted or
+  // soloed.
   const followedSong = useRef(song);
   useEffect(() => {
     const previous = followedSong.current;
     followedSong.current = song;
-    if (!isPlaying || previous === undefined || song === undefined || previous.channels === song.channels || previous.measureHeaders !== song.measureHeaders) {
+    if (!isPlaying || previous === undefined || song === undefined || previous.measureHeaders !== song.measureHeaders) {
       return;
     }
-    const changes = liveProgramChanges(previous, song);
+    if (previous.channels === song.channels && hasSameMuteAndSolo(previous, song)) {
+      return;
+    }
+    const changes = liveChannelChanges(previous, song);
     if (changes === undefined) {
       restart();
       return;
     }
-    changes.forEach(({ midiChannel, program }) => setMidiProgram(midiChannel, program).catch(() => undefined));
+    changes.forEach(sendLiveChange);
   }, [song, isPlaying, restart]);
 
   // Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow

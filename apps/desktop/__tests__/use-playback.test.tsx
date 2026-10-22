@@ -8,6 +8,7 @@ const mockPlayer = {
   stop: jest.fn(() => Promise.resolve()),
   position: jest.fn(() => Promise.resolve({ seconds: 0.1, isPlaying: true })),
   setProgram: jest.fn((_channel: number, _program: number) => Promise.resolve()),
+  setController: jest.fn((_channel: number, _controller: number, _value: number) => Promise.resolve()),
 };
 
 jest.mock('../src/native/player', () => ({
@@ -15,6 +16,7 @@ jest.mock('../src/native/player', () => ({
   stopMidi: () => mockPlayer.stop(),
   playerPosition: () => mockPlayer.position(),
   setMidiProgram: (channel: number, program: number) => mockPlayer.setProgram(channel, program),
+  setMidiController: (channel: number, controller: number, value: number) => mockPlayer.setController(channel, controller, value),
 }));
 
 const song = makeSong([[beat(960, [note(1, 0)])]]);
@@ -307,6 +309,45 @@ describe('usePlayback while the song is edited', () => {
     expect(mockPlayer.setProgram.mock.calls).toEqual([[0, 30], [1, 30]]);
     expect(mockPlayer.play).toHaveBeenCalledTimes(1);
     expect(hook.current().isPlaying).toBe(true);
+    hook.unmount();
+  });
+
+  it('changes a track’s volume live while playing: a control change, no restart', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong({ ...withChannel, channels: [{ ...GUITAR, volume: 80 }] });
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    // Assert
+    expect(mockPlayer.setController.mock.calls).toEqual([[0, 7, 80], [1, 7, 80]]);
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    hook.unmount();
+  });
+
+  it('restarts once when a track is muted while playing', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong({ ...withChannel, tracks: withChannel.tracks.map((track) => ({ ...track, mute: true })) });
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
     hook.unmount();
   });
 

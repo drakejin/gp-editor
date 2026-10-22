@@ -182,4 +182,12 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
   [_synth sendProgramChange:program onChannel:channel];
 }
 
+- (void)setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel
+{
+  if (_synth == nil || controller > 127 || value > 127 || channel > 15) {
+    return;
+  }
+  [_synth sendController:controller withValue:value onChannel:channel];
+}
+
 @end

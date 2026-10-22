@@ -6,6 +6,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>GP Editor</string>
+	<key>ATSApplicationFontsPath</key>
+	<string>.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

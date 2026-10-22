@@ -30,6 +30,9 @@ NS_ASSUME_NONNULL_BEGIN
 /** Switches a MIDI channel (0–15) to a General MIDI program (0–127) now, for the rest of the playing song. */
 - (void)setProgram:(UInt8)program onChannel:(UInt8)channel;
 
+/** Sends a control change (e.g. 7 = volume, 10 = pan) to a MIDI channel now, in the playing song. */
+- (void)setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel;
+
 @end
 
 NS_ASSUME_NONNULL_END

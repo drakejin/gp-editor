@@ -76,6 +76,13 @@ RCT_EXPORT_METHOD(setProgram : (double)channel program : (double)program resolve
   resolve(nil);
 }
 
+/** A channel's mixer setting changes now, in the playing song (7 = volume, 10 = pan). */
+RCT_EXPORT_METHOD(setController : (double)channel controller : (double)controller value : (double)value resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [_engine setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel];
+  resolve(nil);
+}
+
 RCT_EXPORT_METHOD(soundBanks : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   resolve([GPSoundBanks state]);
