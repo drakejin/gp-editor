@@ -61,6 +61,8 @@ export {
 } from './edit/effects';
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
+export { setTrackProgram } from './edit/track-sound';
+export { GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex } from './formats/common/channels';
 export { type RepeatChange, setKeySignature, setRepeat, setTempo, setTimeSignature } from './edit/measure-headers';
 export {
   type MidiOptions,

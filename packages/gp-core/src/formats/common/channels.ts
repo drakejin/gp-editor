@@ -27,6 +27,19 @@ export const GM_INSTRUMENT_NAMES: readonly string[] = [
   'Seashore', 'Bird Tweet', 'Telephone Ring', 'Helicopter', 'Applause', 'Gunshot',
 ];
 
+/** The 16 General MIDI families; program p belongs to family floor(p / 8). */
+export const GM_INSTRUMENT_FAMILIES: readonly string[] = [
+  'Piano', 'Chromatic Percussion', 'Organ', 'Guitar', 'Bass', 'Strings', 'Ensemble', 'Brass', 'Reed', 'Pipe',
+  'Synth Lead', 'Synth Pad', 'Synth Effects', 'Ethnic', 'Percussive', 'Sound Effects',
+];
+
+const GM_FAMILY_SIZE = 8;
+
+/** Index into GM_INSTRUMENT_FAMILIES of a program 0–127. */
+export function gmFamilyIndex(program: number): number {
+  return Math.floor(program / GM_FAMILY_SIZE);
+}
+
 const PERCUSSION_CHANNEL_PREFIX = 'DrumKit';
 const DEFAULT_CHANNEL_PREFIX = 'Untitled';
 
