@@ -20,6 +20,7 @@ import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
+import { NotePanelView } from './components/note-panels/NotePanels';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
@@ -81,7 +82,7 @@ export default function App() {
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     // B / C open a panel for the note at the cursor; on an empty string there is nothing to set.
     onNotePanel: (panel) => {
-      if (song !== undefined && cursor !== undefined && findNote(song, cursor) !== undefined) {
+      if (cursorNote !== undefined) {
         chrome.openNotePanel(panel);
       }
     },
@@ -132,6 +133,7 @@ export default function App() {
     [song, trackIndex, cursor, playback.playing, playback.practice, playback.loopPass],
   );
   const track = song?.tracks[trackIndex];
+  const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
   const errorText =
     state.error ??
     (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined);
@@ -288,6 +290,9 @@ export default function App() {
         </ChromeMenu>
       ) : null}
       {chrome.isShortcutSheetOpen ? <ShortcutSheet palette={palette} onClose={chrome.closeShortcutSheet} /> : null}
+      {chrome.notePanel !== undefined && cursorNote !== undefined ? (
+        <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onClose={chrome.closeNotePanel} />
+      ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
     </View>
   );

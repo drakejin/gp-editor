@@ -10,7 +10,9 @@ import {
   type ToggleableEffect,
   type TremoloBarPresetName,
   type TripletFeel,
+  type VibratoKind,
   dynamicOf,
+  vibratoOf,
 } from '@gp-editor/core';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import type { SongEdit } from '../../state/song-edits';
@@ -227,6 +229,20 @@ function articulationGroup(): PaletteGroup {
   };
 }
 
+function vibratoOptions(): readonly PaletteOption[] {
+  const kinds: readonly (readonly [VibratoKind, string, string])[] = [
+    ['none', 'None', 'No vibrato'],
+    ['slight', 'Slight', 'Slight vibrato'],
+    ['wide', 'Wide', 'Wide vibrato'],
+  ];
+  return kinds.map(([vibrato, label, tooltip]) => ({
+    label,
+    tooltip,
+    edit: { type: 'setVibrato', vibrato },
+    isActive: (c: PaletteContext) => c.note !== undefined && vibratoOf(c.note.effect) === vibrato,
+  }));
+}
+
 function bendOptions(): readonly PaletteOption[] {
   const presets = (Object.keys(BEND_LABELS) as BendPresetName[]).map((preset) => ({
     label: BEND_LABELS[preset],
@@ -258,9 +274,16 @@ function effectsGroup(): PaletteGroup {
     tools: [
       effectTool('hammer', 'H/P', 'Hammer-on / pull-off to the next note (H)', 'hammer'),
       { id: 'slide', face: 'sl.', tooltip: 'Slides (S toggles a shift slide)', scope: 'note', run: { kind: 'options', options: slides }, isActive: (c) => (c.note?.effect.slides.length ?? 0) > 0 },
-      { id: 'bend', face: '↗', tooltip: 'Bend (B cycles ½, full, none)', scope: 'note', run: { kind: 'options', options: bendOptions() }, isActive: (c) => c.note?.effect.bend !== undefined },
+      { id: 'bend', face: '↗', tooltip: 'Bend (C opens the bend panel: shape and amount)', scope: 'note', run: { kind: 'options', options: bendOptions() }, isActive: (c) => c.note?.effect.bend !== undefined },
       { id: 'whammy', face: 'w/bar', tooltip: 'Whammy bar', scope: 'note', run: { kind: 'options', options: tremoloBarOptions() }, isActive: (c) => c.note?.effect.tremoloBar !== undefined },
-      effectTool('vibrato', '~', 'Vibrato (V)', 'vibrato'),
+      {
+        id: 'vibrato',
+        face: '~',
+        tooltip: 'Vibrato: slight or wide (B opens the panel)',
+        scope: 'note',
+        run: { kind: 'options', options: vibratoOptions() },
+        isActive: (c) => c.note !== undefined && vibratoOf(c.note.effect) !== 'none',
+      },
       { id: 'harmonic', face: '◇', tooltip: 'Harmonics (N toggles a natural harmonic)', scope: 'note', run: { kind: 'options', options: harmonics }, isActive: (c) => c.note?.effect.harmonic !== undefined },
       { id: 'trill', face: GLYPH.trill, glyph: 'mark', tooltip: 'Trill (with the fret 2 above)', scope: 'note', run: { kind: 'options', options: speedOptions('setTrill', [16, 32, 64]) }, isActive: (c) => c.note?.effect.trill !== undefined },
       { id: 'tremoloPicking', face: GLYPH.tremolo, glyph: 'mark', tooltip: 'Tremolo picking', scope: 'note', run: { kind: 'options', options: speedOptions('setTremoloPicking', [8, 16, 32]) }, isActive: (c) => c.note?.effect.tremoloPicking !== undefined },
