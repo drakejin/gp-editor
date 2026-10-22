@@ -1,6 +1,8 @@
 import {
   type Channel,
   type Duration,
+  type Measure,
+  type MeasureHeader,
   type NoteEffect,
   type NoteValue,
   QUARTER_TIME,
@@ -89,6 +91,12 @@ export function durationTicks(duration: Duration): number {
 /** Length of a measure in ticks for a time signature. */
 export function measureTicks(numerator: number, denominator: number): number {
   return Math.round((numerator * QUARTER_TIME * 4) / denominator);
+}
+
+/** True when a voice of the measure runs past its end (an over-full measure; Guitar Pro allows and marks them). */
+export function isMeasureOverfull(measure: Measure, header: MeasureHeader): boolean {
+  const end = header.start + measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  return measure.beats.some((beat) => beat.voices.some((voice) => !voice.isEmpty && beat.start + durationTicks(voice.duration) > end));
 }
 
 /** Every note value, longest (whole) first. */
