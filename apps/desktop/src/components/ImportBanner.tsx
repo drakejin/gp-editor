@@ -12,7 +12,10 @@ interface ImportBannerProps {
   readonly onOpenSettings: () => void;
 }
 
-/** The running import's progress, then how it went: warnings, Resume for missing pages, the project in Finder. */
+/**
+ * The running import's progress, then how it went: warnings, Resume for missing pages, the import settings (key and
+ * model), the project in Finder.
+ */
 export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBannerProps) {
   const [showsWarnings, setShowsWarnings] = useState(false);
   const { current, isRunning, error } = pdfImport;
@@ -41,7 +44,7 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
           />
         ) : null}
         {canResume ? <BarButton label="Resume" palette={palette} isAccent onPress={() => pdfImport.resume(current.path)} /> : null}
-        {!isRunning && project?.status === 'failed' ? <BarButton label="API key…" palette={palette} onPress={onOpenSettings} /> : null}
+        {!isRunning ? <BarButton label="Import settings…" palette={palette} onPress={onOpenSettings} /> : null}
         {current !== undefined ? <BarButton label="Show in Finder" palette={palette} onPress={() => pdfImport.reveal(current.path)} /> : null}
         {!isRunning ? <BarButton label="Dismiss" palette={palette} onPress={pdfImport.dismiss} /> : null}
       </View>

@@ -37,7 +37,7 @@ export interface PdfImport {
   readonly error?: string;
   /** Picks a PDF, makes its project and transcribes it. Asks for a key first (onNeedsKey) when there is none. */
   readonly start: () => void;
-  /** The same for a PDF the system handed over (drop, Finder, ⌘O). */
+  /** The same for a PDF handed over like a song (dropped on the window, `open -a`). */
   readonly importPath: (pathOrUrl: string) => void;
   readonly resume: (path: string) => void;
   readonly cancel: () => void;

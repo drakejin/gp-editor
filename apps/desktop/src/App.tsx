@@ -31,7 +31,8 @@ export default function App() {
   const { document, cursor, trackIndex } = state;
   const playback = usePlayback(document?.song, trackIndex);
   const sound = useSoundBanks(playback.restart);
-  // A PDF opened like a song (drop, Finder, ⌘O) is imported; the import hook comes later, as it opens its result.
+  // A PDF handed over like a song (dropped on the window, `open -a`) is imported; the import hook comes later, as it
+  // opens its result.
   const importPdfPath = useRef<(pathOrUrl: string) => void>(() => undefined);
   const openPdf = useCallback((pathOrUrl: string) => importPdfPath.current(pathOrUrl), []);
   const { create, openDialog, openPath, save } = useDocument(state, dispatch, openPdf);
