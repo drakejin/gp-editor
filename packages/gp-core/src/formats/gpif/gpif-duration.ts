@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseRhythm / #parseDynamic (LGPL-2.1).
-import { NORMAL_TUPLET, NOTE_VALUES, plainDuration } from '../../model/defaults';
+import { NORMAL_TUPLET, NOTE_VALUES, STROKE_VALUES, plainDuration } from '../../model/defaults';
 import type { Duration, NoteValue, Tuplet } from '../../model/song';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { GpifRhythm } from './gpif-document';
@@ -56,7 +56,6 @@ function nearest<T extends number>(candidates: readonly [T, ...T[]], value: numb
   return candidates.reduce((best, candidate) => (distance(candidate) < distance(best) ? candidate : best));
 }
 
-const STROKE_VALUES: readonly [number, ...number[]] = [4, 8, 16, 32, 64, 128];
 const DEFAULT_STROKE_VALUE = 32;
 /** A brush of `ticks` ticks maps to the note value 1920 / ticks (60 ticks = 32, as GP5 speed 3 ↔ 32). */
 const STROKE_TICKS_TIMES_VALUE = 1920;

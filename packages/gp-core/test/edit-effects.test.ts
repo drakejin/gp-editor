@@ -3,11 +3,16 @@ import type { StringAddress } from '../src/edit/edit-song';
 import { findNote } from '../src/edit/edit-song';
 import {
   BEND_PRESETS,
+  type BendPresetName,
+  TREMOLO_BAR_PRESETS,
   type ToggleableEffect,
+  type TremoloBarPresetName,
+  buildHarmonic,
   setNoteBend,
   setNoteHarmonic,
   setNoteSlides,
   setNoteTied,
+  setNoteTremoloBar,
   toggleNoteEffect,
 } from '../src/edit/effects';
 import { EMPTY_NOTE_EFFECT } from '../src/model/defaults';
@@ -227,6 +232,82 @@ describe('setNoteBend', () => {
   });
 });
 
+describe('bend presets', () => {
+  it('adds TuxGuitar’s bend–release–bend and pre-bend–release to the bend presets', () => {
+    expect(BEND_PRESETS.bendReleaseBend.points).toEqual([
+      { position: 0, value: 0 },
+      { position: 2, value: 4 },
+      { position: 4, value: 4 },
+      { position: 6, value: 0 },
+      { position: 8, value: 0 },
+      { position: 10, value: 4 },
+      { position: 12, value: 4 },
+    ]);
+    expect(BEND_PRESETS.preBendRelease.points).toEqual([
+      { position: 0, value: 4 },
+      { position: 4, value: 4 },
+      { position: 8, value: 0 },
+      { position: 12, value: 0 },
+    ]);
+  });
+
+  it('names every bend preset, in TuxGuitar’s order', () => {
+    const names: readonly BendPresetName[] = ['half', 'full', 'bendRelease', 'bendReleaseBend', 'preBend', 'preBendRelease'];
+    expect(Object.keys(BEND_PRESETS)).toEqual(names);
+  });
+
+  it('offers TuxGuitar’s tremolo bar presets in quarter tones (its ±2 semitones are ±4 here)', () => {
+    // Act
+    const curves = Object.entries(TREMOLO_BAR_PRESETS).map(([name, bar]) => [name, bar.points.map((point) => [point.position, point.value])]);
+
+    // Assert
+    expect(curves).toEqual([
+      ['dip', [[0, 0], [6, -4], [12, 0]]],
+      ['dive', [[0, 0], [9, -4], [12, -4]]],
+      ['releaseUp', [[0, -4], [9, -4], [12, 0]]],
+      ['invertedDip', [[0, 0], [6, 4], [12, 0]]],
+      ['return', [[0, 0], [9, 4], [12, 4]]],
+      ['releaseDown', [[0, 4], [9, 4], [12, 0]]],
+    ]);
+    const names: readonly TremoloBarPresetName[] = ['dip', 'dive', 'releaseUp', 'invertedDip', 'return', 'releaseDown'];
+    expect(Object.keys(TREMOLO_BAR_PRESETS)).toEqual(names);
+  });
+});
+
+describe('setNoteTremoloBar', () => {
+  it('sets and clears a tremolo bar curve', () => {
+    // Arrange
+    const song = makeSong();
+
+    // Act
+    const dipped = setNoteTremoloBar(song, AT, TREMOLO_BAR_PRESETS.dip);
+    const cleared = setNoteTremoloBar(dipped, AT, undefined);
+
+    // Assert
+    expect(findNote(dipped, AT)?.effect.tremoloBar).toEqual(TREMOLO_BAR_PRESETS.dip);
+    expect(findNote(cleared, AT)?.effect).toEqual(EMPTY_NOTE_EFFECT);
+    expect(findNote(song, AT)?.effect.tremoloBar).toBeUndefined();
+  });
+
+  it('keeps the points on the 0…12 grid and the values within an octave either way (±24 quarter tones)', () => {
+    const edited = setNoteTremoloBar(makeSong(), AT, { points: [{ position: 13, value: 40 }, { position: 0.4, value: -30 }, { position: 6, value: -2.6 }] });
+    expect(findNote(edited, AT)?.effect.tremoloBar?.points).toEqual([
+      { position: 0, value: -24 },
+      { position: 6, value: -3 },
+      { position: 12, value: 24 },
+    ]);
+  });
+
+  it('returns the same song for the same curve, no curve to clear or a missing note', () => {
+    const song = makeSong();
+    expect(setNoteTremoloBar(song, AT, undefined)).toBe(song);
+    expect(setNoteTremoloBar(song, AT, { points: [] })).toBe(song);
+    const dived = setNoteTremoloBar(song, AT, TREMOLO_BAR_PRESETS.dive);
+    expect(setNoteTremoloBar(dived, AT, { points: [...TREMOLO_BAR_PRESETS.dive.points] })).toBe(dived);
+    expect(setNoteTremoloBar(song, { ...AT, string: 6 }, TREMOLO_BAR_PRESETS.dip)).toBe(song);
+  });
+});
+
 describe('setNoteHarmonic', () => {
   it('sets and clears a harmonic', () => {
     const song = setNoteHarmonic(makeSong(), AT, { type: 'natural', data: 0 });
@@ -245,5 +326,25 @@ describe('setNoteHarmonic', () => {
     expect(setNoteHarmonic(song, AT, { type: 'semi', data: 0 })).toBe(song);
     expect(setNoteHarmonic(song, AT, { type: 'bogus' as 'semi', data: 0 })).toBe(song);
     expect(setNoteHarmonic(song, { ...AT, string: 4 }, { type: 'natural', data: 0 })).toBe(song);
+  });
+});
+
+describe('buildHarmonic', () => {
+  it('gives a new harmonic TuxGuitar’s default data: the 12th-fret harmonic', () => {
+    // Act
+    const harmonics = (['natural', 'artificial', 'tapped', 'pinch', 'semi'] as const).map((type) => buildHarmonic(type, 5));
+
+    // Assert
+    expect(harmonics).toEqual([
+      { type: 'natural', data: 0 },
+      { type: 'artificial', data: 12 },
+      { type: 'tapped', data: 17 },
+      { type: 'pinch', data: 0 },
+      { type: 'semi', data: 0 },
+    ]);
+  });
+
+  it('taps a harmonic no higher than the last fret', () => {
+    expect(buildHarmonic('tapped', 20)).toEqual({ type: 'tapped', data: 29 });
   });
 });

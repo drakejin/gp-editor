@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, RED } from '../src/model/defaults';
 import type { Beat, Note, Song } from '../src/model/song';
-import { type StringAddress, deleteNote, findNote, setNoteFret, setNoteString } from '../src/edit/edit-song';
+import { type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from '../src/edit/edit-song';
 import { DEFAULT_VELOCITY } from '../src/formats/common/velocity';
+import { readSong } from '../src/read-song';
+import { writeSong } from '../src/write';
+import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
 
 function note(string: number, fret: number): Note {
   return { string, fret, velocity: 95, isTied: false, effect: EMPTY_NOTE_EFFECT };
@@ -122,6 +125,61 @@ describe('setNoteFret', () => {
     expect(setNoteFret(song, { ...AT_STRING_1, string: 7 }, 3)).toBe(song);
     expect(setNoteFret(song, { ...AT_STRING_1, beatIndex: 5 }, 3)).toBe(song);
     expect(setNoteFret(song, AT_STRING_1, 0)).toBe(song);
+    expect(setNoteFret(song, { ...AT_STRING_1, string: 2 }, Number.NaN)).toBe(song);
+  });
+});
+
+describe('setNoteFret on an empty voice', () => {
+  const quarters = (): EventSpec[] => [play(4, n(1, 0)), play(4, n(1, 2)), play(4, n(1, 3)), play(4, n(1, 5))];
+  const SECOND_VOICE: StringAddress = { ...AT_STRING_1, voiceIndex: 1, string: 4 };
+
+  it('gives the second voice a note as long as the beat, with rests before and after it to the bar lines', () => {
+    // Arrange
+    const song = deepFreeze(buildSong({ tracks: [[[quarters()]]] }));
+
+    // Act
+    const edited = setNoteFret(song, { ...SECOND_VOICE, beatIndex: 1 }, 2);
+
+    // Assert
+    expect(voiceLayout(edited, 0, 0, 1)).toEqual(['0:4:r', '960:4:4/2', '1920:2:r']);
+    expect(voiceLayout(edited, 0, 0, 0)).toEqual(voiceLayout(song, 0, 0, 0));
+    expect(findNote(edited, { ...SECOND_VOICE, beatIndex: 1 })).toMatchObject({ fret: 2, velocity: DEFAULT_VELOCITY, effect: EMPTY_NOTE_EFFECT });
+    assertEditInvariants(edited);
+  });
+
+  it('takes the duration of the beat it is typed on', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(8, n(1, 0)), play(8, n(1, 2)), play(4, n(1, 3)), play(2, n(1, 5))]]]] }));
+    const edited = setNoteFret(song, { ...SECOND_VOICE, beatIndex: 1 }, 7);
+    expect(voiceLayout(edited, 0, 0, 1)).toEqual(['0:8:r', '480:8:4/7', '960:2.:r']);
+    assertEditInvariants(edited);
+  });
+
+  it('cuts the rest of the second voice the note falls in', () => {
+    // Arrange: the second voice holds a half note and a half rest
+    const song = deepFreeze(buildSong({ tracks: [[[quarters(), [play(2, n(5, 0)), rest(2)]]]] }));
+
+    // Act
+    const edited = setNoteFret(song, { ...SECOND_VOICE, beatIndex: 3 }, 9);
+
+    // Assert
+    expect(voiceLayout(edited, 0, 0, 1)).toEqual(['0:2:5/0', '1920:4:r', '2880:4:4/9']);
+    assertEditInvariants(edited);
+  });
+
+  it('returns the same song inside a note of the same voice', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[quarters(), [play(2, n(5, 0)), rest(2)]]]] }));
+    expect(setNoteFret(song, { ...SECOND_VOICE, beatIndex: 1 }, 9)).toBe(song);
+  });
+
+  it('keeps the note through a GP5 save', () => {
+    // Arrange
+    const edited = setNoteFret(deepFreeze(buildSong({ tracks: [[[quarters()]]] })), { ...SECOND_VOICE, beatIndex: 2 }, 4);
+
+    // Act
+    const saved = readSong(writeSong(edited, 'gp5'));
+
+    // Assert
+    expect(voiceLayout(saved, 0, 0, 1)).toEqual(['0:2:r', '1920:4:4/4', '2880:4:r']);
   });
 });
 
@@ -157,5 +215,32 @@ describe('deleteNote', () => {
     const song = makeSong();
     expect(deleteNote(song, { ...AT_STRING_1, string: 2 })).toBe(song);
     expect(deleteNote(song, { ...AT_STRING_1, voiceIndex: 3 })).toBe(song);
+  });
+});
+
+describe('setNoteVelocity', () => {
+  it('sets the velocity of the note, rounded', () => {
+    // Arrange
+    const song = makeSong();
+
+    // Act
+    const edited = setNoteVelocity(song, AT_STRING_1, 62.6);
+
+    // Assert
+    expect(findNote(edited, AT_STRING_1)?.velocity).toBe(63);
+    expect(findNote(song, AT_STRING_1)?.velocity).toBe(95);
+    expect(findNote(edited, { ...AT_STRING_1, string: 3 })).toBe(findNote(song, { ...AT_STRING_1, string: 3 }));
+  });
+
+  it('keeps the velocity between ppp (15) and fff (127)', () => {
+    expect(findNote(setNoteVelocity(makeSong(), AT_STRING_1, 0), AT_STRING_1)?.velocity).toBe(15);
+    expect(findNote(setNoteVelocity(makeSong(), AT_STRING_1, 300), AT_STRING_1)?.velocity).toBe(127);
+  });
+
+  it('returns the same song for the same velocity, a velocity that is not a number or a missing note', () => {
+    const song = makeSong();
+    expect(setNoteVelocity(song, AT_STRING_1, 95)).toBe(song);
+    expect(setNoteVelocity(song, AT_STRING_1, Number.NaN)).toBe(song);
+    expect(setNoteVelocity(song, { ...AT_STRING_1, string: 2 }, 63)).toBe(song);
   });
 });

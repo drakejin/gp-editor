@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isMeasureOverfull } from '../src/model/defaults';
+import { NORMAL_TUPLET, isMeasureOverfull, tupletOf } from '../src/model/defaults';
 import type { Song } from '../src/model/song';
 import { buildSong, n, play, rest } from './helpers/edit-songs';
 
@@ -29,5 +29,29 @@ describe('isMeasureOverfull', () => {
 
     // Assert
     expect(isMeasureOverfull(measure, header)).toBe(true);
+  });
+});
+
+describe('tupletOf', () => {
+  it.each([
+    [3, 2],
+    [5, 4],
+    [6, 4],
+    [7, 4],
+    [9, 8],
+    [10, 8],
+    [11, 8],
+    [12, 8],
+  ])('gives the tuplet of %i notes Guitar Pro stores: in the time of %i', (enters, times) => {
+    // Act / Assert
+    expect(tupletOf(enters)).toEqual({ enters, times });
+  });
+
+  it('gives no tuplet for one note', () => {
+    expect(tupletOf(1)).toBe(NORMAL_TUPLET);
+  });
+
+  it.each([0, 2, 4, 8, 13, 2.5, -3, Number.NaN])('knows no tuplet of %d notes', (enters) => {
+    expect(tupletOf(enters)).toBeUndefined();
   });
 });

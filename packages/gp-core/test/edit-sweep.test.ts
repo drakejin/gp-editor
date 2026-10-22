@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { type BeatAddress, deleteBeat, insertBeat, setBeatDuration } from '../src/edit/beats';
-import { type StringAddress, deleteNote, setNoteFret } from '../src/edit/edit-song';
-import { BEND_PRESETS, type ToggleableEffect, setNoteBend, setNoteHarmonic, setNoteSlides, setNoteTied, toggleNoteEffect } from '../src/edit/effects';
-import { setKeySignature, setRepeat, setTempo, setTimeSignature } from '../src/edit/measure-headers';
+import { setBeatPickStroke, setBeatStroke, setBeatText } from '../src/edit/beat-attributes';
+import { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from '../src/edit/beats';
+import { type StringAddress, deleteNote, setNoteFret, setNoteVelocity } from '../src/edit/edit-song';
+import {
+  BEND_PRESETS,
+  TREMOLO_BAR_PRESETS,
+  type ToggleableEffect,
+  setNoteBend,
+  setNoteHarmonic,
+  setNoteSlides,
+  setNoteTied,
+  setNoteTremoloBar,
+  toggleNoteEffect,
+} from '../src/edit/effects';
+import { setKeySignature, setMeasureMarker, setRepeat, setTempo, setTimeSignature, setTripletFeel } from '../src/edit/measure-headers';
 import { deleteMeasure, insertMeasure } from '../src/edit/measures';
-import { NOTE_VALUES, NORMAL_TUPLET, durationTicks } from '../src/model/defaults';
+import { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from '../src/edit/ornaments';
+import { NOTE_VALUES, NORMAL_TUPLET, QUARTER as NORMAL_DURATION, durationTicks } from '../src/model/defaults';
 import type { Duration, SlideType, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { assertEditInvariants, deepFreeze, editInvariantViolations } from './helpers/edit-songs';
@@ -81,12 +93,29 @@ function randomDuration(random: Random): Duration {
 const EFFECTS: readonly ToggleableEffect[] = ['hammer', 'palmMute', 'letRing', 'vibrato', 'deadNote', 'ghostNote', 'staccato', 'tapping', 'slapping'];
 const SLIDES: readonly SlideType[] = ['shift', 'legato', 'outDownwards', 'intoFromBelow'];
 
-/** setNoteFret only where the voice already holds an event: filling an empty voice slot is outside the timeline model. */
-function setFretOnEvent(song: Song, random: Random): Song {
-  const at = randomString(song, random);
-  const voice = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.voices[at.voiceIndex];
-  return voice === undefined || voice.isEmpty ? song : setNoteFret(song, at, intBetween(random, 0, 24));
+/** setNoteFret anywhere: on an event, or in an empty voice slot, which fillEmptyVoice turns into a whole timeline. */
+function setFret(song: Song, random: Random): Song {
+  return setNoteFret(song, randomString(song, random), intBetween(random, 0, 24));
 }
+
+function randomMeasureIndex(song: Song, random: Random): number {
+  return intBetween(random, 0, song.measureHeaders.length - 1);
+}
+
+/** The palette's note, beat and bar edits: none of them moves an event. */
+const PALETTE_EDITS: readonly ((song: Song, random: Random) => Song)[] = [
+  (song, random) => setNoteVelocity(song, randomString(song, random), intBetween(random, 0, 127)),
+  (song, random) => setNoteGrace(song, randomString(song, random), random() < 0.7 ? { fret: 2, duration: 2, velocity: 95, transition: 'hammer', onBeat: false, isDead: false } : undefined),
+  (song, random) => setNoteTrill(song, randomString(song, random), random() < 0.7 ? { fret: 7, duration: { ...NORMAL_DURATION, value: 32 } } : undefined),
+  (song, random) => setNoteTremoloPicking(song, randomString(song, random), random() < 0.7 ? { duration: { ...NORMAL_DURATION, value: 16 } } : undefined),
+  (song, random) => setNoteTremoloBar(song, randomString(song, random), pick(random, [TREMOLO_BAR_PRESETS.dip, TREMOLO_BAR_PRESETS.dive, undefined])),
+  (song, random) => setBeatStroke(song, randomBeat(song, random), { direction: pick(random, ['up', 'down', 'none'] as const), value: 16 }),
+  (song, random) => setBeatPickStroke(song, randomBeat(song, random), pick(random, ['up', 'down', 'none'] as const)),
+  (song, random) => setBeatText(song, randomBeat(song, random), random() < 0.7 ? 'text' : undefined),
+  (song, random) => deleteBeatNotes(song, randomBeat(song, random)),
+  (song, random) => setMeasureMarker(song, randomMeasureIndex(song, random), random() < 0.7 ? { title: 'Section', color: { r: 255, g: 0, b: 0 } } : undefined),
+  (song, random) => setTripletFeel(song, randomMeasureIndex(song, random), pick(random, ['none', 'eighth', 'sixteenth'] as const)),
+];
 
 const EDITS: readonly ((song: Song, random: Random) => Song)[] = [
   (song, random) => setBeatDuration(song, randomBeat(song, random), randomDuration(random)),
@@ -99,7 +128,9 @@ const EDITS: readonly ((song: Song, random: Random) => Song)[] = [
   (song, random) => setNoteBend(song, randomString(song, random), pick(random, [BEND_PRESETS.half, BEND_PRESETS.bendRelease, undefined])),
   (song, random) => setNoteHarmonic(song, randomString(song, random), random() < 0.5 ? { type: 'artificial', data: 12 } : undefined),
   (song, random) => deleteNote(song, randomString(song, random)),
-  setFretOnEvent,
+  setFret,
+  setFret,
+  ...PALETTE_EDITS,
   (song, random) => insertMeasure(song, intBetween(random, 0, song.measureHeaders.length - 1), random() < 0.5 ? 'before' : 'after'),
   (song, random) => deleteMeasure(song, intBetween(random, 0, song.measureHeaders.length - 1)),
   (song, random) =>

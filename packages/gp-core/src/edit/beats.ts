@@ -1,8 +1,9 @@
-// Beat edits after TuxGuitar's TGMeasureManager (changeDuration, insert rest, removeVoice with moveNextVoices), LGPL-2.1.
+// Beat edits after TuxGuitar's TGMeasureManager (changeDuration, insert rest, removeVoice with moveNextVoices,
+// cleanVoiceNotes), LGPL-2.1.
 import { NORMAL_TUPLET, durationTicks, isNoteValue, measureTicks } from '../model/defaults';
 import type { Duration, Measure, MeasureHeader, Song, Tuplet } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
-import { replaceAt, updateMeasure } from './song-paths';
+import { replaceAt, updateMeasure, updateVoice } from './song-paths';
 import {
   type MeasureVoices,
   type VoiceEvents,
@@ -121,6 +122,14 @@ export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration)
 function restAfter(events: VoiceEvents, index: number, ticks: number, preferred: Duration): VoiceEvents | undefined {
   const fill = restEvents(ticks, preferred);
   return fill === undefined ? undefined : [...events.slice(0, index + 1), ...fill, ...events.slice(index + 1)];
+}
+
+/**
+ * New song where the addressed voice becomes a rest of the same duration (TGMeasureManager.cleanVoiceNotes); the
+ * beat and the other voices stay. Same song for a rest, an empty voice or a missing beat.
+ */
+export function deleteBeatNotes(song: Song, at: BeatAddress): Song {
+  return updateVoice(song, at, (voice) => (voice.isEmpty || voice.notes.length === 0 ? voice : { ...voice, notes: [] }));
 }
 
 /**

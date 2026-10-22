@@ -1,7 +1,8 @@
-// Measure property edits after TuxGuitar's TGSongManager.changeTimeSignature / changeTempos and
-// TGTrackManager.changeKeySignature (LGPL-2.1), propagated the way Guitar Pro does.
+// Measure property edits after TuxGuitar's TGSongManager.changeTimeSignature / changeTempos / changeTripletFeel,
+// TGTrackManager.changeKeySignature and TGUpdateMarkerAction / TGSongManager.removeMarker (LGPL-2.1), propagated the way
+// Guitar Pro does.
 import { NOTE_VALUES, measureTicks } from '../model/defaults';
-import type { Measure, MeasureHeader, NoteValue, Song, TimeSignature } from '../model/song';
+import type { Marker, Measure, MeasureHeader, NoteValue, Song, TimeSignature, TripletFeel } from '../model/song';
 import { headerTicks, relayoutMeasures } from './relayout';
 import { replaceAt, hasSameItems } from './song-paths';
 import { type VoiceEvents, eventsTicks, restEvents, hasSameEvents, toBeats, toMeasureVoices } from './timeline';
@@ -17,6 +18,9 @@ const MAX_KEY_ACCIDENTALS = 7;
 const MAX_REPEAT_CLOSE = 127;
 /** Alternate endings 1–8, one bit each. */
 const MAX_REPEAT_ALTERNATIVE = 0xff;
+const TRIPLET_FEELS: readonly TripletFeel[] = ['none', 'eighth', 'sixteenth'];
+/** Largest red, green or blue value of a marker colour. */
+const MAX_COLOR_COMPONENT = 255;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -110,6 +114,18 @@ export function setTimeSignature(song: Song, measureIndex: number, timeSignature
   return relayoutMeasures(song, headers, fitted);
 }
 
+/** The song with `change` applied to the header at `measureIndex` and to the following ones `isSame` holds for. */
+function updateHeaderRun(
+  song: Song,
+  measureIndex: number,
+  isSame: (header: MeasureHeader) => boolean,
+  change: (header: MeasureHeader) => MeasureHeader,
+): Song {
+  const end = runEnd(song.measureHeaders, measureIndex, isSame);
+  const measureHeaders = song.measureHeaders.map((header, index) => (index >= measureIndex && index < end ? change(header) : header));
+  return { ...song, measureHeaders };
+}
+
 /**
  * New song with the tempo of `measureIndex` and of the following measures that had the same tempo set, clamped to
  * 1…999. Same song when nothing changes.
@@ -123,9 +139,57 @@ export function setTempo(song: Song, measureIndex: number, tempo: number): Song 
   if (next === header.tempo) {
     return song;
   }
-  const end = runEnd(song.measureHeaders, measureIndex, (other) => other.tempo === header.tempo);
-  const measureHeaders = song.measureHeaders.map((other, index) => (index >= measureIndex && index < end ? { ...other, tempo: next } : other));
-  return { ...song, measureHeaders };
+  return updateHeaderRun(song, measureIndex, (other) => other.tempo === header.tempo, (other) => ({ ...other, tempo: next }));
+}
+
+/**
+ * New song with the triplet feel (swing) of `measureIndex` and of the following measures that had the same feel set,
+ * like setTempo: a feel holds until it changes. Same song when nothing changes or the feel is unknown.
+ */
+export function setTripletFeel(song: Song, measureIndex: number, tripletFeel: TripletFeel): Song {
+  const header = song.measureHeaders[measureIndex];
+  if (header === undefined || !TRIPLET_FEELS.includes(tripletFeel) || header.tripletFeel === tripletFeel) {
+    return song;
+  }
+  return updateHeaderRun(song, measureIndex, (other) => other.tripletFeel === header.tripletFeel, (other) => ({ ...other, tripletFeel }));
+}
+
+function toColorComponent(value: number): number {
+  return clamp(Math.round(value), 0, MAX_COLOR_COMPONENT) + 0;
+}
+
+function isSameMarker(a: Marker, b: Marker): boolean {
+  return a.title === b.title && a.color.r === b.color.r && a.color.g === b.color.g && a.color.b === b.color.b;
+}
+
+function withoutMarker(header: MeasureHeader): MeasureHeader {
+  const { marker: _removed, ...rest } = header;
+  return rest;
+}
+
+/**
+ * New song with the marker (section title and colour) of one measure set, the title trimmed and the colour components
+ * kept in 0…255; none or a blank title removes it. Same song when nothing changes, a colour component is not a number
+ * or the measure does not exist.
+ */
+export function setMeasureMarker(song: Song, measureIndex: number, marker: Marker | undefined): Song {
+  const header = song.measureHeaders[measureIndex];
+  if (header === undefined) {
+    return song;
+  }
+  const title = typeof marker?.title === 'string' ? marker.title.trim() : '';
+  if (marker === undefined || title === '') {
+    return header.marker === undefined ? song : { ...song, measureHeaders: replaceAt(song.measureHeaders, measureIndex, withoutMarker(header)) };
+  }
+  const { r, g, b } = marker.color;
+  if (![r, g, b].every(Number.isFinite)) {
+    return song;
+  }
+  const next: Marker = { title, color: { r: toColorComponent(r), g: toColorComponent(g), b: toColorComponent(b) } };
+  if (header.marker !== undefined && isSameMarker(header.marker, next)) {
+    return song;
+  }
+  return { ...song, measureHeaders: replaceAt(song.measureHeaders, measureIndex, { ...header, marker: next }) };
 }
 
 function keyMeasures(measures: readonly Measure[], measureIndex: number, keySignature: number): readonly Measure[] {

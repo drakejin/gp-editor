@@ -22,7 +22,9 @@ import type {
  * The song a GP5 round trip should return: the source song reduced to what GP5 (and our GP5 reader)
  * can hold. Written independently of src/write as the test oracle; every rule is a documented loss:
  *
- * - channels: mixer values in 17 steps, bank dropped (but percussion's 128), names made from the program;
+ * - channels: mixer values in 17 steps, bank dropped (but percussion's 128), names made from the program; every
+ *   drum channel plays on MIDI channel 10, so drum tracks on different channels read back on the first one (its
+ *   mixer values; not modelled here, see edit-round-trip.test.ts);
  * - tracks: seven strings at most; lyrics on one track (the first with text); one clef per track
  *   (bass or treble); key signature per measure header (from the first non-percussion track);
  * - beats: voices 1 and 2 only; notes on the track's strings, one per string, in string order, frets
