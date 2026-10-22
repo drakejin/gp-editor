@@ -12,6 +12,7 @@ static const float kOutputVolume = 0.8f;
 static const NSTimeInterval kIdleReleaseSeconds = 60;
 
 @implementation GPMidiEngine {
+  dispatch_queue_t _queue;
   AVAudioEngine *_engine;
   AVAudioUnitMIDIInstrument *_synth;
   /** The bank loaded into _synth; NSNull for the synth's own. */
@@ -20,6 +21,14 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   NSTimeInterval _length;
   /** Bumped by every play and stop, so only the latest stop's idle release runs. */
   NSUInteger _generation;
+}
+
+- (instancetype)initWithQueue:(dispatch_queue_t)queue
+{
+  if ((self = [super init])) {
+    _queue = queue;
+  }
+  return self;
 }
 
 static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
@@ -133,7 +142,7 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
   _generation += 1;
   NSUInteger stoppedGeneration = _generation;
   __weak GPMidiEngine *weakSelf = self;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kIdleReleaseSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kIdleReleaseSeconds * NSEC_PER_SEC)), _queue, ^{
     [weakSelf releaseEngineIfStillStopped:stoppedGeneration];
   });
 }

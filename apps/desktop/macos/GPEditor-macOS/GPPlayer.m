@@ -1,6 +1,8 @@
 // MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) on GPMidiEngine with the
 // selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added). JS polls
 // -position to follow the playing beat, and changes a channel's program live when a track's instrument changes.
+// Methods run on a serial queue of their own, so loading a bank never blocks the window; only the open panel of
+// -addSoundBank goes to the main queue.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -13,6 +15,7 @@
 @end
 
 @implementation GPPlayer {
+  dispatch_queue_t _queue;
   GPMidiEngine *_engine;
 }
 
@@ -23,15 +26,23 @@ RCT_EXPORT_MODULE();
   return NO;
 }
 
+- (instancetype)init
+{
+  if ((self = [super init])) {
+    _queue = dispatch_queue_create("com.drakejin.gpeditor.player", DISPATCH_QUEUE_SERIAL);
+  }
+  return self;
+}
+
 - (dispatch_queue_t)methodQueue
 {
-  return dispatch_get_main_queue();
+  return _queue;
 }
 
 - (GPMidiEngine *)engine
 {
   if (_engine == nil) {
-    _engine = [GPMidiEngine new];
+    _engine = [[GPMidiEngine alloc] initWithQueue:_queue];
   }
   return _engine;
 }
@@ -81,6 +92,13 @@ RCT_EXPORT_METHOD(selectSoundBank : (NSString *)bankId resolve : (RCTPromiseReso
 
 /** Open panel for a .sf2/.dls file; the copy becomes the selected bank. Resolves null when cancelled. */
 RCT_EXPORT_METHOD(addSoundBank : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [GPPlayer addSoundBankWithPanelResolve:resolve reject:reject];
+  });
+}
+
++ (void)addSoundBankWithPanelResolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
   NSOpenPanel *panel = [NSOpenPanel openPanel];
   panel.canChooseFiles = YES;
