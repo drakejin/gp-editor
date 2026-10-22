@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { StringAddress } from '@gp-editor/core';
 import { beatNotes } from '../lib/beat-notes';
@@ -32,8 +32,8 @@ interface DocumentViewProps {
 }
 
 /**
- * An open song: tracks (with their instruments) on the left; the instrument picker when open, song info, the neck with
- * its settings (with the tab) and the score on the right.
+ * An open song: tracks (with their instruments) on the left; song info, the neck with its settings (with the tab) and
+ * the score on the right; the instrument picker, when open, over all of it.
  */
 export function DocumentView(props: DocumentViewProps) {
   const { document, trackIndex, mode, cursor, playing, notice, palette, onSelectTrack, onPressBeat, onSetTrackTuning, onDismissNotice } = props;
@@ -43,10 +43,14 @@ export function DocumentView(props: DocumentViewProps) {
   // Track whose instrument is being picked.
   const [pickingTrackIndex, setPickingTrackIndex] = useState<number | undefined>(undefined);
   const picking = pickingTrackIndex === undefined ? undefined : instruments[pickingTrackIndex];
-  const editInstrument = (index: number) => {
-    onSelectTrack(index);
-    setPickingTrackIndex(index);
-  };
+  const editInstrument = useCallback(
+    (index: number) => {
+      onSelectTrack(index);
+      setPickingTrackIndex(index);
+    },
+    [onSelectTrack],
+  );
+  const setTuning = useCallback((tuning: readonly number[]) => onSetTrackTuning(trackIndex, tuning), [onSetTrackTuning, trackIndex]);
   const shownBeat = playing ?? cursor;
   const shownMeasureIndex = shownBeat?.measureIndex;
   const shownBeatIndex = shownBeat?.beatIndex;
@@ -71,15 +75,6 @@ export function DocumentView(props: DocumentViewProps) {
         onEditInstrument={editInstrument}
       />
       <View style={styles.main}>
-        {pickingTrackIndex !== undefined && picking !== undefined && !picking.isPercussion ? (
-          <InstrumentPicker
-            trackName={song.tracks[pickingTrackIndex]?.name ?? ''}
-            program={picking.program}
-            palette={palette}
-            onSetProgram={(program) => props.onSetTrackProgram(pickingTrackIndex, program)}
-            onClose={() => setPickingTrackIndex(undefined)}
-          />
-        ) : null}
         <SongHeader song={song} fileName={document.fileName} palette={palette} />
         {showsFretboard(mode, track) ? (
           <>
@@ -88,7 +83,7 @@ export function DocumentView(props: DocumentViewProps) {
               trackIndex={trackIndex}
               notice={notice}
               palette={palette}
-              onSetTuning={(tuning) => onSetTrackTuning(trackIndex, tuning)}
+              onSetTuning={setTuning}
               onDismissNotice={onDismissNotice}
             />
             <Fretboard track={track} notes={fretboardNotes} cursorString={playing === undefined ? cursor?.string : undefined} palette={palette} />
@@ -96,6 +91,15 @@ export function DocumentView(props: DocumentViewProps) {
         ) : null}
         <ScoreView song={song} trackIndex={trackIndex} mode={mode} cursor={cursor} playing={playing} palette={palette} onPressBeat={onPressBeat} />
       </View>
+      {pickingTrackIndex !== undefined && picking !== undefined && !picking.isPercussion ? (
+        <InstrumentPicker
+          trackName={song.tracks[pickingTrackIndex]?.name ?? ''}
+          program={picking.program}
+          palette={palette}
+          onSetProgram={(program) => props.onSetTrackProgram(pickingTrackIndex, program)}
+          onClose={() => setPickingTrackIndex(undefined)}
+        />
+      ) : null}
     </View>
   );
 }
