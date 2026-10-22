@@ -13,6 +13,7 @@ import {
   engraveNotationMeasure,
 } from '../src/score/notation';
 import { TECHNIQUE_GLYPHS, TREMOLO_GLYPHS } from '../src/score/symbols/smufl';
+import { WIDE_VIBRATO_GLYPH } from '../src/score/symbols/vibrato';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -283,6 +284,24 @@ describe('trills and vibrato', () => {
       waves[0]!.text.length * G.guitarVibratoStroke.advance * SPACE;
     expect(reach).toBeGreaterThan(layout.beats[1]!.x);
     expect(reach).toBeLessThan(layout.beats[2]!.x);
+  });
+
+  it('draws wide vibrato with the wide wave, on the line of the run it shares with slight vibrato', () => {
+    // Act
+    const { commands, layout } = engrave([
+      beat(960, [effectNote(3, { vibrato: true })]),
+      beat(1920, [effectNote(3, { wideVibrato: true })]),
+      beat(2880, [note(3, 0)]),
+    ]);
+
+    // Assert
+    const [slight] = startingWith(commands, G.guitarVibratoStroke.text);
+    const [wide] = startingWith(commands, WIDE_VIBRATO_GLYPH.text);
+    expect(slight!.x).toBeLessThan(layout.beats[0]!.x);
+    expect(wide!.x).toBeGreaterThan(layout.beats[0]!.x);
+    expect(wide!.x).toBeLessThan(layout.beats[1]!.x);
+    expect(wide!.y).toBe(slight!.y);
+    expect(wide!.y).toBeLessThan(TOP);
   });
 
   it('lifts the vibrato over high notes and runs it to the bar line at the end of the measure', () => {

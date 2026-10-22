@@ -17,6 +17,12 @@ import {
   staffSpace,
 } from './smufl';
 import { TAB_MARKS, beatEndX } from './tab-geometry';
+import {
+  hasVibrato,
+  hasWideVibrato,
+  splitVibratoRun,
+  vibratoGlyph,
+} from './vibrato';
 
 /**
  * Effect marks above the tab staff, Guitar Pro style: per-beat labels (T, S, P, A.H., accents …), and spans over
@@ -81,7 +87,7 @@ const HAS: Readonly<Record<TabMarkKind, (effect: NoteEffect) => boolean>> = {
     e.tremoloPicking !== undefined ||
     (e.harmonic !== undefined &&
       HARMONIC_LABELS[e.harmonic.type] !== undefined),
-  vibrato: e => e.vibrato,
+  vibrato: hasVibrato,
   trill: e => e.trill !== undefined,
   whammy: e => e.tremoloBar !== undefined,
   palmMute: e => e.palmMute,
@@ -223,19 +229,24 @@ function dashedSpans(
   });
 }
 
+/** Slight and wide vibrato share the lane; a run changing width is drawn as one wave per width. */
 function vibratoWaves(context: TabMarksContext, y: number): DrawCommand[] {
-  const glyph = TECHNIQUE_GLYPHS.guitarVibratoStroke;
-  const baseline = centredBaseline(glyph, y);
-  return runs(context, 'vibrato').flatMap(run =>
-    wavyLine(
-      runStart(context, run),
-      runEnd(context, run),
-      baseline,
-      glyph,
-      TAB_MARKS.musicSize,
-      context.palette.muted,
-    ),
-  );
+  const { layout, measure } = context;
+  const isWideAt = (position: number) =>
+    hasWideVibrato(measure.beats[layout.beats[position]?.beatIndex ?? -1]);
+  return runs(context, 'vibrato')
+    .flatMap(run => splitVibratoRun(run, isWideAt))
+    .flatMap(piece => {
+      const glyph = vibratoGlyph(piece.isWide);
+      return wavyLine(
+        runStart(context, piece),
+        runEnd(context, piece),
+        centredBaseline(glyph, y),
+        glyph,
+        TAB_MARKS.musicSize,
+        context.palette.muted,
+      );
+    });
 }
 
 function trillWaves(context: TabMarksContext, y: number): DrawCommand[] {

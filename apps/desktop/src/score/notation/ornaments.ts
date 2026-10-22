@@ -1,6 +1,11 @@
 import type { DrawCommand, TextCommand } from '../draw';
 import { verticalArrow, wavyLine } from '../symbols/shapes';
 import { TECHNIQUE_GLYPHS, TREMOLO_GLYPHS } from '../symbols/smufl';
+import {
+  hasVibrato,
+  splitByVibratoWidth,
+  vibratoGlyph,
+} from '../symbols/vibrato';
 import { articulationHeightAbove } from './articulations';
 import { type Chord, chordInkLeft } from './chords';
 import { graceLeft } from './grace';
@@ -121,7 +126,7 @@ function vibratoRuns(layout: VoiceLayout): number[][] {
     return indexes.reduce<number[][]>((runs, index, k) => {
       if (
         !hasEffect(layout.chords[index], c =>
-          c.heads.some(head => head.note.effect.vibrato),
+          c.heads.some(head => hasVibrato(head.note.effect)),
         )
       ) {
         return runs;
@@ -134,23 +139,34 @@ function vibratoRuns(layout: VoiceLayout): number[][] {
   });
 }
 
-/** One wavy line over each run of notes with vibrato. */
+function isWideChord(layout: VoiceLayout, index: number): boolean {
+  return hasEffect(layout.chords[index], c =>
+    c.heads.some(head => head.note.effect.wideVibrato),
+  );
+}
+
+/** One wavy line over each run of notes with vibrato: one wave per width, on the line the wide wave needs. */
 export function vibratos(layout: VoiceLayout): TextCommand[] {
-  const glyph = TECHNIQUE_GLYPHS.guitarVibratoStroke;
   return vibratoRuns(layout).flatMap(run => {
-    const first = layout.chords[run[0] ?? -1];
-    const last = run[run.length - 1];
-    if (first === undefined || last === undefined) {
-      return [];
-    }
-    return wavyLine(
-      first.left,
-      eventEndX(layout, last),
-      waveLine(layout, run, glyph.top * SPACE),
-      glyph,
-      MUSIC_FONT_SIZE,
-      layout.color,
+    const pieces = splitByVibratoWidth(run, index =>
+      isWideChord(layout, index),
     );
+    const tallest = vibratoGlyph(pieces.some(piece => piece.isWide));
+    const y = waveLine(layout, run, tallest.top * SPACE);
+    return pieces.flatMap(piece => {
+      const first = layout.chords[piece.items[0] ?? -1];
+      const last = piece.items[piece.items.length - 1];
+      return first === undefined || last === undefined
+        ? []
+        : wavyLine(
+            first.left,
+            eventEndX(layout, last),
+            y,
+            vibratoGlyph(piece.isWide),
+            MUSIC_FONT_SIZE,
+            layout.color,
+          );
+    });
   });
 }
 
