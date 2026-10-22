@@ -39,4 +39,12 @@ export {
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { type RepeatChange, setKeySignature, setRepeat, setTempo, setTimeSignature } from './edit/measure-headers';
-export { type MidiOptions, type MidiRender, type ScorePosition, type TimelineEntry, positionAt, renderMidi } from './midi/index';
+export {
+  type MidiOptions,
+  type MidiRender,
+  type ScorePosition,
+  type TimelineEntry,
+  positionAt,
+  renderMidi,
+  timelineIndexAt,
+} from './midi/index';

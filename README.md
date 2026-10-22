@@ -98,7 +98,21 @@ npm run typecheck                           # tsc for both packages
 - **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the macOS General MIDI
-  sounds; the score and the neck follow the playing beat. Space or Esc stops.
+  sounds; the score and the neck follow the playing beat. Space or Esc stops. The transport bar (third row) sets up
+  practice playback for the session — none of it is saved in the file:
+  - *Playback tempo*: `♩ 95 · 95%` is the playing tempo of the bar playback starts from (the loop's first bar while
+    looping, else the cursor's bar). −/+ change it by 5 BPM, between 25% and 300% of the written tempo and never under
+    20 BPM; *100%* resets it. Every tempo of the song is scaled alike, so tempo changes keep their proportions; to
+    change the written tempo use the edit bar's ♩ instead.
+  - *Loop*: *Loop* turns it on (the first time, for the cursor's bar). *From* / *To* pick the first and last bar with
+    −/+, or *From cursor* / *To cursor* set them to the cursor's bar (the other end moves along so From ≤ To). While
+    looping, Space / ▶ Play plays those bars until stopped, straight through as written — repeat signs inside the
+    loop are not followed.
+  - *Speed trainer* (while looping): `+n BPM / pass` (0 = off, up to 20) makes each pass n BPM faster, `up to ♩ M`
+    (default: the written tempo or 20 BPM above the playback tempo, whichever is higher) is where it stops rising.
+    The pass being played and its tempo show at the end of the row.
+  - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
+    keeps its pass count).
 
 ## License
 

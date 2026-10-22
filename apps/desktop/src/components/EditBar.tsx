@@ -81,7 +81,7 @@ function BarGroup({ palette, header, keySignature, onEdit }: Pick<EditBarProps, 
   );
 }
 
-interface StepperProps {
+export interface StepperProps {
   readonly label: string;
   readonly palette: Palette;
   readonly isEnabled: boolean;
@@ -89,7 +89,7 @@ interface StepperProps {
   readonly onPlus: () => void;
 }
 
-function Stepper({ label, palette, isEnabled, onMinus, onPlus }: StepperProps) {
+export function Stepper({ label, palette, isEnabled, onMinus, onPlus }: StepperProps) {
   return (
     <View style={styles.stepper}>
       <BarButton label="−" palette={palette} isEnabled={isEnabled} onPress={onMinus} />
@@ -99,13 +99,13 @@ function Stepper({ label, palette, isEnabled, onMinus, onPlus }: StepperProps) {
   );
 }
 
-interface GroupProps {
+export interface GroupProps {
   readonly title: string;
   readonly palette: Palette;
   readonly children: ReactNode;
 }
 
-function Group({ title, palette, children }: GroupProps) {
+export function Group({ title, palette, children }: GroupProps) {
   return (
     <View style={styles.group}>
       <Text style={[styles.groupTitle, { color: palette.muted }]}>{title}</Text>

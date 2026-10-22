@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { positionAt, readSong, renderMidi, type TimelineEntry } from '../src/index';
+import { positionAt, readSong, renderMidi, type TimelineEntry, timelineIndexAt } from '../src/index';
 import { loadFixture } from './helpers/fixtures';
 import { makeSong } from './helpers/midi-song';
 
@@ -113,6 +113,16 @@ describe('positionAt', () => {
   it('returns undefined for an empty timeline', () => {
     // Act / Assert
     expect(positionAt([], 0)).toBeUndefined();
+  });
+
+  it('finds the index of the entry being played with timelineIndexAt', () => {
+    // Act / Assert
+    expect([0, 1.5, 2, 5.9, 8, durationSeconds - 0.001].map((seconds) => timelineIndexAt(timeline, seconds))).toEqual([
+      0, 0, 1, 2, 4, 4,
+    ]);
+    expect(timelineIndexAt(timeline, -1)).toBeUndefined();
+    expect(timelineIndexAt(timeline, durationSeconds)).toBeUndefined();
+    expect(timelineIndexAt([], 0)).toBeUndefined();
   });
 
   it('treats the last entry of a hand-made timeline without end as open-ended', () => {

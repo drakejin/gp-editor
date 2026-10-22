@@ -7,6 +7,15 @@ export interface PlayedMeasure {
   readonly headerIndex: number;
   /** Ticks added to the measure's song ticks by the repeats played before it (TuxGuitar's "repeat move"). */
   readonly move: number;
+  /** Which pass over the played measures this is (renderMidi's passTempoScales). Default 0. */
+  readonly passIndex?: number;
+  /** Multiplies the measure's tempo during playback (the pass's practice speed). Default 1. */
+  readonly tempoScale?: number;
+}
+
+/** Quarter notes per minute a played measure sounds at: its header's tempo times its pass's tempo scale. */
+export function playedTempo(header: MeasureHeader, measure: PlayedMeasure): number {
+  return header.tempo * (measure.tempoScale ?? 1);
 }
 
 /**

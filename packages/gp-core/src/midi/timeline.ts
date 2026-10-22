@@ -1,7 +1,7 @@
 // Playback timeline: when each played measure starts, from the tempos written to the MIDI file (TGTempo.getInUSQ).
 import { measureTicks } from '../model/defaults';
 import { type MeasureHeader, QUARTER_TIME } from '../model/song';
-import type { PlayedMeasure } from './playback-order';
+import { type PlayedMeasure, playedTempo } from './playback-order';
 
 export interface TimelineEntry {
   /** Seconds from the start of playback when this measure starts. */
@@ -9,10 +9,12 @@ export interface TimelineEntry {
   readonly headerIndex: number;
   /** MeasureHeader.start of that measure (song ticks), so a position can be matched to beats. */
   readonly tick: number;
-  /** Quarter notes per minute in effect at the start of this measure. */
+  /** Quarter notes per minute in effect at the start of this measure (its pass's tempo scale applied). */
   readonly tempo: number;
   /** Song tick where the measure ends (tick + its length). Always set by renderMidi. */
   readonly endTick?: number;
+  /** Which pass over the played measures this is (index into MidiOptions.passTempoScales). Always set by renderMidi. */
+  readonly passIndex?: number;
 }
 
 export interface ScorePosition {
@@ -55,15 +57,17 @@ export function buildTimeline(headers: readonly MeasureHeader[], played: readonl
     const header = headers[measure.headerIndex];
     if (header !== undefined) {
       const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+      const tempo = playedTempo(header, measure);
       entries.push({
         seconds,
         headerIndex: measure.headerIndex,
         tick: header.start,
-        tempo: header.tempo,
+        tempo,
         endTick: header.start + length,
+        passIndex: measure.passIndex ?? 0,
       });
-      seconds += secondsFromTicks(length, header.tempo);
-      lastTempo = header.tempo;
+      seconds += secondsFromTicks(length, tempo);
+      lastTempo = tempo;
     }
   }
   return { entries, endSeconds: seconds, lastTempo };
@@ -84,26 +88,29 @@ function entryIndexAt(timeline: readonly TimelineEntry[], seconds: number): numb
   return low;
 }
 
-/**
- * Score position at a playback time: the measure being played and the song tick inside it (tempo changes inside a
- * measure may be approximated by the measure's tempo). undefined before the start and past the end.
- */
-export function positionAt(timeline: readonly TimelineEntry[], seconds: number): ScorePosition | undefined {
+/** Index of the timeline entry being played at a playback time; undefined before the start and past the end. */
+export function timelineIndexAt(timeline: readonly TimelineEntry[], seconds: number): number | undefined {
   const first = timeline[0];
   if (first === undefined || !(seconds >= first.seconds)) {
     return undefined;
   }
   const index = entryIndexAt(timeline, seconds);
   const entry = timeline[index];
+  const isPastEnd =
+    index === timeline.length - 1 &&
+    entry?.endTick !== undefined &&
+    seconds >= entry.seconds + secondsFromTicks(entry.endTick - entry.tick, entry.tempo);
+  return isPastEnd ? undefined : index;
+}
+
+/**
+ * Score position at a playback time: the measure being played and the song tick inside it (tempo changes inside a
+ * measure may be approximated by the measure's tempo). undefined before the start and past the end.
+ */
+export function positionAt(timeline: readonly TimelineEntry[], seconds: number): ScorePosition | undefined {
+  const index = timelineIndexAt(timeline, seconds);
+  const entry = index === undefined ? undefined : timeline[index];
   if (entry === undefined) {
-    return undefined;
-  }
-  const isLast = index === timeline.length - 1;
-  if (
-    isLast &&
-    entry.endTick !== undefined &&
-    seconds >= entry.seconds + secondsFromTicks(entry.endTick - entry.tick, entry.tempo)
-  ) {
     return undefined;
   }
   const tick = Math.floor(entry.tick + ticksFromSeconds(seconds - entry.seconds, entry.tempo));

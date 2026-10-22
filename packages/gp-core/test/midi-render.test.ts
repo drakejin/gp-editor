@@ -138,9 +138,32 @@ describe('renderMidi option validation', () => {
     [{ fromHeaderIndex: 2 }],
     [{ fromHeaderIndex: -1 }],
     [{ fromHeaderIndex: Number.NaN }],
+    [{ toHeaderIndex: 2 }],
+    [{ toHeaderIndex: -1 }],
+    [{ toHeaderIndex: 0.5 }],
+    [{ fromHeaderIndex: 1, toHeaderIndex: 0 }],
+    [{ passTempoScales: [] }],
+    [{ passTempoScales: [0] }],
+    [{ passTempoScales: [-1] }],
+    [{ passTempoScales: [1, Number.NaN] }],
+    [{ passTempoScales: [Number.POSITIVE_INFINITY] }],
+    [{ passTempoScales: [0.09] }],
+    [{ passTempoScales: [10.5] }],
+    [{ passTempoScales: Array.from({ length: 65 }, () => 1) }],
   ])('rejects %j with a RangeError', (options) => {
     // Act / Assert
     expect(() => renderMidi(song, options)).toThrow(RangeError);
+  });
+
+  it('accepts the tempo scale and pass count limits', () => {
+    // Arrange
+    const passTempoScales = [0.1, 10, ...Array.from({ length: 62 }, () => 1)];
+
+    // Act
+    const render = renderMidi(song, { fromHeaderIndex: 1, toHeaderIndex: 1, passTempoScales });
+
+    // Assert
+    expect(render.timeline).toHaveLength(64);
   });
 
   it('renders a song without measures as setup only', () => {

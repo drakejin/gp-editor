@@ -67,7 +67,7 @@ function applyGrace(
 ): { sound: Sound; events: SequenceEvent[] } {
   const output: NoteOutput = { ...sound.output, bendMode: !isPercussion(context) };
   const length = graceTicks(grace.duration);
-  const graceDuration = grace.isDead ? staticDuration(placed.header.tempo, DEAD_NOTE_DURATION, length) : length;
+  const graceDuration = grace.isDead ? staticDuration(placed.tempo, DEAD_NOTE_DURATION, length) : length;
   const isOnBeat = grace.onBeat || sound.start - length < context.origin;
   const main = isOnBeat ? { ...sound, start: sound.start + length, duration: sound.duration - length } : sound;
   const key = pitchOf(context, placed.note.string, grace.fret);

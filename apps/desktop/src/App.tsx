@@ -5,6 +5,7 @@ import { DocumentView } from './components/DocumentView';
 import { EditBar } from './components/EditBar';
 import { EmptyState } from './components/EmptyState';
 import { Toolbar } from './components/Toolbar';
+import { TransportBar } from './components/TransportBar';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
@@ -101,6 +102,16 @@ export default function App() {
                 ]?.keySignature ?? 0
           }
           onEdit={edit => dispatch({ type: 'edit', edit })}
+        />
+      ) : null}
+      {document !== undefined ? (
+        <TransportBar
+          palette={palette}
+          song={document.song}
+          cursorMeasureIndex={cursor?.measureIndex}
+          practice={playback.practice}
+          loopPass={playback.loopPass}
+          onChangePractice={playback.changePractice}
         />
       ) : null}
       {errorText !== undefined ? (
