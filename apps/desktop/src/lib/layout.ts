@@ -29,6 +29,8 @@ export const BEND_MOVE_WIDTH = 16;
 const BEND_PADDING = 20;
 /** The last row is stretched to the full width only when it is at least this full. */
 const JUSTIFY_THRESHOLD = 0.75;
+/** The closest squeezeRow moves beats together, as a share of their natural distance. */
+const MIN_SQUEEZE = 0.25;
 
 export interface BeatLayout {
   readonly beatIndex: number;
@@ -138,6 +140,38 @@ export function layoutRows(measures: readonly MeasureLayout[], availableWidth: n
     rows.push(current);
   }
   return rows.map((row, index) => ({ measures: justify(row, availableWidth, index === rows.length - 1) }));
+}
+
+/**
+ * A row wider than `availableWidth` — a measure with more beats than a line holds — with its beats moved closer so it
+ * fits; the room before each measure's first beat and after its last keeps its size. Beats come no closer than
+ * MIN_SQUEEZE of their natural distance, so an extremely dense bar may still be wider. A row that fits is returned as is.
+ * The PDF export uses it, where nothing may run past the page.
+ */
+export function squeezeRow(row: RowLayout, availableWidth: number): RowLayout {
+  const natural = row.measures.reduce((sum, measure) => sum + measure.width, 0);
+  const spread = row.measures.reduce((sum, measure) => sum + beatSpread(measure), 0);
+  if (natural <= availableWidth || spread <= 0) {
+    return row;
+  }
+  const scale = Math.max(MIN_SQUEEZE, 1 - (natural - availableWidth) / spread);
+  return { measures: row.measures.map((measure) => squeezeMeasure(measure, scale)) };
+}
+
+/** From the first beat's centre to the last one's. */
+function beatSpread(measure: MeasureLayout): number {
+  const first = measure.beats[0];
+  const last = measure.beats[measure.beats.length - 1];
+  return first === undefined || last === undefined ? 0 : last.x - first.x;
+}
+
+function squeezeMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
+  const firstX = measure.beats[0]?.x ?? 0;
+  return {
+    ...measure,
+    width: measure.width - beatSpread(measure) * (1 - scale),
+    beats: measure.beats.map((beat) => ({ ...beat, x: firstX + (beat.x - firstX) * scale })),
+  };
 }
 
 function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {

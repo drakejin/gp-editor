@@ -120,6 +120,13 @@ npm run typecheck                           # tsc for both packages
   - ⌘Z / ⇧⌘Z undo and redo
 - **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+- **Export**: File ▸ Export PDF… (⌘P) or the *Export…* button opens the export panel: the shown track as a PDF in
+  *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
+  pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
+  staff), in black and grey on white even in dark mode: the title, subtitle, artist, album and credits with the
+  track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
+  pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
+  closer (and an extremely dense one is printed smaller) so nothing runs off the page.
 - **Sound**: under each track in the track list is its instrument (*♪ Distortion Electric Guitar ▾*); click it to
   pick any of the 128 General MIDI instruments, by family (Piano, Guitar, Bass, Strings, Brass, Synth Lead…). The
   instrument is saved with the song. Drum tracks keep the standard kit: Guitar Pro 3–5 files hold no drum-kit

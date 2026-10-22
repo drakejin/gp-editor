@@ -1,5 +1,5 @@
 import { QUARTER } from '@gp-editor/core';
-import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, staffHeight, stringY } from '../src/lib/layout';
+import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, squeezeRow, staffHeight, stringY } from '../src/lib/layout';
 import { beat, header, makeSong, note } from '../test-support/songs';
 
 const EIGHTH = { ...QUARTER, value: 8 as const };
@@ -96,5 +96,35 @@ describe('staff geometry', () => {
     const b = beat(960, []);
     const withEmptyFirst = { ...b, voices: [{ ...b.voices[0]!, isEmpty: true }, b.voices[0]!] };
     expect(primaryVoice(withEmptyFirst)).toBe(b.voices[0]);
+  });
+});
+
+describe('squeezeRow', () => {
+  /** One bar of 32 eighth notes: wider than a 600 pt row. */
+  function longBar() {
+    const song = makeSong([Array.from({ length: 32 }, (_, i) => beat(960 + i * 480, [note(1, i % 12)], EIGHTH))]);
+    return { measures: [layoutMeasure(song, 0, 0)] };
+  }
+
+  it('moves the beats of a row wider than the available width closer, so it fits exactly', () => {
+    // Arrange
+    const row = longBar();
+    const [natural] = row.measures;
+
+    // Act
+    const [squeezed] = squeezeRow(row, 600).measures;
+
+    // Assert
+    expect(natural!.width).toBeGreaterThan(600);
+    expect(squeezed!.width).toBeCloseTo(600, 6);
+    expect(squeezed!.beats[0]!.x).toBe(natural!.beats[0]!.x);
+    const lastBeat = (layout: typeof natural) => layout!.beats[layout!.beats.length - 1]!.x;
+    expect(squeezed!.width - lastBeat(squeezed)).toBeCloseTo(natural!.width - lastBeat(natural), 6);
+    squeezed!.beats.slice(1).forEach((b, i) => expect(b.x).toBeGreaterThan(squeezed!.beats[i]!.x));
+  });
+
+  it('keeps a row that fits as it is', () => {
+    const row = longBar();
+    expect(squeezeRow(row, 5000)).toBe(row);
   });
 });

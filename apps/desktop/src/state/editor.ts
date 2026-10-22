@@ -60,6 +60,8 @@ export type EditorAction =
       readonly song: Song;
     }
   | { readonly type: 'saveFailed'; readonly message: string }
+  /** Writing a PDF (File ▸ Export PDF…) failed. */
+  | { readonly type: 'exportFailed'; readonly message: string }
   | { readonly type: 'dismissError' }
   | { readonly type: 'selectTrack'; readonly trackIndex: number }
   | { readonly type: 'setMode'; readonly mode: ScoreMode }
@@ -121,6 +123,8 @@ export function editorReducer(
           };
     case 'saveFailed':
       return { ...state, error: `Could not save: ${action.message}` };
+    case 'exportFailed':
+      return { ...state, error: `Could not export the PDF: ${action.message}` };
     case 'loadFailed':
       return {
         ...state,

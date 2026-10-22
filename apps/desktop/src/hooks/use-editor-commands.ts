@@ -23,6 +23,8 @@ interface EditorCommandSources {
   readonly create: (mode: ScoreMode) => void;
   readonly openDialog: () => void;
   readonly importPdf: () => void;
+  /** Opens the export panel (Export… button). */
+  readonly exportPdf: () => void;
   readonly openPath: (pathOrUrl: string) => void;
   readonly save: (saveAs: boolean) => void;
   /** The view that receives keyboard events; focused again after clicks on the score. */
@@ -31,7 +33,7 @@ interface EditorCommandSources {
 
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
-  const { dispatch, playback, create, openDialog, importPdf, openPath, save, keyboardView } = sources;
+  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, keyboardView } = sources;
   const { cursor, trackIndex, mode } = sources.state;
   const lastDigit = useRef<DigitEntry | undefined>(undefined);
   const { isPlaying, start, stop } = playback;
@@ -46,6 +48,8 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         importPdf();
       } else if (command.type === 'saveFile') {
         save(false);
+      } else if (command.type === 'exportPdf') {
+        exportPdf();
       } else if (command.type === 'togglePlayback') {
         if (isPlaying) {
           stop();
@@ -58,7 +62,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, openDialog, importPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
+    [create, mode, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
   );
 
   const onPressBeat = useCallback(

@@ -21,6 +21,18 @@ describe('editorReducer: loading and modes', () => {
     expect(editorReducer(failed, { type: 'dismissError' }).error).toBeUndefined();
   });
 
+  it('shows a failed PDF export in the error banner, keeping the document', () => {
+    // Arrange
+    const loaded = loadedState();
+
+    // Act
+    const failed = editorReducer(loaded, { type: 'exportFailed', message: 'disk full' });
+
+    // Assert
+    expect(failed.error).toBe('Could not export the PDF: disk full');
+    expect(failed.document).toBe(loaded.document);
+  });
+
   it('starts a fresh history with the cursor on the first beat, keeping the score mode', () => {
     const tabMode = editorReducer(INITIAL_EDITOR_STATE, { type: 'setMode', mode: 'tab' });
     const state = editorReducer(tabMode, { type: 'loaded', document: loadedState().document! });
