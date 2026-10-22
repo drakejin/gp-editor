@@ -1,17 +1,22 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { findNote } from '@gp-editor/core';
 import { DocumentView } from './components/DocumentView';
 import { EditBar } from './components/EditBar';
 import { EmptyState } from './components/EmptyState';
+import { ImportBanner } from './components/ImportBanner';
+import { ImportPanel } from './components/ImportPanel';
+import { ProjectList } from './components/ProjectList';
 import { Toolbar } from './components/Toolbar';
 import { TransportBar } from './components/TransportBar';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
+import { usePdfImport } from './hooks/use-pdf-import';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { HANDLED_KEYS } from './lib/key-commands';
 import { focusView } from './native/focus-view';
+import { subscribeImportPdfRequests } from './native/gp-files';
 import { INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
 import { cursorVoice } from './state/song-edits';
 import { type Palette, usePalette } from './theme';
@@ -24,13 +29,23 @@ export default function App() {
   const { document, cursor, trackIndex } = state;
   const playback = usePlayback(document?.song, trackIndex);
   const sound = useSoundBanks(playback.restart);
-  const { create, openDialog, openPath, save } = useDocument(state, dispatch);
+  // A PDF opened like a song (drop, Finder, ⌘O) is imported; the import hook comes later, as it opens its result.
+  const importPdfPath = useRef<(pathOrUrl: string) => void>(() => undefined);
+  const openPdf = useCallback((pathOrUrl: string) => importPdfPath.current(pathOrUrl), []);
+  const { create, openDialog, openPath, save } = useDocument(state, dispatch, openPdf);
+  const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
+  const openImportPanel = useCallback(() => setIsImportPanelOpen(true), []);
+  const pdfImport = usePdfImport(openPath, openImportPanel);
+  importPdfPath.current = pdfImport.importPath;
+  const { start: startImport } = pdfImport;
+  useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   const commands = useEditorCommands({
     state,
     dispatch,
     playback,
     create,
     openDialog,
+    importPdf: startImport,
     openPath,
     save,
     keyboardView,
@@ -123,6 +138,26 @@ export default function App() {
           onRemoveSoundBank={sound.remove}
         />
       ) : null}
+      {isImportPanelOpen ? (
+        <ImportPanel
+          palette={palette}
+          hasKey={pdfImport.hasKey}
+          model={pdfImport.model}
+          onSaveKey={pdfImport.saveKey}
+          onRemoveKey={pdfImport.removeKey}
+          onChooseModel={pdfImport.chooseModel}
+          onStart={() => {
+            setIsImportPanelOpen(false);
+            startImport();
+          }}
+          onClose={() => setIsImportPanelOpen(false)}
+        />
+      ) : null}
+      <ImportBanner
+        palette={palette}
+        pdfImport={pdfImport}
+        onOpenSettings={openImportPanel}
+      />
       {errorText !== undefined ? (
         <ErrorBanner
           message={errorText}
@@ -157,6 +192,16 @@ export default function App() {
           palette={palette}
           onCreate={create}
           onOpen={openDialog}
+          onImportPdf={startImport}
+          projects={
+            <ProjectList
+              projects={pdfImport.projects}
+              palette={palette}
+              onOpenSong={openPath}
+              onResume={pdfImport.resume}
+              onReveal={pdfImport.reveal}
+            />
+          }
         />
       )}
     </View>

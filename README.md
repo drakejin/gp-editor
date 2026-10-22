@@ -83,6 +83,16 @@ npm run typecheck                           # tsc for both packages
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab, the New button (in the selected view) or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), the Open button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor.
+- **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I), the *Import PDF…* button or the start screen. Claude (Anthropic API,
+  your own key) reads the sheet music page by page — tab staves as string/fret, standard notation as pitches placed on
+  the tuning's strings — and the app builds a Guitar Pro 5 song from it and opens it. Every import is a project folder
+  in `~/Documents/GP Editor Projects/<name>/`: the original PDF, `project.json` (status, model, pages done, warnings,
+  tokens used), `pages/page-NNN.json` (each page's transcription) and `<name>.gp5`. A project whose pages did not all
+  come through (network, an unreadable page, a cancelled run) can be resumed from the banner or the start screen; only
+  the missing pages are sent again. The key is stored by the app on this Mac (owner-only file in its own Application
+  Support folder) and never leaves the native side except in the request to `api.anthropic.com`; the model is Claude
+  Opus 5.5 by default, Sonnet 5 for faster, cheaper runs. Results depend on how clear the PDF is: read the warnings
+  and check the song against the PDF.
 - **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only). Whenever the tab is shown, a
   24-fret neck above the score (not for drum tracks) shows every position's note name and the notes of the current beat.
   Pick a track on the left.

@@ -30,6 +30,10 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorOpenCommand, object: nil)
         }
         .keyboardShortcut("o")
+        Button("Import PDF…") {
+          NotificationCenter.default.post(name: .GPEditorImportPdfCommand, object: nil)
+        }
+        .keyboardShortcut("i", modifiers: [.command, .shift])
       }
       CommandGroup(replacing: .saveItem) {
         Button("Save") {

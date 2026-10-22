@@ -79,3 +79,12 @@ export function subscribeFileEvents(handlers: FileEventHandlers): () => void {
   ];
   return () => subscriptions.forEach((subscription) => subscription.remove());
 }
+
+/** File ▸ Import PDF… (⇧⌘I); returns the unsubscribe function. */
+export function subscribeImportPdfRequests(onImportPdfRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('importPdfRequested', onImportPdfRequested);
+  return () => subscription.remove();
+}

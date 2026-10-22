@@ -5,12 +5,13 @@ import type { EditorAction } from '../state/editor';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 
-/** What a toolbar button does: an editor action, a new sheet (in the selected view), opening or saving a file, or
- * starting/stopping playback. */
+/** What a toolbar button does: an editor action, a new sheet (in the selected view), opening, importing a PDF or
+ * saving a file, or starting/stopping playback. */
 export type ToolbarCommand =
   | EditorAction
   | { readonly type: 'newFile' }
   | { readonly type: 'openFile' }
+  | { readonly type: 'importPdf' }
   | { readonly type: 'saveFile' }
   | { readonly type: 'togglePlayback' };
 
@@ -41,6 +42,7 @@ export function Toolbar(props: ToolbarProps) {
     [
       { label: 'New', command: { type: 'newFile' }, isEnabled: true },
       { label: 'Open…', command: { type: 'openFile' }, isEnabled: true },
+      { label: 'Import PDF…', command: { type: 'importPdf' }, isEnabled: true },
       {
         label: props.isEdited ? 'Save •' : 'Save',
         command: { type: 'saveFile' },
@@ -126,6 +128,7 @@ function ToolbarButton({
   const isAccent =
     button.command.type === 'newFile' ||
     button.command.type === 'openFile' ||
+    button.command.type === 'importPdf' ||
     button.command.type === 'saveFile' ||
     button.command.type === 'togglePlayback';
   return (

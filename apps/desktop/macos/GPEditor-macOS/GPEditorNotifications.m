@@ -1,6 +1,7 @@
 #import "GPEditorNotifications.h"
 
 NSString *const GPEditorNewCommandNotification = @"GPEditorNewCommand";
+NSString *const GPEditorImportPdfCommandNotification = @"GPEditorImportPdfCommand";
 NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";
 NSString *const GPEditorOpenURLsNotification = @"GPEditorOpenURLs";
 NSString *const GPEditorSaveCommandNotification = @"GPEditorSaveCommand";

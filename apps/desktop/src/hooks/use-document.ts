@@ -18,7 +18,7 @@ export interface DocumentCommands {
   readonly create: (mode: ScoreMode) => void;
   /** Open panel (⌘O, Open button). */
   readonly openDialog: () => void;
-  /** Read a file the system handed over (drop, Finder). */
+  /** Read a file the system handed over (drop, Finder); a PDF is imported instead. */
   readonly openPath: (pathOrUrl: string) => void;
   /** ⌘S overwrites a .gp5 document; anything else, and ⇧⌘S, asks where to save a .gp5 file. */
   readonly save: (saveAs: boolean) => void;
@@ -40,9 +40,15 @@ export function canOverwrite(path: string): boolean {
 }
 
 /** New sheets, loading and saving files (open panel, drag and drop, Finder, File menu) and the window title. */
+/** True for a PDF path or file URL: opening one imports it (PDF → tab) instead. */
+export function isPdfPath(pathOrUrl: string): boolean {
+  return pathOrUrl.toLowerCase().endsWith('.pdf');
+}
+
 export function useDocument(
   state: EditorState,
   dispatch: Dispatch<EditorAction>,
+  onOpenPdf: (pathOrUrl: string) => void = () => undefined,
 ): DocumentCommands {
   const open = useCallback(
     async (load: () => Promise<OpenedFile | null>) => {
@@ -110,8 +116,11 @@ export function useDocument(
   const create = useCallback((mode: ScoreMode) => dispatch({ type: 'created', mode }), [dispatch]);
   const openDialog = useCallback(() => void open(showOpenDialog), [open]);
   const openPath = useCallback(
-    (pathOrUrl: string) => void open(() => readFile(pathOrUrl)),
-    [open],
+    (pathOrUrl: string) =>
+      isPdfPath(pathOrUrl)
+        ? onOpenPdf(pathOrUrl)
+        : void open(() => readFile(pathOrUrl)),
+    [open, onOpenPdf],
   );
 
   useEffect(

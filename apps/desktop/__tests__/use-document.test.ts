@@ -1,4 +1,4 @@
-import { canOverwrite, gp5Name } from '../src/hooks/use-document';
+import { canOverwrite, gp5Name, isPdfPath } from '../src/hooks/use-document';
 
 describe('save helpers', () => {
   it('names the saved file .gp5', () => {
@@ -12,5 +12,13 @@ describe('save helpers', () => {
     expect(canOverwrite('/a/Song.GP5')).toBe(true);
     expect(canOverwrite('/a/Song.gpx')).toBe(false);
     expect(canOverwrite('/a/Song.gp')).toBe(false);
+  });
+});
+
+describe('isPdfPath', () => {
+  it('recognises PDF paths and file URLs, whatever the case', () => {
+    expect(isPdfPath('/a/Song.pdf')).toBe(true);
+    expect(isPdfPath('file:///a/My%20Song.PDF')).toBe(true);
+    expect(isPdfPath('/a/Song.gp5')).toBe(false);
   });
 });
