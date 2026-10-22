@@ -72,11 +72,14 @@ function readChordGp4(reader: ByteReader, stringCount: number): Chord | undefine
   return buildChord(name, firstFret, frets, stringCount);
 }
 
-/** GP4/GP5 beat effects. GP4 writes the stroke "down" byte first, GP5 "up". */
+/**
+ * GP4/GP5 beat effects. GP4 writes the stroke "down" byte first, GP5 "up". Flag 0x02 is the beat's wide vibrato
+ * (TuxGuitar reads it as vibrato); a note's own vibrato is slight.
+ */
 export function readBeatEffectsGp45(reader: ByteReader, firstStroke: 'up' | 'down'): BeatEffects {
   const flags1 = reader.readUnsignedByte();
   const flags2 = reader.readUnsignedByte();
-  let effect: NoteEffect = { ...EMPTY_NOTE_EFFECT, fadeIn: (flags1 & 0x10) !== 0, vibrato: (flags1 & 0x02) !== 0 };
+  let effect: NoteEffect = { ...EMPTY_NOTE_EFFECT, fadeIn: (flags1 & 0x10) !== 0, wideVibrato: (flags1 & 0x02) !== 0 };
   if ((flags1 & 0x20) !== 0) {
     const type = reader.readUnsignedByte();
     effect = { ...effect, tapping: type === 1, slapping: type === 2, popping: type === 3 };
@@ -107,7 +110,7 @@ function readNoteEffectsGp4(reader: ByteReader, effect: NoteEffect, fret: number
     ...effect,
     hammer: (flags1 & 0x02) !== 0,
     letRing: (flags1 & 0x08) !== 0,
-    vibrato: (flags2 & 0x40) !== 0 || effect.vibrato,
+    vibrato: ((flags2 & 0x40) !== 0 || effect.vibrato) && !effect.wideVibrato,
     palmMute: (flags2 & 0x02) !== 0,
     staccato: (flags2 & 0x01) !== 0,
   };

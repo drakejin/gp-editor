@@ -3,7 +3,8 @@ import type { BeatAddress, StringAddress } from '../src/edit/addresses';
 import { setBeatPickStroke, setBeatStroke, setBeatText } from '../src/edit/beat-attributes';
 import { deleteBeatNotes } from '../src/edit/beats';
 import { findNote, setNoteFret, setNoteVelocity } from '../src/edit/edit-song';
-import { BEND_PRESETS, TREMOLO_BAR_PRESETS, buildHarmonic, setNoteBend, setNoteHarmonic, setNoteTremoloBar } from '../src/edit/effects';
+import { BEND_SHAPES, buildBend } from '../src/edit/bend-shapes';
+import { BEND_PRESETS, TREMOLO_BAR_PRESETS, buildHarmonic, setNoteBend, setNoteHarmonic, setNoteTremoloBar, setNoteVibrato } from '../src/edit/effects';
 import { setMeasureMarker, setRepeat, setTripletFeel } from '../src/edit/measure-headers';
 import { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from '../src/edit/ornaments';
 import { setSongInfo } from '../src/edit/song-info';
@@ -76,6 +77,30 @@ describe('GP5 round trip of the palette edits', () => {
   it.each(Object.entries(BEND_PRESETS))('keeps the %s bend preset', (_name, bend) => {
     const again = saveAndRead(setNoteBend(makeSong(), AT, bend));
     expect(findNote(again, AT)?.effect.bend).toEqual(bend);
+  });
+
+  it.each(BEND_SHAPES)('keeps the %s bend shape at every amount', (shape) => {
+    // Arrange
+    const bends = [1, 3, 12].map((amount) => buildBend(shape, amount));
+    const song = bends.reduce((edited, bend, beatIndex) => setNoteBend(edited, beatAt(beatIndex), bend), makeSong());
+
+    // Act
+    const again = saveAndRead(song);
+
+    // Assert
+    expect(bends.map((_bend, beatIndex) => findNote(again, beatAt(beatIndex))?.effect.bend)).toEqual(bends);
+  });
+
+  it('keeps slight vibrato per note and wide vibrato per beat', () => {
+    // Arrange
+    const song = setNoteVibrato(setNoteVibrato(makeSong(), AT, 'wide'), beatAt(1), 'slight');
+
+    // Act
+    const again = saveAndRead(song);
+
+    // Assert
+    expect([findNote(again, AT), findNote(again, { ...AT, string: 2 })].map((note) => note?.effect.wideVibrato)).toEqual([true, true]);
+    expect([findNote(again, beatAt(1)), findNote(again, { ...beatAt(1), string: 2 })].map((note) => note?.effect.vibrato)).toEqual([true, false]);
   });
 
   it('keeps the beat edits: stroke, pick stroke, text and a beat made a rest', () => {

@@ -372,7 +372,7 @@ function effectFlags(note: Note): string {
   const e = note.effect;
   const flags: readonly (readonly [boolean, string])[] = [
     [e.deadNote, 'dead'],
-    [e.vibrato, 'vib'],
+    [e.vibrato || e.wideVibrato, 'vib'], // TuxGuitar reads wide vibrato as vibrato
     [e.hammer, 'ham'],
     [e.slides.length > 0, 'slide'],
     [e.ghostNote, 'ghost'],

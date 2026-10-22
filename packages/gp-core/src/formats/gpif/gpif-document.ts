@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.score.* (LGPL-2.1): the intermediate GPIF document.
+import type { VibratoKind } from '../../model/song';
 
 /** Which GPIF dialect: 6 = Guitar Pro 6 (.gpx), 7 = Guitar Pro 7/8 (.gp). */
 export type GpifVersion = 6 | 7;
@@ -126,8 +127,8 @@ export interface GpifBeat {
   readonly graceNotes: string | undefined;
   readonly whammyBarEnabled: boolean;
   readonly whammyBar: GpifBendCurve;
-  /** Whammy-bar vibrato (VibratoWTremBar). */
-  readonly vibrato: boolean;
+  /** Whammy-bar vibrato (VibratoWTremBar) and its strength. */
+  readonly vibrato: VibratoKind;
 }
 
 export interface GpifNote {
@@ -150,7 +151,8 @@ export interface GpifNote {
   readonly ghost: boolean;
   readonly slide: boolean;
   readonly slideFlags: number;
-  readonly vibrato: boolean;
+  /** The Vibrato element's strength (Slight / Wide). */
+  readonly vibrato: VibratoKind;
   readonly letRing: boolean;
   readonly accent: number;
   readonly tapped: boolean;

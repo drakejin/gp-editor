@@ -33,7 +33,9 @@ function writeChordGp3(writer: ByteWriter, chord: Chord): void {
 
 /** GP3 keeps vibrato, harmonics, fade in and the special effects per beat: what any note has counts. */
 interface Gp3BeatEffects {
+  /** Slight vibrato, unless a note has wide vibrato (it wins). */
   readonly vibrato: boolean;
+  readonly wideVibrato: boolean;
   readonly harmonic?: Harmonic;
   readonly fadeIn: boolean;
   readonly tremoloBar?: Bend;
@@ -51,8 +53,10 @@ function gp3BeatEffects(notes: readonly Note[]): Gp3BeatEffects {
       : someNote((e) => e.popping)
         ? SPECIAL_EFFECT.popping
         : 0;
+  const wideVibrato = someNote((e) => e.wideVibrato);
   return {
-    vibrato: someNote((e) => e.vibrato),
+    vibrato: !wideVibrato && someNote((e) => e.vibrato),
+    wideVibrato,
     fadeIn: someNote((e) => e.fadeIn),
     slapType,
     ...(harmonic === undefined ? {} : { harmonic }),
@@ -63,6 +67,7 @@ function gp3BeatEffects(notes: readonly Note[]): Gp3BeatEffects {
 function beatEffectFlags(beat: Beat, effects: Gp3BeatEffects): number {
   return (
     (effects.vibrato ? 0x01 : 0) |
+    (effects.wideVibrato ? 0x02 : 0) |
     (effects.harmonic?.type === 'natural' ? 0x04 : 0) |
     (effects.harmonic !== undefined && effects.harmonic.type !== 'natural' ? 0x08 : 0) |
     (effects.fadeIn ? 0x10 : 0) |

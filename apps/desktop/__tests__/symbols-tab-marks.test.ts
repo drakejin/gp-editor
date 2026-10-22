@@ -5,6 +5,7 @@ import type { DrawCommand, LineCommand, TextCommand } from '../src/score/draw';
 import { TECHNIQUE_GLYPHS, TREMOLO_GLYPHS } from '../src/score/symbols/smufl';
 import { TAB_MARKS } from '../src/score/symbols/tab-geometry';
 import { tabMarkLanes } from '../src/score/symbols/tab-marks';
+import { WIDE_VIBRATO_GLYPH } from '../src/score/symbols/vibrato';
 import { type TabContext, engraveTabMeasure } from '../src/score/tab';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -159,6 +160,32 @@ describe('waves', () => {
     expect(wave!.x).toBeLessThan(beatX(context, 1));
     expect(wave!.text.length).toBeGreaterThan(5);
     expect(Math.abs(wave!.y - MARKS_Y)).toBeLessThan(TAB_MARKS.laneHeight / 2);
+  });
+
+  it('draws wide vibrato with the wide wave in the vibrato lane, and a width change as two waves', () => {
+    // Act
+    const { commands, context } = engrave([
+      ...quarters({ vibrato: true }, [true, true, false, false]).slice(0, 2),
+      ...quarters({ wideVibrato: true }, [false, false, true, true]).slice(2),
+    ]);
+
+    // Assert
+    const waves = ofKind(commands, 'text').filter(
+      c =>
+        c.text.startsWith(TECHNIQUE_GLYPHS.guitarVibratoStroke.text) ||
+        c.text.startsWith(WIDE_VIBRATO_GLYPH.text),
+    );
+    expect(waves.map(c => c.text[0])).toEqual([
+      TECHNIQUE_GLYPHS.guitarVibratoStroke.text,
+      WIDE_VIBRATO_GLYPH.text,
+    ]);
+    expect(waves[0]!.x + 1).toBeLessThan(beatX(context, 0));
+    expect(waves[1]!.x).toBeGreaterThan(beatX(context, 1));
+    expect(waves[1]!.x).toBeLessThan(beatX(context, 2));
+    expect(Math.abs(waves[1]!.y - MARKS_Y)).toBeLessThan(
+      TAB_MARKS.laneHeight / 2,
+    );
+    expect(tabMarkLanes([context.measure])).toEqual(['vibrato']);
   });
 
   it('writes tr before the trill wave', () => {

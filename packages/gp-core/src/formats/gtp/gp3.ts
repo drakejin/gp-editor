@@ -275,11 +275,13 @@ const NATURAL_HARMONIC = { type: 'natural', data: 0 } as const;
 /** GP3 artificial harmonics are TuxGuitar data 0 (AH12). */
 const GP3_ARTIFICIAL_HARMONIC = { type: 'artificial', data: artificialHarmonicOffset(0) } as const;
 
+/** GP3 beat effects. 0x01 is vibrato, 0x02 wide vibrato: TuxGuitar reads both as vibrato, the model keeps wide (it wins). */
 function readBeatEffectsGp3(reader: ByteReader): BeatEffects {
   const flags = reader.readUnsignedByte();
   let effect: NoteEffect = {
     ...EMPTY_NOTE_EFFECT,
-    vibrato: (flags & 0x01) !== 0 || (flags & 0x02) !== 0,
+    vibrato: (flags & 0x01) !== 0 && (flags & 0x02) === 0,
+    wideVibrato: (flags & 0x02) !== 0,
     fadeIn: (flags & 0x10) !== 0,
   };
   if ((flags & 0x20) !== 0) {

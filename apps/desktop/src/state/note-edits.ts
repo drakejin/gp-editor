@@ -2,6 +2,7 @@ import {
   BEND_PRESETS,
   type Bend,
   type BendPresetName,
+  type BendShape,
   DYNAMICS,
   type Duration,
   type DynamicName,
@@ -19,6 +20,8 @@ import {
   type ToggleableEffect,
   type TremoloBarPresetName,
   type Trill,
+  type VibratoKind,
+  buildBend,
   buildHarmonic,
   findNote,
   setNoteBend,
@@ -30,6 +33,7 @@ import {
   setNoteTremoloPicking,
   setNoteTrill,
   setNoteVelocity,
+  setNoteVibrato,
   toggleNoteEffect,
 } from '@gp-editor/core';
 
@@ -42,6 +46,13 @@ export type NoteEdit =
   | { readonly type: 'toggleSlideType'; readonly slide: SlideType }
   | { readonly type: 'cycleBend' }
   | { readonly type: 'setBend'; readonly preset: BendPresetName | 'none' }
+  /** A bend of any shape, `amount` quarter tones high (1–12, rounded and clamped by buildBend). */
+  | {
+      readonly type: 'setBendShape';
+      readonly shape: BendShape | 'none';
+      readonly amount: number;
+    }
+  | { readonly type: 'setVibrato'; readonly vibrato: VibratoKind }
   | {
       readonly type: 'setTremoloBar';
       readonly preset: TremoloBarPresetName | 'none';
@@ -94,19 +105,32 @@ export function applyNoteEdit(
         toggled(note.effect.slides, edit.slide),
       );
     case 'cycleBend':
-      return setNoteBend(
-        song,
-        cursor,
-        nextBend(bendPeak(note.effect.bend?.points ?? [])),
-      );
     case 'setBend':
-      return setNoteBend(
-        song,
-        cursor,
-        edit.preset === 'none' ? undefined : BEND_PRESETS[edit.preset],
-      );
+    case 'setBendShape':
+      return setNoteBend(song, cursor, bendFor(note, edit));
+    case 'setVibrato':
+      return setNoteVibrato(song, cursor, edit.vibrato);
     default:
       return applyNoteDetail(song, cursor, note, edit);
+  }
+}
+
+type BendEdit = Extract<
+  NoteEdit,
+  { readonly type: 'cycleBend' | 'setBend' | 'setBendShape' }
+>;
+
+/** The bend a bend edit gives the note: the next one of the cycle, a preset, a shape, or none. */
+function bendFor(note: Note, edit: BendEdit): Bend | undefined {
+  switch (edit.type) {
+    case 'cycleBend':
+      return nextBend(bendPeak(note.effect.bend?.points ?? []));
+    case 'setBend':
+      return edit.preset === 'none' ? undefined : BEND_PRESETS[edit.preset];
+    case 'setBendShape':
+      return edit.shape === 'none'
+        ? undefined
+        : buildBend(edit.shape, edit.amount);
   }
 }
 

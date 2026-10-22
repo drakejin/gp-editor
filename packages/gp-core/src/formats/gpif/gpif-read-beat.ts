@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentReader#readBeats / #readNotes (LGPL-2.1).
+import type { VibratoKind } from '../../model/song';
 import type { GpifBeat, GpifBendCurve, GpifNote } from './gpif-document';
 import {
   type XmlElement,
@@ -12,6 +13,8 @@ import {
 
 const XPROPERTY_BRUSH_DURATION = '687935489';
 const XPROPERTY_TRILL_DURATION = '688062467';
+/** The GPIF vibrato strength that is wide (lower-cased); the other one is Slight. */
+const WIDE_VIBRATO = 'wide';
 
 interface Property {
   readonly name: string;
@@ -78,6 +81,7 @@ function direction(property: XmlElement | undefined): string {
 export function readBeat(node: XmlElement): GpifBeat {
   const props = propertyMap(node);
   const whammy = child(node, 'Whammy');
+  const whammyVibrato = props.get('VibratoWTremBar');
   const chord = childText(node, 'Chord');
   return {
     id: parseJavaInt(attribute(node, 'id'), 0),
@@ -96,8 +100,19 @@ export function readBeat(node: XmlElement): GpifBeat {
     graceNotes: childText(node, 'GraceNotes'),
     whammyBarEnabled: whammy !== undefined || isEnabled(props.get('WhammyBar')),
     whammyBar: whammy !== undefined ? readWhammyElement(whammy) : readCurve(props, 'WhammyBar'),
-    vibrato: props.has('VibratoWTremBar'),
+    vibrato: parseVibrato(whammyVibrato, childText(whammyVibrato, 'Strength')),
   };
+}
+
+/**
+ * A vibrato element (a note's Vibrato, a beat's VibratoWTremBar property) and its strength: 'none' without the
+ * element, wide for Wide, else slight. TuxGuitar only marks note vibrato, of either strength.
+ */
+function parseVibrato(element: XmlElement | undefined, strength: string | undefined): VibratoKind {
+  if (element === undefined) {
+    return 'none';
+  }
+  return strength?.trim().toLowerCase() === WIDE_VIBRATO ? 'wide' : 'slight';
 }
 
 function intProperty(props: ReadonlyMap<string, XmlElement>, name: string, valueName: string): number {
@@ -127,7 +142,7 @@ export function readNote(node: XmlElement): GpifNote {
     ghost: childText(node, 'AntiAccent')?.toLowerCase() === 'normal',
     slide: slide !== undefined,
     slideFlags: slide === undefined ? 0 : parseJavaInt(childText(slide, 'Flags'), 0),
-    vibrato: child(node, 'Vibrato') !== undefined,
+    vibrato: parseVibrato(child(node, 'Vibrato'), childText(node, 'Vibrato')),
     letRing: child(node, 'LetRing') !== undefined,
     accent: parseJavaInt(childText(node, 'Accent'), 0),
     tapped: isEnabled(props.get('Tapped')),

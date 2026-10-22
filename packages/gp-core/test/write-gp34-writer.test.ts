@@ -182,6 +182,42 @@ describe('GP4 and GP3 song data', () => {
   });
 });
 
+describe('GP4 and GP3 vibrato', () => {
+  it.each(['gp3', 'gp4'] as const)('writes %s slight and wide vibrato, wide as the beat’s wide-vibrato bit', (format) => {
+    // Arrange
+    const song = songWithNotes(
+      [buildNote(1, 5, { effect: { vibrato: true } }), buildNote(2, 5, { effect: { vibrato: true } })],
+      [buildNote(1, 5, { effect: { wideVibrato: true } }), buildNote(2, 5, { effect: { wideVibrato: true } })],
+      [buildNote(1, 5)],
+    );
+
+    // Act
+    const again = roundTrip(song, format);
+
+    // Assert
+    expect(songDifference(song, again)).toBeUndefined();
+  });
+
+  it('keeps GP3 vibrato per beat, wide over slight', () => {
+    // Arrange
+    const song = songWithNotes(
+      [buildNote(1, 5, { effect: { vibrato: true } }), buildNote(2, 5)],
+      [buildNote(1, 5, { effect: { vibrato: true } }), buildNote(2, 5, { effect: { wideVibrato: true } })],
+    );
+
+    // Act
+    const notes = notesOf(roundTrip(song, 'gp3'));
+
+    // Assert
+    expect(notes.map((note) => [note.effect.vibrato, note.effect.wideVibrato])).toEqual([
+      [true, false],
+      [true, false],
+      [false, true],
+      [false, true],
+    ]);
+  });
+});
+
 describe('GP4 and GP3 losses', () => {
   it('joins the second voice into the first, as TuxGuitar does', () => {
     // Arrange

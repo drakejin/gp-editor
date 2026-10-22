@@ -122,6 +122,14 @@ describe('renderMidi tremolo bar, vibrato and slides', () => {
     expect(bends(midi(song), 1)).toEqual(['160:64', '320:65', '480:64', '640:65', '800:64', '960:65', '960:64']);
   });
 
+  it('wobbles a wide vibrato note as TuxGuitar plays any vibrato', () => {
+    // Arrange
+    const song = oneNote({ fret: 0, string: 1, effect: { wideVibrato: true } });
+
+    // Act / Assert
+    expect(bends(midi(song), 1)).toEqual(['160:64', '320:65', '480:64', '640:65', '800:64', '960:65', '960:64']);
+  });
+
   it('slides to the next note on the same string with pitch bends every 120 ticks', () => {
     // Arrange
     const song = songOf([

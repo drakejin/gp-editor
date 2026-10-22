@@ -13,10 +13,11 @@ import {
   setNoteSlides,
   setNoteTied,
   setNoteTremoloBar,
+  setNoteVibrato,
   toggleNoteEffect,
 } from '../src/edit/effects';
-import { EMPTY_NOTE_EFFECT } from '../src/model/defaults';
-import type { Harmonic, Note, Song } from '../src/model/song';
+import { EMPTY_NOTE_EFFECT, vibratoOf } from '../src/model/defaults';
+import type { Harmonic, Note, Song, VibratoKind } from '../src/model/song';
 import { buildSong, deepFreeze, n, play, rest } from './helpers/edit-songs';
 
 const AT: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 };
@@ -84,6 +85,19 @@ describe('toggleNoteEffect', () => {
     expect(findNote(song, AT)?.effect[effect]).toBe(false);
   });
 
+  it('turns slight vibrato on over a wide vibrato, and off again', () => {
+    // Arrange
+    const wide = withNote(makeSong(), AT, (note) => ({ ...note, effect: { ...note.effect, wideVibrato: true } }));
+
+    // Act
+    const slight = toggleNoteEffect(wide, AT, 'vibrato');
+    const off = toggleNoteEffect(slight, AT, 'vibrato');
+
+    // Assert
+    expect(findNote(slight, AT)?.effect).toMatchObject({ vibrato: true, wideVibrato: false });
+    expect(findNote(off, AT)?.effect).toEqual(EMPTY_NOTE_EFFECT);
+  });
+
   it('unties a note that becomes a dead note', () => {
     const tied = withNote(makeSong(), AT, (note) => ({ ...note, isTied: true }));
     expect(findNote(toggleNoteEffect(tied, AT, 'deadNote'), AT)).toMatchObject({ isTied: false, effect: { deadNote: true } });
@@ -109,6 +123,48 @@ describe('toggleNoteEffect', () => {
     expect(toggleNoteEffect(song, { ...AT, string: 4 }, 'vibrato')).toBe(song);
     expect(toggleNoteEffect(song, { ...AT, beatIndex: 1 }, 'vibrato')).toBe(song);
     expect(toggleNoteEffect(song, { ...AT, trackIndex: 5 }, 'vibrato')).toBe(song);
+  });
+});
+
+describe('setNoteVibrato', () => {
+  it.each([
+    ['slight', { vibrato: true, wideVibrato: false }],
+    ['wide', { vibrato: false, wideVibrato: true }],
+    ['none', { vibrato: false, wideVibrato: false }],
+  ] as const)('gives the note %s vibrato, whatever it had', (kind, flags) => {
+    // Arrange
+    const starts = [makeSong(), setNoteVibrato(makeSong(), AT, 'slight'), setNoteVibrato(makeSong(), AT, 'wide')];
+
+    // Act
+    const edited = starts.map((song) => setNoteVibrato(song, AT, kind));
+
+    // Assert
+    edited.forEach((song) => expect(findNote(song, AT)?.effect).toEqual({ ...EMPTY_NOTE_EFFECT, ...flags }));
+  });
+
+  it('returns the same song for the vibrato the note has, or a missing note', () => {
+    // Arrange
+    const song = makeSong();
+    const wide = setNoteVibrato(song, AT, 'wide');
+
+    // Act / Assert
+    expect(setNoteVibrato(song, AT, 'none')).toBe(song);
+    expect(setNoteVibrato(wide, AT, 'wide')).toBe(wide);
+    expect(setNoteVibrato(song, { ...AT, string: 4 }, 'wide')).toBe(song);
+  });
+});
+
+describe('vibratoOf', () => {
+  it.each([
+    [{ vibrato: false, wideVibrato: false }, 'none'],
+    [{ vibrato: true, wideVibrato: false }, 'slight'],
+    [{ vibrato: false, wideVibrato: true }, 'wide'],
+  ] as const)('reads %o as %s', (flags, kind) => {
+    // Act
+    const read: VibratoKind = vibratoOf({ ...EMPTY_NOTE_EFFECT, ...flags });
+
+    // Assert
+    expect(read).toBe(kind);
   });
 });
 

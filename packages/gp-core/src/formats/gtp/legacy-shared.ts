@@ -474,13 +474,15 @@ function readNote(
 
 /**
  * Beat effects apply to every note of the beat. Flags are kept as the file sets them,
- * without TGNoteEffect's clearing of "incompatible" effects.
+ * without TGNoteEffect's clearing of "incompatible" effects. Code 2 is wide vibrato (as GP3's
+ * flag 0x02), which TuxGuitar reads as vibrato.
  */
 function readBeatEffects(reader: ByteReader): NoteEffect {
   const code = reader.readUnsignedByte();
   const effect: NoteEffect = {
     ...EMPTY_NOTE_EFFECT,
-    vibrato: code === 1 || code === 2,
+    vibrato: code === 1,
+    wideVibrato: code === 2,
     fadeIn: code === 4,
     tapping: code === 5,
     slapping: code === 6,

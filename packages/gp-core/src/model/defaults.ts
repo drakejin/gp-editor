@@ -10,6 +10,7 @@ import {
   type SongInfo,
   type Stroke,
   type Tuplet,
+  type VibratoKind,
 } from './song';
 
 export const NORMAL_TUPLET: Tuplet = { enters: 1, times: 1 };
@@ -55,6 +56,7 @@ export const RED: Rgb = { r: 255, g: 0, b: 0 };
 export const EMPTY_NOTE_EFFECT: NoteEffect = {
   slides: [],
   vibrato: false,
+  wideVibrato: false,
   deadNote: false,
   hammer: false,
   ghostNote: false,
@@ -68,6 +70,19 @@ export const EMPTY_NOTE_EFFECT: NoteEffect = {
   fadeIn: false,
   letRing: false,
 };
+
+/** The note's vibrato: wide wins should a note (against the model's rule) have both flags. */
+export function vibratoOf(effect: NoteEffect): VibratoKind {
+  if (effect.wideVibrato) {
+    return 'wide';
+  }
+  return effect.vibrato ? 'slight' : 'none';
+}
+
+/** The two vibrato flags of a NoteEffect for one vibrato kind. */
+export function toVibratoFlags(kind: VibratoKind): Pick<NoteEffect, 'vibrato' | 'wideVibrato'> {
+  return { vibrato: kind === 'slight', wideVibrato: kind === 'wide' };
+}
 
 export const EMPTY_SONG_INFO: SongInfo = {
   title: '',

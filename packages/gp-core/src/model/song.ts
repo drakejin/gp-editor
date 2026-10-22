@@ -248,6 +248,9 @@ export type SlideType =
   | 'intoFromBelow'
   | 'intoFromAbove';
 
+/** A note's vibrato as one value: none, slight (`NoteEffect.vibrato`) or wide (`NoteEffect.wideVibrato`). */
+export type VibratoKind = 'none' | 'slight' | 'wide';
+
 export interface NoteEffect {
   readonly bend?: Bend;
   /** Whammy bar; points use the same 0…12 positions, values in quarter tones (may be negative). */
@@ -258,7 +261,10 @@ export interface NoteEffect {
   readonly tremoloPicking?: TremoloPicking;
   /** Empty when the note has no slide. */
   readonly slides: readonly SlideType[];
+  /** Slight vibrato; never set together with `wideVibrato`. */
   readonly vibrato: boolean;
+  /** Wide vibrato (GP3–GP5's beat wide-vibrato bit, GPIF's Wide strength); never set together with `vibrato`. */
+  readonly wideVibrato: boolean;
   readonly deadNote: boolean;
   readonly hammer: boolean;
   readonly ghostNote: boolean;

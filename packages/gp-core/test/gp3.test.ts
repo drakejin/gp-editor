@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Beat, type Note, readSong, type Song } from '../src/index';
+import { type Beat, type Note, readSong, type Song, vibratoOf } from '../src/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
 
@@ -194,6 +194,12 @@ describe('readGp3 values', () => {
 
     expect(firstNote(beatAt(song, 0, 2)).effect.vibrato).toBe(true);
     expect(firstNote(beatAt(song, 0, 3)).effect.vibrato).toBe(true);
+  });
+
+  it('reads the beat’s wide vibrato flag as wide vibrato', () => {
+    const song = read('effects.gp3');
+
+    expect([0, 1, 2, 3].map((index) => vibratoOf(firstNote(beatAt(song, 15, index)).effect))).toEqual(['slight', 'slight', 'wide', 'wide']);
   });
 
   it('reads tapping, slapping, popping, fade in, chords, texts and tempo changes', () => {

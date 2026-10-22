@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { readGp7Container } from '../src/formats/gpif/container-gp7';
-import { type Beat, GpFormatError, type Note, type Song, readSong } from '../src/index';
+import { type Beat, GpFormatError, type Note, type Song, readSong, vibratoOf } from '../src/index';
 import { assertSongInvariants } from './helpers/invariants';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 
@@ -124,12 +124,14 @@ describe('Guitar Pro 7 (.gp) values', () => {
   });
 
   it('tremolo-vibrato: slight and wide vibrato on notes and whammy bar', () => {
+    // Act
     const song = read('tremolo-vibrato.gp');
-    expect(noteAt(song, 0, 0).effect.vibrato).toBe(true);
-    expect(noteAt(song, 1, 0, 0).effect.vibrato).toBe(true);
-    expect(noteAt(song, 1, 0, 1).effect.vibrato).toBe(true);
-    expect(noteAt(song, 2, 0).effect.vibrato).toBe(true);
-    expect(noteAt(song, 3, 0).effect.vibrato).toBe(true);
+
+    // Assert
+    const kinds = [noteAt(song, 0, 0), noteAt(song, 1, 0, 0), noteAt(song, 1, 0, 1), noteAt(song, 2, 0), noteAt(song, 3, 0)].map((note) =>
+      vibratoOf(note.effect),
+    );
+    expect(kinds).toEqual(['slight', 'wide', 'slight', 'slight', 'wide']);
   });
 
   it('simile-mark: simile bars repeat the content of the previous bar(s)', () => {

@@ -7,6 +7,8 @@ import { strokeSpeedToGp } from './gp-units';
 /** Effects GP4/GP5 store per beat but the model per note: taken from the voice's notes. */
 export interface VoiceEffects {
   readonly fadeIn: boolean;
+  /** Wide vibrato is a beat effect (a note's own vibrato is slight). */
+  readonly wideVibrato: boolean;
   /** 1 tapping, 2 slapping, 3 popping, 0 none. */
   readonly slapType: number;
   readonly tremoloBar?: Bend;
@@ -21,7 +23,12 @@ export function voiceEffects(notes: readonly Note[]): VoiceEffects {
       : notes.some((note) => note.effect.popping)
         ? 3
         : 0;
-  return { fadeIn: notes.some((note) => note.effect.fadeIn), slapType, ...(tremoloBar === undefined ? {} : { tremoloBar }) };
+  return {
+    fadeIn: notes.some((note) => note.effect.fadeIn),
+    wideVibrato: notes.some((note) => note.effect.wideVibrato),
+    slapType,
+    ...(tremoloBar === undefined ? {} : { tremoloBar }),
+  };
 }
 
 export function hasBeatEffects(beat: Beat, effects: VoiceEffects): boolean {
@@ -29,6 +36,7 @@ export function hasBeatEffects(beat: Beat, effects: VoiceEffects): boolean {
     beat.stroke.direction !== 'none' ||
     beat.pickStroke !== 'none' ||
     effects.fadeIn ||
+    effects.wideVibrato ||
     effects.slapType !== 0 ||
     effects.tremoloBar !== undefined
   );
@@ -44,7 +52,7 @@ export function strokeBytes(direction: StrokeDirection, value: number, first: 'u
 /** GP4/GP5 beat effects; GP5 writes the up stroke byte first, GP4 (and GP3) the down one. */
 export function writeBeatEffectsGp45(writer: ByteWriter, beat: Beat, effects: VoiceEffects, firstStroke: 'up' | 'down'): void {
   const hasStroke = beat.stroke.direction !== 'none';
-  const flags1 = (effects.fadeIn ? 0x10 : 0) | (effects.slapType !== 0 ? 0x20 : 0) | (hasStroke ? 0x40 : 0);
+  const flags1 = (effects.wideVibrato ? 0x02 : 0) | (effects.fadeIn ? 0x10 : 0) | (effects.slapType !== 0 ? 0x20 : 0) | (hasStroke ? 0x40 : 0);
   const flags2 = (beat.pickStroke !== 'none' ? 0x02 : 0) | (effects.tremoloBar !== undefined ? 0x04 : 0);
   writer.writeUnsignedByte(flags1).writeUnsignedByte(flags2);
   if (effects.slapType !== 0) {

@@ -390,6 +390,39 @@ describe('gpifToSong: beats and notes', () => {
     });
   });
 
+  it('reads vibrato strengths: Wide is wide vibrato, any other strength slight, the wider of note and whammy bar wins', () => {
+    // Arrange
+    const whammy = (strength: string) => `<Properties><Property name="VibratoWTremBar">${strength}</Property></Properties>`;
+    const beats = [
+      `<Beat id="0"><Rhythm ref="0"/><Notes>0 1</Notes></Beat>`,
+      `<Beat id="1"><Rhythm ref="0"/><Notes>2</Notes>${whammy('<Strength> wide </Strength>')}</Beat>`,
+      `<Beat id="2"><Rhythm ref="0"/><Notes>3</Notes>${whammy('')}</Beat>`,
+      `<Beat id="3"><Rhythm ref="0"/><Notes>4</Notes>${whammy('<Strength>Slight</Strength>')}</Beat>`,
+    ].join('');
+    const notes = [
+      note(0, 0, 3, '<Vibrato>Wide</Vibrato>'),
+      note(1, 1, 3, '<Vibrato>Slight</Vibrato>'),
+      note(2, 0, 3, '<Vibrato>Slight</Vibrato>'),
+      note(3, 0, 3),
+      note(4, 0, 3, '<Vibrato/>'),
+    ].join('');
+    const voices = '<Voice id="0"><Beats>0 1 2 3</Beats></Voice>';
+
+    // Act
+    const song = toSong({ beats, notes, voices });
+
+    // Assert
+    const measure = at(at(song.tracks, 0).measures, 0);
+    const kinds = measure.beats.flatMap((beat) => at(beat.voices, 0).notes.map((n) => [n.effect.vibrato, n.effect.wideVibrato]));
+    expect(kinds).toEqual([
+      [false, true],
+      [true, false],
+      [false, true],
+      [true, false],
+      [true, false],
+    ]);
+  });
+
   it('maps brush durations to stroke values and keeps the first voice stroke', () => {
     // Arrange
     const brush = (dir: string, ticks?: number) => `<Properties><Property name="Brush"><Direction>${dir}</Direction></Property></Properties>`

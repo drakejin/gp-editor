@@ -1,4 +1,4 @@
-import { BEND_PRESETS, QUARTER, TREMOLO_BAR_PRESETS, findNote } from '@gp-editor/core';
+import { BEND_PRESETS, QUARTER, TREMOLO_BAR_PRESETS, bendShapeOf, buildBend, findNote, vibratoOf } from '@gp-editor/core';
 import type { Note } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
@@ -41,6 +41,35 @@ describe('note edits at the cursor', () => {
     expect(noteAt(bent).effect.bend).toEqual(BEND_PRESETS.bendReleaseBend);
     expect(edit(bent, { type: 'setBend', preset: 'bendReleaseBend' })).toBe(bent);
     expect(noteAt(edit(bent, { type: 'setBend', preset: 'none' })).effect.bend).toBeUndefined();
+  });
+
+  it('sets a bend of any shape and amount, and removes it', () => {
+    // Act
+    const release = edit(loaded(), { type: 'setBendShape', shape: 'release', amount: 6 });
+    const highest = edit(release, { type: 'setBendShape', shape: 'bendRelease', amount: 20 });
+    const none = edit(highest, { type: 'setBendShape', shape: 'none', amount: 4 });
+
+    // Assert
+    expect(noteAt(release).effect.bend).toEqual(buildBend('release', 6));
+    expect(bendShapeOf(noteAt(highest).effect.bend!)).toEqual({ shape: 'bendRelease', amount: 12 });
+    expect(noteAt(none).effect.bend).toBeUndefined();
+    expect(edit(release, { type: 'setBendShape', shape: 'release', amount: 6 })).toBe(release);
+    expect(none.past).toHaveLength(3);
+  });
+
+  it('sets slight, wide or no vibrato; toggling vibrato makes a wide vibrato slight', () => {
+    // Act
+    const wide = edit(loaded(), { type: 'setVibrato', vibrato: 'wide' });
+    const slight = edit(wide, { type: 'setVibrato', vibrato: 'slight' });
+    const none = edit(slight, { type: 'setVibrato', vibrato: 'none' });
+    const toggled = edit(wide, { type: 'toggleEffect', effect: 'vibrato' });
+
+    // Assert
+    expect(noteAt(wide).effect).toMatchObject({ vibrato: false, wideVibrato: true });
+    expect(noteAt(slight).effect).toMatchObject({ vibrato: true, wideVibrato: false });
+    expect(vibratoOf(noteAt(none).effect)).toBe('none');
+    expect(noteAt(toggled).effect).toMatchObject({ vibrato: true, wideVibrato: false });
+    expect(edit(wide, { type: 'setVibrato', vibrato: 'wide' })).toBe(wide);
   });
 
   it('sets a tremolo bar preset and removes it', () => {
@@ -116,6 +145,8 @@ describe('note edits at the cursor', () => {
   it.each<SongEdit>([
     { type: 'toggleSlideType', slide: 'shift' },
     { type: 'setBend', preset: 'full' },
+    { type: 'setBendShape', shape: 'preBend', amount: 3 },
+    { type: 'setVibrato', vibrato: 'wide' },
     { type: 'setTremoloBar', preset: 'dip' },
     { type: 'setHarmonic', harmonic: 'tapped' },
     { type: 'setDynamic', dynamic: 'ff' },
