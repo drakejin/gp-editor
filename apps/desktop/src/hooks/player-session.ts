@@ -11,7 +11,7 @@ import {
   planPlayback,
   startSeconds,
 } from '../lib/practice-plan';
-import { playMidi, playerPosition, stopMidi } from '../native/player';
+import { type PlayerPosition, playMidi, playerPosition, stopMidi } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import type { PracticeSettings } from '../state/practice';
 
@@ -89,7 +89,8 @@ function isSameLoopPass(a: LoopPass | undefined, b: LoopPass | undefined): boole
 export function releasePlayer(session: PlayerSession): void {
   session.generation.current += 1;
   clearTimer(session);
-  void stopMidi();
+  // Nothing is left to report once the player is being silenced.
+  stopMidi().catch(() => undefined);
 }
 
 export function stopPlayer(session: PlayerSession): void {
@@ -146,7 +147,16 @@ export function resumePlayer(session: PlayerSession): void {
 /** One read of the player: follows the playing beat and loop pass; at the end, stops or plays the next loop batch. */
 async function pollPlayer(session: PlayerSession): Promise<void> {
   const polledGeneration = session.generation.current;
-  const position = await playerPosition();
+  let position: PlayerPosition;
+  try {
+    position = await playerPosition();
+  } catch (error: unknown) {
+    if (session.generation.current === polledGeneration) {
+      releasePlayer(session);
+      session.setState({ isPlaying: false, error: errorMessage(error) });
+    }
+    return;
+  }
   if (session.generation.current !== polledGeneration) {
     return;
   }

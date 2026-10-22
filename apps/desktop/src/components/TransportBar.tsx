@@ -5,7 +5,7 @@ import { TEMPO_STEP, playbackTempo, resolveTrainerMaxTempo, tempoPercent } from 
 import { type PracticeAction, type PracticeSettings, resolveLoopRange } from '../state/practice';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
-import { Group, Stepper } from './EditBar';
+import { Group, Stepper } from './BarControls';
 
 export interface TransportBarProps {
   readonly palette: Palette;
@@ -76,6 +76,7 @@ function TempoGroup({ palette, practice, context, onChangePractice }: GroupProps
         label={label}
         palette={palette}
         isEnabled={writtenTempo > 0}
+        labelWidth={92}
         onMinus={() => shift(-TEMPO_STEP)}
         onPlus={() => shift(TEMPO_STEP)}
       />
@@ -108,6 +109,7 @@ function LoopGroup({ palette, practice, context, cursorMeasureIndex, onChangePra
         label={`From ${fromMeasureIndex + 1}`}
         palette={palette}
         isEnabled
+        labelWidth={60}
         onMinus={() => setFrom(fromMeasureIndex - 1)}
         onPlus={() => setFrom(fromMeasureIndex + 1)}
       />
@@ -115,6 +117,7 @@ function LoopGroup({ palette, practice, context, cursorMeasureIndex, onChangePra
         label={`To ${toMeasureIndex + 1}`}
         palette={palette}
         isEnabled
+        labelWidth={48}
         onMinus={() => setTo(toMeasureIndex - 1)}
         onPlus={() => setTo(toMeasureIndex + 1)}
       />
@@ -146,6 +149,7 @@ function TrainerGroup({ palette, practice, context, onChangePractice }: GroupPro
         label={step === 0 ? 'Off' : `+${step} BPM / pass`}
         palette={palette}
         isEnabled={practice.isLooping}
+        labelWidth={100}
         onMinus={() => shiftStep(-1)}
         onPlus={() => shiftStep(1)}
       />
@@ -153,6 +157,7 @@ function TrainerGroup({ palette, practice, context, onChangePractice }: GroupPro
         label={`up to ♩ ${maxTempo}`}
         palette={palette}
         isEnabled={practice.isLooping && step > 0}
+        labelWidth={82}
         onMinus={() => shiftMax(-TEMPO_STEP)}
         onPlus={() => shiftMax(TEMPO_STEP)}
       />

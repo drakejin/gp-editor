@@ -1,4 +1,4 @@
-import { MAX_FRET, NECK_FRETS } from './edit-song';
+import { NECK_FRETS } from './edit-song';
 
 const SEMITONES_PER_OCTAVE = 12;
 
@@ -16,18 +16,9 @@ export interface StringPlacement {
   readonly octaves: number;
 }
 
-/** Frets a note may take, counted from the capo. */
-export interface FretRange {
-  /** Last fret of the neck. */
-  readonly neck: number;
-  /** Last fret an edit may set; at least `neck`. */
-  readonly max: number;
-}
-
-/** Frets of the neck (NECK_FRETS) and of an edit (MAX_FRET) left above a capo at `offset`. */
-export function fretRange(offset: number): FretRange {
-  const neck = Math.max(0, NECK_FRETS - offset);
-  return { neck, max: Math.max(neck, MAX_FRET - offset) };
+/** Last fret of the neck (NECK_FRETS) above a capo at `offset`: frets are counted from the capo. */
+export function neckFrets(offset: number): number {
+  return Math.max(0, NECK_FRETS - offset);
 }
 
 /**
@@ -114,16 +105,12 @@ function placement(pitch: number, tuning: readonly number[], string: number, oct
   return { string, fret: fretOf(pitch + octaves * SEMITONES_PER_OCTAVE, tuning, string), octaves };
 }
 
-/** A note the neck could not hold: a free string up to the edit limit, else the fewest octaves onto a free string's neck. */
-function placeLeftover(note: NoteToPlace, tuning: readonly number[], range: FretRange, free: ReadonlySet<number>): StringPlacement | undefined {
+/** A note the neck could not hold: moved by the fewest octaves onto a free string's neck. */
+function placeLeftover(note: NoteToPlace, tuning: readonly number[], neck: number, free: ReadonlySet<number>): StringPlacement | undefined {
   const strings = stringsByPreference(note.preferredString, tuning.length).filter((string) => free.has(string));
-  const pastNeck = strings.find((string) => fitsFrets(note.pitch, tuning, string, range.max));
-  if (pastNeck !== undefined) {
-    return placement(note.pitch, tuning, pastNeck, 0);
-  }
   let best: StringPlacement | undefined;
   for (const string of strings) {
-    const octaves = octavesOnto(note.pitch, tuning[string - 1] ?? 0, range.neck);
+    const octaves = octavesOnto(note.pitch, tuning[string - 1] ?? 0, neck);
     if (octaves !== undefined && (best === undefined || Math.abs(octaves) < Math.abs(best.octaves))) {
       best = placement(note.pitch, tuning, string, octaves);
     }
@@ -133,14 +120,14 @@ function placeLeftover(note: NoteToPlace, tuning: readonly number[], range: Fret
 
 /**
  * Puts the notes of one beat (all voices) on separate strings of `tuning`, keeping each pitch where it can:
- * 1. on the neck (frets 0…range.neck): each note on its preferred string, else the nearest free string — earlier notes
- *    keep their preferred string, and as many notes as possible fit;
- * 2. a note that does not fit: a free string with a fret up to range.max;
- * 3. else moved by the fewest octaves onto a free string's neck.
+ * 1. on the neck (frets 0…neck): each note on its preferred string, else the nearest free string — earlier notes keep
+ *    their preferred string, and as many notes as possible fit;
+ * 2. a note that does not fit is moved by the fewest octaves onto a free string's neck (never past the neck, so what a
+ *    retune makes always fits the tuning it was made for).
  * undefined for a note left without a string (more notes than strings).
  */
-export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], range: FretRange): readonly (StringPlacement | undefined)[] {
-  const owners = matchOnNeck(notes, tuning, range.neck);
+export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number): readonly (StringPlacement | undefined)[] {
+  const owners = matchOnNeck(notes, tuning, neck);
   const placed = notes.map((note, noteIndex): StringPlacement | undefined => {
     const string = owners.indexOf(noteIndex) + 1;
     return string > 0 ? placement(note.pitch, tuning, string, 0) : undefined;
@@ -151,7 +138,7 @@ export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly numbe
     if (existing !== undefined || note === undefined) {
       return existing;
     }
-    const leftover = placeLeftover(note, tuning, range, free);
+    const leftover = placeLeftover(note, tuning, neck, free);
     if (leftover !== undefined) {
       free.delete(leftover.string);
     }

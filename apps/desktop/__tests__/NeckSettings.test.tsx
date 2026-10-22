@@ -9,6 +9,8 @@ import { beat, makeSong, note, onStrings } from '../test-support/songs';
 const STANDARD = [64, 59, 55, 50, 45, 40];
 const DROP_D = [64, 59, 55, 50, 45, 38];
 const SEVEN_STRING = [64, 59, 55, 50, 45, 40, 35];
+const TUNINGS_CLOSED = 'Tunings ▾';
+const TUNINGS_OPEN = 'Tunings ▴';
 
 interface Rendered {
   readonly renderer: ReactTestRenderer.ReactTestRenderer;
@@ -48,12 +50,19 @@ function allText({ renderer }: Rendered): string {
 }
 
 describe('NeckSettings', () => {
-  it('shows the tuning and a button per preset, ticking the ones that play every note', () => {
+  it('starts as one line: the tuning and a button that opens the presets', () => {
+    const rendered = render(onStrings(makeSong([[beat(960, [note(6, 0)])]]), DROP_D));
+    expect(allText(rendered)).toContain('Guitar · 6 strings · Drop D (D A D G B E)');
+    expect(buttonLabels(rendered)).toEqual([TUNINGS_CLOSED]);
+  });
+
+  it('shows a button per preset when opened, ticking the ones that play every note', () => {
     // Arrange: a drop D track whose low D needs a dropped string.
     const rendered = render(onStrings(makeSong([[beat(960, [note(6, 0)])]]), DROP_D));
 
     // Act
-    const labels = buttonLabels(rendered);
+    press(rendered, TUNINGS_CLOSED);
+    const labels = buttonLabels(rendered).filter((label) => label !== TUNINGS_OPEN);
 
     // Assert
     expect(allText(rendered)).toContain('Guitar · 6 strings · Drop D (D A D G B E)');
@@ -61,12 +70,15 @@ describe('NeckSettings', () => {
     expect(labels[0]).toBe('Standard');
     expect(labels).toContain('Drop D ✓');
     const active = rendered.renderer.root.findAllByType(BarButton).filter((button) => button.props.isActive === true);
-    expect(active.map((button) => button.props.label)).toEqual(['Drop D ✓']);
+    expect(active.map((button) => button.props.label)).toEqual([TUNINGS_OPEN, 'Drop D ✓']);
   });
 
-  it('applies a preset when it is clicked', () => {
+  it('applies a preset when it is clicked, and closes the presets again', () => {
     const rendered = render(onStrings(makeSong([[beat(960, [note(6, 0)])]]), DROP_D));
+    press(rendered, TUNINGS_CLOSED);
     press(rendered, 'Standard');
+    press(rendered, TUNINGS_OPEN);
+    expect(buttonLabels(rendered)).toEqual([TUNINGS_CLOSED]);
     expect(rendered.onSetTuning).toHaveBeenCalledWith(STANDARD);
   });
 

@@ -1,8 +1,8 @@
 /** −/+ step of the playback tempo and of the trainer's top tempo, in BPM. */
 export const TEMPO_STEP = 5;
 /** The playback tempo stays between a quarter and three times the written tempo … */
-export const MIN_TEMPO_SCALE = 0.25;
-export const MAX_TEMPO_SCALE = 3;
+export const MIN_PLAYBACK_TEMPO_SCALE = 0.25;
+export const MAX_PLAYBACK_TEMPO_SCALE = 3;
 /** … and never under 20 BPM (unless the bar is written slower). */
 export const MIN_PLAYBACK_TEMPO = 20;
 /** Speed trainer: BPM added each pass of the loop, 0 (off) to 20. */
@@ -17,8 +17,8 @@ export interface TempoBounds {
 
 /** Lowest and highest playback tempo of a bar written at `writtenTempo`; the written tempo itself always fits. */
 export function tempoBounds(writtenTempo: number): TempoBounds {
-  const min = Math.max(MIN_PLAYBACK_TEMPO, Math.ceil(writtenTempo * MIN_TEMPO_SCALE));
-  const max = Math.floor(writtenTempo * MAX_TEMPO_SCALE);
+  const min = Math.max(MIN_PLAYBACK_TEMPO, Math.ceil(writtenTempo * MIN_PLAYBACK_TEMPO_SCALE));
+  const max = Math.floor(writtenTempo * MAX_PLAYBACK_TEMPO_SCALE);
   return { min: Math.min(writtenTempo, min), max: Math.max(writtenTempo, max) };
 }
 

@@ -83,14 +83,14 @@ npm run typecheck                           # tsc for both packages
 - **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only). Whenever the tab is shown, a
   24-fret neck above the score (not for drum tracks) shows every position's note name and the notes of the current beat.
   Pick a track on the left.
-- **Neck & tuning**: every pitched track is shown on a guitar neck — a 4-string bass neck for basses (General MIDI bass
+- **Neck & tuning**: every pitched track is played on a guitar neck — a 4-string bass neck for basses (General MIDI bass
   programs, or strings tuned like a bass), a 6-string guitar neck for everything else (strings, choirs, keys…). The row
-  above the neck names the instrument and tuning (e.g. *Guitar · 6 strings · Drop D (D A D G B E)*) and lists the
-  instrument's presets — guitar: Standard, Drop D, E♭/D/C/B standard, Drop C♯/C/B, Open G, Open D, DADGAD; bass:
+  above the neck names the instrument and tuning (e.g. *Guitar · 6 strings · Drop D (D A D G B E)*); **Tunings ▾** opens
+  the instrument's presets — guitar: Standard, Drop D, E♭/D/C/B standard, Drop C♯/C/B, Open G, Open D, DADGAD; bass:
   Standard, Drop D, E♭/D standard, Drop C, B E A D. A ✓ marks the presets that play every note of the track within 24
   frets. Clicking a preset retunes the track and re-frets the tab so every note sounds the same (one undo step): notes
-  stay on their string when they can, else move to the nearest free string; a note no string can reach moves by an
-  octave, and a notice says how many. When a track is not on a preset that plays it — a 7-string part, a custom tuning,
+  stay on their string when they can, else move to the nearest free string; a note no string can reach within the 24
+  frets moves by an octave, and a notice says how many. When a track is not on a preset that plays it — a 7-string part, a custom tuning,
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —

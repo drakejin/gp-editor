@@ -1,12 +1,12 @@
-import type { Beat, Song, Track } from '../model/song';
-import { type NoteToPlace, fretRange, homeStrings, placeNotes } from './string-placement';
+import type { Beat, Channel, Song, Track } from '../model/song';
+import { type NoteToPlace, homeStrings, neckFrets, placeNotes } from './string-placement';
 import {
   type Instrument,
   type NeckInstrument,
   type TuningPreset,
   findTuningPreset,
   keepsStandardShapes,
-  resolveInstrument,
+  resolveTrackInstrument,
   standardTuningFor,
   trackTuning,
   tuningPresetsFor,
@@ -75,7 +75,7 @@ function unplayableInBeat(beat: Beat, from: readonly number[], to: readonly numb
   if (fitsPreferredStrings(known, to, neck)) {
     return notes.length - known.length;
   }
-  const placed = placeNotes(known, to, { neck, max: neck });
+  const placed = placeNotes(known, to, neck);
   return notes.length - known.length + placed.filter((placement) => placement === undefined || placement.octaves !== 0).length;
 }
 
@@ -83,7 +83,7 @@ function unplayableInBeat(beat: Beat, from: readonly number[], to: readonly numb
 export function countUnplayableNotes(track: Track, tuning: readonly number[]): number {
   const from = trackTuning(track);
   const homes = homeStrings(from, tuning);
-  const { neck } = fretRange(track.offset);
+  const neck = neckFrets(track.offset);
   return track.measures.reduce(
     (count, measure) => count + measure.beats.reduce((sum, beat) => sum + unplayableInBeat(beat, from, tuning, homes, neck), 0),
     0,
@@ -143,10 +143,12 @@ function adviseNeck(track: Track, instrument: NeckInstrument): Omit<TuningAdvice
  */
 export function suggestTunings(song: Song, trackIndex: number): TuningAdvice | undefined {
   const track = song.tracks[trackIndex];
-  if (track === undefined) {
-    return undefined;
-  }
-  const instrument = resolveInstrument(song, track);
+  return track === undefined ? undefined : suggestTrackTunings(track, song.channels);
+}
+
+/** suggestTunings from the track and the song's channels alone, so a caller can recompute it only when they change. */
+export function suggestTrackTunings(track: Track, channels: readonly Channel[]): TuningAdvice {
+  const instrument = resolveTrackInstrument(track, channels);
   if (instrument === 'percussion') {
     return { instrument, currentUnplayableNotes: 0, presets: [], suggested: [], needsTuning: false };
   }

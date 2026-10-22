@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canPlayOnTuning, countUnplayableNotes, suggestTunings, trackPitchRange } from '../src/edit/tuning-fit';
+import { canPlayOnTuning, countUnplayableNotes, suggestTrackTunings, suggestTunings, trackPitchRange } from '../src/edit/tuning-fit';
 import { tuningPresetsFor } from '../src/edit/tuning-presets';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../src/model/defaults';
 import type { Song, Track } from '../src/model/song';
@@ -168,5 +168,14 @@ describe('suggestTunings', () => {
     expect(choirs?.suggested[0]?.name).toBe('Standard');
     expect(rhythm).toMatchObject({ current: { name: 'Drop C' }, needsTuning: false });
     expect(bass).toMatchObject({ instrument: 'bass', current: { name: 'Drop C' }, needsTuning: false });
+  });
+});
+
+describe('suggestTrackTunings', () => {
+  it('gives the same advice as suggestTunings from the track and the channels alone', () => {
+    const song = readSong(loadFixture('guitarpro5', 'nightwish.gp5'));
+    song.tracks.forEach((track, trackIndex) => {
+      expect(suggestTrackTunings(track, song.channels)).toEqual(suggestTunings(song, trackIndex));
+    });
   });
 });

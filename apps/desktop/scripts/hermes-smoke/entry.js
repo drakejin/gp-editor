@@ -36,9 +36,16 @@ for (const fixture of FIXTURES) {
     continue;
   }
   try {
-    const reread = readSong(base64ToBytes(bytesToBase64(writeSong(song, 'gp5'))));
-    if (reread.tracks.length !== song.tracks.length || reread.measureHeaders.length !== song.measureHeaders.length) {
-      throw new Error(`saved ${reread.tracks.length} tracks / ${reread.measureHeaders.length} bars`);
+    const reread = readSong(
+      base64ToBytes(bytesToBase64(writeSong(song, 'gp5'))),
+    );
+    if (
+      reread.tracks.length !== song.tracks.length ||
+      reread.measureHeaders.length !== song.measureHeaders.length
+    ) {
+      throw new Error(
+        `saved ${reread.tracks.length} tracks / ${reread.measureHeaders.length} bars`,
+      );
     }
     saved += 1;
   } catch (error) {
@@ -46,4 +53,10 @@ for (const fixture of FIXTURES) {
   }
 }
 // eslint-disable-next-line no-undef
-print(JSON.stringify({ files: FIXTURES.length, failed: failures.length, notes, saved, failures }, null, 2));
+print(
+  JSON.stringify(
+    { files: FIXTURES.length, failed: failures.length, notes, saved, failures },
+    null,
+    2,
+  ),
+);

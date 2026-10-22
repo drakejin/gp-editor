@@ -223,3 +223,65 @@ describe('usePlayback practice', () => {
     expect(mockPlayer.play).not.toHaveBeenCalled();
   });
 });
+
+/** A hook whose song can be swapped, as an edit does. */
+function renderEditableHook(first: Song): { current: () => Playback; setSong: (next: Song) => void; unmount: () => void } {
+  let latest: Playback | undefined;
+  function Probe({ played }: { played: Song }) {
+    latest = usePlayback(played, 0);
+    return null;
+  }
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<Probe played={first} />);
+  });
+  return {
+    current: () => latest!,
+    setSong: (next) => ReactTestRenderer.act(() => renderer.update(<Probe played={next} />)),
+    unmount: () => ReactTestRenderer.act(() => renderer.unmount()),
+  };
+}
+
+describe('usePlayback while the song is edited', () => {
+  it('stops when bars are added or deleted while playing, since every bar index it follows has moved', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderEditableHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+
+    // Act: one bar fewer
+    hook.setSong({ ...threeBars, measureHeaders: threeBars.measureHeaders.slice(0, 2), tracks: threeBars.tracks.map((track) => ({ ...track, measures: track.measures.slice(0, 2) })) });
+
+    // Assert
+    expect(hook.current().isPlaying).toBe(false);
+    expect(mockPlayer.stop).toHaveBeenCalled();
+    hook.unmount();
+  });
+
+  it('keeps playing through an edit that leaves the bars alone', async () => {
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderEditableHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+    hook.setSong({ ...threeBars, tracks: threeBars.tracks.map((track) => ({ ...track, name: 'Edited' })) });
+    expect(hook.current().isPlaying).toBe(true);
+    hook.unmount();
+  });
+
+  it('stops and reports the error when the player cannot be read while playing', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderEditableHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+    mockPlayer.position.mockRejectedValueOnce(new Error('player gone'));
+
+    // Act
+    await poll();
+
+    // Assert
+    expect(hook.current()).toMatchObject({ isPlaying: false, error: 'player gone' });
+    hook.unmount();
+  });
+});

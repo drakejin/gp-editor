@@ -67,6 +67,19 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
   );
   const dismissError = useCallback(() => setState((previous) => ({ ...previous, error: undefined })), []);
 
+  // Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow
+  // (and later loop) the wrong bars.
+  const measureCount = song?.measureHeaders.length ?? 0;
+  const followedMeasureCount = useRef(measureCount);
+  useEffect(() => {
+    if (followedMeasureCount.current !== measureCount) {
+      followedMeasureCount.current = measureCount;
+      if (isPlaying) {
+        stopPlayer(session);
+      }
+    }
+  }, [measureCount, isPlaying, session]);
+
   useEffect(() => () => releasePlayer(session), [session]);
 
   return { ...state, practice, start, stop, dismissError, changePractice };

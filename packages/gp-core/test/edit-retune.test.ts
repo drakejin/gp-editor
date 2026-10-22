@@ -162,6 +162,37 @@ describe('setTrackTuning: re-fretting', () => {
   });
 });
 
+describe('setTrackTuning: chord diagram window', () => {
+  function withChord(song: Song, chord: { name: string; firstFret: number; frets: number[] }): Song {
+    return {
+      ...song,
+      tracks: [
+        {
+          ...track(song),
+          measures: track(song).measures.map((measure) => ({ ...measure, beats: measure.beats.map((beat) => ({ ...beat, chord })) })),
+        },
+      ],
+    };
+  }
+
+  it('starts a diagram whose notes all land on open strings at fret 1', () => {
+    // Arrange: an A shape barred at 5 (D major) on standard, retuned so every string is open on those pitches
+    const song = withChord(songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 5))]]]), { name: 'X', firstFret: 5, frets: [5, 5, 5, 5, 5, 5] });
+
+    // Act
+    const chord = firstBeat(setTrackTuning(song, 0, STANDARD_TUNING.map((pitch) => pitch + 5)).song).chord;
+
+    // Assert
+    expect(chord).toEqual({ name: 'X', firstFret: 1, frets: [0, 0, 0, 0, 0, 0] });
+  });
+
+  it('moves the window to the lowest fretted note when the notes leave it', () => {
+    const song = withChord(songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 1))]]]), { name: 'F', firstFret: 1, frets: [1, 1, 2, 3, 3, 1] });
+    const chord = firstBeat(setTrackTuning(song, 0, STANDARD_TUNING.map((pitch) => pitch - 7)).song).chord;
+    expect(chord).toEqual({ name: 'F', firstFret: 8, frets: [8, 8, 9, 10, 10, 8] });
+  });
+});
+
 describe('setTrackTuning: string count changes', () => {
   it('moves a 7-string part onto 6 strings, the low A string onto the low E string', () => {
     // Arrange: F#2 at fret 9 of the low A string, E4 open.
@@ -267,6 +298,23 @@ describe('setTrackTuning: a real file', () => {
     expect(moved.length).toBeLessThanOrEqual(result.octaveShifted);
     expect(result.song.tracks.filter((_, i) => i !== trackIndex)).toEqual(song.tracks.filter((_, i) => i !== trackIndex));
     assertEditInvariants(result.song);
+  });
+
+  it('keeps every note on the 24-fret neck: a note past it moves an octave instead of onto fret 25', () => {
+    // Arrange: the strings ensemble of nightwish.gp5 reaches D#6, one fret past the neck of Drop C's high D string
+    const song = readSong(loadFixture('guitarpro5', 'nightwish.gp5'));
+    const trackIndex = song.tracks.findIndex((candidate) => candidate.name === 'Strings ensemble');
+    const dropC = [62, 57, 53, 48, 43, 36];
+
+    // Act
+    const result = setTrackTuning(song, trackIndex, dropC);
+
+    // Assert: what the retune made fits the tuning it was made for
+    const frets = track(result.song, trackIndex).measures.flatMap((measure) =>
+      measure.beats.flatMap((beat) => beat.voices.flatMap((voice) => voice.notes.map((note) => note.fret))),
+    );
+    expect(Math.max(...frets)).toBeLessThanOrEqual(24);
+    expect(canPlayOnTuning(track(result.song, trackIndex), dropC)).toBe(true);
   });
 
   it('moves the custom-tuned choirs of nightwish.gp5 to standard without changing a pitch', () => {

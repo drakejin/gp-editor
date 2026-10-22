@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { MeasureHeader, Note, NoteValue, ToggleableEffect, Voice } from '@gp-editor/core';
 import { type SongEdit, isTriplet } from '../state/song-edits';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
+import { Group, Stepper } from './BarControls';
 
 interface EditBarProps {
   readonly palette: Palette;
@@ -73,53 +73,15 @@ function BarGroup({ palette, header, keySignature, onEdit }: Pick<EditBarProps, 
         onMinus={() => onEdit({ type: 'shiftTimeSignature', part: 'numerator', delta: -1 })} onPlus={() => onEdit({ type: 'shiftTimeSignature', part: 'numerator', delta: 1 })} />
       <Stepper label={`÷${header?.timeSignature.denominator ?? ''}`} palette={palette} isEnabled={isEnabled}
         onMinus={() => onEdit({ type: 'shiftTimeSignature', part: 'denominator', delta: -1 })} onPlus={() => onEdit({ type: 'shiftTimeSignature', part: 'denominator', delta: 1 })} />
-      <Stepper label={`♩ ${header?.tempo ?? ''}`} palette={palette} isEnabled={isEnabled} onMinus={() => onEdit({ type: 'shiftTempo', delta: -5 })} onPlus={() => onEdit({ type: 'shiftTempo', delta: 5 })} />
-      <Stepper label={`Key ${key}`} palette={palette} isEnabled={isEnabled} onMinus={() => onEdit({ type: 'shiftKeySignature', delta: -1 })} onPlus={() => onEdit({ type: 'shiftKeySignature', delta: 1 })} />
+      <Stepper label={`♩ ${header?.tempo ?? ''}`} palette={palette} isEnabled={isEnabled} labelWidth={46} onMinus={() => onEdit({ type: 'shiftTempo', delta: -5 })} onPlus={() => onEdit({ type: 'shiftTempo', delta: 5 })} />
+      <Stepper label={`Key ${key}`} palette={palette} isEnabled={isEnabled} labelWidth={50} onMinus={() => onEdit({ type: 'shiftKeySignature', delta: -1 })} onPlus={() => onEdit({ type: 'shiftKeySignature', delta: 1 })} />
       <BarButton label="|:" palette={palette} isEnabled={isEnabled} isActive={header?.repeatOpen === true} onPress={() => onEdit({ type: 'toggleRepeatOpen' })} />
       <BarButton label=":|" palette={palette} isEnabled={isEnabled} isActive={(header?.repeatClose ?? 0) > 0} onPress={() => onEdit({ type: 'toggleRepeatClose' })} />
     </Group>
   );
 }
 
-export interface StepperProps {
-  readonly label: string;
-  readonly palette: Palette;
-  readonly isEnabled: boolean;
-  readonly onMinus: () => void;
-  readonly onPlus: () => void;
-}
-
-export function Stepper({ label, palette, isEnabled, onMinus, onPlus }: StepperProps) {
-  return (
-    <View style={styles.stepper}>
-      <BarButton label="−" palette={palette} isEnabled={isEnabled} onPress={onMinus} />
-      <Text style={[styles.stepperLabel, { color: palette.text }]}>{label}</Text>
-      <BarButton label="+" palette={palette} isEnabled={isEnabled} onPress={onPlus} />
-    </View>
-  );
-}
-
-export interface GroupProps {
-  readonly title: string;
-  readonly palette: Palette;
-  readonly children: ReactNode;
-}
-
-export function Group({ title, palette, children }: GroupProps) {
-  return (
-    <View style={styles.group}>
-      <Text style={[styles.groupTitle, { color: palette.muted }]}>{title}</Text>
-      <View style={styles.groupButtons}>{children}</View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { borderBottomWidth: StyleSheet.hairlineWidth },
   content: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', paddingHorizontal: 12, paddingTop: 2, paddingBottom: 6 },
-  group: { marginRight: 16, marginTop: 4 },
-  groupTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginBottom: 3, textTransform: 'uppercase' },
-  groupButtons: { flexDirection: 'row', alignItems: 'center' },
-  stepper: { flexDirection: 'row', alignItems: 'center', marginRight: 6 },
-  stepperLabel: { fontSize: 12, fontWeight: '600', marginRight: 4, minWidth: 34, textAlign: 'center' },
 });

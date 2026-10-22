@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { type Song, suggestTunings } from '@gp-editor/core';
+import { type Song, suggestTrackTunings } from '@gp-editor/core';
 import { neckTitle, tuningHint } from '../lib/tuning-hint';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -17,12 +17,18 @@ interface NeckSettingsProps {
 }
 
 /**
- * Above the neck: the track's instrument and tuning, its instrument's presets (✓ = plays every note on the 24-fret neck;
- * a click retunes and re-frets the tab), and — when the track is not on a preset that plays it — why, with suggestions.
+ * Above the neck: the track's instrument and tuning, its instrument's presets behind a Tunings button (✓ = plays every
+ * note on the 24-fret neck; a click retunes and re-frets the tab), and — when the track is not on a preset that plays
+ * it — why, with suggestions. Collapsed it takes one line, so the score keeps its room.
  */
 export function NeckSettings({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice }: NeckSettingsProps) {
-  const advice = useMemo(() => suggestTunings(song, trackIndex), [song, trackIndex]);
   const track = song.tracks[trackIndex];
+  // Only the shown track and the channels feed the advice, so edits to other tracks do not recompute it; it trails
+  // edits (deferred) so typing on a long track is not held up by it.
+  const advised = useDeferredValue(track);
+  const { channels } = song;
+  const advice = useMemo(() => (advised === undefined ? undefined : suggestTrackTunings(advised, channels)), [advised, channels]);
+  const [isOpen, setIsOpen] = useState(false);
   if (advice === undefined || track === undefined || advice.instrument === 'percussion') {
     return null;
   }
@@ -31,7 +37,8 @@ export function NeckSettings({ song, trackIndex, notice, palette, onSetTuning, o
     <View style={[styles.container, { backgroundColor: palette.sidebar }]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>{neckTitle(advice, track)}</Text>
-        {advice.presets.map(({ preset, unplayableNotes }) => (
+        <BarButton label={isOpen ? 'Tunings ▴' : 'Tunings ▾'} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />
+        {(isOpen ? advice.presets : []).map(({ preset, unplayableNotes }) => (
           <BarButton
             key={preset.id}
             label={unplayableNotes === 0 ? `${preset.name} ✓` : preset.name}

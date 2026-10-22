@@ -34,6 +34,7 @@ export {
   type TuningPreset,
   findTuningPreset,
   resolveInstrument,
+  resolveTrackInstrument,
   trackTuning,
   tuningPresetsFor,
 } from './edit/tuning-presets';
@@ -43,6 +44,7 @@ export {
   type TuningAdvice,
   canPlayOnTuning,
   countUnplayableNotes,
+  suggestTrackTunings,
   suggestTunings,
   trackPitchRange,
 } from './edit/tuning-fit';

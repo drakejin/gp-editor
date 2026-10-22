@@ -3,7 +3,7 @@
 import type { Beat, Chord, Note, NoteEffect, Song, Track, Voice } from '../model/song';
 import { MAX_FRET } from './edit-song';
 import { replaceAt, sortByString } from './song-paths';
-import { type FretRange, type NoteToPlace, type StringPlacement, fretRange, homeStrings, placeNotes } from './string-placement';
+import { type NoteToPlace, type StringPlacement, homeStrings, neckFrets, placeNotes } from './string-placement';
 import { isSameTuning, trackTuning } from './tuning-presets';
 
 const SEMITONES_PER_OCTAVE = 12;
@@ -34,7 +34,8 @@ interface RetuneContext {
   readonly from: readonly number[];
   readonly to: readonly number[];
   readonly homes: readonly number[];
-  readonly range: FretRange;
+  /** Last fret of the neck above the capo. */
+  readonly neck: number;
 }
 
 interface BeatEntry {
@@ -129,15 +130,28 @@ function retuneChord(chord: Chord, context: RetuneContext): Chord {
     const open = context.from[i];
     return fret >= 0 && open !== undefined ? [{ pitch: open + fret, preferredString: context.homes[i] ?? 1 }] : [];
   });
-  const placements = placeNotes(fretted, context.to, context.range);
+  const placements = placeNotes(fretted, context.to, context.neck);
   const frets = context.to.map((_, i) => placements.find((placement) => placement?.string === i + 1 && placement.octaves === 0)?.fret ?? -1);
-  const lowestFretted = Math.min(...frets.filter((fret) => fret > 0));
-  return { ...chord, frets, firstFret: lowestFretted < chord.firstFret ? lowestFretted : chord.firstFret };
+  return { ...chord, frets, firstFret: diagramFirstFret(frets, chord.firstFret) };
+}
+
+/** Frets a chord diagram shows from its first fret. */
+const CHORD_DIAGRAM_FRETS = 5;
+
+/** The diagram keeps its window while the fretted notes fit in it; else it starts at the lowest one (1 when none is). */
+function diagramFirstFret(frets: readonly number[], current: number): number {
+  const fretted = frets.filter((fret) => fret > 0);
+  if (fretted.length === 0) {
+    return 1;
+  }
+  const lowest = Math.min(...fretted);
+  const highest = Math.max(...fretted);
+  return lowest >= current && highest < current + CHORD_DIAGRAM_FRETS ? current : lowest;
 }
 
 function retuneBeat(beat: Beat, measureIndex: number, context: RetuneContext, memory: readonly (VoiceMemory | undefined)[]): BeatRetune {
   const entries = beatEntries(beat, measureIndex, context, memory);
-  const placements = placeNotes(entries.map((entry) => entry.toPlace), context.to, context.range);
+  const placements = placeNotes(entries.map((entry) => entry.toPlace), context.to, context.neck);
   const placed = entries.flatMap((entry, i): PlacedEntry[] => {
     const placement = placements[i];
     return placement === undefined ? [] : [{ entry, placement }];
@@ -189,7 +203,7 @@ export function setTrackTuning(song: Song, trackIndex: number, tuning: readonly 
     return { song, octaveShifted: 0, removed: 0 };
   }
   const from = trackTuning(track);
-  const context: RetuneContext = { from, to: tuning, homes: homeStrings(from, tuning), range: fretRange(track.offset) };
+  const context: RetuneContext = { from, to: tuning, homes: homeStrings(from, tuning), neck: neckFrets(track.offset) };
   const { measures, octaveShifted, removed } = retuneMeasures(track, context);
   const strings = tuning.map((open, i) => ({ number: i + 1, tuning: open }));
   return { song: { ...song, tracks: replaceAt(song.tracks, trackIndex, { ...track, strings, measures }) }, octaveShifted, removed };

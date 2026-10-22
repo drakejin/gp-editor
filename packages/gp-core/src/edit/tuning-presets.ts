@@ -1,7 +1,7 @@
 // Tuning presets after TuxGuitar's common/resources/tunings/tunings.xml (LGPL-2.1): its 6-string guitar and 4-string bass groups, named for the app.
 import { isGmBassProgram } from '../formats/common/channels';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../model/defaults';
-import type { Song, Track } from '../model/song';
+import type { Channel, Song, Track } from '../model/song';
 
 /** What neck a track is shown on: a 6-string guitar, a 4-string bass, or none (drums). */
 export type Instrument = 'percussion' | 'bass' | 'guitar';
@@ -96,10 +96,15 @@ export function isBassTuning(tuning: readonly number[]): boolean {
  * ensemble, choir, piano, 7-string guitar — is shown on a guitar neck.
  */
 export function resolveInstrument(song: Song, track: Track): Instrument {
+  return resolveTrackInstrument(track, song.channels);
+}
+
+/** resolveInstrument from the track and the song's channels alone. */
+export function resolveTrackInstrument(track: Track, channels: readonly Channel[]): Instrument {
   if (track.isPercussion) {
     return 'percussion';
   }
-  const program = song.channels.find((channel) => channel.id === track.channelId)?.program;
+  const program = channels.find((channel) => channel.id === track.channelId)?.program;
   if (program !== undefined && isGmBassProgram(program)) {
     return 'bass';
   }
