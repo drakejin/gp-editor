@@ -62,14 +62,15 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, palette, zo
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     visibleRows.current = new Set(viewableItems.flatMap((item) => (item.index === null ? [] : [item.index])));
   }).current;
+  // Not animated: react-native-macos's animated scrolls do not move the list.
   useEffect(() => {
     if (playingRow >= 0) {
-      listRef.current?.scrollToIndex({ index: playingRow, viewPosition: SCROLL_POSITION, animated: true });
+      listRef.current?.scrollToIndex({ index: playingRow, viewPosition: SCROLL_POSITION, animated: false });
     }
   }, [playingRow]);
   useEffect(() => {
     if (cursorRow >= 0 && playingRow < 0 && !visibleRows.current.has(cursorRow)) {
-      listRef.current?.scrollToIndex({ index: cursorRow, viewPosition: SCROLL_POSITION, animated: true });
+      listRef.current?.scrollToIndex({ index: cursorRow, viewPosition: SCROLL_POSITION, animated: false });
     }
   }, [cursorRow, playingRow]);
 

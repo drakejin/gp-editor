@@ -142,7 +142,7 @@ describe('TracksPanel table', () => {
 
     // Assert: per track its name, eye, mute, solo, instrument, volume and pan, then the bar map
     const controls = panel.renderer.root.findAll(
-      (node) => typeof node.props.onPress === 'function' || typeof node.props.onResponderGrant === 'function',
+      (node) => typeof node.props.onPress === 'function' || typeof node.props.onPressIn === 'function',
     );
     const labels = new Set(controls.map((node) => node.props.accessibilityLabel));
     expect(labels.has(undefined)).toBe(false);
@@ -165,11 +165,11 @@ describe('TracksPanel mixer', () => {
     const start = sliderThumbX(90, TRACK_TABLE.volumeWidth);
 
     // Act
-    ReactTestRenderer.act(() => slider().props.onResponderGrant({ nativeEvent: { locationX: start, pageX: 500 } }));
-    ReactTestRenderer.act(() => slider().props.onResponderMove({ nativeEvent: { locationX: 0, pageX: 520 } }));
-    ReactTestRenderer.act(() => slider().props.onResponderMove({ nativeEvent: { locationX: 0, pageX: 900 } }));
+    ReactTestRenderer.act(() => slider().props.onPressIn({ nativeEvent: { locationX: start, pageX: 500 } }));
+    ReactTestRenderer.act(() => slider().props.onPressMove({ nativeEvent: { locationX: 0, pageX: 520 } }));
+    ReactTestRenderer.act(() => slider().props.onPressMove({ nativeEvent: { locationX: 0, pageX: 900 } }));
     expect(panel.props.onSetTrackVolume).not.toHaveBeenCalled();
-    ReactTestRenderer.act(() => slider().props.onResponderRelease({ nativeEvent: { locationX: 0, pageX: 900 } }));
+    ReactTestRenderer.act(() => slider().props.onPressOut({ nativeEvent: { locationX: 0, pageX: 900 } }));
 
     // Assert
     expect(panel.props.onSetTrackVolume).toHaveBeenCalledTimes(1);
@@ -182,8 +182,8 @@ describe('TracksPanel mixer', () => {
     const slider = () => panel.control('Pan of track 1');
 
     // Act: a click at the left end
-    ReactTestRenderer.act(() => slider().props.onResponderGrant({ nativeEvent: { locationX: 0, pageX: 0 } }));
-    ReactTestRenderer.act(() => slider().props.onResponderRelease({ nativeEvent: { locationX: 0, pageX: 0 } }));
+    ReactTestRenderer.act(() => slider().props.onPressIn({ nativeEvent: { locationX: 0, pageX: 0 } }));
+    ReactTestRenderer.act(() => slider().props.onPressOut({ nativeEvent: { locationX: 0, pageX: 0 } }));
 
     // Assert
     expect(panel.props.onSetTrackBalance).toHaveBeenCalledWith(0, 0);
@@ -191,7 +191,7 @@ describe('TracksPanel mixer', () => {
 
   it('disables the sliders of a track without a channel', () => {
     const panel = render({ song: { ...SONG, channels: [] } });
-    expect(panel.control('Volume of track 1').props.onStartShouldSetResponder()).toBe(false);
+    expect(panel.control('Volume of track 1').props.disabled).toBe(true);
   });
 });
 

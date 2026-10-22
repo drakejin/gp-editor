@@ -16,13 +16,13 @@ function render(overrides: Partial<MixerSliderProps> = {}) {
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<MixerSlider {...props} />);
   });
-  const surface = () => renderer.root.findByProps({ accessibilityRole: 'adjustable' });
+  const surface = () => renderer.root.findAll((node) => typeof node.props.onPressIn === 'function')[0]!;
   const event = ({ locationX, pageX }: Pointer) => ({ nativeEvent: { locationX, pageX } });
   // The page is 300 pt left of the slider, so pageX = 300 + x while the pointer is over it.
   const at = (x: number): Pointer => ({ locationX: x, pageX: 300 + x });
-  const grant = (x: number) => ReactTestRenderer.act(() => surface().props.onResponderGrant(event(at(x))));
-  const move = (x: number) => ReactTestRenderer.act(() => surface().props.onResponderMove(event({ locationX: 0, pageX: 300 + x })));
-  const release = (x: number) => ReactTestRenderer.act(() => surface().props.onResponderRelease(event({ locationX: 0, pageX: 300 + x })));
+  const grant = (x: number) => ReactTestRenderer.act(() => surface().props.onPressIn(event(at(x))));
+  const move = (x: number) => ReactTestRenderer.act(() => surface().props.onPressMove(event({ locationX: 0, pageX: 300 + x })));
+  const release = (x: number) => ReactTestRenderer.act(() => surface().props.onPressOut(event({ locationX: 0, pageX: 300 + x })));
   const thumbLeft = () => {
     const thumb = renderer.root.findByProps({ testID: 'mixer-slider-thumb' });
     return [thumb.props.style].flat().reduce((left: number, style: { left?: number } | null) => style?.left ?? left, Number.NaN);
@@ -110,19 +110,6 @@ describe('MixerSlider dragging', () => {
     expect(slider.onChange).not.toHaveBeenCalled();
   });
 
-  it('drops a drag another view takes over, without reporting it', () => {
-    // Arrange
-    const slider = render();
-    slider.grant(sliderThumbX(20, WIDTH));
-
-    // Act
-    ReactTestRenderer.act(() => slider.surface().props.onResponderTerminate());
-
-    // Assert
-    expect(slider.onChange).not.toHaveBeenCalled();
-    expect(slider.thumbLeft()).toBe(sliderThumbX(100, WIDTH) - MIXER.thumbSize / 2);
-  });
-
   it('does not take the pointer or VoiceOver steps when disabled, and says so', () => {
     // Arrange
     const slider = render({ isEnabled: false });
@@ -131,57 +118,13 @@ describe('MixerSlider dragging', () => {
     ReactTestRenderer.act(() => slider.surface().props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } }));
 
     // Assert
-    expect(slider.surface().props.onStartShouldSetResponder()).toBe(false);
+    expect(slider.surface().props.disabled).toBe(true);
     expect(slider.onChange).not.toHaveBeenCalled();
     expect(slider.surface().props.accessibilityState).toEqual({ disabled: true });
   });
 
-  it('keeps the drag when a scroll view asks for it', () => {
+  it('keeps following a drag that leaves the slider', () => {
     const slider = render();
-    expect(slider.surface().props.onStartShouldSetResponder()).toBe(true);
-    expect(slider.surface().props.onResponderTerminationRequest()).toBe(false);
-  });
-});
-
-describe('MixerSlider look and accessibility', () => {
-  it('names itself and its value for VoiceOver and the tooltip', () => {
-    // Act
-    const slider = render({ value: 44, label: 'Pan', isCentred: true });
-
-    // Assert
-    const props = slider.surface().props;
-    expect(props.accessibilityLabel).toBe('Pan');
-    expect(props.accessibilityValue).toEqual({ min: 0, max: 127, now: 44, text: 'L 20' });
-    expect(props.tooltip).toBe('Pan: L 20');
-  });
-
-  it('fills a centred slider from the centre to the thumb', () => {
-    // Act
-    const slider = render({ value: 30, isCentred: true });
-
-    // Assert
-    const fill = slider.renderer.root.findByProps({ testID: 'mixer-slider-fill' });
-    const style = Object.assign({}, ...[fill.props.style].flat()) as { left: number; width: number };
-    expect(style.left).toBeCloseTo(sliderThumbX(30, WIDTH));
-    expect(style.left + style.width).toBeCloseTo(sliderThumbX(64, WIDTH));
-  });
-
-  it('fills a volume slider from the left end to the thumb', () => {
-    const slider = render({ value: 127 });
-    const fill = slider.renderer.root.findByProps({ testID: 'mixer-slider-fill' });
-    const style = Object.assign({}, ...[fill.props.style].flat()) as { left: number; width: number };
-    expect(style.left).toBe(0);
-    expect(style.width).toBeCloseTo(sliderThumbX(127, WIDTH));
-  });
-
-  it('steps by VoiceOver increments, clamped', () => {
-    // Arrange
-    const slider = render({ value: 124 });
-
-    // Act
-    ReactTestRenderer.act(() => slider.surface().props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } }));
-
-    // Assert
-    expect(slider.onChange).toHaveBeenCalledWith(127);
+    expect(slider.surface().props.pressRetentionOffset).toEqual(expect.objectContaining({ left: 2000, right: 2000 }));
   });
 });

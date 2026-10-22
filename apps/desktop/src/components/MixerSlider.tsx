@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from 'react';
-import { type AccessibilityActionEvent, type GestureResponderEvent, StyleSheet, View } from 'react-native';
+import { type AccessibilityActionEvent, type GestureResponderEvent, Pressable, StyleSheet, View } from 'react-native';
 import type { Palette } from '../theme';
 
 /** A mixer value is a MIDI controller value, 0–127; pan's centre is 64. */
@@ -60,7 +60,13 @@ interface DragStart {
   readonly pageX: number;
 }
 
-/** The value while dragging (undefined otherwise) and the responder handlers that drive it. */
+/** How far the pointer may leave the slider while dragging and still drive it. */
+const DRAG_RETENTION = { top: 400, bottom: 400, left: 2000, right: 2000 } as const;
+
+/**
+ * The value while dragging (undefined otherwise) and the press handlers that drive it. A Pressable's press events,
+ * not a plain view's responder: react-native-macos delivers mouse clicks to pressables.
+ */
 function useSliderDrag(value: number, width: number, onChange: (value: number) => void) {
   const [dragValue, setDragValue] = useState<number | undefined>(undefined);
   const start = useRef<DragStart | undefined>(undefined);
@@ -71,22 +77,18 @@ function useSliderDrag(value: number, width: number, onChange: (value: number) =
     return sliderValueAt(x, width);
   };
   const handlers = {
-    onResponderGrant: (event: GestureResponderEvent) => {
+    onPressIn: (event: GestureResponderEvent) => {
       start.current = { x: event.nativeEvent.locationX, pageX: event.nativeEvent.pageX };
       setDragValue(sliderValueAt(event.nativeEvent.locationX, width));
     },
-    onResponderMove: (event: GestureResponderEvent) => setDragValue(valueOf(event)),
-    onResponderRelease: (event: GestureResponderEvent) => {
+    onPressMove: (event: GestureResponderEvent) => setDragValue(valueOf(event)),
+    onPressOut: (event: GestureResponderEvent) => {
       const next = valueOf(event);
       start.current = undefined;
       setDragValue(undefined);
       if (next !== value) {
         onChange(next);
       }
-    },
-    onResponderTerminate: () => {
-      start.current = undefined;
-      setDragValue(undefined);
     },
   };
   return { dragValue, handlers };
@@ -108,7 +110,7 @@ function MixerSliderView(props: MixerSliderProps) {
     }
   };
   return (
-    <View
+    <Pressable
       style={[styles.slider, { width }, isEnabled ? null : styles.disabled]}
       tooltip={`${label}: ${text}`}
       accessible
@@ -118,8 +120,8 @@ function MixerSliderView(props: MixerSliderProps) {
       accessibilityValue={{ min: 0, max: MIXER.max, now: shown, text }}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={onAccessibilityAction}
-      onStartShouldSetResponder={() => isEnabled}
-      onResponderTerminationRequest={() => false}
+      disabled={!isEnabled}
+      pressRetentionOffset={DRAG_RETENTION}
       {...handlers}
     >
       <View style={[styles.track, { width, backgroundColor: palette.chromeBorder }]} />
@@ -132,7 +134,7 @@ function MixerSliderView(props: MixerSliderProps) {
         testID="mixer-slider-thumb"
         style={[styles.thumb, { left: thumbX - MIXER.thumbSize / 2, backgroundColor: palette.chromeText, borderColor: palette.chromeBorder }]}
       />
-    </View>
+    </Pressable>
   );
 }
 
