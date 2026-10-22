@@ -1,61 +1,60 @@
 import {
-  BEND_PRESETS,
   type BeatAddress,
-  type Bend,
   type Duration,
   NORMAL_TUPLET,
   NOTE_VALUES,
+  NO_STROKE,
   type NoteValue,
   type Song,
   type StringAddress,
-  type ToggleableEffect,
+  type StrokeDirection,
+  type Tuplet,
   type Voice,
   deleteBeat,
+  deleteBeatNotes,
   deleteMeasure,
-  findNote,
   insertBeat,
   insertMeasure,
   setBeatDuration,
-  setKeySignature,
-  setNoteBend,
-  setNoteHarmonic,
-  setNoteSlides,
-  setNoteTied,
-  setRepeat,
-  setTempo,
-  setTimeSignature,
-  toNoteValue,
-  toggleNoteEffect,
+  setBeatPickStroke,
+  setBeatStroke,
+  setBeatText,
+  tupletOf,
 } from '@gp-editor/core';
+import { type BarEdit, applyBarEdit } from './bar-edits';
+import { type NoteEdit, applyNoteEdit } from './note-edits';
 
-/** Edits that act at the cursor; each returns the same song when it does not apply. */
-export type SongEdit =
+/** Duration edits of the cursor's beat (in the cursor's voice). */
+type DurationEdit =
   | { readonly type: 'setNoteValue'; readonly value: NoteValue }
   | { readonly type: 'shiftNoteValue'; readonly step: -1 | 1 }
   | { readonly type: 'toggleDot' }
   | { readonly type: 'toggleTriplet' }
+  /** `enters` notes in the time of … (tupletOf); 1 = none. */
+  | { readonly type: 'setTuplet'; readonly enters: number };
+
+/** Edits of the cursor's beat and voice. */
+type BeatEdit =
   | { readonly type: 'insertBeat' }
   | { readonly type: 'deleteBeat' }
-  | { readonly type: 'toggleEffect'; readonly effect: ToggleableEffect }
-  | { readonly type: 'toggleTie' }
-  | { readonly type: 'toggleSlide' }
-  | { readonly type: 'cycleBend' }
-  | { readonly type: 'toggleHarmonic' }
-  | { readonly type: 'insertMeasure' }
-  | { readonly type: 'deleteMeasure' }
-  | {
-      readonly type: 'shiftTimeSignature';
-      readonly part: 'numerator' | 'denominator';
-      readonly delta: number;
-    }
-  | { readonly type: 'shiftTempo'; readonly delta: number }
-  | { readonly type: 'shiftKeySignature'; readonly delta: number }
-  | { readonly type: 'toggleRepeatOpen' }
-  | { readonly type: 'toggleRepeatClose' };
+  /** The voice becomes a rest of the same length. */
+  | { readonly type: 'makeRest' }
+  | { readonly type: 'setStroke'; readonly direction: StrokeDirection }
+  | { readonly type: 'setPickStroke'; readonly direction: StrokeDirection }
+  | { readonly type: 'setBeatText'; readonly text: string };
 
-const TRIPLET = { enters: 3, times: 2 } as const;
-/** Repeat count a new repeat close gets (play twice). */
-const DEFAULT_REPEAT_COUNT = 2;
+/** Edits that act at the cursor; each returns the same song when it does not apply. */
+export type SongEdit =
+  | DurationEdit
+  | BeatEdit
+  | NoteEdit
+  | BarEdit
+  | { readonly type: 'insertMeasure' }
+  | { readonly type: 'deleteMeasure' };
+
+const TRIPLET: Tuplet = tupletOf(3) ?? NORMAL_TUPLET;
+/** Stroke speed a new stroke gets: a sixteenth (TuxGuitar's stroke dialog default). */
+const STROKE_VALUE = 16;
 
 export function beatAddress(cursor: StringAddress): BeatAddress {
   const { trackIndex, measureIndex, beatIndex, voiceIndex } = cursor;
@@ -82,11 +81,15 @@ export function applySongEdit(
     case 'shiftNoteValue':
     case 'toggleDot':
     case 'toggleTriplet':
+    case 'setTuplet':
       return editDuration(song, cursor, edit);
     case 'insertBeat':
-      return insertBeat(song, beatAddress(cursor), 'after');
     case 'deleteBeat':
-      return deleteBeat(song, beatAddress(cursor));
+    case 'makeRest':
+    case 'setStroke':
+    case 'setPickStroke':
+    case 'setBeatText':
+      return editBeat(song, beatAddress(cursor), edit);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
@@ -96,13 +99,44 @@ export function applySongEdit(
     case 'shiftKeySignature':
     case 'toggleRepeatOpen':
     case 'toggleRepeatClose':
-      return editMeasureHeader(song, cursor, edit);
+    case 'toggleAlternateEnding':
+    case 'shiftRepeatCount':
+    case 'setTripletFeel':
+    case 'setSection':
+      return applyBarEdit(song, cursor, edit);
     default:
-      return editNote(song, cursor, edit);
+      return applyNoteEdit(song, cursor, edit);
   }
 }
 
-function editDuration(song: Song, cursor: StringAddress, edit: SongEdit): Song {
+function editBeat(song: Song, at: BeatAddress, edit: BeatEdit): Song {
+  switch (edit.type) {
+    case 'insertBeat':
+      return insertBeat(song, at, 'after');
+    case 'deleteBeat':
+      return deleteBeat(song, at);
+    case 'makeRest':
+      return deleteBeatNotes(song, at);
+    case 'setStroke':
+      return setBeatStroke(
+        song,
+        at,
+        edit.direction === 'none'
+          ? NO_STROKE
+          : { direction: edit.direction, value: STROKE_VALUE },
+      );
+    case 'setPickStroke':
+      return setBeatPickStroke(song, at, edit.direction);
+    case 'setBeatText':
+      return setBeatText(song, at, edit.text);
+  }
+}
+
+function editDuration(
+  song: Song,
+  cursor: StringAddress,
+  edit: DurationEdit,
+): Song {
   const current = cursorVoice(song, cursor)?.duration;
   if (current === undefined) {
     return song;
@@ -113,7 +147,10 @@ function editDuration(song: Song, cursor: StringAddress, edit: SongEdit): Song {
     : setBeatDuration(song, beatAddress(cursor), next);
 }
 
-function nextDuration(current: Duration, edit: SongEdit): Duration | undefined {
+function nextDuration(
+  current: Duration,
+  edit: DurationEdit,
+): Duration | undefined {
   switch (edit.type) {
     case 'setNoteValue':
       return { ...current, value: edit.value };
@@ -129,8 +166,10 @@ function nextDuration(current: Duration, edit: SongEdit): Duration | undefined {
         ...current,
         tuplet: isTriplet(current) ? NORMAL_TUPLET : TRIPLET,
       };
-    default:
-      return undefined;
+    case 'setTuplet': {
+      const tuplet = tupletOf(edit.enters);
+      return tuplet === undefined ? undefined : { ...current, tuplet };
+    }
   }
 }
 
@@ -139,99 +178,4 @@ export function isTriplet(duration: Duration): boolean {
     duration.tuplet.enters === TRIPLET.enters &&
     duration.tuplet.times === TRIPLET.times
   );
-}
-
-function editNote(song: Song, cursor: StringAddress, edit: SongEdit): Song {
-  const note = findNote(song, cursor);
-  switch (edit.type) {
-    case 'toggleEffect':
-      return toggleNoteEffect(song, cursor, edit.effect);
-    case 'toggleTie':
-      return setNoteTied(song, cursor, !(note?.isTied ?? false));
-    case 'toggleSlide':
-      return setNoteSlides(
-        song,
-        cursor,
-        (note?.effect.slides.length ?? 0) > 0 ? [] : ['shift'],
-      );
-    case 'cycleBend':
-      return setNoteBend(
-        song,
-        cursor,
-        nextBend(bendPeak(note?.effect.bend?.points ?? [])),
-      );
-    case 'toggleHarmonic':
-      return setNoteHarmonic(
-        song,
-        cursor,
-        note?.effect.harmonic === undefined
-          ? { type: 'natural', data: 0 }
-          : undefined,
-      );
-    default:
-      return song;
-  }
-}
-
-function bendPeak(points: readonly { readonly value: number }[]): number {
-  return Math.max(0, ...points.map(point => point.value));
-}
-
-/** No bend → ½ → full → no bend. */
-function nextBend(peak: number): Bend | undefined {
-  const half = bendPeak(BEND_PRESETS.half.points);
-  const full = bendPeak(BEND_PRESETS.full.points);
-  if (peak === 0) {
-    return BEND_PRESETS.half;
-  }
-  if (peak <= half) {
-    return BEND_PRESETS.full;
-  }
-  return peak >= full ? undefined : BEND_PRESETS.full;
-}
-
-/** Bar settings of the cursor's bar; the key shifts from the key of the cursor's track. */
-function editMeasureHeader(
-  song: Song,
-  cursor: StringAddress,
-  edit: SongEdit,
-): Song {
-  const { measureIndex } = cursor;
-  const header = song.measureHeaders[measureIndex];
-  const measure = song.tracks[cursor.trackIndex]?.measures[measureIndex];
-  if (header === undefined) {
-    return song;
-  }
-  const { numerator, denominator } = header.timeSignature;
-  switch (edit.type) {
-    case 'shiftTimeSignature':
-      return edit.part === 'numerator'
-        ? setTimeSignature(song, measureIndex, {
-            numerator: numerator + edit.delta,
-            denominator,
-          })
-        : setTimeSignature(song, measureIndex, {
-            numerator,
-            denominator:
-              NOTE_VALUES[
-                NOTE_VALUES.indexOf(toNoteValue(denominator)) + edit.delta
-              ] ?? denominator,
-          });
-    case 'shiftTempo':
-      return setTempo(song, measureIndex, header.tempo + edit.delta);
-    case 'shiftKeySignature':
-      return setKeySignature(
-        song,
-        measureIndex,
-        (measure?.keySignature ?? 0) + edit.delta,
-      );
-    case 'toggleRepeatOpen':
-      return setRepeat(song, measureIndex, { repeatOpen: !header.repeatOpen });
-    case 'toggleRepeatClose':
-      return setRepeat(song, measureIndex, {
-        repeatClose: header.repeatClose > 0 ? 0 : DEFAULT_REPEAT_COUNT,
-      });
-    default:
-      return song;
-  }
 }

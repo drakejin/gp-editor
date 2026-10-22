@@ -1,5 +1,5 @@
-import { findNote } from '@gp-editor/core';
-import { type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
+import { QUARTER, findNote } from '@gp-editor/core';
+import { type EditorAction, type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
 
 /** Bar 1: beat 0 = strings 1 (fret 3) and 2 (fret 5); bar 2: beat 0 = string 6 (fret 0). */
@@ -209,5 +209,124 @@ describe('editorReducer: track instrument', () => {
     const start = withChannel();
     expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 0, program: 25 })).toBe(start);
     expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 3, program: 30 })).toBe(start);
+  });
+
+  it.each<[string, EditorAction, (state: EditorState) => unknown, unknown]>([
+    ['renames', { type: 'setTrackName', trackIndex: 0, name: ' Lead ' }, (state) => song(state).tracks[0]?.name, 'Lead'],
+    ['mutes', { type: 'setTrackMute', trackIndex: 0, isMute: true }, (state) => song(state).tracks[0]?.mute, true],
+    ['solos', { type: 'setTrackSolo', trackIndex: 0, isSolo: true }, (state) => song(state).tracks[0]?.solo, true],
+    ['sets the volume of', { type: 'setTrackVolume', trackIndex: 0, volume: 90 }, (state) => song(state).channels[0]?.volume, 90],
+    ['sets the balance of', { type: 'setTrackBalance', trackIndex: 0, balance: 10 }, (state) => song(state).channels[0]?.balance, 10],
+    ['puts a capo on', { type: 'setTrackCapo', trackIndex: 0, capo: 2 }, (state) => song(state).tracks[0]?.offset, 2],
+  ])('%s a track as one undo step', (_name, action, read, expected) => {
+    // Arrange
+    const start = withChannel();
+
+    // Act
+    const changed = editorReducer(start, action);
+    const undone = editorReducer(changed, { type: 'undo' });
+
+    // Assert
+    expect(read(changed)).toEqual(expected);
+    expect(changed.past).toEqual([song(start)]);
+    expect(song(undone)).toBe(song(start));
+  });
+
+  it.each<EditorAction>([
+    { type: 'setTrackName', trackIndex: 0, name: 'Guitar' },
+    { type: 'setTrackName', trackIndex: 0, name: '  ' },
+    { type: 'setTrackMute', trackIndex: 0, isMute: false },
+    { type: 'setTrackSolo', trackIndex: 0, isSolo: false },
+    { type: 'setTrackVolume', trackIndex: 0, volume: 127 },
+    { type: 'setTrackBalance', trackIndex: 0, balance: 64 },
+    { type: 'setTrackCapo', trackIndex: 0, capo: 0 },
+    { type: 'setTrackCapo', trackIndex: 4, capo: 3 },
+    { type: 'setSongInfo', info: { title: 'Test' } },
+  ])('adds no undo step for a track or song edit that changes nothing: %o', (action) => {
+    const start = withChannel();
+    expect(editorReducer(start, action)).toBe(start);
+    expect(editorReducer(INITIAL_EDITOR_STATE, action)).toBe(INITIAL_EDITOR_STATE);
+  });
+});
+
+describe('editorReducer: song information', () => {
+  it('sets the song information as one undo step', () => {
+    // Act
+    const changed = editorReducer(loadedState(), { type: 'setSongInfo', info: { title: ' New ', artist: 'Band' } });
+
+    // Assert
+    expect(song(changed).info).toMatchObject({ title: 'New', artist: 'Band' });
+    expect(changed.past).toHaveLength(1);
+    expect(isEdited(changed)).toBe(true);
+  });
+});
+
+describe('editorReducer: second voice', () => {
+  const EMPTY_VOICE = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' } as const;
+
+  /** One bar, voice 1 = 16th, dotted 8th, dotted quarter, 8th, quarter; voice 2 empty. */
+  function twoVoices(): EditorState {
+    const durations = [16, 8, 4, 8, 4] as const;
+    const dotted = [false, true, true, false, false];
+    let start = 960;
+    const beats = durations.map((value, i) => {
+      const duration = { ...QUARTER, value, dotted: dotted[i] === true };
+      const played = beat(start, [note(1, i)], duration);
+      start += [240, 720, 1440, 480, 960][i] ?? 0;
+      return { ...played, voices: [...played.voices, EMPTY_VOICE] };
+    });
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: makeSong([beats]) } });
+  }
+
+  /** Each played event of a voice of bar 1: start in the bar, length in ticks and frets. */
+  function voiceEvents(state: EditorState, voiceIndex: number): string[] {
+    return song(state).tracks[0]!.measures[0]!.beats.flatMap((b) => {
+      const voice = b.voices[voiceIndex];
+      return voice === undefined || voice.isEmpty ? [] : [`${b.start - 960}:${voice.duration.value}${voice.duration.dotted ? '.' : ''}:${voice.notes.map((n) => n.fret).join(',') || 'r'}`];
+    });
+  }
+
+  it('moves the cursor to the second voice of the same beat and back', () => {
+    // Arrange
+    const start = editorReducer(twoVoices(), { type: 'moveCursorBeat', step: 1 });
+
+    // Act
+    const second = editorReducer(start, { type: 'selectVoice', voiceIndex: 1 });
+    const first = editorReducer(second, { type: 'selectVoice', voiceIndex: 0 });
+
+    // Assert
+    expect(at(second)).toEqual({ ...at(start), voiceIndex: 1 });
+    expect(at(first)).toEqual(at(start));
+    expect(second.past).toEqual([]);
+  });
+
+  it('selects only voice 1 or 2, and only where the beat has that voice', () => {
+    const start = twoVoices();
+    expect(editorReducer(start, { type: 'selectVoice', voiceIndex: 2 })).toBe(start);
+    expect(editorReducer(start, { type: 'selectVoice', voiceIndex: -1 })).toBe(start);
+    expect(editorReducer(start, { type: 'selectVoice', voiceIndex: 0 })).toBe(start);
+    const oneVoice = loadedState();
+    expect(editorReducer(oneVoice, { type: 'selectVoice', voiceIndex: 1 })).toBe(oneVoice);
+    expect(editorReducer(INITIAL_EDITOR_STATE, { type: 'selectVoice', voiceIndex: 1 })).toBe(INITIAL_EDITOR_STATE);
+  });
+
+  it('types a fret into the empty second voice: a note as long as the beat, rests to the bar lines, one undo step', () => {
+    // Arrange: the cursor on the fourth beat (an eighth at 2400), second voice
+    let state = twoVoices();
+    for (let step = 0; step < 3; step++) {
+      state = editorReducer(state, { type: 'moveCursorBeat', step: 1 });
+    }
+    state = editorReducer(state, { type: 'selectVoice', voiceIndex: 1 });
+
+    // Act
+    const typed = editorReducer(state, { type: 'setNoteFret', fret: 7 });
+
+    // Assert: the rests before the note add a beat at 1920, and the cursor stays on the note
+    expect(voiceEvents(typed, 1)).toEqual(['0:2:r', '1920:8:r', '2400:8:7', '2880:4:r']);
+    expect(voiceEvents(typed, 0)).toEqual(voiceEvents(state, 0));
+    expect(at(typed)).toMatchObject({ beatIndex: 4, voiceIndex: 1 });
+    expect(findNote(song(typed), at(typed))?.fret).toBe(7);
+    expect(typed.past).toHaveLength(1);
+    expect(song(editorReducer(typed, { type: 'undo' }))).toBe(song(state));
   });
 });

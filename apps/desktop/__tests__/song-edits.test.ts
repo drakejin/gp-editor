@@ -101,6 +101,53 @@ describe('cursor edits in the reducer', () => {
     expect(QUARTER.value).toBe(4);
   });
 
+  it('makes the beat a tuplet of any size Guitar Pro stores, and plain again', () => {
+    // Act
+    const triplet = edit(loaded(), { type: 'edit', edit: { type: 'setTuplet', enters: 3 } });
+    const quintuplet = edit(triplet, { type: 'edit', edit: { type: 'setTuplet', enters: 5 } });
+    const plain = edit(quintuplet, { type: 'edit', edit: { type: 'setTuplet', enters: 1 } });
+
+    // Assert
+    expect(voice(triplet).duration.tuplet).toEqual({ enters: 3, times: 2 });
+    expect(voice(quintuplet).duration.tuplet).toEqual({ enters: 5, times: 4 });
+    expect(voice(plain).duration.tuplet).toEqual({ enters: 1, times: 1 });
+    expect(plain.past).toHaveLength(3);
+  });
+
+  it.each([4, 13, 0])('ignores a tuplet of %i', (enters) => {
+    const start = loaded();
+    expect(edit(start, { type: 'edit', edit: { type: 'setTuplet', enters } })).toBe(start);
+  });
+
+  it('makes the beat at the cursor a rest of the same length; a rest stays as it is', () => {
+    const rest = edit(loaded(), { type: 'edit', edit: { type: 'makeRest' } });
+    expect(voice(rest)).toMatchObject({ notes: [], isEmpty: false, duration: { value: 4 } });
+    expect(edit(rest, { type: 'edit', edit: { type: 'makeRest' } })).toBe(rest);
+  });
+
+  it('sets the stroke (at a sixteenth), the pick stroke and the text of the beat', () => {
+    // Act
+    const down = edit(loaded(), { type: 'edit', edit: { type: 'setStroke', direction: 'down' } });
+    const picked = edit(down, { type: 'edit', edit: { type: 'setPickStroke', direction: 'up' } });
+    const texted = edit(picked, { type: 'edit', edit: { type: 'setBeatText', text: ' let ring ' } });
+
+    // Assert
+    const marked = song(texted).tracks[0]!.measures[0]!.beats[0]!;
+    expect(marked).toMatchObject({ stroke: { direction: 'down', value: 16 }, pickStroke: 'up', text: 'let ring' });
+    expect(texted.past).toHaveLength(3);
+  });
+
+  it('clears the stroke and the text', () => {
+    let state = edit(loaded(), { type: 'edit', edit: { type: 'setStroke', direction: 'up' } });
+    state = edit(state, { type: 'edit', edit: { type: 'setBeatText', text: 'x' } });
+    state = edit(state, { type: 'edit', edit: { type: 'setStroke', direction: 'none' } });
+    state = edit(state, { type: 'edit', edit: { type: 'setBeatText', text: '' } });
+    const cleared = song(state).tracks[0]!.measures[0]!.beats[0]!;
+    expect(cleared.stroke).toEqual({ direction: 'none', value: 0 });
+    expect(cleared.text).toBeUndefined();
+    expect(edit(state, { type: 'edit', edit: { type: 'setStroke', direction: 'none' } })).toBe(state);
+  });
+
   it('shifts the key from the key of the track at the cursor, not the first track', () => {
     // Arrange: track 2 is in 2 sharps while track 1 stays in C
     const base = song(loaded());

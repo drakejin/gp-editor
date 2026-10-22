@@ -8,7 +8,7 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | path | what |
 | --- | --- |
 | `src/App.tsx` | window layout (toolbar, edit and transport bars, export and import panels, import banner, error banner, the document or the start screen) and the hooks wired together; the only caller of `usePalette()` (`src/theme.ts`, follows the system appearance) |
-| `src/state/editor.ts` + `song-edits.ts` | reducer: open document, cursor, score mode, edits with undo/redo (200 steps); `song-edits.ts` = the edits at the cursor. `practice.ts` = practice playback settings |
+| `src/state/editor.ts` + `song-edits.ts` | reducer: open document, cursor (on voice 1 or 2), score mode, edits with undo/redo (200 steps), track and song information edits; `song-edits.ts` = the edits at the cursor (durations, tuplets, beats), `note-edits.ts` the note at the cursor, `bar-edits.ts` the cursor's bar. `practice.ts` = practice playback settings |
 | `src/hooks/use-editor-commands.ts` + `src/lib/key-commands.ts` | toolbar buttons, keys (Guitar Pro style, `HANDLED_KEYS`), score clicks and file drops → editor actions and playback |
 | `src/hooks/use-document.ts` | new sheets, open and save (⌘S overwrites a `.gp5`, anything else becomes a new `.gp5`), the window title; a PDF dropped on the window goes to the import |
 | `src/lib/` | `layout.ts` (measure widths, line breaking, `squeezeRow`), `navigation.ts` + `fret-input.ts` (cursor moves, typed frets), `beams.ts` + `notation.ts`, `live-programs.ts`, `practice-tempo.ts` + `practice-plan.ts`, `tuning-hint.ts`, `instruments.ts`, `pitch.ts`, `song-credits.ts`, `wording.ts` (`plural`), `errors.ts` (`errorMessage`), `base64.ts`, `file-name.ts` |
