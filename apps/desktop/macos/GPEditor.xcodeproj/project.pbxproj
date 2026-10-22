@@ -13,6 +13,7 @@
 		24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */ = {isa = PBXBuildFile; fileRef = ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */; };
 		29DD481703B89D1E76C25C27 /* GPMidiEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 555D9E22760943032E93C2C8 /* GPMidiEngine.h */; };
 		41D9204DBDAA8BAFD41DAEC1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */; };
+		50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */; };
 		5142014D2437B4B30078DB4F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5142014C2437B4B30078DB4F /* AppDelegate.swift */; };
 		514201522437B4B40078DB4F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514201512437B4B40078DB4F /* Assets.xcassets */; };
 		5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6E162BDD027D425378732E47 /* GPCommandPainter.m */; };
@@ -52,6 +53,7 @@
 		6E162BDD027D425378732E47 /* GPCommandPainter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPCommandPainter.m; sourceTree = "<group>"; };
 		7B5C850793C3BDD397E243FD /* GPFiles.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPFiles.m; sourceTree = "<group>"; };
 		89281E13275E110D08059BD1 /* GPQADriver.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPQADriver.m; sourceTree = "<group>"; };
+		9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPClipboard.m; sourceTree = "<group>"; };
 		A570CDCF479A2A3D0BEBD607 /* Bravura-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = "Bravura-OFL.txt"; sourceTree = "<group>"; };
 		ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPPdfExport.m; sourceTree = "<group>"; };
 		AF194A0272A26BB1C7AB399B /* GPEditor-macOS-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "GPEditor-macOS-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */,
 				62594748D8802E81D9954180 /* GPSandbox.h */,
 				2FF206889FFAD422198373AE /* GPSandbox.m */,
+				9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */,
 			);
 			path = "GPEditor-macOS";
 			sourceTree = "<group>";
@@ -419,6 +422,7 @@
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
 				94B025C4435659814E45E541 /* GPSandbox.m in Sources */,
+				50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
