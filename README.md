@@ -84,11 +84,20 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 
 ## Using the app
 
-- **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab, the New button (in the selected view) or the start screen —
+- **Window** (Guitar Pro 8's layout): the **top bar** — New ▾, Open, Save, Import PDF, Export; the panel toggles
+  (palette, tracks, inspector); zoom (50–200%, ⌘- / ⌘=); undo and redo; the transport (first, previous, play/stop,
+  next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
+  length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
+  fretboard toggle. Under it the document tab, then: the **edition palette** on the left, the **score** as a page on a
+  grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **fretboard** and the
+  **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
+  per bar and track, in the track's colour where it has notes, grey where it only rests, a dark square on the cursor's
+  bar, lettered sections underneath. Clicking a cell shows that track at that bar.
+- **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab, the top bar's New ▾ or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
-- **Open**: File ▸ Open… (⌘O), the Open… button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
+- **Open**: File ▸ Open… (⌘O), the top bar's Open, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
   (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
-- **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I), the *Import PDF…* button or the start screen. Claude (Anthropic API,
+- **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I), the top bar's *Import PDF* or the start screen. Claude (Anthropic API,
   your own key) reads the sheet music page by page — tab staves as string/fret, standard notation as pitches placed on
   the tuning's strings — and the app builds a Guitar Pro 5 song from it and opens it. Every import is a project folder
   in `~/Documents/GP Editor Projects/<name>/`: the original PDF, `project.json` (status, model, pages done, warnings,
@@ -102,13 +111,13 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   three pages at a time; a busy or failing page is tried three times, a refused key or an empty credit balance stops
   the import. One import runs at a time. A PDF may have at most 60 pages and 100 MB; password-protected PDFs are
   refused. Results depend on how clear the PDF is: read the warnings and check the song against the PDF.
-- **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only). Whenever the tab is shown, a
-  24-fret neck above the score (not for drum tracks) shows every position's note name and the notes of the current beat.
-  Pick a track on the left.
+- **View**: the Track inspector's *Notation* toggles show standard notation, tab or both (at least one stays on). The
+  24-fret fretboard at the bottom (not for drum tracks) shows every position's note name and the notes of the current
+  beat. Pick a track in the tracks panel (or its bar map).
 - **Neck & tuning**: the neck shows the track's own strings and capo. Its tuning presets come from its instrument:
   4-string bass presets for basses (a General MIDI bass program — so picking a bass instrument switches them — or
-  strings tuned like a bass), 6-string guitar presets for every other pitched track (guitars, strings, choirs, keys…). The row
-  above the neck names the instrument and tuning (e.g. *Guitar · 6 strings · Drop D (D A D G B E)*); **Tunings ▾** opens
+  strings tuned like a bass), 6-string guitar presets for every other pitched track (guitars, strings, choirs, keys…). The Track
+  inspector names the instrument and tuning (e.g. *Guitar · 6 strings · Drop D (D A D G B E)*); **Tunings ▾** opens
   the instrument's presets — guitar: Standard, Drop D, E♭/D/C/B standard, Drop C♯/C/B, Open G, Open D, DADGAD; bass:
   Standard, Drop D, E♭/D standard, Drop C, B E A D. A ✓ marks the presets that play every note of the track within 24
   frets. Clicking a preset retunes the track and re-frets the tab so every note sounds the same (one undo step): notes
@@ -119,51 +128,58 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings.
-- **Edit** at the cursor (keys; the toolbar's Undo, Redo, Fret −/+, Move ↑/↓ and Delete; or the edit bar under it):
+- **Edit** at the cursor (keys, or the edition palette — each button's tooltip names its key; a lit button is what
+  the cursor's note, beat or bar has; an edit that cannot apply says why in a strip under the document tab):
   - frets: 0–9 (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret down/up,
     ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ or ⌦ delete the note
-  - duration: `[` longer, `]` shorter, `.` dot, `/` triplet, or the duration buttons
+  - voices: the palette's 1 / 2 (Guitar Pro 5 files hold two); typing a fret on voice 2 starts that voice there
+  - duration: `[` longer, `]` shorter, `.` dot, `/` triplet, or the palette's Rhythm: whole to 64th, dot, tuplets
+    (3, 5, 6, 10, 12 — 7, 9 and 11 are read and played but cannot be made: their notes are not whole ticks), rest,
+    tie
   - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
     drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
   - effects: `H` hammer-on/pull-off, `P` palm mute, `L` let ring, `V` vibrato, `X` dead note, `G` ghost note,
-    `A` accent, `S` slide, `B` bend (½ → full → off), `N` natural harmonic, `T` tie, and the edit bar's `·` staccato (no key)
-  - bars (edit bar): add/delete bar, time signature, tempo, key signature, repeat start/end
+    `A` accent, `S` slide, `B` bend (½ → full → off), `N` natural harmonic, `T` tie
+  - the palette also sets: dynamics ppp–fff, heavy accent, staccato; the slide kinds (shift, legato, in from below /
+    above, out down / up); bends (½, full, bend & release, bend-release-bend, pre-bend, pre-bend & release); the whammy
+    bar (dip, dive, release up / down, inverted dip, return); harmonics (natural, artificial, tapped, pinch, semi);
+    trill and tremolo picking speeds; a grace note before or on the beat; tapping, slap, pop, fade in; brush and pick
+    strokes up / down; text above the beat. Options open under their group.
+  - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
+    number of plays, alternate endings 1–8, triplet feel, a section name
   - ⌘Z / ⇧⌘Z undo and redo
 - **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
-- **Export**: File ▸ Export PDF… (⌘P) or the *Export…* button opens the export panel: the shown track as a PDF in
+- **Export**: File ▸ Export PDF… (⌘P) or the top bar's *Export* opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
   staff), in black and grey on white even in dark mode: the title, subtitle, artist, album and credits with the
   track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
   closer (and an extremely dense one is printed smaller) so nothing runs off the page.
-- **Sound**: under each track in the track list is its instrument (*♪ Distortion Electric Guitar ▾*); click it to
-  open the instrument panel over the score — step 1 on the left picks one of the 16 General MIDI families (Piano,
-  Guitar, Bass, Strings, Brass, Synth Lead…), step 2 on the right one of its 8 instruments, which the track plays at
-  once. The panel stays open to try sounds one after another; *Done* or a click outside closes it. The instrument is
-  saved with the song (a track that shared its channel with another gets a channel of its own). Drum tracks keep the
-  standard kit: Guitar Pro 3–5 files hold no drum-kit setting. *Sound* in the transport bar picks the sound bank every
-  track plays with: **GeneralUser GS** (bundled, the default), **macOS (Roland GS)**, the bank that ships with macOS,
-  or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the copy).
-  The bank is a playback setting, kept by the app, not saved in the file. While the song plays, a new instrument is
-  heard at once (playback restarts at the bar being played only when the track had to get a channel of its own); a
-  new sound bank restarts playback at the bar being played, once, shortly after the last click.
-- **Play**: Space or ▶ Play plays all tracks (honouring the mute/solo flags saved in the file) from the cursor's bar
-  with the selected sound bank;
-  the score and the neck follow the playing beat. Space or Esc stops. The transport bar (third row) sets up
-  practice playback for the session — none of it is saved in the file:
-  - *Playback tempo*: `♩ 95 · 95%` is the playing tempo of the bar playback starts from (the loop's first bar while
-    looping, else the cursor's bar). −/+ change it by 5 BPM, between 25% and 300% of the written tempo and never under
-    20 BPM; *100%* resets it. Every tempo of the song is scaled alike, so tempo changes keep their proportions; to
-    change the written tempo use the edit bar's ♩ instead.
-  - *Loop*: *Loop* turns it on (the first time, for the cursor's bar). *From* / *To* pick the first and last bar with
-    −/+, or *From cursor* / *To cursor* set them to the cursor's bar (the other end moves along so From ≤ To). While
-    looping, Space / ▶ Play plays those bars until stopped, straight through as written — repeat signs inside the
-    loop are not followed.
-  - *Speed trainer* (while looping): `+n BPM / pass` (0 = off, up to 20) makes each pass n BPM faster, `up to ♩ M`
-    (default: the written tempo or 20 BPM above the playback tempo, whichever is higher) is where it stops rising.
-    The pass being played and its tempo show at the end of the row.
+- **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel
+  over the score — step 1 on the left picks one of the 16 General MIDI families (Piano, Guitar, Bass, Strings, Brass,
+  Synth Lead…), step 2 on the right one of its 8 instruments, which the track plays at once. The panel stays open to
+  try sounds one after another; *Done* or a click outside closes it. The instrument is saved with the song (a track
+  that shared its channel with another gets a channel of its own). Drum tracks keep the standard kit: Guitar Pro 3–5
+  files hold no drum-kit setting. The tracks panel's volume and pan (saved with the song) are heard at once while
+  playing; mute and solo restart playback at the bar being played. The Song inspector's *Sound bank* picks the bank
+  every track plays with: **GeneralUser GS** (bundled, the default), **macOS (Roland GS)**, the bank that ships with
+  macOS, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the
+  copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
+  bar being played, once, shortly after the last click.
+- **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar with the selected
+  sound bank; the score, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
+  speed menu and ⟲ Loop set up practice playback for the session — none of it is saved in the file:
+  - *Speed*: 25%–100% of the written tempo, a tempo in BPM (60, 90, 120, 150 and the written one), or *Custom* −/+ in
+    5 BPM steps (25%–300% of the written tempo, never under 20 BPM). Every tempo of the song is scaled alike, so tempo
+    changes keep their proportions; to change the written tempo use the palette's Tempo instead. The LCD shows the
+    playing tempo and the percentage.
+  - *Loop*: ⟲ Loop turns it on (the first time, for the cursor's bar); the speed menu's *Loop bars* pick the first and
+    last bar with −/+, or *From cursor* / *To cursor* (the other end moves along so From ≤ To). While looping, Space / ▶
+    plays those bars until stopped, straight through as written — repeat signs inside the loop are not followed.
+  - *Speed trainer* (in the speed menu, while looping): `+n BPM` each pass (0 = off, up to 20), *Up to* ♩ M (default:
+    the written tempo or 20 BPM above the playback tempo, whichever is higher). The LCD shows the pass and its tempo.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
     keeps its pass count). Adding or deleting a bar while playing stops playback.
 
