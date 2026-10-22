@@ -284,4 +284,33 @@ describe('usePlayback while the song is edited', () => {
     expect(hook.current()).toMatchObject({ isPlaying: false, error: 'player gone' });
     hook.unmount();
   });
+
+  it('restarts at the bar being played when a track’s instrument changes, so the new sound is heard', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [{ id: 1, name: 'Guitar', program: 25, bank: 0, volume: 127, balance: 64, chorus: 0, reverb: 0, phaser: 0, tremolo: 0, isPercussion: false }] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong({ ...withChannel, channels: withChannel.channels.map((channel) => ({ ...channel, program: 30 })) });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    expect(hook.current().isPlaying).toBe(true);
+    hook.unmount();
+  });
+
+  it('restarts on request (a new sound bank) only while playing', async () => {
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderEditableHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().restart());
+    expect(mockPlayer.play).not.toHaveBeenCalled();
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+    ReactTestRenderer.act(() => hook.current().restart());
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
 });

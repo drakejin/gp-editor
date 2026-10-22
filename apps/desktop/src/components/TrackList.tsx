@@ -1,16 +1,21 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Track } from '@gp-editor/core';
+import type { TrackInstrument } from '../lib/instruments';
 import { tuningLabel } from '../lib/pitch';
 import type { Palette } from '../theme';
 
 interface TrackListProps {
   readonly tracks: readonly Track[];
+  /** Instrument of each track (same order as `tracks`). */
+  readonly instruments: readonly (TrackInstrument | undefined)[];
   readonly selectedTrackIndex: number;
   readonly palette: Palette;
   readonly onSelectTrack: (trackIndex: number) => void;
+  /** The instrument line of a pitched track was clicked. */
+  readonly onEditInstrument: (trackIndex: number) => void;
 }
 
-export function TrackList({ tracks, selectedTrackIndex, palette, onSelectTrack }: TrackListProps) {
+export function TrackList({ tracks, instruments, selectedTrackIndex, palette, onSelectTrack, onEditInstrument }: TrackListProps) {
   return (
     <ScrollView style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <Text style={[styles.heading, { color: palette.muted }]}>TRACKS</Text>
@@ -35,11 +40,33 @@ export function TrackList({ tracks, selectedTrackIndex, palette, onSelectTrack }
               <Text numberOfLines={1} style={[styles.details, { color: palette.muted }]}>
                 {details.join(' · ')}
               </Text>
+              <InstrumentLine instrument={instruments[trackIndex]} palette={palette} onPress={() => onEditInstrument(trackIndex)} />
             </View>
           </Pressable>
         );
       })}
     </ScrollView>
+  );
+}
+
+interface InstrumentLineProps {
+  readonly instrument?: TrackInstrument;
+  readonly palette: Palette;
+  readonly onPress: () => void;
+}
+
+/** "♪ Distortion Electric Guitar ▾" — opens the instrument picker; drums have no picker. */
+function InstrumentLine({ instrument, palette, onPress }: InstrumentLineProps) {
+  if (instrument === undefined) {
+    return null;
+  }
+  const label = `♪ ${instrument.name}${instrument.isPercussion ? '' : ' ▾'}`;
+  return (
+    <Pressable disabled={instrument.isPercussion} onPress={onPress} style={styles.instrument}>
+      <Text numberOfLines={1} style={[styles.instrumentText, { color: instrument.isPercussion ? palette.muted : palette.accent }]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -52,4 +79,6 @@ const styles = StyleSheet.create({
   texts: { flex: 1 },
   name: { fontSize: 13, fontWeight: '600' },
   details: { fontSize: 11, marginTop: 2 },
+  instrument: { alignSelf: 'flex-start', marginTop: 2 },
+  instrumentText: { fontSize: 11, fontWeight: '600' },
 });

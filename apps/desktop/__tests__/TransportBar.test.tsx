@@ -24,6 +24,10 @@ function render(overrides: Partial<TransportBarProps> = {}): {
     cursorMeasureIndex: 1,
     practice: INITIAL_PRACTICE,
     onChangePractice: (action) => actions.push(action),
+    soundBanks: { banks: [], selectedId: '' },
+    onSelectSoundBank: () => undefined,
+    onAddSoundBank: () => undefined,
+    onRemoveSoundBank: () => undefined,
     ...overrides,
   };
   let renderer!: ReactTestRenderer.ReactTestRenderer;

@@ -1,10 +1,13 @@
-// MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) with AVMIDIPlayer and
-// the General MIDI sound bank that ships with macOS. JS polls -position to follow the playing beat.
+// MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) with AVMIDIPlayer and the
+// selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added). JS polls
+// -position to follow the playing beat.
 
 #import <AVFoundation/AVFoundation.h>
+#import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-static NSString *const kSystemSoundBank = @"/System/Library/Components/CoreAudio.component/Contents/Resources/gs_instruments.dls";
+#import "GPSoundBanks.h"
 
 @interface GPPlayer : NSObject <RCTBridgeModule>
 @end
@@ -25,12 +28,6 @@ RCT_EXPORT_MODULE();
   return dispatch_get_main_queue();
 }
 
-/** The system GS sound bank when present; nil makes AVMIDIPlayer use the default bank. */
-+ (NSURL *)soundBankURL
-{
-  return [[NSFileManager defaultManager] fileExistsAtPath:kSystemSoundBank] ? [NSURL fileURLWithPath:kSystemSoundBank] : nil;
-}
-
 RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   [_player stop];
@@ -40,7 +37,8 @@ RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds resolv
     return;
   }
   NSError *error = nil;
-  AVMIDIPlayer *player = [[AVMIDIPlayer alloc] initWithData:data soundBankURL:[GPPlayer soundBankURL] error:&error];
+  // nil (no bank at all) makes AVMIDIPlayer use its default bank.
+  AVMIDIPlayer *player = [[AVMIDIPlayer alloc] initWithData:data soundBankURL:[GPSoundBanks selectedBankURL] error:&error];
   if (player == nil) {
     reject(@"player_failed", error.localizedDescription ?: @"Could not create the MIDI player", error);
     return;
@@ -57,6 +55,58 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRej
   [_player stop];
   _player = nil;
   resolve(nil);
+}
+
+RCT_EXPORT_METHOD(soundBanks : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  resolve([GPSoundBanks state]);
+}
+
+RCT_EXPORT_METHOD(selectSoundBank : (NSString *)bankId resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  if (![GPSoundBanks selectBankWithId:bankId]) {
+    reject(@"no_bank", @"That sound bank is no longer available", nil);
+    return;
+  }
+  resolve([GPSoundBanks state]);
+}
+
+/** Open panel for a .sf2/.dls file; the copy becomes the selected bank. Resolves null when cancelled. */
+RCT_EXPORT_METHOD(addSoundBank : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSOpenPanel *panel = [NSOpenPanel openPanel];
+  panel.canChooseFiles = YES;
+  panel.canChooseDirectories = NO;
+  panel.allowsMultipleSelection = NO;
+  NSMutableArray<UTType *> *types = [NSMutableArray array];
+  for (NSString *extension in @[ @"sf2", @"dls" ]) {
+    UTType *type = [UTType typeWithFilenameExtension:extension];
+    if (type != nil) {
+      [types addObject:type];
+    }
+  }
+  panel.allowedContentTypes = types;
+  panel.message = @"Add a SoundFont (.sf2) or DLS sound bank for playback";
+  if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
+    resolve([NSNull null]);
+    return;
+  }
+  NSError *error = nil;
+  if ([GPSoundBanks addBankFromURL:panel.URL error:&error] == nil) {
+    reject(@"add_failed", error.localizedDescription ?: @"Could not add the sound bank", error);
+    return;
+  }
+  resolve([GPSoundBanks state]);
+}
+
+RCT_EXPORT_METHOD(removeSoundBank : (NSString *)bankId resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSError *error = nil;
+  if (![GPSoundBanks removeBankWithId:bankId error:&error]) {
+    reject(@"remove_failed", error.localizedDescription ?: @"Could not remove the sound bank", error);
+    return;
+  }
+  resolve([GPSoundBanks state]);
 }
 
 RCT_EXPORT_METHOD(position : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)

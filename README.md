@@ -53,6 +53,9 @@ npm --prefix apps/desktop run pods          # pod install for macos/
 npm run build:mac                           # Release .app → apps/desktop/macos/build/DerivedData/Build/Products/Release/GPEditor.app
 ```
 
+`build:mac` first fetches the GeneralUser GS SoundFont (32 MB, pinned and checksummed;
+`npm --prefix apps/desktop run soundfont` does it alone). Without it the app plays with the macOS sounds.
+
 Release zips (arm64 and universal, with SHA256SUMS) from the Release build:
 
 ```bash
@@ -107,8 +110,15 @@ npm run typecheck                           # tsc for both packages
   - ⌘Z / ⇧⌘Z undo and redo
 - **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
-- **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the macOS General MIDI
-  sounds; the score and the neck follow the playing beat. Space or Esc stops. The transport bar (third row) sets up
+- **Sound**: under each track in the track list is its instrument (*♪ Distortion Electric Guitar ▾*); click it to
+  pick any of the 128 General MIDI instruments, by family (Piano, Guitar, Bass, Strings, Brass, Synth Lead…). The
+  instrument is saved with the song. Drum tracks keep the standard kit: Guitar Pro 3–5 files hold no drum-kit
+  setting. *Sound* in the transport bar picks the sound bank every track plays with: **GeneralUser GS** (bundled,
+  the default), the **macOS** GS bank, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into
+  the app; *Remove* deletes the copy). The bank is a playback setting, kept by the app, not saved in the file.
+  Changing either while playing restarts at the bar being played, with the new sound.
+- **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the selected sound bank;
+  the score and the neck follow the playing beat. Space or Esc stops. The transport bar (third row) sets up
   practice playback for the session — none of it is saved in the file:
   - *Playback tempo*: `♩ 95 · 95%` is the playing tempo of the bar playback starts from (the loop's first bar while
     looping, else the cursor's bar). −/+ change it by 5 BPM, between 25% and 300% of the written tempo and never under
@@ -129,4 +139,6 @@ npm run typecheck                           # tsc for both packages
 GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 Test fixtures come from the alphaTab test suite (MPL-2.0); see `packages/gp-core/test/fixtures/README.md`.
-The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`).
+The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
+the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
+`apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

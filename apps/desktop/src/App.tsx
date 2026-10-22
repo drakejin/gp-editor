@@ -9,6 +9,7 @@ import { TransportBar } from './components/TransportBar';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
+import { useSoundBanks } from './hooks/use-sound-banks';
 import { HANDLED_KEYS } from './lib/key-commands';
 import { focusView } from './native/focus-view';
 import { INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
@@ -22,6 +23,7 @@ export default function App() {
   const keyboardView = useRef<View>(null);
   const { document, cursor, trackIndex } = state;
   const playback = usePlayback(document?.song, trackIndex);
+  const sound = useSoundBanks(playback.restart);
   const { create, openDialog, openPath, save } = useDocument(state, dispatch);
   const commands = useEditorCommands({
     state,
@@ -46,10 +48,13 @@ export default function App() {
     state.error ??
     (playback.error !== undefined
       ? `Could not play: ${playback.error}`
+      : sound.error !== undefined
+      ? `Sound bank: ${sound.error}`
       : undefined);
   const dismissError = () => {
     dispatch({ type: 'dismissError' });
     playback.dismissError();
+    sound.dismissError();
   };
   return (
     <View
@@ -112,6 +117,10 @@ export default function App() {
           practice={playback.practice}
           loopPass={playback.loopPass}
           onChangePractice={playback.changePractice}
+          soundBanks={sound.soundBanks}
+          onSelectSoundBank={sound.select}
+          onAddSoundBank={sound.add}
+          onRemoveSoundBank={sound.remove}
         />
       ) : null}
       {errorText !== undefined ? (
@@ -136,6 +145,9 @@ export default function App() {
           onPressBeat={commands.onPressBeat}
           onSetTrackTuning={(index, tuning) =>
             dispatch({ type: 'setTrackTuning', trackIndex: index, tuning })
+          }
+          onSetTrackProgram={(index, program) =>
+            dispatch({ type: 'setTrackProgram', trackIndex: index, program })
           }
           onDismissNotice={() => dispatch({ type: 'dismissNotice' })}
         />

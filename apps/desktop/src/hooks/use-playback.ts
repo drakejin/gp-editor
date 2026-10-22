@@ -28,6 +28,8 @@ export interface Playback {
   readonly dismissError: () => void;
   /** Changes the practice settings; while playing, playback restarts at the current bar with them. */
   readonly changePractice: (action: PracticeAction) => void;
+  /** While playing, starts again at the current bar (after a new sound bank); does nothing when stopped. */
+  readonly restart: () => void;
 }
 
 /**
@@ -66,6 +68,22 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     [session, isPlaying],
   );
   const dismissError = useCallback(() => setState((previous) => ({ ...previous, error: undefined })), []);
+  const restart = useCallback(() => {
+    if (isPlaying) {
+      resumePlayer(session);
+    }
+  }, [session, isPlaying]);
+
+  // A track's instrument changed (same bars): play on from the current bar with the new sound.
+  const followedSong = useRef(song);
+  useEffect(() => {
+    const previous = followedSong.current;
+    followedSong.current = song;
+    const isNewSound = previous !== undefined && song !== undefined && previous.channels !== song.channels;
+    if (isNewSound && previous.measureHeaders === song.measureHeaders && isPlaying) {
+      resumePlayer(session);
+    }
+  }, [song, isPlaying, session]);
 
   // Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow
   // (and later loop) the wrong bars.
@@ -82,5 +100,5 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
 
   useEffect(() => () => releasePlayer(session), [session]);
 
-  return { ...state, practice, start, stop, dismissError, changePractice };
+  return { ...state, practice, start, stop, dismissError, changePractice, restart };
 }

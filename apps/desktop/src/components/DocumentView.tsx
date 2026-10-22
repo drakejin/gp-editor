@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { StringAddress } from '@gp-editor/core';
 import { beatNotes } from '../lib/beat-notes';
+import { trackInstrument } from '../lib/instruments';
 import type { RowHit } from '../score/hit-test';
 import { type ScoreMode, showsFretboard } from '../score/geometry';
 import type { PlayingBeat } from '../score/row';
 import type { OpenDocument } from '../state/editor';
 import type { Palette } from '../theme';
 import { Fretboard } from './Fretboard';
+import { InstrumentPicker } from './InstrumentPicker';
 import { NeckSettings } from './NeckSettings';
 import { ScoreView } from './ScoreView';
 import { SongHeader } from './SongHeader';
@@ -25,25 +27,59 @@ interface DocumentViewProps {
   readonly onSelectTrack: (trackIndex: number) => void;
   readonly onPressBeat: (hit: RowHit) => void;
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
+  readonly onSetTrackProgram: (trackIndex: number, program: number) => void;
   readonly onDismissNotice: () => void;
 }
 
-/** An open song: tracks on the left; song info, the neck with its settings (with the tab) and the score on the right. */
-export function DocumentView({ document, trackIndex, mode, cursor, playing, notice, palette, onSelectTrack, onPressBeat, onSetTrackTuning, onDismissNotice }: DocumentViewProps) {
+/**
+ * An open song: tracks (with their instruments) on the left; the instrument picker when open, song info, the neck with
+ * its settings (with the tab) and the score on the right.
+ */
+export function DocumentView(props: DocumentViewProps) {
+  const { document, trackIndex, mode, cursor, playing, notice, palette, onSelectTrack, onPressBeat, onSetTrackTuning, onDismissNotice } = props;
   const { song } = document;
   const track = song.tracks[trackIndex];
+  const instruments = useMemo(() => song.tracks.map((_, index) => trackInstrument(song, index)), [song]);
+  // Track whose instrument is being picked.
+  const [pickingTrackIndex, setPickingTrackIndex] = useState<number | undefined>(undefined);
+  const picking = pickingTrackIndex === undefined ? undefined : instruments[pickingTrackIndex];
+  const editInstrument = (index: number) => {
+    onSelectTrack(index);
+    setPickingTrackIndex(index);
+  };
   const shownBeat = playing ?? cursor;
+  const shownMeasureIndex = shownBeat?.measureIndex;
+  const shownBeatIndex = shownBeat?.beatIndex;
   const fretboardNotes = useMemo(
-    () => (shownBeat === undefined ? [] : beatNotes(song, trackIndex, shownBeat.measureIndex, shownBeat.beatIndex)),
-    [song, trackIndex, shownBeat?.measureIndex, shownBeat?.beatIndex],
+    () =>
+      shownMeasureIndex === undefined || shownBeatIndex === undefined
+        ? []
+        : beatNotes(song, trackIndex, shownMeasureIndex, shownBeatIndex),
+    [song, trackIndex, shownMeasureIndex, shownBeatIndex],
   );
   if (track === undefined) {
     return null;
   }
   return (
     <View style={styles.body}>
-      <TrackList tracks={song.tracks} selectedTrackIndex={trackIndex} palette={palette} onSelectTrack={onSelectTrack} />
+      <TrackList
+        tracks={song.tracks}
+        instruments={instruments}
+        selectedTrackIndex={trackIndex}
+        palette={palette}
+        onSelectTrack={onSelectTrack}
+        onEditInstrument={editInstrument}
+      />
       <View style={styles.main}>
+        {pickingTrackIndex !== undefined && picking !== undefined && !picking.isPercussion ? (
+          <InstrumentPicker
+            trackName={song.tracks[pickingTrackIndex]?.name ?? ''}
+            program={picking.program}
+            palette={palette}
+            onSetProgram={(program) => props.onSetTrackProgram(pickingTrackIndex, program)}
+            onClose={() => setPickingTrackIndex(undefined)}
+          />
+        ) : null}
         <SongHeader song={song} fileName={document.fileName} palette={palette} />
         {showsFretboard(mode, track) ? (
           <>

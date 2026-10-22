@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import type { LoopPass } from '../lib/practice-plan';
+import type { SoundBanks } from '../native/player';
 import { TEMPO_STEP, playbackTempo, resolveTrainerMaxTempo, tempoPercent } from '../lib/practice-tempo';
 import { type PracticeAction, type PracticeSettings, resolveLoopRange } from '../state/practice';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 import { Group, Stepper } from './BarControls';
+import { SoundBankGroup } from './SoundBankGroup';
 
 export interface TransportBarProps {
   readonly palette: Palette;
@@ -16,6 +18,10 @@ export interface TransportBarProps {
   /** While a loop plays: the pass being played. */
   readonly loopPass?: LoopPass;
   readonly onChangePractice: (action: PracticeAction) => void;
+  readonly soundBanks: SoundBanks;
+  readonly onSelectSoundBank: (id: string) => void;
+  readonly onAddSoundBank: () => void;
+  readonly onRemoveSoundBank: (id: string) => void;
 }
 
 /** Facts the three groups share: the song's bar count, the loop (clamped), and the bar the tempo is shown for. */
@@ -40,8 +46,9 @@ function transportContext(
 }
 
 /**
- * Third toolbar row, for practice: playback tempo (a scale of every written tempo; the song is not edited), a loop of
- * bars played until stopped, and the speed trainer that plays each pass of the loop faster. Wraps in a narrow window.
+ * Third toolbar row, for playback: the sound bank, playback tempo (a scale of every written tempo; the song is not
+ * edited), a loop of bars played until stopped, and the speed trainer that plays each pass of the loop faster. Wraps in
+ * a narrow window.
  */
 export function TransportBar(props: TransportBarProps) {
   const { palette, song, practice, cursorMeasureIndex } = props;
@@ -49,6 +56,13 @@ export function TransportBar(props: TransportBarProps) {
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.content}>
+        <SoundBankGroup
+          soundBanks={props.soundBanks}
+          palette={palette}
+          onSelect={props.onSelectSoundBank}
+          onAdd={props.onAddSoundBank}
+          onRemove={props.onRemoveSoundBank}
+        />
         <TempoGroup {...props} context={context} />
         <LoopGroup {...props} context={context} />
         <TrainerGroup {...props} context={context} />

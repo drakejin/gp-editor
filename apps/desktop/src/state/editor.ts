@@ -6,6 +6,7 @@ import {
   findNote,
   setNoteFret,
   setNoteString,
+  setTrackProgram,
   setTrackTuning,
 } from '@gp-editor/core';
 import {
@@ -70,6 +71,8 @@ export type EditorAction =
   | { readonly type: 'shiftNoteString'; readonly delta: number }
   | { readonly type: 'deleteNote' }
   /** Neck settings: the track on new strings, every note re-fretted to keep its pitch. */
+  /** The General MIDI instrument a track plays (saved with the song). */
+  | { readonly type: 'setTrackProgram'; readonly trackIndex: number; readonly program: number }
   | {
       readonly type: 'setTrackTuning';
       readonly trackIndex: number;
@@ -164,6 +167,14 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
       return applyEdit(state, deleteNote);
     case 'setTrackTuning':
       return retune(state, action.trackIndex, action.tuning);
+    case 'setTrackProgram':
+      return state.document === undefined
+        ? state
+        : recordSong(
+            state,
+            state.document,
+            setTrackProgram(state.document.song, action.trackIndex, action.program),
+          );
     case 'edit':
       return applyCursorEdit(state, action.edit);
     case 'undo':

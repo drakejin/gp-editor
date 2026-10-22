@@ -174,3 +174,28 @@ describe('editorReducer: track tuning', () => {
     expect(editorReducer(INITIAL_EDITOR_STATE, { type: 'setTrackTuning', trackIndex: 0, tuning: DROP_D })).toBe(INITIAL_EDITOR_STATE);
   });
 });
+
+describe('editorReducer: track instrument', () => {
+  const CHANNEL = { id: 1, name: 'Guitar', program: 25, bank: 0, volume: 127, balance: 64, chorus: 0, reverb: 0, phaser: 0, tremolo: 0, isPercussion: false };
+
+  function withChannel(): EditorState {
+    const song = { ...makeSong([[beat(960, [note(1, 3)])]]), channels: [CHANNEL] };
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } });
+  }
+
+  it('sets the program of a track as one undo step', () => {
+    // Act
+    const changed = editorReducer(withChannel(), { type: 'setTrackProgram', trackIndex: 0, program: 30 });
+
+    // Assert
+    expect(song(changed).channels[0]?.program).toBe(30);
+    expect(changed.past).toHaveLength(1);
+    expect(song(editorReducer(changed, { type: 'undo' })).channels[0]?.program).toBe(25);
+  });
+
+  it('ignores the current program and a missing track', () => {
+    const start = withChannel();
+    expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 0, program: 25 })).toBe(start);
+    expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 3, program: 30 })).toBe(start);
+  });
+});

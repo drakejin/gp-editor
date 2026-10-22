@@ -9,10 +9,11 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/state/editor.ts` | reducer: open document, selection, edits with undo/redo |
 | `src/lib/layout.ts` | measure widths (beat columns, key/time signature slots) and line breaking |
 | `src/score/` | engravers → `DrawCommand`s: `tab.ts`, `notation/`, `heading.ts`, `fretboard.ts`, `row.ts`, `hit-test.ts` |
-| `src/components/` | toolbar, edit bar, transport bar (practice playback), track list, song header, `ScoreView` (virtualised rows of `ScoreRow` canvases), `Fretboard` and `NeckSettings` (tuning presets and hints; texts in `src/lib/tuning-hint.ts`) |
+| `src/components/` | toolbar, edit bar, transport bar (sound bank and practice playback), track list (with each track's instrument) and `InstrumentPicker`, song header, `ScoreView` (virtualised rows of `ScoreRow` canvases), `Fretboard` and `NeckSettings` (tuning presets and hints; texts in `src/lib/tuning-hint.ts`) |
 | `src/hooks/use-playback.ts` | plays `renderMidi` output and follows the playing beat (player lifecycle in `player-session.ts`); practice tempo, loop and speed trainer: `src/state/practice.ts`, `src/lib/practice-tempo.ts`, `src/lib/practice-plan.ts` |
 | `src/native/score-canvas.tsx` + `macos/…/GPScoreCanvasComponentView.mm` | Fabric component (codegen spec in `src/native/specs/`) that draws a command list with CoreGraphics; Bravura (SIL OFL) in `macos/GPEditor-macOS/Fonts/` |
-| `src/native/player.ts` + `macos/…/GPPlayer.m` | AVMIDIPlayer with the macOS GS sound bank |
+| `src/native/player.ts` + `macos/…/GPPlayer.m` | AVMIDIPlayer with the selected sound bank (`GPSoundBanks.m`: bundled GeneralUser GS, the macOS GS bank, SoundFonts the user added — copied to Application Support; the choice in user defaults); `src/hooks/use-sound-banks.ts` |
+| `scripts/soundfont/fetch.sh` | downloads GeneralUser GS at a pinned commit, checks its SHA-256, into `macos/GPEditor-macOS/SoundFonts/` (git-ignored; `npm run build:macos` runs it) |
 | `src/native/gp-files.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events, window title |
 | `scripts/hermes-smoke/run.sh` | reads every gp-core fixture inside the Hermes VM shipped in the pods |
 | `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded; `GPEDITOR_APP=…` tests another copy |
