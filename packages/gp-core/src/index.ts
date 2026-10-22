@@ -25,7 +25,7 @@ export { type WritableFormat, writeSong } from './write';
 export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
-export { GpFormatError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
+export { GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
 export { MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString } from './edit/edit-song';
 export {
   type Instrument,
@@ -86,3 +86,5 @@ export type {
   TranscriptionPage,
 } from './transcription/types';
 export { TRANSCRIPTION_TOOL } from './transcription/tool';
+export { parseTranscriptionPage } from './transcription/parse-page';
+export { type TranscribedSong, type TranscriptionOptions, buildSongFromTranscription } from './transcription/build-song';
