@@ -12,6 +12,7 @@ import {
   type TripletFeel,
   dynamicOf,
 } from '@gp-editor/core';
+import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool, isSameBend } from './palette-tools';
@@ -36,8 +37,8 @@ const GLYPH = {
   tremolo: '',
   trill: '',
   grace: '',
-  downBow: '',
-  upBow: '',
+  downBow: PICK_STROKE_GLYPHS.down.text,
+  upBow: PICK_STROKE_GLYPHS.up.text,
   brushUp: '',
   brushDown: '',
   tuplet: '',
@@ -53,16 +54,7 @@ const NOTE_VALUES: readonly (readonly [NoteValue, string, string])[] = [
   [64, '', '64th note'],
 ];
 
-const DYNAMICS: readonly (readonly [DynamicName, string])[] = [
-  ['ppp', ''],
-  ['pp', ''],
-  ['p', ''],
-  ['mp', ''],
-  ['mf', ''],
-  ['f', ''],
-  ['ff', ''],
-  ['fff', ''],
-];
+const DYNAMIC_ORDER: readonly DynamicName[] = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'];
 
 /**
  * Tuplets an edit can make: those whose notes are a whole number of ticks (960 per quarter). 7, 9 and 11 are not,
@@ -208,9 +200,9 @@ function noteGroup(): PaletteGroup {
 function dynamicsGroup(): PaletteGroup {
   return {
     title: 'Dynamics',
-    tools: DYNAMICS.map(([dynamic, face]) => ({
+    tools: DYNAMIC_ORDER.map((dynamic) => ({
       id: `dynamic-${dynamic}`,
-      face,
+      face: DYNAMIC_GLYPHS[dynamic].text,
       glyph: 'dynamic',
       tooltip: `Dynamic ${dynamic}`,
       scope: 'note',
