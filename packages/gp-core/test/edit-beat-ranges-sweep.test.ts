@@ -7,11 +7,12 @@ import { readSong } from '../src/read-song';
 import { assertEditInvariants, deepFreeze } from './helpers/edit-songs';
 import { type FixtureFolder, loadFixture } from './helpers/fixtures';
 
-/** Real files with several tracks, voices, tuplets and time signatures. */
+/** Real files with several tracks, voices, tuplets, time signatures, beat texts and chord diagrams. */
 const FIXTURES: readonly (readonly [FixtureFolder, string])[] = [
   ['guitarpro3', 'other-effects.gp3'],
   ['guitarpro5', 'nightwish.gp5'],
   ['guitarpro5', 'beat-text-lyrics.gp5'],
+  ['guitarpro5', 'chords.gp5'],
   ['guitarpro6', 'tuplets.gpx'],
   ['guitarpro7', 'time-signatures.gp'],
 ];

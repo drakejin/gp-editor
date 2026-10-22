@@ -61,7 +61,7 @@ function beatOf(track: Track, placed: PlacedEvent): Beat | undefined {
 /**
  * The beats from `from` to `to` (inclusive, either order, across bars) of `from`'s track and voice, as a fragment:
  * each event of the voice that starts in the run, rests included (time the voice leaves unused reads as rests), with
- * the stroke, pick stroke and text of its beat. A tie keeps only when it starts inside the run (a note tied over a bar
+ * the stroke, pick stroke, chord diagram and text of its beat. A tie keeps only when it starts inside the run (a note tied over a bar
  * line into the run loses it). No items when a beat is missing.
  */
 export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatFragment {

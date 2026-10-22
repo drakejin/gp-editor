@@ -6,7 +6,7 @@ import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
 import { MAX_FRET } from './edit-song';
-import { isIntegerIn, parseDuration, parseNoteEffect } from './fragment-values-json';
+import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
 import { sortByString } from './song-paths';
 
 /** What a serialized fragment says it is, so text from elsewhere on the clipboard is never taken for one. */
@@ -80,17 +80,18 @@ function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefine
   const stroke = parseStroke(value.stroke);
   const pickStroke = parseDirection(value.pickStroke);
   const text = parseText(value.text);
-  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null) {
+  const chord = value.chord === undefined ? undefined : parseChord(value.chord);
+  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null || (value.chord !== undefined && chord === undefined)) {
     return undefined;
   }
-  return { duration, notes, stroke, pickStroke, ...text };
+  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text };
 }
 
 /**
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
  * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
- * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, and
- * texts up to 1024 characters. Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
+ * diagrams and texts up to 1024 characters. Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {

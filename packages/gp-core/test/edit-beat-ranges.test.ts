@@ -70,6 +70,23 @@ describe('copyBeats', () => {
     expect(first).toMatchObject({ stroke: { direction: 'down', value: 16 }, pickStroke: 'up', text: 'riff' });
   });
 
+  it('keeps a chord diagram through cut and paste back', () => {
+    // Arrange
+    const chord = { name: 'Am', firstFret: 1, frets: [0, 1, 2, 2, 0, -1] };
+    const plain = bars(FOUR_QUARTERS, NEXT_QUARTERS);
+    const measure = plain.tracks[0]!.measures[0]!;
+    const beats = measure.beats.map((beat, i) => (i === 2 ? { ...beat, chord } : beat));
+    const song = deepFreeze({ ...plain, tracks: [{ ...plain.tracks[0]!, measures: [{ ...measure, beats }, plain.tracks[0]!.measures[1]!] }] });
+
+    // Act
+    const copied = copyBeats(song, at(0, 1), at(0, 2));
+    const restored = insertBeatsFlowing(deleteBeatsFlowing(song, at(0, 1), at(0, 2)), at(0, 1), copied);
+
+    // Assert
+    expect(copied.items[1]?.chord).toEqual(chord);
+    expect(restored.tracks[0]!.measures[0]!.beats[2]!.chord).toEqual(chord);
+  });
+
   it('drops a tie that starts before the range and keeps one that starts inside it', () => {
     // Arrange: the last note of bar 1 is tied over the bar line
     const song = bars(FOUR_QUARTERS, [play(4, tied(1, 3)), play(4, n(1, 5)), rest(2)]);

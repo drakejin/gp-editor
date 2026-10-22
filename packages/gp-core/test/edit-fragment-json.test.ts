@@ -27,7 +27,14 @@ const ALL_FLAGS: NoteEffect = Object.fromEntries(Object.entries(EMPTY_NOTE_EFFEC
 const FRAGMENT: BeatFragment = {
   isPercussion: false,
   items: [
-    { duration: dur(4), notes: [{ ...n(1, 5), effect: RICH_EFFECT }, n(3, 7)], stroke: { direction: 'down', value: 16 }, pickStroke: 'up', text: 'intro' },
+    {
+      duration: dur(4),
+      notes: [{ ...n(1, 5), effect: RICH_EFFECT }, n(3, 7)],
+      stroke: { direction: 'down', value: 16 },
+      pickStroke: 'up',
+      chord: { name: 'Dm7', firstFret: 5, frets: [5, 6, 5, 7, -1, -1] },
+      text: 'intro',
+    },
     { duration: dur(8, { tuplet: { enters: 3, times: 2 } }), notes: [{ ...n(1, 5), isTied: true }], stroke: NO_STROKE, pickStroke: 'none' },
     { duration: dur(2, { dotted: true }), notes: [], stroke: NO_STROKE, pickStroke: 'down' },
     { duration: dur(16), notes: [{ ...n(6, 0), velocity: 127, effect: ALL_FLAGS }], stroke: NO_STROKE, pickStroke: 'none' },
@@ -148,6 +155,12 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['a stroke of unknown direction', (value) => (rawItem(value).stroke = { direction: 'sideways', value: 16 })],
     ['a stroke at an unknown speed', (value) => (rawItem(value).stroke = { direction: 'up', value: 5 })],
     ['an unknown pick stroke', (value) => (rawItem(value).pickStroke = 'left')],
+    ['a chord without a name', (value) => delete (rawItem(value).chord as Raw).name],
+    ['a chord name that is too long', (value) => ((rawItem(value).chord as Raw).name = 'x'.repeat(257))],
+    ['a chord fret that is no whole number', (value) => ((rawItem(value).chord as Raw).frets = [1.5])],
+    ['a chord with too many strings', (value) => ((rawItem(value).chord as Raw).frets = Array.from({ length: 26 }, () => 0))],
+    ['a chord first fret past the MIDI range', (value) => ((rawItem(value).chord as Raw).firstFret = 128)],
+    ['a chord that is null', (value) => (rawItem(value).chord = null)],
     ['an empty text', (value) => (rawItem(value).text = '  ')],
     ['a text that is too long', (value) => (rawItem(value).text = 'x'.repeat(1025))],
     ['a text that is no text', (value) => (rawItem(value).text = 42)],

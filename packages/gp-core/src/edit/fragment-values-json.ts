@@ -1,7 +1,8 @@
 import { BEND_MAX_POSITION, BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../formats/common/bend-units';
 import { MAX_VELOCITY } from '../formats/common/velocity';
 import { EMPTY_NOTE_EFFECT, isNoteValue, tupletOf } from '../model/defaults';
-import type { Bend, BendPoint, Duration, Grace, Harmonic, NoteEffect, SlideType, TremoloPicking, Trill, Tuplet } from '../model/song';
+import { MAX_DIAGRAM_STRINGS } from '../formats/gpif/gpif-read-track';
+import type { Bend, BendPoint, Chord, Duration, Grace, Harmonic, NoteEffect, SlideType, TremoloPicking, Trill, Tuplet } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { type EffectValue, HARMONIC_TYPES, type OptionalEffect, SLIDE_ORDER, type ToggleableEffect } from './effects';
 import { GRACE_TRANSITIONS, isGraceDuration } from './ornaments';
@@ -15,6 +16,10 @@ import { GRACE_TRANSITIONS, isGraceDuration } from './ornaments';
 export const MAX_CURVE_POINTS = 32;
 /** Harmonic data is a semitone offset or a tapped fret: within the MIDI range. */
 const MAX_HARMONIC_DATA = 127;
+/** Characters a chord name may have. */
+const MAX_CHORD_NAME_LENGTH = 256;
+/** Chord diagram frets as files store them (a base fret added): within the MIDI range. */
+const MAX_CHORD_FRET = 127;
 
 /** The note effects that are on or off; every one is required. */
 const EFFECT_FLAGS: readonly ToggleableEffect[] = [
@@ -114,6 +119,21 @@ const OPTIONAL_PARSERS: { readonly [K in OptionalEffect]: (value: unknown, maxFr
 };
 
 const OPTIONAL_EFFECTS: readonly OptionalEffect[] = ['bend', 'tremoloBar', 'harmonic', 'grace', 'trill', 'tremoloPicking'];
+
+/**
+ * A chord diagram: a name of up to MAX_CHORD_NAME_LENGTH characters, a first fret and up to MAX_DIAGRAM_STRINGS frets
+ * (-1 = not played), whole numbers up to MAX_CHORD_FRET as files store them.
+ */
+export function parseChord(value: unknown): Chord | undefined {
+  if (!isRawObject(value) || typeof value.name !== 'string' || value.name.length > MAX_CHORD_NAME_LENGTH || !isIntegerIn(value.firstFret, -1, MAX_CHORD_FRET)) {
+    return undefined;
+  }
+  const { frets } = value;
+  if (!Array.isArray(frets) || frets.length > MAX_DIAGRAM_STRINGS || !frets.every((fret: unknown) => isIntegerIn(fret, -1, MAX_CHORD_FRET))) {
+    return undefined;
+  }
+  return { name: value.name, firstFret: value.firstFret, frets: frets.map(Number) };
+}
 
 /** Known slides, each once, in model order. */
 function parseSlides(value: unknown): readonly SlideType[] | undefined {

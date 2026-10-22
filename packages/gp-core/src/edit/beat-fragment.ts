@@ -1,5 +1,5 @@
 import { NO_STROKE } from '../model/defaults';
-import type { Beat, Duration, Note, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Beat, Chord, Duration, Note, Stroke, StrokeDirection, Voice } from '../model/song';
 import type { VoiceEvent, VoiceEvents } from './timeline';
 
 /** One beat of a fragment: one voice's event with the marks of its beat. */
@@ -9,6 +9,7 @@ export interface BeatFragmentItem {
   readonly notes: readonly Note[];
   readonly stroke: Stroke;
   readonly pickStroke: StrokeDirection;
+  readonly chord?: Chord;
   readonly text?: string;
 }
 
@@ -21,15 +22,22 @@ export interface BeatFragment {
 
 /** The item for a voice's event; the marks come from its beat (none for a rest an edit added). */
 export function fragmentItem(voice: Voice, beat: Beat | undefined): BeatFragmentItem {
-  const item: BeatFragmentItem = { duration: voice.duration, notes: voice.notes, stroke: beat?.stroke ?? NO_STROKE, pickStroke: beat?.pickStroke ?? 'none' };
-  return beat?.text === undefined ? item : { ...item, text: beat.text };
+  return {
+    duration: voice.duration,
+    notes: voice.notes,
+    stroke: beat?.stroke ?? NO_STROKE,
+    pickStroke: beat?.pickStroke ?? 'none',
+    ...(beat?.chord === undefined ? {} : { chord: beat.chord }),
+    ...(beat?.text === undefined ? {} : { text: beat.text }),
+  };
 }
 
-/** A voice event that plays the item. */
+/** A voice event that plays the item, carrying its beat marks. */
 export function itemEvent(item: BeatFragmentItem): VoiceEvent {
   const voice: Voice = { duration: item.duration, notes: item.notes, isEmpty: false, direction: 'none' };
+  const chord = item.chord === undefined ? {} : { chord: item.chord };
   const text = item.text === undefined ? {} : { text: item.text };
-  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...text } };
+  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...chord, ...text } };
 }
 
 function untied(notes: readonly Note[], keepsTie: (note: Note) => boolean): readonly Note[] {
