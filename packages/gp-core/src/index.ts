@@ -73,3 +73,16 @@ export {
   renderMidi,
   timelineIndexAt,
 } from './midi/index';
+export type {
+  TranscribedBeat,
+  TranscribedDuration,
+  TranscribedEffect,
+  TranscribedInstrument,
+  TranscribedMeasure,
+  TranscribedNote,
+  TranscribedPart,
+  TranscribedSongInfo,
+  TranscribedTrack,
+  TranscriptionPage,
+} from './transcription/types';
+export { TRANSCRIPTION_TOOL } from './transcription/tool';
