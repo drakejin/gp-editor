@@ -118,6 +118,15 @@ RCT_EXPORT_METHOD(printPdf : (NSString *)documentJson resolve : (RCTPromiseResol
   }
   NSString *title = document[@"title"];
   operation.jobTitle = [title isKindOfClass:[NSString class]] ? title : @"GP Editor";
+  // The unsandboxed QA copy (scripts/qa/run.sh) prints to a file without panels when GPEDITOR_QA_PRINT_PATH is set;
+  // the shipped, sandboxed app ignores it.
+  NSString *qaPath = [NSProcessInfo processInfo].environment[@"GPEDITOR_QA_PRINT_PATH"];
+  if (qaPath.length > 0 && !GPIsSandboxed()) {
+    operation.printInfo.jobDisposition = NSPrintSaveJob;
+    operation.printInfo.dictionary[NSPrintJobSavingURL] = [NSURL fileURLWithPath:qaPath];
+    operation.showsPrintPanel = NO;
+    operation.showsProgressPanel = NO;
+  }
   resolve(@([operation runOperation]));
 }
 

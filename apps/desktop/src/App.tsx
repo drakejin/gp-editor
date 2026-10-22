@@ -37,13 +37,15 @@ import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from
 import { stepZoom } from './state/panels';
 import { playbackStartTempo } from './state/practice';
 import type { SongEdit } from './state/song-edits';
-import { type Palette, usePalette } from './theme';
+import { type Palette, onChrome, usePalette } from './theme';
 
 /** Until the clipboard hook lands: copy, cut and paste do nothing. */
 const NO_CLIPBOARD = { copy: () => undefined, cut: () => undefined, paste: () => undefined };
 
 export default function App() {
   const palette = usePalette();
+  // Panels and banners around the score share Guitar Pro's dark chrome.
+  const chromePalette = useMemo(() => onChrome(palette), [palette]);
   const [state, dispatch] = useReducer(editorReducer, INITIAL_EDITOR_STATE);
   // Keyboard edits arrive at this view; clicking the score does not make it first responder by itself.
   const keyboardView = useRef<View>(null);
@@ -177,7 +179,7 @@ export default function App() {
       {state.hint !== undefined ? <HintBar palette={palette} message={state.hint} onDismiss={() => dispatch({ type: 'dismissHint' })} /> : null}
       {isImportPanelOpen ? (
         <ImportPanel
-          palette={palette}
+          palette={chromePalette}
           hasKey={pdfImport.hasKey}
           model={pdfImport.model}
           onSaveKey={pdfImport.saveKey}
@@ -192,7 +194,7 @@ export default function App() {
       ) : null}
       {pdfExport.isOpen && document !== undefined ? (
         <ExportPanel
-          palette={palette}
+          palette={chromePalette}
           song={document.song}
           trackIndex={trackIndex}
           fileName={document.fileName}
@@ -202,7 +204,7 @@ export default function App() {
           onClose={pdfExport.close}
         />
       ) : null}
-      <ImportBanner palette={palette} pdfImport={pdfImport} onOpenSettings={openImportPanel} />
+      <ImportBanner palette={chromePalette} pdfImport={pdfImport} onOpenSettings={openImportPanel} />
       {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
       {document !== undefined ? (
         <DocumentLayout
@@ -312,7 +314,7 @@ function PickerOverlay({
     <InstrumentPicker
       trackName={song.tracks[trackIndex]?.name ?? ''}
       program={instrument.program}
-      palette={palette}
+      palette={onChrome(palette)}
       onSetProgram={(program) => dispatch({ type: 'setTrackProgram', trackIndex, program })}
       onClose={onClose}
     />
