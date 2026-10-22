@@ -6,6 +6,7 @@ import {
   findNote,
   setNoteFret,
   setNoteString,
+  setTrackTuning,
 } from '@gp-editor/core';
 import {
   adjacentBeat,
@@ -13,6 +14,7 @@ import {
   clampCursor,
   firstCursor,
 } from '../lib/navigation';
+import { retuneNotice } from '../lib/tuning-hint';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
 
@@ -39,6 +41,8 @@ export interface EditorState {
   readonly mode: ScoreMode;
   readonly isLoading: boolean;
   readonly error?: string;
+  /** What the last retune could not keep (notes moved by octaves or left out); shown under the neck settings. */
+  readonly notice?: string;
 }
 
 export type EditorAction =
@@ -65,6 +69,13 @@ export type EditorAction =
   | { readonly type: 'shiftNoteFret'; readonly delta: number }
   | { readonly type: 'shiftNoteString'; readonly delta: number }
   | { readonly type: 'deleteNote' }
+  /** Neck settings: the track on new strings, every note re-fretted to keep its pitch. */
+  | {
+      readonly type: 'setTrackTuning';
+      readonly trackIndex: number;
+      readonly tuning: readonly number[];
+    }
+  | { readonly type: 'dismissNotice' }
   | { readonly type: 'edit'; readonly edit: SongEdit }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
@@ -115,6 +126,8 @@ export function editorReducer(
       };
     case 'dismissError':
       return { ...state, error: undefined };
+    case 'dismissNotice':
+      return { ...state, notice: undefined };
     case 'selectTrack':
       return selectTrack(state, action.trackIndex);
     case 'setMode':
@@ -149,6 +162,8 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
       return shiftNoteString(state, action.delta);
     case 'deleteNote':
       return applyEdit(state, deleteNote);
+    case 'setTrackTuning':
+      return retune(state, action.trackIndex, action.tuning);
     case 'edit':
       return applyCursorEdit(state, action.edit);
     case 'undo':
@@ -242,7 +257,15 @@ function applyEdit(
   if (document === undefined || cursor === undefined) {
     return state;
   }
-  const next = edit(document.song, cursor);
+  return recordSong(state, document, edit(document.song, cursor));
+}
+
+/** The document with `next` as its song, the previous one kept for undo; the same state when nothing changed. */
+function recordSong(
+  state: EditorState,
+  document: OpenDocument,
+  next: Song,
+): EditorState {
   if (next === document.song) {
     return state;
   }
@@ -252,6 +275,28 @@ function applyEdit(
     past: [...state.past, document.song].slice(-HISTORY_LIMIT),
     future: [],
   };
+}
+
+/** Retunes a track (one undo step); the cursor stays on the track's strings and the notice tells what moved. */
+function retune(
+  state: EditorState,
+  trackIndex: number,
+  tuning: readonly number[],
+): EditorState {
+  const { document } = state;
+  if (document === undefined) {
+    return state;
+  }
+  const change = setTrackTuning(document.song, trackIndex, tuning);
+  const recorded = recordSong(state, document, change.song);
+  if (recorded === state) {
+    return state;
+  }
+  const cursor =
+    state.cursor === undefined
+      ? undefined
+      : clampCursor(change.song, state.cursor);
+  return { ...recorded, cursor, notice: retuneNotice(change) };
 }
 
 function undo(state: EditorState): EditorState {
@@ -268,6 +313,7 @@ function undo(state: EditorState): EditorState {
       state.cursor === undefined
         ? undefined
         : clampCursor(previous, state.cursor),
+    notice: undefined,
   };
 }
 
@@ -283,6 +329,7 @@ function redo(state: EditorState): EditorState {
     future: rest,
     cursor:
       state.cursor === undefined ? undefined : clampCursor(next, state.cursor),
+    notice: undefined,
   };
 }
 

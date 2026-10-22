@@ -1,11 +1,11 @@
-import type { Note, Track } from '@gp-editor/core';
+import { NECK_FRETS, type Note, type Track } from '@gp-editor/core';
 import { pitchClassName } from '../lib/pitch';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
 
 /** Fretboard geometry, in points. */
 export const FRETBOARD = {
-  frets: 24,
+  frets: NECK_FRETS,
   stringGap: 20,
   /** Room for the fret numbers above the first string. */
   top: 24,

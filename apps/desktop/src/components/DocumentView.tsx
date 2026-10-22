@@ -8,6 +8,7 @@ import type { PlayingBeat } from '../score/row';
 import type { OpenDocument } from '../state/editor';
 import type { Palette } from '../theme';
 import { Fretboard } from './Fretboard';
+import { NeckSettings } from './NeckSettings';
 import { ScoreView } from './ScoreView';
 import { SongHeader } from './SongHeader';
 import { TrackList } from './TrackList';
@@ -18,13 +19,17 @@ interface DocumentViewProps {
   readonly mode: ScoreMode;
   readonly cursor?: StringAddress;
   readonly playing?: PlayingBeat;
+  /** What the last retune could not keep, shown with the neck settings. */
+  readonly notice?: string;
   readonly palette: Palette;
   readonly onSelectTrack: (trackIndex: number) => void;
   readonly onPressBeat: (hit: RowHit) => void;
+  readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
+  readonly onDismissNotice: () => void;
 }
 
-/** An open song: tracks on the left; song info, the neck (with the tab) and the score on the right. */
-export function DocumentView({ document, trackIndex, mode, cursor, playing, palette, onSelectTrack, onPressBeat }: DocumentViewProps) {
+/** An open song: tracks on the left; song info, the neck with its settings (with the tab) and the score on the right. */
+export function DocumentView({ document, trackIndex, mode, cursor, playing, notice, palette, onSelectTrack, onPressBeat, onSetTrackTuning, onDismissNotice }: DocumentViewProps) {
   const { song } = document;
   const track = song.tracks[trackIndex];
   const shownBeat = playing ?? cursor;
@@ -41,7 +46,17 @@ export function DocumentView({ document, trackIndex, mode, cursor, playing, pale
       <View style={styles.main}>
         <SongHeader song={song} fileName={document.fileName} palette={palette} />
         {showsFretboard(mode, track) ? (
-          <Fretboard track={track} notes={fretboardNotes} cursorString={playing === undefined ? cursor?.string : undefined} palette={palette} />
+          <>
+            <NeckSettings
+              song={song}
+              trackIndex={trackIndex}
+              notice={notice}
+              palette={palette}
+              onSetTuning={(tuning) => onSetTrackTuning(trackIndex, tuning)}
+              onDismissNotice={onDismissNotice}
+            />
+            <Fretboard track={track} notes={fretboardNotes} cursorString={playing === undefined ? cursor?.string : undefined} palette={palette} />
+          </>
         ) : null}
         <ScoreView song={song} trackIndex={trackIndex} mode={mode} cursor={cursor} playing={playing} palette={palette} onPressBeat={onPressBeat} />
       </View>

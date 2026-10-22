@@ -121,3 +121,56 @@ describe('editorReducer: edits at the cursor', () => {
     expect(editorReducer(moved, { type: 'selectTrack', trackIndex: 0 }).cursor).toMatchObject({ measureIndex: 1 });
   });
 });
+
+const DROP_D = [64, 59, 55, 50, 45, 38];
+const STANDARD_BASS = [43, 38, 33, 28];
+/** Standard an octave up: the low E2 of bar 2 is out of reach. */
+const OCTAVE_UP = [76, 71, 67, 62, 57, 52];
+
+describe('editorReducer: track tuning', () => {
+  it('retunes the track as one undoable edit, re-fretting notes so they sound the same', () => {
+    // Arrange
+    const start = loadedState();
+
+    // Act
+    const dropD = editorReducer(start, { type: 'setTrackTuning', trackIndex: 0, tuning: DROP_D });
+
+    // Assert: the open low E of bar 2 is now fret 2 of the D string.
+    expect(song(dropD).tracks[0]!.strings.map((s) => s.tuning)).toEqual(DROP_D);
+    expect(findNote(song(dropD), { ...at(dropD), measureIndex: 1, string: 6 })?.fret).toBe(2);
+    expect(dropD.past).toEqual([song(start)]);
+    expect(dropD.notice).toBeUndefined();
+    expect(isEdited(dropD)).toBe(true);
+    expect(song(editorReducer(dropD, { type: 'undo' }))).toBe(song(start));
+  });
+
+  it('keeps the cursor on the strings of a track that has fewer of them', () => {
+    // Arrange
+    const cursor = { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 6 };
+    const onString6 = editorReducer(loadedState(), { type: 'placeCursor', cursor });
+
+    // Act
+    const bass = editorReducer(onString6, { type: 'setTrackTuning', trackIndex: 0, tuning: STANDARD_BASS });
+
+    // Assert
+    expect(song(bass).tracks[0]!.strings).toHaveLength(4);
+    expect(at(bass)).toEqual({ ...cursor, string: 4 });
+  });
+
+  it('tells when notes moved by an octave; the notice is dismissed by hand or by undo', () => {
+    // Act
+    const retuned = editorReducer(loadedState(), { type: 'setTrackTuning', trackIndex: 0, tuning: OCTAVE_UP });
+
+    // Assert
+    expect(retuned.notice).toContain('1 note moved by an octave');
+    expect(editorReducer(retuned, { type: 'dismissNotice' }).notice).toBeUndefined();
+    expect(editorReducer(retuned, { type: 'undo' }).notice).toBeUndefined();
+  });
+
+  it('ignores a tuning that changes nothing, or a track that does not exist', () => {
+    const start = loadedState();
+    expect(editorReducer(start, { type: 'setTrackTuning', trackIndex: 0, tuning: [64, 59, 55, 50, 45, 40] })).toBe(start);
+    expect(editorReducer(start, { type: 'setTrackTuning', trackIndex: 5, tuning: DROP_D })).toBe(start);
+    expect(editorReducer(INITIAL_EDITOR_STATE, { type: 'setTrackTuning', trackIndex: 0, tuning: DROP_D })).toBe(INITIAL_EDITOR_STATE);
+  });
+});

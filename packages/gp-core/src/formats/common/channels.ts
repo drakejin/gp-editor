@@ -40,3 +40,11 @@ export function createChannelName(existing: readonly Channel[], program: number,
   }
   return `${prefix} ${number}`;
 }
+
+/** General MIDI programs 32–39: acoustic, electric, fretless, slap and synth basses. */
+const GM_BASS_PROGRAMS = { first: 32, last: 39 } as const;
+
+/** True for a General MIDI bass program (32–39). */
+export function isGmBassProgram(program: number): boolean {
+  return program >= GM_BASS_PROGRAMS.first && program <= GM_BASS_PROGRAMS.last;
+}
