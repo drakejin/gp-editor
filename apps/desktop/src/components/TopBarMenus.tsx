@@ -1,6 +1,5 @@
 import { StyleSheet, View } from 'react-native';
 import { TEMPO_STEP, playbackTempo, resolveTrainerMaxTempo, tempoPercent } from '../lib/practice-tempo';
-import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import { type PracticeAction, type PracticeSettings, resolveLoopRange } from '../state/practice';
 import { ZOOM_LEVELS } from '../state/panels';
 import type { Palette } from '../theme';
@@ -122,24 +121,6 @@ export function ZoomMenu({ palette, zoom, onZoom, onClose }: { readonly palette:
           isChecked={Math.abs(level - zoom) < 1e-9}
           onPress={() => {
             onZoom(level);
-            onClose();
-          }}
-        />
-      ))}
-    </>
-  );
-}
-
-export function NewMenu({ palette, onCreate, onClose }: { readonly palette: Palette; readonly onCreate: (mode: ScoreMode) => void; readonly onClose: () => void }) {
-  return (
-    <>
-      {SCORE_MODES.map((mode) => (
-        <MenuItem
-          key={mode}
-          palette={palette}
-          label={`New ${SCORE_MODE_LABELS[mode]}`}
-          onPress={() => {
-            onCreate(mode);
             onClose();
           }}
         />

@@ -5,7 +5,9 @@ import type { OpenDocument } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const mockExportRequests: { handler?: () => void } = {};
+const mockPrintRequests: { handler?: () => void } = {};
 const mockSavePdf = jest.fn<Promise<{ name: string; path: string } | null>, [PdfDocument, string]>();
+const mockPrintPdf = jest.fn<Promise<boolean>, [PdfDocument]>();
 
 jest.mock('../src/native/gp-files', () => ({
   subscribeExportRequests: (handler: () => void) => {
@@ -14,10 +16,17 @@ jest.mock('../src/native/gp-files', () => ({
       mockExportRequests.handler = undefined;
     };
   },
+  subscribePrintRequests: (handler: () => void) => {
+    mockPrintRequests.handler = handler;
+    return () => {
+      mockPrintRequests.handler = undefined;
+    };
+  },
 }));
 
 jest.mock('../src/native/pdf-export', () => ({
   savePdf: (document: PdfDocument, suggestedName: string) => mockSavePdf(document, suggestedName),
+  printPdf: (document: PdfDocument) => mockPrintPdf(document),
 }));
 
 const DOCUMENT: OpenDocument = { fileName: 'Song.gp5', path: '/Song.gp5', song: makeSong([[beat(960, [note(1, 3)])]]) };
@@ -26,7 +35,7 @@ function renderHook(document: OpenDocument | undefined): { current: () => PdfExp
   const dispatch = jest.fn();
   let latest: PdfExport | undefined;
   function Probe() {
-    latest = usePdfExport(document, 0, dispatch);
+    latest = usePdfExport(document, 0, 'tab', dispatch);
     return null;
   }
   ReactTestRenderer.act(() => {
@@ -43,7 +52,7 @@ function renderHook(document: OpenDocument | undefined): { current: () => PdfExp
   };
 }
 
-function pressCommandP(): void {
+function chooseExportPdf(): void {
   ReactTestRenderer.act(() => mockExportRequests.handler?.());
 }
 
@@ -55,16 +64,50 @@ async function settle(): Promise<void> {
 
 beforeEach(() => {
   mockSavePdf.mockReset();
+  mockPrintPdf.mockReset();
   mockExportRequests.handler = undefined;
+  mockPrintRequests.handler = undefined;
+});
+
+describe('usePdfExport printing', () => {
+  it('prints the shown track in the view’s mode on File ▸ Print… (⌘P)', async () => {
+    // Arrange
+    mockPrintPdf.mockResolvedValue(true);
+    renderHook(DOCUMENT);
+
+    // Act
+    ReactTestRenderer.act(() => mockPrintRequests.handler?.());
+    await settle();
+
+    // Assert
+    expect(mockPrintPdf).toHaveBeenCalledTimes(1);
+    expect(mockPrintPdf.mock.calls[0]?.[0].title).toBe('Test');
+  });
+
+  it('does nothing without a document, and reports a failure', async () => {
+    // Arrange
+    renderHook(undefined);
+    ReactTestRenderer.act(() => mockPrintRequests.handler?.());
+    mockPrintPdf.mockRejectedValue(new Error('No printer'));
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().print());
+    await settle();
+
+    // Assert
+    expect(mockPrintPdf).toHaveBeenCalledTimes(1);
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'exportFailed', message: 'No printer' });
+  });
 });
 
 describe('usePdfExport', () => {
-  it('opens the export panel on ⌘P, as the Export… button does', () => {
+  it('opens the export panel on File ▸ Export PDF…, as the Export button does', () => {
     // Arrange
     const viaShortcut = renderHook(DOCUMENT);
 
     // Act
-    pressCommandP();
+    chooseExportPdf();
     const viaButton = renderHook(DOCUMENT);
     ReactTestRenderer.act(() => viaButton.current().open());
 
@@ -75,7 +118,7 @@ describe('usePdfExport', () => {
 
   it('ignores ⌘P without a document, like the disabled Export… button', () => {
     const hook = renderHook(undefined);
-    pressCommandP();
+    chooseExportPdf();
     expect(hook.current().isOpen).toBe(false);
   });
 
@@ -83,7 +126,7 @@ describe('usePdfExport', () => {
     // Arrange
     mockSavePdf.mockResolvedValueOnce({ name: 'Song (Tab).pdf', path: '/Song (Tab).pdf' });
     const hook = renderHook(DOCUMENT);
-    pressCommandP();
+    chooseExportPdf();
 
     // Act
     ReactTestRenderer.act(() => hook.current().save('tab', 'letter'));
@@ -103,7 +146,7 @@ describe('usePdfExport', () => {
     let finish: (saved: null) => void = () => undefined;
     mockSavePdf.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     const hook = renderHook(DOCUMENT);
-    pressCommandP();
+    chooseExportPdf();
 
     // Act
     ReactTestRenderer.act(() => {
@@ -124,7 +167,7 @@ describe('usePdfExport', () => {
   it('keeps the panel open when the save panel is cancelled', async () => {
     mockSavePdf.mockResolvedValueOnce(null);
     const hook = renderHook(DOCUMENT);
-    pressCommandP();
+    chooseExportPdf();
     ReactTestRenderer.act(() => hook.current().save('notationAndTab', 'a4'));
     await settle();
     expect(hook.current()).toMatchObject({ isOpen: true, isSaving: false });
@@ -134,7 +177,7 @@ describe('usePdfExport', () => {
     // Arrange
     mockSavePdf.mockRejectedValueOnce(new Error('disk full'));
     const hook = renderHook(DOCUMENT);
-    pressCommandP();
+    chooseExportPdf();
 
     // Act
     ReactTestRenderer.act(() => hook.current().save('notation', 'a4'));

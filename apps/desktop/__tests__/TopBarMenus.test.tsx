@@ -1,7 +1,7 @@
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ChromeMenu, MenuButton, MenuItem } from '../src/components/chrome/ChromeMenu';
-import { NewMenu, SpeedMenu, type SpeedMenuProps, ZoomMenu } from '../src/components/TopBarMenus';
+import { SpeedMenu, type SpeedMenuProps, ZoomMenu } from '../src/components/TopBarMenus';
 import { INITIAL_PRACTICE } from '../src/state/practice';
 import { PALETTE } from '../test-support/score-helpers';
 
@@ -86,7 +86,7 @@ describe('SpeedMenu', () => {
   });
 });
 
-describe('ZoomMenu and NewMenu', () => {
+describe('ZoomMenu and menus', () => {
   it('zooms to a level and closes', () => {
     // Arrange
     const onZoom = jest.fn();
@@ -103,17 +103,6 @@ describe('ZoomMenu and NewMenu', () => {
     expect(renderer.root.findAllByType(MenuItem).find((item) => item.props.label === '100%')?.props.isChecked).toBe(true);
     expect(onZoom).toHaveBeenCalledWith(1.5);
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('creates a sheet in the chosen view', () => {
-    const onCreate = jest.fn();
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
-    ReactTestRenderer.act(() => {
-      renderer = ReactTestRenderer.create(<NewMenu palette={PALETTE} onCreate={onCreate} onClose={() => undefined} />);
-    });
-    expect(renderer.root.findAllByType(MenuItem).map((item) => item.props.label)).toEqual(['New Score + Tab', 'New Score', 'New Tab']);
-    ReactTestRenderer.act(() => renderer.root.findAllByType(MenuItem)[2]?.props.onPress());
-    expect(onCreate).toHaveBeenCalledWith('tab');
   });
 
   it('closes a menu on a click outside it', () => {

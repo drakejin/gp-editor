@@ -13,6 +13,8 @@ import {
   deleteBeat,
   deleteBeatNotes,
   deleteMeasure,
+  deleteNote,
+  findNote,
   insertBeat,
   insertMeasure,
   setBeatDuration,
@@ -50,7 +52,9 @@ export type SongEdit =
   | NoteEdit
   | BarEdit
   | { readonly type: 'insertMeasure' }
-  | { readonly type: 'deleteMeasure' };
+  | { readonly type: 'deleteMeasure' }
+  /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
+  | { readonly type: 'erase' };
 
 const TRIPLET: Tuplet = tupletOf(3) ?? NORMAL_TUPLET;
 /** Stroke speed a new stroke gets: a sixteenth (TuxGuitar's stroke dialog default). */
@@ -90,6 +94,8 @@ export function applySongEdit(
     case 'setPickStroke':
     case 'setBeatText':
       return editBeat(song, beatAddress(cursor), edit);
+    case 'erase':
+      return erase(song, cursor);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
@@ -107,6 +113,15 @@ export function applySongEdit(
     default:
       return applyNoteEdit(song, cursor, edit);
   }
+}
+
+/** The note at the cursor goes (its beat becomes a rest when it was the last); on a rest, the beat itself goes. */
+function erase(song: Song, cursor: StringAddress): Song {
+  if (findNote(song, cursor) !== undefined) {
+    return deleteNote(song, cursor);
+  }
+  const voice = cursorVoice(song, cursor);
+  return voice !== undefined && !voice.isEmpty && voice.notes.length === 0 ? deleteBeat(song, beatAddress(cursor)) : song;
 }
 
 function editBeat(song: Song, at: BeatAddress, edit: BeatEdit): Song {

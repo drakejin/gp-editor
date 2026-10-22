@@ -4,6 +4,7 @@ import type { SavedFile } from './gp-files';
 
 interface GPPdfExportModule {
   savePdf(documentJson: string, suggestedName: string): Promise<SavedFile | null>;
+  printPdf(documentJson: string): Promise<boolean>;
 }
 
 /**
@@ -22,4 +23,9 @@ function requireNative(): GPPdfExportModule {
 /** Asks where to save, then writes the document as a PDF; null when the save panel is cancelled. */
 export function savePdf(document: PdfDocument, suggestedName: string): Promise<SavedFile | null> {
   return requireNative().savePdf(JSON.stringify(document), suggestedName);
+}
+
+/** The system print panel for the document's pages; resolves whether they were printed. */
+export function printPdf(document: PdfDocument): Promise<boolean> {
+  return requireNative().printPdf(JSON.stringify(document));
 }

@@ -1,6 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { Song } from '@gp-editor/core';
+import { type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { DocumentLayout } from './components/DocumentLayout';
 import { DocumentTab } from './components/DocumentTab';
@@ -18,7 +18,8 @@ import { ScoreView } from './components/ScoreView';
 import { SongHeader } from './components/SongHeader';
 import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
-import { NewMenu, SpeedMenu, ZoomMenu } from './components/TopBarMenus';
+import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
+import { ShortcutSheet } from './components/ShortcutSheet';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
@@ -31,12 +32,15 @@ import { HANDLED_KEYS } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
-import { subscribeImportPdfRequests } from './native/gp-files';
+import { subscribeHelpRequests, subscribeImportPdfRequests } from './native/gp-files';
 import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
-import { resolveLoopRange } from './state/practice';
+import { playbackStartTempo } from './state/practice';
 import type { SongEdit } from './state/song-edits';
 import { type Palette, usePalette } from './theme';
+
+/** Until the clipboard hook lands: copy, cut and paste do nothing. */
+const NO_CLIPBOARD = { copy: () => undefined, cut: () => undefined, paste: () => undefined };
 
 export default function App() {
   const palette = usePalette();
@@ -61,7 +65,7 @@ export default function App() {
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel.
-  const pdfExport = usePdfExport(document, trackIndex, dispatch);
+  const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch);
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -73,6 +77,13 @@ export default function App() {
     openPath,
     save,
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
+    // B / C open a panel for the note at the cursor; on an empty string there is nothing to set.
+    onNotePanel: (panel) => {
+      if (song !== undefined && cursor !== undefined && findNote(song, cursor) !== undefined) {
+        chrome.openNotePanel(panel);
+      }
+    },
+    clipboard: NO_CLIPBOARD,
     keyboardView,
   });
 
@@ -103,6 +114,9 @@ export default function App() {
     [cursorString],
   );
 
+  const { openShortcutSheet } = chrome;
+  useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
+
   const { stop: stopPlayback } = playback;
   useEffect(() => {
     stopPlayback();
@@ -126,8 +140,7 @@ export default function App() {
   };
   const measureCount = song?.measureHeaders.length ?? 0;
   const loopScope = { measureCount, cursorMeasureIndex: cursor?.measureIndex ?? 0 };
-  const loopStart = playback.practice.isLooping ? resolveLoopRange(playback.practice.loop, measureCount, loopScope.cursorMeasureIndex).fromMeasureIndex : loopScope.cursorMeasureIndex;
-  const writtenTempo = song?.measureHeaders[loopStart]?.tempo ?? song?.measureHeaders[0]?.tempo ?? 120;
+  const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, loopScope.cursorMeasureIndex);
 
   return (
     <View
@@ -157,6 +170,7 @@ export default function App() {
         onTogglePanel={chrome.togglePanel}
         onOpenMenu={chrome.openMenu}
         onToggleLoop={() => playback.changePractice({ type: 'toggleLoop', ...loopScope })}
+        onShowShortcuts={chrome.openShortcutSheet}
         onCommand={commands.runCommand}
       />
       {document !== undefined ? <DocumentTab palette={palette} title={document.song.info.title} fileName={document.fileName} isEdited={isEdited(state)} /> : null}
@@ -257,7 +271,6 @@ export default function App() {
       )}
       {chrome.menu !== undefined ? (
         <ChromeMenu palette={palette} x={chrome.menu.x} top={TOP_BAR_HEIGHT} windowWidth={windowWidth} onClose={chrome.closeMenu}>
-          {chrome.menu.id === 'new' ? <NewMenu palette={palette} onCreate={create} onClose={chrome.closeMenu} /> : null}
           {chrome.menu.id === 'zoom' ? <ZoomMenu palette={palette} zoom={chrome.zoom} onZoom={chrome.setZoom} onClose={chrome.closeMenu} /> : null}
           {chrome.menu.id === 'speed' ? (
             <SpeedMenu
@@ -272,6 +285,7 @@ export default function App() {
           ) : null}
         </ChromeMenu>
       ) : null}
+      {chrome.isShortcutSheetOpen ? <ShortcutSheet palette={palette} onClose={chrome.closeShortcutSheet} /> : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
     </View>
   );

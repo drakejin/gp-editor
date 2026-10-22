@@ -2,6 +2,7 @@
 // page with GPCommandPainter — the code that draws the score on screen — into a PDF and saves it where the user says.
 
 #import <AppKit/AppKit.h>
+#import <PDFKit/PDFKit.h>
 #import <React/RCTBridgeModule.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
@@ -98,6 +99,26 @@ RCT_EXPORT_METHOD(savePdf : (NSString *)documentJson suggestedName : (NSString *
     return;
   }
   resolve(@{@"name" : destination.lastPathComponent, @"path" : destination.path});
+}
+
+/** The system print panel for the pages (printer, copies, or Save as PDF); resolves whether they were printed. */
+RCT_EXPORT_METHOD(printPdf : (NSString *)documentJson resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
+  if (document == nil) {
+    reject(@"bad_document", @"Nothing to print", nil);
+    return;
+  }
+  PDFDocument *pdf = [[PDFDocument alloc] initWithData:[GPPdfExport pdfDataFor:document]];
+  NSPrintInfo *info = [[NSPrintInfo sharedPrintInfo] copy];
+  NSPrintOperation *operation = [pdf printOperationForPrintInfo:info scalingMode:kPDFPrintPageScaleToFit autoRotate:YES];
+  if (operation == nil) {
+    reject(@"print_failed", @"Could not print the score", nil);
+    return;
+  }
+  NSString *title = document[@"title"];
+  operation.jobTitle = [title isKindOfClass:[NSString class]] ? title : @"GP Editor";
+  resolve(@([operation runOperation]));
 }
 
 @end

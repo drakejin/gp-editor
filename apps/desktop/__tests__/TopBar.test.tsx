@@ -19,6 +19,7 @@ function render(overrides: Partial<TopBarProps> = {}) {
     onTogglePanel: jest.fn(),
     onOpenMenu: jest.fn(),
     onToggleLoop: jest.fn(),
+    onShowShortcuts: jest.fn(),
     onCommand: jest.fn(),
     ...overrides,
   };
@@ -37,31 +38,18 @@ function render(overrides: Partial<TopBarProps> = {}) {
   return { props, button, press };
 }
 
-describe('TopBar files', () => {
-  it('disables Save and Export until a document is open', () => {
-    const bar = render({ hasDocument: false });
-    expect(bar.button('Save as Guitar Pro 5').props.isEnabled).toBe(false);
-    expect(bar.button('Export a PDF').props.isEnabled).toBe(false);
-    expect(bar.button('Open a Guitar Pro file').props.isEnabled).not.toBe(false);
+describe('TopBar files and help', () => {
+  it('leaves New, Open, Save, Import PDF and Export to the File menu', () => {
+    const bar = render();
+    expect(() => bar.button('Open a Guitar Pro file')).toThrow();
+    expect(() => bar.button('Save as Guitar Pro 5')).toThrow();
+    expect(() => bar.button('Export a PDF')).toThrow();
   });
 
-  it('sends the file commands', () => {
-    // Arrange
+  it('opens the keyboard shortcut sheet', () => {
     const bar = render();
-
-    // Act
-    bar.press('Open a Guitar Pro file');
-    bar.press('Export a PDF');
-    bar.press('Import a PDF');
-
-    // Assert
-    expect((bar.props.onCommand as jest.Mock).mock.calls).toEqual([[{ type: 'openFile' }], [{ type: 'exportPdf' }], [{ type: 'importPdf' }]]);
-  });
-
-  it('opens the New menu under the pointer', () => {
-    const bar = render();
-    bar.press('New sheet', 42);
-    expect(bar.props.onOpenMenu).toHaveBeenCalledWith('new', 42);
+    bar.press('Keyboard shortcuts');
+    expect(bar.props.onShowShortcuts).toHaveBeenCalledTimes(1);
   });
 });
 

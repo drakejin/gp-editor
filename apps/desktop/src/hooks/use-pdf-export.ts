@@ -1,8 +1,9 @@
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
 import type { PaperId } from '../export/paper';
 import { buildPdfDocument, pdfFileName } from '../export/pdf-document';
-import { subscribeExportRequests } from '../native/gp-files';
-import { savePdf } from '../native/pdf-export';
+import { errorMessage } from '../lib/errors';
+import { subscribeExportRequests, subscribePrintRequests } from '../native/gp-files';
+import { printPdf, savePdf } from '../native/pdf-export';
 import type { ScoreMode } from '../score/geometry';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -11,19 +12,25 @@ export interface PdfExport {
   readonly isOpen: boolean;
   /** The save panel is up or the PDF is being written. */
   readonly isSaving: boolean;
-  /** The Export… button and File ▸ Export PDF… (⌘P). Does nothing without a document, like the disabled button. */
+  /** The Export button and File ▸ Export PDF… (⇧⌘E). Does nothing without a document, like the disabled button. */
   readonly open: () => void;
   readonly close: () => void;
   /** Asks where to save, then writes the PDF of the shown track; the panel closes once it is saved. */
   readonly save: (mode: ScoreMode, paper: PaperId) => void;
+  /** File ▸ Print… (⌘P): the system print panel for the shown track in the view's mode (A4 pages, fitted to the paper). */
+  readonly print: () => void;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+/** Pages printing lays out; the print panel fits them to the chosen paper. */
+const PRINT_PAPER: PaperId = 'a4';
 
 /** The export panel and saving a PDF of the shown track; a failure goes to the error banner (`exportFailed`). */
-export function usePdfExport(document: OpenDocument | undefined, trackIndex: number, dispatch: Dispatch<EditorAction>): PdfExport {
+export function usePdfExport(
+  document: OpenDocument | undefined,
+  trackIndex: number,
+  mode: ScoreMode,
+  dispatch: Dispatch<EditorAction>,
+): PdfExport {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Guards save() itself: a second press can arrive before the disabled button re-renders.
@@ -34,7 +41,7 @@ export function usePdfExport(document: OpenDocument | undefined, trackIndex: num
   useEffect(() => subscribeExportRequests(open), [open]);
 
   const save = useCallback(
-    (mode: ScoreMode, paper: PaperId) => {
+    (exportMode: ScoreMode, paper: PaperId) => {
       if (document === undefined || isSaveRunning.current) {
         return;
       }
@@ -42,8 +49,8 @@ export function usePdfExport(document: OpenDocument | undefined, trackIndex: num
       setIsSaving(true);
       void (async () => {
         try {
-          const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper, fileName: document.fileName });
-          const saved = await savePdf(pdf, pdfFileName(document.song, trackIndex, mode, document.fileName));
+          const pdf = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName });
+          const saved = await savePdf(pdf, pdfFileName(document.song, trackIndex, exportMode, document.fileName));
           if (saved !== null) {
             setIsOpen(false);
           }
@@ -58,5 +65,14 @@ export function usePdfExport(document: OpenDocument | undefined, trackIndex: num
     [document, trackIndex, dispatch],
   );
 
-  return { isOpen: isOpen && hasDocument, isSaving, open, close, save };
+  const print = useCallback(() => {
+    if (document === undefined) {
+      return;
+    }
+    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName });
+    printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
+  }, [document, trackIndex, mode, dispatch]);
+  useEffect(() => subscribePrintRequests(print), [print]);
+
+  return { isOpen: isOpen && hasDocument, isSaving, open, close, save, print };
 }

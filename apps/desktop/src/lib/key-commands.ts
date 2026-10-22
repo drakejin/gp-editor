@@ -4,13 +4,27 @@ import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
 import { type DigitEntry, nextFretEntry } from './fret-input';
 
-/** What a key press does: an editor action, a playback control, a jump to another bar, or a zoom step. */
+/** A panel for the note at the cursor that takes more than a toggle: vibrato width, bend shape and amount. */
+export type NotePanel = 'vibrato' | 'bend';
+
+/**
+ * What a key press does: an editor action, a playback control (play, the playback tempo), a jump to another bar, a
+ * zoom step, a note panel, or the clipboard.
+ */
 export type KeyCommand =
   | EditorAction
   | { readonly type: 'togglePlayback' }
   | { readonly type: 'stopPlayback' }
+  | { readonly type: 'shiftPlaybackTempo'; readonly delta: number }
   | { readonly type: 'goToBar'; readonly jump: BarJump }
-  | { readonly type: 'zoom'; readonly direction: 1 | -1 };
+  | { readonly type: 'zoom'; readonly direction: 1 | -1 }
+  | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
+  | { readonly type: 'copy' }
+  | { readonly type: 'cut' }
+  | { readonly type: 'paste' };
+
+/** ] and [ : the playback tempo, in BPM. */
+const PLAYBACK_TEMPO_STEP = 5;
 
 export interface KeyPress {
   readonly key: string;
@@ -40,37 +54,46 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: '=' },
   { key: '-', metaKey: true },
   { key: '=', metaKey: true },
+  { key: '[', altKey: true },
+  { key: ']', altKey: true },
+  ...['c', 'x', 'v'].map((key) => ({ key, metaKey: true })),
   { key: ' ' },
   { key: 'Escape' },
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
   { key: 'Backspace', shiftKey: true },
-  ...['[', ']', '.', '/', 'h', 'p', 'l', 'v', 'x', 'g', 'a', 's', 'b', 'n', 't', 'i'].map((key) => ({ key })),
+  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i'].map((key) => ({ key })),
 ];
 
-/** Letter and punctuation keys for edits at the cursor. */
+/**
+ * Letter and punctuation keys for edits at the cursor. Hammer-on and pull-off are one Guitar Pro effect (the tab
+ * shows H or P by the next note's direction), so H and P both toggle it.
+ */
 const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
-  '[': { type: 'shiftNoteValue', step: -1 },
-  ']': { type: 'shiftNoteValue', step: 1 },
   '.': { type: 'toggleDot' },
   '/': { type: 'toggleTriplet' },
+  r: { type: 'toggleEffect', effect: 'letRing' },
+  s: { type: 'toggleSlide' },
   h: { type: 'toggleEffect', effect: 'hammer' },
-  p: { type: 'toggleEffect', effect: 'palmMute' },
-  l: { type: 'toggleEffect', effect: 'letRing' },
-  v: { type: 'toggleEffect', effect: 'vibrato' },
+  p: { type: 'toggleEffect', effect: 'hammer' },
+  m: { type: 'toggleEffect', effect: 'palmMute' },
   x: { type: 'toggleEffect', effect: 'deadNote' },
   g: { type: 'toggleEffect', effect: 'ghostNote' },
   a: { type: 'toggleEffect', effect: 'accentuatedNote' },
-  s: { type: 'toggleSlide' },
-  b: { type: 'cycleBend' },
   n: { type: 'toggleHarmonic' },
   t: { type: 'toggleTie' },
   i: { type: 'insertBeat' },
+  Backspace: { type: 'erase' },
+  Delete: { type: 'erase' },
 };
 
+const PANEL_KEYS: Readonly<Record<string, NotePanel>> = { b: 'vibrato', c: 'bend' };
+
+const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
+
 const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
-  Backspace: { type: 'deleteNote' },
-  Delete: { type: 'deleteNote' },
+  ']': { type: 'shiftPlaybackTempo', delta: PLAYBACK_TEMPO_STEP },
+  '[': { type: 'shiftPlaybackTempo', delta: -PLAYBACK_TEMPO_STEP },
   ArrowUp: { type: 'moveCursorString', delta: -1 },
   ArrowDown: { type: 'moveCursorString', delta: 1 },
   ArrowLeft: { type: 'moveCursorBeat', step: -1 },
@@ -84,10 +107,12 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
 };
 
 /**
- * Guitar Pro style keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note,
- * digits type a fret (two quick digits make 10–29), [ ] . / change the duration, letters toggle effects,
- * I inserts a beat, ⇧⌫ deletes it, Space plays, ⌥←/→ Home End jump between bars, ⌘- ⌘= zoom. `lastDigit` remembers
- * the previous digit.
+ * The editor's keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note, digits type
+ * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
+ * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend), ⌫ / ⌦ turn a note into
+ * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration, I inserts a beat, Space plays,
+ * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy, cut and paste.
+ * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
   if (press.metaKey && press.key.toLowerCase() === 'z') {
@@ -96,15 +121,25 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   if (press.metaKey && (press.key === '=' || press.key === '-')) {
     return { type: 'zoom', direction: press.key === '=' ? 1 : -1 };
   }
+  if (press.metaKey) {
+    return CLIPBOARD_KEYS[press.key.toLowerCase()];
+  }
+  if (press.altKey && (press.key === '[' || press.key === ']')) {
+    return { type: 'edit', edit: { type: 'shiftNoteValue', step: press.key === '[' ? -1 : 1 } };
+  }
   if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
     return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };
   }
   if (press.shiftKey && press.key === 'Backspace') {
     return { type: 'edit', edit: { type: 'deleteBeat' } };
   }
-  const edit = press.metaKey ? undefined : EDIT_KEYS[press.key.toLowerCase()];
+  const edit = EDIT_KEYS[press.key.length === 1 ? press.key.toLowerCase() : press.key];
   if (edit !== undefined) {
     return { type: 'edit', edit };
+  }
+  const panel = PANEL_KEYS[press.key.toLowerCase()];
+  if (panel !== undefined) {
+    return { type: 'openNotePanel', panel };
   }
   if (press.altKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
     return { type: 'shiftNoteString', delta: press.key === 'ArrowUp' ? -1 : 1 };

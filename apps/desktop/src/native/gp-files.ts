@@ -97,3 +97,21 @@ export function subscribeExportRequests(onExportRequested: () => void): () => vo
   const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('exportRequested', onExportRequested);
   return () => subscription.remove();
 }
+
+/** File ▸ Print… (⌘P). */
+export function subscribePrintRequests(onPrintRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('printRequested', onPrintRequested);
+  return () => subscription.remove();
+}
+
+/** Help ▸ Keyboard Shortcuts (⌘H). */
+export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('helpRequested', onHelpRequested);
+  return () => subscription.remove();
+}

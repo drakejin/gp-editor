@@ -45,12 +45,29 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("s", modifiers: [.command, .shift])
       }
-      // ⌘P exports a PDF (the score as Score + Tab, Score or Tab) in place of the system Print item.
+      // Export PDF… saves the score (Score + Tab, Score or Tab) as a PDF; Print… (⌘P) prints it.
       CommandGroup(replacing: .printItem) {
         Button("Export PDF…") {
           NotificationCenter.default.post(name: .GPEditorExportCommand, object: nil)
         }
+        .keyboardShortcut("e", modifiers: [.command, .shift])
+        Button("Print…") {
+          NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
+        }
         .keyboardShortcut("p")
+      }
+      // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
+      CommandGroup(replacing: .appVisibility) {
+        Button("Hide GP Editor") { NSApp.hide(nil) }
+        Button("Hide Others") { NSApp.hideOtherApplications(nil) }
+          .keyboardShortcut("h", modifiers: [.command, .option])
+        Button("Show All") { NSApp.unhideAllApplications(nil) }
+      }
+      CommandGroup(replacing: .help) {
+        Button("Keyboard Shortcuts") {
+          NotificationCenter.default.post(name: .GPEditorHelpCommand, object: nil)
+        }
+        .keyboardShortcut("h")
       }
     }
   }

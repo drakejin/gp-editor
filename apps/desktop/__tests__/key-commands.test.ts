@@ -42,29 +42,57 @@ describe('keyCommand', () => {
     expect(keyCommand(press('5'), digit, 10 + DIGIT_WINDOW_MS + 1)).toEqual({ type: 'setNoteFret', fret: 5 });
   });
 
-  it('maps playback, delete, fret steps and undo/redo', () => {
+  it('maps playback, the playback tempo, fret steps and undo/redo', () => {
     const digit = { current: undefined };
     expect(keyCommand(press(' '), digit, 0)).toEqual({ type: 'togglePlayback' });
     expect(keyCommand(press('Escape'), digit, 0)).toEqual({ type: 'stopPlayback' });
-    expect(keyCommand(press('Backspace'), digit, 0)).toEqual({ type: 'deleteNote' });
+    expect(keyCommand(press(']'), digit, 0)).toEqual({ type: 'shiftPlaybackTempo', delta: 5 });
+    expect(keyCommand(press('['), digit, 0)).toEqual({ type: 'shiftPlaybackTempo', delta: -5 });
     expect(keyCommand(press('='), digit, 0)).toEqual({ type: 'shiftNoteFret', delta: 1 });
     expect(keyCommand(press('z', { metaKey: true }), digit, 0)).toEqual({ type: 'undo' });
     expect(keyCommand(press('Z', { metaKey: true, shiftKey: true }), digit, 0)).toEqual({ type: 'redo' });
     expect(keyCommand(press('q'), digit, 0)).toBeUndefined();
   });
 
-  it('maps duration, effect and beat keys to cursor edits', () => {
+  it('erases with ⌫ and ⌦: a note becomes a rest, a rest goes away', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('Backspace'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'erase' } });
+    expect(keyCommand(press('Delete'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'erase' } });
+    expect(keyCommand(press('Backspace', { shiftKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteBeat' } });
+  });
+
+  it('maps the note keys: r ring, s slide, h hammer, p pull, m palm mute, x dead note', () => {
+    const digit = { current: undefined };
+    const edit = (key: string) => keyCommand(press(key), digit, 0);
+    expect(edit('r')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'letRing' } });
+    expect(edit('s')).toEqual({ type: 'edit', edit: { type: 'toggleSlide' } });
+    expect(edit('h')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
+    expect(edit('p')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
+    expect(edit('M')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
+    expect(edit('x')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'deadNote' } });
+  });
+
+  it('opens the vibrato panel with b and the bend (choking) panel with c', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('b'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'vibrato' });
+    expect(keyCommand(press('c'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'bend' });
+  });
+
+  it('keeps the other edit keys and moves the duration to ⌥[ and ⌥]', () => {
     const digit = { current: undefined };
     const edit = (key: string, modifiers = {}) => keyCommand(press(key, modifiers), digit, 0);
-    expect(edit('[')).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: -1 } });
-    expect(edit(']')).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: 1 } });
+    expect(edit('[', { altKey: true })).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: -1 } });
+    expect(edit(']', { altKey: true })).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: 1 } });
     expect(edit('.')).toEqual({ type: 'edit', edit: { type: 'toggleDot' } });
     expect(edit('/')).toEqual({ type: 'edit', edit: { type: 'toggleTriplet' } });
-    expect(edit('h')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
-    expect(edit('P')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
-    expect(edit('b')).toEqual({ type: 'edit', edit: { type: 'cycleBend' } });
     expect(edit('i')).toEqual({ type: 'edit', edit: { type: 'insertBeat' } });
-    expect(edit('Backspace', { shiftKey: true })).toEqual({ type: 'edit', edit: { type: 'deleteBeat' } });
     expect(edit('s', { metaKey: true })).toBeUndefined();
+  });
+
+  it('copies, cuts and pastes with ⌘C, ⌘X and ⌘V', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('c', { metaKey: true }), digit, 0)).toEqual({ type: 'copy' });
+    expect(keyCommand(press('x', { metaKey: true }), digit, 0)).toEqual({ type: 'cut' });
+    expect(keyCommand(press('v', { metaKey: true }), digit, 0)).toEqual({ type: 'paste' });
   });
 });

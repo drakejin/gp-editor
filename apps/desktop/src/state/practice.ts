@@ -1,3 +1,4 @@
+import type { Song } from '@gp-editor/core';
 import { MAX_TRAINER_STEP, resolveTrainerMaxTempo, shiftTempoScale, tempoScaleFor } from '../lib/practice-tempo';
 
 /** Bars a loop plays, first and last included (0-based, from ≤ to). */
@@ -117,3 +118,13 @@ export function practiceReducer(settings: PracticeSettings, action: PracticeActi
   const next = applyPracticeAction(settings, action);
   return isSamePractice(settings, next) ? settings : next;
 }
+
+/** Written tempo of the bar playback starts from: the loop's first bar while looping, else the cursor's bar. */
+export function playbackStartTempo(song: Song, settings: PracticeSettings, cursorMeasureIndex: number): number {
+  const measureCount = song.measureHeaders.length;
+  const startIndex = settings.isLooping ? resolveLoopRange(settings.loop, measureCount, cursorMeasureIndex).fromMeasureIndex : cursorMeasureIndex;
+  return song.measureHeaders[startIndex]?.tempo ?? song.measureHeaders[0]?.tempo ?? DEFAULT_START_TEMPO;
+}
+
+/** Tempo assumed for a song without bars. */
+const DEFAULT_START_TEMPO = 120;

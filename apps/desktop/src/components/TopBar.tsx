@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { type GestureResponderEvent, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { LcdInfo } from '../lib/lcd';
 import type { AppCommand } from '../state/app-command';
 import type { PanelId, PanelVisibility } from '../state/panels';
@@ -9,7 +9,7 @@ import { PanelIcon } from './chrome/PanelIcon';
 import { Lcd } from './Lcd';
 
 /** Menus that open under a top-bar button. */
-export type ChromeMenuId = 'new' | 'zoom' | 'speed';
+export type ChromeMenuId = 'zoom' | 'speed';
 
 export const TOP_BAR_HEIGHT = 46;
 
@@ -31,20 +31,21 @@ export interface TopBarProps {
   /** Opens a menu under the pointer (`x` in window points). */
   readonly onOpenMenu: (menu: ChromeMenuId, x: number) => void;
   readonly onToggleLoop: () => void;
+  /** Help ▸ Keyboard Shortcuts (⌘H). */
+  readonly onShowShortcuts: () => void;
   readonly onCommand: (command: AppCommand) => void;
 }
 
 /**
- * Guitar Pro 8's top bar: files, panel toggles, zoom and undo on the left; the transport and the LCD in the middle;
- * loop, playback speed and the fretboard toggle on the right.
+ * Guitar Pro 8's top bar: panel toggles, zoom and undo on the left; the transport and the LCD in the middle; loop,
+ * playback speed, the fretboard toggle and the shortcut sheet on the right. Files (New, Open, Save, Import PDF,
+ * Export PDF, Print) live in the macOS menu bar's File menu.
  */
 function TopBarView(props: TopBarProps) {
   const { palette, panels } = props;
   return (
     <View style={[styles.bar, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}>
       <View style={styles.side}>
-        <FileButtons {...props} />
-        <Divider palette={palette} />
         {(['palette', 'tracks', 'inspector'] as const).map((panel) => (
           <ChromeButton
             key={panel}
@@ -94,26 +95,9 @@ function TopBarView(props: TopBarProps) {
           tooltip="Show or hide the fretboard"
           onPress={() => props.onTogglePanel('neck')}
         />
+        <ChromeButton palette={palette} label="?" fontSize={14} tooltip="Keyboard shortcuts (⌘H)" onPress={props.onShowShortcuts} />
       </View>
     </View>
-  );
-}
-
-function FileButtons({ palette, hasDocument, isEdited, onCommand, onOpenMenu }: TopBarProps) {
-  return (
-    <>
-      <ChromeButton palette={palette} label="New ▾" tooltip="New sheet (⌘N)" onPress={(event: GestureResponderEvent) => onOpenMenu('new', event.nativeEvent.pageX)} />
-      <ChromeButton palette={palette} label="Open" tooltip="Open a Guitar Pro file (⌘O)" onPress={() => onCommand({ type: 'openFile' })} />
-      <ChromeButton
-        palette={palette}
-        label={isEdited ? 'Save •' : 'Save'}
-        tooltip="Save as Guitar Pro 5 (⌘S)"
-        isEnabled={hasDocument}
-        onPress={() => onCommand({ type: 'saveFile' })}
-      />
-      <ChromeButton palette={palette} label="Import PDF" tooltip="Import a PDF as tab, with Claude (⇧⌘I)" onPress={() => onCommand({ type: 'importPdf' })} />
-      <ChromeButton palette={palette} label="Export" tooltip="Export a PDF (⌘P)" isEnabled={hasDocument} onPress={() => onCommand({ type: 'exportPdf' })} />
-    </>
   );
 }
 

@@ -1,11 +1,12 @@
 import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 import type { DragEvent, KeyEvent, View } from 'react-native';
 import type { DigitEntry } from '../lib/fret-input';
-import { type KeyCommand, keyCommand } from '../lib/key-commands';
+import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
 import { focusView } from '../native/focus-view';
 import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
+import { playbackStartTempo } from '../state/practice';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
 
@@ -29,13 +30,17 @@ interface EditorCommandSources {
   readonly save: (saveAs: boolean) => void;
   /** ⌘- / ⌘=: one zoom level down or up. */
   readonly onZoom: (direction: 1 | -1) => void;
+  /** B / C: the vibrato or bend panel for the note at the cursor. */
+  readonly onNotePanel: (panel: NotePanel) => void;
+  /** ⌘C / ⌘X / ⌘V on the score. */
+  readonly clipboard: { readonly copy: () => void; readonly cut: () => void; readonly paste: () => void };
   /** The view that receives keyboard events; focused again after clicks on the score. */
   readonly keyboardView: RefObject<View | null>;
 }
 
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
-  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, keyboardView } = sources;
+  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, clipboard, keyboardView } = sources;
   const { cursor, trackIndex, mode } = sources.state;
   const lastDigit = useRef<DigitEntry | undefined>(undefined);
   const { isPlaying, start, stop } = playback;
@@ -53,6 +58,18 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     [cursor?.measureIndex, cursor?.voiceIndex, cursor?.string, measureCount, trackIndex, isPlaying, start, dispatch],
   );
 
+  const song = sources.state.document?.song;
+  const { practice, changePractice } = playback;
+  // ] / [ : the playback tempo of the bar playback starts from, 5 BPM a press (the song is not edited).
+  const shiftPlaybackTempo = useCallback(
+    (delta: number) => {
+      if (song !== undefined) {
+        changePractice({ type: 'shiftTempo', delta, writtenTempo: playbackStartTempo(song, practice, cursor?.measureIndex ?? 0) });
+      }
+    },
+    [song, practice, changePractice, cursor?.measureIndex],
+  );
+
   const runCommand = useCallback(
     (command: AppCommand | KeyCommand) => {
       if (command.type === 'newFile') {
@@ -61,6 +78,12 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         goToBar(command.jump);
       } else if (command.type === 'zoom') {
         onZoom(command.direction);
+      } else if (command.type === 'openNotePanel') {
+        onNotePanel(command.panel);
+      } else if (command.type === 'shiftPlaybackTempo') {
+        shiftPlaybackTempo(command.delta);
+      } else if (command.type === 'copy' || command.type === 'cut' || command.type === 'paste') {
+        clipboard[command.type]();
       } else if (command.type === 'openFile') {
         openDialog();
       } else if (command.type === 'importPdf') {
@@ -81,7 +104,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
   );
 
   const onPressBeat = useCallback(

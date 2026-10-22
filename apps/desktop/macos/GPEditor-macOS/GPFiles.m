@@ -1,5 +1,6 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
-// the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Open…, Save, Save As…).
+// the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
+// As…) and Help ▸ Keyboard Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 
 #import <AppKit/AppKit.h>
@@ -13,6 +14,8 @@
 static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
 static NSString *const kExportRequestedEvent = @"exportRequested";
+static NSString *const kPrintRequestedEvent = @"printRequested";
+static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
@@ -58,6 +61,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
     [center addObserver:self selector:@selector(onImportPdfCommand:) name:GPEditorImportPdfCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportCommand:) name:GPEditorExportCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
@@ -72,7 +77,7 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[ kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
+  return @[ kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
 }
 
 - (void)startObserving
@@ -106,6 +111,20 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportRequestedEvent body:@{}];
+  }
+}
+
+- (void)onPrintCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kPrintRequestedEvent body:@{}];
+  }
+}
+
+- (void)onHelpCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kHelpRequestedEvent body:@{}];
   }
 }
 
