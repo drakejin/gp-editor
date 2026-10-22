@@ -1,0 +1,107 @@
+import { type MidiOptions, type Song, type TimelineEntry, timelineIndexAt } from '@gp-editor/core';
+import { type LoopRange, type PracticeSettings, resolveLoopRange } from '../state/practice';
+import { resolveTrainerMaxTempo, trainerPassTempo } from './practice-tempo';
+
+/** Passes of a loop rendered at once; when they end the next ones are rendered (a tiny gap there). */
+export const LOOP_BATCH_PASSES = 8;
+/** A long loop renders fewer passes at once, so one render stays near this many bars. */
+export const LOOP_BATCH_MEASURES = 256;
+
+/** Where to start playing: a bar (when looping, one inside the loop) and the loop pass the render begins with. */
+export interface PlayRequest {
+  /** Default: bar 1, or the loop's first bar. A bar outside the loop starts the loop at its first bar. */
+  readonly measureIndex?: number;
+  /** 0-based pass of the loop the render starts with (later batches of an endless loop). Default 0. */
+  readonly firstPassIndex?: number;
+}
+
+export interface LoopBatch {
+  readonly range: LoopRange;
+  readonly firstPassIndex: number;
+  /** Tempo of each pass of this render, in BPM at the loop's first bar. */
+  readonly passTempos: readonly number[];
+}
+
+/** One render to play: the renderMidi options, the bar the player starts at, and the loop batch it holds. */
+export interface PlaybackPlan {
+  readonly options: MidiOptions;
+  readonly startMeasureIndex: number;
+  readonly loop?: LoopBatch;
+}
+
+/** The loop pass being played and its tempo (BPM at the loop's first bar). */
+export interface LoopPass {
+  readonly passIndex: number;
+  readonly tempo: number;
+}
+
+/** Passes rendered at once for a loop: 8, fewer for a long loop, at least one. */
+export function passesPerBatch(range: LoopRange): number {
+  const length = range.toMeasureIndex - range.fromMeasureIndex + 1;
+  return Math.max(1, Math.min(LOOP_BATCH_PASSES, Math.floor(LOOP_BATCH_MEASURES / length)));
+}
+
+/** A batch of loop passes; undefined when the loop's first bar is missing (a song without bars). */
+function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan | undefined {
+  const range = resolveLoopRange(practice.loop, song.measureHeaders.length, request.measureIndex);
+  const writtenTempo = song.measureHeaders[range.fromMeasureIndex]?.tempo;
+  if (writtenTempo === undefined) {
+    return undefined;
+  }
+  const startTempo = writtenTempo * practice.tempoScale;
+  const maxTempo = resolveTrainerMaxTempo(practice.trainerMaxTempo, writtenTempo, practice.tempoScale);
+  const firstPassIndex = request.firstPassIndex ?? 0;
+  const passTempos = Array.from({ length: passesPerBatch(range) }, (_, offset) =>
+    trainerPassTempo(startTempo, practice.trainerStep, maxTempo, firstPassIndex + offset),
+  );
+  const { measureIndex } = request;
+  const isInside =
+    measureIndex !== undefined && measureIndex >= range.fromMeasureIndex && measureIndex <= range.toMeasureIndex;
+  return {
+    options: {
+      fromHeaderIndex: range.fromMeasureIndex,
+      toHeaderIndex: range.toMeasureIndex,
+      passTempoScales: passTempos.map((tempo) => tempo / writtenTempo),
+    },
+    startMeasureIndex: isInside ? measureIndex : range.fromMeasureIndex,
+    loop: { range, firstPassIndex, passTempos },
+  };
+}
+
+/** The song from a bar (clamped to the song) to its end, at the playback tempo. */
+function planSong(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan {
+  const lastIndex = Math.max(0, song.measureHeaders.length - 1);
+  const fromHeaderIndex = Math.min(lastIndex, Math.max(0, request.measureIndex ?? 0));
+  return { options: { fromHeaderIndex, passTempoScales: [practice.tempoScale] }, startMeasureIndex: fromHeaderIndex };
+}
+
+/** What to render: the song from a bar at the playback tempo, or a batch of loop passes (speed trainer applied). */
+export function planPlayback(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan {
+  const loop = practice.isLooping ? planLoop(song, practice, request) : undefined;
+  return loop ?? planSong(song, practice, request);
+}
+
+/** The request for the batch after `plan`'s: the loop goes on from its first bar, the pass count continuing. */
+export function nextLoopBatch(plan: PlaybackPlan): PlayRequest {
+  return { firstPassIndex: (plan.loop?.firstPassIndex ?? 0) + (plan.loop?.passTempos.length ?? 0) };
+}
+
+/** Seconds into the render where a bar first plays; 0 when it does not play. */
+export function startSeconds(timeline: readonly TimelineEntry[], measureIndex: number): number {
+  return timeline.find((entry) => entry.headerIndex === measureIndex)?.seconds ?? 0;
+}
+
+/** The loop pass playing at `seconds` of a loop render; undefined when not looping or outside the render. */
+export function loopPassAt(
+  plan: PlaybackPlan,
+  timeline: readonly TimelineEntry[],
+  seconds: number,
+): LoopPass | undefined {
+  const index = timelineIndexAt(timeline, seconds);
+  const passIndex = index === undefined ? undefined : timeline[index]?.passIndex ?? 0;
+  const tempo = passIndex === undefined ? undefined : plan.loop?.passTempos[passIndex];
+  if (plan.loop === undefined || passIndex === undefined || tempo === undefined) {
+    return undefined;
+  }
+  return { passIndex: plan.loop.firstPassIndex + passIndex, tempo: Math.round(tempo) };
+}

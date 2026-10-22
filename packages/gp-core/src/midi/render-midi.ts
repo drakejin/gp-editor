@@ -6,6 +6,7 @@ import { buildChannelRoutes } from './channel-routes';
 import { writeMidiFile } from './midi-file';
 import { toMidiMessages } from './midi-messages';
 import { buildPlaybackOrder, type PlayedMeasure } from './playback-order';
+import { buildPasses, buildRangeOrder } from './practice-loop';
 import { buildTimeline, secondsFromTicks, type TimelineEntry } from './timeline';
 
 export interface MidiOptions {
@@ -13,27 +14,67 @@ export interface MidiOptions {
   readonly trackIndexes?: readonly number[];
   /** Start playback at this measure header (0-based); earlier measures are skipped. Default 0. */
   readonly fromHeaderIndex?: number;
+  /**
+   * Last measure header to play (0-based, inclusive). When set, fromHeaderIndex…toHeaderIndex play straight through
+   * in written order: repeat signs and alternate endings inside the range are ignored (a practice loop). Default: play
+   * to the end of the song, repeats expanded.
+   */
+  readonly toHeaderIndex?: number;
+  /**
+   * One entry per pass: the played measures are played once per entry, one pass right after the other, with every
+   * tempo of the song multiplied by the pass's scale (so tempo changes keep their proportions). Each scale lies in
+   * 0.1…10; at most 64 passes. Default [1]: played once, as written.
+   */
+  readonly passTempoScales?: readonly number[];
 }
 
 export interface MidiRender {
   /** Standard MIDI File, format 1, 960 PPQ: a conductor track, then one track per song track. */
   readonly bytes: Uint8Array;
-  /** One entry per played measure, in playback order (repeats expanded). */
+  /** One entry per played measure, in playback order (repeats expanded), pass after pass. */
   readonly timeline: readonly TimelineEntry[];
   readonly durationSeconds: number;
 }
+
+/** Bounds of a pass's tempo scale: a tenth to ten times the written speed. */
+const MIN_TEMPO_SCALE = 0.1;
+const MAX_TEMPO_SCALE = 10;
+/** Most passes one render holds (a caller looping for longer renders the next passes when these end). */
+const MAX_PASSES = 64;
+const SINGLE_PASS: readonly number[] = [1];
 
 function isIndex(value: number, length: number): boolean {
   return Number.isInteger(value) && value >= 0 && value < length;
 }
 
-function validateOptions(song: Song, options: MidiOptions): void {
+function validateRange(song: Song, options: MidiOptions): void {
   const fromHeaderIndex = options.fromHeaderIndex ?? 0;
+  const last = song.measureHeaders.length - 1;
   if (fromHeaderIndex !== 0 && !isIndex(fromHeaderIndex, song.measureHeaders.length)) {
+    throw new RangeError(`fromHeaderIndex ${fromHeaderIndex} is not a measure of this song (0…${last})`);
+  }
+  const { toHeaderIndex } = options;
+  const isRange = toHeaderIndex === undefined || (isIndex(toHeaderIndex, last + 1) && toHeaderIndex >= fromHeaderIndex);
+  if (!isRange) {
+    throw new RangeError(`toHeaderIndex ${toHeaderIndex} is not a measure of this song (${fromHeaderIndex}…${last})`);
+  }
+}
+
+function validatePasses(passTempoScales: readonly number[]): void {
+  if (passTempoScales.length === 0 || passTempoScales.length > MAX_PASSES) {
+    throw new RangeError(`passTempoScales has ${passTempoScales.length} passes (1…${MAX_PASSES})`);
+  }
+  const invalid = passTempoScales.find((scale) => !(scale >= MIN_TEMPO_SCALE && scale <= MAX_TEMPO_SCALE));
+  if (invalid !== undefined) {
     throw new RangeError(
-      `fromHeaderIndex ${fromHeaderIndex} is not a measure of this song (0…${song.measureHeaders.length - 1})`,
+      `passTempoScales contains ${invalid}, not a tempo scale (${MIN_TEMPO_SCALE}…${MAX_TEMPO_SCALE})`,
     );
   }
+}
+
+function validateOptions(song: Song, options: MidiOptions): void {
+  validateRange(song, options);
+  validatePasses(options.passTempoScales ?? SINGLE_PASS);
   const invalid = options.trackIndexes?.find((index) => !isIndex(index, song.tracks.length));
   if (invalid !== undefined) {
     throw new RangeError(`trackIndexes contains ${invalid}, not a track of this song (0…${song.tracks.length - 1})`);
@@ -56,12 +97,24 @@ function playbackOrigin(song: Song, played: readonly PlayedMeasure[], fromHeader
   return (header?.start ?? QUARTER_TIME) + (first?.move ?? 0);
 }
 
+/** The measures to play once per pass: a range in written order, or the song from a measure with its repeats. */
+function resolvePlaybackOrder(
+  song: Song,
+  fromHeaderIndex: number,
+  toHeaderIndex: number | undefined,
+): readonly PlayedMeasure[] {
+  return toHeaderIndex === undefined
+    ? buildPlaybackOrder(song.measureHeaders, fromHeaderIndex)
+    : buildRangeOrder(fromHeaderIndex, toHeaderIndex);
+}
+
 /** Turns a song into a MIDI file and a timeline mapping playback time back to measures. */
 export function renderMidi(song: Song, options: MidiOptions = {}): MidiRender {
   validateOptions(song, options);
   const fromHeaderIndex = options.fromHeaderIndex ?? 0;
   const playedTracks = resolvePlayedTracks(song, options.trackIndexes);
-  const played = buildPlaybackOrder(song.measureHeaders, fromHeaderIndex);
+  const order = resolvePlaybackOrder(song, fromHeaderIndex, options.toHeaderIndex);
+  const played = buildPasses(song.measureHeaders, order, options.passTempoScales ?? SINGLE_PASS);
   const origin = playbackOrigin(song, played, fromHeaderIndex);
   const routes = buildChannelRoutes(song.channels);
   const conductor = buildConductorEvents(song, played, origin);

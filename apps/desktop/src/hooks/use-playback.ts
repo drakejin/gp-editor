@@ -1,111 +1,73 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { type Song, type TimelineEntry, positionAt, renderMidi } from '@gp-editor/core';
-import { bytesToBase64 } from '../lib/base64';
-import { playingBeatAt, samePlayingBeat } from '../lib/playing-beat';
-import { playMidi, playerPosition, stopMidi } from '../native/player';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Song } from '@gp-editor/core';
+import type { LoopPass } from '../lib/practice-plan';
 import type { PlayingBeat } from '../score/row';
-
-/** How often the player position is read while playing. */
-const POLL_INTERVAL_MS = 40;
-
-function clearTimer(timer: { current: ReturnType<typeof setInterval> | undefined }): void {
-  if (timer.current !== undefined) {
-    clearInterval(timer.current);
-    timer.current = undefined;
-  }
-}
+import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, practiceReducer } from '../state/practice';
+import {
+  type Follow,
+  type PlaybackState,
+  type PlayerSession,
+  launchPlayer,
+  releasePlayer,
+  resumePlayer,
+  stopPlayer,
+} from './player-session';
 
 export interface Playback {
   readonly isPlaying: boolean;
   /** Beat of the shown track that is sounding now. */
   readonly playing?: PlayingBeat;
+  /** While a loop plays: the pass being played and its tempo. */
+  readonly loopPass?: LoopPass;
   readonly error?: string;
+  /** Playback tempo, loop and speed trainer of this session (never saved to the file). */
+  readonly practice: PracticeSettings;
+  /** Plays from a bar; when looping, plays the loop from its first bar until stopped. */
   readonly start: (fromMeasureIndex: number) => void;
   readonly stop: () => void;
   readonly dismissError: () => void;
+  /** Changes the practice settings; while playing, playback restarts at the current bar with them. */
+  readonly changePractice: (action: PracticeAction) => void;
 }
 
-interface PlaybackState {
-  readonly isPlaying: boolean;
-  readonly playing?: PlayingBeat;
-  readonly error?: string;
-}
-
-/** Plays the whole song (all tracks, honouring mute/solo) from a measure and follows it on the given track. */
+/**
+ * Plays the whole song (all tracks, honouring mute/solo) from a measure, or the practice loop pass after pass, at the
+ * practice tempo, and follows it on the given track.
+ */
 export function usePlayback(song: Song | undefined, trackIndex: number): Playback {
   const [state, setState] = useState<PlaybackState>({ isPlaying: false });
+  const [practice, setPractice] = useState<PracticeSettings>(INITIAL_PRACTICE);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  // Every start/stop bumps this; a play() that resolves for an older generation is ignored.
   const generation = useRef(0);
-  const follow = useRef({ song, trackIndex, timeline: [] as readonly TimelineEntry[] });
-  follow.current = { ...follow.current, song, trackIndex };
+  const follow = useRef<Follow>({ song, trackIndex, practice, timeline: [], measureIndex: 0 });
+  follow.current = { ...follow.current, song, trackIndex, practice };
+  const session = useMemo<PlayerSession>(() => ({ timer, generation, follow, setState }), []);
 
-  const stop = useCallback(() => {
-    generation.current += 1;
-    clearTimer(timer);
-    void stopMidi();
-    setState({ isPlaying: false });
-  }, []);
-
-  const poll = useCallback(async () => {
-    const position = await playerPosition();
-    const { song: current, trackIndex: shownTrack, timeline } = follow.current;
-    if (!position.isPlaying || current === undefined) {
-      stop();
-      return;
-    }
-    const at = positionAt(timeline, position.seconds);
-    const playing = at === undefined ? undefined : playingBeatAt(current, shownTrack, at);
-    setState((previous) => (previous.isPlaying && samePlayingBeat(previous.playing, playing) ? previous : { isPlaying: true, playing }));
-  }, [stop]);
-
+  const stop = useCallback(() => stopPlayer(session), [session]);
   const start = useCallback(
-    (fromMeasureIndex: number) => {
-      const current = follow.current.song;
-      if (current === undefined) {
+    (fromMeasureIndex: number) =>
+      launchPlayer(session, follow.current.practice.isLooping ? {} : { measureIndex: fromMeasureIndex }),
+    [session],
+  );
+  const { isPlaying } = state;
+  const changePractice = useCallback(
+    (action: PracticeAction) => {
+      const previous = follow.current.practice;
+      const next = practiceReducer(previous, action);
+      if (next === previous) {
         return;
       }
-      generation.current += 1;
-      const startedGeneration = generation.current;
-      clearTimer(timer);
-      try {
-        const render = renderMidi(current, { fromHeaderIndex: fromMeasureIndex });
-        follow.current = { ...follow.current, timeline: render.timeline };
-        // Shown as playing at once, so a second Space press stops it even before the player has started.
-        setState({ isPlaying: true });
-        playMidi(bytesToBase64(render.bytes))
-          .then(() => {
-            if (generation.current === startedGeneration) {
-              clearTimer(timer);
-              timer.current = setInterval(() => void poll(), POLL_INTERVAL_MS);
-            }
-          })
-          .catch((error: unknown) => {
-            if (generation.current === startedGeneration) {
-              setState({ isPlaying: false, error: errorMessage(error) });
-            }
-          });
-      } catch (error: unknown) {
-        setState({ isPlaying: false, error: errorMessage(error) });
+      follow.current = { ...follow.current, practice: next };
+      setPractice(next);
+      if (isPlaying) {
+        resumePlayer(session);
       }
     },
-    [poll],
+    [session, isPlaying],
   );
-
   const dismissError = useCallback(() => setState((previous) => ({ ...previous, error: undefined })), []);
 
-  useEffect(
-    () => () => {
-      generation.current += 1;
-      clearTimer(timer);
-      void stopMidi();
-    },
-    [],
-  );
+  useEffect(() => () => releasePlayer(session), [session]);
 
-  return { ...state, start, stop, dismissError };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Playback failed';
+  return { ...state, practice, start, stop, dismissError, changePractice };
 }

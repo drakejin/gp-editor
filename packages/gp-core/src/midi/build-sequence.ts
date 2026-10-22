@@ -12,7 +12,7 @@ import {
 } from './midi-events';
 import { buildNoteEvents } from './note-events';
 import type { TrackContext } from './note-search';
-import type { PlayedMeasure } from './playback-order';
+import { type PlayedMeasure, playedTempo } from './playback-order';
 import { usqFromTempo } from './timeline';
 
 /** ADD_DEFAULT_CONTROLS: pitch-bend range of 12 semitones (RPN 0) on every channel. */
@@ -33,6 +33,12 @@ function headerOf(headers: readonly MeasureHeader[], played: PlayedMeasure | und
   return played === undefined ? undefined : headers[played.headerIndex];
 }
 
+/** Microseconds per quarter note a played measure sounds at (its pass's tempo scale applied). */
+function playedUsq(headers: readonly MeasureHeader[], measure: PlayedMeasure | undefined): number | undefined {
+  const header = headerOf(headers, measure);
+  return header === undefined || measure === undefined ? undefined : usqFromTempo(playedTempo(header, measure));
+}
+
 /** addTimeSignature / addTempo: a meta event wherever a played measure changes them. */
 function measureChanges(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[]): SequenceEvent[] {
   return played.flatMap((measure, index): SequenceEvent[] => {
@@ -45,8 +51,8 @@ function measureChanges(headers: readonly MeasureHeader[], played: readonly Play
     const { numerator, denominator } = header.timeSignature;
     const isNewSignature =
       previous?.timeSignature.numerator !== numerator || previous.timeSignature.denominator !== denominator;
-    const usq = usqFromTempo(header.tempo);
-    const isNewTempo = previous === undefined || usqFromTempo(previous.tempo) !== usq;
+    const usq = usqFromTempo(playedTempo(header, measure));
+    const isNewTempo = playedUsq(headers, played[index - 1]) !== usq;
     return [
       ...(isNewSignature ? [{ type: 'timeSignature' as const, tick, numerator, denominator }] : []),
       ...(isNewTempo ? [{ type: 'tempo' as const, tick, usq }] : []),
@@ -92,6 +98,7 @@ function measureEvents(context: TrackContext, playedIndex: number): SequenceEven
   if (played === undefined || header === undefined || beats === undefined) {
     return [];
   }
+  const tempo = playedTempo(header, played);
   return beats.flatMap((beat, beatIndex) => {
     const strokes = strokeOffsets(beat, context.track.strings.length);
     return beat.voices.flatMap((voice, voiceIndex) => {
@@ -99,7 +106,7 @@ function measureEvents(context: TrackContext, playedIndex: number): SequenceEven
       return voice.notes
         .filter((note) => !note.isTied)
         .flatMap((note) => {
-          const placed = { note, voice, beat, header, move: played.move, playedIndex, beatIndex, voiceIndex };
+          const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
           return buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0);
         });
     });

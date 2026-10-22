@@ -86,7 +86,7 @@ function scanBeat(placed: PlacedNote, next: PlayedBeat, voice: Voice, scan: TieS
 
 /** getRealNoteDuration: `duration` (the beat's, after triplet feel) extended by ties and let ring, then shortened. */
 export function realNoteDuration(context: TrackContext, placed: PlacedNote, duration: number): number {
-  const tempo = placed.header.tempo;
+  const { tempo } = placed;
   let scan: TieScan = {
     duration,
     lastEnd: placed.beat.start + durationTicks(placed.voice.duration) + placed.move,

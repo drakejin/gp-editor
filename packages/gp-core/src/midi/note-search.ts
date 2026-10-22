@@ -18,6 +18,8 @@ export interface PlacedNote {
   readonly voice: Voice;
   readonly beat: Beat;
   readonly header: MeasureHeader;
+  /** Quarter notes per minute the measure sounds at (playedTempo: the header's tempo times the pass's scale). */
+  readonly tempo: number;
   /** Repeat move of the played measure. */
   readonly move: number;
   readonly playedIndex: number;
