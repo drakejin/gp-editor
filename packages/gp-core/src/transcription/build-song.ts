@@ -16,7 +16,7 @@ export interface TranscriptionOptions {
 export interface TranscribedSong {
   readonly song: Song;
   /** For the user: the pages' warnings ("Page 2: …") then what the build changed or left out ("Bar 12: …"). */
-  readonly warnings: string[];
+  readonly warnings: readonly string[];
 }
 
 /** The first non-empty value of a song field across the pages. */

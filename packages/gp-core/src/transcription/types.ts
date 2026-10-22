@@ -16,7 +16,19 @@ export const MAX_TRANSCRIBED_PARTS = MAX_TRANSCRIBED_TRACKS * 2;
 export const MAX_TRANSCRIBED_BEATS = 128;
 export const MAX_TRANSCRIBED_NOTES = 12;
 
-export type TranscribedInstrument = 'guitar' | 'bass';
+/** Ranges of the contract: the tool's JSON schema states them and parseTranscriptionPage clamps to them. */
+export const MIN_TRANSCRIBED_TEMPO = 10;
+export const MAX_TRANSCRIBED_TEMPO = 400;
+export const MAX_TRANSCRIBED_KEY_ACCIDENTALS = 7;
+export const MAX_TRANSCRIBED_REPEAT_PLAYS = 16;
+export const MAX_TRANSCRIBED_ALTERNATE_ENDING = 8;
+export const MAX_TRANSCRIBED_DOTS = 2;
+export const MAX_TRANSCRIBED_CAPO = 24;
+export const MAX_TRANSCRIBED_NUMERATOR = 32;
+export const TRANSCRIBED_DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32];
+
+export const TRANSCRIBED_INSTRUMENTS = ['guitar', 'bass'] as const;
+export type TranscribedInstrument = (typeof TRANSCRIBED_INSTRUMENTS)[number];
 
 export type TranscribedDuration = 'whole' | 'half' | 'quarter' | 'eighth' | '16th' | '32nd' | '64th';
 

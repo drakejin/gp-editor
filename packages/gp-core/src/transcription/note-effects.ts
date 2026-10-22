@@ -21,6 +21,8 @@ const EFFECT_CHANGES: Readonly<Record<TranscribedEffect, Partial<NoteEffect>>> =
   harmonic: { harmonic: { type: 'natural', data: 0 } },
 };
 
+export const TRANSCRIBED_EFFECTS = Object.keys(EFFECT_CHANGES) as readonly TranscribedEffect[];
+
 export function isTranscribedEffect(name: unknown): name is TranscribedEffect {
   return typeof name === 'string' && lookupName(EFFECT_CHANGES, name) !== undefined;
 }

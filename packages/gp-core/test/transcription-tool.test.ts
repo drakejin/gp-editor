@@ -1,0 +1,53 @@
+import { describe, expect, it } from 'vitest';
+import { MAX_FRET } from '../src/edit/edit-song';
+import { TRANSCRIBED_DURATIONS } from '../src/transcription/durations';
+import { TRANSCRIBED_EFFECTS } from '../src/transcription/note-effects';
+import { parseTranscriptionPage } from '../src/transcription/parse-page';
+import { TRANSCRIPTION_TOOL } from '../src/transcription/tool';
+import { TRANSCRIBED_INSTRUMENTS } from '../src/transcription/types';
+import { MAX_STRINGS } from '../src/write/gtp-song';
+
+const schema = TRANSCRIPTION_TOOL.input_schema.properties;
+const measureSchema = schema.measures.items.properties;
+const beatSchema = measureSchema.parts.items.properties.beats.items.properties;
+const noteSchema = beatSchema.notes.items.properties;
+
+function parsedMeasure(measure: Record<string, unknown>) {
+  return parseTranscriptionPage({ measures: [{ ...measure, parts: [] }] }).measures[0];
+}
+
+describe('TRANSCRIPTION_TOOL: the schema states what the parser accepts', () => {
+  it('lists the durations, effects and instruments the parser knows', () => {
+    expect(beatSchema.duration.enum).toEqual(TRANSCRIBED_DURATIONS);
+    expect(noteSchema.effects.items.enum).toEqual(TRANSCRIBED_EFFECTS);
+    expect(schema.tracks.items.properties.instrument.enum).toEqual(TRANSCRIBED_INSTRUMENTS);
+  });
+
+  it('allows the strings and frets a song can hold', () => {
+    expect(noteSchema.string.maximum).toBe(MAX_STRINGS);
+    expect(noteSchema.fret.maximum).toBe(MAX_FRET);
+  });
+
+  it('has the tempo range the parser clamps to', () => {
+    // Arrange
+    const { minimum, maximum } = measureSchema.tempo;
+
+    // Act
+    const atMaximum = parsedMeasure({ tempo: maximum });
+    const above = parsedMeasure({ tempo: maximum + 1 });
+    const atMinimum = parsedMeasure({ tempo: minimum });
+
+    // Assert
+    expect(atMaximum?.tempo).toBe(maximum);
+    expect(above?.tempo).toBe(maximum);
+    expect(atMinimum?.tempo).toBe(minimum);
+  });
+
+  it('has the time signature denominators the parser accepts', () => {
+    const { enum: denominators } = measureSchema.timeSignature.properties.denominator;
+    for (const denominator of denominators) {
+      expect(parsedMeasure({ timeSignature: { numerator: 4, denominator } })?.timeSignature).toEqual({ numerator: 4, denominator });
+    }
+    expect(() => parsedMeasure({ timeSignature: { numerator: 4, denominator: 3 } })).toThrow(/denominator/);
+  });
+});

@@ -1,7 +1,7 @@
 import { lookupName } from '../formats/gpif/xml';
 import { NORMAL_TUPLET } from '../model/defaults';
 import type { Duration, NoteValue, TimeSignature, Tuplet } from '../model/song';
-import type { TranscribedBeat, TranscribedDuration } from './types';
+import { MAX_TRANSCRIBED_NUMERATOR, TRANSCRIBED_DENOMINATORS, type TranscribedBeat, type TranscribedDuration } from './types';
 
 /** The note value of each duration name the transcription contract uses. */
 const NOTE_VALUE_BY_DURATION: Readonly<Record<TranscribedDuration, NoteValue>> = {
@@ -34,15 +34,15 @@ const TUPLET_TIMES: ReadonlyMap<number, number> = new Map([
   [12, 8],
 ]);
 
-/** Denominators a transcribed time signature may have. */
-const TIME_SIGNATURE_DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32];
-const MAX_NUMERATOR = 32;
 
 export function isTranscribedDuration(name: unknown): name is TranscribedDuration {
   return typeof name === 'string' && lookupName(NOTE_VALUE_BY_DURATION, name) !== undefined;
 }
 
 /** True for a tuplet size (notes in the tuplet) the import knows how to play. */
+/** The largest tuplet the import plays (12 notes in the time of 8). */
+export const MAX_TUPLET_SIZE = Math.max(...TUPLET_TIMES.keys());
+
 export function isTupletSize(size: number): boolean {
   return TUPLET_TIMES.has(size);
 }
@@ -66,5 +66,5 @@ export function toDuration(beat: TranscribedBeat): Duration {
 
 export function isTimeSignature(value: TimeSignature): boolean {
   const { numerator, denominator } = value;
-  return Number.isInteger(numerator) && numerator >= 1 && numerator <= MAX_NUMERATOR && TIME_SIGNATURE_DENOMINATORS.includes(denominator);
+  return Number.isInteger(numerator) && numerator >= 1 && numerator <= MAX_TRANSCRIBED_NUMERATOR && TRANSCRIBED_DENOMINATORS.includes(denominator);
 }

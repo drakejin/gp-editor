@@ -17,11 +17,18 @@ import {
 } from './parse-values';
 import { parsePitch } from './pitch';
 import {
+  MAX_TRANSCRIBED_ALTERNATE_ENDING,
   MAX_TRANSCRIBED_BEATS,
+  MAX_TRANSCRIBED_CAPO,
+  MAX_TRANSCRIBED_DOTS,
+  MAX_TRANSCRIBED_KEY_ACCIDENTALS,
   MAX_TRANSCRIBED_MEASURES,
   MAX_TRANSCRIBED_NOTES,
   MAX_TRANSCRIBED_PARTS,
+  MAX_TRANSCRIBED_REPEAT_PLAYS,
+  MAX_TRANSCRIBED_TEMPO,
   MAX_TRANSCRIBED_TRACKS,
+  MIN_TRANSCRIBED_TEMPO,
 } from './types';
 import type {
   TranscribedBeat,
@@ -36,17 +43,10 @@ import type {
 import { countOf } from './wording';
 
 /** The ranges of TRANSCRIPTION_TOOL's schema; values outside them are clamped. */
-const MIN_TEMPO = 10;
-const MAX_TEMPO = 400;
-const MAX_KEY_ACCIDENTALS = 7;
-const MAX_REPEAT_PLAYS = 16;
-const MAX_ALTERNATE_ENDING = 8;
-const MAX_DOTS = 2;
-const MAX_CAPO = 24;
 
 /** A tempo above zero, clamped to the schema's range; undefined for anything else. */
 function parseTempo(value: unknown): number | undefined {
-  return typeof value === 'number' && value > 0 ? toClampedInteger(value, MIN_TEMPO, MAX_TEMPO) : undefined;
+  return typeof value === 'number' && value > 0 ? toClampedInteger(value, MIN_TRANSCRIBED_TEMPO, MAX_TRANSCRIBED_TEMPO) : undefined;
 }
 
 function parseSongInfo(value: unknown): TranscribedSongInfo | undefined {
@@ -65,7 +65,7 @@ function parseTrack(value: unknown, path: string): TranscribedTrack {
     name: toText(track.name) ?? '',
     instrument: track.instrument === 'bass' ? 'bass' : 'guitar',
     tuning,
-    capo: toClampedInteger(track.capo, 0, MAX_CAPO) ?? 0,
+    capo: toClampedInteger(track.capo, 0, MAX_TRANSCRIBED_CAPO) ?? 0,
   };
 }
 
@@ -116,7 +116,7 @@ function parseBeat(value: unknown, path: string): TranscribedBeat {
   const notes = rest ? [] : readOptionalList(beat.notes, `${path}.notes`, MAX_TRANSCRIBED_NOTES).map((note, index) => parseNote(note, `${path}.notes[${index}]`));
   return withoutUndefined({
     duration,
-    dots: toPositive(toClampedInteger(beat.dots, 0, MAX_DOTS)),
+    dots: toPositive(toClampedInteger(beat.dots, 0, MAX_TRANSCRIBED_DOTS)),
     tuplet: typeof beat.tuplet === 'number' && isTupletSize(beat.tuplet) ? beat.tuplet : undefined,
     rest,
     notes: notes.length === 0 ? undefined : notes,
@@ -162,10 +162,10 @@ function parseMeasure(value: unknown, path: string, trackCount: number | undefin
   return withoutUndefined({
     timeSignature: parseTimeSignature(measure.timeSignature, `${path}.timeSignature`),
     tempo: parseTempo(measure.tempo),
-    keySignature: toClampedInteger(measure.keySignature, -MAX_KEY_ACCIDENTALS, MAX_KEY_ACCIDENTALS),
+    keySignature: toClampedInteger(measure.keySignature, -MAX_TRANSCRIBED_KEY_ACCIDENTALS, MAX_TRANSCRIBED_KEY_ACCIDENTALS),
     repeatOpen: toFlag(measure.repeatOpen),
-    repeatClose: toPositive(toClampedInteger(measure.repeatClose, 0, MAX_REPEAT_PLAYS)),
-    alternateEnding: toPositive(toClampedInteger(measure.alternateEnding, 0, MAX_ALTERNATE_ENDING)),
+    repeatClose: toPositive(toClampedInteger(measure.repeatClose, 0, MAX_TRANSCRIBED_REPEAT_PLAYS)),
+    alternateEnding: toPositive(toClampedInteger(measure.alternateEnding, 0, MAX_TRANSCRIBED_ALTERNATE_ENDING)),
     parts,
   });
 }

@@ -1,3 +1,4 @@
+// Text encoding for Guitar Pro 3–5 strings (not in TuxGuitar, which encodes with one configured charset).
 import { decodeUtf8Strict } from '../io/text';
 
 /**
