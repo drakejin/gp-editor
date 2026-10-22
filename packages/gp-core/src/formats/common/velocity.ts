@@ -1,8 +1,10 @@
 // Port of TuxGuitar TGVelocities (LGPL-2.1): Guitar Pro dynamics to MIDI velocity, for the gtp and gpif readers.
 
-const MIN_VELOCITY = 15;
-const VELOCITY_INCREMENT = 16;
-const MAX_VELOCITY = 127;
+/** TGVelocities.MIN_VELOCITY (ppp). */
+export const MIN_VELOCITY = 15;
+/** One dynamic step. */
+export const VELOCITY_INCREMENT = 16;
+export const MAX_VELOCITY = 127;
 /** TGVelocities.DEFAULT (forte, 95). */
 export const DEFAULT_VELOCITY = MIN_VELOCITY + VELOCITY_INCREMENT * 5;
 

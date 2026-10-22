@@ -1,6 +1,6 @@
 {
   "name": "@gp-editor/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Guitar Pro file readers (gp1–gp5, gpx, gp7/8) and a format-independent song model",
   "license": "LGPL-2.1-or-later",
@@ -8,7 +8,9 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "react-native": "src/index.ts",
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

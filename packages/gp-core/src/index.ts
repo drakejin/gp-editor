@@ -22,4 +22,5 @@ export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
 export { GpFormatError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
-export { MAX_FRET, type NoteAddress, deleteNote, findNote, setNoteFret, setNoteString } from './edit/edit-song';
+export { MAX_FRET, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString } from './edit/edit-song';
+export { type MidiOptions, type MidiRender, type ScorePosition, type TimelineEntry, positionAt, renderMidi } from './midi/index';
