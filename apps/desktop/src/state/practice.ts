@@ -1,4 +1,4 @@
-import { MAX_TRAINER_STEP, resolveTrainerMaxTempo, shiftTempoScale } from '../lib/practice-tempo';
+import { MAX_TRAINER_STEP, resolveTrainerMaxTempo, shiftTempoScale, tempoScaleFor } from '../lib/practice-tempo';
 
 /** Bars a loop plays, first and last included (0-based, from ≤ to). */
 export interface LoopRange {
@@ -31,6 +31,10 @@ export interface LoopScope {
 export type PracticeAction =
   | { readonly type: 'shiftTempo'; readonly delta: number; readonly writtenTempo: number }
   | { readonly type: 'resetTempo' }
+  /** A percentage of the written tempo (0.8 = 80%). */
+  | { readonly type: 'setTempoScale'; readonly scale: number; readonly writtenTempo: number }
+  /** A tempo in BPM for the bar written at `writtenTempo`. */
+  | { readonly type: 'setTempo'; readonly tempo: number; readonly writtenTempo: number }
   | ({ readonly type: 'toggleLoop' } & LoopScope)
   | ({ readonly type: 'setLoopFrom'; readonly measureIndex: number } & LoopScope)
   | ({ readonly type: 'setLoopTo'; readonly measureIndex: number } & LoopScope)
@@ -73,6 +77,10 @@ function applyPracticeAction(settings: PracticeSettings, action: PracticeAction)
       return { ...settings, tempoScale: shiftTempoScale(settings.tempoScale, action.writtenTempo, action.delta) };
     case 'resetTempo':
       return { ...settings, tempoScale: 1 };
+    case 'setTempoScale':
+      return { ...settings, tempoScale: tempoScaleFor(action.writtenTempo * action.scale, action.writtenTempo) };
+    case 'setTempo':
+      return { ...settings, tempoScale: tempoScaleFor(action.tempo, action.writtenTempo) };
     case 'toggleLoop':
       return {
         ...settings,

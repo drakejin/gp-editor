@@ -72,6 +72,28 @@ const DARK: Palette = {
   ...CHROME,
 };
 
+/**
+ * The palette for components built for the light surfaces (BarButton, NeckSettings, SoundBankGroup …) when they sit
+ * on the dark chrome: their background, text, border and selection colours become the chrome's.
+ */
+export function onChrome(palette: Palette): Palette {
+  return {
+    ...palette,
+    background: palette.chrome,
+    sidebar: palette.chrome,
+    paper: palette.chrome,
+    text: palette.chromeText,
+    muted: palette.chromeMuted,
+    border: palette.chromeRaised,
+    selection: palette.chromeAccent,
+    accent: CHROME_HIGHLIGHT,
+    accentText: palette.chromeAccentText,
+  };
+}
+
+/** Accent text on the chrome: a light blue that reads on the dark grey. */
+const CHROME_HIGHLIGHT = '#8DBBFF';
+
 export function usePalette(): Palette {
   return useColorScheme() === 'dark' ? DARK : LIGHT;
 }

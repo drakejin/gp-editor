@@ -1,10 +1,16 @@
 import type { HandledKeyEvent } from 'react-native';
+import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
 import { type DigitEntry, nextFretEntry } from './fret-input';
 
-/** What a key press does: an editor action, or a playback control. */
-export type KeyCommand = EditorAction | { readonly type: 'togglePlayback' } | { readonly type: 'stopPlayback' };
+/** What a key press does: an editor action, a playback control, a jump to another bar, or a zoom step. */
+export type KeyCommand =
+  | EditorAction
+  | { readonly type: 'togglePlayback' }
+  | { readonly type: 'stopPlayback' }
+  | { readonly type: 'goToBar'; readonly jump: BarJump }
+  | { readonly type: 'zoom'; readonly direction: 1 | -1 };
 
 export interface KeyPress {
   readonly key: string;
@@ -26,8 +32,14 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'ArrowDown', altKey: true },
   { key: 'ArrowLeft' },
   { key: 'ArrowRight' },
+  { key: 'ArrowLeft', altKey: true },
+  { key: 'ArrowRight', altKey: true },
+  { key: 'Home' },
+  { key: 'End' },
   { key: '-' },
   { key: '=' },
+  { key: '-', metaKey: true },
+  { key: '=', metaKey: true },
   { key: ' ' },
   { key: 'Escape' },
   { key: 'z', metaKey: true },
@@ -67,16 +79,25 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
   '=': { type: 'shiftNoteFret', delta: 1 },
   ' ': { type: 'togglePlayback' },
   Escape: { type: 'stopPlayback' },
+  Home: { type: 'goToBar', jump: 'first' },
+  End: { type: 'goToBar', jump: 'last' },
 };
 
 /**
  * Guitar Pro style keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note,
  * digits type a fret (two quick digits make 10–29), [ ] . / change the duration, letters toggle effects,
- * I inserts a beat, ⇧⌫ deletes it, Space plays. `lastDigit` remembers the previous digit.
+ * I inserts a beat, ⇧⌫ deletes it, Space plays, ⌥←/→ Home End jump between bars, ⌘- ⌘= zoom. `lastDigit` remembers
+ * the previous digit.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
   if (press.metaKey && press.key.toLowerCase() === 'z') {
     return press.shiftKey ? { type: 'redo' } : { type: 'undo' };
+  }
+  if (press.metaKey && (press.key === '=' || press.key === '-')) {
+    return { type: 'zoom', direction: press.key === '=' ? 1 : -1 };
+  }
+  if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
+    return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };
   }
   if (press.shiftKey && press.key === 'Backspace') {
     return { type: 'edit', edit: { type: 'deleteBeat' } };

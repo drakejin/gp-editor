@@ -1,5 +1,5 @@
 import { memo, useDeferredValue, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { type Song, suggestTrackTunings } from '@gp-editor/core';
 import { neckTitle, tuningHint } from '../lib/tuning-hint';
 import type { Palette } from '../theme';
@@ -14,6 +14,7 @@ interface NeckSettingsProps {
   /** Open-string MIDI pitches, string 1 first. */
   readonly onSetTuning: (tuning: readonly number[]) => void;
   readonly onDismissNotice: () => void;
+  readonly style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -21,7 +22,7 @@ interface NeckSettingsProps {
  * note on the 24-fret neck; a click retunes and re-frets the tab), and — when the track is not on a preset that plays
  * it — why, with suggestions. Collapsed it takes one line, so the score keeps its room.
  */
-function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice }: NeckSettingsProps) {
+function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice, style }: NeckSettingsProps) {
   const track = song.tracks[trackIndex];
   // Only the shown track and the channels feed the advice, so edits to other tracks do not recompute it; it trails
   // edits (deferred) so typing on a long track is not held up by it.
@@ -34,7 +35,7 @@ function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDi
   }
   const hint = tuningHint(advice, track);
   return (
-    <View style={[styles.container, { backgroundColor: palette.sidebar }]}>
+    <View style={[styles.container, { backgroundColor: palette.sidebar }, style]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>{neckTitle(advice, track)}</Text>
         <BarButton label={isOpen ? 'Tunings ▴' : 'Tunings ▾'} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />

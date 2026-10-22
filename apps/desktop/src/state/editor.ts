@@ -27,6 +27,7 @@ import {
 import { retuneNotice } from '../lib/tuning-hint';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
+import { refusalHint } from './edit-hints';
 
 /** Undo depth kept in memory. */
 export const HISTORY_LIMIT = 200;
@@ -55,6 +56,8 @@ export interface EditorState {
   readonly error?: string;
   /** What the last retune could not keep (notes moved by octaves or left out); shown under the neck settings. */
   readonly notice?: string;
+  /** Why the last edit at the cursor changed nothing (e.g. a shorter time signature for a full bar). */
+  readonly hint?: string;
 }
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
@@ -108,6 +111,7 @@ export type EditorAction =
       readonly tuning: readonly number[];
     }
   | { readonly type: 'dismissNotice' }
+  | { readonly type: 'dismissHint' }
   | { readonly type: 'edit'; readonly edit: SongEdit }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
@@ -152,6 +156,8 @@ export function editorReducer(
       return { ...state, error: undefined };
     case 'dismissNotice':
       return { ...state, notice: undefined };
+    case 'dismissHint':
+      return state.hint === undefined ? state : { ...state, hint: undefined };
     case 'selectTrack':
       return selectTrack(state, action.trackIndex);
     case 'setMode':
@@ -362,9 +368,13 @@ function shiftNoteString(state: EditorState, delta: number): EditorState {
 /** A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions. */
 function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
   const edited = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  if (edited === state) {
+    const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(state.document.song, state.cursor, edit);
+    return hint === state.hint ? state : { ...state, hint };
+  }
   const song = edited.document?.song;
-  if (edited === state || song === undefined || edited.cursor === undefined) {
-    return edited;
+  if (song === undefined || edited.cursor === undefined) {
+    return { ...edited, hint: undefined };
   }
   const cursor = edited.cursor;
   const moved =
@@ -373,7 +383,7 @@ function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
       : edit.type === 'insertMeasure'
       ? { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 }
       : cursor;
-  return { ...edited, cursor: clampCursor(song, moved) };
+  return { ...edited, cursor: clampCursor(song, moved), hint: undefined };
 }
 
 /** Runs an edit at the cursor and records the previous song for undo. */

@@ -20,6 +20,23 @@ export function toScoreMode(value: unknown): ScoreMode {
   return SCORE_MODES.find((mode) => mode === value) ?? 'notationAndTab';
 }
 
+/** The two staves a view can show (Guitar Pro's notation toggles in the Track inspector). */
+export type Staff = 'standard' | 'tab';
+
+export function showsStaff(mode: ScoreMode, staff: Staff): boolean {
+  return staff === 'standard' ? mode !== 'tab' : mode !== 'notation';
+}
+
+/** The mode with one staff switched on or off; the last staff shown stays on. */
+export function toggleStaff(mode: ScoreMode, staff: Staff): ScoreMode {
+  const standard = staff === 'standard' ? !showsStaff(mode, 'standard') : showsStaff(mode, 'standard');
+  const tab = staff === 'tab' ? !showsStaff(mode, 'tab') : showsStaff(mode, 'tab');
+  if (standard && tab) {
+    return 'notationAndTab';
+  }
+  return standard ? 'notation' : tab ? 'tab' : mode;
+}
+
 /** Vertical bands of a score row, in points. */
 export const ROW = {
   /** Measure numbers, markers, tempo and alternate endings. */

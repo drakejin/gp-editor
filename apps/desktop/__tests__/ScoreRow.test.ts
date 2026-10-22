@@ -9,7 +9,7 @@ function rowProps(): ScoreRowProps {
   return {
     song, trackIndex: 0, row: { measures: [layoutMeasure(song, 0, 0)] }, width: 800, headerWidth: 40,
     mode: 'notationAndTab', geometry: rowGeometry('notationAndTab', 6), palette: PALETTE,
-    markLanes: ['palmMute'], onPress: () => undefined,
+    markLanes: ['palmMute'], zoom: 1, onPress: () => undefined,
   };
 }
 
@@ -23,6 +23,11 @@ describe('isSameRow', () => {
 
     // Assert
     expect(isSameRow(before, after)).toBe(true);
+  });
+
+  it('redraws a row when the zoom changes', () => {
+    const before = rowProps();
+    expect(isSameRow(before, { ...before, zoom: 1.25 })).toBe(false);
   });
 
   it('redraws a row when the mark lanes change', () => {

@@ -39,6 +39,26 @@ describe('practiceReducer playback tempo', () => {
   });
 });
 
+describe('practiceReducer chosen speed', () => {
+  it('sets a percentage of the written tempo (Guitar Pro’s 25%–100% menu)', () => {
+    expect(practiceReducer(INITIAL_PRACTICE, { type: 'setTempoScale', scale: 0.8, writtenTempo: 120 }).tempoScale).toBeCloseTo(0.8, 10);
+  });
+
+  it('sets a tempo in BPM as the scale of the written tempo', () => {
+    expect(practiceReducer(INITIAL_PRACTICE, { type: 'setTempo', tempo: 90, writtenTempo: 120 }).tempoScale).toBeCloseTo(0.75, 10);
+  });
+
+  it('keeps a chosen speed inside the playback bounds (25% and at least 20 BPM)', () => {
+    // Act
+    const tooSlow = practiceReducer(INITIAL_PRACTICE, { type: 'setTempoScale', scale: 0.1, writtenTempo: 60 });
+    const tooFast = practiceReducer(INITIAL_PRACTICE, { type: 'setTempo', tempo: 999, writtenTempo: 100 });
+
+    // Assert
+    expect(tooSlow.tempoScale).toBeCloseTo(20 / 60, 10);
+    expect(tooFast.tempoScale).toBe(3);
+  });
+});
+
 describe('practiceReducer loop', () => {
   it('loops the cursor bar the first time the loop is turned on', () => {
     // Act

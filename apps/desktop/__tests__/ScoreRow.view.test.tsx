@@ -11,18 +11,27 @@ import { PALETTE, textValues } from '../test-support/score-helpers';
 import { beat, header, makeSong, note, onStrings } from '../test-support/songs';
 
 /** The native canvas becomes a plain host element (`ScoreCanvas` below is that element), so its props can be read. */
-jest.mock('../src/native/score-canvas', () => ({ ScoreCanvas: 'MockScoreCanvas' }));
+jest.mock('../src/native/score-canvas', () => ({
+  ScoreCanvas: 'MockScoreCanvas',
+}));
 
 const ROW_WIDTH = 800;
 
 /** Bar 1: fret 3 on string 1, then fret 5 on string 2. Bars 2 and 3 hold one note each. */
 const SONG = makeSong([
-  [beat(header(1).start, [note(1, 3)]), beat(header(1).start + 960, [note(2, 5)])],
+  [
+    beat(header(1).start, [note(1, 3)]),
+    beat(header(1).start + 960, [note(2, 5)]),
+  ],
   [beat(header(2).start, [note(3, 7)])],
   [beat(header(3).start, [note(4, 9)])],
 ]);
 
-function rowProps(song: Song, mode: ScoreMode, onPress: (hit: RowHit) => void): ScoreRowProps {
+function rowProps(
+  song: Song,
+  mode: ScoreMode,
+  onPress: (hit: RowHit) => void,
+): ScoreRowProps {
   const track = song.tracks[0]!;
   return {
     song,
@@ -33,6 +42,7 @@ function rowProps(song: Song, mode: ScoreMode, onPress: (hit: RowHit) => void): 
     mode,
     geometry: rowGeometry(mode, track.strings.length),
     palette: PALETTE,
+    zoom: 1,
     onPress,
   };
 }
@@ -40,14 +50,21 @@ function rowProps(song: Song, mode: ScoreMode, onPress: (hit: RowHit) => void): 
 interface RenderedRow {
   readonly props: ScoreRowProps;
   readonly onPress: jest.Mock<void, [RowHit]>;
-  readonly canvas: () => { readonly commands: readonly DrawCommand[]; readonly style: unknown };
+  readonly canvas: () => {
+    readonly commands: readonly DrawCommand[];
+    readonly style: unknown;
+  };
   readonly pressAt: (x: number, y: number) => void;
   readonly update: (next: ScoreRowProps) => void;
 }
 
-function render(mode: ScoreMode = 'notationAndTab', song: Song = SONG): RenderedRow {
+function render(
+  mode: ScoreMode = 'notationAndTab',
+  song: Song = SONG,
+  zoom = 1,
+): RenderedRow {
   const onPress = jest.fn<void, [RowHit]>();
-  const props = rowProps(song, mode, onPress);
+  const props = { ...rowProps(song, mode, onPress), zoom };
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<ScoreRow {...props} />);
@@ -56,15 +73,28 @@ function render(mode: ScoreMode = 'notationAndTab', song: Song = SONG): Rendered
   return {
     props,
     onPress,
-    canvas: () => ({ commands: canvas().props.commands, style: canvas().props.style }),
-    pressAt: (x, y) => ReactTestRenderer.act(() => pressHandler(canvas())({ nativeEvent: { locationX: x, locationY: y } })),
-    update: (next) => ReactTestRenderer.act(() => renderer.update(<ScoreRow {...next} />)),
+    canvas: () => ({
+      commands: canvas().props.commands,
+      style: canvas().props.style,
+    }),
+    pressAt: (x, y) =>
+      ReactTestRenderer.act(() =>
+        pressHandler(canvas())({ nativeEvent: { locationX: x, locationY: y } }),
+      ),
+    update: next =>
+      ReactTestRenderer.act(() => renderer.update(<ScoreRow {...next} />)),
   };
 }
 
 /** The press handler a press on the canvas reaches: the nearest enclosing `onPress` (the row's Pressable). */
-function pressHandler(canvas: ReactTestRenderer.ReactTestInstance): (event: unknown) => void {
-  for (let node: ReactTestRenderer.ReactTestInstance | null = canvas; node !== null; node = node.parent) {
+function pressHandler(
+  canvas: ReactTestRenderer.ReactTestInstance,
+): (event: unknown) => void {
+  for (
+    let node: ReactTestRenderer.ReactTestInstance | null = canvas;
+    node !== null;
+    node = node.parent
+  ) {
     if (typeof node.props.onPress === 'function') {
       return node.props.onPress;
     }
@@ -73,11 +103,18 @@ function pressHandler(canvas: ReactTestRenderer.ReactTestInstance): (event: unkn
 }
 
 /** Centre of beat `beatIndex` of the row's first bar, on the tab line of `string`. */
-function tabPoint(props: ScoreRowProps, beatIndex: number, string: number): { readonly x: number; readonly y: number } {
+function tabPoint(
+  props: ScoreRowProps,
+  beatIndex: number,
+  string: number,
+): { readonly x: number; readonly y: number } {
   const [first] = placeRow(props.row, props.headerWidth);
   const beatX = first?.layout.beats[beatIndex]?.x ?? Number.NaN;
   const tabTop = props.geometry.tabTop ?? Number.NaN;
-  return { x: (first?.x ?? Number.NaN) + beatX, y: tabTop + (string - 1) * TAB.stringGap };
+  return {
+    x: (first?.x ?? Number.NaN) + beatX,
+    y: tabTop + (string - 1) * TAB.stringGap,
+  };
 }
 
 describe('ScoreRow drawing', () => {
@@ -90,7 +127,10 @@ describe('ScoreRow drawing', () => {
     expect(commands.length).toBeGreaterThan(0);
     expect(textValues(commands)).toEqual(expect.arrayContaining(['3', '5']));
     expect(textValues(commands)).not.toContain('7');
-    expect(style).toEqual({ width: ROW_WIDTH, height: row.props.geometry.height });
+    expect(style).toEqual({
+      width: ROW_WIDTH,
+      height: row.props.geometry.height,
+    });
   });
 
   it('draws nothing for a track the song does not have', () => {
@@ -104,7 +144,19 @@ describe('ScoreRow drawing', () => {
     const row = render();
     const before = row.canvas().commands;
     const track = SONG.tracks[0]!;
-    const edited: Song = { ...SONG, tracks: [{ ...track, measures: [track.measures[0]!, track.measures[1]!, { ...track.measures[2]!, beats: [] }] }] };
+    const edited: Song = {
+      ...SONG,
+      tracks: [
+        {
+          ...track,
+          measures: [
+            track.measures[0]!,
+            track.measures[1]!,
+            { ...track.measures[2]!, beats: [] },
+          ],
+        },
+      ],
+    };
 
     // Act
     row.update({ ...row.props, song: edited });
@@ -119,7 +171,10 @@ describe('ScoreRow drawing', () => {
     const before = row.canvas().commands;
 
     // Act: drop D
-    row.update({ ...row.props, song: onStrings(SONG, [64, 59, 55, 50, 45, 38]) });
+    row.update({
+      ...row.props,
+      song: onStrings(SONG, [64, 59, 55, 50, 45, 38]),
+    });
 
     // Assert
     expect(row.canvas().commands).not.toBe(before);
@@ -137,7 +192,11 @@ describe('ScoreRow presses', () => {
 
     // Assert
     expect(row.onPress).toHaveBeenCalledTimes(1);
-    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2 });
+    expect(row.onPress).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatIndex: 1,
+      string: 2,
+    });
   });
 
   it('picks the beat but no string for a press on the notation staff', () => {
@@ -149,13 +208,37 @@ describe('ScoreRow presses', () => {
     row.pressAt(x, row.props.geometry.notationTop ?? Number.NaN);
 
     // Assert
-    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 0, string: undefined });
+    expect(row.onPress).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatIndex: 0,
+      string: undefined,
+    });
   });
 
   it('ignores a press past the last bar of the row', () => {
     const row = render();
     row.pressAt(ROW_WIDTH - 1, tabPoint(row.props, 0, 1).y);
     expect(row.onPress).not.toHaveBeenCalled();
+  });
+
+  it('maps a press on a zoomed row back to the same note', () => {
+    // Arrange: the row drawn at 150%
+    const row = render('notationAndTab', SONG, 1.5);
+    const { x, y } = tabPoint(row.props, 1, 2);
+
+    // Act
+    row.pressAt(x * 1.5, y * 1.5);
+
+    // Assert
+    expect(row.onPress).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatIndex: 1,
+      string: 2,
+    });
+    expect(row.canvas().style).toEqual({
+      width: ROW_WIDTH * 1.5,
+      height: row.props.geometry.height * 1.5,
+    });
   });
 
   it('finds the string on a bass track in tab-only mode', () => {
@@ -168,6 +251,10 @@ describe('ScoreRow presses', () => {
     row.pressAt(x, y);
 
     // Assert
-    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 0, string: 4 });
+    expect(row.onPress).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatIndex: 0,
+      string: 4,
+    });
   });
 });

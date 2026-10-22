@@ -37,9 +37,14 @@ export function tempoPercent(tempoScale: number): number {
   return Math.round(tempoScale * 100);
 }
 
+/** The tempo scale that plays a bar written at `writtenTempo` at `tempo` BPM, clamped to the bar's bounds. */
+export function tempoScaleFor(tempo: number, writtenTempo: number): number {
+  return clampTempo(tempo, writtenTempo) / writtenTempo;
+}
+
 /** The tempo scale after −/+: the shown tempo of a bar written at `writtenTempo` moved by `delta` BPM, clamped. */
 export function shiftTempoScale(tempoScale: number, writtenTempo: number, delta: number): number {
-  return clampTempo(playbackTempo(writtenTempo, tempoScale) + delta, writtenTempo) / writtenTempo;
+  return tempoScaleFor(playbackTempo(writtenTempo, tempoScale) + delta, writtenTempo);
 }
 
 /**

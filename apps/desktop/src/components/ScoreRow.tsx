@@ -4,6 +4,7 @@ import type { Song, StringAddress } from '@gp-editor/core';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import type { RowGeometry, ScoreMode } from '../score/geometry';
+import { scaleCommands } from '../score/draw';
 import { type RowHit, hitTestRow } from '../score/hit-test';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
 import type { TabMarkKind } from '../score/tab';
@@ -23,24 +24,27 @@ export interface ScoreRowProps {
   /** Only set when the playing beat is in this row. */
   readonly playing?: PlayingBeat;
   readonly markLanes?: readonly TabMarkKind[];
+  /** Screen points per layout point (the score zoom); `width` and the geometry are in layout points. */
+  readonly zoom: number;
   readonly onPress: (hit: RowHit) => void;
 }
 
 function ScoreRowView(props: ScoreRowProps) {
-  const { row, headerWidth, geometry, width, onPress } = props;
+  const { row, headerWidth, geometry, width, zoom, onPress } = props;
   // The row only re-renders when isSameRow says its content changed, so engrave directly.
-  const commands = engraveRow(props);
+  const engraved = engraveRow(props);
+  const commands = zoom === 1 ? engraved : scaleCommands(engraved, zoom);
   const stringCount = props.song.tracks[props.trackIndex]?.strings.length ?? 6;
   const handlePress = (event: GestureResponderEvent) => {
     const { locationX, locationY } = event.nativeEvent;
-    const hit = hitTestRow(placeRow(row, headerWidth), geometry, stringCount, locationX, locationY);
+    const hit = hitTestRow(placeRow(row, headerWidth), geometry, stringCount, locationX / zoom, locationY / zoom);
     if (hit !== undefined) {
       onPress(hit);
     }
   };
   return (
-    <Pressable onPress={handlePress} style={{ width, height: geometry.height }}>
-      <ScoreCanvas commands={commands} style={{ width, height: geometry.height }} />
+    <Pressable onPress={handlePress} style={{ width: width * zoom, height: geometry.height * zoom }}>
+      <ScoreCanvas commands={commands} style={{ width: width * zoom, height: geometry.height * zoom }} />
     </Pressable>
   );
 }
@@ -52,7 +56,7 @@ function ScoreRowView(props: ScoreRowProps) {
  */
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
-    a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.headerWidth !== b.headerWidth ||
+    a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth ||
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || !sameLanes(a.markLanes, b.markLanes) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex
   ) {

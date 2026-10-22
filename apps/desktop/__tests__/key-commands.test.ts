@@ -20,6 +20,21 @@ describe('keyCommand', () => {
     expect(keyCommand(press('ArrowDown', { altKey: true }), digit, 0)).toEqual({ type: 'shiftNoteString', delta: 1 });
   });
 
+  it('jumps between bars: ⌥←/→ previous and next, Home and End first and last', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('ArrowLeft', { altKey: true }), digit, 0)).toEqual({ type: 'goToBar', jump: 'previous' });
+    expect(keyCommand(press('ArrowRight', { altKey: true }), digit, 0)).toEqual({ type: 'goToBar', jump: 'next' });
+    expect(keyCommand(press('Home'), digit, 0)).toEqual({ type: 'goToBar', jump: 'first' });
+    expect(keyCommand(press('End'), digit, 0)).toEqual({ type: 'goToBar', jump: 'last' });
+  });
+
+  it('zooms the score with ⌘- and ⌘= (- and = alone step the fret)', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('=', { metaKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: 1 });
+    expect(keyCommand(press('-', { metaKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: -1 });
+    expect(keyCommand(press('-'), digit, 0)).toEqual({ type: 'shiftNoteFret', delta: -1 });
+  });
+
   it('types frets, combining two quick digits', () => {
     const digit = { current: undefined };
     expect(keyCommand(press('1'), digit, 0)).toEqual({ type: 'setNoteFret', fret: 1 });
