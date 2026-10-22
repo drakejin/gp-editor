@@ -1,9 +1,9 @@
 // QA driver for development. When GPEDITOR_QA_SCRIPT names a JSON file, replays its steps against this app's
 // own window — open a file, click, type, scroll, resize, switch appearance, snapshot to PNG — so the UI can be
 // exercised and inspected without Screen Recording or Accessibility permissions. Events go through
-// -[NSWindow sendEvent:], the same path as real input. Does nothing when the variable is unset; the sandboxed
-// app cannot read a script outside its container, so it only works in the unsandboxed copy made by
-// scripts/qa/run.sh.
+// -[NSWindow sendEvent:], the same path as real input. Does nothing when the variable is unset. It is not gated on
+// the sandbox on purpose: the sandboxed app can only read a script inside its own container, which is how sandbox
+// behaviour is checked; everyday QA uses the unsandboxed copy made by scripts/qa/run.sh.
 //
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},

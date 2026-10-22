@@ -4,7 +4,8 @@
 
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
-#import <Security/Security.h>
+
+#import "GPSandbox.h"
 
 static NSString *const kMessagesURL = @"https://api.anthropic.com/v1/messages";
 static NSString *const kApiVersion = @"2023-06-01";
@@ -39,21 +40,6 @@ RCT_EXPORT_MODULE();
 }
 
 /** True when the app runs in the App Sandbox — always the case for the shipped app (GPEditor.entitlements). */
-+ (BOOL)isSandboxed
-{
-  SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
-  if (task == NULL) {
-    return YES;
-  }
-  CFTypeRef value = SecTaskCopyValueForEntitlement(task, CFSTR("com.apple.security.app-sandbox"), NULL);
-  CFRelease(task);
-  BOOL isSandboxed = value != NULL && CFGetTypeID(value) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)value);
-  if (value != NULL) {
-    CFRelease(value);
-  }
-  return isSandboxed;
-}
-
 /**
  * The Messages API. Only the unsandboxed QA copy (scripts/qa/run.sh) may point it at a mock, and only on this machine
  * (http://127.0.0.1 or localhost) — the shipped, sandboxed app ignores GPEDITOR_ANTHROPIC_URL, so no environment
@@ -63,7 +49,7 @@ RCT_EXPORT_MODULE();
 {
   NSURL *api = [NSURL URLWithString:kMessagesURL];
   NSString *mock = [NSProcessInfo processInfo].environment[@"GPEDITOR_ANTHROPIC_URL"];
-  if (mock.length == 0 || [self isSandboxed]) {
+  if (mock.length == 0 || GPIsSandboxed()) {
     return api;
   }
   NSURL *mockURL = [NSURL URLWithString:mock];
