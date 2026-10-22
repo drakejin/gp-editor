@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { setKeySignature, setRepeat, setTempo, setTimeSignature } from '../src/edit/measure-headers';
-import type { Song, TimeSignature } from '../src/model/song';
+import { setKeySignature, setMeasureMarker, setRepeat, setTempo, setTimeSignature, setTripletFeel } from '../src/edit/measure-headers';
+import type { Marker, Song, TimeSignature, TripletFeel } from '../src/model/song';
 import { SONG_START, type EventSpec, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
 
 const ts = (numerator: number, denominator: number): TimeSignature => ({ numerator, denominator });
@@ -196,5 +196,71 @@ describe('setRepeat', () => {
     expect(setRepeat(song, 0, {})).toBe(song);
     expect(setRepeat(song, 0, { repeatOpen: false, repeatClose: 0 })).toBe(song);
     expect(setRepeat(song, 1, { repeatOpen: true })).toBe(song);
+  });
+});
+
+describe('setMeasureMarker', () => {
+  const VERSE: Marker = { title: 'Verse', color: { r: 0, g: 128, b: 255 } };
+
+  it('sets the marker of one measure, title trimmed', () => {
+    // Arrange
+    const song = restSong([ts(4, 4), ts(4, 4)]);
+
+    // Act
+    const edited = setMeasureMarker(song, 1, { ...VERSE, title: '  Verse ' });
+
+    // Assert
+    expect(edited.measureHeaders[1]?.marker).toEqual(VERSE);
+    expect(edited.measureHeaders[0]).toBe(song.measureHeaders[0]);
+    expect(edited.tracks).toBe(song.tracks);
+  });
+
+  it('removes the marker for none or a blank title', () => {
+    const marked = setMeasureMarker(restSong([ts(4, 4)]), 0, VERSE);
+    expect(setMeasureMarker(marked, 0, undefined).measureHeaders[0]).not.toHaveProperty('marker');
+    expect(setMeasureMarker(marked, 0, { ...VERSE, title: '  ' }).measureHeaders[0]).not.toHaveProperty('marker');
+  });
+
+  it('keeps the colour components in 0…255, rounded', () => {
+    const edited = setMeasureMarker(restSong([ts(4, 4)]), 0, { title: 'Solo', color: { r: -4, g: 300, b: 12.6 } });
+    expect(edited.measureHeaders[0]?.marker?.color).toEqual({ r: 0, g: 255, b: 13 });
+  });
+
+  it('returns the same song for the same marker, no marker to remove, a colour that is not a number or a missing measure', () => {
+    const song = restSong([ts(4, 4)]);
+    expect(setMeasureMarker(song, 0, undefined)).toBe(song);
+    expect(setMeasureMarker(song, 0, { title: '', color: VERSE.color })).toBe(song);
+    const marked = setMeasureMarker(song, 0, VERSE);
+    expect(setMeasureMarker(marked, 0, { title: 'Verse', color: { ...VERSE.color } })).toBe(marked);
+    expect(setMeasureMarker(song, 0, { title: 'Solo', color: { r: Number.NaN, g: 0, b: 0 } })).toBe(song);
+    expect(setMeasureMarker(song, 3, VERSE)).toBe(song);
+  });
+});
+
+describe('setTripletFeel', () => {
+  function feels(song: Song): string[] {
+    return song.measureHeaders.map((header) => header.tripletFeel);
+  }
+
+  it('changes the measure and the following ones until the triplet feel changes, as setTempo does', () => {
+    // Arrange
+    const song = restSong([ts(4, 4), ts(4, 4), ts(4, 4), ts(4, 4)]);
+    const later = setTripletFeel(song, 3, 'sixteenth');
+
+    // Act
+    const edited = setTripletFeel(later, 1, 'eighth');
+
+    // Assert
+    expect(feels(later)).toEqual(['none', 'none', 'none', 'sixteenth']);
+    expect(feels(edited)).toEqual(['none', 'eighth', 'eighth', 'sixteenth']);
+    expect(edited.measureHeaders[0]).toBe(song.measureHeaders[0]);
+    expect(edited.tracks).toBe(song.tracks);
+  });
+
+  it('returns the same song for the same feel, an unknown one or a missing measure', () => {
+    const song = restSong([ts(4, 4)]);
+    expect(setTripletFeel(song, 0, 'none')).toBe(song);
+    expect(setTripletFeel(song, 0, 'shuffle' as TripletFeel)).toBe(song);
+    expect(setTripletFeel(song, 2, 'eighth')).toBe(song);
   });
 });

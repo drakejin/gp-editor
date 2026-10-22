@@ -14,6 +14,30 @@ import {
 
 export const NORMAL_TUPLET: Tuplet = { enters: 1, times: 1 };
 
+/** "n notes in the time of …" for every tuplet Guitar Pro stores (TGDivisionType.DIVISION_TYPES but GP5's 13:8), by n. */
+const TUPLET_TIMES: ReadonlyMap<number, number> = new Map([
+  [3, 2],
+  [5, 4],
+  [6, 4],
+  [7, 4],
+  [9, 8],
+  [10, 8],
+  [11, 8],
+  [12, 8],
+]);
+
+/** Notes per tuplet for every tuplet Guitar Pro stores (see tupletOf), smallest first. */
+export const TUPLET_SIZES: readonly number[] = [...TUPLET_TIMES.keys()];
+
+/** The tuplet of `enters` notes Guitar Pro stores (3:2, 5:4 … 12:8); NORMAL_TUPLET for 1; undefined for another size. */
+export function tupletOf(enters: number): Tuplet | undefined {
+  if (enters === NORMAL_TUPLET.enters) {
+    return NORMAL_TUPLET;
+  }
+  const times = TUPLET_TIMES.get(enters);
+  return times === undefined ? undefined : { enters, times };
+}
+
 export const QUARTER: Duration = {
   value: 4,
   dotted: false,
@@ -22,6 +46,9 @@ export const QUARTER: Duration = {
 };
 
 export const NO_STROKE: Stroke = { direction: 'none', value: 0 };
+
+/** The speeds a stroke may have (Stroke.value), as note values. */
+export const STROKE_VALUES: readonly [number, ...number[]] = [4, 8, 16, 32, 64, 128];
 
 export const RED: Rgb = { r: 255, g: 0, b: 0 };
 

@@ -4,8 +4,10 @@
 const GP_QUARTER_TONE = 25;
 /** Highest bend / tremolo bar position (TGEffectBend.MAX_POSITION_LENGTH). */
 export const BEND_MAX_POSITION = 12;
+/** Highest bend value, in quarter tones (TGEffectBend.MAX_VALUE_LENGTH: three tones). */
+export const BEND_MAX_VALUE = 12;
 /** Tremolo bar values are clamped to ±24 quarter tones (one octave either way), as TuxGuitar does. */
-const TREMOLO_BAR_LIMIT = 24;
+export const TREMOLO_BAR_LIMIT = 24;
 
 /** Math.round without negative zero (Java's Math.round has none). */
 function round(value: number): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type BeatAddress, deleteBeat, insertBeat, setBeatDuration } from '../src/edit/beats';
+import { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from '../src/edit/beats';
 import type { Beat, Song } from '../src/model/song';
 import { assertEditInvariants, buildSong, deepFreeze, dur, n, play, rest, voiceLayout } from './helpers/edit-songs';
 
@@ -318,5 +318,35 @@ describe('deleteBeat', () => {
     expect(deleteBeat(song, { ...AT, beatIndex: 1 })).toBe(song);
     expect(deleteBeat(song, { ...AT, voiceIndex: 1 })).toBe(song);
     expect(deleteBeat(song, { ...AT, trackIndex: -1 })).toBe(song);
+  });
+});
+
+describe('deleteBeatNotes', () => {
+  it('turns the voice into a rest of the same duration, leaving the other voice and beats in place', () => {
+    // Arrange
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 0), n(2, 1)), play(dur(2, { dotted: true }), n(1, 2))], [play(1, n(5, 3))]]]] }));
+
+    // Act
+    const edited = deleteBeatNotes(song, { ...AT, beatIndex: 1 });
+
+    // Assert
+    expect(layout(edited)).toEqual(['0:4:1/0,2/1', '960:2.:r']);
+    expect(layout(edited, 1)).toEqual(['0:1:5/3']);
+    expect(edited.tracks[0]?.measures[0]?.beats[0]).toBe(song.tracks[0]?.measures[0]?.beats[0]);
+    assertEditInvariants(edited);
+  });
+
+  it('empties the addressed voice only', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(1, n(1, 0))], [play(1, n(5, 3))]]]] }));
+    const edited = deleteBeatNotes(song, { ...AT, voiceIndex: 1 });
+    expect(layout(edited, 0)).toEqual(['0:1:1/0']);
+    expect(layout(edited, 1)).toEqual(['0:1:r']);
+  });
+
+  it('returns the same song for a rest, an empty voice or a missing beat', () => {
+    const song = oneMeasure(play(2, n(1, 0)), rest(2));
+    expect(deleteBeatNotes(song, { ...AT, beatIndex: 1 })).toBe(song);
+    expect(deleteBeatNotes(song, { ...AT, voiceIndex: 1 })).toBe(song);
+    expect(deleteBeatNotes(song, { ...AT, beatIndex: 5 })).toBe(song);
   });
 });

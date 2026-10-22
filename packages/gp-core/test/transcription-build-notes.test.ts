@@ -4,7 +4,7 @@ import { DEFAULT_VELOCITY } from '../src/formats/common/velocity';
 import { EMPTY_NOTE_EFFECT, NORMAL_TUPLET, isMeasureOverfull } from '../src/model/defaults';
 import type { Note, Song } from '../src/model/song';
 import { buildSongFromTranscription } from '../src/transcription/build-song';
-import { toTuplet } from '../src/transcription/durations';
+import { MAX_TUPLET_SIZE, isTupletSize, toTuplet } from '../src/transcription/durations';
 import type { TranscribedBeat, TranscribedEffect, TranscriptionPage } from '../src/transcription/types';
 import { assertEditInvariants, deepFreeze, voiceLayout } from './helpers/edit-songs';
 import { BASS, GUITAR, bar, page, play, rest, run, tab, written } from './helpers/transcription-pages';
@@ -187,6 +187,15 @@ describe('buildSongFromTranscription: durations and voices', () => {
   it.each([undefined, 0, 1, 13])('plays tuplet %j as plain notes', (size) => {
     // Act / Assert
     expect(toTuplet(size)).toBe(NORMAL_TUPLET);
+  });
+
+  it('knows the tuplet sizes 2 to 12 and no others', () => {
+    // Act
+    const sizes = Array.from({ length: 15 }, (_, size) => size).filter(isTupletSize);
+
+    // Assert
+    expect(sizes).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(MAX_TUPLET_SIZE).toBe(12);
   });
 
   it('lays out triplets and dotted notes', () => {

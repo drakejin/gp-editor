@@ -101,6 +101,11 @@ function gapRests(ticks: number, tuplets: readonly Tuplet[]): VoiceEvents | unde
   return undefined;
 }
 
+/** Rests for `ticks` of time a voice of `measure` leaves unused, plain or in a tuplet the measure uses; undefined when none can write it. */
+export function measureGapRests(measure: Measure, ticks: number): VoiceEvents | undefined {
+  return gapRests(ticks, measureTuplets(measure));
+}
+
 /** Event lists under construction, with each voice's end so far. */
 interface Split {
   readonly voices: VoiceEvent[][];

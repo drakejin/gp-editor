@@ -6,9 +6,10 @@ import {
   artificialHarmonicOffsetAtFret,
   harmonicFretOffset,
 } from '../src/formats/common/harmonics';
-import { DEFAULT_VELOCITY, velocityFromGp } from '../src/formats/common/velocity';
+import { DEFAULT_VELOCITY, DYNAMICS, dynamicOf, velocityFromGp } from '../src/formats/common/velocity';
 import { dynamicVelocity } from '../src/formats/gpif/gpif-duration';
 import { durationFromTicks, NOTE_VALUES, plainDuration } from '../src/model/defaults';
+import { dynamicFromVelocity } from '../src/write/gp-units';
 import type { Channel } from '../src/model/song';
 
 describe('bend units', () => {
@@ -114,6 +115,51 @@ describe('velocity', () => {
 
     // Assert
     expect(velocities).toEqual([15, 63, 127, 95, 95]);
+  });
+});
+
+describe('dynamics', () => {
+  it('names the eight Guitar Pro dynamics with their TGVelocities values, ppp first', () => {
+    // Act
+    const table = DYNAMICS.map((dynamic) => [dynamic.name, dynamic.velocity]);
+
+    // Assert
+    expect(table).toEqual([
+      ['ppp', 15],
+      ['pp', 31],
+      ['p', 47],
+      ['mp', 63],
+      ['mf', 79],
+      ['f', 95],
+      ['ff', 111],
+      ['fff', 127],
+    ]);
+  });
+
+  it('names the dynamic nearest to a velocity, the louder one half way between two', () => {
+    // Arrange
+    const velocities = [15, 95, 127, 70, 72, 23, 0, 200, -5];
+
+    // Act
+    const names = velocities.map(dynamicOf);
+
+    // Assert
+    expect(names).toEqual(['ppp', 'f', 'fff', 'mp', 'mf', 'pp', 'ppp', 'fff', 'ppp']);
+  });
+
+  it('agrees with the dynamic GP5 saves for every velocity', () => {
+    // Arrange
+    const velocities = Array.from({ length: 128 }, (_, velocity) => velocity).filter((velocity) => velocity >= 15);
+
+    // Act
+    const mismatched = velocities.filter((velocity) => DYNAMICS[dynamicFromVelocity(velocity) - 1]?.name !== dynamicOf(velocity));
+
+    // Assert
+    expect(mismatched).toEqual([]);
+  });
+
+  it('calls a velocity that is not a number forte', () => {
+    expect(dynamicOf(Number.NaN)).toBe('f');
   });
 });
 

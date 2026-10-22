@@ -1,7 +1,10 @@
-// Note effect edits after TuxGuitar's TGMeasureManager setters (setVibrato, changeDeadNote, setBendNote …), LGPL-2.1.
-import { BEND_MAX_POSITION } from '../formats/common/bend-units';
+// Note effect edits after TuxGuitar's TGMeasureManager setters (setVibrato, changeDeadNote, setBendNote …), with the
+// presets of its bend and tremolo bar dialogs (TGBendDialog, TGTremoloBarDialog), LGPL-2.1.
+import { BEND_MAX_POSITION, BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../formats/common/bend-units';
+import { artificialHarmonicOffset, harmonicFretOffset } from '../formats/common/harmonics';
 import type { Bend, BendPoint, Harmonic, HarmonicType, Note, NoteEffect, SlideType, Song } from '../model/song';
 import type { StringAddress } from './addresses';
+import { MAX_FRET } from './edit-song';
 import { updateNote } from './song-paths';
 
 export { setNoteTied } from './ties';
@@ -25,20 +28,33 @@ export type ToggleableEffect =
 /** GP3–GP5 store tapping, slapping and popping as one beat value, so a note has at most one of them. */
 const SLAP_EFFECTS: readonly ToggleableEffect[] = ['tapping', 'slapping', 'popping'];
 
-/** Highest bend value, in quarter tones (TGEffectBend.MAX_VALUE_LENGTH: three tones). */
-const BEND_MAX_VALUE = 12;
-
 function bendOf(...points: readonly (readonly [position: number, value: number])[]): Bend {
   return { points: points.map(([position, value]) => ({ position, value })) };
 }
 
-/** Guitar Pro's usual bends (TuxGuitar's bend dialog presets), in quarter tones over positions 0–12. */
-export const BEND_PRESETS: { readonly half: Bend; readonly full: Bend; readonly bendRelease: Bend; readonly preBend: Bend } = {
+/** Guitar Pro's usual bends (TGBendDialog's presets, plus a half-tone bend), in quarter tones over positions 0–12. */
+export const BEND_PRESETS = {
   half: bendOf([0, 0], [6, 2], [12, 2]),
   full: bendOf([0, 0], [6, 4], [12, 4]),
   bendRelease: bendOf([0, 0], [3, 4], [6, 4], [9, 0], [12, 0]),
+  bendReleaseBend: bendOf([0, 0], [2, 4], [4, 4], [6, 0], [8, 0], [10, 4], [12, 4]),
   preBend: bendOf([0, 4], [12, 4]),
-};
+  preBendRelease: bendOf([0, 4], [4, 4], [8, 0], [12, 0]),
+} as const satisfies Readonly<Record<string, Bend>>;
+
+export type BendPresetName = keyof typeof BEND_PRESETS;
+
+/** TGTremoloBarDialog's presets in quarter tones (TuxGuitar keeps semitones: its ±2 is ±4 here). */
+export const TREMOLO_BAR_PRESETS = {
+  dip: bendOf([0, 0], [6, -4], [12, 0]),
+  dive: bendOf([0, 0], [9, -4], [12, -4]),
+  releaseUp: bendOf([0, -4], [9, -4], [12, 0]),
+  invertedDip: bendOf([0, 0], [6, 4], [12, 0]),
+  return: bendOf([0, 0], [9, 4], [12, 4]),
+  releaseDown: bendOf([0, 4], [9, 4], [12, 0]),
+} as const satisfies Readonly<Record<string, Bend>>;
+
+export type TremoloBarPresetName = keyof typeof TREMOLO_BAR_PRESETS;
 
 /** Slide kinds in the order the model keeps them. */
 const SLIDE_ORDER: readonly SlideType[] = ['shift', 'legato', 'outDownwards', 'outUpwards', 'intoFromBelow', 'intoFromAbove'];
@@ -48,8 +64,50 @@ const HARMONIC_TYPES: readonly HarmonicType[] = ['natural', 'artificial', 'tappe
 /** Harmonic types whose `data` means something (artificial: semitone offset, tapped: fret). */
 const HARMONICS_WITH_DATA: readonly HarmonicType[] = ['artificial', 'tapped'];
 
-function withEffect(note: Note, effect: NoteEffect): Note {
-  return { ...note, effect };
+/** The data a new harmonic starts from in TuxGuitar's harmonic dialog: entry 0 of its table, the 12th-fret harmonic. */
+const DEFAULT_HARMONIC_ENTRY = 0;
+
+/** The note effects a note may lack (the model leaves them out rather than undefined). */
+export type OptionalEffect = 'bend' | 'tremoloBar' | 'harmonic' | 'grace' | 'trill' | 'tremoloPicking';
+
+export type EffectValue<K extends OptionalEffect> = Exclude<NoteEffect[K], undefined>;
+
+/**
+ * New song with one optional effect of the addressed note set, or left out when `next` is undefined. Same song when
+ * the note already has it (`isSame`) or there is no note.
+ */
+export function setOptionalEffect<K extends OptionalEffect>(
+  song: Song,
+  at: StringAddress,
+  key: K,
+  next: EffectValue<K> | undefined,
+  isSame: (current: EffectValue<K>, next: EffectValue<K>) => boolean,
+): Song {
+  return updateNote(song, at, (note): Note => {
+    const current = note.effect[key] as EffectValue<K> | undefined;
+    const isUnchanged = current === undefined || next === undefined ? current === next : isSame(current, next);
+    if (isUnchanged) {
+      return note;
+    }
+    const { [key]: _removed, ...rest } = note.effect;
+    const effect = (next === undefined ? rest : { ...rest, [key]: next }) as NoteEffect;
+    return { ...note, effect };
+  });
+}
+
+/**
+ * setOptionalEffect for a value checked first: `normalize` gives the value to store, or undefined when it is invalid,
+ * which leaves the song as it is. An undefined value clears the effect.
+ */
+export function setCheckedEffect<K extends OptionalEffect>(
+  song: Song,
+  at: StringAddress,
+  key: K,
+  value: EffectValue<K> | undefined,
+  rules: { readonly normalize: (value: EffectValue<K>) => EffectValue<K> | undefined; readonly isSame: (a: EffectValue<K>, b: EffectValue<K>) => boolean },
+): Song {
+  const next = value === undefined ? undefined : rules.normalize(value);
+  return value !== undefined && next === undefined ? song : setOptionalEffect(song, at, key, next, rules.isSame);
 }
 
 /**
@@ -60,7 +118,7 @@ export function toggleNoteEffect(song: Song, at: StringAddress, effect: Toggleab
   return updateNote(song, at, (note) => {
     const isOn = !note.effect[effect];
     const cleared = isOn && SLAP_EFFECTS.includes(effect) ? { tapping: false, slapping: false, popping: false } : {};
-    const next = withEffect(note, { ...note.effect, ...cleared, [effect]: isOn });
+    const next: Note = { ...note, effect: { ...note.effect, ...cleared, [effect]: isOn } };
     return effect === 'deadNote' && isOn ? { ...next, isTied: false } : next;
   });
 }
@@ -71,7 +129,7 @@ export function setNoteSlides(song: Song, at: StringAddress, slides: readonly Sl
   return updateNote(song, at, (note) => {
     const current = note.effect.slides;
     const isSame = current.length === next.length && current.every((slide, i) => slide === next[i]);
-    return isSame ? note : withEffect(note, { ...note.effect, slides: next });
+    return isSame ? note : { ...note, effect: { ...note.effect, slides: next } };
   });
 }
 
@@ -79,37 +137,30 @@ function clampRound(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value) + 0));
 }
 
-/** Points rounded onto the 0…12 grid, values to 0…12 quarter tones, sorted by position; undefined when there are none. */
-function normalizeBend(bend: Bend | undefined): Bend | undefined {
-  const points = (bend?.points ?? [])
+/** Points rounded onto the 0…12 grid and their values into min…max quarter tones, sorted by position; undefined when there are none. */
+function normalizeCurve(curve: Bend | undefined, min: number, max: number): Bend | undefined {
+  const points = (curve?.points ?? [])
     .filter((point) => Number.isFinite(point.position) && Number.isFinite(point.value))
-    .map((point): BendPoint => ({ position: clampRound(point.position, 0, BEND_MAX_POSITION), value: clampRound(point.value, 0, BEND_MAX_VALUE) }))
+    .map((point): BendPoint => ({ position: clampRound(point.position, 0, BEND_MAX_POSITION), value: clampRound(point.value, min, max) }))
     .sort((a, b) => a.position - b.position);
   return points.length === 0 ? undefined : { points };
 }
 
-function isSameBend(a: Bend | undefined, b: Bend | undefined): boolean {
-  if (a === undefined || b === undefined) {
-    return a === b;
-  }
+function isSameCurve(a: Bend, b: Bend): boolean {
   return a.points.length === b.points.length && a.points.every((point, i) => point.position === b.points[i]?.position && point.value === b.points[i]?.value);
 }
 
-/** Effect without one optional key (the model leaves unset effects out rather than undefined). */
-function without(effect: NoteEffect, key: 'bend' | 'harmonic'): NoteEffect {
-  const { [key]: _removed, ...rest } = effect;
-  return rest;
+/** New song with the note's bend set (see BEND_PRESETS; values 0…12 quarter tones) or cleared. Same song when nothing changes. */
+export function setNoteBend(song: Song, at: StringAddress, bend: Bend | undefined): Song {
+  return setOptionalEffect(song, at, 'bend', normalizeCurve(bend, 0, BEND_MAX_VALUE), isSameCurve);
 }
 
-/** New song with the note's bend set (see BEND_PRESETS) or cleared. Same song when nothing changes. */
-export function setNoteBend(song: Song, at: StringAddress, bend: Bend | undefined): Song {
-  const next = normalizeBend(bend);
-  return updateNote(song, at, (note) => {
-    if (isSameBend(note.effect.bend, next)) {
-      return note;
-    }
-    return withEffect(note, next === undefined ? without(note.effect, 'bend') : { ...note.effect, bend: next });
-  });
+/**
+ * New song with the note's tremolo bar set (see TREMOLO_BAR_PRESETS; values ±24 quarter tones) or cleared. Same song
+ * when nothing changes.
+ */
+export function setNoteTremoloBar(song: Song, at: StringAddress, tremoloBar: Bend | undefined): Song {
+  return setOptionalEffect(song, at, 'tremoloBar', normalizeCurve(tremoloBar, -TREMOLO_BAR_LIMIT, TREMOLO_BAR_LIMIT), isSameCurve);
 }
 
 function normalizeHarmonic(harmonic: Harmonic): Harmonic | undefined {
@@ -122,15 +173,25 @@ function normalizeHarmonic(harmonic: Harmonic): Harmonic | undefined {
 
 /** New song with the note's harmonic set or cleared. Same song when nothing changes or the type is unknown. */
 export function setNoteHarmonic(song: Song, at: StringAddress, harmonic: Harmonic | undefined): Song {
-  const next = harmonic === undefined ? undefined : normalizeHarmonic(harmonic);
-  if (harmonic !== undefined && next === undefined) {
-    return song;
-  }
-  return updateNote(song, at, (note) => {
-    const current = note.effect.harmonic;
-    if (current?.type === next?.type && current?.data === next?.data) {
-      return note;
-    }
-    return withEffect(note, next === undefined ? without(note.effect, 'harmonic') : { ...note.effect, harmonic: next });
+  return setCheckedEffect(song, at, 'harmonic', harmonic, {
+    normalize: normalizeHarmonic,
+    isSame: (a, b) => a.type === b.type && a.data === b.data,
   });
+}
+
+/**
+ * A new harmonic of `type` for a note at `fret`, with the data TuxGuitar's harmonic dialog starts from (the 12th-fret
+ * harmonic): artificial 12 semitones above the note, tapped 12 frets above it (MAX_FRET at most); no data otherwise.
+ */
+export function buildHarmonic(type: HarmonicType, fret: number): Harmonic {
+  switch (type) {
+    case 'artificial':
+      return { type, data: artificialHarmonicOffset(DEFAULT_HARMONIC_ENTRY) };
+    case 'tapped': {
+      const from = Number.isFinite(fret) ? Math.max(0, Math.round(fret)) : 0;
+      return { type, data: Math.min(MAX_FRET, from + harmonicFretOffset(DEFAULT_HARMONIC_ENTRY)) };
+    }
+    default:
+      return { type, data: 0 };
+  }
 }
