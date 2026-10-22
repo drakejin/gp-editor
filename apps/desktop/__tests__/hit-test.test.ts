@@ -3,7 +3,7 @@ import { hitTestRow } from '../src/score/hit-test';
 
 const measure = (measureIndex: number, x: number, beatXs: number[]) => ({
   x,
-  layout: { measureIndex, width: 100, beats: beatXs.map((bx, beatIndex) => ({ beatIndex, x: bx })), showTimeSignature: false, showTempo: false },
+  layout: { measureIndex, width: 100, beats: beatXs.map((bx, beatIndex) => ({ beatIndex, x: bx })), showTimeSignature: false, showTempo: false, showTripletFeel: false },
 });
 const placed = [measure(4, 40, [20, 60]), measure(5, 140, [])];
 const geometry = { tabTop: 100, height: 200 };

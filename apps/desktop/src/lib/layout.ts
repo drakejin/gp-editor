@@ -44,6 +44,8 @@ export interface MeasureLayout {
   readonly beats: readonly BeatLayout[];
   readonly showTimeSignature: boolean;
   readonly showTempo: boolean;
+  /** The triplet feel differs from the previous bar's (on bar 1: it is not straight). */
+  readonly showTripletFeel: boolean;
   /** Left edge of the key signature when the key changes at this measure (not at the first measure: the row header has it). */
   readonly keySignatureX?: number;
   /** Left edge of the time signature when it is shown. */
@@ -97,6 +99,7 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   const beats = track?.measures[measureIndex]?.beats ?? [];
   const showTimeSignature = changed(song.measureHeaders, measureIndex, (h) => `${h.timeSignature.numerator}/${h.timeSignature.denominator}`);
   const showTempo = changed(song.measureHeaders, measureIndex, (h) => String(h.tempo));
+  const showTripletFeel = header !== undefined && header.tripletFeel !== (song.measureHeaders[measureIndex - 1]?.tripletFeel ?? 'none');
   const keyAccidentals = keyChangeAccidentals(track?.measures[measureIndex - 1]?.keySignature, track?.measures[measureIndex]?.keySignature);
   let x = TAB.padLeft + (header?.repeatOpen ? TAB.repeatWidth : 0);
   const keySignatureX = keyAccidentals > 0 ? x : undefined;
@@ -111,7 +114,7 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   });
   const closeWidth = header !== undefined && header.repeatClose > 0 ? TAB.repeatWidth : 0;
   const width = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
-  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, keySignatureX, timeSignatureX };
+  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
 }
 
 /** Accidentals drawn for a key change: the new key's, or naturals cancelling the old one when changing to C. */

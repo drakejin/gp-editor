@@ -23,6 +23,8 @@ export interface NotationContext {
   readonly palette: Palette;
   /** Cursor or playing beat: its noteheads (only the note on `string` when given) are drawn in palette.accent. */
   readonly highlight?: Highlight;
+  /** Pick strokes above the staff; the row turns this on when no tab staff shows them. */
+  readonly showsPickStrokes?: boolean;
 }
 
 function keyChangeCommands(

@@ -3,7 +3,15 @@ import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
 import { ROW } from './geometry';
+import { textWidth } from './symbols/shapes';
+import { engraveTripletFeel } from './triplet-feel';
 
+const HEADING_LEFT = 2;
+/** The tempo line, and the triplet feel on it after the tempo. */
+const TEMPO_Y = 21;
+const TEMPO_SIZE = 10;
+/** After the tempo's estimated width (generous for "♩ = 120"). */
+const TRIPLET_FEEL_GAP = 2;
 const MARKER_LEFT = 18;
 /** Rough width of one marker character at 11 pt, to cut long markers at the measure's edge. */
 const MARKER_CHAR_WIDTH = 6.5;
@@ -14,13 +22,13 @@ export function rgbHex(color: Rgb): string {
 }
 
 /**
- * Measure number, marker, tempo, alternate endings and repeat count above the staves (measure-local, y 0…ROW.heading).
- * The number of an over-full measure is drawn bold in the danger colour.
+ * Measure number, marker, tempo, triplet feel, alternate endings and repeat count above the staves (measure-local,
+ * y 0…ROW.heading). The number of an over-full measure is drawn bold in the danger colour.
  */
 export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, palette: Palette, isOverfull = false): DrawCommand[] {
   const commands: DrawCommand[] = [
     {
-      kind: 'text', x: 2, y: 8, text: String(header.number), size: 9,
+      kind: 'text', x: HEADING_LEFT, y: 8, text: String(header.number), size: 9,
       color: isOverfull ? palette.danger : palette.muted, font: 'ui', align: 'left', bold: isOverfull,
     },
   ];
@@ -29,8 +37,13 @@ export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, pal
     const title = header.marker.title.length > maxChars ? `${header.marker.title.slice(0, maxChars - 1)}…` : header.marker.title;
     commands.push({ kind: 'text', x: MARKER_LEFT, y: 8, text: title, size: 11, color: rgbHex(header.marker.color), font: 'ui', align: 'left', bold: true });
   }
+  const tempo = `♩ = ${header.tempo}`;
   if (layout.showTempo) {
-    commands.push({ kind: 'text', x: 2, y: 21, text: `♩ = ${header.tempo}`, size: 10, color: palette.text, font: 'ui', align: 'left', bold: true });
+    commands.push({ kind: 'text', x: HEADING_LEFT, y: TEMPO_Y, text: tempo, size: TEMPO_SIZE, color: palette.text, font: 'ui', align: 'left', bold: true });
+  }
+  if (layout.showTripletFeel) {
+    const x = layout.showTempo ? HEADING_LEFT + textWidth(tempo, TEMPO_SIZE) + TRIPLET_FEEL_GAP : HEADING_LEFT;
+    commands.push(...engraveTripletFeel(header.tripletFeel, x, TEMPO_Y, palette.text));
   }
   commands.push(...endings(header.repeatAlternative, layout.width, palette));
   if (header.repeatClose > 0) {

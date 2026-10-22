@@ -1,7 +1,7 @@
 import { isSameRow, type ScoreRowProps } from '../src/components/ScoreRow';
 import { layoutMeasure } from '../src/lib/layout';
 import { rowGeometry } from '../src/score/geometry';
-import { beat, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note } from '../test-support/songs';
 import { PALETTE } from '../test-support/score-helpers';
 
 function rowProps(): ScoreRowProps {
@@ -34,5 +34,38 @@ describe('isSameRow', () => {
     const before = rowProps();
     expect(isSameRow(before, { ...before, markLanes: ['palmMute', 'letRing'] })).toBe(false);
     expect(isSameRow(before, { ...before, markLanes: [] })).toBe(false);
+  });
+
+  it('redraws a row when the dynamic it starts in changes several bars before it', () => {
+    // Arrange: bar 1 at p, bars 2 and 3 empty, the row holds bar 4 (at f, so it shows "f" after the p)
+    const quiet = { ...note(1, 3), velocity: 47 };
+    const song = makeSong([[beat(960, [quiet])], [], [], [beat(header(4).start, [note(1, 3)])]]);
+    const before: ScoreRowProps = {
+      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 3)] }, geometry: rowGeometry('notationAndTab', 6, 1, true),
+    };
+    const track = song.tracks[0]!;
+    const louder = { ...song, tracks: [{ ...track, measures: [{ ...track.measures[0]!, beats: [beat(960, [note(1, 3)])] }, ...track.measures.slice(1)] }] };
+
+    // Act
+    const same = isSameRow(before, { ...before, song: louder });
+
+    // Assert
+    expect(same).toBe(false);
+  });
+
+  it('keeps a row whose dynamic before it is unchanged by an edit elsewhere', () => {
+    // Arrange
+    const song = makeSong([[beat(960, [note(1, 3)])], [], [beat(header(3).start, [note(1, 5)])]]);
+    const before: ScoreRowProps = {
+      ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 2)] }, geometry: rowGeometry('notationAndTab', 6, 1, true),
+    };
+    const track = song.tracks[0]!;
+    const refretted = { ...song, tracks: [{ ...track, measures: [{ ...track.measures[0]!, beats: [beat(960, [note(1, 7)])] }, ...track.measures.slice(1)] }] };
+
+    // Act
+    const same = isSameRow(before, { ...before, song: refretted });
+
+    // Assert
+    expect(same).toBe(true);
   });
 });
