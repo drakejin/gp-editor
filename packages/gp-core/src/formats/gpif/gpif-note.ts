@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseNote and its effect helpers (LGPL-2.1).
-import { durationFromTicks } from '../../model/defaults';
+import { durationFromTicks, toVibratoFlags } from '../../model/defaults';
 import type {
   Bend,
   BendPoint,
@@ -13,6 +13,7 @@ import type {
   NoteEffect,
   SlideType,
   Trill,
+  VibratoKind,
 } from '../../model/song';
 import { artificialHarmonicOffsetAtFret } from '../common/harmonics';
 import {
@@ -108,12 +109,20 @@ export function buildNote(note: GpifNote, position: NotePosition, context: NoteC
   };
 }
 
+/** Vibrato kinds, narrowest first. */
+const VIBRATO_ORDER: readonly VibratoKind[] = ['none', 'slight', 'wide'];
+
+/** The note's vibrato and its beat's whammy-bar vibrato make one vibrato: the wider of the two. */
+function widerVibrato(a: VibratoKind, b: VibratoKind): VibratoKind {
+  return VIBRATO_ORDER.indexOf(a) >= VIBRATO_ORDER.indexOf(b) ? a : b;
+}
+
 function buildEffect(note: GpifNote, position: NotePosition, context: NoteContext): NoteEffect {
   const { beat } = context;
   return {
     ...optionalEffects(note, position, context),
     slides: slideTypes(note),
-    vibrato: note.vibrato || beat.vibrato,
+    ...toVibratoFlags(widerVibrato(note.vibrato, beat.vibrato)),
     deadNote: note.muted,
     hammer: note.hammer,
     ghostNote: note.ghost,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Beat, type Note, readSong, type Song } from '../src/index';
+import { type Beat, type Note, readSong, type Song, vibratoOf } from '../src/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
 
@@ -251,10 +251,10 @@ describe('readGp4 values', () => {
     expect(noteOn(beatAt(song, 1, 3), 2).effect.slides).toEqual(['outUpwards']);
   });
 
-  it('reads note and beat vibrato', () => {
+  it('reads note vibrato as slight and beat vibrato as wide', () => {
     const song = read('vibrato.gp4');
 
-    [0, 1, 2, 3].forEach((index) => expect(firstNote(beatAt(song, 0, index)).effect.vibrato).toBe(true));
+    expect([0, 1, 2, 3].map((index) => vibratoOf(firstNote(beatAt(song, 0, index)).effect))).toEqual(['slight', 'slight', 'wide', 'wide']);
   });
 
   it('reads trills and tremolo picking', () => {

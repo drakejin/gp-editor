@@ -2,8 +2,10 @@
 // presets of its bend and tremolo bar dialogs (TGBendDialog, TGTremoloBarDialog), LGPL-2.1.
 import { BEND_MAX_POSITION, BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../formats/common/bend-units';
 import { artificialHarmonicOffset, harmonicFretOffset } from '../formats/common/harmonics';
-import type { Bend, BendPoint, Harmonic, HarmonicType, Note, NoteEffect, SlideType, Song } from '../model/song';
+import { toVibratoFlags, vibratoOf } from '../model/defaults';
+import type { Bend, BendPoint, Harmonic, HarmonicType, Note, NoteEffect, SlideType, Song, VibratoKind } from '../model/song';
 import type { StringAddress } from './addresses';
+import { buildBend, isSameCurve } from './bend-shapes';
 import { MAX_FRET } from './edit-song';
 import { updateNote } from './song-paths';
 
@@ -32,14 +34,18 @@ function bendOf(...points: readonly (readonly [position: number, value: number])
   return { points: points.map(([position, value]) => ({ position, value })) };
 }
 
+/** A whole tone, in quarter tones: TGBendDialog's presets bend this far. */
+const WHOLE_TONE = 4;
+const HALF_TONE = 2;
+
 /** Guitar Pro's usual bends (TGBendDialog's presets, plus a half-tone bend), in quarter tones over positions 0–12. */
 export const BEND_PRESETS = {
-  half: bendOf([0, 0], [6, 2], [12, 2]),
-  full: bendOf([0, 0], [6, 4], [12, 4]),
-  bendRelease: bendOf([0, 0], [3, 4], [6, 4], [9, 0], [12, 0]),
-  bendReleaseBend: bendOf([0, 0], [2, 4], [4, 4], [6, 0], [8, 0], [10, 4], [12, 4]),
-  preBend: bendOf([0, 4], [12, 4]),
-  preBendRelease: bendOf([0, 4], [4, 4], [8, 0], [12, 0]),
+  half: buildBend('bend', HALF_TONE),
+  full: buildBend('bend', WHOLE_TONE),
+  bendRelease: buildBend('bendRelease', WHOLE_TONE),
+  bendReleaseBend: buildBend('bendReleaseBend', WHOLE_TONE),
+  preBend: buildBend('preBend', WHOLE_TONE),
+  preBendRelease: buildBend('preBendRelease', WHOLE_TONE),
 } as const satisfies Readonly<Record<string, Bend>>;
 
 export type BendPresetName = keyof typeof BEND_PRESETS;
@@ -110,17 +116,33 @@ export function setCheckedEffect<K extends OptionalEffect>(
   return value !== undefined && next === undefined ? song : setOptionalEffect(song, at, key, next, rules.isSame);
 }
 
+/** What else an effect turned on clears: tapping, slapping and popping exclude each other; slight vibrato clears wide. */
+function clearedBy(effect: ToggleableEffect): Partial<NoteEffect> {
+  if (SLAP_EFFECTS.includes(effect)) {
+    return { tapping: false, slapping: false, popping: false };
+  }
+  return effect === 'vibrato' ? { wideVibrato: false } : {};
+}
+
 /**
- * New song with one on/off effect of the addressed note switched. A dead note is never tied (changeDeadNote), and
- * tapping, slapping and popping exclude each other. Same song when there is no note there.
+ * New song with one on/off effect of the addressed note switched. A dead note is never tied (changeDeadNote),
+ * tapping, slapping and popping exclude each other, and slight vibrato replaces wide vibrato. Same song when there is
+ * no note there.
  */
 export function toggleNoteEffect(song: Song, at: StringAddress, effect: ToggleableEffect): Song {
   return updateNote(song, at, (note) => {
     const isOn = !note.effect[effect];
-    const cleared = isOn && SLAP_EFFECTS.includes(effect) ? { tapping: false, slapping: false, popping: false } : {};
+    const cleared = isOn ? clearedBy(effect) : {};
     const next: Note = { ...note, effect: { ...note.effect, ...cleared, [effect]: isOn } };
     return effect === 'deadNote' && isOn ? { ...next, isTied: false } : next;
   });
+}
+
+/** New song with the note's vibrato set to none, slight or wide (TGMeasureManager.setVibrato). Same song when nothing changes. */
+export function setNoteVibrato(song: Song, at: StringAddress, vibrato: VibratoKind): Song {
+  return updateNote(song, at, (note) =>
+    vibratoOf(note.effect) === vibrato ? note : { ...note, effect: { ...note.effect, ...toVibratoFlags(vibrato) } },
+  );
 }
 
 /** New song with the note's slides set; duplicates dropped, kept in model order. Same song when nothing changes. */
@@ -144,10 +166,6 @@ function normalizeCurve(curve: Bend | undefined, min: number, max: number): Bend
     .map((point): BendPoint => ({ position: clampRound(point.position, 0, BEND_MAX_POSITION), value: clampRound(point.value, min, max) }))
     .sort((a, b) => a.position - b.position);
   return points.length === 0 ? undefined : { points };
-}
-
-function isSameCurve(a: Bend, b: Bend): boolean {
-  return a.points.length === b.points.length && a.points.every((point, i) => point.position === b.points[i]?.position && point.value === b.points[i]?.value);
 }
 
 /** New song with the note's bend set (see BEND_PRESETS; values 0…12 quarter tones) or cleared. Same song when nothing changes. */

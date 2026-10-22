@@ -45,7 +45,7 @@ export interface LegacyBeatSpec {
   readonly triplet?: boolean;
   readonly rest?: boolean;
   readonly tied?: boolean;
-  /** Beat effect byte (1/2 vibrato, 3 bend, 4 fade in, 5 tap, 6 slap, 7 pop, 8/9 harmonic). */
+  /** Beat effect byte (1 vibrato, 2 wide vibrato, 3 bend, 4 fade in, 5 tap, 6 slap, 7 pop, 8/9 harmonic). */
   readonly beatEffect?: number;
   readonly beatBendByte?: number;
   /** Full chord (GP1 ≥ v1.04, GP2). */

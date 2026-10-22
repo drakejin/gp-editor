@@ -28,8 +28,8 @@ import type {
  * - tracks: seven strings at most; lyrics on one track (the first with text); one clef per track
  *   (bass or treble); key signature per measure header (from the first non-percussion track);
  * - beats: voices 1 and 2 only; notes on the track's strings, one per string, in string order, frets
- *   0…99, velocities on the eight dynamics; fade in, tapping/slapping/popping and the tremolo bar per
- *   voice; strokes at 4…64; double dots and tuplets GP5 lacks written as an equal length when there is
+ *   0…99, velocities on the eight dynamics; fade in, tapping/slapping/popping, the tremolo bar and wide
+ *   vibrato per voice (a wide vibrato replaces a note's slight one); strokes at 4…64; double dots and tuplets GP5 lacks written as an equal length when there is
  *   one (else dropped, which moves the beats after them); an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
  * - measure headers: eight alternate endings at most;
@@ -86,16 +86,20 @@ function expectedEffect(effect: NoteEffect): NoteEffect {
   };
 }
 
-/** GP5 keeps fade in, tapping/slapping/popping and the tremolo bar per beat: every note of the voice gets them. */
+/**
+ * GP5 keeps fade in, tapping/slapping/popping, the tremolo bar and wide vibrato per beat: every note of the voice gets
+ * them, and wide vibrato wins over a note's slight vibrato.
+ */
 function withVoiceEffects(notes: readonly Note[]): Note[] {
   const tremoloBar = [...notes].reverse().find((note) => note.effect.tremoloBar !== undefined)?.effect.tremoloBar;
   const fadeIn = notes.some((note) => note.effect.fadeIn);
+  const wideVibrato = notes.some((note) => note.effect.wideVibrato);
   const tapping = notes.some((note) => note.effect.tapping);
   const slapping = !tapping && notes.some((note) => note.effect.slapping);
   const popping = !tapping && !slapping && notes.some((note) => note.effect.popping);
   return notes.map((note) => {
     const { tremoloBar: _ignored, ...rest } = note.effect;
-    const effect = { ...rest, fadeIn, tapping, slapping, popping };
+    const effect = { ...rest, fadeIn, tapping, slapping, popping, wideVibrato, vibrato: rest.vibrato && !wideVibrato };
     return { ...note, effect: tremoloBar === undefined ? effect : { ...effect, tremoloBar } };
   });
 }

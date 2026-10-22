@@ -88,7 +88,10 @@ function repeatedEvents(sound: Sound, length: number, keys: readonly number[]): 
   return events;
 }
 
-/** The first pitch effect of bend, tremolo bar, slide, vibrato; any of them moves the note to the bend channel. */
+/**
+ * The first pitch effect of bend, tremolo bar, slide, vibrato (slight or wide: TuxGuitar plays them alike); any of
+ * them moves the note to the bend channel.
+ */
 function pitchEffect(
   context: TrackContext,
   placed: PlacedNote,
@@ -111,7 +114,7 @@ function pitchEffect(
         : slideEvents(bent.output, fromTick, placed.note.fret, next.beat.start + next.move, next.note.fret);
     return { sound: bent, events };
   }
-  if (effect.vibrato) {
+  if (effect.vibrato || effect.wideVibrato) {
     return { sound: bent, events: vibratoEvents(bent.output, sound.start, sound.duration) };
   }
   return { sound, events: [] };

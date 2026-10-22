@@ -349,7 +349,7 @@ function readNoteEffectsGp5(reader: ByteReader, effect: NoteEffect): NoteEffect 
     ...result,
     hammer: (flags1 & 0x02) !== 0,
     letRing: (flags1 & 0x08) !== 0,
-    vibrato: (flags2 & 0x40) !== 0 || result.vibrato,
+    vibrato: ((flags2 & 0x40) !== 0 || result.vibrato) && !result.wideVibrato,
     palmMute: (flags2 & 0x02) !== 0,
     staccato: (flags2 & 0x01) !== 0,
   };

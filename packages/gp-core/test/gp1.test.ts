@@ -418,7 +418,7 @@ describe('GP1 notes', () => {
 describe('GP1 effects', () => {
   it.each([
     [1, 'vibrato'],
-    [2, 'vibrato'],
+    [2, 'wideVibrato'],
     [4, 'fadeIn'],
     [5, 'tapping'],
     [6, 'slapping'],

@@ -49,6 +49,7 @@ export function assertSongInvariants(song: Song): void {
             expect(note.string).toBeLessThanOrEqual(track.strings.length);
             expect(note.velocity).toBeGreaterThanOrEqual(0);
             expect(note.velocity).toBeLessThanOrEqual(127);
+            expect(note.effect.vibrato && note.effect.wideVibrato).toBe(false);
           }
         }
       }

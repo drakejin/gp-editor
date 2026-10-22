@@ -5,7 +5,7 @@
  * are 0–12 (alphaTab: 0–60), harmonic/trill/tremolo data as TuxGuitar maps them.
  */
 import { describe, expect, it } from 'vitest';
-import { type Beat, type Note, type Song, readSong } from '../src/index';
+import { type Beat, type Note, type Song, readSong, vibratoOf } from '../src/index';
 import { type FixtureFolder, loadFixture } from './helpers/fixtures';
 
 function at<T>(items: readonly T[], index: number): T {
@@ -176,6 +176,14 @@ describe.each(FORMATS)('%s shared value checks', (folder, extension) => {
     for (let b = 0; b < 4; b++) {
       expect(noteAt(song, 0, b).effect.vibrato).toBe(true);
     }
+  });
+
+  it('effects: a whammy-bar vibrato of Wide strength is wide vibrato', () => {
+    // Act
+    const song = read('effects');
+
+    // Assert
+    expect([0, 1, 2, 3].map((b) => vibratoOf(noteAt(song, 15, b).effect))).toEqual(['slight', 'slight', 'wide', 'wide']);
   });
 
   it('trills: trill fret and speed, tremolo picking speeds', () => {

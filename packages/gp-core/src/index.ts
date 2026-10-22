@@ -21,6 +21,7 @@ export {
   measureTicks,
   toNoteValue,
   tupletOf,
+  vibratoOf,
 } from './model/defaults';
 export { DYNAMICS, type DynamicName, dynamicOf } from './formats/common/velocity';
 export { readSong } from './read-song';
@@ -66,8 +67,18 @@ export {
   setNoteSlides,
   setNoteTied,
   setNoteTremoloBar,
+  setNoteVibrato,
   toggleNoteEffect,
 } from './edit/effects';
+export {
+  BEND_SHAPES,
+  type BendShape,
+  MAX_BEND_AMOUNT,
+  MIN_BEND_AMOUNT,
+  type ShapedBend,
+  bendShapeOf,
+  buildBend,
+} from './edit/bend-shapes';
 export { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from './edit/ornaments';
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';

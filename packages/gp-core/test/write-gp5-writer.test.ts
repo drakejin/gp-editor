@@ -7,6 +7,7 @@ import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { firstByteDifference, songDifference } from './helpers/write-compare';
+import { expectedAfterGp5 } from './helpers/write-expected';
 import { buildNote, buildSong, buildVoice, restVoice, songWithNotes } from './helpers/write-song-builder';
 
 function roundTrip(song: Song): Song {
@@ -316,6 +317,20 @@ describe('writeSong note effects', () => {
     expect(songDifference(song, roundTrip(song))).toBeUndefined();
   });
 
+  it('round-trips slight vibrato as a note flag and wide vibrato as the beat’s wide-vibrato bit', () => {
+    // Arrange
+    const song = songWithNotes(
+      [buildNote(1, 5, { effect: { vibrato: true } }), buildNote(2, 5)],
+      [buildNote(1, 5, { effect: { wideVibrato: true } }), buildNote(2, 7, { effect: { wideVibrato: true } })],
+    );
+
+    // Act
+    const bytes = writeSong(song);
+
+    // Assert
+    expect(songDifference(song, readSong(bytes))).toBeUndefined();
+  });
+
   it('writes velocities as dynamics (ppp … fff) and leaves forte out', () => {
     // Arrange
     const velocities = [15, 31, 47, 63, 79, 95, 111, 127];
@@ -350,6 +365,22 @@ describe('writeSong losses (what GP5 cannot hold)', () => {
     expect(again.tracks[0]?.measures[0]?.beats).toHaveLength(1);
     expect(again.tracks[0]?.measures[0]?.beats[0]?.voices).toHaveLength(2);
     expect(songDifference(base, again)).toBeUndefined();
+  });
+
+  it('keeps wide vibrato per beat: every note of a beat with a wide-vibrato note reads back wide', () => {
+    // Arrange
+    const song = songWithNotes([buildNote(1, 5, { effect: { wideVibrato: true } }), buildNote(2, 5, { effect: { vibrato: true } }), buildNote(3, 5)]);
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(notesOf(again).map((note) => [note.effect.vibrato, note.effect.wideVibrato])).toEqual([
+      [false, true],
+      [false, true],
+      [false, true],
+    ]);
+    expect(songDifference(expectedAfterGp5(song), again)).toBeUndefined();
   });
 
   it('keeps seven strings, clamps frets to 99 and drops notes on missing strings', () => {
