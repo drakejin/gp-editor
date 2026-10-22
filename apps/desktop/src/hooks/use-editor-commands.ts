@@ -32,6 +32,8 @@ interface EditorCommandSources {
   readonly onZoom: (direction: 1 | -1) => void;
   /** B / C: the vibrato or bend panel for the note at the cursor. */
   readonly onNotePanel: (panel: NotePanel) => void;
+  /** Esc closes an open panel or menu first (true when one was open); with none open it stops playback. */
+  readonly closeOverlay: () => boolean;
   /** ⌘C / ⌘X / ⌘V on the score. */
   readonly clipboard: { readonly copy: () => void; readonly cut: () => void; readonly paste: () => void };
   /** The view that receives keyboard events; focused again after clicks on the score. */
@@ -40,7 +42,7 @@ interface EditorCommandSources {
 
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
-  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, clipboard, keyboardView } = sources;
+  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, closeOverlay, clipboard, keyboardView } = sources;
   const { cursor, trackIndex, mode } = sources.state;
   const lastDigit = useRef<DigitEntry | undefined>(undefined);
   const { isPlaying, start, stop } = playback;
@@ -99,12 +101,14 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
           start(cursor?.measureIndex ?? 0);
         }
       } else if (command.type === 'stopPlayback') {
-        stop();
+        if (!closeOverlay()) {
+          stop();
+        }
       } else {
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, onNotePanel, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, closeOverlay, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
   );
 
   const onPressBeat = useCallback(

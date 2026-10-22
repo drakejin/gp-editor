@@ -17,6 +17,8 @@ interface Sources {
   readonly onZoom: jest.Mock;
   readonly onNotePanel: jest.Mock;
   readonly start: jest.Mock;
+  readonly stop: jest.Mock;
+  readonly closeOverlay: jest.Mock;
   readonly changePractice: jest.Mock;
   readonly clipboard: { readonly copy: jest.Mock; readonly cut: jest.Mock; readonly paste: jest.Mock };
 }
@@ -28,7 +30,7 @@ function openSong(): EditorState {
   return editorReducer(loaded, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 2, beatIndex: 0, voiceIndex: 0, string: 3 } });
 }
 
-function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = false): { commands: EditorCommands; sources: Sources } {
+function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = false, isOverlayOpen = false): { commands: EditorCommands; sources: Sources } {
   const sources: Sources = {
     dispatch: jest.fn(),
     create: jest.fn(),
@@ -39,10 +41,12 @@ function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = f
     onZoom: jest.fn(),
     onNotePanel: jest.fn(),
     start: jest.fn(),
+    stop: jest.fn(),
+    closeOverlay: jest.fn(() => isOverlayOpen),
     changePractice: jest.fn(),
     clipboard: { copy: jest.fn(), cut: jest.fn(), paste: jest.fn() },
   };
-  const playback = { isPlaying, start: sources.start, stop: jest.fn(), practice: INITIAL_PRACTICE, changePractice: sources.changePractice } as unknown as Playback;
+  const playback = { isPlaying, start: sources.start, stop: sources.stop, practice: INITIAL_PRACTICE, changePractice: sources.changePractice } as unknown as Playback;
   let commands: EditorCommands | undefined;
   function Probe() {
     commands = useEditorCommands({ ...sources, state, playback, openPath: jest.fn(), keyboardView: { current: null } });
@@ -133,5 +137,25 @@ describe('useEditorCommands: note panels, playback tempo and the clipboard', () 
     commands.runCommand({ type: 'cut' });
     commands.runCommand({ type: 'paste' });
     expect([sources.clipboard.copy, sources.clipboard.cut, sources.clipboard.paste].map((fn) => fn.mock.calls.length)).toEqual([1, 1, 1]);
+  });
+});
+
+describe('useEditorCommands: Esc', () => {
+  it('closes an open panel instead of stopping playback', () => {
+    // Arrange: playing, with the bend panel open
+    const { commands, sources } = renderCommands(openSong(), true, true);
+
+    // Act
+    commands.runCommand({ type: 'stopPlayback' });
+
+    // Assert
+    expect(sources.closeOverlay).toHaveBeenCalledTimes(1);
+    expect(sources.stop).not.toHaveBeenCalled();
+  });
+
+  it('stops playback when nothing is open', () => {
+    const { commands, sources } = renderCommands(openSong(), true, false);
+    commands.runCommand({ type: 'stopPlayback' });
+    expect(sources.stop).toHaveBeenCalledTimes(1);
   });
 });

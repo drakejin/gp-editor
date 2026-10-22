@@ -86,6 +86,7 @@ export default function App() {
         chrome.openNotePanel(panel);
       }
     },
+    closeOverlay: chrome.closeOverlay,
     clipboard: NO_CLIPBOARD,
     keyboardView,
   });
@@ -134,6 +135,14 @@ export default function App() {
   );
   const track = song?.tracks[trackIndex];
   const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
+  // A note panel follows the cursor from note to note; an empty string closes it.
+  const hasCursorNote = cursorNote !== undefined;
+  const { closeNotePanel } = chrome;
+  useEffect(() => {
+    if (!hasCursorNote) {
+      closeNotePanel();
+    }
+  }, [hasCursorNote, closeNotePanel]);
   const errorText =
     state.error ??
     (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined);

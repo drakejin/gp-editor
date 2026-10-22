@@ -30,6 +30,8 @@ export interface WindowChrome {
   readonly isShortcutSheetOpen: boolean;
   readonly openShortcutSheet: () => void;
   readonly closeShortcutSheet: () => void;
+  /** Esc: closes what is on top (instrument picker, note panel, shortcut sheet, menu); false when nothing was open. */
+  readonly closeOverlay: () => boolean;
 }
 
 export function useWindowChrome(): WindowChrome {
@@ -39,6 +41,21 @@ export function useWindowChrome(): WindowChrome {
   const [pickingTrackIndex, setPickingTrackIndex] = useState<number | undefined>(undefined);
   const [notePanel, setNotePanel] = useState<NotePanel | undefined>(undefined);
   const [isShortcutSheetOpen, setIsShortcutSheetOpen] = useState(false);
+  // Same order as App draws them, the last one on top.
+  const closeOverlay = useCallback(() => {
+    if (pickingTrackIndex !== undefined) {
+      setPickingTrackIndex(undefined);
+    } else if (notePanel !== undefined) {
+      setNotePanel(undefined);
+    } else if (isShortcutSheetOpen) {
+      setIsShortcutSheetOpen(false);
+    } else if (menu !== undefined) {
+      setMenu(undefined);
+    } else {
+      return false;
+    }
+    return true;
+  }, [pickingTrackIndex, notePanel, isShortcutSheetOpen, menu]);
   return {
     panels,
     togglePanel: useCallback((panel: PanelId) => setPanels((current) => togglePanel(current, panel)), []),
@@ -56,5 +73,6 @@ export function useWindowChrome(): WindowChrome {
     isShortcutSheetOpen,
     openShortcutSheet: useCallback(() => setIsShortcutSheetOpen(true), []),
     closeShortcutSheet: useCallback(() => setIsShortcutSheetOpen(false), []),
+    closeOverlay,
   };
 }

@@ -68,7 +68,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     title: 'Everywhere',
     shortcuts: [
       { keys: 'Space', action: 'Play / stop', press: key(' ') },
-      { keys: 'Esc', action: 'Stop', press: key('Escape') },
+      { keys: 'Esc', action: 'Close a panel or menu; otherwise stop', press: key('Escape') },
       { keys: '] / [', action: 'Playback tempo +5 / −5 BPM', press: key(']') },
       { keys: '⌘Z / ⇧⌘Z', action: 'Undo / redo', press: key('z', { metaKey: true }) },
       { keys: '⌘C', action: 'Copy the beats (clipboard)', press: key('c', { metaKey: true }) },
