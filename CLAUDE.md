@@ -15,7 +15,9 @@ Goal: read every Guitar Pro file — GP1/GP2 (.gtp), GP3 (.gp3), GP4 (.gp4), GP5
 | `packages/gp-core/src/formats/gpif/` | GP6 (.gpx, BCFZ/BCFS container) and GP7/8 (.gp, zip) — both hold a GPIF XML document. |
 | `packages/gp-core/src/edit/` | Immutable edit operations on a `Song` (`setNoteFret`, `setNoteString`, `deleteNote`). |
 | `packages/gp-core/test/` | Vitest. `fixtures/guitarproN/` real files (see its README). `helpers/invariants.ts` = checks every reader output must pass. |
+| `packages/gp-core/src/midi/` | Song → Standard MIDI File + playback timeline (port of TuxGuitar's MidiSequenceParser). |
 | `apps/desktop/` | React Native app with the macOS target (`macos/`, Xcode + CocoaPods). See its README for the QA driver, Hermes smoke and E2E scripts. |
+| `apps/desktop/src/score/` | Engravers: pure functions from the song to `DrawCommand`s (`draw.ts`) — tab, notation, heading, fretboard, rows, hit-testing. |
 
 ## Commands
 
@@ -52,8 +54,12 @@ npm run build:mac   # Release build of the macOS app (xcodebuild)
   that return a new `Song`. Editor actions are named after the gp-core function they run (`setNoteFret`, `shiftNoteFret`,
   `shiftNoteString`, `deleteNote`).
 - **Booleans** `is*` / `has*` / `can*`. **Constants** `UPPER_SNAKE_CASE`, including grouped objects (`TAB`, `FRET_BOX`).
-- **Files**: modules are kebab-case (`byte-reader.ts`, `fret-input.ts`); React components are PascalCase (`TabMeasure.tsx`);
-  a test file is named after the module it tests (`fret-input.test.ts`).
+- **Files**: modules are kebab-case (`byte-reader.ts`, `fret-input.ts`); React components are PascalCase (`ScoreRow.tsx`);
+  a test file is named after the module it tests (`fret-input.test.ts`). Exception: codegen specs must be named
+  `*NativeComponent.ts` (`src/native/specs/`).
+- **Score drawing**: the score is never built from one React view per glyph. Engravers return `DrawCommand`s and the
+  native `GPScoreCanvas` draws a whole row; music symbols are SMuFL code points of the bundled Bravura font (`SMUFL` in
+  `draw.ts`).
 - **One home per fact**: shared Guitar Pro facts in `formats/common`, model helpers (`durationTicks`, `durationFromTicks`,
   `NOTE_VALUES`) in `model/defaults.ts`; never re-declare them in a reader. Tables keyed by text from a file are read with
   `lookupName` (own properties only).

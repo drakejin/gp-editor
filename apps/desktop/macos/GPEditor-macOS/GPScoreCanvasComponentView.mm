@@ -1,0 +1,242 @@
+// Native score canvas: draws the DrawCommand list of src/score/draw.ts with CoreGraphics, one view per score row.
+// The `commands` prop is a JSON array; it is parsed once per change and drawn in -drawRect:. The music font
+// (Bravura, SMuFL) ships in the app bundle and is registered for this process on first use.
+
+#import <AppKit/AppKit.h>
+#import <CoreText/CoreText.h>
+#import <React/RCTViewComponentView.h>
+
+#import <react/renderer/components/GPEditorSpec/ComponentDescriptors.h>
+#import <react/renderer/components/GPEditorSpec/Props.h>
+#import <react/renderer/components/GPEditorSpec/RCTComponentViewHelpers.h>
+
+using namespace facebook::react;
+
+static NSString *const kMusicFontName = @"Bravura";
+
+#pragma mark - Drawing view
+
+/** Flipped NSView that draws the parsed commands. Never handles clicks: React Native's touch handling sits above it. */
+@interface GPScoreCanvasDrawingView : NSView
+@property (nonatomic, copy) NSArray<NSDictionary *> *commands;
+@end
+
+@implementation GPScoreCanvasDrawingView {
+  NSMutableDictionary<NSString *, NSColor *> *_colors;
+}
+
++ (void)initialize
+{
+  if (self != [GPScoreCanvasDrawingView class]) {
+    return;
+  }
+  NSURL *url = [[NSBundle mainBundle] URLForResource:kMusicFontName withExtension:@"otf"];
+  if (url != nil) {
+    CTFontManagerRegisterFontsForURL((__bridge CFURLRef)url, kCTFontManagerScopeProcess, NULL);
+  }
+}
+
+- (BOOL)isFlipped
+{
+  return YES;
+}
+
+- (NSView *)hitTest:(NSPoint)point
+{
+  return nil;
+}
+
+- (void)setCommands:(NSArray<NSDictionary *> *)commands
+{
+  _commands = [commands copy];
+  [self setNeedsDisplay:YES];
+}
+
+- (NSColor *)color:(NSString *)hex
+{
+  if (_colors == nil) {
+    _colors = [NSMutableDictionary dictionary];
+  }
+  NSColor *cached = _colors[hex];
+  if (cached != nil) {
+    return cached;
+  }
+  unsigned int value = 0;
+  NSString *digits = [hex hasPrefix:@"#"] ? [hex substringFromIndex:1] : hex;
+  [[NSScanner scannerWithString:digits] scanHexInt:&value];
+  BOOL hasAlpha = digits.length == 8;
+  CGFloat r = ((hasAlpha ? value >> 24 : value >> 16) & 0xFF) / 255.0;
+  CGFloat g = ((hasAlpha ? value >> 16 : value >> 8) & 0xFF) / 255.0;
+  CGFloat b = ((hasAlpha ? value >> 8 : value) & 0xFF) / 255.0;
+  CGFloat a = hasAlpha ? (value & 0xFF) / 255.0 : 1.0;
+  NSColor *color = [NSColor colorWithSRGBRed:r green:g blue:b alpha:a];
+  _colors[hex] = color;
+  return color;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+  CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+  for (NSDictionary *command in self.commands) {
+    NSString *kind = command[@"kind"];
+    if ([kind isEqualToString:@"line"]) {
+      [self drawLine:command in:context];
+    } else if ([kind isEqualToString:@"rect"]) {
+      [self drawRect:command in:context];
+    } else if ([kind isEqualToString:@"circle"]) {
+      [self drawCircle:command in:context];
+    } else if ([kind isEqualToString:@"text"]) {
+      [self drawText:command];
+    } else if ([kind isEqualToString:@"curve"]) {
+      [self drawCurve:command in:context];
+    } else if ([kind isEqualToString:@"polygon"]) {
+      [self drawPolygon:command in:context];
+    }
+  }
+}
+
+- (void)drawLine:(NSDictionary *)c in:(CGContextRef)context
+{
+  CGContextSetStrokeColorWithColor(context, [self color:c[@"color"]].CGColor);
+  CGContextSetLineWidth(context, [c[@"width"] doubleValue]);
+  CGContextMoveToPoint(context, [c[@"x1"] doubleValue], [c[@"y1"] doubleValue]);
+  CGContextAddLineToPoint(context, [c[@"x2"] doubleValue], [c[@"y2"] doubleValue]);
+  CGContextStrokePath(context);
+}
+
+- (void)drawRect:(NSDictionary *)c in:(CGContextRef)context
+{
+  CGRect rect = CGRectMake([c[@"x"] doubleValue], [c[@"y"] doubleValue], [c[@"width"] doubleValue], [c[@"height"] doubleValue]);
+  CGFloat radius = MIN([c[@"radius"] doubleValue], MIN(rect.size.width, rect.size.height) / 2);
+  CGContextSetFillColorWithColor(context, [self color:c[@"color"]].CGColor);
+  if (radius > 0) {
+    CGPathRef path = CGPathCreateWithRoundedRect(rect, radius, radius, NULL);
+    CGContextAddPath(context, path);
+    CGContextFillPath(context);
+    CGPathRelease(path);
+  } else {
+    CGContextFillRect(context, rect);
+  }
+}
+
+- (void)drawCircle:(NSDictionary *)c in:(CGContextRef)context
+{
+  CGFloat r = [c[@"radius"] doubleValue];
+  CGRect rect = CGRectMake([c[@"x"] doubleValue] - r, [c[@"y"] doubleValue] - r, r * 2, r * 2);
+  CGColorRef color = [self color:c[@"color"]].CGColor;
+  if (c[@"strokeWidth"] != nil) {
+    CGContextSetStrokeColorWithColor(context, color);
+    CGContextSetLineWidth(context, [c[@"strokeWidth"] doubleValue]);
+    CGContextStrokeEllipseInRect(context, rect);
+  } else {
+    CGContextSetFillColorWithColor(context, color);
+    CGContextFillEllipseInRect(context, rect);
+  }
+}
+
+- (void)drawCurve:(NSDictionary *)c in:(CGContextRef)context
+{
+  CGContextSetStrokeColorWithColor(context, [self color:c[@"color"]].CGColor);
+  CGContextSetLineWidth(context, [c[@"width"] doubleValue]);
+  CGContextSetLineCap(context, kCGLineCapRound);
+  CGContextMoveToPoint(context, [c[@"x1"] doubleValue], [c[@"y1"] doubleValue]);
+  CGContextAddQuadCurveToPoint(
+      context, [c[@"cx"] doubleValue], [c[@"cy"] doubleValue], [c[@"x2"] doubleValue], [c[@"y2"] doubleValue]);
+  CGContextStrokePath(context);
+  CGContextSetLineCap(context, kCGLineCapButt);
+}
+
+- (void)drawPolygon:(NSDictionary *)c in:(CGContextRef)context
+{
+  NSArray<NSNumber *> *points = c[@"points"];
+  if (points.count < 6) {
+    return;
+  }
+  CGContextSetFillColorWithColor(context, [self color:c[@"color"]].CGColor);
+  CGContextMoveToPoint(context, points[0].doubleValue, points[1].doubleValue);
+  for (NSUInteger i = 2; i + 1 < points.count; i += 2) {
+    CGContextAddLineToPoint(context, points[i].doubleValue, points[i + 1].doubleValue);
+  }
+  CGContextClosePath(context);
+  CGContextFillPath(context);
+}
+
+- (NSFont *)font:(NSString *)family size:(CGFloat)size bold:(BOOL)bold
+{
+  NSFontWeight weight = bold ? NSFontWeightSemibold : NSFontWeightRegular;
+  if ([family isEqualToString:@"music"]) {
+    return [NSFont fontWithName:kMusicFontName size:size] ?: [NSFont systemFontOfSize:size];
+  }
+  if ([family isEqualToString:@"mono"]) {
+    return [NSFont monospacedSystemFontOfSize:size weight:weight];
+  }
+  return [NSFont systemFontOfSize:size weight:weight];
+}
+
+/** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. */
+- (void)drawText:(NSDictionary *)c
+{
+  NSString *family = c[@"font"];
+  NSFont *font = [self font:family size:[c[@"size"] doubleValue] bold:[c[@"bold"] boolValue]];
+  NSDictionary *attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
+  NSString *text = c[@"text"];
+  CGFloat width = [text sizeWithAttributes:attributes].width;
+  NSString *align = c[@"align"];
+  CGFloat x = [c[@"x"] doubleValue];
+  x -= [align isEqualToString:@"center"] ? width / 2 : [align isEqualToString:@"right"] ? width : 0;
+  CGFloat y = [c[@"y"] doubleValue];
+  CGFloat top = [family isEqualToString:@"music"] ? y - font.ascender : y - (font.ascender - font.descender) / 2;
+  [text drawAtPoint:NSMakePoint(x, top) withAttributes:attributes];
+}
+
+@end
+
+#pragma mark - Fabric component
+
+@interface GPScoreCanvasComponentView : RCTViewComponentView
+@end
+
+@implementation GPScoreCanvasComponentView {
+  GPScoreCanvasDrawingView *_canvas;
+}
+
++ (ComponentDescriptorProvider)componentDescriptorProvider
+{
+  return concreteComponentDescriptorProvider<GPScoreCanvasComponentDescriptor>();
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  if (self = [super initWithFrame:frame]) {
+    static const auto defaultProps = std::make_shared<const GPScoreCanvasProps>();
+    _props = defaultProps;
+    _canvas = [[GPScoreCanvasDrawingView alloc] initWithFrame:self.bounds];
+    self.contentView = _canvas;
+  }
+  return self;
+}
+
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
+{
+  const auto &previous = *std::static_pointer_cast<GPScoreCanvasProps const>(_props);
+  const auto &next = *std::static_pointer_cast<GPScoreCanvasProps const>(props);
+  if (previous.commands != next.commands) {
+    NSData *json = [NSData dataWithBytes:next.commands.data() length:next.commands.size()];
+    id parsed = json.length == 0 ? nil : [NSJSONSerialization JSONObjectWithData:json options:0 error:nil];
+    _canvas.commands = [parsed isKindOfClass:[NSArray class]] ? parsed : @[];
+  }
+  [super updateProps:props oldProps:oldProps];
+}
+
+- (void)prepareForRecycle
+{
+  [super prepareForRecycle];
+  _canvas.commands = @[];
+}
+
+@end
+
+Class<RCTComponentViewProtocol> GPScoreCanvasCls(void)
+{
+  return GPScoreCanvasComponentView.class;
+}

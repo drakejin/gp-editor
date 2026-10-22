@@ -1,6 +1,6 @@
 {
   "name": "gp-editor-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "LGPL-2.1-or-later",
   "private": true,
   "scripts": {
@@ -41,5 +41,15 @@
   },
   "engines": {
     "node": ">=20.19.4"
+  },
+  "codegenConfig": {
+    "name": "GPEditorSpec",
+    "type": "components",
+    "jsSrcsDir": "src/native/specs",
+    "ios": {
+      "componentProvider": {
+        "GPScoreCanvas": "GPScoreCanvasComponentView"
+      }
+    }
   }
 }

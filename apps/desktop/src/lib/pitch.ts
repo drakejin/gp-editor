@@ -1,5 +1,10 @@
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
+/** Pitch class with sharps: "C", "C#" … "B". */
+export function pitchClassName(midi: number): string {
+  return NAMES[((midi % 12) + 12) % 12] ?? '?';
+}
+
 /** "E4" for MIDI 64. */
 export function pitchName(midi: number): string {
   const name = NAMES[((midi % 12) + 12) % 12] ?? '?';

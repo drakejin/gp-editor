@@ -32,7 +32,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, song model, immutable edit operations
+packages/gp-core   pure TypeScript: format detection, readers, song model, immutable edit operations, MIDI rendering
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
 
@@ -78,9 +78,14 @@ npm run typecheck                           # tsc for both packages
 ## Using the app
 
 - **Open**: File ▸ Open… (⌘O), the Open button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor.
-- **Navigate**: pick a track on the left; click a fret number to select it; ←/→ move to the previous/next note.
-- **Edit**: type 0–9 (two quick digits make 10–29), `-`/`=` lower/raise the fret, ↑/↓ move the note to the
-  neighbouring string, ⌫ deletes it, ⌘Z / ⇧⌘Z undo and redo.
+- **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only, with a 24-fret neck above the score
+  showing every position's note name and the notes of the current beat). Pick a track on the left.
+- **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
+  also empty strings.
+- **Edit**: type 0–9 at the cursor (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret
+  down/up, ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ deletes it, ⌘Z / ⇧⌘Z undo and redo.
+- **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the macOS General MIDI
+  sounds; the score and the neck follow the playing beat. Space or Esc stops.
 
 Saving back to a Guitar Pro file is not implemented yet.
 
@@ -89,3 +94,4 @@ Saving back to a Guitar Pro file is not implemented yet.
 GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 Test fixtures come from the alphaTab test suite (MPL-2.0); see `packages/gp-core/test/fixtures/README.md`.
+The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`).

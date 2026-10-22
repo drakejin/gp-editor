@@ -12,6 +12,9 @@ export const TAB = {
   padLeft: 12,
   padRight: 8,
   timeSignatureWidth: 22,
+  /** Per accidental of a key signature drawn where the key changes inside a row. */
+  keyAccidentalWidth: 7,
+  keySignaturePadding: 6,
   repeatWidth: 10,
   emptyMeasureWidth: 48,
   rowGap: 18,
@@ -35,6 +38,10 @@ export interface MeasureLayout {
   readonly beats: readonly BeatLayout[];
   readonly showTimeSignature: boolean;
   readonly showTempo: boolean;
+  /** Left edge of the key signature when the key changes at this measure (not at the first measure: the row header has it). */
+  readonly keySignatureX?: number;
+  /** Left edge of the time signature when it is shown. */
+  readonly timeSignatureX?: number;
 }
 
 export interface RowLayout {
@@ -72,10 +79,16 @@ function changed(headers: readonly MeasureHeader[], index: number, pick: (h: Mea
 
 export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number): MeasureLayout {
   const header = song.measureHeaders[measureIndex];
-  const beats = song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? [];
+  const track = song.tracks[trackIndex];
+  const beats = track?.measures[measureIndex]?.beats ?? [];
   const showTimeSignature = changed(song.measureHeaders, measureIndex, (h) => `${h.timeSignature.numerator}/${h.timeSignature.denominator}`);
   const showTempo = changed(song.measureHeaders, measureIndex, (h) => String(h.tempo));
-  let x = TAB.padLeft + (showTimeSignature ? TAB.timeSignatureWidth : 0) + (header?.repeatOpen ? TAB.repeatWidth : 0);
+  const keyAccidentals = keyChangeAccidentals(track?.measures[measureIndex - 1]?.keySignature, track?.measures[measureIndex]?.keySignature);
+  let x = TAB.padLeft + (header?.repeatOpen ? TAB.repeatWidth : 0);
+  const keySignatureX = keyAccidentals > 0 ? x : undefined;
+  x += keyAccidentals > 0 ? keyAccidentals * TAB.keyAccidentalWidth + TAB.keySignaturePadding : 0;
+  const timeSignatureX = showTimeSignature ? x : undefined;
+  x += showTimeSignature ? TAB.timeSignatureWidth : 0;
   const beatLayouts = beats.map((beat, beatIndex) => {
     const width = beatWidth(beat);
     const layout = { beatIndex, x: x + width / 2 };
@@ -84,7 +97,15 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   });
   const closeWidth = header !== undefined && header.repeatClose > 0 ? TAB.repeatWidth : 0;
   const width = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
-  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo };
+  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, keySignatureX, timeSignatureX };
+}
+
+/** Accidentals drawn for a key change: the new key's, or naturals cancelling the old one when changing to C. */
+function keyChangeAccidentals(previous: number | undefined, current: number | undefined): number {
+  if (previous === undefined || current === undefined || previous === current) {
+    return 0;
+  }
+  return current === 0 ? Math.abs(previous) : Math.abs(current);
 }
 
 /** Greedy line breaking. Every row but the last is stretched to `availableWidth`; the last one only when mostly full. */
@@ -117,5 +138,6 @@ function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRo
     ...measure,
     width: measure.width * scale,
     beats: measure.beats.map((beat) => ({ ...beat, x: beat.x * scale })),
+    // Prefix glyphs keep their size; only the beat area stretches.
   }));
 }
