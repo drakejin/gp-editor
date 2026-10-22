@@ -36,6 +36,9 @@ export function canOverwrite(path: string): boolean {
   return path.toLowerCase().endsWith('.gp5');
 }
 
+/** The default for `onOpenPdf`: one function, so the File-menu listeners are not re-added on every render. */
+const IGNORE_PDF = (): void => undefined;
+
 /** True for a PDF path or file URL: opening one imports it (PDF → tab) instead. */
 export function isPdfPath(pathOrUrl: string): boolean {
   return pathOrUrl.toLowerCase().endsWith('.pdf');
@@ -45,7 +48,7 @@ export function isPdfPath(pathOrUrl: string): boolean {
 export function useDocument(
   state: EditorState,
   dispatch: Dispatch<EditorAction>,
-  onOpenPdf: (pathOrUrl: string) => void = () => undefined,
+  onOpenPdf: (pathOrUrl: string) => void = IGNORE_PDF,
 ): DocumentCommands {
   const open = useCallback(
     async (load: () => Promise<OpenedFile | null>) => {

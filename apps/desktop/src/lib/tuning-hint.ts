@@ -1,5 +1,6 @@
 import { NECK_FRETS, type PresetFit, type Track, type TuningAdvice, type TuningChange, type TuningPreset, trackTuning } from '@gp-editor/core';
 import { pitchName, tuningLabel } from './pitch';
+import { plural } from './wording';
 
 /** Suggested presets the hint offers as buttons. */
 export const HINT_SUGGESTIONS = 3;
@@ -14,9 +15,6 @@ export interface TuningHint {
   readonly presets: readonly TuningPreset[];
 }
 
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
 
 /** "Guitar · 6 strings · Drop D (D A D G B E)"; a custom tuning shows only its notes; a capo is added. */
 export function neckTitle(advice: TuningAdvice, track: Track): string {

@@ -5,6 +5,7 @@ import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
 import { importProgressText, projectStatusText } from '../pdf-import/status';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
+import { plural } from '../lib/wording';
 
 interface ImportBannerProps {
   readonly palette: Palette;
@@ -37,7 +38,7 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
         {isRunning ? <BarButton label="Cancel" palette={palette} onPress={pdfImport.cancel} /> : null}
         {!isRunning && warnings.length > 0 ? (
           <BarButton
-            label={`${warnings.length} warning${warnings.length === 1 ? '' : 's'} ${showsWarnings ? '▴' : '▾'}`}
+            label={`${plural(warnings.length, 'warning')} ${showsWarnings ? '▴' : '▾'}`}
             palette={palette}
             isActive={showsWarnings}
             onPress={() => setShowsWarnings(!showsWarnings)}

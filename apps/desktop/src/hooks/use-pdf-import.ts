@@ -48,6 +48,8 @@ export interface PdfImport {
   readonly dismiss: () => void;
 }
 
+const BUSY_MESSAGE = 'An import is already running; cancel it or wait for it to finish';
+
 function toSummary(entry: ProjectEntry): ProjectSummary {
   return { path: entry.path, name: entry.name, modified: entry.modified, project: parseImportProject(entry.project) };
 }
@@ -79,6 +81,8 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
   const [model, setModel] = useState(DEFAULT_TRANSCRIPTION_MODEL);
   const [error, setError] = useState<string | undefined>(undefined);
   const isCancelled = useRef(false);
+  // Set from the moment an import or resume is asked for (key check, open panel…) until its run ends.
+  const isBusy = useRef(false);
 
   const refreshProjects = useCallback(() => {
     listProjects()
@@ -126,9 +130,23 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
     return isKeySet;
   }, [onNeedsKey]);
 
+  /** Runs one import job at a time: a job asked for while another runs is refused with a message. */
+  const exclusive = useCallback((job: () => Promise<void>) => {
+    if (isBusy.current) {
+      setError(BUSY_MESSAGE);
+      return;
+    }
+    isBusy.current = true;
+    job()
+      .catch((reason: unknown) => setError(errorMessage(reason)))
+      .finally(() => {
+        isBusy.current = false;
+      });
+  }, []);
+
   const importFrom = useCallback(
     (pick: () => Promise<string | null>) => {
-      void (async () => {
+      exclusive(async () => {
         try {
           if (!(await ensureKey())) {
             return;
@@ -144,16 +162,16 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
         } catch (reason: unknown) {
           setError(errorMessage(reason));
         }
-      })();
+      });
     },
-    [ensureKey, model, run],
+    [exclusive, ensureKey, model, run],
   );
   const start = useCallback(() => importFrom(async () => (await choosePdf())?.path ?? null), [importFrom]);
   const importPath = useCallback((pathOrUrl: string) => importFrom(async () => pathOrUrl), [importFrom]);
 
   const resume = useCallback(
     (path: string) => {
-      void (async () => {
+      exclusive(async () => {
         if (!(await ensureKey())) {
           return;
         }
@@ -163,9 +181,9 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
           return;
         }
         await run(path, { ...project, model });
-      })();
+      });
     },
-    [ensureKey, model, run],
+    [exclusive, ensureKey, model, run],
   );
 
   const saveKey = useCallback(async (key: string) => {

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { songCredits } from '../lib/song-credits';
 import type { Palette } from '../theme';
+import { plural } from '../lib/wording';
 
 interface SongHeaderProps {
   readonly song: Song;
@@ -35,7 +36,7 @@ function SongHeaderView({ song, fileName, palette }: SongHeaderProps) {
       </View>
       {info.subtitle ? <Text style={[styles.subtitle, { color: palette.text }]}>{info.subtitle}</Text> : null}
       <Text numberOfLines={1} style={[styles.credits, { color: palette.muted }]}>
-        {[...credits, `${song.tracks.length} tracks`, `${song.measureHeaders.length} bars`, song.source.version].join('  ·  ')}
+        {[...credits, plural(song.tracks.length, 'track'), plural(song.measureHeaders.length, 'bar'), song.source.version].join('  ·  ')}
       </Text>
     </View>
   );

@@ -1,4 +1,5 @@
 import { TRANSCRIPTION_TOOL, type TranscribedMeasure, type TranscriptionPage } from '@gp-editor/core';
+import { plural } from '../lib/wording';
 
 export interface TranscriptionModel {
   readonly id: string;
@@ -69,7 +70,7 @@ function keyName(key: number): string {
     return 'no sharps or flats';
   }
   const count = Math.abs(key);
-  return `${count} ${key > 0 ? 'sharp' : 'flat'}${count === 1 ? '' : 's'}`;
+  return plural(count, key > 0 ? 'sharp' : 'flat');
 }
 
 /** What page 1 established, so a later page keeps the same tracks (and their indexes) and knows the current meter. */
