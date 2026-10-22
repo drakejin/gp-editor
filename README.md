@@ -32,7 +32,8 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations, MIDI rendering
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations
+                   (incl. tunings), MIDI rendering, PDF transcription → song
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
 
@@ -56,7 +57,7 @@ npm run build:mac                           # Release .app → apps/desktop/maco
 `build:mac` first fetches the GeneralUser GS SoundFont (32 MB, pinned and checksummed;
 `npm --prefix apps/desktop run soundfont` does it alone). Without it the app plays with the macOS sounds.
 
-Release zips (arm64 and universal, with SHA256SUMS) from the Release build:
+Release zips (arm64 and universal, with `SHA256SUMS.txt`) from the Release build:
 
 ```bash
 npm --prefix apps/desktop run package:macos   # → apps/desktop/macos/build/release/
@@ -73,16 +74,20 @@ npm --prefix apps/desktop run macos         # Debug build + launch
 
 ```bash
 npm test                                    # gp-core (Vitest) — fixtures in packages/gp-core/test/fixtures
-npm run coverage                            # gp-core coverage, 80% line gate
-npm --prefix apps/desktop test              # app logic (Jest)
+npm run coverage                            # gp-core coverage; gate 80% lines/functions/statements, 70% branches
+npm --prefix apps/desktop test              # app (Jest)
+npm --prefix apps/desktop run lint          # ESLint (app)
 npm run typecheck                           # tsc for both packages
 ```
+
+The Hermes smoke test, the `open -a` E2E check and the QA driver are described in `apps/desktop/README.md`.
 
 ## Using the app
 
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab, the New button (in the selected view) or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
-- **Open**: File ▸ Open… (⌘O), the Open button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor.
+- **Open**: File ▸ Open… (⌘O), the Open… button, dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
+  (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
 - **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I), the *Import PDF…* button or the start screen. Claude (Anthropic API,
   your own key) reads the sheet music page by page — tab staves as string/fret, standard notation as pitches placed on
   the tuning's strings — and the app builds a Guitar Pro 5 song from it and opens it. Every import is a project folder
@@ -91,31 +96,37 @@ npm run typecheck                           # tsc for both packages
   come through (network, an unreadable page, a cancelled run) can be resumed from the banner or the start screen; only
   the missing pages are sent again. The key is stored by the app on this Mac (owner-only file in its own Application
   Support folder) and never leaves the native side except in the request to `api.anthropic.com`; the model is Claude
-  Opus 5.5 by default, Sonnet 5 for faster, cheaper runs. Results depend on how clear the PDF is: read the warnings
-  and check the song against the PDF.
+  Opus 5.5 by default, Sonnet 5 for faster, cheaper runs. The first import (no key saved yet) opens the import settings:
+  paste the key, pick the model, *Choose PDF…*; after that *Import PDF…* goes straight to the PDF, and the banner's
+  *Import settings…* changes the key or the model. Page 1 is sent first (it names the song and its tracks), then up to
+  three pages at a time; a busy or failing page is tried three times, a refused key or an empty credit balance stops
+  the import. One import runs at a time. A PDF may have at most 60 pages and 100 MB; password-protected PDFs are
+  refused. Results depend on how clear the PDF is: read the warnings and check the song against the PDF.
 - **View**: *Score + Tab* (default), *Score* (standard notation only) or *Tab* (tab only). Whenever the tab is shown, a
   24-fret neck above the score (not for drum tracks) shows every position's note name and the notes of the current beat.
   Pick a track on the left.
-- **Neck & tuning**: every pitched track is played on a guitar neck — a 4-string bass neck for basses (General MIDI bass
-  programs, or strings tuned like a bass), a 6-string guitar neck for everything else (strings, choirs, keys…). The row
+- **Neck & tuning**: the neck shows the track's own strings and capo. Its tuning presets come from its instrument:
+  4-string bass presets for basses (a General MIDI bass program — so picking a bass instrument switches them — or
+  strings tuned like a bass), 6-string guitar presets for every other pitched track (guitars, strings, choirs, keys…). The row
   above the neck names the instrument and tuning (e.g. *Guitar · 6 strings · Drop D (D A D G B E)*); **Tunings ▾** opens
   the instrument's presets — guitar: Standard, Drop D, E♭/D/C/B standard, Drop C♯/C/B, Open G, Open D, DADGAD; bass:
   Standard, Drop D, E♭/D standard, Drop C, B E A D. A ✓ marks the presets that play every note of the track within 24
   frets. Clicking a preset retunes the track and re-frets the tab so every note sounds the same (one undo step): notes
   stay on their string when they can, else move to the nearest free string; a note no string can reach within the 24
-  frets moves by an octave, and a notice says how many. When a track is not on a preset that plays it — a 7-string part, a custom tuning,
+  frets moves by an octave, and a note whose beat has more notes than the new tuning has strings is left out; a notice
+  says how many of each (⌘Z restores the old tuning). When a track is not on a preset that plays it — a 7-string part, a custom tuning,
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings.
-- **Edit** at the cursor (keys, or the edit bar under the toolbar):
+- **Edit** at the cursor (keys; the toolbar's Undo, Redo, Fret −/+, Move ↑/↓ and Delete; or the edit bar under it):
   - frets: 0–9 (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret down/up,
-    ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ delete the note
+    ⌥↑/⌥↓ move the note to the neighbouring string, ⌫ or ⌦ delete the note
   - duration: `[` longer, `]` shorter, `.` dot, `/` triplet, or the duration buttons
   - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
     drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
   - effects: `H` hammer-on/pull-off, `P` palm mute, `L` let ring, `V` vibrato, `X` dead note, `G` ghost note,
-    `A` accent, `S` slide, `B` bend (½ → full → off), `N` natural harmonic, `T` tie
+    `A` accent, `S` slide, `B` bend (½ → full → off), `N` natural harmonic, `T` tie, and the edit bar's `·` staccato (no key)
   - bars (edit bar): add/delete bar, time signature, tempo, key signature, repeat start/end
   - ⌘Z / ⇧⌘Z undo and redo
 - **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
@@ -128,13 +139,18 @@ npm run typecheck                           # tsc for both packages
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
   closer (and an extremely dense one is printed smaller) so nothing runs off the page.
 - **Sound**: under each track in the track list is its instrument (*♪ Distortion Electric Guitar ▾*); click it to
-  pick any of the 128 General MIDI instruments, by family (Piano, Guitar, Bass, Strings, Brass, Synth Lead…). The
-  instrument is saved with the song. Drum tracks keep the standard kit: Guitar Pro 3–5 files hold no drum-kit
-  setting. *Sound* in the transport bar picks the sound bank every track plays with: **GeneralUser GS** (bundled,
-  the default), the **macOS** GS bank, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into
-  the app; *Remove* deletes the copy). The bank is a playback setting, kept by the app, not saved in the file.
-  Changing either while playing restarts at the bar being played, with the new sound.
-- **Play**: Space or ▶ Play plays all tracks (honouring mute/solo) from the cursor's bar with the selected sound bank;
+  open the instrument panel over the score — step 1 on the left picks one of the 16 General MIDI families (Piano,
+  Guitar, Bass, Strings, Brass, Synth Lead…), step 2 on the right one of its 8 instruments, which the track plays at
+  once. The panel stays open to try sounds one after another; *Done* or a click outside closes it. The instrument is
+  saved with the song (a track that shared its channel with another gets a channel of its own). Drum tracks keep the
+  standard kit: Guitar Pro 3–5 files hold no drum-kit setting. *Sound* in the transport bar picks the sound bank every
+  track plays with: **GeneralUser GS** (bundled, the default), **macOS (Roland GS)**, the bank that ships with macOS,
+  or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the copy).
+  The bank is a playback setting, kept by the app, not saved in the file. While the song plays, a new instrument is
+  heard at once (playback restarts at the bar being played only when the track had to get a channel of its own); a
+  new sound bank restarts playback at the bar being played, once, shortly after the last click.
+- **Play**: Space or ▶ Play plays all tracks (honouring the mute/solo flags saved in the file) from the cursor's bar
+  with the selected sound bank;
   the score and the neck follow the playing beat. Space or Esc stops. The transport bar (third row) sets up
   practice playback for the session — none of it is saved in the file:
   - *Playback tempo*: `♩ 95 · 95%` is the playing tempo of the bar playback starts from (the loop's first bar while
@@ -149,13 +165,14 @@ npm run typecheck                           # tsc for both packages
     (default: the written tempo or 20 BPM above the playback tempo, whichever is higher) is where it stops rising.
     The pass being played and its tempo show at the end of the row.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
-    keeps its pass count).
+    keeps its pass count). Adding or deleting a bar while playing stops playback.
 
 ## License
 
 GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
-Test fixtures come from the alphaTab test suite (MPL-2.0); see `packages/gp-core/test/fixtures/README.md`.
+GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2 files are not committed (fetched by
+`fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`.
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).
