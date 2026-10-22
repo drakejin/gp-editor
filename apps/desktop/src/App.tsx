@@ -4,6 +4,7 @@ import { findNote } from '@gp-editor/core';
 import { DocumentView } from './components/DocumentView';
 import { EditBar } from './components/EditBar';
 import { EmptyState } from './components/EmptyState';
+import { ExportPanel } from './components/ExportPanel';
 import { ImportBanner } from './components/ImportBanner';
 import { ImportPanel } from './components/ImportPanel';
 import { ProjectList } from './components/ProjectList';
@@ -12,6 +13,7 @@ import { TransportBar } from './components/TransportBar';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
+import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { HANDLED_KEYS } from './lib/key-commands';
@@ -39,6 +41,8 @@ export default function App() {
   importPdfPath.current = pdfImport.importPath;
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
+  // Export… button and File ▸ Export PDF… (⌘P) open the same panel.
+  const pdfExport = usePdfExport(document, trackIndex, dispatch);
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -46,6 +50,7 @@ export default function App() {
     create,
     openDialog,
     importPdf: startImport,
+    exportPdf: pdfExport.open,
     openPath,
     save,
     keyboardView,
@@ -151,6 +156,18 @@ export default function App() {
             startImport();
           }}
           onClose={() => setIsImportPanelOpen(false)}
+        />
+      ) : null}
+      {pdfExport.isOpen && document !== undefined ? (
+        <ExportPanel
+          palette={palette}
+          song={document.song}
+          trackIndex={trackIndex}
+          fileName={document.fileName}
+          mode={state.mode}
+          isSaving={pdfExport.isSaving}
+          onSave={pdfExport.save}
+          onClose={pdfExport.close}
         />
       ) : null}
       <ImportBanner

@@ -20,11 +20,16 @@ function plural(count: number, word: string): string {
 
 /** "Guitar · 6 strings · Drop D (D A D G B E)"; a custom tuning shows only its notes; a capo is added. */
 export function neckTitle(advice: TuningAdvice, track: Track): string {
+  return neckTitleFor(advice.instrument, advice.current, track);
+}
+
+/** neckTitle from the track's instrument and the preset it is tuned to (undefined: a custom tuning). */
+export function neckTitleFor(instrument: TuningAdvice['instrument'], current: TuningPreset | undefined, track: Track): string {
   const notes = tuningLabel(trackTuning(track));
   return [
-    INSTRUMENT_TITLES[advice.instrument],
+    INSTRUMENT_TITLES[instrument],
     plural(track.strings.length, 'string'),
-    advice.current === undefined ? notes : `${advice.current.name} (${notes})`,
+    current === undefined ? notes : `${current.name} (${notes})`,
     ...(track.offset > 0 ? [`capo ${track.offset}`] : []),
   ].join(' · ');
 }

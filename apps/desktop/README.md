@@ -17,7 +17,9 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/native/projects.ts` + `macos/…/GPProjects.m` | project folders in `~/Documents/GP Editor Projects` (the sandbox's one writable place in Documents — `GPEditor.entitlements`), PDF pages via PDFKit, files inside a project only |
 | `src/native/anthropic.ts` + `macos/…/GPAnthropic.m` | the API key (owner-only file in the app's Application Support; never sent to JS), the model, and the Messages API call (10 min timeout). QA: `GPEDITOR_ANTHROPIC_URL` points it at a local mock, only under the QA driver |
 | `scripts/soundfont/fetch.sh` | downloads GeneralUser GS at a pinned commit, checks its SHA-256, into `macos/GPEditor-macOS/SoundFonts/` (git-ignored; `npm run build:macos` runs it) |
-| `src/native/gp-files.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events, window title |
+| `src/native/gp-files.ts` | JS side of `macos/GPEditor-macOS/GPFiles.m`: open panel, file reading, Finder/⌘O events (and File ▸ Export PDF… / ⌘P → `exportRequested`), window title |
+| `src/export/` + `src/hooks/use-pdf-export.ts` + `src/components/ExportPanel.tsx` | PDF export: `paper.ts` (A4 / US Letter, margins, `PRINT_SCALE`, `PRINT_PALETTE` — black and grey on white), `title-block.ts` (first-page title, credits, track and tuning), `pdf-document.ts` (`buildPdfDocument`: rows engraved by `engraveRow` as on screen, scaled to print size and packed onto pages, a footer per page; `pdfPageCount`) |
+| `src/native/pdf-export.ts` + `macos/…/GPPdfExport.m` | `savePdf(document, name)`: save panel for a `.pdf`, then the pages (JSON of `PdfDocument`) drawn into a PDF context with the canvas's painter, `GPCommandPainter.m` |
 | `scripts/hermes-smoke/run.sh` | reads every gp-core fixture inside the Hermes VM shipped in the pods |
 | `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded; `GPEDITOR_APP=…` tests another copy |
 | `scripts/release/package.sh` | arm64 and universal release zips + SHA256SUMS in `macos/build/release/` |

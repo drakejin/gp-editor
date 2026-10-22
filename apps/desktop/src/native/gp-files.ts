@@ -88,3 +88,12 @@ export function subscribeImportPdfRequests(onImportPdfRequested: () => void): ()
   const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('importPdfRequested', onImportPdfRequested);
   return () => subscription.remove();
 }
+
+/** File ▸ Export PDF… (⌘P), the same as the Export… button; returns the unsubscribe function. */
+export function subscribeExportRequests(onExportRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('exportRequested', onExportRequested);
+  return () => subscription.remove();
+}

@@ -135,6 +135,41 @@ function translateCommand(
   }
 }
 
+/** Scale every command about the origin by `factor`, sizes and stroke widths too — used to print rows smaller than on screen. */
+export function scaleCommands(commands: readonly DrawCommand[], factor: number): DrawCommand[] {
+  return commands.map((command) => scaleCommand(command, factor));
+}
+
+function scaleCommand(command: DrawCommand, factor: number): DrawCommand {
+  const scale = (value: number) => value * factor;
+  switch (command.kind) {
+    case 'line':
+      return {
+        ...command, x1: scale(command.x1), y1: scale(command.y1), x2: scale(command.x2), y2: scale(command.y2), width: scale(command.width),
+        ...(command.dash === undefined ? {} : { dash: command.dash.map(scale) }),
+      };
+    case 'curve':
+      return {
+        ...command, x1: scale(command.x1), y1: scale(command.y1), cx: scale(command.cx), cy: scale(command.cy),
+        x2: scale(command.x2), y2: scale(command.y2), width: scale(command.width),
+      };
+    case 'polygon':
+      return { ...command, points: command.points.map(scale) };
+    case 'rect':
+      return {
+        ...command, x: scale(command.x), y: scale(command.y), width: scale(command.width), height: scale(command.height),
+        ...(command.radius === undefined ? {} : { radius: scale(command.radius) }),
+      };
+    case 'circle':
+      return {
+        ...command, x: scale(command.x), y: scale(command.y), radius: scale(command.radius),
+        ...(command.strokeWidth === undefined ? {} : { strokeWidth: scale(command.strokeWidth) }),
+      };
+    case 'text':
+      return { ...command, x: scale(command.x), y: scale(command.y), size: scale(command.size) };
+  }
+}
+
 /** SMuFL code points used by the engravers (Bravura). https://w3c.github.io/smufl/latest/ */
 export const SMUFL = {
   gClef: '',

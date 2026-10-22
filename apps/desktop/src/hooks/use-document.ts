@@ -1,6 +1,7 @@
 import { type Dispatch, useCallback, useEffect, useRef } from 'react';
 import { readSong, writeSong } from '@gp-editor/core';
 import { base64ToBytes, bytesToBase64 } from '../lib/base64';
+import { withoutExtension } from '../lib/file-name';
 import {
   type OpenedFile,
   readFile,
@@ -30,8 +31,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 /** "Song.gpx" → "Song.gp5". */
 export function gp5Name(fileName: string): string {
-  const dot = fileName.lastIndexOf('.');
-  return `${dot > 0 ? fileName.slice(0, dot) : fileName}.gp5`;
+  return `${withoutExtension(fileName)}.gp5`;
 }
 
 /** Plain Save may overwrite only a file that is already GP5; other formats are saved as a new .gp5. */
