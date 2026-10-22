@@ -47,7 +47,11 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
       } else if (command.type === 'saveFile') {
         save(false);
       } else if (command.type === 'togglePlayback') {
-        isPlaying ? stop() : start(cursor?.measureIndex ?? 0);
+        if (isPlaying) {
+          stop();
+        } else {
+          start(cursor?.measureIndex ?? 0);
+        }
       } else if (command.type === 'stopPlayback') {
         stop();
       } else {

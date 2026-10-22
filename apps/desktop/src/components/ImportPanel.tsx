@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
+import { errorMessage } from '../lib/errors';
 
 interface ImportPanelProps {
   readonly palette: Palette;
@@ -13,10 +14,6 @@ interface ImportPanelProps {
   readonly onChooseModel: (model: string) => void;
   readonly onStart: () => void;
   readonly onClose: () => void;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

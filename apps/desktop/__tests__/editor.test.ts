@@ -179,8 +179,8 @@ describe('editorReducer: track instrument', () => {
   const CHANNEL = { id: 1, name: 'Guitar', program: 25, bank: 0, volume: 127, balance: 64, chorus: 0, reverb: 0, phaser: 0, tremolo: 0, isPercussion: false };
 
   function withChannel(): EditorState {
-    const song = { ...makeSong([[beat(960, [note(1, 3)])]]), channels: [CHANNEL] };
-    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } });
+    const withGuitar = { ...makeSong([[beat(960, [note(1, 3)])]]), channels: [CHANNEL] };
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: withGuitar } });
   }
 
   it('sets the program of a track as one undo step', () => {

@@ -84,9 +84,15 @@ function fake(
       return answers(page, attempt);
     },
     readText: async file => files.get(file) ?? null,
-    writeText: async (file, text) => void files.set(file, text),
-    writeBase64: async (file, base64) => void files.set(file, base64),
-    wait: async milliseconds => void waits.push(milliseconds),
+    writeText: async (file, text) => {
+      files.set(file, text);
+    },
+    writeBase64: async (file, base64) => {
+      files.set(file, base64);
+    },
+    wait: async milliseconds => {
+      waits.push(milliseconds);
+    },
   };
   return { deps, files, sent, waits };
 }

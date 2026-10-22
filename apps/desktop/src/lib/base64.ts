@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- base64 packs 6-bit groups into bytes */
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 const LOOKUP: ReadonlyMap<string, number> = new Map([...ALPHABET].map((char, index) => [char, index]));

@@ -47,7 +47,7 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
       </View>
       {showsWarnings && !isRunning
         ? warnings.map((warning, index) => (
-            <Text key={index} style={[styles.warning, { color: palette.muted }]}>
+            <Text key={`${index}:${warning}`} style={[styles.warning, { color: palette.muted }]}>
               {`• ${warning}`}
             </Text>
           ))

@@ -16,7 +16,7 @@ export function BarButton({ label, palette, onPress, isEnabled = true, isActive 
     <Pressable
       disabled={!isEnabled}
       onPress={onPress}
-      style={[styles.button, { borderColor: palette.border, opacity: isEnabled ? 1 : 0.4 }, isActive ? { backgroundColor: palette.selection } : null]}
+      style={[styles.button, { borderColor: palette.border }, isEnabled ? null : styles.disabled, isActive ? { backgroundColor: palette.selection } : null]}
     >
       <Text style={[styles.label, { color: isAccent ? palette.accent : palette.text }]}>{label}</Text>
     </Pressable>
@@ -24,6 +24,7 @@ export function BarButton({ label, palette, onPress, isEnabled = true, isActive 
 }
 
 const styles = StyleSheet.create({
+  disabled: { opacity: 0.4 },
   button: { paddingHorizontal: 9, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderRadius: 5, marginRight: 4 },
   label: { fontSize: 12, fontWeight: '600' },
 });

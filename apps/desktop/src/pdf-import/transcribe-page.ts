@@ -3,6 +3,7 @@ import type { ApiResponse } from '../native/anthropic';
 import type { ImportProject } from './project-file';
 import { buildTranscriptionRequest } from './request';
 import { type TokenUsage, readTranscriptionResponse } from './response';
+import { errorMessage } from '../lib/errors';
 
 /** What an import needs from the outside world; injected so the run can be tested without native code or network. */
 export interface ImportDeps {
@@ -26,10 +27,6 @@ const NO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
 export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
   return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** One attempt at one page: the request, the answer, and the transcription checked against the contract. */

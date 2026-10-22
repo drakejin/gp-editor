@@ -15,6 +15,7 @@ import { type ImportProject, PROJECT_FILE, newImportProject, parseImportProject,
 import { DEFAULT_TRANSCRIPTION_MODEL } from '../pdf-import/request';
 import { runImport } from '../pdf-import/run-import';
 import type { ImportDeps } from '../pdf-import/transcribe-page';
+import { errorMessage } from '../lib/errors';
 
 /** A project folder and what its project.json says (undefined when it has none, e.g. made by hand). */
 export interface ProjectSummary {
@@ -47,10 +48,6 @@ export interface PdfImport {
   readonly dismiss: () => void;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function toSummary(entry: ProjectEntry): ProjectSummary {
   return { path: entry.path, name: entry.name, modified: entry.modified, project: parseImportProject(entry.project) };
 }
@@ -60,8 +57,12 @@ function importDeps(path: string, project: ImportProject): ImportDeps {
     send: sendMessages,
     pdfPage: (page) => pdfPages(path, project.sourceFile, page, page),
     readText: (file) => readProjectText(path, file),
-    writeText: async (file, text) => void (await writeProjectText(path, file, text)),
-    writeBase64: async (file, base64) => void (await writeProjectBase64(path, file, base64)),
+    writeText: async (file, text) => {
+      await writeProjectText(path, file, text);
+    },
+    writeBase64: async (file, base64) => {
+      await writeProjectBase64(path, file, base64);
+    },
     wait: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { type SoundBanks, addSoundBank, loadSoundBanks, removeSoundBank, selectSoundBank } from '../native/player';
+import { errorMessage } from '../lib/errors';
 
 export interface SoundBankCommands {
   readonly soundBanks: SoundBanks;
@@ -14,10 +15,6 @@ export interface SoundBankCommands {
 
 const NO_BANKS: SoundBanks = { banks: [], selectedId: '' };
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'The sound bank could not be changed';
-}
-
 /**
  * The sound banks playback can use and the selected one (kept by the native side across launches). `onChanged` runs
  * after the selection changed, so playback can restart with the new sound.
@@ -29,7 +26,7 @@ export function useSoundBanks(onChanged: () => void): SoundBankCommands {
   useEffect(() => {
     loadSoundBanks()
       .then(setSoundBanks)
-      .catch((reason: unknown) => setError(errorMessage(reason)));
+      .catch((reason: unknown) => setError(errorMessage(reason, 'The sound bank could not be changed')));
   }, []);
 
   const run = useCallback(
@@ -41,7 +38,7 @@ export function useSoundBanks(onChanged: () => void): SoundBankCommands {
             onChanged();
           }
         })
-        .catch((reason: unknown) => setError(errorMessage(reason)));
+        .catch((reason: unknown) => setError(errorMessage(reason, 'The sound bank could not be changed')));
     },
     [onChanged],
   );

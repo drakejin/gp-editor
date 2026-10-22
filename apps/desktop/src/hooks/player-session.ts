@@ -14,6 +14,7 @@ import {
 import { type PlayerPosition, playMidi, playerPosition, stopMidi } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import type { PracticeSettings } from '../state/practice';
+import { errorMessage } from '../lib/errors';
 
 /** How often the player position is read while playing. */
 const POLL_INTERVAL_MS = 40;
@@ -77,10 +78,6 @@ function clearTimer(session: PlayerSession): void {
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Playback failed';
-}
-
 function isSameLoopPass(a: LoopPass | undefined, b: LoopPass | undefined): boolean {
   return a?.passIndex === b?.passIndex && a?.tempo === b?.tempo;
 }
@@ -123,18 +120,20 @@ export function launchPlayer(session: PlayerSession, request: PlayRequest): void
       .then(() => {
         if (session.generation.current === startedGeneration) {
           clearTimer(session);
-          session.timer.current = setInterval(() => void pollPlayer(session), POLL_INTERVAL_MS);
+          session.timer.current = setInterval(() => {
+            void pollPlayer(session);
+          }, POLL_INTERVAL_MS);
         }
       })
       .catch((error: unknown) => {
         if (session.generation.current === startedGeneration) {
-          session.setState({ isPlaying: false, error: errorMessage(error) });
+          session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
         }
       });
   } catch (error: unknown) {
     // A restart can fail while the previous render still sounds.
     releasePlayer(session);
-    session.setState({ isPlaying: false, error: errorMessage(error) });
+    session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
   }
 }
 
@@ -153,7 +152,7 @@ async function pollPlayer(session: PlayerSession): Promise<void> {
   } catch (error: unknown) {
     if (session.generation.current === polledGeneration) {
       releasePlayer(session);
-      session.setState({ isPlaying: false, error: errorMessage(error) });
+      session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
     }
     return;
   }

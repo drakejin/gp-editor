@@ -1,5 +1,6 @@
 import type { View } from 'react-native';
 // Deep import: the View's native commands are not part of the public API.
+// eslint-disable-next-line @react-native/no-deep-imports
 import { Commands as ViewCommands } from 'react-native/Libraries/Components/View/ViewNativeComponent';
 
 /**
