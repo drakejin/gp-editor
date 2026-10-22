@@ -35,4 +35,18 @@ describe('isSameRow', () => {
     expect(isSameRow(before, { ...before, markLanes: ['palmMute', 'letRing'] })).toBe(false);
     expect(isSameRow(before, { ...before, markLanes: [] })).toBe(false);
   });
+
+  it('redraws a row when its selected beats change, and keeps it for the same beats', () => {
+    // Arrange
+    const before: ScoreRowProps = { ...rowProps(), selection: { first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 0, beatIndex: 1 } } };
+
+    // Act
+    const grown: ScoreRowProps = { ...before, selection: { first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 0, beatIndex: 2 } } };
+    const same: ScoreRowProps = { ...before, selection: { first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 0, beatIndex: 1 } } };
+
+    // Assert
+    expect(isSameRow(before, grown)).toBe(false);
+    expect(isSameRow(before, { ...before, selection: undefined })).toBe(false);
+    expect(isSameRow(before, same)).toBe(true);
+  });
 });
