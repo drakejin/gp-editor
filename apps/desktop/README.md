@@ -23,8 +23,8 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/native/projects.ts` + `macos/…/GPProjects.m` | project folders in `~/Documents/GP Editor Projects` (the sandbox's one writable place in Documents), PDF pages via PDFKit, files inside a project only (no symbolic links); refuses PDFs over 60 pages or 100 MB and password-protected ones |
 | `src/native/anthropic.ts` + `macos/…/GPAnthropic.m` | the API key (owner-only file in the app's Application Support; never sent to JS), the model (user defaults), the Messages API call (10 min timeout) |
 | `src/export/` + `src/hooks/use-pdf-export.ts` + `src/components/ExportPanel.tsx` | PDF export: `paper.ts` (A4 / US Letter, margins, `PRINT_SCALE`, `PRINT_PALETTE` — black and grey on white), `title-block.ts` (first-page title, credits, track and tuning), `pdf-document.ts` (`buildPdfDocument`: rows engraved by `engraveRow` as on screen, scaled to print size and packed onto pages, a footer per page; `pdfPageCount`) |
-| `src/native/pdf-export.ts` + `macos/…/GPPdfExport.m` | `savePdf(document, name)`: save panel for a `.pdf`, then the pages (JSON of `PdfDocument`) drawn into a PDF context with `GPCommandPainter` |
-| `src/native/gp-files.ts` + `macos/…/GPFiles.m` | open and save panels, reading and writing files, files from Finder, File-menu events (New, Import PDF…, Export PDF…, Open…, Save, Save As… — posted by `AppDelegate.swift`, names in `GPEditorNotifications.h`), window title |
+| `src/native/pdf-export.ts` + `macos/…/GPPdfExport.m` | `savePdf(document, name)`: save panel for a `.pdf`, then the pages (JSON of `PdfDocument`) drawn into a PDF context with `GPCommandPainter`; `printPdf(document)` (File ▸ Print…, ⌘P): the same pages through the macOS print panel (PDFKit, scaled to the printer's paper) |
+| `src/native/gp-files.ts` + `macos/…/GPFiles.m` | open and save panels, reading and writing files, files from Finder, File-menu events (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save As…) and Help ▸ Keyboard Shortcuts (⌘H) — posted by `AppDelegate.swift`, names in `GPEditorNotifications.h` —, window title |
 | `src/native/focus-view.ts` | makes a view first responder (key events) through the View's native commands |
 | `macos/…/GPSandbox.m` | `GPIsSandboxed()`: QA-only environment overrides are honoured only outside the App Sandbox |
 | `__tests__/` + `test-support/` | Jest tests; song builders, fixture loading and a test palette |
@@ -71,7 +71,8 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"snapshot": "/abs/out.png"}` · `{"quit": true}`
 
 Only the unsandboxed QA copy honours `GPEDITOR_ANTHROPIC_URL` (PDF-import requests to a mock on `http://127.0.0.1` or
-`http://localhost`) and `GPEDITOR_QA_PDF_PATH` (the PDF export saves there without the save panel).
+`http://localhost`), `GPEDITOR_QA_PDF_PATH` (the PDF export saves there without the save panel) and
+`GPEDITOR_QA_PRINT_PATH` (File ▸ Print… saves the print job there as a PDF, without the print panel).
 
 ## Notes
 

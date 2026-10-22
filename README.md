@@ -155,6 +155,11 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
     number of plays, alternate endings 1–8, triplet feel, a section name
   - ⌘Z / ⇧⌘Z undo and redo
+  - copy and paste: ⇧← / ⇧→ select beats from the cursor (tinted on both staves; any other move clears the
+    selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests
+    too, and the beats after them move up; ⌘V inserts the copied beats at the cursor and pushes what follows on, across
+    bar lines: a note that runs over a bar line becomes tied notes, and bars are added at the end when needed. Cut and
+    paste are one undo step each; drum beats paste only into drum tracks.
 - **Keys everywhere**: Space play / stop; `]` / `[` the playback tempo 5 BPM up / down (the speed menu follows; the
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
