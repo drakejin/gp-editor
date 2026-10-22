@@ -34,6 +34,7 @@ import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
 import { subscribeHelpRequests, subscribeImportPdfRequests } from './native/gp-files';
+import { noNoteHint } from './state/edit-hints';
 import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { playbackStartTempo } from './state/practice';
@@ -80,10 +81,12 @@ export default function App() {
     openPath,
     save,
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
-    // B / C open a panel for the note at the cursor; on an empty string there is nothing to set.
+    // B / C open a panel for the note at the cursor; on an empty string a hint says to type a fret first.
     onNotePanel: (panel) => {
       if (cursorNote !== undefined) {
         chrome.openNotePanel(panel);
+      } else if (cursor !== undefined) {
+        dispatch({ type: 'showHint', hint: noNoteHint(cursor.string) });
       }
     },
     closeOverlay: chrome.closeOverlay,

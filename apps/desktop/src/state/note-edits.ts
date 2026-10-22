@@ -70,6 +70,30 @@ export type NoteEdit =
       readonly speed: 8 | 16 | 32 | 'none';
     };
 
+/** Every note edit; a Record, so the compiler keeps it in step with NoteEdit. */
+const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
+  toggleEffect: true,
+  toggleTie: true,
+  toggleSlide: true,
+  toggleSlideType: true,
+  cycleBend: true,
+  setBend: true,
+  setBendShape: true,
+  setVibrato: true,
+  setTremoloBar: true,
+  toggleHarmonic: true,
+  setHarmonic: true,
+  setDynamic: true,
+  setGrace: true,
+  setTrill: true,
+  setTremoloPicking: true,
+};
+
+/** Whether an edit sets something on the note at the cursor (a tie can also be typed on an empty string). */
+export function needsNote(edit: { readonly type: string }): boolean {
+  return edit.type !== 'toggleTie' && Object.prototype.hasOwnProperty.call(NOTE_EDIT_TYPES, edit.type);
+}
+
 /** A new grace note: two frets below the note, a 32nd (TuxGuitar's grace duration 2), hammered on. */
 const GRACE_FRETS_BELOW = 2;
 const GRACE_DURATION = 2;

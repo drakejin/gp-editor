@@ -97,7 +97,9 @@ describe('cursor edits in the reducer', () => {
   it('leaves the song alone where an edit does not apply', () => {
     const start = loaded();
     const onEmpty = edit(start, { type: 'moveCursorString', delta: 3 });
-    expect(edit(onEmpty, { type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } })).toBe(onEmpty);
+    const next = edit(onEmpty, { type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
+    expect(next.document).toBe(onEmpty.document);
+    expect(next.past).toBe(onEmpty.past);
     expect(QUARTER.value).toBe(4);
   });
 

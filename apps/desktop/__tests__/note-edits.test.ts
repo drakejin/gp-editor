@@ -158,8 +158,14 @@ describe('note edits at the cursor', () => {
     const onEmptyString = editorReducer(loaded(), { type: 'moveCursorString', delta: 2 });
     const onRest = onBeat(3);
 
-    // Act / Assert
-    expect(edit(onEmptyString, songEdit)).toBe(onEmptyString);
-    expect(edit(onRest, songEdit)).toBe(onRest);
+    // Act
+    const results = [onEmptyString, onRest].map((before) => ({ before, after: edit(before, songEdit) }));
+
+    // Assert: the song and the undo history are as they were; a hint says to type a fret first
+    results.forEach(({ before, after }) => {
+      expect(after.document).toBe(before.document);
+      expect(after.past).toBe(before.past);
+      expect(after.hint).toMatch(/type a fret/);
+    });
   });
 });

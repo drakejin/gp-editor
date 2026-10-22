@@ -93,6 +93,8 @@ export type EditorAction =
   /** Writing a PDF (File ▸ Export PDF…) failed. */
   | { readonly type: 'exportFailed'; readonly message: string }
   | { readonly type: 'dismissError' }
+  /** A hint from outside the reducer (B / C on an empty string). */
+  | { readonly type: 'showHint'; readonly hint: string }
   | { readonly type: 'selectTrack'; readonly trackIndex: number }
   | { readonly type: 'setMode'; readonly mode: ScoreMode }
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
@@ -156,6 +158,8 @@ export function editorReducer(
       return { ...state, error: undefined };
     case 'dismissNotice':
       return { ...state, notice: undefined };
+    case 'showHint':
+      return state.hint === action.hint ? state : { ...state, hint: action.hint };
     case 'dismissHint':
       return state.hint === undefined ? state : { ...state, hint: undefined };
     case 'selectTrack':

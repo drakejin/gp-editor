@@ -1,4 +1,5 @@
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
+import { noNoteHint } from '../src/state/edit-hints';
 import { beat, makeSong, note } from '../test-support/songs';
 
 /** One 4/4 bar full of quarter notes, the cursor on its first note. */
@@ -31,5 +32,35 @@ describe('editor hints', () => {
   it('can be dismissed', () => {
     const refused = editorReducer(fullBar(), { type: 'edit', edit: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 } });
     expect(editorReducer(refused, { type: 'dismissHint' }).hint).toBeUndefined();
+  });
+});
+
+describe('hints for a note key on an empty string', () => {
+  /** The full bar with the cursor on string 2, where no note is. */
+  function emptyString(): EditorState {
+    return editorReducer(fullBar(), { type: 'moveCursorString', delta: 1 });
+  }
+
+  it.each([
+    { type: 'toggleEffect', effect: 'letRing' },
+    { type: 'toggleSlide' },
+    { type: 'setVibrato', vibrato: 'wide' },
+    { type: 'setBendShape', shape: 'bend', amount: 4 },
+  ] as const)('says to type a fret first for $type', (edit) => {
+    // Act
+    const next = editorReducer(emptyString(), { type: 'edit', edit });
+
+    // Assert
+    expect(next.hint).toBe('String 2 has no note at the cursor: type a fret (0–9) first.');
+  });
+
+  it('says nothing for an edit that needs no note', () => {
+    const next = editorReducer(emptyString(), { type: 'edit', edit: { type: 'toggleDot' } });
+    expect(next.hint).toBeUndefined();
+  });
+
+  it('can be shown for a key that opens a panel (B, C)', () => {
+    const next = editorReducer(emptyString(), { type: 'showHint', hint: noNoteHint(2) });
+    expect(next.hint).toBe('String 2 has no note at the cursor: type a fret (0–9) first.');
   });
 });

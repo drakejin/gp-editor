@@ -1,4 +1,5 @@
-import type { Song, StringAddress } from '@gp-editor/core';
+import { type Song, type StringAddress, findNote } from '@gp-editor/core';
+import { needsNote } from './note-edits';
 import type { SongEdit } from './song-edits';
 
 /** The note values a time signature's beat can be, in order (÷ steps through them). */
@@ -9,6 +10,9 @@ const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32, 64];
  * never seems to do nothing. Undefined when there is nothing to explain.
  */
 export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
+  if (needsNote(edit) && findNote(song, cursor) === undefined) {
+    return noNoteHint(cursor.string);
+  }
   if (edit.type !== 'shiftTimeSignature') {
     return undefined;
   }
@@ -24,4 +28,9 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
       : { numerator, denominator: DENOMINATORS[denominatorIndex + edit.delta] ?? denominator };
   const isShorter = next.numerator / next.denominator < numerator / denominator;
   return isShorter ? `Bar ${header.number} is full: its notes do not fit in ${next.numerator}/${next.denominator}. Delete or shorten beats first.` : undefined;
+}
+
+/** A note key (R, S, H … B, C) on a string with no note at the cursor. */
+export function noNoteHint(stringNumber: number): string {
+  return `String ${stringNumber} has no note at the cursor: type a fret (0–9) first.`;
 }
