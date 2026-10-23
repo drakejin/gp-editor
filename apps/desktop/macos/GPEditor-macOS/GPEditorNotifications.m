@@ -20,3 +20,5 @@ NSString *const GPEditorSaveAsCommandNotification = @"GPEditorSaveAsCommand";
 NSString *const GPEditorCloseTabCommandNotification = @"GPEditorCloseTabCommand";
 NSString *const GPEditorNextTabCommandNotification = @"GPEditorNextTabCommand";
 NSString *const GPEditorPreviousTabCommandNotification = @"GPEditorPreviousTabCommand";
+NSString *const GPEditorMixerCommandNotification = @"GPEditorMixerCommand";
+NSString *const GPEditorLineInCommandNotification = @"GPEditorLineInCommand";
