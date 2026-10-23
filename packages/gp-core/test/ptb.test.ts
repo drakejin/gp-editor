@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GpFormatError, UnexpectedEndOfFileError, UnsupportedFormatError, readSong } from '../src';
 import { detectFormat } from '../src/formats/detect';
+import { readPtSong } from '../src/formats/ptb/ptb-input-stream';
 import type { Beat, Song } from '../src/model/song';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
@@ -281,6 +282,17 @@ describe('Power Tab errors', () => {
 
     // Assert
     expect(read).toThrow('Power Tab guitar "Broken" has 0 strings');
+  });
+
+  it('creates no sections for the gap before a Guitar In that names a far section', () => {
+    // Arrange
+    const spec: PtbSongSpec = { guitarScore: { ...ONE_BEAT.guitarScore, guitarIns: [{ section: 65535, staff: 0, position: 0, guitars: 1 }] } };
+
+    // Act
+    const song = readPtSong(buildPtb(spec), 'auto');
+
+    // Assert
+    expect(song.track1.sections.map((section) => section.number)).toEqual([0, 65535]);
   });
 
   it('rejects a section with more staffs than any Power Tab score has', () => {

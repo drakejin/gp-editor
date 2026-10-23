@@ -33,26 +33,27 @@ const EMPTY_PT_SONG_INFO: PtSongInfo = {
   instructions: '',
 };
 
-/** A score while it is read: PTTrack.getSection creates every section up to the one asked for. */
+/**
+ * A score while it is read. PTTrack.getSection creates every section up to the one asked for; here only the sections a
+ * record names exist (a Guitar In naming section 65535 must not create 65 535 empty ones), in order.
+ */
 class PtTrackBuilder {
   readonly infos: PtTrackInfo[] = [];
-  private readonly sections: PtSectionBuilder[] = [];
+  private readonly sections = new Map<number, PtSectionBuilder>();
 
   section(index: number): PtSectionBuilder {
-    while (this.sections.length < index) {
-      this.sections.push(new PtSectionBuilder(this.sections.length));
-    }
-    const existing = this.sections[index];
+    const existing = this.sections.get(index);
     if (existing !== undefined) {
       return existing;
     }
     const created = new PtSectionBuilder(index);
-    this.sections.push(created);
+    this.sections.set(index, created);
     return created;
   }
 
   build(): PtTrack {
-    return { infos: [...this.infos], sections: this.sections.map((section) => section.build()) };
+    const sections = [...this.sections.values()].sort((a, b) => a.number - b.number);
+    return { infos: [...this.infos], sections: sections.map((section) => section.build()) };
   }
 }
 
