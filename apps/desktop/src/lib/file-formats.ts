@@ -56,6 +56,22 @@ export const ASCII_TAB_FILE: FileFormat = {
   note: 'The fretted tracks as ASCII tab; drum tracks are left out.',
 };
 
+/** File ▸ Export MusicXML…: MusicXML 4.0 as UTF-8 text, for other notation programs. */
+export const MUSICXML_FILE: FileFormat = {
+  id: 'musicxml',
+  label: 'MusicXML (.musicxml)',
+  extension: 'musicxml',
+  note: 'Each track as a notation staff and a tab staff; bends, slides, vibrato and the other guitar effects as MusicXML marks them.',
+};
+
+/** File ▸ Export Compressed MusicXML…: the same score zipped. */
+export const MXL_FILE: FileFormat = {
+  id: 'mxl',
+  label: 'Compressed MusicXML (.mxl)',
+  extension: 'mxl',
+  note: 'MusicXML zipped: smaller, and opened by the same programs.',
+};
+
 /** The format of a file the app writes back as it is (by its extension, any case); undefined for any other file. */
 export function saveFormatOf(path: string): SaveFormat | undefined {
   const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase();

@@ -1,8 +1,8 @@
-import { type Song, renderMidi, writeAsciiTab } from '@gp-editor/core';
+import { type Song, readSong, renderMidi, writeAsciiTab, writeMusicXml } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type SongExport, asciiTabTrackIndexes, useSongExport } from '../src/hooks/use-song-export';
 import { base64ToBytes } from '../src/lib/base64';
-import { ASCII_TAB_FILE, MIDI_FILE } from '../src/lib/file-formats';
+import { ASCII_TAB_FILE, MIDI_FILE, MUSICXML_FILE, MXL_FILE } from '../src/lib/file-formats';
 import type { ChosenFile, SavePanelOptions, SavedFile, SongExportHandlers } from '../src/native/gp-files';
 import type { OpenDocument } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -161,6 +161,52 @@ describe('useSongExport: Export ASCII Tab…', () => {
     const hook = renderHook(DOCUMENT);
     hook.unmount();
     expect(mockFiles.unsubscribe).toHaveBeenCalled();
+  });
+});
+
+describe('useSongExport: Export MusicXML… and Export Compressed MusicXML…', () => {
+  it('saves the song as MusicXML text to the .musicxml chosen in the save panel', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml' });
+    renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportMusicXmlRequested());
+
+    // Assert
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Song.musicxml', formats: [MUSICXML_FILE], formatId: 'musicxml' });
+    expect(mockFiles.writeTextFile).toHaveBeenCalledWith('/out/Song.musicxml', writeMusicXml(SONG));
+  });
+
+  it('saves compressed MusicXML (.mxl) that reads back as the song', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.mxl', path: '/out/Song.mxl', formatId: 'mxl' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Song.mxl', path: '/out/Song.mxl' });
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportCompressedMusicXmlRequested());
+
+    // Assert
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Song.mxl', formats: [MXL_FILE], formatId: 'mxl' });
+    const again = readSong(base64ToBytes(mockFiles.writeFile.mock.calls[0]?.[1] ?? ''));
+    expect(again.source.format).toBe('musicxml');
+    expect(again.tracks[0]?.measures[0]?.beats[0]?.voices[0]?.notes.map((n) => [n.string, n.fret])).toEqual([[1, 3]]);
+    expect(hook.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('reports MusicXML that could not be written to the error banner', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockRejectedValueOnce(new Error('disk full'));
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => hook.current().exportMusicXml());
+
+    // Assert
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'exportFailed', what: 'the MusicXML file', message: 'disk full' });
   });
 });
 
