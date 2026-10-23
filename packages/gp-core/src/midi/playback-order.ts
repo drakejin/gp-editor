@@ -129,7 +129,7 @@ interface WalkStep {
   readonly played?: PlayedMeasure;
 }
 
-/** The repeat state going on at `target` with `move`, as a fresh repeat opened there (after a jump). */
+/** After a jump: the repeat state going on at `target` right where the measure played last ends (`end`), a repeat opened there. */
 function goTo(repeat: RepeatState, headers: readonly MeasureHeader[], target: number, end: number): RepeatState {
   const start = headers[target]?.start ?? QUARTER_TIME;
   return { ...repeat, index: target, repeatMove: end - start, isRepeatOpen: true, repeatStart: start, repeatStartIndex: target, repeatNumber: 0, repeatAlternative: 0 };

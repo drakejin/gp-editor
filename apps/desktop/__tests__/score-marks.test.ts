@@ -1,11 +1,11 @@
-import { type Hairpin, type MeasureHeader, type PedalMark, QUARTER_TIME, type Song } from '@gp-editor/core';
+import { type Hairpin, type MeasureHeader, type PedalMark, QUARTER_TIME, type Song, isPedalDownBefore } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import { DIRECTION_TEXTS, directionsWidth, engraveDirections, hasDirections } from '../src/score/directions';
 import type { DrawCommand, LineCommand } from '../src/score/draw';
 import { hasDynamicChanges } from '../src/score/dynamics';
 import { ROW, rowGeometry } from '../src/score/geometry';
 import { engraveHairpins } from '../src/score/hairpins';
-import { engravePedals, hasPedals, isPedalDownBefore, pedalX } from '../src/score/pedals';
+import { engravePedals, hasPedals, pedalX } from '../src/score/pedals';
 import { engraveRow } from '../src/score/row';
 import { MARK_GLYPHS } from '../src/score/symbols/smufl';
 import { rasgueadoFingers, rasgueadoLabel } from '../src/score/symbols/rasgueado-label';

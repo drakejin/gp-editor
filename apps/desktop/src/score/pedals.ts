@@ -1,4 +1,4 @@
-import { type Measure, type MeasureHeader, measureTicks } from '@gp-editor/core';
+import { type Measure, type MeasureHeader, isPedalDownBefore, measureTicks } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
@@ -16,17 +16,6 @@ const LINE = { width: 1, gap: 2, raise: 1, inset: 4 } as const;
 
 export function hasPedals(measures: readonly Measure[]): boolean {
   return measures.some((measure) => (measure.pedals?.length ?? 0) > 0);
-}
-
-/** Whether the pedal is held where measure `measureIndex` starts. */
-export function isPedalDownBefore(measures: readonly Measure[], measureIndex: number): boolean {
-  for (let index = Math.min(measureIndex, measures.length) - 1; index >= 0; index--) {
-    const last = measures[index]?.pedals?.at(-1);
-    if (last !== undefined) {
-      return last.action === 'down';
-    }
-  }
-  return false;
 }
 
 /** x of a place in the measure (ticks from its start): between the beats' columns, the bar's end for its length. */
