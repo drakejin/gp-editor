@@ -15,6 +15,7 @@ import {
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
+import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-marks';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool, isSameBend } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
@@ -136,6 +137,7 @@ function barGroup(): PaletteGroup {
         run: { kind: 'text', placeholder: 'Section name, e.g. Verse 1', value: (c) => c.header?.marker?.title ?? '', edit: (title) => ({ type: 'setSection', title }) },
         isActive: (c) => c.header?.marker !== undefined,
       },
+      beamGroupingTool(),
     ],
     steppers: [
       { id: 'numerator', label: 'Beats', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
@@ -189,6 +191,8 @@ function noteGroup(): PaletteGroup {
       { id: 'stringUp', face: 'Str ↑', tooltip: 'Move the note to the string above (⌥↑)', scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: -1 } } },
       { id: 'stringDown', face: 'Str ↓', tooltip: 'Move the note to the string below (⌥↓)', scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: 1 } } },
       { id: 'deleteNote', face: 'Delete', tooltip: 'Delete the note (⌫)', scope: 'note', run: { kind: 'action', action: { type: 'deleteNote' } } },
+      ...fingeringTools(),
+      accidentalTool(),
     ],
   };
 }
@@ -316,6 +320,7 @@ function strokeGroup(): PaletteGroup {
         isActive: (c) => (c.beat?.text ?? '') !== '',
       },
       { id: 'chord', face: 'Chord', key: 'K', tooltip: withKey('Chord diagram: grid, name and chord library', 'K'), scope: 'beat', run: { kind: 'chordPanel' }, isActive: (c) => c.beat?.chord !== undefined },
+      ...beatMarkTools(),
     ],
   };
 }

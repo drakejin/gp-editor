@@ -27,6 +27,8 @@ export interface TrackInspectorProps {
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
   readonly onDismissNotice: () => void;
   readonly onEditInstrument: (trackIndex: number) => void;
+  /** The track written in rhythm slashes, or as notes again (an edit of the song, undoable). */
+  readonly onSetTrackSlashNotation?: (trackIndex: number, hasSlashNotation: boolean) => void;
 }
 
 const STAVES: readonly { readonly staff: Staff; readonly label: string; readonly tooltip: string }[] = [
@@ -61,6 +63,13 @@ export function TrackInspector(props: TrackInspectorProps) {
           {STAVES.map(({ staff, label, tooltip }) => (
             <ChromeButton key={staff} palette={palette} label={label} tooltip={tooltip} isActive={showsStaff(mode, staff)} onPress={() => props.onChangeMode(toggleStaff(mode, staff))} />
           ))}
+          <ChromeButton
+            palette={palette}
+            label="Slash"
+            tooltip="Write the whole track in rhythm slashes"
+            isActive={track.hasSlashNotation === true}
+            onPress={() => props.onSetTrackSlashNotation?.(trackIndex, track.hasSlashNotation !== true)}
+          />
         </InspectorField>
         <InspectorField palette={palette} label="Chords">
           {CHORD_PARTS.map(({ part, label, tooltip }) => (

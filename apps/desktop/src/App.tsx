@@ -499,6 +499,7 @@ export default function App() {
                 onSetSongInfo={(info) => dispatch({ type: 'setSongInfo', info })}
                 onSetTrackName={(index, name) => dispatch({ type: 'setTrackName', trackIndex: index, name })}
                 onSetTrackCapo={(index, capo) => dispatch({ type: 'setTrackCapo', trackIndex: index, capo })}
+                onSetTrackSlashNotation={(index, hasSlashNotation) => dispatch({ type: 'setTrackSlashNotation', trackIndex: index, hasSlashNotation })}
                 onSetTrackTuning={(index, tuning) => dispatch({ type: 'setTrackTuning', trackIndex: index, tuning })}
                 onDismissNotice={() => dispatch({ type: 'dismissNotice' })}
                 onEditInstrument={chrome.pickInstrument}

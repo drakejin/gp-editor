@@ -28,6 +28,7 @@ import {
   tupletOf,
 } from '@gp-editor/core';
 import { type BarEdit, applyBarEdit } from './bar-edits';
+import { type MarkEdit, applyMarkEdit } from './mark-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
@@ -60,6 +61,7 @@ export type SongEdit =
   | BeatEdit
   | NoteEdit
   | BarEdit
+  | MarkEdit
   | { readonly type: 'insertMeasure' }
   | { readonly type: 'deleteMeasure' }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
@@ -122,6 +124,13 @@ export function applySongEdit(
     case 'setTripletFeel':
     case 'setSection':
       return applyBarEdit(song, cursor, edit);
+    case 'setFinger':
+    case 'setPianoFinger':
+    case 'setAccidentalDisplay':
+    case 'toggleSlash':
+    case 'toggleBeamLink':
+    case 'setBeamGrouping':
+      return applyMarkEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);
   }
