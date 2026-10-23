@@ -492,6 +492,19 @@ describe('writeSong losses (what GP5 cannot hold)', () => {
     expect(again.tracks.map((track) => track.lyrics)).toEqual([undefined, { from: 3, text: 'first words' }, undefined]);
   });
 
+  it('keeps Korean lyrics and a Korean title, with notes left without a syllable', () => {
+    // Arrange: a song as the song writer makes it, sung in Korean
+    const song = buildSong({ headers: [{}], tracks: [{ measures: [], lyrics: { from: 1, text: '종 이  배 를' } }] });
+    const titled = { ...song, info: { ...song.info, title: '종이배' } };
+
+    // Act
+    const again = roundTrip(titled);
+
+    // Assert
+    expect(again.tracks[0]?.lyrics).toEqual({ from: 1, text: '종 이  배 를' });
+    expect(again.info.title).toBe('종이배');
+  });
+
   it('puts the melodic channels beyond the fifteenth on MIDI channel 16, with the fifteenth', () => {
     // Arrange
     const song = buildSong({ headers: [{}], tracks: Array.from({ length: 17 }, (_, i) => ({ measures: [], channel: { program: i } })) });
