@@ -1,6 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.player.base.MidiRepeatController (LGPL-2.1): the order measures are played in.
 import { measureTicks } from '../model/defaults';
 import { type MeasureHeader, QUARTER_TIME } from '../model/song';
+import { type DirectionState, INITIAL_DIRECTIONS, codaTarget, endsAtFine, skippedEndingEnd, takeJump } from './playback-directions';
 
 export interface PlayedMeasure {
   /** Index into Song.measureHeaders. */
@@ -117,22 +118,78 @@ function processHeader(state: RepeatState, header: MeasureHeader, startNumber: n
   return { state: next, shouldPlay: entered.shouldPlay };
 }
 
-/** The measures to play, in order, with repeats expanded; playback starts at `fromHeaderIndex`. */
+/** Where playback is: the repeats' state and the directions' (normal, or after a jump). */
+interface Walk {
+  readonly repeat: RepeatState;
+  readonly directions: DirectionState;
+}
+
+interface WalkStep {
+  readonly walk: Walk;
+  readonly played?: PlayedMeasure;
+}
+
+/** The repeat state going on at `target` with `move`, as a fresh repeat opened there (after a jump). */
+function goTo(repeat: RepeatState, headers: readonly MeasureHeader[], target: number, end: number): RepeatState {
+  const start = headers[target]?.start ?? QUARTER_TIME;
+  return { ...repeat, index: target, repeatMove: end - start, isRepeatOpen: true, repeatStart: start, repeatStartIndex: target, repeatNumber: 0, repeatAlternative: 0 };
+}
+
+/** Where a played measure ends, in sequence ticks. */
+function playedEnd(header: MeasureHeader, move: number): number {
+  return header.start + headerLength(header) + move;
+}
+
+/** A measure read normally: repeats as TuxGuitar plays them, then the bar's first jump not taken yet. */
+function normalStep(walk: Walk, headers: readonly MeasureHeader[], header: MeasureHeader, startNumber: number): WalkStep {
+  const { repeat } = walk;
+  const step = processHeader(repeat, header, startNumber);
+  const played = step.shouldPlay ? { headerIndex: repeat.index, move: repeat.repeatMove } : undefined;
+  const jump = played === undefined || step.state.index !== repeat.index + 1 ? undefined : takeJump(headers, repeat.index, walk.directions);
+  if (played === undefined || jump === undefined) {
+    return { walk: { ...walk, repeat: step.state }, played };
+  }
+  return { walk: { repeat: goTo(step.state, headers, jump.target, playedEnd(header, played.move)), directions: jump.state }, played };
+}
+
+/** A measure after a jump: no repeats, endings that go back skipped, then the Da Coda or the fine. */
+function jumpedStep(walk: Walk, headers: readonly MeasureHeader[], header: MeasureHeader): WalkStep {
+  const { repeat, directions } = walk;
+  const skippedTo = skippedEndingEnd(headers, repeat.index);
+  if (skippedTo !== undefined) {
+    const skipped = headers.slice(repeat.index, skippedTo + 1).reduce((ticks, other) => ticks + headerLength(other), 0);
+    return { walk: { ...walk, repeat: { ...repeat, index: skippedTo + 1, repeatMove: repeat.repeatMove - skipped } } };
+  }
+  const played = { headerIndex: repeat.index, move: repeat.repeatMove };
+  const lastIndex = Math.max(repeat.lastIndex, repeat.index);
+  const coda = codaTarget(headers, repeat.index, directions.mode);
+  if (coda !== undefined) {
+    const next = goTo({ ...repeat, lastIndex }, headers, coda, playedEnd(header, played.move));
+    return { walk: { repeat: next, directions: { ...directions, mode: 'normal' } }, played };
+  }
+  const index = endsAtFine(headers, repeat.index, directions.mode) ? headers.length : repeat.index + 1;
+  return { walk: { ...walk, repeat: { ...repeat, index, lastIndex } }, played };
+}
+
+/**
+ * The measures to play, in order, with repeats expanded and the musical directions followed (playback-directions.ts);
+ * playback starts at `fromHeaderIndex`.
+ */
 export function buildPlaybackOrder(
   headers: readonly MeasureHeader[],
   fromHeaderIndex: number,
 ): readonly PlayedMeasure[] {
   const startNumber = fromHeaderIndex + 1;
   const played: PlayedMeasure[] = [];
-  let state = INITIAL_STATE;
-  let header = headers[state.index];
+  let walk: Walk = { repeat: INITIAL_STATE, directions: INITIAL_DIRECTIONS };
+  let header = headers[walk.repeat.index];
   while (header !== undefined && played.length < MAX_PLAYED_MEASURES) {
-    const step = processHeader(state, header, startNumber);
-    if (step.shouldPlay) {
-      played.push({ headerIndex: state.index, move: state.repeatMove });
+    const step = walk.directions.mode === 'normal' ? normalStep(walk, headers, header, startNumber) : jumpedStep(walk, headers, header);
+    if (step.played !== undefined) {
+      played.push(step.played);
     }
-    state = step.state;
-    header = headers[state.index];
+    walk = step.walk;
+    header = headers[walk.repeat.index];
   }
   return played;
 }

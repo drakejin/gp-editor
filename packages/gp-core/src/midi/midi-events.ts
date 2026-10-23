@@ -8,6 +8,8 @@ export const CONTROLLER = {
   BALANCE: 0x0a,
   EXPRESSION: 0x0b,
   DATA_ENTRY_LSB: 0x26,
+  /** The damper (sustain) pedal: 0–63 up, 64–127 down. */
+  SUSTAIN: 0x40,
   REVERB: 0x5b,
   TREMOLO: 0x5c,
   CHORUS: 0x5d,

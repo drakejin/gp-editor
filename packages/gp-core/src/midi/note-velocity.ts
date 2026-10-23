@@ -1,5 +1,6 @@
 // Port of TuxGuitar MidiSequenceParser.getRealVelocity and TGVelocities (LGPL-2.1): how hard a note is struck.
 import { MAX_VELOCITY, MIN_VELOCITY, VELOCITY_INCREMENT } from '../formats/common/velocity';
+import { hairpinVelocity } from './hairpins';
 import { findPreviousNote, type PlacedNote, type TrackContext } from './note-search';
 
 const HAMMER_SOFTENING = 25;
@@ -16,9 +17,9 @@ function afterHammer(context: TrackContext, placed: PlacedNote, velocity: number
   return findPreviousNote(context, placed)?.effect.hammer === true ? softer(velocity, HAMMER_SOFTENING) : velocity;
 }
 
-/** getRealVelocity: softer after a hammer-on, and for ghost notes; louder for accents. */
+/** getRealVelocity: on a crescendo's or decrescendo's ramp; softer after a hammer-on, and for ghost notes; louder for accents. */
 export function realVelocity(context: TrackContext, placed: PlacedNote): number {
-  const velocity = afterHammer(context, placed, placed.note.velocity);
+  const velocity = afterHammer(context, placed, hairpinVelocity(context, placed) ?? placed.note.velocity);
   const { effect } = placed.note;
   if (effect.ghostNote) {
     return Math.min(MAX_VELOCITY, softer(velocity, VELOCITY_INCREMENT));
