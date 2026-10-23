@@ -1,5 +1,6 @@
 import type { Track } from '@gp-editor/core';
 import { TAB } from '../lib/layout';
+import { diagramHeight } from './chord-diagram';
 import { NOTATION, notationBandHeight } from './notation';
 import { TAB_MARKS } from './symbols/tab-geometry';
 
@@ -55,12 +56,20 @@ export const ROW = {
   dynamics: 22,
   /** Baseline of the dynamics, from the top of their band. */
   dynamicsBaseline: 13,
+  /** The chord names line under the heading; the diagrams follow it (`diagramHeight`). */
+  chordNames: 16,
+  /** Under the chord band, before the staff's own room. */
+  chordsBottom: 6,
   gap: 14,
   sidePadding: 24,
 } as const;
 
 /** Y positions inside a row; undefined when the band is not shown in the mode. */
 export interface RowGeometry {
+  /** Centre of the chord names line; only when the track has named chords and names are shown (`chordBands`). */
+  readonly chordNamesY?: number;
+  /** Top of the chord diagrams; only when a chord of the track has a diagram and diagrams are shown. */
+  readonly chordDiagramsTop?: number;
   /** Top line of the notation staff. */
   readonly notationTop?: number;
   /** Centre of the lyrics line; only when the track has lyrics (`hasLyrics`). */
@@ -97,13 +106,33 @@ export interface RowBands {
   readonly hasBends: boolean;
   /** The track has lyrics (`hasLyrics`): their line under the notation staff, else under the tab. */
   readonly hasLyrics: boolean;
+  /** Chord names shown over the staves (`chordBands`). */
+  readonly hasChordNames: boolean;
+  /** Chord diagrams shown over the staves, under the names. */
+  readonly hasChordDiagrams: boolean;
 }
 
-const PLAIN_ROW: RowBands = { markLaneCount: 1, hasDynamics: false, hasBends: false, hasLyrics: false };
+const PLAIN_ROW: RowBands = { markLaneCount: 1, hasDynamics: false, hasBends: false, hasLyrics: false, hasChordNames: false, hasChordDiagrams: false };
+
+type ChordBand = Pick<RowGeometry, 'chordNamesY' | 'chordDiagramsTop'> & { readonly bottom: number };
+
+/** The chord band from `top`: the names line, then the diagrams, then a little room; nothing without either. */
+function chordBand(top: number, hasNames: boolean, hasDiagrams: boolean): ChordBand {
+  if (!hasNames && !hasDiagrams) {
+    return { bottom: top };
+  }
+  const diagramsTop = top + (hasNames ? ROW.chordNames : 0);
+  return {
+    chordNamesY: hasNames ? top + ROW.chordNames / 2 : undefined,
+    chordDiagramsTop: hasDiagrams ? diagramsTop : undefined,
+    bottom: diagramsTop + (hasDiagrams ? diagramHeight() : 0) + ROW.chordsBottom,
+  };
+}
 
 export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial<RowBands> = {}): RowGeometry {
-  const { markLaneCount, hasDynamics, hasBends, hasLyrics } = { ...PLAIN_ROW, ...bands };
-  let y = ROW.heading;
+  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams } = { ...PLAIN_ROW, ...bands };
+  const { bottom: chordsBottom, ...chords } = chordBand(ROW.heading, hasChordNames, hasChordDiagrams);
+  let y = chordsBottom;
   let notationTop: number | undefined;
   let lyricsY: number | undefined;
   let dynamicsY: number | undefined;
@@ -120,7 +149,7 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial
     }
   }
   if (!showsTab(mode)) {
-    return { notationTop, lyricsY, dynamicsY, height: y + ROW.gap };
+    return { ...chords, notationTop, lyricsY, dynamicsY, height: y + ROW.gap };
   }
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
@@ -135,5 +164,5 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial
     dynamicsY = y + ROW.dynamicsBaseline;
     y += ROW.dynamics;
   }
-  return { notationTop, lyricsY, dynamicsY, marksY, tabTop, height: y + ROW.gap };
+  return { ...chords, notationTop, lyricsY, dynamicsY, marksY, tabTop, height: y + ROW.gap };
 }

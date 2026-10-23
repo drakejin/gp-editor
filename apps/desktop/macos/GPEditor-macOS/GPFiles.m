@@ -1,9 +1,10 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
+// Also Edit ▸ Lyrics… and Tools ▸ Scales….
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
-// writeFile / writeTextFile.
+// writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -22,6 +23,8 @@ static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
+static NSString *const kLyricsRequestedEvent = @"lyricsRequested";
+static NSString *const kScalesRequestedEvent = @"scalesRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
@@ -30,6 +33,8 @@ static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
 static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
 static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
 static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
+static NSString *const kExportMusicXmlRequestedEvent = @"exportMusicXmlRequested";
+static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompressedMusicXmlRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -173,6 +178,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onLyricsCommand:) name:GPEditorLyricsCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onScalesCommand:) name:GPEditorScalesCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
@@ -181,6 +188,11 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportMidiCommand:) name:GPEditorExportMidiCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportAsciiTabCommand:) name:GPEditorExportAsciiTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportMusicXmlCommand:) name:GPEditorExportMusicXmlCommandNotification object:nil];
+    [center addObserver:self
+               selector:@selector(onExportCompressedMusicXmlCommand:)
+                   name:GPEditorExportCompressedMusicXmlCommandNotification
+                 object:nil];
   }
   return self;
 }
@@ -195,7 +207,9 @@ RCT_EXPORT_MODULE();
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
+    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent,
+    kLyricsRequestedEvent, kScalesRequestedEvent
   ];
 }
 
@@ -262,6 +276,20 @@ RCT_EXPORT_MODULE();
   }
 }
 
+- (void)onLyricsCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kLyricsRequestedEvent body:@{}];
+  }
+}
+
+- (void)onScalesCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kScalesRequestedEvent body:@{}];
+  }
+}
+
 - (void)onOpenCommand:(NSNotification *)note
 {
   if (hasListeners) {
@@ -318,6 +346,20 @@ RCT_EXPORT_MODULE();
   }
 }
 
+- (void)onExportMusicXmlCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportMusicXmlRequestedEvent body:@{}];
+  }
+}
+
+- (void)onExportCompressedMusicXmlCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportCompressedMusicXmlRequestedEvent body:@{}];
+  }
+}
+
 - (void)onOpenURLs:(NSNotification *)note
 {
   // GPFilesQueueOpenedURLs already queued the paths; deliver them now if JS is listening.
@@ -341,7 +383,7 @@ RCT_EXPORT_MODULE();
 + (NSArray<UTType *> *)guitarProTypes
 {
   NSMutableArray<UTType *> *types = [NSMutableArray array];
-  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp", @"ptb", @"tef", @"mid", @"midi" ]) {
+  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp", @"ptb", @"tef", @"mid", @"midi", @"musicxml", @"mxl", @"xml" ]) {
     UTType *type = [UTType typeWithFilenameExtension:ext];
     if (type != nil) {
       [types addObject:type];
@@ -371,7 +413,7 @@ RCT_EXPORT_METHOD(showOpenDialog : (RCTPromiseResolveBlock)resolve reject : (RCT
     panel.canChooseDirectories = NO;
     panel.allowsMultipleSelection = NO;
     panel.allowedContentTypes = [GPFiles guitarProTypes];
-    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef) or MIDI file (.mid)";
+    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef), MIDI (.mid) or MusicXML file (.musicxml, .xml, .mxl)";
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve([NSNull null]);
       return;

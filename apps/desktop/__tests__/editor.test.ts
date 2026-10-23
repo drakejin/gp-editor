@@ -58,6 +58,22 @@ describe('editorReducer: loading and modes', () => {
     expect(state.cursor).toEqual({ trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 });
     expect(isEdited(state)).toBe(false);
   });
+
+  it('shows or hides the score’s chord names and diagrams without editing the song, and a new score shows both', () => {
+    // Arrange
+    const loaded = loadedState();
+
+    // Act
+    const namesOnly = editorReducer(loaded, { type: 'setChordDisplay', display: { showsNames: true, showsDiagrams: false } });
+    const reopened = editorReducer(namesOnly, { type: 'loaded', document: loaded.document! });
+
+    // Assert
+    expect(loaded.chordDisplay).toEqual({ showsNames: true, showsDiagrams: true });
+    expect(namesOnly.chordDisplay).toEqual({ showsNames: true, showsDiagrams: false });
+    expect(namesOnly.document).toBe(loaded.document);
+    expect(namesOnly.past).toBe(loaded.past);
+    expect(reopened.chordDisplay).toEqual({ showsNames: true, showsDiagrams: true });
+  });
 });
 
 describe('editorReducer: cursor', () => {
@@ -223,6 +239,7 @@ describe('editorReducer: track instrument', () => {
     ['sets the volume of', { type: 'setTrackVolume', trackIndex: 0, volume: 90 }, (state) => song(state).channels[0]?.volume, 90],
     ['sets the balance of', { type: 'setTrackBalance', trackIndex: 0, balance: 10 }, (state) => song(state).channels[0]?.balance, 10],
     ['puts a capo on', { type: 'setTrackCapo', trackIndex: 0, capo: 2 }, (state) => song(state).tracks[0]?.offset, 2],
+    ['gives lyrics to', { type: 'setTrackLyrics', trackIndex: 0, lyrics: { from: 1, text: 'la la' } }, (state) => song(state).tracks[0]?.lyrics, { from: 1, text: 'la la' }],
   ])('%s a track as one undo step', (_name, action, read, expected) => {
     // Arrange
     const start = withChannel();
@@ -246,6 +263,7 @@ describe('editorReducer: track instrument', () => {
     { type: 'setTrackBalance', trackIndex: 0, balance: 64 },
     { type: 'setTrackCapo', trackIndex: 0, capo: 0 },
     { type: 'setTrackCapo', trackIndex: 4, capo: 3 },
+    { type: 'setTrackLyrics', trackIndex: 0, lyrics: { from: 1, text: ' ' } },
     { type: 'setSongInfo', info: { title: 'Test' } },
   ])('adds no undo step for a track or song edit that changes nothing: %o', (action) => {
     const start = withChannel();

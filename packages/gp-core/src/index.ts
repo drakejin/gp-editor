@@ -28,11 +28,13 @@ export { DYNAMICS, type DynamicName, dynamicOf } from './formats/common/velocity
 export { readSong } from './read-song';
 export { type WritableFormat, writeSong } from './write';
 export { type AsciiTabOptions, DEFAULT_ASCII_LINE_WIDTH, writeAsciiTab } from './write/ascii/ascii-tab-writer';
+export { writeMusicXml } from './write/musicxml/musicxml-writer';
+export { encodeMusicXml, writeMusicXmlArchive } from './write/musicxml/musicxml-archive';
 export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
 export { CompositionError, GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
-export { MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from './edit/edit-song';
+export { MAX_DRUM_KEY, MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from './edit/edit-song';
 export {
   type Instrument,
   type NeckInstrument,
@@ -55,8 +57,54 @@ export {
   trackPitchRange,
 } from './edit/tuning-fit';
 export { type TuningChange, setTrackTuning } from './edit/retune';
+export {
+  DEFAULT_GATE_DB,
+  DEFAULT_MAX_FREQUENCY,
+  DEFAULT_MIN_FREQUENCY,
+  MAX_FRAME_LENGTH,
+  MIN_FRAME_LENGTH,
+  type PitchDetection,
+  type PitchDetectorOptions,
+  SILENCE_DB,
+  detectPitch,
+} from './tuner/pitch-detector';
+export {
+  DEFAULT_REFERENCE_A4,
+  MAX_REFERENCE_A4,
+  MIN_REFERENCE_A4,
+  type NotePitch,
+  type StringPitch,
+  type TunerReading,
+  clampReferenceA4,
+  frequencyFromNote,
+  nearestNote,
+  nearestString,
+  pitchFromFrequency,
+  toTunerReading,
+} from './tuner/notes';
+export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency } from './tuner/tuner-queue';
+export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
+export { setBeatChord, setBeatChordNotes } from './edit/beat-chord';
+export { CHORD_TYPES, type ChordType, type ChordTypeName } from './chords/database';
+export {
+  CHORD_EXTENSIONS,
+  type ChordExtension,
+  type ChordSpec,
+  type ChordSpecOptions,
+  DEGREE_SHIFTS,
+  type DegreeShift,
+  buildChordSpec,
+  chordSpecPitchClasses,
+} from './chords/spec';
+export { type NoteSpelling, chordName, noteName } from './chords/naming';
+export { parseChordName } from './chords/parse';
+export { MAX_FRET_SPAN, type VoicingOptions, buildChordVoicings } from './chords/creator';
+export type { VoicingStyle } from './chords/grades';
+export { type ChordProposal, type RecognizeOptions, recognizeChord } from './chords/recognizer';
+export { DIAGRAM_FRETS, chordFirstFret, chordLabel, hasChordDiagram, isSameChord } from './chords/shape';
+export { songChords } from './chords/song-chords';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
 export { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from './edit/beat-ranges';
 export { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';
@@ -126,7 +174,10 @@ export {
 export { parseEffectChain, parseMasterMix } from './effects/effects-json';
 export { readSongEffects, songEffectsToJson } from './effects/song-effects';
 export { setSongInfo } from './edit/song-info';
-export { GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex } from './formats/common/channels';
+export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionName } from './formats/common/channels';
+export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';
+export { toggleDrumNote } from './edit/drum-notes';
+export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore } from './edit/pitch-entry';
 export {
   type RepeatChange,
   setKeySignature,
@@ -177,3 +228,27 @@ export {
 export { PLAN_SONG_TOOL, WRITE_SECTION_TOOL } from './composition/tool';
 export { parseSongPlan } from './composition/parse-plan';
 export { SONG_WRITER_CREDIT, type SongDetails, buildComposedSong } from './composition/build';
+export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
+export { SCALES, type ScaleDefinition } from './scales/table';
+export {
+  type Alteration,
+  SCALE_ROOTS,
+  type ScaleChoice,
+  type ScaleRoot,
+  isScalePitch,
+  scaleIndexNamed,
+  scalePitchClasses,
+  scaleTitle,
+  searchScales,
+} from './scales/notes';
+export { preferredScaleChoice, scaleKeySignature, scaleNoteNames } from './scales/spelling';
+export { MAX_SCALE_MATCHES, type ScaleMatch, findScales, trackPitches } from './scales/finder';
+export {
+  MAX_SCALE_STRINGS,
+  MIN_SCALE_STRINGS,
+  SCALE_BOX_FRETS,
+  type ScaleBox,
+  type ScalePosition,
+  scaleBoxes,
+  scaleFretPositions,
+} from './scales/positions';
