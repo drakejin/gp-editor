@@ -35,14 +35,14 @@ export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
     id: 'gp4',
     label: 'Guitar Pro 4 (.gp4)',
     extension: 'gp4',
-    note: 'Guitar Pro 4 keeps one voice per bar (voice 2 joins voice 1) and one triplet feel; heavy accents are left out.',
+    note: 'Guitar Pro 4 keeps one voice per bar (voice 2 joins voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells and the sustain pedal are left out.',
   },
   {
     id: 'gp3',
     label: 'Guitar Pro 3 (.gp3)',
     extension: 'gp3',
     note:
-      'Guitar Pro 3 keeps one voice per bar (voice 2 joins voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills and tremolo picking are left out.',
+      'Guitar Pro 3 keeps one voice per bar (voice 2 joins voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado and the sustain pedal are left out.',
   },
 ];
 
