@@ -10,22 +10,31 @@
  * - Text shows macOS key symbols (⌘, ⇧, ⌥ …) the Windows way (platform-text.ts).
  */
 import {
+  type ComponentType,
   type CSSProperties,
   type ForwardedRef,
   type ReactNode,
+  type RefAttributes,
   forwardRef,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react';
-// eslint-disable-next-line import/no-unresolved
 import * as Web from 'react-native-web';
 import { platformText } from './platform-text';
 
 export * from 'react-native-web';
 
 type StyleValue = unknown;
+
+/**
+ * react-native-web's View and Text, typed as loosely as this file's own props: the app's props are typed against
+ * react-native-macos (tsconfig.web.json), and @types/react-native-web's View props are not even its own.
+ */
+type WebComponent = ComponentType<{ readonly [prop: string]: unknown } & RefAttributes<HTMLElement>>;
+const BaseView = Web.View as unknown as WebComponent;
+const BaseText = Web.Text as unknown as WebComponent;
 
 interface PressState {
   readonly pressed: boolean;
@@ -211,17 +220,19 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
     children,
     style,
     disabled,
+    /* eslint-disable @typescript-eslint/no-unused-vars -- usePress reads these; they stay off the DOM view */
     onPress,
     onPressIn,
     onPressMove,
     onPressOut,
     onLongPress,
+    pressRetentionOffset,
+    /* eslint-enable @typescript-eslint/no-unused-vars */
     onHoverIn,
     onHoverOut,
-    pressRetentionOffset,
     tooltip,
     ...rest
-  } = props;
+  } = props as PressableProps; // forwardRef's PropsWithoutRef turns the named props into `unknown` (index signature)
   const element = useRef<HTMLElement | null>(null);
   const [hovered, setHovered] = useState(false);
   const { pressed, handlers } = usePress(props, element);
@@ -235,7 +246,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
     [ref],
   );
   return (
-    <Web.View
+    <BaseView
       {...rest}
       ref={setRef}
       aria-disabled={disabled === true ? true : undefined}
@@ -251,7 +262,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
       {...handlers}
     >
       {resolve(children, state)}
-    </Web.View>
+    </BaseView>
   );
 });
 
@@ -263,7 +274,7 @@ interface ViewProps {
 
 /** react-native-web's View, with react-native-macos's `tooltip`. */
 export const View = forwardRef<HTMLElement, ViewProps>(function WebView(props, ref) {
-  const { tooltip, ...rest } = props;
+  const { tooltip, ...rest } = props as ViewProps;
   const element = useRef<HTMLElement | null>(null);
   useAttribute(element, 'title', tooltip === undefined ? undefined : platformText(tooltip));
   const setRef = useCallback(
@@ -273,7 +284,7 @@ export const View = forwardRef<HTMLElement, ViewProps>(function WebView(props, r
     },
     [ref],
   );
-  return <Web.View {...rest} ref={setRef} />;
+  return <BaseView {...rest} ref={setRef} />;
 });
 
 interface TextProps {
@@ -293,11 +304,11 @@ function translateChildren(children: ReactNode): ReactNode {
 
 /** react-native-web's Text; texts written for the Mac (⌘ keys, System Settings) read as on Windows. */
 export const Text = forwardRef<HTMLElement, TextProps>(function WebText(props, ref) {
-  const { children, ...rest } = props;
+  const { children, ...rest } = props as TextProps;
   return (
-    <Web.Text {...rest} ref={ref}>
+    <BaseText {...rest} ref={ref}>
       {translateChildren(children)}
-    </Web.Text>
+    </BaseText>
   );
 });
 

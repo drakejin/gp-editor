@@ -11,5 +11,19 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods", "macos/build", "ios", "android"]
+  // The Windows build's sources are checked by tsconfig.web.json (DOM, Vite, react-native-web).
+  "exclude": [
+    "**/node_modules",
+    "**/Pods",
+    "macos/build",
+    "ios",
+    "android",
+    "web",
+    "web-dist",
+    "src/**/*.web.ts",
+    "src/**/*.web.tsx",
+    "src/native/web",
+    "src-tauri",
+    "vite.config.ts"
+  ]
 }

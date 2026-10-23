@@ -1,6 +1,7 @@
 // Windows twin of midi-input.ts: MIDI sources and their note messages through the Web MIDI API (WebView2), in place
 // of CoreMIDI (GPMidiInput.m). A source's id is a number derived from Web MIDI's port id, so it stays the same from
 // run to run as CoreMIDI's unique ids do.
+/* eslint-disable no-bitwise -- a hash of the port id, and a MIDI status byte's kind and channel nibbles */
 import { type MidiNoteMessage, type MidiSource, parseMidiNote, parseMidiSources } from '../lib/midi-input';
 import { onAppEvent, postAppEvent, unsubscribeAll } from './web/app-events';
 import { readSetting, writeSetting } from './web/settings';

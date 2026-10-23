@@ -1,6 +1,7 @@
 // Playback in the Windows build: spessasynth_lib (a SoundFont / DLS synthesizer in an AudioWorklet) and its MIDI
 // sequencer, in place of GPMidiEngine.m (AVAudioSequencer + MIDISynth). The song arrives as a Standard MIDI File, as
 // on the Mac; the sound bank is the one chosen in the Song inspector (GeneralUser GS by default, src-tauri resources).
+import type { MIDIController } from 'spessasynth_core';
 import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
 import processorUrl from 'spessasynth_lib/dist/spessasynth_processor.min.js?url';
 
@@ -55,7 +56,7 @@ function getEngine(): Promise<Engine> {
 }
 
 /** Makes `bankId` the synth's sound bank (read by `readBank` the first time it is needed). */
-async function useBank(synth: WorkletSynthesizer, bankId: string, readBank: () => Promise<Uint8Array>): Promise<void> {
+async function loadBank(synth: WorkletSynthesizer, bankId: string, readBank: () => Promise<Uint8Array>): Promise<void> {
   if (loadedBankId === bankId) {
     return;
   }
@@ -86,7 +87,7 @@ export async function playSong(request: PlayRequest): Promise<void> {
   if (request.bankId === '') {
     throw new Error('No sound bank: add a SoundFont (.sf2) in the Song inspector');
   }
-  await useBank(synth, request.bankId, request.readBank);
+  await loadBank(synth, request.bankId, request.readBank);
   sequencer.pause();
   synth.stopAll(true);
   session = { fromSeconds: Math.max(0, request.fromSeconds), isLoaded: false, isEnded: false };
@@ -130,7 +131,8 @@ export async function changeProgram(channel: number, program: number): Promise<v
 /** A control change on a channel now (a track's volume or pan changed while playing). */
 export async function changeController(channel: number, controller: number, value: number): Promise<void> {
   if (engine !== undefined) {
-    (await engine).synth.controllerChange(channel, controller, value);
+    // MIDIController is spessasynth's enum of controller numbers; the app sends GM numbers (7 volume, 10 pan).
+    (await engine).synth.controllerChange(channel, controller as MIDIController, value);
   }
 }
 

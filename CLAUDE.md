@@ -33,6 +33,8 @@ It also imports Power Tab (.ptb), TablEdit (.tef) and Standard MIDI Files (.mid,
 | `apps/desktop/src/score/` | Engravers: pure functions from the song to `DrawCommand`s (`draw.ts`) — tab, notation, heading, fretboard, piano keyboard, drum kit, lyrics, rows, hit-testing; `geometry.ts` = view modes and row heights; `symbols/` holds the shapes notation and tab share (slurs, bends, slides, effect marks). |
 | `apps/desktop/src/components/chords/` | The chord diagram panel (K): `ChordPanel` (grid, name, notes of the beat, Apply / Remove), `ChordLibrary` (by name, by position, the track's chords), `ChordDiagramView` (the grid and the library's diagrams); the grid's edits in `lib/chord-grid.ts`; in the score, `score/chords.ts` (names and diagrams over a beat, `ChordDisplay`, the band in `geometry.ts`) and `score/chord-diagram.ts` (drawing and hit-testing a diagram). |
 | `apps/desktop/macos/GPEditor-macOS/` | `AppDelegate.swift` (File menu, incl. Close Tab / Next Tab / Previous Tab, Export PNG… / Export MIDI… / Export ASCII Tab…, Open Recent), `GPEditorNotifications.h`, `GPFiles.m` (open and save panels — Save As's format popup —, writing bytes and text), `GPCommandPainter` (draws `DrawCommand`s, for the canvas and the PDF and PNG exports), `GPPlayer.m` → `GPMidiEngine` (one AVAudioEngine + MIDISynth + AVAudioSequencer), `GPSoundBanks`, `GPProjects.m`, `GPAnthropic.m`, `GPPdfExport.m`, `GPPngExport.m` (the PDF's pages as PNG images), `GPRecentFiles` (recent files in user defaults with security-scoped bookmarks; `RecentFilesMenu.swift` = File ▸ Open Recent), `GPClipboard.m` (copied beats on the pasteboard), `GPMidiInput.m` (CoreMIDI sources and note messages for MIDI input), `GPSandbox` (QA overrides only outside the sandbox), `GPQADriver.m`. |
+| `apps/desktop/web/`, `apps/desktop/src/native/*.web.ts(x)`, `src/native/web/` | The Windows build (Tauri v2 + react-native-web, WebView2). `vite.config.ts` resolves a module's `.web.ts(x)` twin first and `react-native` to `web/react-native.tsx` (react-native-web; Pressable on pointer events with `locationX/Y` and `onPressMove`, `tooltip` → `title`, ⌘ key labels as Ctrl+). The twins keep their macOS module's API (`tsconfig.web.json`, `moduleSuffixes`, checks it): `src/native/web/` holds the window menu and shortcuts (`app-menu.ts`, events in `app-events.ts`), the canvas painter (GPCommandPainter's port), the PDF writer (pdf-lib), the synth (spessasynth_lib), settings, files and `tauri.ts` (`call` → a Rust command; errors are `"code: message"`). `key-event.ts` / `.web.ts`: Ctrl acts as ⌘. |
+| `apps/desktop/src-tauri/` | The Windows build's Rust side: `lib.rs` (single instance — a second launch's files go to the window as `open-files` —, dialog plugin, the commands), `src/commands/` one module per area (`files`, `settings`, `anthropic` — the key stays in Rust —, `sound_banks`, `projects` — GPProjects.m's path checks —, `fonts` for the PDF export), `tauri.conf.json` (bundles GeneralUser GS, file associations, NSIS + MSI), `capabilities/`. |
 | `apps/desktop/macos/GPEditor-macOS/GPAudioInput.m` | The tuner's microphone (AppDelegate's Tools ▸ Tuner…): an AVAudioEngine input tap → mono → low-pass + decimation to ~6 kHz (`vDSP_desamp`) → a 2048-sample frame ~12 times a second to JS as 16-bit PCM; asks for microphone access (`NSMicrophoneUsageDescription`, `com.apple.security.device.audio-input`); `GPEDITOR_QA_TUNER_HZ` feeds a test tone in the QA copy. Quitting while it listens, AppDelegate stops it first and waits 0.3 s (`GPAudioInput.h`): a React render during exit aborts the app. |
 
 ## Commands
@@ -42,10 +44,12 @@ Use Node 24 (`mise.toml`); Homebrew's Node 25 is not supported by some tools.
 ```bash
 npm run test                        # gp-core unit tests (Vitest)
 npm run coverage                    # gp-core coverage (gate: 80% lines/functions/statements, 70% branches)
-npm run typecheck                   # gp-core + desktop tsc
+npm run typecheck                   # gp-core + desktop tsc (macOS and web configs)
 npm --prefix apps/desktop test      # app tests (Jest)
 npm --prefix apps/desktop run lint  # ESLint
 npm run build:mac                   # fetch GeneralUser GS, then Release build of the macOS app (xcodebuild)
+npm run build:win                   # fetch GeneralUser GS, then the Windows installers (tauri build; needs Rust)
+npm --prefix apps/desktop run tauri:dev  # Windows dev window (Vite on 1420)
 ```
 
 ## Conventions
@@ -91,8 +95,9 @@ npm run build:mac                   # fetch GeneralUser GS, then Release build o
 
 ## Releases
 
-The version lives in four places, bumped together: `apps/desktop/package.json` (+ its lock file),
-`packages/gp-core/package.json`, and `CFBundleShortVersionString` / `CFBundleVersion` in
-`apps/desktop/macos/GPEditor-macOS/Info.plist` (`scripts/release/package.sh` names the zips from it). Build, package,
+The version lives in six places, bumped together: `apps/desktop/package.json` (+ its lock file),
+`packages/gp-core/package.json`, `CFBundleShortVersionString` / `CFBundleVersion` in
+`apps/desktop/macos/GPEditor-macOS/Info.plist` (`scripts/release/package.sh` names the zips from it), and for Windows
+`apps/desktop/src-tauri/tauri.conf.json` and `apps/desktop/src-tauri/Cargo.toml` (+ `Cargo.lock`). Build, package,
 tag `vX.Y.Z` and publish the two zips and `SHA256SUMS.txt` as a GitHub release.
 

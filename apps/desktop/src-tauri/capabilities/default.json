@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the app's page may call: its own commands (lib.rs), the window menu, title, drag and drop, and file dialogs.",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-set-title", "core:menu:default", "dialog:default"]
+}

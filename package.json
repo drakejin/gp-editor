@@ -8,6 +8,7 @@
     "coverage": "npm --prefix packages/gp-core run coverage",
     "typecheck": "npm --prefix packages/gp-core run typecheck && npm --prefix apps/desktop run typecheck",
     "build:mac": "npm --prefix apps/desktop run build:macos",
+    "build:win": "npm --prefix apps/desktop run build:windows",
     "start": "npm --prefix apps/desktop start"
   }
 }

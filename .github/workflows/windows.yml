@@ -1,0 +1,69 @@
+# The Windows build (Tauri + react-native-web, apps/desktop/src-tauri): checks the shared code, then builds the
+# NSIS and MSI installers and keeps them as the run's artifact.
+name: Windows
+
+on:
+  push:
+    branches: [main, windows]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            packages/gp-core/package-lock.json
+            apps/desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install
+        run: |
+          npm ci --prefix packages/gp-core
+          npm ci --prefix apps/desktop
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm --prefix apps/desktop run lint
+
+      - name: Guitar Pro 1/2 test files (not committed, see the script)
+        shell: bash
+        run: bash packages/gp-core/test/fixtures/fetch-gtp.sh
+
+      - name: Tests
+        run: |
+          npm test
+          npm --prefix apps/desktop test
+
+      - name: Sound bank
+        run: npm --prefix apps/desktop run soundfont:win
+
+      - name: Build
+        working-directory: apps/desktop
+        run: npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gp-editor-windows
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error

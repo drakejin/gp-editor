@@ -66,6 +66,7 @@ function ScoreCanvasView({ commands, style }: ScoreCanvasProps) {
   }, [commands, width, height, isFontReady]);
   return (
     <View ref={container as never} style={style} pointerEvents="none">
+      {/* eslint-disable-next-line react-native/no-inline-styles -- a DOM canvas sized to the row, not a native style */}
       <canvas ref={canvas} style={{ width, height, display: 'block' }} />
     </View>
   );
