@@ -33,6 +33,11 @@ describe('editorReducer: loading and modes', () => {
     expect(failed.document).toBe(loaded.document);
   });
 
+  it('names another export’s format in the error banner', () => {
+    const failed = editorReducer(loadedState(), { type: 'exportFailed', message: 'disk full', format: 'PNG images' });
+    expect(failed.error).toBe('Could not export the PNG images: disk full');
+  });
+
   it('starts a fresh history with the cursor on the first beat, keeping the score mode', () => {
     const tabMode = editorReducer(INITIAL_EDITOR_STATE, { type: 'setMode', mode: 'tab' });
     const state = editorReducer(tabMode, { type: 'loaded', document: loadedState().document! });

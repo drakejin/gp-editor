@@ -98,6 +98,15 @@ export function subscribeExportRequests(onExportRequested: () => void): () => vo
   return () => subscription.remove();
 }
 
+/** File ▸ Export PNG…; returns the unsubscribe function. */
+export function subscribeExportPngRequests(onExportPngRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('exportPngRequested', onExportPngRequested);
+  return () => subscription.remove();
+}
+
 /** File ▸ Print… (⌘P). */
 export function subscribePrintRequests(onPrintRequested: () => void): () => void {
   if (native === undefined) {

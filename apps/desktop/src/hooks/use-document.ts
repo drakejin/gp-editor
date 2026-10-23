@@ -11,6 +11,8 @@ import {
   subscribeFileEvents,
   writeFile,
 } from '../native/gp-files';
+import { isMissingFileError, readRecentFile, subscribeOpenRecentRequests } from '../native/recent-files';
+import type { RecentFileRef } from '../lib/recent-files';
 import type { ScoreMode } from '../score/geometry';
 import { type EditorAction, type OpenDocument, isEdited } from '../state/editor';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
@@ -24,6 +26,8 @@ export interface DocumentCommands {
   readonly openDialog: () => void;
   /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. */
   readonly openPath: (pathOrUrl: string) => void;
+  /** A file of the recent files list (File ▸ Open Recent, the Recent Files list), read through its bookmark. */
+  readonly openRecent: (path: string) => void;
   /**
    * A song made in the app (no file holds it yet: `path` is empty, `fileName` is what Save suggests) in a new tab,
    * edited until saved, so closing it asks first.
@@ -48,22 +52,33 @@ export function canOverwrite(path: string): boolean {
 /** The default for `onOpenPdf`: one function, so the File-menu listeners are not re-added on every render. */
 const IGNORE_PDF = (): void => undefined;
 
+/** What the recent files list hears from opening and saving (useRecentFiles). */
+export interface RecentFileHandlers {
+  /** A file was opened or saved; `previousPath` is where a recent file was before it moved. */
+  readonly remember: (file: RecentFileRef, previousPath?: string) => void;
+  /** A recent file could not be found. */
+  readonly markMissing: (path: string) => void;
+}
+
+const NO_RECENT_FILES: RecentFileHandlers = { remember: () => undefined, markMissing: () => undefined };
+
 /** True for a PDF path or file URL: opening one imports it (PDF → tab) instead. */
 export function isPdfPath(pathOrUrl: string): boolean {
   return pathOrUrl.toLowerCase().endsWith('.pdf');
 }
 
 /**
- * New sheets, loading files into tabs (open panel, drag and drop, Finder, File menu), saving a tab, and the window
- * title (the shown tab's file).
+ * New sheets, loading files into tabs (open panel, drag and drop, Finder, File menu, the recent files), saving a tab,
+ * and the window title (the shown tab's file). Every file opened or saved goes to `recentFiles`.
  */
 export function useDocument(
   workspace: WorkspaceState,
   dispatch: Dispatch<WorkspaceAction>,
   onOpenPdf: (pathOrUrl: string) => void = IGNORE_PDF,
+  recentFiles: RecentFileHandlers = NO_RECENT_FILES,
 ): DocumentCommands {
-  const open = useOpenFile(dispatch);
-  const saveTab = useSaveTab(workspace, dispatch);
+  const open = useOpenFile(dispatch, recentFiles);
+  const saveTab = useSaveTab(workspace, dispatch, recentFiles);
   // The shown tab is read through a ref, so the File-menu listener is not re-added on every switch.
   const latest = useRef(workspace);
   latest.current = workspace;
@@ -92,6 +107,13 @@ export function useDocument(
     },
     [open, onOpenPdf],
   );
+  const openRecent = useCallback(
+    (path: string) => {
+      void open(() => readRecentFile(path), path);
+    },
+    [open],
+  );
+  useEffect(() => subscribeOpenRecentRequests(openRecent), [openRecent]);
 
   useEffect(
     () =>
@@ -115,13 +137,20 @@ export function useDocument(
     );
   }, [fileName, edited]);
 
-  return { create, openDialog, openPath, openDocument, save, saveTab };
+  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab };
 }
 
-/** Reads a file and opens it in a new tab (`loaded`); the window's error banner says why it could not be. */
-function useOpenFile(dispatch: Dispatch<WorkspaceAction>): (load: () => Promise<OpenedFile | null>) => Promise<void> {
+/**
+ * Reads a file and opens it in a new tab (`loaded`), then remembers it as a recent file; the window's error banner
+ * says why it could not be. `recentPath`: the recent file being opened (marked missing when it is gone).
+ */
+function useOpenFile(
+  dispatch: Dispatch<WorkspaceAction>,
+  recentFiles: RecentFileHandlers,
+): (load: () => Promise<OpenedFile | null>, recentPath?: string) => Promise<void> {
+  const { remember, markMissing } = recentFiles;
   return useCallback(
-    async (load: () => Promise<OpenedFile | null>) => {
+    async (load: () => Promise<OpenedFile | null>, recentPath?: string) => {
       dispatch({ type: 'loadStarted' });
       try {
         const file = await load();
@@ -131,16 +160,21 @@ function useOpenFile(dispatch: Dispatch<WorkspaceAction>): (load: () => Promise<
         }
         const song = readSong(base64ToBytes(file.base64));
         dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
+        remember({ path: file.path, name: file.name }, recentPath !== undefined && recentPath !== file.path ? recentPath : undefined);
       } catch (error: unknown) {
+        if (recentPath !== undefined && isMissingFileError(error)) {
+          markMissing(recentPath);
+        }
         dispatch({ type: 'loadFailed', message: errorMessage(error, 'Unexpected error while opening the file') });
       }
     },
-    [dispatch],
+    [dispatch, remember, markMissing],
   );
 }
 
-/** Saving one tab: GP5 bytes to its file or through the save panel; the result goes to that tab (`inTab`). */
-function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>): DocumentCommands['saveTab'] {
+/** Saving one tab: GP5 bytes to its file or through the save panel; the result goes to that tab (`inTab`) and the recent files. */
+function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, recentFiles: RecentFileHandlers): DocumentCommands['saveTab'] {
+  const { remember } = recentFiles;
   // Reads the latest tabs through a ref, so the File-menu listener does not need re-subscribing per edit.
   const latest = useRef(workspace);
   latest.current = workspace;
@@ -162,12 +196,13 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
           return false;
         }
         toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
+        remember({ path: saved.path, name: saved.name });
         return true;
       } catch (error: unknown) {
         toTab({ type: 'saveFailed', message: errorMessage(error, 'Unexpected error while saving') });
         return false;
       }
     },
-    [dispatch],
+    [dispatch, remember],
   );
 }

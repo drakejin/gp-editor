@@ -105,8 +105,8 @@ export type EditorAction =
       readonly song: Song;
     }
   | { readonly type: 'saveFailed'; readonly message: string }
-  /** Writing a PDF (File ▸ Export PDF…) failed. */
-  | { readonly type: 'exportFailed'; readonly message: string }
+  /** Writing a PDF (File ▸ Export PDF…) failed; `format` names another export ("PNG images"). */
+  | { readonly type: 'exportFailed'; readonly message: string; readonly format?: string }
   | { readonly type: 'dismissError' }
   /** A hint from outside the reducer (B / C on an empty string). */
   | { readonly type: 'showHint'; readonly hint: string }
@@ -177,7 +177,7 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
     case 'saveFailed':
       return { ...state, error: `Could not save: ${action.message}` };
     case 'exportFailed':
-      return { ...state, error: `Could not export the PDF: ${action.message}` };
+      return { ...state, error: `Could not export the ${action.format ?? 'PDF'}: ${action.message}` };
     case 'clipboardFailed':
       return { ...state, error: `Could not use the clipboard: ${action.message}` };
     case 'loadFailed':
