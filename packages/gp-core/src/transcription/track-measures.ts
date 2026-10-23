@@ -1,6 +1,6 @@
-import { type VoiceEvents, restEvents, toBeats } from '../edit/timeline';
-import { NORMAL_TUPLET, durationTicks, measureTicks } from '../model/defaults';
-import type { Clef, Duration, Measure, Note, Tuplet } from '../model/song';
+import { type VoiceEvents, distinctTuplets, gapRests, toBeats } from '../edit/timeline';
+import { durationTicks, measureTicks } from '../model/defaults';
+import type { Clef, Duration, Measure, Note } from '../model/song';
 import { type Neck, NO_COUNTS, type PlacedNote, type PlacementCounts, addCounts, buildBeatNotes } from './beat-notes';
 import { toDuration } from './durations';
 import type { PlannedMeasure } from './header-plan';
@@ -86,14 +86,7 @@ function placeVoices(voices: readonly (readonly PlannedEvent[])[], neck: Neck, m
 
 /** Rests for `ticks`, plain or in a tuplet the voice uses; none when the time cannot be written as rests. */
 function padRests(ticks: number, events: readonly PlannedEvent[]): VoiceEvents {
-  const tuplets: readonly Tuplet[] = [NORMAL_TUPLET, ...events.map((event) => event.duration.tuplet)];
-  for (const tuplet of tuplets) {
-    const rests = restEvents(ticks, undefined, tuplet);
-    if (rests !== undefined) {
-      return rests;
-    }
-  }
-  return [];
+  return gapRests(ticks, distinctTuplets(events.map((event) => event.duration))) ?? [];
 }
 
 /** A voice's events, then rests to the end of the measure (the first voice always fills its measure). */

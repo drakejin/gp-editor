@@ -9,6 +9,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface GPCommandPainter : NSObject
 
+/**
+ * Rectangles of this colour ("#RRGGBB", any case) erase what is under them instead of painting: the paper of a PNG
+ * with a transparent background (the page, the gaps in the tab lines behind fret numbers). nil, the default: none.
+ */
+@property (nonatomic, copy, nullable) NSString *eraseColor;
+
 /** Draws the commands, in order, into NSGraphicsContext.currentContext (flipped). */
 - (void)drawCommands:(NSArray<NSDictionary *> *)commands;
 

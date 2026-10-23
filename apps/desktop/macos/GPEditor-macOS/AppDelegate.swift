@@ -6,6 +6,8 @@ import ReactAppDependencyProvider
 @main
 struct GPEditorApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  /// File ▸ Open Recent's files (RecentFilesMenu.swift).
+  @StateObject private var recentFiles = RecentFilesModel()
 
   var body: some Scene {
     Window("GP Editor", id: "main") {
@@ -30,6 +32,7 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorOpenCommand, object: nil)
         }
         .keyboardShortcut("o")
+        RecentFilesCommands(model: recentFiles)
         Button("Import PDF…") {
           NotificationCenter.default.post(name: .GPEditorImportPdfCommand, object: nil)
         }
@@ -65,6 +68,18 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorExportCommand, object: nil)
         }
         .keyboardShortcut("e", modifiers: [.command, .shift])
+        // The same pages as PNG images, one per page.
+        Button("Export PNG…") {
+          NotificationCenter.default.post(name: .GPEditorExportPngCommand, object: nil)
+        }
+        // The song as playback plays it (repeats unfolded, its own tempo, mute and solo as set), and its fretted tracks as text.
+        Button("Export MIDI…") {
+          NotificationCenter.default.post(name: .GPEditorExportMidiCommand, object: nil)
+        }
+        Button("Export ASCII Tab…") {
+          NotificationCenter.default.post(name: .GPEditorExportAsciiTabCommand, object: nil)
+        }
+        Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
         }

@@ -1,7 +1,7 @@
 import { isSameRow, type ScoreRowProps } from '../src/components/ScoreRow';
 import { layoutMeasure } from '../src/lib/layout';
 import { rowGeometry } from '../src/score/geometry';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 import { PALETTE } from '../test-support/score-helpers';
 
 function rowProps(): ScoreRowProps {
@@ -39,7 +39,7 @@ describe('isSameRow', () => {
   it('redraws a row when the dynamic it starts in changes several bars before it', () => {
     // Arrange: bar 1 at p, bars 2 and 3 empty, the row holds bar 4 (at f, so it shows "f" after the p)
     const quiet = { ...note(1, 3), velocity: 47 };
-    const song = makeSong([[beat(960, [quiet])], [], [], [beat(header(4).start, [note(1, 3)])]]);
+    const song = makeSong([[beat(960, [quiet])], [], [], [beat(toTux(header(4).start), [note(1, 3)])]]);
     const before: ScoreRowProps = {
       ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 3)] }, geometry: rowGeometry('notationAndTab', 6, { hasDynamics: true }),
     };
@@ -55,7 +55,7 @@ describe('isSameRow', () => {
 
   it('keeps a row whose dynamic before it is unchanged by an edit elsewhere', () => {
     // Arrange
-    const song = makeSong([[beat(960, [note(1, 3)])], [], [beat(header(3).start, [note(1, 5)])]]);
+    const song = makeSong([[beat(960, [note(1, 3)])], [], [beat(toTux(header(3).start), [note(1, 5)])]]);
     const before: ScoreRowProps = {
       ...rowProps(), song, row: { measures: [layoutMeasure(song, 0, 2)] }, geometry: rowGeometry('notationAndTab', 6, { hasDynamics: true }),
     };

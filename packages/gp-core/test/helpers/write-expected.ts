@@ -30,7 +30,8 @@ import type {
  * - beats: voices 1 and 2 only; notes on the track's strings, one per string, in string order, frets
  *   0…99, velocities on the eight dynamics; fade in, tapping/slapping/popping, the tremolo bar and wide
  *   vibrato per voice (a wide vibrato replaces a note's slight one); strokes at 4…64; double dots and tuplets GP5 lacks written as an equal length when there is
- *   one (else dropped, which moves the beats after them); an anacrusis starts at the measure start;
+ *   one (else dropped, which moves the beats after them); a tuplet inside a tuplet (GP7/GP8) likewise: an equal length
+ *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
  * - measure headers: eight alternate endings at most;
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
@@ -130,10 +131,10 @@ function isGpTuplet(enters: number, times: number): boolean {
   return (enters === 1 && times === 1) || GP_TUPLETS.get(enters) === times;
 }
 
-/** GP5 has no double dot and only the tuplets above: same length if it can, else drop them. */
+/** GP5 has no double dot, no tuplet inside a tuplet and only the tuplets above: same length if it can, else drop them. */
 function expectedDuration(duration: Duration): Duration {
   const { enters, times } = duration.tuplet;
-  if (!duration.doubleDotted && isGpTuplet(enters, times)) {
+  if (!duration.doubleDotted && duration.innerTuplet === undefined && isGpTuplet(enters, times)) {
     return duration;
   }
   const ticks = durationTicks(duration);
@@ -153,7 +154,7 @@ function expectedDuration(duration: Duration): Duration {
     }
   }
   const tuplet = isGpTuplet(enters, times) ? duration.tuplet : NORMAL_TUPLET;
-  return { ...duration, dotted: duration.dotted || duration.doubleDotted, doubleDotted: false, tuplet };
+  return { value: duration.value, dotted: duration.dotted || duration.doubleDotted, doubleDotted: false, tuplet };
 }
 
 function expectedVoice(voice: Voice | undefined, stringCount: number): Voice {

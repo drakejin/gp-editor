@@ -1,6 +1,6 @@
 import { type Song, type StringAddress, findNote } from '@gp-editor/core';
 import { needsNote } from './note-edits';
-import type { SongEdit } from './song-edits';
+import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
 
 /** The note values a time signature's beat can be, in order (÷ steps through them). */
 const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32, 64];
@@ -12,6 +12,9 @@ const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32, 64];
 export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
   if (needsNote(edit) && findNote(song, cursor) === undefined) {
     return noNoteHint(cursor.string);
+  }
+  if (edit.type === 'setInnerTuplet' || edit.type === 'toggleInnerTriplet') {
+    return innerTupletHint(song, cursor);
   }
   if (edit.type !== 'shiftTimeSignature') {
     return undefined;
@@ -28,6 +31,12 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
       : { numerator, denominator: DENOMINATORS[denominatorIndex + edit.delta] ?? denominator };
   const isShorter = next.numerator / next.denominator < numerator / denominator;
   return isShorter ? `Bar ${header.number} is full: its notes do not fit in ${next.numerator}/${next.denominator}. Delete or shorten beats first.` : undefined;
+}
+
+/** An inner tuplet on a beat that is in no tuplet (or has no beat in the cursor's voice). */
+function innerTupletHint(song: Song, cursor: StringAddress): string | undefined {
+  const voice = cursorVoice(song, cursor);
+  return voice === undefined || voice.isEmpty || isInTuplet(voice.duration) ? undefined : 'An inner tuplet goes inside a tuplet: make the beat a tuplet first.';
 }
 
 /** A note key (R, S, H … B, C) on a string with no note at the cursor. */

@@ -1,4 +1,5 @@
-import type { Duration, Tuplet } from '../model/song';
+import type { DurationTuplets } from '../model/defaults';
+import type { Duration } from '../model/song';
 import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, restEvents } from './timeline';
 
 /**
@@ -34,9 +35,9 @@ function lastFixedIndex(events: VoiceEvents): number {
   return -1;
 }
 
-/** A free rest cut down to `ticks` (rests in `tuplet` allowed); it keeps its attributes on the first piece. */
-function cutRest(event: VoiceEvent, ticks: number, tuplet: Tuplet | undefined): VoiceEvents {
-  const [first, ...others] = restEvents(ticks, undefined, tuplet) ?? [];
+/** A free rest cut down to `ticks` (rests in `tuplets` allowed); it keeps its attributes on the first piece. */
+function cutRest(event: VoiceEvent, ticks: number, tuplets: DurationTuplets | undefined): VoiceEvents {
+  const [first, ...others] = restEvents(ticks, undefined, tuplets) ?? [];
   if (first === undefined) {
     return [];
   }
@@ -44,7 +45,7 @@ function cutRest(event: VoiceEvent, ticks: number, tuplet: Tuplet | undefined): 
 }
 
 /** The events with the free rests after the last other event trimmed to end by `length` (removeVoicesOutOfTime). */
-export function trimTrailingRests(events: VoiceEvents, length: number, tuplet?: Tuplet): VoiceEvents {
+export function trimTrailingRests(events: VoiceEvents, length: number, tuplets?: DurationTuplets): VoiceEvents {
   const fixedCount = lastFixedIndex(events) + 1;
   const kept: VoiceEvent[] = events.slice(0, fixedCount);
   let position = eventsTicks(kept);
@@ -54,7 +55,7 @@ export function trimTrailingRests(events: VoiceEvents, length: number, tuplet?: 
     }
     const end = position + eventTicks(event);
     if (end > length) {
-      kept.push(...cutRest(event, length - position, tuplet));
+      kept.push(...cutRest(event, length - position, tuplets));
       break;
     }
     kept.push(event);
@@ -64,11 +65,11 @@ export function trimTrailingRests(events: VoiceEvents, length: number, tuplet?: 
 }
 
 /**
- * The voice after an edit, trailing rests trimmed to the measure (a cut rest may use `tuplet`); undefined when it
+ * The voice after an edit, trailing rests trimmed to the measure (a cut rest may use `tuplets`); undefined when it
  * sticks out of the measure further than `limits` allow (more events starting outside it, or a longer overhang).
  */
-export function settleVoice(events: VoiceEvents, length: number, limits: FitLimits, tuplet?: Tuplet): VoiceEvents | undefined {
-  const trimmed = trimTrailingRests(events, length, tuplet);
+export function settleVoice(events: VoiceEvents, length: number, limits: FitLimits, tuplets?: DurationTuplets): VoiceEvents | undefined {
+  const trimmed = trimTrailingRests(events, length, tuplets);
   const after = fitLimits(trimmed, length);
   return after.eventsOutside <= limits.eventsOutside && after.overhang <= limits.overhang ? trimmed : undefined;
 }
