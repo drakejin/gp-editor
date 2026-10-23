@@ -2,6 +2,7 @@
 import { ByteReader } from '../../io/byte-reader';
 import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../model/defaults';
 import type {
+  BeamLink,
   Beat,
   Chord,
   Clef,
@@ -21,8 +22,10 @@ import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { readBeatEffectsGp45 } from './gp4';
+import { GP5_BEAM_GROUPS, GP5_BREAK_SECONDARY_BEAMS, beamGroupingFromGp5, beamLinkFromGp5 } from './gp5-beams';
 import {
   type BeatEffects,
+  type HeaderDraft,
   buildChord,
   type ChannelSlot,
   EMPTY_VOICE,
@@ -36,6 +39,7 @@ import {
   readChannelSlots,
   readColor,
   readDuration,
+  readFingers,
   readInts,
   readKeySignature,
   readLyrics,
@@ -93,8 +97,8 @@ export function readGp5(bytes: Uint8Array, detected: DetectedFormat, options: Re
   reader.skip(42); // musical directions (19 shorts) and an unknown int
   const measureCount = reader.readInt();
   const trackCount = reader.readInt();
-  const headers = readMeasureHeaders(measureCount, keySignature, (number, _previous, timeSignature) =>
-    readHeaderGp5(reader, number, timeSignature),
+  const headers = readMeasureHeaders(measureCount, keySignature, (number, previous, timeSignature) =>
+    readHeaderGp5(reader, number, timeSignature, previous.at(-1)),
   );
   const { tracks, registry } = readTrackList(trackCount, { lyricTrack, lyrics }, (number, current) =>
     readTrackGp5(reader, number, slots, current, isV510),
@@ -112,7 +116,7 @@ function readPageSetup(reader: ByteReader, isV510: boolean): void {
   }
 }
 
-function readHeaderGp5(reader: ByteReader, number: number, timeSignature: TimeSignature): HeaderRead {
+function readHeaderGp5(reader: ByteReader, number: number, timeSignature: TimeSignature, previous: HeaderDraft | undefined): HeaderRead {
   const flags = reader.readUnsignedByte();
   const numerator = (flags & 0x01) !== 0 ? reader.readByte() : timeSignature.numerator;
   const denominator = (flags & 0x02) !== 0 ? toNoteValue(reader.readByte()) : timeSignature.denominator;
@@ -122,9 +126,9 @@ function readHeaderGp5(reader: ByteReader, number: number, timeSignature: TimeSi
   if (keySignature !== undefined) {
     reader.skip(1); // major / minor
   }
-  if ((flags & 0x03) !== 0) {
-    reader.skip(4); // beam grouping
-  }
+  // Beam grouping: four bytes with a time signature, else the previous bar's.
+  const ownTime = { numerator, denominator };
+  const beamGrouping = (flags & 0x03) !== 0 ? beamGroupingFromGp5(readBytes(reader, GP5_BEAM_GROUPS), ownTime) : previous?.beamGrouping;
   const repeatAlternative = (flags & 0x10) !== 0 ? reader.readUnsignedByte() : 0;
   if ((flags & 0x10) === 0) {
     reader.skip(1);
@@ -139,8 +143,13 @@ function readHeaderGp5(reader: ByteReader, number: number, timeSignature: TimeSi
     repeatAlternative,
     tripletFeel,
     ...(marker === undefined ? {} : { marker }),
+    ...(beamGrouping === undefined ? {} : { beamGrouping }),
   };
   return keySignature === undefined ? { header } : { header, keySignature };
+}
+
+function readBytes(reader: ByteReader, count: number): readonly number[] {
+  return Array.from({ length: count }, () => reader.readUnsignedByte());
 }
 
 function tripletFeelGp5(value: number): TripletFeel {
@@ -189,9 +198,12 @@ function readMeasureGp5(reader: ByteReader, job: MeasureJob, isV510: boolean): M
   for (let voiceIndex = 0; voiceIndex < VOICE_COUNT; voiceIndex++) {
     const count = reader.readInt();
     let start = job.start;
+    let previousStart: number | undefined;
     for (let i = 0; i < count; i++) {
       const read = readBeatGp5(reader, { job, voiceIndex, start, beats, isV510 });
-      beats = read.beats;
+      const link = read.beamFromPrevious;
+      beats = previousStart === undefined || link === undefined ? read.beats : withBeamToNext(read.beats, previousStart, voiceIndex, link);
+      previousStart = start;
       start += read.ticks;
       tempo = read.tempo ?? tempo;
     }
@@ -212,6 +224,19 @@ interface Gp5BeatRead {
   readonly beats: readonly Beat[];
   readonly ticks: number;
   readonly tempo?: number;
+  /** The beam from the voice's previous beat to this one (GP5 keeps it on the later beat). */
+  readonly beamFromPrevious?: BeamLink;
+}
+
+/** The voice's beat at `start` with its beam to the next beat set. */
+function withBeamToNext(beats: readonly Beat[], start: number, voiceIndex: number, link: BeamLink): readonly Beat[] {
+  return beats.map((beat) => {
+    const voice = beat.voices[voiceIndex];
+    if (beat.start !== start || voice === undefined || voice.isEmpty) {
+      return beat;
+    }
+    return { ...beat, voices: beat.voices.map((current, i) => (i === voiceIndex ? { ...voice, beamToNext: link } : current)) };
+  });
 }
 
 function readBeatGp5(reader: ByteReader, beatJob: BeatJob): Gp5BeatRead {
@@ -227,14 +252,16 @@ function readBeatGp5(reader: ByteReader, beatJob: BeatJob): Gp5BeatRead {
   const notes = readStringNotes(reader, stringCount, (string) =>
     readNoteGp5(reader, { string, effect: effects.effect, tiedFret: () => findTiedFret(job.previous, beats, string) }),
   );
-  reader.skip(1); // beam / ottava flags (low byte)
-  if ((reader.readByte() & 0x08) !== 0) {
-    reader.skip(1); // break secondary beams
+  const display = reader.readUnsignedByte() | (reader.readUnsignedByte() << 8); // beam, stem, ottava and tuplet flags
+  if ((display & GP5_BREAK_SECONDARY_BEAMS) !== 0) {
+    reader.skip(1); // secondary beams kept
   }
   // A voice without the "not empty" flag only counts when it has notes (TGVoice.addNote).
   const voice: Voice = { duration, notes, isEmpty: markedEmpty && notes.length === 0, direction: 'none' };
   const placed = placeVoice(beats, beatJob, voice, { chord, text, effects });
-  return { beats: placed, ticks: voice.isEmpty ? 0 : durationTicks(duration), ...(tempo === undefined ? {} : { tempo }) };
+  const beam = voice.isEmpty ? undefined : beamLinkFromGp5(display);
+  const extras = { ...(tempo === undefined ? {} : { tempo }), ...(beam === undefined ? {} : { beamFromPrevious: beam }) };
+  return { beats: placed, ticks: voice.isEmpty ? 0 : durationTicks(duration), ...extras };
 }
 
 interface BeatExtras {
@@ -310,9 +337,7 @@ function readNoteGp5(reader: ByteReader, context: NoteContext): Note {
   }
   const velocity = (flags & 0x10) !== 0 ? velocityFromGp(reader.readByte()) : DEFAULT_VELOCITY;
   const fret = (flags & 0x20) !== 0 ? resolveFret(reader.readByte(), isTied, context.tiedFret) : 0;
-  if ((flags & 0x80) !== 0) {
-    reader.skip(2); // fingering
-  }
+  const fingers = (flags & 0x80) !== 0 ? readFingers(reader) : {};
   if ((flags & 0x01) !== 0) {
     reader.skip(8); // duration percent (double)
   }
@@ -320,7 +345,7 @@ function readNoteGp5(reader: ByteReader, context: NoteContext): Note {
   if ((flags & 0x08) !== 0) {
     effect = readNoteEffectsGp5(reader, effect);
   }
-  return { fret, velocity, string: context.string, isTied, effect };
+  return { fret, velocity, string: context.string, isTied, effect, ...fingers };
 }
 
 function readNoteEffectsGp5(reader: ByteReader, effect: NoteEffect): NoteEffect {

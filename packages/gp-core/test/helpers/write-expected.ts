@@ -2,13 +2,16 @@ import { createChannelName } from '../../src/formats/common/channels';
 import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
 import { velocityFromGp } from '../../src/formats/common/velocity';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
+import { normalizeBeamGrouping } from '../../src/model/beaming';
 import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration } from '../../src/model/defaults';
 import type {
+  BeamGrouping,
   Beat,
   Channel,
   Clef,
   Duration,
   Measure,
+  MeasureHeader,
   Note,
   NoteEffect,
   NoteValue,
@@ -33,7 +36,9 @@ import type {
  *   one (else dropped, which moves the beats after them); a tuplet inside a tuplet (GP7/GP8) likewise: an equal length
  *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
- * - measure headers: eight alternate endings at most;
+ * - measure headers: eight alternate endings at most; beam groups only as four groups of whole eighth notes;
+ * - notation marks: no slashes (a beat's or a track's) and no cautionary or forced accidentals; the beam from a voice's
+ *   last beat in the measure is dropped (GP5 keeps a beam on the beat after it);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
  */
 
@@ -115,7 +120,7 @@ function expectedNotes(voice: Voice, stringCount: number): Note[] {
   const notes = [...byString.values()].sort((a, b) => a.string - b.string);
   return withVoiceEffects(
     notes.map((note) => ({
-      ...note,
+      ...withoutAccidentalDisplay(note),
       fret: Math.min(MAX_FRET, Math.max(0, note.fret)),
       velocity: dynamicVelocity(note.velocity),
       effect: expectedEffect(note.effect),
@@ -157,11 +162,34 @@ function expectedDuration(duration: Duration): Duration {
   return { value: duration.value, dotted: duration.dotted || duration.doubleDotted, doubleDotted: false, tuplet };
 }
 
+function withoutAccidentalDisplay(note: Note): Note {
+  const { accidentalDisplay: _dropped, ...rest } = note;
+  return rest;
+}
+
+function withoutSlash(voice: Voice): Voice {
+  const { isSlashed: _dropped, ...rest } = voice;
+  return rest;
+}
+
+function withoutBeam(voice: Voice): Voice {
+  const { beamToNext: _dropped, ...rest } = voice;
+  return rest;
+}
+
 function expectedVoice(voice: Voice | undefined, stringCount: number): Voice {
   if (voice === undefined || voice.isEmpty) {
     return voice ?? EMPTY_VOICE;
   }
-  return { ...voice, duration: expectedDuration(voice.duration), notes: expectedNotes(voice, stringCount) };
+  return { ...withoutSlash(voice), duration: expectedDuration(voice.duration), notes: expectedNotes(voice, stringCount) };
+}
+
+/** GP5 keeps a beam on the beat after it: the last beat of each voice loses its beam to the next. */
+function withoutLastBeams(beats: readonly Beat[]): Beat[] {
+  const last = [0, 1].map((voiceIndex) => beats.reduce((found, beat, index) => (beat.voices[voiceIndex]?.isEmpty === false ? index : found), -1));
+  return beats.map((beat, index) =>
+    last.includes(index) ? { ...beat, voices: beat.voices.map((voice, v) => (last[v] === index ? withoutBeam(voice) : voice)) } : beat,
+  );
 }
 
 function expectedStroke(stroke: Stroke): Stroke {
@@ -230,7 +258,7 @@ function expectedMeasure(measure: Measure, context: MeasureRules): Measure {
   const measureStart = context.measureStarts[measure.headerIndex] ?? 0;
   const projected = measure.beats.map((beat) => expectedBeat(beat, context.stringCount)).filter(hasVoice);
   const beats = needsRetiming(projected, measureStart) ? retimed(projected, measureStart) : projected;
-  return { ...measure, clef: context.clef, keySignature: context.keySignatures[measure.headerIndex] ?? 0, beats };
+  return { ...measure, clef: context.clef, keySignature: context.keySignatures[measure.headerIndex] ?? 0, beats: withoutLastBeams(beats) };
 }
 
 interface MeasureRules {
@@ -247,7 +275,7 @@ function expectedTrack(track: Track, song: Song, lyricTrack: number | undefined)
   const clef: Clef = track.measures[0]?.clef === 'bass' ? 'bass' : 'treble';
   const measureStarts = song.measureHeaders.map((header) => header.start);
   const rules: MeasureRules = { stringCount: strings.length, clef, keySignatures, measureStarts };
-  const { lyrics, ...rest } = track;
+  const { lyrics, hasSlashNotation: _dropped, ...rest } = track;
   return {
     ...rest,
     ...(lyrics !== undefined && track.number === lyricTrack ? { lyrics } : {}),
@@ -285,17 +313,43 @@ function withDroppedTies(expected: Song, actual: Song): Song {
   return { ...expected, tracks };
 }
 
+/** GP5's beam groups: four groups of whole eighth notes, else none (the time signature's). */
+function expectedBeamGrouping(header: MeasureHeader): BeamGrouping | undefined {
+  const grouping = normalizeBeamGrouping(header.beamGrouping, header.timeSignature);
+  const eighths = grouping?.groups.map((size) => (size * 8) / grouping.unit) ?? [];
+  if (grouping === undefined || eighths.length > 4 || !eighths.every(Number.isInteger)) {
+    return undefined;
+  }
+  return normalizeBeamGrouping({ unit: 8, groups: eighths }, header.timeSignature);
+}
+
+function expectedHeaderGp5(header: MeasureHeader): MeasureHeader {
+  const { beamGrouping: _replaced, ...rest } = header;
+  const beamGrouping = expectedBeamGrouping(header);
+  return { ...rest, repeatAlternative: header.repeatAlternative & 0xff, ...(beamGrouping === undefined ? {} : { beamGrouping }) };
+}
+
+/** GP3/GP4 hold no beam, slash or accidental display. */
+function withoutGp5Marks(measure: Measure): Measure {
+  const beats = measure.beats.map((beat) => ({
+    ...beat,
+    voices: beat.voices.map((voice) => ({ ...withoutBeam(withoutSlash(voice)), notes: voice.notes.map(withoutAccidentalDisplay) })),
+  }));
+  return { ...measure, beats };
+}
+
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
- * effects): channels as for GP5, and the clef the GP3/GP4 readers derive from the tuning.
+ * effects): channels as for GP5, the clef the GP3/GP4 readers derive from the tuning, no notation marks but fingering.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
   const expected: Song = {
     ...song,
     channels: expectedChannels(song.channels),
-    tracks: song.tracks.map((track) => {
+    measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, ...header }) => header),
+    tracks: song.tracks.map(({ hasSlashNotation: _dropped, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
-      return { ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) };
+      return { ...track, measures: track.measures.map((measure) => ({ ...withoutGp5Marks(measure), clef })) };
     }),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);
@@ -307,7 +361,7 @@ export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const expected: Song = {
     ...song,
     channels: expectedChannels(song.channels),
-    measureHeaders: song.measureHeaders.map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
+    measureHeaders: song.measureHeaders.map(expectedHeaderGp5),
     tracks: song.tracks.map((track) => expectedTrack(track, song, lyricTrack)),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);

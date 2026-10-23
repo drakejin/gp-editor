@@ -9,6 +9,7 @@ import type {
   MeasureHeader,
   Note,
   Stroke,
+  BeamLink,
   StrokeDirection,
   Voice,
 } from '../../model/song';
@@ -120,10 +121,29 @@ function addVoice(
     }
     const draft = draftAt(drafts, start);
     applyBeatProperties(draft, beat, layout);
-    draft.voices[slot] = { duration, notes: buildNotes(doc, beat, grace, draft, layout), isEmpty: false, direction: 'none' };
+    draft.voices[slot] = { duration, notes: buildNotes(doc, beat, grace, draft, layout), isEmpty: false, direction: 'none', ...voiceMarks(beat) };
     start += durationTicks(duration);
     grace = undefined;
   }
+}
+
+/** XProperty 1124204546: 1 = beam joined to the next beat, 2 = broken. */
+const BEAM_MODES: Readonly<Record<number, BeamLink>> = { 1: 'join', 2: 'break' };
+const SECONDARY_BEAM_BREAK = 1;
+
+/** A broken beam wins over a secondary break, which wins over a joined beam (alphaTab's reading). */
+function beamLinkOf(beat: GpifBeat): BeamLink | undefined {
+  const mode = beat.beamMode === undefined ? undefined : BEAM_MODES[beat.beamMode];
+  if (mode === 'break') {
+    return mode;
+  }
+  return beat.secondaryBeamBreak === SECONDARY_BEAM_BREAK ? 'breakSecondary' : mode;
+}
+
+/** A voice's slash and beam marks, only when set. */
+function voiceMarks(beat: GpifBeat): Pick<Voice, 'isSlashed' | 'beamToNext'> {
+  const beamToNext = beamLinkOf(beat);
+  return { ...(beat.slashed ? { isSlashed: true } : {}), ...(beamToNext === undefined ? {} : { beamToNext }) };
 }
 
 function beatNotes(doc: GpifDocument, beat: GpifBeat): GraceSource['notes'] {

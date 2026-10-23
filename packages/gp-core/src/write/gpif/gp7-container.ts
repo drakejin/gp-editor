@@ -11,9 +11,10 @@ const ENTRY_TIME = new Date(1980, 0, 1);
 /** Fast deflating: most of the time Hermes spends writing a .gp file goes into compressing it. */
 const DEFLATE_LEVEL = 1;
 
-/** PartConfiguration track flags: standard notation 1, tablature 2. */
+/** PartConfiguration track flags: standard notation 1, tablature 2, slash 4. */
 const NOTATION = 0x01;
 const NOTATION_AND_TAB = 0x03;
+const SLASH = 0x04;
 /** LayoutConfiguration: zoom 100 % (4), the page view Guitar Pro opens files in (1), multi-voice cursor off. */
 const LAYOUT_ZOOM = 4;
 const LAYOUT_VIEW = 0x01;
@@ -33,10 +34,11 @@ function int32(value: number): readonly number[] {
  * Content/PartConfiguration, the staves each score view shows (big-endian):
  * int32 view count; per view: byte multi-rest flag, int32 track count, one flag byte per track
  * (1 notation, 2 tablature, 4 slash, 8 numbered); then int32 the active view.
- * The views are the multi-track view (every track) and one view per track; drum tracks show notation only.
+ * The views are the multi-track view (every track) and one view per track; drum tracks show notation only, tracks
+ * written in slashes (`slashTracks`) slash notation too.
  */
-export function partConfigurationOf(percussionTracks: readonly boolean[]): Uint8Array {
-  const flags = percussionTracks.map((isPercussion) => (isPercussion ? NOTATION : NOTATION_AND_TAB));
+export function partConfigurationOf(percussionTracks: readonly boolean[], slashTracks: readonly boolean[] = []): Uint8Array {
+  const flags = percussionTracks.map((isPercussion, index) => (isPercussion ? NOTATION : NOTATION_AND_TAB) | (slashTracks[index] === true ? SLASH : 0));
   const views = [flags, ...flags.map((flag) => [flag])];
   const bytes = [...int32(views.length), ...views.flatMap((view) => [0, ...int32(view.length), ...view]), ...int32(0)];
   return Uint8Array.from(bytes);
@@ -72,13 +74,13 @@ export function binaryStylesheet(): Uint8Array {
 }
 
 /** The .gp file: the entries a Guitar Pro 7 file has, in its order. */
-export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[]): Uint8Array {
+export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], slashTracks: readonly boolean[] = []): Uint8Array {
   return zipSync(
     {
       'Content/': new Uint8Array(0),
       'Content/BinaryStylesheet': binaryStylesheet(),
       'Content/LayoutConfiguration': layoutConfigurationOf(percussionTracks.length),
-      'Content/PartConfiguration': partConfigurationOf(percussionTracks),
+      'Content/PartConfiguration': partConfigurationOf(percussionTracks, slashTracks),
       'Content/Preferences.json': encodeUtf8(PREFERENCES_JSON),
       [GP7_SCORE_ENTRY]: score,
       [GP7_VERSION_ENTRY]: encodeUtf8(CONTAINER_VERSION),

@@ -82,6 +82,10 @@ export interface GpifMasterBar {
   readonly tripletFeel: string | undefined;
   readonly alternateEndings: readonly number[] | undefined;
   readonly markerText: string | undefined;
+  /** Beam grouping (XProperty 1124139010): the note value the groups count. */
+  readonly beamUnit: number | undefined;
+  /** Group sizes (XProperties 1124139264 …), 0 for an empty slot. */
+  readonly beamGroups: readonly number[];
 }
 
 export interface GpifBar {
@@ -129,6 +133,12 @@ export interface GpifBeat {
   readonly whammyBar: GpifBendCurve;
   /** Whammy-bar vibrato (VibratoWTremBar) and its strength. */
   readonly vibrato: VibratoKind;
+  /** `<Slashed/>`: a rhythm slash. */
+  readonly slashed: boolean;
+  /** Beaming to the next beat (XProperty 1124204546): 1 joined, 2 broken. */
+  readonly beamMode: number | undefined;
+  /** Secondary beams broken before the next beat (XProperty 1124204552 = 1). */
+  readonly secondaryBeamBreak: number | undefined;
 }
 
 export interface GpifNote {
@@ -163,6 +173,9 @@ export interface GpifNote {
   readonly harmonicFret: number;
   /** '' when absent. */
   readonly harmonicType: string;
+  /** `<LeftFingering>` / `<RightFingering>` letters (P I M A C). */
+  readonly leftFingering: string | undefined;
+  readonly rightFingering: string | undefined;
 }
 
 export interface GpifRhythm {

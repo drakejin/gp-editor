@@ -6,10 +6,12 @@ import { readGp7Container } from './container-gp7';
 import { readGpifDocument } from './gpif-reader';
 import { gpifToSong } from './gpif-to-song';
 import { gpifVersionString } from './gpif-version';
+import { readPartConfiguration } from './part-configuration';
 
 /** Read a Guitar Pro 7 or 8 `.gp` file (zip archive holding Content/score.gpif). */
 export function readGp7(bytes: Uint8Array, _detected: DetectedFormat, _options: ResolvedReadOptions): Song {
   const container = readGp7Container(bytes);
   const doc = readGpifDocument(container.score, 7);
-  return gpifToSong(doc, { format: 'gp7', version: gpifVersionString(doc, container.version) });
+  const views = readPartConfiguration(container.partConfiguration);
+  return gpifToSong(doc, { format: 'gp7', version: gpifVersionString(doc, container.version) }, views);
 }

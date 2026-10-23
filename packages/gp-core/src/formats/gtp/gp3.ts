@@ -27,6 +27,7 @@ import {
   readChannelSlots,
   readColor,
   readDuration,
+  readFingers,
   readInts,
   readKeySignature,
   readMarker,
@@ -225,13 +226,11 @@ export function readNoteGp34(
   }
   const velocity = (flags & 0x10) !== 0 ? velocityFromGp(reader.readByte()) : DEFAULT_VELOCITY;
   const fret = (flags & 0x20) !== 0 ? resolveFret(reader.readByte(), isTied, context.tiedFret) : 0;
-  if ((flags & 0x80) !== 0) {
-    reader.skip(2); // fingering
-  }
+  const fingers = (flags & 0x80) !== 0 ? readFingers(reader) : {};
   if ((flags & 0x08) !== 0) {
     effect = readEffects(reader, effect, fret);
   }
-  return { fret, velocity, string: context.string, isTied, effect };
+  return { fret, velocity, string: context.string, isTied, effect, ...fingers };
 }
 
 /** GP3/GP4 grace note: fret (255 = dead), dynamic, transition, duration. */

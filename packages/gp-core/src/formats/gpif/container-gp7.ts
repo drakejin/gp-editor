@@ -2,6 +2,7 @@
 import { unzipSync } from 'fflate';
 import { GpFormatError } from '../../errors';
 import { decodeUtf8Lenient } from '../../io/text';
+import { GP7_PART_CONFIGURATION_ENTRY } from './part-configuration';
 
 /** Guitar Pro 7/8 container: a zip archive holding `Content/score.gpif` and a `VERSION` entry. */
 export const GP7_SCORE_ENTRY = 'Content/score.gpif';
@@ -12,6 +13,8 @@ export interface Gp7Container {
   readonly score: Uint8Array;
   /** Text of the VERSION entry (e.g. "7.0"), if present. */
   readonly version: string | undefined;
+  /** The staves each score view shows (Content/PartConfiguration), if present. */
+  readonly partConfiguration?: Uint8Array;
 }
 
 export function readGp7Container(bytes: Uint8Array): Gp7Container {
@@ -21,13 +24,18 @@ export function readGp7Container(bytes: Uint8Array): Gp7Container {
     throw new GpFormatError(`Not a Guitar Pro 7/8 file: the archive has no ${GP7_SCORE_ENTRY}`);
   }
   const version = entries[GP7_VERSION_ENTRY];
-  return { score, version: version === undefined ? undefined : decodeUtf8Lenient(version).trim() };
+  const partConfiguration = entries[GP7_PART_CONFIGURATION_ENTRY];
+  return {
+    score,
+    version: version === undefined ? undefined : decodeUtf8Lenient(version).trim(),
+    ...(partConfiguration === undefined ? {} : { partConfiguration }),
+  };
 }
 
 function unzip(bytes: Uint8Array): Readonly<Record<string, Uint8Array>> {
   try {
     return unzipSync(bytes, {
-      filter: (file) => file.name === GP7_SCORE_ENTRY || file.name === GP7_VERSION_ENTRY,
+      filter: (file) => file.name === GP7_SCORE_ENTRY || file.name === GP7_VERSION_ENTRY || file.name === GP7_PART_CONFIGURATION_ENTRY,
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

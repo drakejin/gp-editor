@@ -13,5 +13,6 @@ export function writeGp7(song: Song): Uint8Array {
   return zipGp7(
     score,
     song.tracks.map((track) => isPercussionTrack(song, track)),
+    song.tracks.map((track) => track.hasSlashNotation === true),
   );
 }
