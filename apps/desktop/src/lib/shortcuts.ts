@@ -68,6 +68,16 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     ],
   },
   {
+    title: 'Practice',
+    shortcuts: [
+      { keys: '⌥- / ⌥=', action: 'Playback speed −5% / +5% (25%–200%)', press: key('=', { altKey: true }) },
+      { keys: '⌥M', action: 'Metronome on / off', press: key('m', { altKey: true }) },
+      { keys: '⌥C', action: 'Count-in on / off (a bar of clicks before playback)', press: key('c', { altKey: true }) },
+      { keys: '⌥L', action: 'Tempo lock: the whole song at one tempo', press: key('l', { altKey: true }) },
+      { keys: '⇧⌘F', action: 'View ▸ Focus / Unfocus: only the score and the transport' },
+    ],
+  },
+  {
     title: 'Everywhere',
     shortcuts: [
       { keys: 'Space', action: 'Play / stop', press: key(' ') },

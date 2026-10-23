@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
@@ -126,15 +126,38 @@ function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
   );
 }
 
+/** "Label  [−] value [+]"; a stepper whose value can be typed (the tempo) opens a field under it on a click. */
 function StepperRow({ palette, stepper, context, onEdit }: { readonly palette: Palette; readonly stepper: PaletteStepper; readonly context: PaletteContext; readonly onEdit: (edit: SongEdit) => void }) {
   const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
+  const [isTyping, setIsTyping] = useState(false);
+  const { typed } = stepper;
+  const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
   return (
-    <View style={styles.stepper}>
-      <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{stepper.label}</Text>
-      <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
-      <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>
-      <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
-    </View>
+    <>
+      <View style={styles.stepper}>
+        <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{stepper.label}</Text>
+        <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
+        {typed === undefined ? (
+          value
+        ) : (
+          <Pressable testID={`palette-value-${stepper.id}`} tooltip={`${typed.placeholder}: click to type`} disabled={!isEnabled} onPress={() => setIsTyping(!isTyping)} style={styles.stepperPress}>
+            {value}
+          </Pressable>
+        )}
+        <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
+      </View>
+      {typed !== undefined && isTyping ? (
+        <PaletteTextField
+          palette={palette}
+          run={{ kind: 'text', ...typed }}
+          context={context}
+          onChoose={(edit) => {
+            setIsTyping(false);
+            onEdit(edit);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -155,4 +178,5 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   stepperLabel: { width: 62, fontSize: 11 },
   stepperValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
+  stepperPress: { flex: 1 },
 });

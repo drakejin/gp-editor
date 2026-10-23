@@ -20,6 +20,24 @@ export function togglePanel(panels: PanelVisibility, panel: PanelId): PanelVisib
   return { ...panels, [panel]: !panels[panel] };
 }
 
+/** View ▸ Focus: only the score and the top bar's transport stay. */
+export const FOCUSED_PANELS: PanelVisibility = { palette: false, inspector: false, tracks: false, keyboard: false, neck: false };
+
+/** The panels shown, and while focused the ones shown before (what Unfocus brings back). */
+export interface PanelLayout {
+  readonly panels: PanelVisibility;
+  readonly unfocusedPanels?: PanelVisibility;
+}
+
+export function isFocused(layout: PanelLayout): boolean {
+  return layout.unfocusedPanels !== undefined;
+}
+
+/** View ▸ Focus / Unfocus: hides every panel around the score, or brings back the ones shown before Focus. */
+export function toggleFocus(layout: PanelLayout): PanelLayout {
+  return layout.unfocusedPanels === undefined ? { panels: FOCUSED_PANELS, unfocusedPanels: layout.panels } : { panels: layout.unfocusedPanels };
+}
+
 /** Score zoom levels of the zoom menu and −/+ (⌘- / ⌘=). */
 export const ZOOM_LEVELS: readonly number[] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
 

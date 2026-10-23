@@ -140,6 +140,26 @@ describe('useEditorCommands: note panels, playback tempo and the clipboard', () 
     expect(sources.dispatch).not.toHaveBeenCalled();
   });
 
+  it('steps the playback speed with ⌥= and ⌥- and toggles the metronome, count-in and tempo lock', () => {
+    // Arrange: the cursor is in bar 3, written at 120 BPM
+    const { commands, sources } = renderCommands(openSong());
+
+    // Act
+    commands.onKeyDown({ nativeEvent: { key: '=', metaKey: false, shiftKey: false, altKey: true } } as never);
+    commands.runCommand({ type: 'togglePractice', practice: 'metronome' });
+    commands.runCommand({ type: 'togglePractice', practice: 'countIn' });
+    commands.runCommand({ type: 'togglePractice', practice: 'tempoLock' });
+
+    // Assert
+    expect(sources.changePractice.mock.calls).toEqual([
+      [{ type: 'shiftSpeed', delta: 5, writtenTempo: 120 }],
+      [{ type: 'toggleMetronome' }],
+      [{ type: 'toggleCountIn' }],
+      [{ type: 'toggleTempoLock', writtenTempo: 120 }],
+    ]);
+    expect(sources.dispatch).not.toHaveBeenCalled();
+  });
+
   it('copies, cuts and pastes through the clipboard', () => {
     const { commands, sources } = renderCommands(openSong());
     commands.runCommand({ type: 'copy' });

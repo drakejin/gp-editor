@@ -114,6 +114,7 @@ export function applySongEdit(
       return deleteMeasure(song, cursor.measureIndex);
     case 'shiftTimeSignature':
     case 'shiftTempo':
+    case 'setTempo':
     case 'shiftKeySignature':
     case 'toggleRepeatOpen':
     case 'toggleRepeatClose':

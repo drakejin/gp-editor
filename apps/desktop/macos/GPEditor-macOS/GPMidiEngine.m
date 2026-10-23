@@ -21,6 +21,10 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   NSTimeInterval _length;
   /** Bumped by every play and stop, so only the latest stop's idle release runs. */
   NSUInteger _generation;
+  /** Tracks of the MIDI file kept silent (setMutedTrackIndexes:). */
+  NSIndexSet *_mutedTracks;
+  /** MIDI file tracks the sequencer has no track for (SMF track i is sequencer track i - _trackOffset). */
+  NSUInteger _trackOffset;
 }
 
 - (instancetype)initWithQueue:(dispatch_queue_t)queue
@@ -99,6 +103,34 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
   AudioUnitSetProperty(_synth.audioUnit, kAUMIDISynthProperty_EnablePreload, kAudioUnitScope_Global, 0, &enable, sizeof(enable));
 }
 
+/** Track count in a Standard MIDI File's header (MThd: bytes 10–11, big-endian); 0 when it has none. */
+static NSUInteger SmfTrackCount(NSData *midi)
+{
+  if (midi.length < 12) {
+    return 0;
+  }
+  const uint8_t *bytes = midi.bytes;
+  return ((NSUInteger)bytes[10] << 8) | bytes[11];
+}
+
+/** Mutes the sequencer's tracks that are muted in _mutedTracks (by their MIDI file index), unmutes the others. */
+- (void)applyMutedTracksTo:(AVAudioSequencer *)sequencer
+{
+  NSIndexSet *muted = _mutedTracks;
+  NSUInteger offset = _trackOffset;
+  [sequencer.tracks enumerateObjectsUsingBlock:^(AVMusicTrack *track, NSUInteger index, BOOL *stop) {
+    track.muted = [muted containsIndex:index + offset];
+  }];
+}
+
+- (void)setMutedTrackIndexes:(NSIndexSet *)indexes
+{
+  _mutedTracks = [indexes copy];
+  if (_sequencer != nil) {
+    [self applyMutedTracksTo:_sequencer];
+  }
+}
+
 - (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
 {
   [self stopSequencer];
@@ -116,6 +148,11 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
     length = MAX(length, track.lengthInSeconds);
   }
   [self preloadProgramsOf:sequencer];
+  // With PreserveTracks every file track is a sequencer track; should the first (tempo) one be folded into the tempo
+  // track, the indexes shift by one.
+  NSUInteger fileTracks = SmfTrackCount(midi);
+  _trackOffset = fileTracks > sequencer.tracks.count ? fileTracks - sequencer.tracks.count : 0;
+  [self applyMutedTracksTo:sequencer];
   sequencer.currentPositionInSeconds = MAX(0, seconds);
   [sequencer prepareToPlay];
   if (![sequencer startAndReturnError:error]) {
@@ -139,12 +176,39 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
 - (void)stop
 {
   [self stopSequencer];
+  [self scheduleIdleRelease];
+}
+
+/** Releases the engine a minute from now unless something plays before. */
+- (void)scheduleIdleRelease
+{
   _generation += 1;
   NSUInteger stoppedGeneration = _generation;
   __weak GPMidiEngine *weakSelf = self;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kIdleReleaseSeconds * NSEC_PER_SEC)), _queue, ^{
     [weakSelf releaseEngineIfStillStopped:stoppedGeneration];
   });
+}
+
+- (BOOL)playNote:(UInt8)key velocity:(UInt8)velocity program:(UInt8)program onChannel:(UInt8)channel forSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
+{
+  if (key > 127 || velocity > 127 || channel > 15) {
+    return YES;
+  }
+  BOOL isIdle = _sequencer == nil;
+  if (isIdle && ![self prepareEngineWithBank:bankURL error:error]) {
+    return NO;
+  }
+  [self setProgram:program onChannel:channel];
+  AVAudioUnitMIDIInstrument *synth = _synth;
+  [synth startNote:key withVelocity:velocity onChannel:channel];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), _queue, ^{
+    [synth stopNote:key onChannel:channel];
+  });
+  if (isIdle) {
+    [self scheduleIdleRelease];
+  }
+  return YES;
 }
 
 /** Frees the engine and its bank when nothing played since the stop that scheduled this. */

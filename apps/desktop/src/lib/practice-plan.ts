@@ -1,6 +1,6 @@
-import { type MidiOptions, QUARTER_TIME, type Song, type TimelineEntry, timelineIndexAt } from '@gp-editor/core';
+import { type MidiOptions, QUARTER_TIME, type Song, type TimelineEntry, roundTempo, timelineIndexAt } from '@gp-editor/core';
 import { type LoopRange, type PracticeSettings, resolveLoopRange } from '../state/practice';
-import { resolveTrainerMaxTempo, trainerPassTempo } from './practice-tempo';
+import { metronomeVelocity, resolveTrainerMaxTempo, trainerPassTempo } from './practice-tempo';
 
 /** Passes of a loop rendered at once; when they end the next ones are rendered (a tiny gap there). */
 export const LOOP_BATCH_PASSES = 8;
@@ -15,6 +15,11 @@ export interface PlayRequest {
   readonly tick?: number;
   /** 0-based pass of the loop the render starts with (later batches of an endless loop). Default 0. */
   readonly firstPassIndex?: number;
+  /**
+   * One bar of clicks first (the count-in, when playback starts): the render then starts at the start bar, from its
+   * beginning (a beat inside it is not kept), and a loop at its first bar.
+   */
+  readonly withCountIn?: boolean;
 }
 
 export interface LoopBatch {
@@ -48,10 +53,12 @@ export function passesPerBatch(range: LoopRange): number {
 /** A batch of loop passes; undefined when the loop's first bar is missing (a song without bars). */
 function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan | undefined {
   const range = resolveLoopRange(practice.loop, song.measureHeaders.length, request.measureIndex);
-  const writtenTempo = song.measureHeaders[range.fromMeasureIndex]?.tempo;
-  if (writtenTempo === undefined) {
+  const barTempo = song.measureHeaders[range.fromMeasureIndex]?.tempo;
+  if (barTempo === undefined) {
     return undefined;
   }
+  // With the tempo locked, every bar plays at the locked tempo: the passes scale that.
+  const writtenTempo = practice.lockedTempo ?? barTempo;
   const startTempo = writtenTempo * practice.tempoScale;
   const maxTempo = resolveTrainerMaxTempo(practice.trainerMaxTempo, writtenTempo, practice.tempoScale);
   const firstPassIndex = request.firstPassIndex ?? 0;
@@ -60,7 +67,7 @@ function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest):
   );
   const { measureIndex } = request;
   const isInside =
-    measureIndex !== undefined && measureIndex >= range.fromMeasureIndex && measureIndex <= range.toMeasureIndex;
+    request.withCountIn !== true && measureIndex !== undefined && measureIndex >= range.fromMeasureIndex && measureIndex <= range.toMeasureIndex;
   return {
     options: {
       fromHeaderIndex: range.fromMeasureIndex,
@@ -77,14 +84,35 @@ function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest):
 function planSong(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan {
   const lastIndex = Math.max(0, song.measureHeaders.length - 1);
   const fromHeaderIndex = Math.min(lastIndex, Math.max(0, request.measureIndex ?? 0));
-  const startTick = fromHeaderIndex === request.measureIndex ? request.tick : undefined;
+  const startTick = fromHeaderIndex === request.measureIndex && request.withCountIn !== true ? request.tick : undefined;
   return { options: { fromHeaderIndex, passTempoScales: [practice.tempoScale] }, startMeasureIndex: fromHeaderIndex, startTick };
 }
 
-/** What to render: the song from a bar at the playback tempo, or a batch of loop passes (speed trainer applied). */
+/**
+ * The metronome (always rendered, so turning it on is only an unmute), the count-in when asked, and the locked tempo.
+ */
+function practiceOptions(practice: PracticeSettings, request: PlayRequest): MidiOptions {
+  const clicks = { velocity: metronomeVelocity(practice.metronomeVolume) };
+  return {
+    metronome: clicks,
+    ...(request.withCountIn === true ? { countIn: clicks } : {}),
+    ...(practice.lockedTempo === undefined ? {} : { fixedTempo: practice.lockedTempo }),
+  };
+}
+
+/**
+ * What to render: the song from a bar at the playback tempo, or a batch of loop passes (speed trainer applied), with
+ * the metronome, the count-in and the tempo lock.
+ */
 export function planPlayback(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan {
   const loop = practice.isLooping ? planLoop(song, practice, request) : undefined;
-  return loop ?? planSong(song, practice, request);
+  const plan = loop ?? planSong(song, practice, request);
+  return { ...plan, options: { ...plan.options, ...practiceOptions(practice, request) } };
+}
+
+/** Where the player starts in a render of `plan`: at 0 s with a count-in (it comes first), else where the start bar plays. */
+export function playerStartSeconds(plan: PlaybackPlan, timeline: readonly TimelineEntry[]): number {
+  return plan.options.countIn === undefined ? startSeconds(timeline, plan.startMeasureIndex, plan.startTick) : 0;
 }
 
 /** The request for the batch after `plan`'s: the loop goes on from its first bar, the pass count continuing. */
@@ -117,5 +145,5 @@ export function loopPassAt(
   if (plan.loop === undefined || passIndex === undefined || tempo === undefined) {
     return undefined;
   }
-  return { passIndex: plan.loop.firstPassIndex + passIndex, tempo: Math.round(tempo) };
+  return { passIndex: plan.loop.firstPassIndex + passIndex, tempo: roundTempo(tempo) };
 }

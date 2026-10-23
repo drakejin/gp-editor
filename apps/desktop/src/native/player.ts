@@ -25,6 +25,8 @@ interface GPPlayerModule {
   position(): Promise<PlayerPosition>;
   setProgram(channel: number, program: number): Promise<void>;
   setController(channel: number, controller: number, value: number): Promise<void>;
+  setMutedTracks(trackIndexes: readonly number[]): Promise<void>;
+  previewNote(channel: number, program: number, key: number, velocity: number, durationMs: number): Promise<void>;
   soundBanks(): Promise<SoundBanks>;
   selectSoundBank(id: string): Promise<SoundBanks>;
   addSoundBank(): Promise<SoundBanks | null>;
@@ -57,6 +59,19 @@ export function setMidiProgram(midiChannel: number, program: number): Promise<vo
 /** Sends a control change to a MIDI channel of the playing song now (a track's volume or pan changed). */
 export function setMidiController(midiChannel: number, controller: number, value: number): Promise<void> {
   return native === undefined ? Promise.resolve() : native.setController(midiChannel, controller, value);
+}
+
+/**
+ * The tracks of the MIDI file (indexes as renderMidi writes them) that stay silent: now in the playing song, and in
+ * every song played after, until changed (the metronome's track while the metronome is off).
+ */
+export function setMutedTracks(trackIndexes: readonly number[]): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setMutedTracks(trackIndexes);
+}
+
+/** Plays one note now, for `durationMs`, with `program` on `midiChannel` (a key or fret hovered in the instrument view). */
+export function previewNote(midiChannel: number, program: number, key: number, velocity: number, durationMs: number): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.previewNote(midiChannel, program, key, velocity, durationMs);
 }
 
 export function playerPosition(): Promise<PlayerPosition> {

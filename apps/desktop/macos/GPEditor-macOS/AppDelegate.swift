@@ -94,6 +94,14 @@ struct GPEditorApp: App {
           }
         }
       }
+      // View ▸ Focus / Unfocus: only the score and the transport (the panels come back the second time).
+      CommandGroup(before: .toolbar) {
+        Button("Focus / Unfocus") {
+          NotificationCenter.default.post(name: .GPEditorFocusCommand, object: nil)
+        }
+        .keyboardShortcut("f", modifiers: [.command, .shift])
+        Divider()
+      }
       // Tools ▸ Tuner…: the microphone tuner (GPAudioInput.m).
       CommandMenu("Tools") {
         Button("Tuner…") {

@@ -19,4 +19,9 @@ describe('the shortcut sheet', () => {
       expect(keys).toContain(expected);
     }
   });
+
+  it('lists the practice keys and View ▸ Focus', () => {
+    const keys = SHORTCUT_GROUPS.find((group) => group.title === 'Practice')?.shortcuts.map((shortcut) => shortcut.keys);
+    expect(keys).toEqual(['⌥- / ⌥=', '⌥M', '⌥C', '⌥L', '⇧⌘F']);
+  });
 });

@@ -1,27 +1,34 @@
 import { memo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Palette } from '../../theme';
+import { NoteInspector, type NoteInspectorProps } from './NoteInspector';
 import { SongInspector, type SongInspectorProps } from './SongInspector';
 import { TrackInspector, type TrackInspectorProps } from './TrackInspector';
 
-export type InspectorTab = 'song' | 'track';
+export type InspectorTab = 'song' | 'track' | 'note';
 
-export type InspectorProps = SongInspectorProps & TrackInspectorProps;
+export type InspectorProps = SongInspectorProps & TrackInspectorProps & NoteInspectorProps;
+
+const TAB_LABELS: Readonly<Record<InspectorTab, string>> = { song: 'SONG', track: 'TRACK', note: 'NOTE' };
 
 export const INSPECTOR_WIDTH = 268;
 
-/** The right panel: SONG and TRACK tabs, as in Guitar Pro (opens on TRACK). */
+/** The right panel: SONG, TRACK and NOTE tabs, as in Guitar Pro (opens on TRACK). */
 function InspectorView(props: InspectorProps) {
   const { palette } = props;
   const [tab, setTab] = useState<InspectorTab>('track');
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
       <View style={[styles.tabs, { backgroundColor: palette.chromeDeep }]}>
-        {(['song', 'track'] as const).map((id) => (
-          <TabButton key={id} palette={palette} label={id === 'song' ? 'SONG' : 'TRACK'} isActive={tab === id} onPress={() => setTab(id)} />
+        {(['song', 'track', 'note'] as const).map((id) => (
+          <TabButton key={id} palette={palette} label={TAB_LABELS[id]} isActive={tab === id} onPress={() => setTab(id)} />
         ))}
       </View>
-      <ScrollView style={styles.body}>{tab === 'song' ? <SongInspector {...props} /> : <TrackInspector {...props} />}</ScrollView>
+      <ScrollView style={styles.body}>
+        {tab === 'song' ? <SongInspector {...props} /> : null}
+        {tab === 'track' ? <TrackInspector {...props} /> : null}
+        {tab === 'note' ? <NoteInspector {...props} /> : null}
+      </ScrollView>
     </View>
   );
 }

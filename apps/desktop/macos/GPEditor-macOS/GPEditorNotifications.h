@@ -27,6 +27,9 @@ FOUNDATION_EXPORT NSString *const GPEditorExportAsciiTabCommandNotification;
 /** File ▸ Print… (⌘P) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 
+/** View ▸ Focus / Unfocus (⇧⌘F) was chosen; GPFiles.m forwards it to JS as "focusRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorFocusCommandNotification;
+
 /** Help ▸ Keyboard Shortcuts (⌘H) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorHelpCommandNotification;
 

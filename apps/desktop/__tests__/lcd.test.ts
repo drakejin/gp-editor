@@ -18,6 +18,7 @@ describe('lcdInfo', () => {
       timeSignature: '4/4',
       clock: '00:02 / 00:06',
       tempo: '♩ = 120',
+      tempoBpm: 120,
       position: 'Beat 1 · String 2 · Fret 5',
     });
   });
@@ -36,7 +37,7 @@ describe('lcdInfo', () => {
       playing: { measureIndex: 2, beatIndex: 0 },
       practice: { ...INITIAL_PRACTICE, tempoScale: 0.5 },
     });
-    expect(info).toMatchObject({ bar: '3/3', clock: '00:08 / 00:12', tempo: '♩ = 60 (50%)' });
+    expect(info).toMatchObject({ bar: '3/3', clock: '00:08 / 00:12', tempo: '♩ = 60 (50%)', tempoBpm: 60 });
   });
 
   it('shows the loop pass being played and its tempo while the speed trainer runs', () => {
@@ -49,6 +50,21 @@ describe('lcdInfo', () => {
       loopPass: { passIndex: 2, tempo: 110 },
     });
     expect(info.tempo).toBe('♩ = 110 · pass 3');
+  });
+
+  it('shows a decimal tempo with its decimals', () => {
+    const song = { ...SONG, measureHeaders: SONG.measureHeaders.map((header) => ({ ...header, tempo: 92.5 })) };
+    expect(lcdInfo({ song, trackIndex: 0, cursor: CURSOR, practice: INITIAL_PRACTICE }).tempo).toBe('♩ = 92.5');
+  });
+
+  it('shows the locked tempo, and counts the time at it', () => {
+    // Act: 120 BPM bars locked at 60 (4 s a bar), then played at 50%
+    const locked = lcdInfo({ song: SONG, trackIndex: 0, cursor: CURSOR, practice: { ...INITIAL_PRACTICE, lockedTempo: 60 } });
+    const slower = lcdInfo({ song: SONG, trackIndex: 0, cursor: CURSOR, practice: { ...INITIAL_PRACTICE, lockedTempo: 60, tempoScale: 0.5 } });
+
+    // Assert
+    expect(locked).toMatchObject({ tempo: '♩ = 60 · locked', clock: '00:04 / 00:12', tempoBpm: 60 });
+    expect(slower).toMatchObject({ tempo: '♩ = 30 (50%) · locked', tempoBpm: 60 });
   });
 
   it('says when the cursor is on an empty string or a rest', () => {

@@ -78,3 +78,22 @@ describe('useWindowChrome: closeOverlay (Esc)', () => {
     expect(closeOverlay(current)).toBe(false);
   });
 });
+
+describe('useWindowChrome: Focus / Unfocus', () => {
+  it('hides every panel, then brings back the ones that were shown', () => {
+    // Arrange: the tracks panel hidden
+    const current = renderChrome();
+    ReactTestRenderer.act(() => current().togglePanel('tracks'));
+    const before = current().panels;
+
+    // Act
+    ReactTestRenderer.act(() => current().toggleFocus());
+    const focused = { panels: current().panels, isFocused: current().isFocused };
+    ReactTestRenderer.act(() => current().toggleFocus());
+
+    // Assert
+    expect(focused).toEqual({ panels: { palette: false, inspector: false, tracks: false, keyboard: false, neck: false }, isFocused: true });
+    expect(current().panels).toEqual(before);
+    expect(current().isFocused).toBe(false);
+  });
+});

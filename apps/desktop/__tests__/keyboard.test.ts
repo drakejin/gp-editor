@@ -1,5 +1,5 @@
 import type { RectCommand } from '../src/score/draw';
-import { KEY_COLORS, PIANO, engraveKeyboard, keyboardHeight, pianoKey, soundingPitches } from '../src/score/keyboard';
+import { KEY_COLORS, PIANO, engraveKeyboard, keyboardHeight, keyboardHoverRegions, pianoKey, soundingPitches } from '../src/score/keyboard';
 import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
 import { makeSong, note } from '../test-support/songs';
 
@@ -74,5 +74,21 @@ describe('soundingPitches', () => {
 
     // Assert
     expect(pitches).toEqual([69, 42]);
+  });
+});
+
+describe('keyboardHoverRegions', () => {
+  it('gives every key its area, the white keys first so the black keys lie on top of them', () => {
+    // Act
+    const regions = keyboardHoverRegions(WIDTH);
+    const c4 = regions.find((region) => region.pitch === 60);
+    const cSharp4 = regions.find((region) => region.pitch === 61);
+
+    // Assert
+    expect(regions).toHaveLength(88);
+    expect(regions.slice(0, 52).every((region) => region.height === PIANO.whiteKeyHeight)).toBe(true);
+    expect(regions.slice(52).every((region) => region.height < PIANO.whiteKeyHeight)).toBe(true);
+    expect(c4).toEqual({ pitch: 60, x: pianoKey(WIDTH, 60)!.x, y: PIANO.padding, width: WIDTH / 52, height: PIANO.whiteKeyHeight });
+    expect(cSharp4!.x).toBeLessThan(c4!.x + c4!.width);
   });
 });

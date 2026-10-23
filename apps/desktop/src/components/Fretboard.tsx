@@ -2,8 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import type { Note, Track } from '@gp-editor/core';
 import { ScoreCanvas } from '../native/score-canvas';
-import { engraveFretboard, fretboardHeight } from '../score/fretboard';
+import { engraveFretboard, fretboardHeight, fretboardHoverRegions } from '../score/fretboard';
 import type { Palette } from '../theme';
+import { PitchHoverAreas } from './PitchHoverAreas';
 
 interface FretboardProps {
   readonly track: Track;
@@ -11,12 +12,14 @@ interface FretboardProps {
   readonly notes: readonly Note[];
   readonly cursorString?: number;
   readonly palette: Palette;
+  /** With "Preview on hover" on: a fret the mouse enters (the pitch it sounds). */
+  readonly onHoverPitch?: (pitch: number) => void;
 }
 
 const SIDE_PADDING = 24;
 
 /** 24-fret neck of the track's tuning, above the score in tab mode. */
-export function Fretboard({ track, notes, cursorString, palette }: FretboardProps) {
+export function Fretboard({ track, notes, cursorString, palette, onHoverPitch }: FretboardProps) {
   const [width, setWidth] = useState(0);
   const onLayout = useCallback((event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width - SIDE_PADDING * 2), []);
   const height = fretboardHeight(track.strings.length);
@@ -24,12 +27,17 @@ export function Fretboard({ track, notes, cursorString, palette }: FretboardProp
     () => (width > 0 ? engraveFretboard({ track, width, palette, notes, cursorString }) : []),
     [track, width, palette, notes, cursorString],
   );
+  const regions = useMemo(() => (width > 0 && onHoverPitch !== undefined ? fretboardHoverRegions(track, width) : []), [track, width, onHoverPitch]);
   if (track.isPercussion || track.strings.length === 0) {
     return null;
   }
+  const size = { width: Math.max(0, width), height };
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} onLayout={onLayout}>
-      <ScoreCanvas commands={commands} style={{ width: Math.max(0, width), height }} />
+      <View style={size}>
+        <ScoreCanvas commands={commands} style={size} />
+        {onHoverPitch === undefined ? null : <PitchHoverAreas regions={regions} kind="fret" onHoverPitch={onHoverPitch} />}
+      </View>
     </View>
   );
 }

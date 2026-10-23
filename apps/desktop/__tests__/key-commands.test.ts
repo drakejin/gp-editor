@@ -9,6 +9,26 @@ const press = (key: string, modifiers: Partial<{ metaKey: boolean; shiftKey: boo
   ...modifiers,
 });
 
+describe('keyCommand practice keys', () => {
+  it('toggles the metronome (⌥M), the count-in (⌥C) and the tempo lock (⌥L), and steps the speed by 5% (⌥- / ⌥=)', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('m', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'metronome' });
+    expect(keyCommand(press('c', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'countIn' });
+    expect(keyCommand(press('l', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'tempoLock' });
+    expect(keyCommand(press('=', { altKey: true }), digit, 0)).toEqual({ type: 'shiftPlaybackSpeed', delta: 5 });
+    expect(keyCommand(press('-', { altKey: true }), digit, 0)).toEqual({ type: 'shiftPlaybackSpeed', delta: -5 });
+  });
+
+  it('claims those keys from react-native-macos, M and C alone staying palm mute and the bend panel', () => {
+    const digit = { current: undefined };
+    for (const key of ['m', 'c', 'l', '=', '-']) {
+      expect(HANDLED_KEYS).toContainEqual({ key, altKey: true });
+    }
+    expect(keyCommand(press('m'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
+    expect(keyCommand(press('c'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'bend' });
+  });
+});
+
 describe('keyCommand', () => {
   it('maps arrows to cursor moves and ⌥↑/↓ to moving the note', () => {
     const digit = { current: undefined };

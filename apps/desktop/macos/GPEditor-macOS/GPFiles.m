@@ -1,6 +1,7 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
-// As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
+// As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer…, View ▸ Focus / Unfocus and Help ▸ Keyboard
+// Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
 // writeFile / writeTextFile.
@@ -21,6 +22,7 @@ static NSString *const kExportRequestedEvent = @"exportRequested";
 static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
+static NSString *const kFocusRequestedEvent = @"focusRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
@@ -172,6 +174,7 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onExportPngCommand:) name:GPEditorExportPngCommandNotification object:nil];
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onFocusCommand:) name:GPEditorFocusCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
@@ -195,7 +198,7 @@ RCT_EXPORT_MODULE();
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent, kFocusRequestedEvent
   ];
 }
 
@@ -252,6 +255,14 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kHelpRequestedEvent body:@{}];
+  }
+}
+
+/** View ▸ Focus / Unfocus. */
+- (void)onFocusCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kFocusRequestedEvent body:@{}];
   }
 }
 

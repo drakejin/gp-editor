@@ -33,6 +33,18 @@ NS_ASSUME_NONNULL_BEGIN
 /** Sends a control change (e.g. 7 = volume, 10 = pan) to a MIDI channel now, in the playing song. */
 - (void)setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel;
 
+/**
+ * Tracks of the MIDI file (0 = its first track) that stay silent: muted now in the playing song, and in every song
+ * played after until changed (the metronome's track while the metronome is off — a toggle without a restart).
+ */
+- (void)setMutedTrackIndexes:(NSIndexSet *)indexes;
+
+/**
+ * Plays `key` now on `channel` with `program` for `seconds` (a key or fret previewed on hover), with the bank at
+ * `bankURL`; starts the engine when it is not running (released a minute later when nothing plays).
+ */
+- (BOOL)playNote:(UInt8)key velocity:(UInt8)velocity program:(UInt8)program onChannel:(UInt8)channel forSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

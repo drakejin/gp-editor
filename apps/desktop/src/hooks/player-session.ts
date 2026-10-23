@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { type Song, type TimelineEntry, positionAt, renderMidi } from '@gp-editor/core';
 import { bytesToBase64 } from '../lib/base64';
+import { type MetronomeBeat, isSameBeat, metronomeBeatAt } from '../lib/metronome-beat';
 import { playingBeatAt, samePlayingBeat } from '../lib/playing-beat';
 import {
   type LoopPass,
@@ -9,9 +10,9 @@ import {
   loopPassAt,
   nextLoopBatch,
   planPlayback,
-  startSeconds,
+  playerStartSeconds,
 } from '../lib/practice-plan';
-import { type PlayerPosition, playMidi, playerPosition, stopMidi } from '../native/player';
+import { type PlayerPosition, playMidi, playerPosition, setMutedTracks, stopMidi } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import type { PracticeSettings } from '../state/practice';
 import { errorMessage } from '../lib/errors';
@@ -25,6 +26,8 @@ export interface PlaybackState {
   readonly playing?: PlayingBeat;
   /** While a loop plays: the pass being played and its tempo. */
   readonly loopPass?: LoopPass;
+  /** The metronome's beat now (the visual metronome), the count-in's too. */
+  readonly beat?: MetronomeBeat;
   readonly error?: string;
 }
 
@@ -38,6 +41,9 @@ export interface Follow {
   /** Bar and loop pass last seen playing: where a restart resumes. */
   readonly measureIndex: number;
   readonly passIndex?: number;
+  /** The playing render's metronome track (muted while the metronome is off) and count-in length. */
+  readonly metronomeTrackIndex?: number;
+  readonly countInSeconds?: number;
 }
 
 /** The playback hook's refs and state setter, shared by the functions below. */
@@ -56,18 +62,22 @@ interface PreparedPlayback {
   readonly base64Midi: string;
   readonly fromSeconds: number;
   readonly loopPass?: LoopPass;
+  readonly metronomeTrackIndex?: number;
+  readonly countInSeconds: number;
 }
 
 function preparePlayback(song: Song, practice: PracticeSettings, request: PlayRequest): PreparedPlayback {
   const plan = planPlayback(song, practice, request);
   const render = renderMidi(song, plan.options);
-  const fromSeconds = startSeconds(render.timeline, plan.startMeasureIndex, plan.startTick);
+  const fromSeconds = playerStartSeconds(plan, render.timeline);
   return {
     plan,
     timeline: render.timeline,
     base64Midi: bytesToBase64(render.bytes),
     fromSeconds,
     loopPass: loopPassAt(plan, render.timeline, fromSeconds),
+    metronomeTrackIndex: render.metronomeTrackIndex,
+    countInSeconds: render.countInSeconds,
   };
 }
 
@@ -80,6 +90,13 @@ function clearTimer(session: PlayerSession): void {
 
 function isSameLoopPass(a: LoopPass | undefined, b: LoopPass | undefined): boolean {
   return a?.passIndex === b?.passIndex && a?.tempo === b?.tempo;
+}
+
+/** Mutes the playing render's metronome track while the metronome is off (and unmutes it when on), at once. */
+export function applyMetronome(session: PlayerSession): void {
+  const { metronomeTrackIndex, practice } = session.follow.current;
+  const muted = metronomeTrackIndex === undefined || practice.isMetronomeOn ? [] : [metronomeTrackIndex];
+  setMutedTracks(muted).catch(() => undefined);
 }
 
 /** Silences the player and invalidates pending play() calls and polls, without touching React state. */
@@ -95,7 +112,19 @@ export function stopPlayer(session: PlayerSession): void {
   session.setState({ isPlaying: false });
 }
 
-/** Renders what `request` asks for (song or loop batch, practice tempo applied), plays it, and polls it to the end. */
+function startPolling(session: PlayerSession, startedGeneration: number): void {
+  if (session.generation.current === startedGeneration) {
+    clearTimer(session);
+    session.timer.current = setInterval(() => {
+      void pollPlayer(session);
+    }, POLL_INTERVAL_MS);
+  }
+}
+
+/**
+ * Renders what `request` asks for (song or loop batch, practice tempo applied, a count-in first when asked), plays it
+ * with the metronome muted or not, and polls it to the end.
+ */
 export function launchPlayer(session: PlayerSession, request: PlayRequest): void {
   const { song, practice } = session.follow.current;
   if (song === undefined) {
@@ -105,26 +134,14 @@ export function launchPlayer(session: PlayerSession, request: PlayRequest): void
   const startedGeneration = session.generation.current;
   clearTimer(session);
   try {
-    const { plan, timeline, base64Midi, fromSeconds, loopPass } = preparePlayback(song, practice, request);
+    const { plan, timeline, base64Midi, fromSeconds, loopPass, metronomeTrackIndex, countInSeconds } = preparePlayback(song, practice, request);
     const measureIndex = plan.startMeasureIndex;
-    session.follow.current = {
-      ...session.follow.current,
-      timeline,
-      plan,
-      measureIndex,
-      passIndex: loopPass?.passIndex,
-    };
+    session.follow.current = { ...session.follow.current, timeline, plan, measureIndex, passIndex: loopPass?.passIndex, metronomeTrackIndex, countInSeconds };
     // Shown as playing at once, so a second Space press stops it even before the player has started.
     session.setState((previous) => ({ isPlaying: true, playing: previous.playing, loopPass }));
+    applyMetronome(session);
     playMidi(base64Midi, fromSeconds)
-      .then(() => {
-        if (session.generation.current === startedGeneration) {
-          clearTimer(session);
-          session.timer.current = setInterval(() => {
-            void pollPlayer(session);
-          }, POLL_INTERVAL_MS);
-        }
-      })
+      .then(() => startPolling(session, startedGeneration))
       .catch((error: unknown) => {
         if (session.generation.current === startedGeneration) {
           session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
@@ -159,7 +176,7 @@ async function pollPlayer(session: PlayerSession): Promise<void> {
   if (session.generation.current !== polledGeneration) {
     return;
   }
-  const { song, trackIndex, timeline, plan } = session.follow.current;
+  const { song, plan } = session.follow.current;
   if (song === undefined || (!position.isPlaying && plan?.loop === undefined)) {
     stopPlayer(session);
     return;
@@ -168,18 +185,25 @@ async function pollPlayer(session: PlayerSession): Promise<void> {
     launchPlayer(session, plan === undefined ? {} : nextLoopBatch(plan));
     return;
   }
-  const at = positionAt(timeline, position.seconds);
-  const loopPass = plan === undefined ? undefined : loopPassAt(plan, timeline, position.seconds);
+  followPosition(session, song, position.seconds);
+}
+
+/** The playing beat, loop pass and metronome beat at `seconds` of the render; React state changes only when they do. */
+function followPosition(session: PlayerSession, song: Song, seconds: number): void {
   const follow = session.follow.current;
+  const { trackIndex, timeline, plan } = follow;
+  const at = positionAt(timeline, seconds);
+  const loopPass = plan === undefined ? undefined : loopPassAt(plan, timeline, seconds);
   session.follow.current = {
     ...follow,
     measureIndex: at?.headerIndex ?? follow.measureIndex,
     passIndex: loopPass?.passIndex ?? follow.passIndex,
   };
   const playing = at === undefined ? undefined : playingBeatAt(song, trackIndex, at);
+  const beat = metronomeBeatAt(song, timeline, follow.countInSeconds ?? 0, seconds);
   session.setState((previous) =>
-    previous.isPlaying && samePlayingBeat(previous.playing, playing) && isSameLoopPass(previous.loopPass, loopPass)
+    previous.isPlaying && samePlayingBeat(previous.playing, playing) && isSameLoopPass(previous.loopPass, loopPass) && isSameBeat(previous.beat, beat)
       ? previous
-      : { isPlaying: true, playing, loopPass },
+      : { isPlaying: true, playing, loopPass, beat },
   );
 }

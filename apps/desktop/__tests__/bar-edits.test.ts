@@ -12,6 +12,21 @@ function loaded(first: Partial<MeasureHeader> = {}): EditorState {
 const edit = (state: EditorState, songEdit: SongEdit) => editorReducer(state, { type: 'edit', edit: songEdit });
 const bar = (state: EditorState, index = 0): MeasureHeader => state.document!.song.measureHeaders[index]!;
 
+describe('typed tempo', () => {
+  it('sets a decimal tempo on the bar and the bars after it with the same tempo', () => {
+    // Act
+    const typed = edit(loaded(), { type: 'setTempo', tempo: 92.5 });
+
+    // Assert
+    expect([bar(typed).tempo, bar(typed, 1).tempo]).toEqual([92.5, 92.5]);
+  });
+
+  it('keeps the song when the tempo is not a number', () => {
+    const state = loaded();
+    expect(edit(state, { type: 'setTempo', tempo: Number.NaN }).document).toBe(state.document);
+  });
+});
+
 describe('bar edits at the cursor', () => {
   it('turns alternate endings on and off one at a time', () => {
     // Act

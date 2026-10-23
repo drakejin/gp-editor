@@ -76,6 +76,8 @@ export interface PaletteStepper {
   readonly minus: SongEdit;
   readonly plus: SongEdit;
   readonly isEnabled?: (context: PaletteContext) => boolean;
+  /** A click on the value opens a text field to type it (the tempo, decimals allowed). */
+  readonly typed?: Omit<Extract<PaletteRun, { kind: 'text' }>, 'kind'>;
 }
 
 export interface PaletteGroup {

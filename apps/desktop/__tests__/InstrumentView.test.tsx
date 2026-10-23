@@ -66,3 +66,36 @@ describe('InstrumentView', () => {
     expect(render({ showsKeyboard: false, showsFretboard: false }, percussion).findAllByType(DrumKit)).toHaveLength(0);
   });
 });
+
+describe('InstrumentView hover preview', () => {
+  /** The instrument view with the preview on, laid out 1000 points wide. */
+  function renderHovering(onHoverPitch?: (pitch: number) => void) {
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<InstrumentView song={SONG} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard onHoverPitch={onHoverPitch} />);
+    });
+    const layout = { nativeEvent: { layout: { width: 1048, height: 100, x: 0, y: 0 } } };
+    for (const part of renderer.root.findAll((node) => (node.type === Keyboard || node.type === Fretboard))) {
+      const container = part.findAll((node) => typeof node.props.onLayout === 'function')[0];
+      ReactTestRenderer.act(() => container?.props.onLayout(layout));
+    }
+    return renderer.root;
+  }
+
+  it('plays the pitch of a hovered piano key or fret', () => {
+    // Arrange
+    const hovered: number[] = [];
+    const root = renderHovering((pitch) => hovered.push(pitch));
+
+    // Act: the piano's middle C, then the open high E string
+    ReactTestRenderer.act(() => root.findByProps({ testID: 'hover-key-60' }).props.onHoverIn());
+    ReactTestRenderer.act(() => root.findAllByProps({ testID: 'hover-fret-64' })[0]?.props.onHoverIn());
+
+    // Assert
+    expect(hovered).toEqual([60, 64]);
+  });
+
+  it('has no hover areas while the preview is off', () => {
+    expect(renderHovering().findAll((node) => typeof node.props.testID === 'string' && node.props.testID.startsWith('hover-'))).toHaveLength(0);
+  });
+});

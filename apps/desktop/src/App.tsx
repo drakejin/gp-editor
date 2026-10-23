@@ -20,6 +20,7 @@ import { SongHeader } from './components/SongHeader';
 import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
+import { PracticeMenu } from './components/PracticeMenu';
 import { ShortcutSheet } from './components/ShortcutSheet';
 import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
@@ -31,6 +32,7 @@ import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { useMidiInput } from './hooks/use-midi-input';
+import { useNotePreview } from './hooks/use-note-preview';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
@@ -48,12 +50,12 @@ import { tempoPercent } from './lib/practice-tempo';
 import { tunerStrings } from './lib/tuner-display';
 import { subscribeTunerRequests } from './native/audio-input';
 import { focusView } from './native/focus-view';
-import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
+import { subscribeFocusRequests, subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
 import { type EditorAction, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { describeReference } from './song-writer/reference';
-import { playbackStartTempo } from './state/practice';
+import { playbackStartTempo, typedTempoAction } from './state/practice';
 import { selectionRange } from './state/selection';
 import type { SongEdit } from './state/song-edits';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
@@ -228,8 +230,12 @@ export default function App() {
     [cursorString],
   );
 
-  const { openShortcutSheet } = chrome;
+  const { openShortcutSheet, toggleFocus } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
+  // View ▸ Focus / Unfocus (⇧⌘F): only the score and the transport.
+  useEffect(() => subscribeFocusRequests(toggleFocus), [toggleFocus]);
+  // Preview on hover: a key or fret the mouse enters plays with the shown track's sound.
+  const previewPitch = useNotePreview(song, trackIndex, playback.practice.isPreviewOnHover);
 
   const { open: openSongWriter } = songWriter;
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
@@ -304,6 +310,12 @@ export default function App() {
         onTogglePanel={chrome.togglePanel}
         onOpenMenu={chrome.openMenu}
         onToggleLoop={() => playback.changePractice({ type: 'toggleLoop', ...loopScope })}
+        beat={playback.beat}
+        onSetTempo={(tempo) => playback.changePractice(typedTempoAction(playback.practice, tempo, writtenTempo))}
+        isMetronomeOn={playback.practice.isMetronomeOn}
+        isCountInOn={playback.practice.isCountInOn}
+        onTogglePractice={(practice) => commands.runCommand({ type: 'togglePractice', practice })}
+        onShiftSpeed={(delta) => commands.runCommand({ type: 'shiftPlaybackSpeed', delta })}
         onShowShortcuts={chrome.openShortcutSheet}
         onCommand={commands.runCommand}
       />
@@ -402,6 +414,8 @@ export default function App() {
                 onAddSoundBank={sound.add}
                 onRemoveSoundBank={sound.remove}
                 midiInput={midiInput}
+                note={cursorNote}
+                onEditNote={editAtCursor}
               />
             ) : null
           }
@@ -416,6 +430,7 @@ export default function App() {
                 showsKeyboard={chrome.panels.keyboard}
                 showsFretboard={chrome.panels.neck}
                 onDrumHit={hitDrum}
+                onHoverPitch={previewPitch}
               />
               {chrome.panels.tracks ? (
                 <TracksPanel
@@ -468,6 +483,9 @@ export default function App() {
               onChangePractice={playback.changePractice}
               onClose={chrome.closeMenu}
             />
+          ) : null}
+          {chrome.menu.id === 'practice' ? (
+            <PracticeMenu palette={palette} practice={playback.practice} writtenTempo={writtenTempo} onChangePractice={playback.changePractice} />
           ) : null}
         </ChromeMenu>
       ) : null}
