@@ -5,6 +5,7 @@ import { base64ToBytes, bytesToBase64 } from '../src/lib/base64';
 import type { FileEventHandlers, OpenedFile, SavedFile } from '../src/native/gp-files';
 import type { EditorAction } from '../src/state/editor';
 import { INITIAL_WORKSPACE, type WorkspaceAction, type WorkspaceState, workspaceReducer } from '../src/state/workspace';
+import { readFixture } from '../test-support/fixtures';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const mockFiles = {
@@ -407,5 +408,34 @@ describe('useDocument File menu and window title', () => {
 
     // Assert
     expect(titles()).toEqual(['Riff.gp5', 'Etude.gp5', 'GP Editor']);
+  });
+});
+
+describe('useDocument with Power Tab and TablEdit files', () => {
+  it.each([
+    ['notes.ptb', 'powertab', 'ptb', 'notes.gp5'],
+    ['guitar_bass.tef', 'tabledit', 'tef', 'guitar_bass.gp5'],
+  ])('opens %s and saves it through the save panel as a new .gp5 file', async (name, folder, format, gp5Name) => {
+    // Arrange
+    const file: OpenedFile = { name, path: `/scores/${name}`, base64: bytesToBase64(readFixture(folder, name)) };
+    mockFiles.readFile.mockResolvedValueOnce(file);
+    mockFiles.showSaveDialog.mockResolvedValueOnce({ name: gp5Name, path: `/scores/${gp5Name}` });
+    const hook = renderHook();
+    await settle(() => hook.current().openPath(file.path));
+    const loaded = hook.dispatch.mock.calls.at(-1)?.[0];
+    if (loaded?.type !== 'loaded') {
+      throw new Error(`expected the file to load, got ${JSON.stringify(loaded)}`);
+    }
+    hook.setState(workspaceReducer(INITIAL_WORKSPACE, loaded));
+
+    // Act
+    await settle(() => hook.current().save(false));
+
+    // Assert
+    expect(loaded.document.song.source.format).toBe(format);
+    expect(mockFiles.writeFile).not.toHaveBeenCalled();
+    expect(mockFiles.showSaveDialog).toHaveBeenCalledWith(expect.any(String), gp5Name);
+    const saved = songIn(mockFiles.showSaveDialog.mock.calls[0]?.[0]);
+    expect(saved.tracks.map((track) => track.strings.map((s) => s.tuning))).toEqual(loaded.document.song.tracks.map((track) => track.strings.map((s) => s.tuning)));
   });
 });
