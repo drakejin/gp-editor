@@ -110,6 +110,20 @@ describe('renderMidi fromHeaderIndex', () => {
     expect(eventsOf(file, 0, 'tempo')).toEqual([{ kind: 'tempo', tick: 0, usq: 428571 }]);
   });
 
+  it('writes a decimal tempo as the microseconds per quarter of that exact tempo', () => {
+    // Arrange
+    const song = makeSong({ headers: [{ tempo: 92.5 }, { tempo: 93.75 }], tracks: [trackOf(0)] });
+
+    // Act
+    const file = readMidi(renderMidi(song).bytes);
+
+    // Assert: 60,000,000 / 92.5 = 648,648.6…, 60,000,000 / 93.75 = 640,000
+    expect(eventsOf(file, 0, 'tempo')).toEqual([
+      { kind: 'tempo', tick: 0, usq: 648648 },
+      { kind: 'tempo', tick: 3840, usq: 640000 },
+    ]);
+  });
+
   it('extends a tie into the start measure only from notes that are played', () => {
     // Arrange
     const song = makeSong({

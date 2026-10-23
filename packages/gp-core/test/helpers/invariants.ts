@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { durationTicks, measureTicks } from '../../src/model/defaults';
+import { durationTicks, measureTicks, roundTempo, toNoteAudio } from '../../src/model/defaults';
 import type { Song } from '../../src/model/song';
 
 /**
@@ -15,6 +15,7 @@ export function assertSongInvariants(song: Song): void {
     expect([1, 2, 4, 8, 16, 32, 64]).toContain(header.timeSignature.denominator);
     expect(header.timeSignature.numerator).toBeGreaterThan(0);
     expect(header.tempo).toBeGreaterThan(0);
+    expect(roundTempo(header.tempo)).toBe(header.tempo);
     const previous = song.measureHeaders[index - 1];
     if (previous !== undefined) {
       const length = measureTicks(previous.timeSignature.numerator, previous.timeSignature.denominator);
@@ -50,6 +51,9 @@ export function assertSongInvariants(song: Song): void {
             expect(note.velocity).toBeGreaterThanOrEqual(0);
             expect(note.velocity).toBeLessThanOrEqual(127);
             expect(note.effect.vibrato && note.effect.wideVibrato).toBe(false);
+            if (note.audio !== undefined) {
+              expect(toNoteAudio(note.audio)).toEqual(note.audio);
+            }
           }
         }
       }

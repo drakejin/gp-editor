@@ -20,6 +20,7 @@ export {
   isNoteValue,
   isSameTuplet,
   measureTicks,
+  roundTempo,
   toNoteValue,
   tupletOf,
   vibratoOf,
@@ -85,6 +86,8 @@ export {
   buildBend,
 } from './edit/bend-shapes';
 export { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from './edit/ornaments';
+export { setNoteAudio } from './edit/note-audio';
+export { DEFAULT_NOTE_AUDIO, NOTE_AUDIO_LIMITS, toNoteAudio } from './model/defaults';
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
@@ -100,6 +103,7 @@ export {
   setTimeSignature,
   setTripletFeel,
 } from './edit/measure-headers';
+export { CLICK_KEYS, type ClickOptions, type MeterBeats, meterBeats } from './midi/index';
 export {
   type ChannelRoute,
   type MidiOptions,

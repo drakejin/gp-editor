@@ -341,6 +341,32 @@ describe('writeSong gp: tracks, channels and measure headers', () => {
     ]);
   });
 
+  it('drops a note’s audio settings (GPIF has no property for them)', () => {
+    // Arrange
+    const song = songWithNotes([buildNote(1, 1, { audio: { durationPercent: 60, offsetPercent: 10, velocityOffset: 5 } })]);
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(notesOf(again)[0]).not.toHaveProperty('audio');
+    expect(songDifference(expectedAfterGp(song), again)).toBeUndefined();
+  });
+
+  it('keeps decimal tempos (GPIF tempo automations hold numbers with a fraction)', () => {
+    // Arrange
+    const song = buildSong({ headers: [{ tempo: 92.5 }, { tempo: 92.5 }, { tempo: 100.25 }], tracks: [{ measures: [] }] });
+
+    // Act
+    const again = roundTrip(song);
+    const automations = childList(child(scoreXml(song), 'MasterTrack'), 'Automations', 'Automation');
+
+    // Assert
+    expect(again.measureHeaders.map((header) => header.tempo)).toEqual([92.5, 92.5, 100.25]);
+    expect(automations.map((automation) => child(automation, 'Value')?.text)).toEqual(['92.5 2', '100.25 2']);
+    expect(songDifference(expectedAfterGp(song), again)).toBeUndefined();
+  });
+
   it('keeps tracks: names, colours, tunings, capo, lyrics, solo and mute, channels', () => {
     // Arrange
     const song = buildSong({

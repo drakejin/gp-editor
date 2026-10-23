@@ -1,6 +1,7 @@
 import { createChannelName } from '../../src/formats/common/channels';
 import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
 import { velocityFromGp } from '../../src/formats/common/velocity';
+import { impliedDurationPercent } from '../../src/formats/gtp/gp5';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
 import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration } from '../../src/model/defaults';
 import type {
@@ -33,7 +34,9 @@ import type {
  *   one (else dropped, which moves the beats after them); a tuplet inside a tuplet (GP7/GP8) likewise: an equal length
  *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
- * - measure headers: eight alternate endings at most;
+ * - note audio settings: the duration percent only (no start offset, no velocity change), none when it is what the
+ *   note's palm mute (75 %) or staccato (50 %) implies;
+ * - measure headers: eight alternate endings at most; tempos are whole numbers (rounded);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
  */
 
@@ -105,6 +108,24 @@ function withVoiceEffects(notes: readonly Note[]): Note[] {
   });
 }
 
+/**
+ * GP5 keeps a note's duration percent only (its start offset and velocity change are lost); the reader takes the
+ * percent a palm mute or staccato implies for no setting (GP5 writes those by itself).
+ */
+function withGp5Audio(note: Note): Note {
+  const { audio, ...rest } = note;
+  if (audio === undefined || audio.durationPercent === 100 || audio.durationPercent === impliedDurationPercent(note.effect)) {
+    return rest;
+  }
+  return { ...rest, audio: { durationPercent: audio.durationPercent, offsetPercent: 0, velocityOffset: 0 } };
+}
+
+/** GP3 and GP4 have no audio settings. */
+function withoutAudio(track: Track): Track {
+  const voice = (v: Voice): Voice => ({ ...v, notes: v.notes.map(({ audio: _dropped, ...note }) => note) });
+  return { ...track, measures: track.measures.map((m) => ({ ...m, beats: m.beats.map((b) => ({ ...b, voices: b.voices.map(voice) })) })) };
+}
+
 function expectedNotes(voice: Voice, stringCount: number): Note[] {
   const byString = new Map<number, Note>();
   for (const note of voice.notes) {
@@ -115,7 +136,7 @@ function expectedNotes(voice: Voice, stringCount: number): Note[] {
   const notes = [...byString.values()].sort((a, b) => a.string - b.string);
   return withVoiceEffects(
     notes.map((note) => ({
-      ...note,
+      ...withGp5Audio(note),
       fret: Math.min(MAX_FRET, Math.max(0, note.fret)),
       velocity: dynamicVelocity(note.velocity),
       effect: expectedEffect(note.effect),
@@ -287,15 +308,17 @@ function withDroppedTies(expected: Song, actual: Song): Song {
 
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
- * effects): channels as for GP5, and the clef the GP3/GP4 readers derive from the tuning.
+ * effects): channels as for GP5, whole-number tempos, no note audio settings, and the clef the GP3/GP4 readers derive
+ * from the tuning.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
   const expected: Song = {
     ...song,
     channels: expectedChannels(song.channels),
+    measureHeaders: song.measureHeaders.map((header) => ({ ...header, tempo: Math.round(header.tempo) })),
     tracks: song.tracks.map((track) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
-      return { ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) };
+      return withoutAudio({ ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) });
     }),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);
@@ -307,7 +330,7 @@ export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const expected: Song = {
     ...song,
     channels: expectedChannels(song.channels),
-    measureHeaders: song.measureHeaders.map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
+    measureHeaders: song.measureHeaders.map((header) => ({ ...header, tempo: Math.round(header.tempo), repeatAlternative: header.repeatAlternative & 0xff })),
     tracks: song.tracks.map((track) => expectedTrack(track, song, lyricTrack)),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);

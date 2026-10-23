@@ -1,10 +1,11 @@
 // GPIF `<MasterTrack>` and `<MasterBars>` (no TuxGuitar counterpart): the inverse of the reader's readMasterBar / buildHeaders.
+import { roundTempo } from '../../model/defaults';
 import type { MeasureHeader, Song, TripletFeel } from '../../model/song';
 import { type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
 
 /** Alternate endings the reader takes: 1–31 (bits 0–30). */
 const MAX_ALTERNATE_ENDING = 31;
-/** Tempo automations give quarter notes per minute ("120 2": reference 2 = quarter note). */
+/** Tempo automations give quarter notes per minute, decimals kept ("92.5 2": reference 2 = quarter note). */
 const QUARTER_REFERENCE = 2;
 
 const TRIPLET_FEELS: Readonly<Record<TripletFeel, string | undefined>> = { none: undefined, eighth: 'Triplet8th', sixteenth: 'Triplet16th' };
@@ -21,7 +22,7 @@ function automationNode(type: string, barIndex: number, value: string): XmlNode 
 }
 
 function tempoOf(header: MeasureHeader): number {
-  return Math.max(1, Math.round(header.tempo));
+  return Math.max(1, roundTempo(header.tempo));
 }
 
 /** A tempo automation on the first bar and on every bar whose tempo differs from the bar before. */

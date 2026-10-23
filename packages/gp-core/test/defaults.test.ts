@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NORMAL_TUPLET, NOTE_VALUES, durationTicks, isMeasureOverfull, measureTicks, tupletOf } from '../src/model/defaults';
+import { NORMAL_TUPLET, NOTE_VALUES, durationTicks, isMeasureOverfull, measureTicks, roundTempo, tupletOf } from '../src/model/defaults';
 import { type Duration, QUARTER_TIME, type Song, type Tuplet } from '../src/model/song';
 import { buildSong, n, play, rest } from './helpers/edit-songs';
 
@@ -184,5 +184,14 @@ describe('durationTicks of nested tuplets', () => {
 
     // Assert
     expect(ticks).toBe(Math.floor((QUARTER_TIME * 16) / 49 / 4));
+  });
+});
+
+describe('roundTempo', () => {
+  it('keeps a tempo to two decimals', () => {
+    expect(roundTempo(92.5)).toBe(92.5);
+    expect(roundTempo(92.456)).toBe(92.46);
+    expect(roundTempo(120)).toBe(120);
+    expect(roundTempo(60.004)).toBe(60);
   });
 });

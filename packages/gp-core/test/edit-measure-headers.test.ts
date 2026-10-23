@@ -112,6 +112,18 @@ describe('setTempo', () => {
     expect(edited.measureHeaders[2]).toBe(song.measureHeaders[2]);
   });
 
+  it('keeps a decimal tempo to two decimals', () => {
+    // Arrange
+    const song = restSong([ts(4, 4), ts(4, 4)]);
+
+    // Act
+    const edited = setTempo(song, 0, 92.456);
+
+    // Assert
+    expect(edited.measureHeaders.map((header) => header.tempo)).toEqual([92.46, 92.46]);
+    expect(setTempo(edited, 0, 92.459)).toBe(edited);
+  });
+
   it('clamps the tempo to 1…999', () => {
     const song = restSong([ts(4, 4)]);
     expect(setTempo(song, 0, 0).measureHeaders[0]?.tempo).toBe(1);

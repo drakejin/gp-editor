@@ -79,13 +79,19 @@ export function isBeatCarrier(beat: Beat, voiceIndex: number): boolean {
   return first === voiceIndex;
 }
 
+/** GP3–GP5 store a tempo as a whole number: a decimal tempo (92.5) is rounded. */
+export function writtenTempo(song: Song, index: number): number | undefined {
+  const tempo = song.measureHeaders[index]?.tempo;
+  return tempo === undefined ? undefined : Math.round(tempo);
+}
+
 /**
  * Tempo to write as a mix-table change at the start of measure `index`, if any. The readers give each
  * measure header the tempo in effect after the measure, so a change on the first beat restores it;
- * the first measure takes the song tempo.
+ * the first measure takes the song tempo. Tempos are compared as written (rounded).
  */
 export function tempoChangeAt(song: Song, index: number): number | undefined {
-  const tempo = song.measureHeaders[index]?.tempo;
-  const previous = song.measureHeaders[index - 1]?.tempo;
+  const tempo = writtenTempo(song, index);
+  const previous = writtenTempo(song, index - 1);
   return index > 0 && tempo !== undefined && tempo !== previous ? tempo : undefined;
 }

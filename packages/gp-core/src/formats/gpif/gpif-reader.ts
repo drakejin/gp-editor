@@ -14,7 +14,7 @@ import {
 } from './gpif-document';
 import { readBeat, readNote } from './gpif-read-beat';
 import { readTracks } from './gpif-read-track';
-import { type XmlElement, attribute, child, childList, childText, parseFloatOr, parseIntList, parseJavaInt, parseXml } from './xml';
+import { type XmlElement, attribute, child, childList, childText, parseFloatOr, parseIntList, parseJavaInt, parseNumberList, parseXml } from './xml';
 
 const ROOT_ELEMENT = 'GPIF';
 
@@ -67,7 +67,7 @@ function readAutomation(node: XmlElement): GpifAutomation {
     type: childText(node, 'Type') ?? '',
     barId: parseJavaInt(childText(node, 'Bar'), 0),
     position: parseFloatOr(childText(node, 'Position'), 0),
-    value: parseIntList(childText(node, 'Value'), ' '),
+    value: parseNumberList(childText(node, 'Value'), ' '),
   };
 }
 

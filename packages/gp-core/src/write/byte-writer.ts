@@ -40,6 +40,13 @@ export class ByteWriter {
     return this.writeByte(value).writeByte(value >> 8).writeByte(value >> 16).writeByte(value >> 24);
   }
 
+  /** An IEEE 754 double, little-endian (GTPOutputStream.writeDouble). */
+  writeDouble(value: number): this {
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setFloat64(0, value, true);
+    return this.writeBytes(bytes);
+  }
+
   writeBytes(bytes: ArrayLike<number>): this {
     this.ensure(bytes.length);
     for (let i = 0; i < bytes.length; i++) {

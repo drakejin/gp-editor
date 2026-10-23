@@ -7,6 +7,7 @@ import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
 import { MAX_FRET } from './edit-song';
 import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
+import { parseNoteAudio } from './note-audio';
 import { sortByString } from './song-paths';
 
 /** What a serialized fragment says it is, so text from elsewhere on the clipboard is never taken for one. */
@@ -32,7 +33,12 @@ function parseNote(value: unknown, maxFret: number): Note | undefined {
   if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined) {
     return undefined;
   }
-  return { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect };
+  const note: Note = { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect };
+  if (value.audio === undefined) {
+    return note;
+  }
+  const audio = parseNoteAudio(value.audio);
+  return audio === undefined ? undefined : { ...note, audio };
 }
 
 /** Up to one note per string, ordered by string. */
