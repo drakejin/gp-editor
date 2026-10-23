@@ -55,6 +55,7 @@ export {
   trackPitchRange,
 } from './edit/tuning-fit';
 export { type TuningChange, setTrackTuning } from './edit/retune';
+export { type Transposition, type TranspositionMode, type TranspositionOptions, type TranspositionScope, transpose } from './edit/transpose';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
