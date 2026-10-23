@@ -57,6 +57,7 @@ export {
   trackPitchRange,
 } from './edit/tuning-fit';
 export { type TuningChange, setTrackTuning } from './edit/retune';
+export { type Transposition, type TranspositionMode, type TranspositionOptions, type TranspositionScope, transpose } from './edit/transpose';
 export {
   DEFAULT_GATE_DB,
   DEFAULT_MAX_FREQUENCY,
@@ -192,3 +193,27 @@ export {
 export { PLAN_SONG_TOOL, WRITE_SECTION_TOOL } from './composition/tool';
 export { parseSongPlan } from './composition/parse-plan';
 export { SONG_WRITER_CREDIT, type SongDetails, buildComposedSong } from './composition/build';
+export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
+export { SCALES, type ScaleDefinition } from './scales/table';
+export {
+  type Alteration,
+  SCALE_ROOTS,
+  type ScaleChoice,
+  type ScaleRoot,
+  isScalePitch,
+  scaleIndexNamed,
+  scalePitchClasses,
+  scaleTitle,
+  searchScales,
+} from './scales/notes';
+export { preferredScaleChoice, scaleKeySignature, scaleNoteNames } from './scales/spelling';
+export { MAX_SCALE_MATCHES, type ScaleMatch, findScales, trackPitches } from './scales/finder';
+export {
+  MAX_SCALE_STRINGS,
+  MIN_SCALE_STRINGS,
+  SCALE_BOX_FRETS,
+  type ScaleBox,
+  type ScalePosition,
+  scaleBoxes,
+  scaleFretPositions,
+} from './scales/positions';

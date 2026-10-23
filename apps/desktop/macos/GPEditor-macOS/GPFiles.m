@@ -1,9 +1,11 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
+// Also Edit ▸ Lyrics… and Tools ▸ Scales….
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
 // writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
+// Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P) come here as events too.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -22,6 +24,8 @@ static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
+static NSString *const kLyricsRequestedEvent = @"lyricsRequested";
+static NSString *const kScalesRequestedEvent = @"scalesRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
@@ -32,6 +36,8 @@ static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
 static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
 static NSString *const kExportMusicXmlRequestedEvent = @"exportMusicXmlRequested";
 static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompressedMusicXmlRequested";
+static NSString *const kTransposeRequestedEvent = @"transposeRequested";
+static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -175,6 +181,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onLyricsCommand:) name:GPEditorLyricsCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onScalesCommand:) name:GPEditorScalesCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
@@ -188,6 +196,8 @@ RCT_EXPORT_MODULE();
                selector:@selector(onExportCompressedMusicXmlCommand:)
                    name:GPEditorExportCompressedMusicXmlCommandNotification
                  object:nil];
+    [center addObserver:self selector:@selector(onTransposeCommand:) name:GPEditorTransposeCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onCommandPaletteCommand:) name:GPEditorCommandPaletteCommandNotification object:nil];
   }
   return self;
 }
@@ -203,7 +213,8 @@ RCT_EXPORT_MODULE();
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
-    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent
+    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent,
+    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent
   ];
 }
 
@@ -267,6 +278,20 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kSongWriterRequestedEvent body:@{}];
+  }
+}
+
+- (void)onLyricsCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kLyricsRequestedEvent body:@{}];
+  }
+}
+
+- (void)onScalesCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kScalesRequestedEvent body:@{}];
   }
 }
 
@@ -337,6 +362,22 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportCompressedMusicXmlRequestedEvent body:@{}];
+  }
+}
+
+/** Tools ▸ Transpose…. */
+- (void)onTransposeCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kTransposeRequestedEvent body:@{}];
+  }
+}
+
+/** Tools ▸ Command Palette… (⇧⌘P). */
+- (void)onCommandPaletteCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kCommandPaletteRequestedEvent body:@{}];
   }
 }
 

@@ -1,10 +1,13 @@
 import {
   type Beat,
   type BeatFragment,
+  type Lyrics,
   type PlayedNote,
   type Song,
   type SongInfo,
   type StringAddress,
+  type TranspositionOptions,
+  type TranspositionScope,
   buildNewSong,
   deleteNote,
   enterPlayedNotes,
@@ -15,6 +18,7 @@ import {
   setSongInfo,
   setTrackBalance,
   setTrackCapo,
+  setTrackLyrics,
   setTrackMute,
   setTrackName,
   setTrackProgram,
@@ -22,6 +26,7 @@ import {
   setTrackTuning,
   setTrackVolume,
   toggleDrumNote,
+  transpose,
 } from '@gp-editor/core';
 import {
   adjacentBeat,
@@ -35,6 +40,7 @@ import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
+import { transpositionHint } from './transposition';
 import {
   type ClipboardEdit,
   cutSelectionAt,
@@ -96,6 +102,8 @@ type SongAction =
   | { readonly type: 'setTrackBalance'; readonly trackIndex: number; readonly balance: number }
   /** Capo fret 0–24; the frets stay as written. */
   | { readonly type: 'setTrackCapo'; readonly trackIndex: number; readonly capo: number }
+  /** The track's lyrics (Edit ▸ Lyrics…); a blank text takes them away. */
+  | { readonly type: 'setTrackLyrics'; readonly trackIndex: number; readonly lyrics: Lyrics }
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export type EditorAction =
@@ -155,6 +163,8 @@ export type EditorAction =
   /** The system clipboard could not be read or written. */
   | { readonly type: 'clipboardFailed'; readonly message: string }
   | { readonly type: 'edit'; readonly edit: SongEdit }
+  /** Tools ▸ Transpose…: one undo step; the hint strip tells what moved and what could not. */
+  | { readonly type: 'transpose'; readonly scope: TranspositionScope; readonly options: TranspositionOptions }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
 
@@ -273,6 +283,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'setTrackVolume':
     case 'setTrackBalance':
     case 'setTrackCapo':
+    case 'setTrackLyrics':
     case 'setSongInfo':
       return state.document === undefined
         ? state
@@ -287,6 +298,8 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
       return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
     case 'pasteBeats':
       return pasteBeats(state, action.fragment);
+    case 'transpose':
+      return transposeSong(state, action.scope, action.options);
     case 'undo':
       return undo(state);
     case 'redo':
@@ -312,6 +325,8 @@ function applySongAction(song: Song, action: SongAction): Song {
       return setTrackBalance(song, action.trackIndex, action.balance);
     case 'setTrackCapo':
       return setTrackCapo(song, action.trackIndex, action.capo);
+    case 'setTrackLyrics':
+      return setTrackLyrics(song, action.trackIndex, action.lyrics);
     case 'setSongInfo':
       return setSongInfo(song, action.info);
   }
@@ -537,6 +552,16 @@ function recordSong(
     past: [...state.past, document.song].slice(-HISTORY_LIMIT),
     future: [],
   };
+}
+
+/** Transposes (one undo step); the hint strip says what moved, also when nothing could. */
+function transposeSong(state: EditorState, scope: TranspositionScope, options: TranspositionOptions): EditorState {
+  const { document } = state;
+  if (document === undefined) {
+    return state;
+  }
+  const result = transpose(document.song, scope, options);
+  return { ...recordSong(state, document, result.song), hint: transpositionHint(result, options) };
 }
 
 /** Retunes a track (one undo step); the cursor stays on the track's strings and the notice tells what moved. */
