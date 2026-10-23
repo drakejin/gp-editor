@@ -39,6 +39,7 @@ import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { useLyricsEditor } from './hooks/use-lyrics-editor';
 import { useMidiInput } from './hooks/use-midi-input';
+import { useNotePreview } from './hooks/use-note-preview';
 import { useScales } from './hooks/use-scales';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
@@ -115,6 +116,8 @@ export default function App() {
   const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
   const hasCursorNote = cursorNote !== undefined;
   const stringAtCursor = cursor?.string;
+  // The bend and tremolo bar panels' draft, shown on the score until Apply makes it an edit.
+  const notePreview = useNotePreview(song, cursor);
   // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip.
   const onSongWritten = useCallback((written: Song, fileName: string, warnings: readonly string[]) => {
     dispatch({ type: 'openTab', document: { fileName, path: '', song: written }, isUnsaved: true });
@@ -176,7 +179,7 @@ export default function App() {
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
     chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen;
-  // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
+  // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
     (panel: NotePanel) => {
@@ -473,7 +476,7 @@ export default function App() {
             <ScoreView
               // A page of its own per tab: it opens at the tab's cursor, not where the last tab was scrolled.
               key={activeTabId}
-              song={document.song}
+              song={notePreview.song ?? document.song}
               trackIndex={trackIndex}
               mode={state.mode}
               chordDisplay={state.chordDisplay}
@@ -657,7 +660,7 @@ export default function App() {
         />
       ) : null}
       {chrome.notePanel !== undefined && cursorNote !== undefined ? (
-        <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onClose={chrome.closeNotePanel} />
+        <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onPreview={notePreview.show} onClose={chrome.closeNotePanel} />
       ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
       {tabs.closing !== undefined ? (
