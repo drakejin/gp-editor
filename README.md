@@ -341,6 +341,21 @@ Guitar Pro's own files differently are listed, with that evidence, in
   macOS, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the
   copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
   bar being played, once, shortly after the last click.
+- **Effects** (basic built-in effects — macOS's own audio units and a few of ours, not Guitar Pro's RSE sound): each
+  track can play through a chain of up to 8 effects — EQ, compressor, drive (overdrive / distortion / fuzz), chorus,
+  delay, reverb and a speaker cabinet (convolution with impulse responses the app generates: 1x12 open back, 2x12
+  combo, 4x12 closed back, 4x10 bass) —, each on or off, with a few parameters and presets, and whole-chain presets
+  (Clean, Crunch, Lead, Metal, Bass DI, Bass amp, Acoustic, Ambient). Edit them in the Track inspector's *EFFECTS* or in
+  View ▸ Mixer (a strip per track and a *Master* strip — EQ, compressor, reverb, limiter and output gain — at the
+  bottom); values are heard while a slider is dragged, and one release is one undo step. A track's first effect (or
+  its last removed) restarts playback at the bar being played. Effects are saved in Guitar Pro 7/8 (`.gp`) files
+  (our own entry in the zip, which Guitar Pro ignores); GP5, GP4 and GP3 cannot keep them, and saving one says so.
+  Tracks without effects sound exactly as before.
+- **Line in** (Tools ▸ Line In…): play a real guitar (an audio interface or the Mac's microphone) through a track's
+  effects — the selected track's, or, with *Lock*, the same track while you select others ("sound lock") — with an input
+  gain, a level meter and *Monitor* on/off. With the Mac's own microphone and speakers monitoring starts off and the
+  card warns about feedback (use headphones). macOS asks for microphone access the first time; closing the card turns
+  the line in off.
 - **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar — or, with beats
   selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩

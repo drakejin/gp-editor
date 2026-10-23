@@ -34,7 +34,8 @@ import type {
  *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
  * - measure headers: eight alternate endings at most;
- * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
+ * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
+ * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts).
  */
 
 const MAX_STRINGS = 7;
@@ -247,7 +248,7 @@ function expectedTrack(track: Track, song: Song, lyricTrack: number | undefined)
   const clef: Clef = track.measures[0]?.clef === 'bass' ? 'bass' : 'treble';
   const measureStarts = song.measureHeaders.map((header) => header.start);
   const rules: MeasureRules = { stringCount: strings.length, clef, keySignatures, measureStarts };
-  const { lyrics, ...rest } = track;
+  const { lyrics, effects: _effects, ...rest } = track;
   return {
     ...rest,
     ...(lyrics !== undefined && track.number === lyricTrack ? { lyrics } : {}),
@@ -300,10 +301,11 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
  * without beats.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
-    tracks: song.tracks.map((track) => {
+    tracks: song.tracks.map(({ effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
       return {
         ...track,
@@ -317,8 +319,9 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
     measureHeaders: song.measureHeaders.map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
     tracks: song.tracks.map((track) => expectedTrack(track, song, lyricTrack)),

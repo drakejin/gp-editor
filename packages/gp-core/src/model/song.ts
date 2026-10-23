@@ -25,6 +25,28 @@ export interface Song {
   readonly channels: readonly Channel[];
   readonly measureHeaders: readonly MeasureHeader[];
   readonly tracks: readonly Track[];
+  /** The app's master effects on the whole mix; absent: the default (only the limiter, at 0 dB). */
+  readonly master?: MasterMix;
+}
+
+/**
+ * A playback effect of the app (basic effects built into macOS and our own, not Guitar Pro's RSE): a track's sound
+ * goes through its effects in order, the mix through the master's. Parameter ids and ranges: `effects/effect-params.ts`.
+ */
+export type EffectType = 'eq' | 'compressor' | 'drive' | 'chorus' | 'delay' | 'reverb' | 'cabinet' | 'limiter';
+
+export interface Effect {
+  readonly type: EffectType;
+  readonly isEnabled: boolean;
+  /** Every parameter of the type by id, each inside its range. */
+  readonly params: Readonly<Record<string, number>>;
+}
+
+export interface MasterMix {
+  /** EQ, compressor, reverb and limiter, in that order (MASTER_EFFECT_TYPES), each on or off. */
+  readonly effects: readonly Effect[];
+  /** Output gain in dB (−24…+12); 0 = the level playback always had. */
+  readonly gainDb: number;
 }
 
 export interface SongInfo {
@@ -123,6 +145,8 @@ export interface Track {
   readonly solo: boolean;
   readonly mute: boolean;
   readonly lyrics?: Lyrics;
+  /** The app's effects on the track's sound, in playback order (at most MAX_TRACK_EFFECTS); absent when it has none. */
+  readonly effects?: readonly Effect[];
   /** One measure per song measure header, in order. */
   readonly measures: readonly Measure[];
 }

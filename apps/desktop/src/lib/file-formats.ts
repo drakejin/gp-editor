@@ -1,4 +1,4 @@
-import type { WritableFormat } from '@gp-editor/core';
+import { type Song, type WritableFormat, isDefaultMaster } from '@gp-editor/core';
 import { withoutExtension } from './file-name';
 
 /** A kind of file a save panel offers: the popup's label and the extension the file gets. */
@@ -77,6 +77,18 @@ export const MXL_FILE: FileFormat = {
   extension: 'mxl',
   note: 'MusicXML zipped: smaller, and opened by the same programs.',
 };
+
+/** Only .gp files keep the app's playback effects (gp-core's songEffectsToJson, an entry of the zip). */
+function hasEffects(song: Song): boolean {
+  return song.tracks.some((track) => (track.effects?.length ?? 0) > 0) || (song.master !== undefined && !isDefaultMaster(song.master));
+}
+
+/** What the hint strip says when `song` is saved in `format`: its note, and the effects it leaves out. */
+export function saveHint(format: SaveFormat, song: Song): string | undefined {
+  const effects = format.id !== 'gp' && hasEffects(song) ? `${format.label.replace(/ \(.*\)$/, '')} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
+  const parts = [format.note, effects].filter((part): part is string => part !== undefined);
+  return parts.length === 0 ? undefined : parts.join(' ');
+}
 
 /** The format of a file the app writes back as it is (by its extension, any case); undefined for any other file. */
 export function saveFormatOf(path: string): SaveFormat | undefined {
