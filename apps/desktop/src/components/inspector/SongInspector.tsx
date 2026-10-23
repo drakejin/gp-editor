@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song, SongInfo } from '@gp-editor/core';
+import type { MidiInput } from '../../hooks/use-midi-input';
 import { formatClock, songSeconds } from '../../lib/song-time';
 import { plural } from '../../lib/wording';
 import type { SoundBanks } from '../../native/player';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { InspectorField, InspectorSection, InspectorTextField } from './InspectorParts';
+import { MidiInputSection } from './MidiInputSection';
 
 /** The song fields the inspector edits, in Guitar Pro's order. */
 const INFO_FIELDS: readonly { readonly key: keyof Omit<SongInfo, 'notice'>; readonly label: string }[] = [
@@ -27,6 +29,9 @@ const FORMAT_NAMES: Readonly<Record<Song['source']['format'], string>> = {
   gp5: 'Guitar Pro 5',
   gpx: 'Guitar Pro 6',
   gp7: 'Guitar Pro 7+',
+  ptb: 'Power Tab',
+  tef: 'TablEdit',
+  midi: 'MIDI file',
   musicxml: 'MusicXML',
 };
 
@@ -38,6 +43,8 @@ export interface SongInspectorProps {
   readonly onSelectSoundBank: (id: string) => void;
   readonly onAddSoundBank: () => void;
   readonly onRemoveSoundBank: (id: string) => void;
+  /** MIDI input settings (on this Mac); the section is left out without them. */
+  readonly midiInput?: MidiInput;
 }
 
 /** The SONG tab: the song's information (saved in the file) and the sound bank every track plays with (not saved). */
@@ -56,6 +63,7 @@ export function SongInspector(props: SongInspectorProps) {
         </InspectorField>
       </InspectorSection>
       <SoundBankSection {...props} />
+      {props.midiInput === undefined ? null : <MidiInputSection palette={palette} midiInput={props.midiInput} />}
     </>
   );
 }

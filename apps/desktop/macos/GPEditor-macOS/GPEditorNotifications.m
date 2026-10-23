@@ -11,6 +11,7 @@ NSString *const GPEditorExportCompressedMusicXmlCommandNotification = @"GPEditor
 NSString *const GPEditorPrintCommandNotification = @"GPEditorPrintCommand";
 NSString *const GPEditorHelpCommandNotification = @"GPEditorHelpCommand";
 NSString *const GPEditorSongWriterCommandNotification = @"GPEditorSongWriterCommand";
+NSString *const GPEditorTunerCommandNotification = @"GPEditorTunerCommand";
 NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";
 NSString *const GPEditorOpenRecentCommandNotification = @"GPEditorOpenRecentCommand";
 NSString *const GPEditorClearRecentCommandNotification = @"GPEditorClearRecentCommand";

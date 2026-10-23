@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeText, decodeUtf8Lenient, decodeUtf8Strict, decodeWindows1252 } from '../src/io/text';
+import { decodeText, decodeUtf8Lenient, decodeUtf8Strict, decodeWindows1252, encodeUtf8 } from '../src/io/text';
 
 const bytes = (...values: number[]) => new Uint8Array(values);
 
@@ -49,5 +49,21 @@ describe('UTF-8 decoding', () => {
 describe('decodeWindows1252', () => {
   it('maps undefined 0x80–0x9F bytes to U+FFFD', () => {
     expect(decodeWindows1252(bytes(0x81))).toBe('�');
+  });
+});
+
+describe('encodeUtf8', () => {
+  it('encodes one- to four-byte characters as TextEncoder does', () => {
+    // Arrange
+    const text = 'A é 기타 🎸';
+
+    // Act / Assert
+    expect(encodeUtf8(text)).toEqual(new TextEncoder().encode(text));
+    expect(decodeUtf8Strict(encodeUtf8(text))).toBe(text);
+  });
+
+  it('encodes a lone surrogate as U+FFFD', () => {
+    // Arrange / Act / Assert
+    expect(encodeUtf8('a\ud800b')).toEqual(bytes(0x61, 0xef, 0xbf, 0xbd, 0x62));
   });
 });

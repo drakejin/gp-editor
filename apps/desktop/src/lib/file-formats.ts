@@ -26,6 +26,12 @@ export interface SaveFormat extends FileFormat {
 export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
   { id: 'gp5', label: 'Guitar Pro 5 (.gp5)', extension: 'gp5' },
   {
+    id: 'gp',
+    label: 'Guitar Pro 7/8 (.gp)',
+    extension: 'gp',
+    note: 'Guitar Pro 7/8 keeps what the editor edits; Guitar Pro’s own sound settings (RSE), stylesheet and audio tracks are not kept.',
+  },
+  {
     id: 'gp4',
     label: 'Guitar Pro 4 (.gp4)',
     extension: 'gp4',

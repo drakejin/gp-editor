@@ -21,6 +21,8 @@ export interface EditionPaletteProps {
   readonly onAction: (action: EditorAction) => void;
   /** The bend and vibrato tools open the same panels as C and B. */
   readonly onOpenPanel: (panel: NotePanel) => void;
+  /** The chord tool opens the chord diagram panel, as K does. */
+  readonly onOpenChordPanel?: () => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface EditionPaletteProps {
  * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
  * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel }: EditionPaletteProps) {
+function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel, onOpenChordPanel }: EditionPaletteProps) {
   const context = paletteContext(song, cursor);
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
@@ -41,6 +43,8 @@ function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPan
       onAction(run.action);
     } else if (run.kind === 'panel') {
       onOpenPanel(run.panel);
+    } else if (run.kind === 'chordPanel') {
+      onOpenChordPanel?.();
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }

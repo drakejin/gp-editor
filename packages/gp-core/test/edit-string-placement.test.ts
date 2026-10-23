@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NECK_FRETS } from '../src/edit/edit-song';
-import { neckFrets, placeNotes } from '../src/edit/string-placement';
+import { neckFrets, placeNotes, placePitchesNearHand, stringsNearHand } from '../src/edit/string-placement';
 import { STANDARD_TUNING } from '../src/model/defaults';
 
 const E2 = 40;
@@ -79,5 +79,54 @@ describe('placeNotes', () => {
 
   it('places nothing on an empty tuning', () => {
     expect(placeNotes([{ pitch: E2, preferredString: 1 }], [], NECK_FRETS)).toEqual([undefined]);
+  });
+});
+
+describe('stringsNearHand', () => {
+  const C4 = 60;
+  const G4 = 67;
+
+  it('plays a single note on the string whose fret lies under the hand, an open string near the nut', () => {
+    expect(stringsNearHand([E4], STANDARD_TUNING, 0, NECK_FRETS)).toEqual([1]);
+    expect(stringsNearHand([C4], STANDARD_TUNING, 0, NECK_FRETS)).toEqual([2]);
+    // Hand at the 7th fret: E4 is fret 9 of the G string, not the open E string.
+    expect(stringsNearHand([E4], STANDARD_TUNING, 7, NECK_FRETS)).toEqual([3]);
+  });
+
+  it('keeps a chord in pitch order across the strings, the highest note on the highest string', () => {
+    // C E G at the nut: G on string 1 (fret 3), E on string 2 (fret 5), C on string 3 (fret 5).
+    expect(stringsNearHand([C4, E4, G4], STANDARD_TUNING, 0, NECK_FRETS)).toEqual([3, 2, 1]);
+  });
+
+  it('avoids the strings already taken', () => {
+    expect(stringsNearHand([E4], STANDARD_TUNING, 0, NECK_FRETS, [1])).toEqual([2]);
+  });
+
+  it('measures the banjo drone from its peg: the open high g is under a hand at the nut', () => {
+    expect(stringsNearHand([G4], [62, 59, 55, 50, 67], 0, NECK_FRETS)).toEqual([5]);
+  });
+
+  it('still names a string when no free string plays the note, so placeNotes can move it by an octave', () => {
+    // E2 only fits string 6, which is taken.
+    expect(stringsNearHand([E2], STANDARD_TUNING, 0, NECK_FRETS, [6])).toEqual([1]);
+  });
+});
+
+describe('placePitchesNearHand', () => {
+  it('places a played chord on separate strings near the hand, at its pitch', () => {
+    // Act
+    const placed = placePitchesNearHand([60, 64, 67], STANDARD_TUNING, 0, NECK_FRETS);
+
+    // Assert
+    expect(placed).toEqual([
+      { string: 3, fret: 5, octaves: 0 },
+      { string: 2, fret: 5, octaves: 0 },
+      { string: 1, fret: 3, octaves: 0 },
+    ]);
+  });
+
+  it('marks a pitch below the lowest string as moved by an octave, so step entry can leave it out', () => {
+    const placed = placePitchesNearHand([E2 - 2], STANDARD_TUNING, 0, NECK_FRETS);
+    expect(placed[0]?.octaves).toBe(1);
   });
 });

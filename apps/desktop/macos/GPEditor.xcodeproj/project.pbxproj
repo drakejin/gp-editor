@@ -15,6 +15,7 @@
 		3E7A873DFC82AB94648513BE /* RecentFilesMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7707CACCC6ABD5CDD278D8D /* RecentFilesMenu.swift */; };
 		41D9204DBDAA8BAFD41DAEC1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */; };
 		50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */; };
+		C594D2DFDB9844A8CAA903BB /* GPMidiInput.m in Sources */ = {isa = PBXBuildFile; fileRef = 45ED85928E66648C64309C86 /* GPMidiInput.m */; };
 		5142014D2437B4B30078DB4F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5142014C2437B4B30078DB4F /* AppDelegate.swift */; };
 		514201522437B4B40078DB4F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514201512437B4B40078DB4F /* Assets.xcassets */; };
 		5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6E162BDD027D425378732E47 /* GPCommandPainter.m */; };
@@ -33,6 +34,7 @@
 		C94A2C43599FD106BA5C3883 /* GPRecentFiles.m in Sources */ = {isa = PBXBuildFile; fileRef = F9CF2F010D6316294A08F1CC /* GPRecentFiles.m */; };
 		CED0DE4CD987FE0C92AFECF2 /* Bravura.otf in Resources */ = {isa = PBXBuildFile; fileRef = 09C3316ED24DFB499B80F563 /* Bravura.otf */; };
 		EA42B13E8E85795BA2F6DD24 /* GPScoreCanvasComponentView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0990F1FF3E8966EC7807BD01 /* GPScoreCanvasComponentView.mm */; };
+		EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */ = {isa = PBXBuildFile; fileRef = B6DF701D448D1420D076617F /* GPAudioInput.m */; };
 		ED260FB28ECF0EEE744B62ED /* GPPngExport.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A6206B313D2009C7A1FA1BC /* GPPngExport.m */; };
 		F41FBBE684D18DCACBAE8FDE /* GPSoundBanks.h in Headers */ = {isa = PBXBuildFile; fileRef = D7A8F2C42D535BFD55500166 /* GPSoundBanks.h */; };
 /* End PBXBuildFile section */
@@ -59,11 +61,14 @@
 		877D1DF57764ECA55D0E013F /* GPRecentFiles.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPRecentFiles.h; sourceTree = "<group>"; };
 		89281E13275E110D08059BD1 /* GPQADriver.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPQADriver.m; sourceTree = "<group>"; };
 		9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPClipboard.m; sourceTree = "<group>"; };
+		45ED85928E66648C64309C86 /* GPMidiInput.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMidiInput.m; sourceTree = "<group>"; };
 		A570CDCF479A2A3D0BEBD607 /* Bravura-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = "Bravura-OFL.txt"; sourceTree = "<group>"; };
 		ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPPdfExport.m; sourceTree = "<group>"; };
 		AF194A0272A26BB1C7AB399B /* GPEditor-macOS-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "GPEditor-macOS-Bridging-Header.h"; sourceTree = "<group>"; };
 		B296AF2AE229D8927C732C47 /* Pods-GPEditor-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.release.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		B2F750C1303D40546281013A /* GPProjects.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPProjects.m; sourceTree = "<group>"; };
+		B39CBDE046D9E199137C4BF8 /* GPAudioInput.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioInput.h; sourceTree = "<group>"; };
+		B6DF701D448D1420D076617F /* GPAudioInput.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioInput.m; sourceTree = "<group>"; };
 		BB8B0ADDC0790FF74FF7D211 /* Pods-GPEditor-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.debug.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		CD13C4D4A2339F978671239A /* GPAnthropic.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAnthropic.m; sourceTree = "<group>"; };
 		CF0C11CC956B7AFDCE28DA7B /* libPods-GPEditor-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GPEditor-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -140,6 +145,8 @@
 				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
 				6E162BDD027D425378732E47 /* GPCommandPainter.m */,
 				ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */,
+				B39CBDE046D9E199137C4BF8 /* GPAudioInput.h */,
+				B6DF701D448D1420D076617F /* GPAudioInput.m */,
 				3A6206B313D2009C7A1FA1BC /* GPPngExport.m */,
 				F9CF2F010D6316294A08F1CC /* GPRecentFiles.m */,
 				877D1DF57764ECA55D0E013F /* GPRecentFiles.h */,
@@ -147,6 +154,7 @@
 				62594748D8802E81D9954180 /* GPSandbox.h */,
 				2FF206889FFAD422198373AE /* GPSandbox.m */,
 				9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */,
+				45ED85928E66648C64309C86 /* GPMidiInput.m */,
 			);
 			path = "GPEditor-macOS";
 			sourceTree = "<group>";
@@ -432,11 +440,13 @@
 				C47933D74B8552138650CC52 /* GPMidiEngine.m in Sources */,
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
+				EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */,
 				ED260FB28ECF0EEE744B62ED /* GPPngExport.m in Sources */,
 				C94A2C43599FD106BA5C3883 /* GPRecentFiles.m in Sources */,
 				3E7A873DFC82AB94648513BE /* RecentFilesMenu.swift in Sources */,
 				94B025C4435659814E45E541 /* GPSandbox.m in Sources */,
 				50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */,
+				C594D2DFDB9844A8CAA903BB /* GPMidiInput.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

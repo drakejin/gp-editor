@@ -13,9 +13,21 @@ The goal is to open every Guitar Pro file:
 | 5 | `.gp5` | binary | `gtp/gp5.ts` |
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
+| MIDI (Standard MIDI File 0, 1) | `.mid`, `.midi` | MThd / MTrk chunks | `midi/midi-song-reader.ts` |
 | MusicXML | `.musicxml`, `.xml`, `.mxl` | XML (`.mxl`: zip) | `musicxml/musicxml-reader.ts` (written by `write/musicxml/`) |
 
+It also imports two other tablature programs' files (saved as `.gp5`):
+
+| program | extension | reader |
+| --- | --- | --- |
+| Power Tab Editor 1.7 | `.ptb` | `ptb/ptb.ts` (repeats and jumps played out, as TuxGuitar does) |
+| TablEdit 3 and later | `.tef` | `tef/tef.ts` (not TablEdit 2, which has no header to detect) |
+
 The format is detected from the file content, not the extension.
+
+`gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
+Pro 7 and 8 open). What each format cannot hold is listed in `packages/gp-core/test/helpers/write-expected.ts` (GP3–GP5)
+and `write-expected-gpif.ts` (`.gp`).
 
 ## Download
 
@@ -33,7 +45,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 and ASCII tab writers, song model, immutable edit operations
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5, GP7 (.gp) and ASCII tab writers, song model, immutable edit operations
                    (incl. tunings), MIDI rendering, PDF transcription → song
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
@@ -98,7 +110,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
-  (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+  (Guitar Pro, Power Tab, TablEdit and MIDI files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **MIDI files** (`.mid`, `.midi`) open like Guitar Pro files, as TuxGuitar imports them: one track per MIDI track (a
+  format 0 file's channels each get one), drums on channel 10 as a drum track, tempo, time and key signature changes as
+  bars, note lengths rounded to sixteenths (no tuplets) and tied across bar lines, notes on a standard guitar — or a
+  4-string bass for a bass program — when they fit it, else on TuxGuitar's next tuning. Save asks where to save it
+  as a Guitar Pro file.
 - **Recent files**: File ▸ Open Recent lists the last 20 files opened or saved, newest first, and *Clear Menu* empties it;
   File ▸ Recent Files… (and the start screen, for the first five) shows the same list with *Open*, *Pin* / *Unpin* and
   *Remove* for each file. Pinned files stay on top, in the order they were pinned, and new files never push them out
@@ -145,6 +162,23 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   says how many of each (⌘Z restores the old tuning). When a track is not on a preset that plays it — a 7-string part, a custom tuning,
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
+- **Banjo**: a track playing the General MIDI banjo (or tuned like a 5-string banjo) gets banjo presets — Open G
+  (g D G B D), Double C, Open D, G modal, and the 4-string Tenor, Irish tenor and Plectrum banjos. On a 5-string banjo
+  the short 5th string starts at the 5th fret: the fretboard draws it from its peg there, and the tab numbers it as
+  Guitar Pro does — 0 is the open drone, then 6, 7, 8 … (the file stores 0, 1, 2 …, as Guitar Pro's files do). Type
+  the tab's numbers on that string; 1–5 are refused with a hint.
+- **Drum kit**: for a drum track the instrument view (either toggle) shows a drum kit from above — kick, snare and
+  rim, hi-hat (closed, open, pedal), three toms and a floor tom, crash, crash 2, ride and its bell, china, splash,
+  cowbell — with the drums of the current beat lit (the playing beat while playing); drums the kit has no piece for are
+  named underneath. Clicking a piece enters that drum (its General MIDI key) into the cursor's beat, a second click
+  takes it out (one undo step each).
+- **MIDI input**: the SONG inspector's *MIDI INPUT* turns it on and picks the source (every source, or one keyboard or
+  MIDI guitar; CoreMIDI, devices plugged in later are found). Notes struck within 50 ms make one beat at the cursor
+  — replacing what the beat held, keeping its duration — and the cursor moves to the next beat, adding a bar after the
+  last one (step entry, one undo step per beat). Guitar and bass notes go on the strings nearest the hand position of the last fretted beat, in pitch
+  order across the strings; *MIDI guitar* puts channel *n* on string *n* (one channel per string); on a drum track the
+  key is the drum. *Velocity* gives the notes the velocity they were played with. A note the track cannot play is left
+  out with a hint. The settings are kept on this Mac.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings. Keys reach the score only from the score: what is typed in a text field (the Song Writer, the
   inspector, the palette's texts) stays in it, and while a panel, sheet or menu is open over the score every key but
@@ -191,12 +225,14 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
   tab; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
-- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp4`,
-  `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel: Guitar
-  Pro 5 (`.gp5`, chosen first unless the file is a `.gp4` or `.gp3`), Guitar Pro 4 (`.gp4`) or Guitar Pro 3 (`.gp3`);
-  the extension follows the choice. GP4 and GP3 keep one voice per bar (voice 2 joins voice 1) and one triplet feel,
-  and GP3 holds no lyrics and fewer effects: the save panel and the hint strip say what is left out when one is written.
-  GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp`,
+  `.gp4`, `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel:
+  Guitar Pro 5 (`.gp5`, chosen first unless the file is one of the others), Guitar Pro 7/8 (`.gp`), Guitar Pro 4
+  (`.gp4`) or Guitar Pro 3 (`.gp3`); the extension follows the choice. A `.gp` keeps everything the editor edits
+  (voices 1–4, nested tuplets …) but not Guitar Pro's own sound settings (RSE), stylesheet or audio tracks. GP4 and GP3
+  keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
+  save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
+  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
   steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
@@ -210,6 +246,24 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
 - **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
+- **Tuner** (Tools ▸ Tuner…): play one string at a time into the Mac's microphone; the panel shows the nearest note
+  and octave in large letters, how many cents it is off (green within ±5) on a -50 … +50 cent strip, its frequency,
+  the shown track's open strings with the one being tuned lit (the nearest, within 1.5 semitones; standard guitar
+  tuning without a score), and the input level. The reference A4 steps from 415 to 466 Hz (440 by default). Single
+  notes only, from a low bass B (31 Hz) to B6 (1976 Hz); a quiet room or noise reads nothing. macOS asks for microphone access the first time; if it was
+  refused, the panel says where to allow it (System Settings ▸ Privacy & Security ▸ Microphone). The microphone runs
+  only while the panel is open (Esc closes it) and nothing is recorded.
+- **Chords**: a beat's chord shows over the staves — its name, and its diagram (the strings, the nut or the first fret's
+  number, a dot per fretted string, a barre, o / x over open and unplayed strings). The Track inspector's *Chords*
+  toggles show names, diagrams or both (per score; Export PDF and Print follow). `K` (or the palette's *Chord*, in the
+  Beat group) opens the **chord diagram** panel for the beat at the cursor: click the grid to put a finger on a fret
+  or take it off (above the nut: open / not played), *Fret − / +* moves the shape along the neck, and the chord is
+  named as you go (the name can be typed); *Notes of the beat* fills the grid from the beat; *Apply* puts the chord on
+  the beat — and, with *Write the notes into the beat* (on for a rest), its notes too — and *Remove* takes it off, one
+  undo step each. Beside the grid, the **chord library**: *By name* (type Am7, C/G, F#m7b5, G13 … → the best voicings on
+  the track's tuning, plain, inversions, close or open; click one to load it), *By position* (every name the grid's
+  frets can have, with how complete each is) and *In this track* (the chords the track already uses). Chords are saved
+  in GP3, GP4 and GP5 files.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
@@ -273,7 +327,9 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2 files are not committed (fetched by
-`fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`.
+`fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
+powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
+The MIDI test file is in the public domain (Mutopia Project).
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

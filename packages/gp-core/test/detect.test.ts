@@ -28,6 +28,11 @@ describe('detectFormat', () => {
     expect(detectFormat(new TextEncoder().encode('BCFS....'))).toEqual({ format: 'gpx', version: 'BCFS' });
   });
 
+  it('detects a Standard MIDI File by its MThd chunk', () => {
+    expect(detectFormat(new TextEncoder().encode('MThd\0\0\0\x06'))).toEqual({ format: 'midi', version: '' });
+    expect(detectFormat(new TextEncoder().encode('MTrk\0\0\0\x06'))).toBeUndefined();
+  });
+
   it('returns undefined for unknown or too-short input', () => {
     expect(detectFormat(new Uint8Array())).toBeUndefined();
     expect(detectFormat(gtpHeader('FICHIER GUITAR PRO v9.99'))).toBeUndefined();

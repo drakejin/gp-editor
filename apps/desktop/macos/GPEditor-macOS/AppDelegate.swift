@@ -101,6 +101,12 @@ struct GPEditorApp: App {
           }
         }
       }
+      // Tools ▸ Tuner…: the microphone tuner (GPAudioInput.m).
+      CommandMenu("Tools") {
+        Button("Tuner…") {
+          NotificationCenter.default.post(name: .GPEditorTunerCommand, object: nil)
+        }
+      }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {
         Button("Hide GP Editor") { NSApp.hide(nil) }
@@ -139,6 +145,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // Finder "Open With", dropping a file on the dock icon, `open -a`.
   func application(_ application: NSApplication, open urls: [URL]) {
     NotificationCenter.default.post(name: .GPEditorOpenURLs, object: urls)
+  }
+
+  // Quitting with the tuner listening: its microphone stops first, and JS gets a moment to draw the frames already
+  // sent, since a render while the process exits aborts it (GPAudioInput.h).
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard GPAudioInputStopForQuit() else {
+      return .terminateNow
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+    return .terminateLater
   }
 }
 

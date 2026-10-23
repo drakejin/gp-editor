@@ -1,10 +1,11 @@
 // Tuning presets after TuxGuitar's common/resources/tunings/tunings.xml (LGPL-2.1): its 6-string guitar and 4-string bass groups, named for the app.
-import { isGmBassProgram } from '../formats/common/channels';
+import { GM_BANJO_PROGRAM, isGmBassProgram } from '../formats/common/channels';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../model/defaults';
 import type { Channel, Song, Track } from '../model/song';
+import { isFiveStringBanjo } from './banjo';
 
-/** What neck a track is shown on: a 6-string guitar, a 4-string bass, or none (drums). */
-export type Instrument = 'percussion' | 'bass' | 'guitar';
+/** What neck a track is shown on: a 6-string guitar, a 4-string bass, a banjo, or none (drums). */
+export type Instrument = 'percussion' | 'bass' | 'guitar' | 'banjo';
 
 /** An instrument with a neck. */
 export type NeckInstrument = Exclude<Instrument, 'percussion'>;
@@ -23,7 +24,10 @@ function preset(instrument: NeckInstrument, key: string, name: string, tuning: r
   return { id: `${instrument}-${key}`, name, instrument, tuning };
 }
 
-/** Every preset in menu order: guitar then bass, standard first. */
+/** The 5-string banjo's open G (g D G B D): the short 5th string, string 5, is the high g. */
+const BANJO_OPEN_G: readonly number[] = [62, 59, 55, 50, 67];
+
+/** Every preset in menu order: guitar, bass, then banjo, standard (banjo: open G) first. */
 export const TUNING_PRESETS: readonly TuningPreset[] = [
   preset('guitar', 'standard', 'Standard', STANDARD_TUNING),
   preset('guitar', 'drop-d', 'Drop D', [64, 59, 55, 50, 45, 38]),
@@ -43,6 +47,13 @@ export const TUNING_PRESETS: readonly TuningPreset[] = [
   preset('bass', 'd-standard', 'D standard', [41, 36, 31, 26]),
   preset('bass', 'drop-c', 'Drop C', [41, 36, 31, 24]),
   preset('bass', 'beade', 'B E A D', [38, 33, 28, 23]),
+  preset('banjo', 'open-g', 'Open G', BANJO_OPEN_G),
+  preset('banjo', 'double-c', 'Double C', [62, 60, 55, 48, 67]),
+  preset('banjo', 'open-d', 'Open D', [62, 57, 54, 50, 66]),
+  preset('banjo', 'g-modal', 'G modal', [62, 60, 55, 50, 67]),
+  preset('banjo', 'tenor', 'Tenor', [69, 62, 55, 48]),
+  preset('banjo', 'irish-tenor', 'Irish tenor', [64, 57, 50, 43]),
+  preset('banjo', 'plectrum', 'Plectrum', [62, 59, 55, 48]),
 ];
 
 /** Highest open string a bass tuning has: the high C3 of a 6-string bass. */
@@ -56,7 +67,7 @@ export function tuningPresetsFor(instrument: Instrument): readonly TuningPreset[
 
 /** The standard tuning of a neck instrument. */
 export function standardTuningFor(instrument: NeckInstrument): readonly number[] {
-  return instrument === 'bass' ? STANDARD_BASS_TUNING : STANDARD_TUNING;
+  return instrument === 'bass' ? STANDARD_BASS_TUNING : instrument === 'banjo' ? BANJO_OPEN_G : STANDARD_TUNING;
 }
 
 /** Open-string pitches of a track, string 1 first. */
@@ -92,8 +103,9 @@ export function isBassTuning(tuning: readonly number[]): boolean {
 
 /**
  * The neck a track is shown on. Percussion tracks have none. A track is a bass when its channel plays a General MIDI
- * bass (programs 32–39), else when its strings are tuned like a bass (isBassTuning). Every other pitched track — strings
- * ensemble, choir, piano, 7-string guitar — is shown on a guitar neck.
+ * bass (programs 32–39), a banjo when it plays the GM banjo (105) or has a 5-string banjo's tuning (isFiveStringBanjo),
+ * else a bass when its strings are tuned like one (isBassTuning). Every other pitched track — strings ensemble, choir,
+ * piano, 7-string guitar — is shown on a guitar neck.
  */
 export function resolveInstrument(song: Song, track: Track): Instrument {
   return resolveTrackInstrument(track, song.channels);
@@ -108,5 +120,9 @@ export function resolveTrackInstrument(track: Track, channels: readonly Channel[
   if (program !== undefined && isGmBassProgram(program)) {
     return 'bass';
   }
-  return isBassTuning(trackTuning(track)) ? 'bass' : 'guitar';
+  const tuning = trackTuning(track);
+  if (program === GM_BANJO_PROGRAM || isFiveStringBanjo(tuning)) {
+    return 'banjo';
+  }
+  return isBassTuning(tuning) ? 'bass' : 'guitar';
 }

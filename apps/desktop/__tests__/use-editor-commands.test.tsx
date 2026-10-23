@@ -16,6 +16,7 @@ interface Sources {
   readonly save: jest.Mock;
   readonly onZoom: jest.Mock;
   readonly onNotePanel: jest.Mock;
+  readonly onChordPanel: jest.Mock;
   readonly start: jest.Mock;
   readonly stop: jest.Mock;
   readonly closeOverlay: jest.Mock;
@@ -40,6 +41,7 @@ function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = f
     save: jest.fn(),
     onZoom: jest.fn(),
     onNotePanel: jest.fn(),
+    onChordPanel: jest.fn(),
     start: jest.fn(),
     stop: jest.fn(),
     closeOverlay: jest.fn(() => isOverlayOpen),
@@ -117,6 +119,13 @@ describe('useEditorCommands: note panels, playback tempo and the clipboard', () 
     const { commands, sources } = renderCommands(openSong());
     commands.runCommand({ type: 'openNotePanel', panel: 'bend' });
     expect(sources.onNotePanel).toHaveBeenCalledWith('bend');
+  });
+
+  it('opens the chord diagram panel with K', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.onKeyDown({ nativeEvent: { key: 'k', metaKey: false, shiftKey: false, altKey: false } } as never);
+    expect(sources.onChordPanel).toHaveBeenCalledTimes(1);
+    expect(sources.dispatch).not.toHaveBeenCalled();
   });
 
   it('steps the playback tempo of the cursor’s bar with ] and [', () => {

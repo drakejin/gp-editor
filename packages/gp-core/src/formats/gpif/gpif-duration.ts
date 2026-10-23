@@ -66,7 +66,7 @@ function nearest<T extends number>(candidates: readonly [T, ...T[]], value: numb
 
 const DEFAULT_STROKE_VALUE = 32;
 /** A brush of `ticks` ticks maps to the note value 1920 / ticks (60 ticks = 32, as GP5 speed 3 ↔ 32). */
-const STROKE_TICKS_TIMES_VALUE = 1920;
+export const STROKE_TICKS_TIMES_VALUE = 1920;
 
 /** Stroke speed (note value) for a brush duration in ticks (XProperty 687935489). */
 export function strokeValueFromTicks(brushTicks: number | undefined): number {

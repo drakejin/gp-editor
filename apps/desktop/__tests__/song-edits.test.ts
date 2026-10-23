@@ -145,6 +145,25 @@ describe('cursor edits in the reducer', () => {
     expect(edit(state, { type: 'edit', edit: { type: 'setStroke', direction: 'none' } })).toBe(state);
   });
 
+  it('sets the beat’s chord diagram, writes its notes when asked, and undoes each in one step', () => {
+    // Arrange
+    const start = loaded();
+    const chord = { name: 'Am', firstFret: 1, frets: [0, 1, 2, 2, 0, -1] };
+
+    // Act
+    const diagramOnly = edit(start, { type: 'edit', edit: { type: 'setBeatChord', chord } });
+    const withNotes = edit(start, { type: 'edit', edit: { type: 'setBeatChord', chord, withNotes: true } });
+    const removed = edit(diagramOnly, { type: 'edit', edit: { type: 'setBeatChord', chord: undefined } });
+
+    // Assert
+    expect(song(diagramOnly).tracks[0]!.measures[0]!.beats[0]).toMatchObject({ chord });
+    expect(voice(diagramOnly).notes).toEqual([note(1, 3)]);
+    expect(voice(withNotes).notes.map((n) => [n.string, n.fret])).toEqual([[1, 0], [2, 1], [3, 2], [4, 2], [5, 0]]);
+    expect(withNotes.past).toHaveLength(1);
+    expect(song(edit(withNotes, { type: 'undo' }))).toBe(song(start));
+    expect(song(removed).tracks[0]!.measures[0]!.beats[0]!.chord).toBeUndefined();
+  });
+
   it('shifts the key from the key of the track at the cursor, not the first track', () => {
     // Arrange: track 2 is in 2 sharps while track 1 stays in C
     const base = song(loaded());
