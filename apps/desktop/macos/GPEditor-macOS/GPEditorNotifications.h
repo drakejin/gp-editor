@@ -1,5 +1,5 @@
 // Notification names shared by AppDelegate.swift (posts them, via the bridging header), GPFiles.m (forwards them
-// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "printRequested" / "helpRequested" / "songWriterRequested" / "openRequested" / "fileOpened" /
+// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "exportPngRequested" / "printRequested" / "helpRequested" / "songWriterRequested" / "openRequested" / "fileOpened" /
 // "saveRequested" / "closeTabRequested" / "nextTabRequested" / "previousTabRequested" events) and GPQADriver.m.
 
 #import <Foundation/Foundation.h>
@@ -14,6 +14,9 @@ FOUNDATION_EXPORT NSString *const GPEditorImportPdfCommandNotification;
 
 /** File ▸ Export PDF… (⇧⌘E) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportCommandNotification;
+
+/** File ▸ Export PNG… was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportPngCommandNotification;
 
 /** File ▸ Export MIDI… was chosen (JS event "exportMidiRequested"). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportMidiCommandNotification;
@@ -32,6 +35,18 @@ FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;
+
+/** File ▸ Open Recent ▸ a file was chosen (RecentFilesMenu.swift → GPRecentFiles.m). Object: NSString path. */
+FOUNDATION_EXPORT NSString *const GPEditorOpenRecentCommandNotification;
+
+/** File ▸ Open Recent ▸ Clear Menu was chosen (the pinned files stay). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorClearRecentCommandNotification;
+
+/** File ▸ Recent Files… was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorRecentFilesCommandNotification;
+
+/** GPRecentFiles.m stored a new recent files list (GPRecentFilesDefaultsKey); File ▸ Open Recent reloads it. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorRecentFilesChangedNotification;
 
 /** Finder handed the app files (Open With, dock drop, `open -a`). Object: NSArray<NSURL *>. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenURLsNotification;

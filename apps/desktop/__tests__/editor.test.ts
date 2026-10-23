@@ -34,8 +34,8 @@ describe('editorReducer: loading and modes', () => {
   });
 
   it('names what could not be exported when it is not the PDF', () => {
-    const failed = editorReducer(loadedState(), { type: 'exportFailed', what: 'the MIDI file', message: 'disk full' });
-    expect(failed.error).toBe('Could not export the MIDI file: disk full');
+    const failed = editorReducer(loadedState(), { type: 'exportFailed', what: 'the PNG images', message: 'disk full' });
+    expect(failed.error).toBe('Could not export the PNG images: disk full');
   });
 
   it('starts a fresh history with the cursor on the first beat, keeping the score mode', () => {

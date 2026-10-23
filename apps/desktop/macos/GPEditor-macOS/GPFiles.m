@@ -12,11 +12,13 @@
 #import <os/log.h>
 
 #import "GPEditorNotifications.h"
+#import "GPRecentFiles.h"
 #import "GPSandbox.h"
 
 static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
 static NSString *const kExportRequestedEvent = @"exportRequested";
+static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
@@ -167,6 +169,7 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
     [center addObserver:self selector:@selector(onImportPdfCommand:) name:GPEditorImportPdfCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportCommand:) name:GPEditorExportCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportPngCommand:) name:GPEditorExportPngCommandNotification object:nil];
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
@@ -192,7 +195,7 @@ RCT_EXPORT_MODULE();
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
   ];
 }
 
@@ -227,6 +230,14 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportRequestedEvent body:@{}];
+  }
+}
+
+/** File ▸ Export PNG…. */
+- (void)onExportPngCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportPngRequestedEvent body:@{}];
   }
 }
 
@@ -398,7 +409,18 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
     }
     return nil;
   }
-  if (![data writeToFile:path options:NSDataWritingAtomic error:error]) {
+  // A file reopened from the recent files after a relaunch is writable only through its bookmark.
+  __block BOOL isWritten = NO;
+  __block NSError *writeError = nil;
+  GPWithRecentFileAccess(path, ^{
+    NSError *blockError = nil;
+    isWritten = [data writeToFile:path options:NSDataWritingAtomic error:&blockError];
+    writeError = blockError;
+  });
+  if (!isWritten) {
+    if (error != NULL) {
+      *error = writeError;
+    }
     return nil;
   }
   return @{@"name" : path.lastPathComponent, @"path" : path};

@@ -98,6 +98,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
   (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **Recent files**: File ▸ Open Recent lists the last 20 files opened or saved, newest first, and *Clear Menu* empties it;
+  File ▸ Recent Files… (and the start screen, for the first five) shows the same list with *Open*, *Pin* / *Unpin* and
+  *Remove* for each file. Pinned files stay on top, in the order they were pinned, and new files never push them out
+  (*Clear Menu* keeps them too). A file opens as File ▸ Open does — in a new tab, or its tab is shown when it is already
+  open —, also after a relaunch: the sandboxed app keeps a security-scoped bookmark of each file, which follows a file
+  that was moved or renamed; a file that is gone shows as *missing* until it is removed or found again.
 - **Tabs**: as in Guitar Pro 8, every document opens in a tab of its own — New, Open, a file from Finder or dropped on
   the window, a finished PDF import; opening a file that is already open shows its tab instead. A tab shows the song's
   title (else the file name), a • while edited and a × to close it; the shown tab is lit, and many tabs scroll
@@ -205,7 +211,14 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   staff), in black and grey on white even in dark mode: the title, subtitle, artist, album and credits with the
   track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
-  closer (and an extremely dense one is printed smaller) so nothing runs off the page.
+  closer (and an extremely dense one is printed smaller) so nothing runs off the page. The PDF is vector graphics (lines,
+  curves and the fonts' glyphs), sharp at any zoom or printer resolution, so it has no resolution setting.
+- **Export PNG**: File ▸ Export PNG… opens the same panel for images: the same pages (mode and paper as for the PDF) at
+  *72*, *150* or *300 dpi* (an A4 page is 595 × 842, 1240 × 1754 or 2479 × 3508 pixels, the dpi recorded in the file),
+  on a *White* or *Transparent* background (no paper: only the notation is drawn, and the tab lines still stop around
+  the fret numbers). One page is saved through a save panel as *name*.png; several pages go into a folder you choose as
+  *name*-1.png … *name*-N.png (numbers padded so they sort in order — the app may write only where you point it), and
+  the hint strip says what was saved where.
 - **Export MIDI**: File ▸ Export MIDI… saves the song as playback plays it as a Standard MIDI File (`.mid`): repeats
   unfolded, at the written tempo (not the practice speed), muted tracks left out and, when a track is solo, only the
   solo tracks.

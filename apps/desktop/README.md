@@ -15,6 +15,7 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/hooks/use-drag-selection.ts` + `src/score/hit-test.ts` (`hitTestDrag`) | selecting beats with the mouse: a press places the cursor (shift: grows the selection, `selectTo`), a drag selects to the beat under the pointer, into the rows above and below |
 | `src/components/TextField.tsx` | the app's text field: a TextInput whose keys stop there (only Esc goes on), since react-native-macos bubbles a field's key events to the root view's score keys; ESLint forbids a bare TextInput in `src/` |
 | `src/hooks/use-document.ts` | new sheets and opened files, each in a new tab (`openDocument` for a song no file holds yet, e.g. Song Writer's); save the shown tab or any tab (`saveTab`; ⌘S overwrites a file in its own format when it is one of `SAVE_FORMATS`, anything else and ⇧⌘S ask through the save panel's format popup; a GP4 / GP3 save puts what the format leaves out in the hint strip), the window title (the shown tab); a PDF dropped on the window goes to the import |
+| `src/lib/recent-files.ts` + `src/hooks/use-recent-files.ts` + `src/native/recent-files.ts` + `macos/…/GPRecentFiles.m` + `macos/…/RecentFilesMenu.swift` | recent files: every file opened or saved, at most 20, pinned ones on top in pin order and never pushed out, the others newest first, one entry per path (`rememberRecentFile`, `pinRecentFile`, …). `GPRecentFiles.m` keeps the list in user defaults with a security-scoped bookmark per file (the sandbox's permission from when it was opened), follows moved files, marks gone ones missing and reads a listed file through its bookmark (`useDocument.openRecent`; ⌘S on it writes through the bookmark too, `GPWithRecentFileAccess`). `RecentFilesMenu.swift` builds File ▸ Open Recent (Clear Menu keeps the pinned files) from that list and File ▸ Recent Files… opens `RecentFilesPanel`; the start screen lists the first five (`RecentFileList`) |
 | `src/lib/file-formats.ts` | `SAVE_FORMATS` — Save's formats (gp-core `WritableFormat`, popup label, extension, what it leaves out), GP5 first; a new gp-core writer is one more row — and the export files (`MIDI_FILE`, `ASCII_TAB_FILE`); `saveFormatOf(path)` (plain Save's rule), `defaultSaveFormat`, `fileNameIn` |
 | `src/hooks/use-song-export.ts` | File ▸ Export MIDI… (`renderMidi` as playback plays it: repeats unfolded, the written tempo, mute and solo honoured) and Export ASCII Tab… (`writeAsciiTab` of the fretted tracks); save panel, then `writeFile` / `writeTextFile`; a failure goes to the error banner |
 | `src/lib/` | `layout.ts` (measure widths, line breaking, `squeezeRow`), `navigation.ts` + `fret-input.ts` (cursor moves, typed frets), `beams.ts` + `notation.ts`, `live-channels.ts`, `practice-tempo.ts` + `practice-plan.ts`, `tuning-hint.ts`, `instruments.ts`, `pitch.ts`, `song-credits.ts`, `wording.ts` (`plural`), `errors.ts` (`errorMessage`), `base64.ts`, `file-name.ts`, `tab-strip.ts` (tab widths, keeping the shown tab in view), `score-scroll.ts` (whether a page just shown, at its top, already shows the cursor's row) |
@@ -30,8 +31,9 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `src/native/projects.ts` + `macos/…/GPProjects.m` | project folders in `~/Documents/GP Editor Projects` (the sandbox's one writable place in Documents), PDF pages via PDFKit, files inside a project only (no symbolic links); refuses PDFs over 60 pages or 100 MB and password-protected ones |
 | `src/native/anthropic.ts` + `macos/…/GPAnthropic.m` | the API key (owner-only file in the app's Application Support; never sent to JS), the model (user defaults), the Messages API call (10 min timeout) |
 | `src/export/` + `src/hooks/use-pdf-export.ts` + `src/components/ExportPanel.tsx` | PDF export: `paper.ts` (A4 / US Letter, margins, `PRINT_SCALE`, `PRINT_PALETTE` — black and grey on white), `title-block.ts` (first-page title, credits, track and tuning), `pdf-document.ts` (`buildPdfDocument`: rows engraved by `engraveRow` as on screen, scaled to print size and packed onto pages, a footer per page; `pdfPageCount`) |
+| `src/export/png-export.ts` + `src/native/png-export.ts` + `macos/…/GPPngExport.m` | PNG export (File ▸ Export PNG…, the export panel with a resolution — 72, 150 or 300 dpi — and a white or transparent background): the PDF export's pages, each drawn with `GPCommandPainter` into a bitmap (sRGB, the dpi recorded in the file) and saved as `<name>.png`, or `<name>-1.png` … `<name>-N.png` for several pages (padded to sort in page order) in a folder chosen in an open panel — the sandbox lets the app write only what the user chose, so not other files next to a saved one; existing files are replaced only after asking. On a transparent background the paper's colour erases (`eraseColor`), so the gaps in the tab lines behind fret numbers stay clear. The PDF itself is vector (Core Graphics into a PDF context, text as glyphs), so it has no resolution to choose |
 | `src/native/pdf-export.ts` + `macos/…/GPPdfExport.m` | `savePdf(document, name)`: save panel for a `.pdf`, then the pages (JSON of `PdfDocument`) drawn into a PDF context with `GPCommandPainter`; `printPdf(document)` (File ▸ Print…, ⌘P): the same pages through the macOS print panel (PDFKit, scaled to the printer's paper) |
-| `src/native/gp-files.ts` + `macos/…/GPFiles.m` | open and save panels, reading and writing files, files from Finder, File-menu events (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save As…, Close Tab, Next Tab, Previous Tab) and Help ▸ Keyboard Shortcuts (⌘H) — posted by `AppDelegate.swift`, names in `GPEditorNotifications.h` —, window title. `showSavePanel({ suggestedName, formats, formatId })` only picks where (and, with several formats, a *Format* popup in the panel: the extension follows it, the panel's message is the format's note); `writeFile` (base64 bytes) and `writeTextFile` (UTF-8) write. Export MIDI… and Export ASCII Tab… come as `exportMidiRequested` / `exportAsciiTabRequested` |
+| `src/native/gp-files.ts` + `macos/…/GPFiles.m` | open and save panels, reading and writing files, files from Finder, File-menu events (New, Import PDF…, Export PDF…, Export PNG…, Print…, Open…, Save, Save As…, Close Tab, Next Tab, Previous Tab) and Help ▸ Keyboard Shortcuts (⌘H) — posted by `AppDelegate.swift`, names in `GPEditorNotifications.h` —, window title. `showSavePanel({ suggestedName, formats, formatId })` only picks where (and, with several formats, a *Format* popup in the panel: the extension follows it, the panel's message is the format's note); `writeFile` (base64 bytes) and `writeTextFile` (UTF-8) write. Export MIDI… and Export ASCII Tab… come as `exportMidiRequested` / `exportAsciiTabRequested` |
 | `src/native/focus-view.ts` | makes a view first responder (key events) through the View's native commands |
 | `macos/…/GPSandbox.m` | `GPIsSandboxed()`: QA-only environment overrides are honoured only outside the App Sandbox |
 | `__tests__/` + `test-support/` | Jest tests; song builders, fixture loading and a test palette |
@@ -74,19 +76,23 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"key": "z", "modifiers": ["cmd", "shift", "alt", "ctrl"]}` — ArrowUp/Down/Left/Right, Backspace, Delete, Escape,
   Enter, Tab, else the character
 - `{"resize": {"width": 1100, "height": 760}}` · `{"appearance": "dark"}` (anything else is light)
+- `{"menu": ["File", "Open Recent"]}` logs the items of a menu-bar menu; `{"menu": ["File", "Open Recent", "Song.gp5"]}`
+  chooses the item, as a click in the menu does
 - `{"focusRoot": true}` makes the largest focusable view first responder · `{"inspect": true}` logs the responders
 - `{"snapshot": "/abs/out.png"}` · `{"quit": true}`
 
 Only the unsandboxed QA copy honours `GPEDITOR_ANTHROPIC_URL` (PDF-import requests to a mock on `http://127.0.0.1` or
-`http://localhost`), `GPEDITOR_QA_PDF_PATH` (the PDF export saves there without the save panel) and
-`GPEDITOR_QA_PRINT_PATH` (File ▸ Print… saves the print job there as a PDF, without the print panel) and
+`http://localhost`), `GPEDITOR_QA_PDF_PATH` (the PDF export saves there without the save panel),
+`GPEDITOR_QA_PRINT_PATH` (File ▸ Print… saves the print job there as a PDF, without the print panel),
 `GPEDITOR_QA_SAVE_PATH` (Save As, Export MIDI… and Export ASCII Tab… save there without the save panel, in the offered
-format with that path's extension).
+format with that path's extension) and `GPEDITOR_QA_PNG_DIR` (File ▸ Export PNG… writes its images into that folder,
+without panels). The QA copy has no sandbox, so the security-scoped bookmarks of the recent files are made and
+resolved but never needed there.
 
 ## Notes
 
 - `macos/.xcode.env.local` (git-ignored) pins `NODE_BINARY` for the Xcode bundle phase; point it at Node 24.
 - The app is sandboxed (`GPEditor.entitlements`: App Sandbox, user-selected read-write files, network client — Metro
-  in Debug, `api.anthropic.com` for the PDF import — and read-write `~/Documents/GP Editor Projects/` as a
-  home-relative temporary exception). Files reach it through the open and save panels, drag and drop, Finder, or that
-  projects folder. Release builds do not get `get-task-allow`.
+  in Debug, `api.anthropic.com` for the PDF import —, read-write `~/Documents/GP Editor Projects/` as a
+  home-relative temporary exception, and app-scoped security bookmarks for the recent files). Files reach it through
+  the open and save panels, drag and drop, Finder, the recent files, or that projects folder. Release builds do not get `get-task-allow`.
