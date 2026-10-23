@@ -10,7 +10,7 @@
 
 export const QUARTER_TIME = 960;
 
-export type FileFormat = 'gp1' | 'gp2' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7';
+export type FileFormat = 'gp1' | 'gp2' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'ptb' | 'tef';
 
 export interface SourceInfo {
   readonly format: FileFormat;

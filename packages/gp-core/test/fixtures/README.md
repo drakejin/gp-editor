@@ -19,3 +19,16 @@ and checked by MD5, from https://github.com/FabricioMatos/guitarmonics (GPL-2.0,
 `pretty-woman.gtp`) and https://github.com/YetAnotherMorty/Guitar-Pro-Tabs (no license stated, the other four).
 Without them the GP1/GP2 real-file tests are skipped; the synthetic files from `test/helpers/gtp-legacy-builder.ts`
 still cover every reader branch.
+
+`powertab` (Power Tab Editor 1.7, `.ptb`) and `tabledit` (TablEdit 3.04, `.tef`) are small test files made by two
+GPL-3.0 projects for their own importers, copied unchanged and used here only as test input (they are not part of the
+library); the license text is in `GPL-3.0.txt`:
+
+| folder | source | commit |
+| --- | --- | --- |
+| powertab | https://github.com/powertab/powertabeditor, `test/formats/powertab_old/data/` (GPL-3.0) | `8b23e9de96acdb19740bf9d7946e172760c78010` |
+| tabledit | https://github.com/musescore/MuseScore, `src/importexport/tabledit/tests/data/` (GPL-3.0) | `4676f83f368f1afc9cad6815eb5401a2ec8aca2b` |
+
+The `invalid_*.tef` files are broken on purpose (MuseScore's error tests); the sweep leaves them out and
+`tef.test.ts` checks how each is handled. `test/helpers/ptb-builder.ts` and `tef-builder.ts` write synthetic files that
+cover the reader branches these files do not reach.

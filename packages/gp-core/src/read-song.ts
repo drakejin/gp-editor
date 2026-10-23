@@ -8,6 +8,8 @@ import { readGp3 } from './formats/gtp/gp3';
 import { readGp4 } from './formats/gtp/gp4';
 import { readGp5 } from './formats/gtp/gp5';
 import { type ReadOptions, type ResolvedReadOptions, resolveReadOptions } from './formats/options';
+import { readPtb } from './formats/ptb/ptb';
+import { readTef } from './formats/tef/tef';
 import type { FileFormat, Song } from './model/song';
 
 type FormatReader = (bytes: Uint8Array, detected: DetectedFormat, options: ResolvedReadOptions) => Song;
@@ -20,10 +22,12 @@ const READERS: Readonly<Record<FileFormat, FormatReader>> = {
   gp5: readGp5,
   gpx: readGpx,
   gp7: readGp7,
+  ptb: readPtb,
+  tef: readTef,
 };
 
 /**
- * Read any Guitar Pro file (GP1–GP5 binary, GP6 .gpx, GP7/8 .gp).
+ * Read any Guitar Pro file (GP1–GP5 binary, GP6 .gpx, GP7/8 .gp), Power Tab (.ptb) or TablEdit (.tef) file.
  * The format is detected from the content, not the file name.
  *
  * @throws UnsupportedFormatError when the bytes are not a known Guitar Pro format

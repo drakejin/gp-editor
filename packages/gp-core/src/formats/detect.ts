@@ -1,5 +1,6 @@
 import { decodeWindows1252 } from '../io/text';
 import type { FileFormat } from '../model/song';
+import { readTefVersion } from './tef/tef-header';
 
 export interface DetectedFormat {
   readonly format: FileFormat;
@@ -30,6 +31,9 @@ export const GTP_VERSION_BLOCK = 30;
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04] as const;
 const BCFZ = 'BCFZ';
 const BCFS = 'BCFS';
+/** Power Tab (.ptb): "ptab" and a 16-bit version (PTFileFormatDetector). */
+const PTAB = 'ptab';
+const PTAB_HEADER_SIZE = 6;
 
 /**
  * Identify a Guitar Pro file from its first bytes. Returns undefined for anything
@@ -38,6 +42,8 @@ const BCFS = 'BCFS';
  * - `.gp` (Guitar Pro 7/8): a ZIP archive
  * - `.gpx` (Guitar Pro 6): a BCFZ (compressed) or BCFS container
  * - `.gtp/.gp3/.gp4/.gp5` (Guitar Pro 1–5): a length-prefixed version string
+ * - `.ptb` (Power Tab): "ptab" and a version number
+ * - `.tef` (TablEdit 3 and later): a 256-byte header TuxGuitar's TEFileFormatDetector checks
  */
 export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   if (startsWith(bytes, ZIP_MAGIC)) {
@@ -46,6 +52,13 @@ export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   const magic = decodeWindows1252(bytes.subarray(0, 4));
   if (magic === BCFZ || magic === BCFS) {
     return { format: 'gpx', version: magic };
+  }
+  if (magic === PTAB && bytes.length >= PTAB_HEADER_SIZE) {
+    return { format: 'ptb', version: String((bytes[4] ?? 0) | ((bytes[5] ?? 0) << 8)) };
+  }
+  const tefVersion = readTefVersion(bytes);
+  if (tefVersion !== undefined) {
+    return { format: 'tef', version: tefVersion };
   }
   const version = readGtpVersion(bytes);
   const format = version === undefined ? undefined : GTP_VERSIONS.get(version);
