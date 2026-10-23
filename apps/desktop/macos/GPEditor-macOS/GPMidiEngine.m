@@ -2,6 +2,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 
+#import "GPAudioTrackPlayer.h"
 #import "GPLineIn.h"
 #import "GPMixGraph.h"
 #import "GPTrackInstruments.h"
@@ -15,6 +16,9 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   GPMixGraph *_graph;
   GPTrackInstruments *_instruments;
   GPLineIn *_lineIn;
+  /** The audio track (Guitar Pro's backing track) and what the playing song plays of it; nil without one. */
+  GPAudioTrackPlayer *_audioTrack;
+  NSDictionary *_audioPlayback;
   /** The latest mix, applied to every engine built. */
   NSDictionary *_mix;
   AVAudioSequencer *_sequencer;
@@ -40,6 +44,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   _graph = [[GPMixGraph alloc] initWithEngine:_engine];
   _instruments = [[GPTrackInstruments alloc] initWithEngine:_engine graph:_graph];
   _lineIn = [[GPLineIn alloc] initWithEngine:_engine graph:_graph];
+  _audioTrack = [[GPAudioTrackPlayer alloc] initWithEngine:_engine graph:_graph queue:_queue];
   [_graph applyMix:_mix];
 }
 
@@ -48,14 +53,25 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   return _engine.isRunning || [_engine startAndReturnError:error];
 }
 
-- (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
+- (BOOL)playData:(NSData *)midi
+     fromSeconds:(NSTimeInterval)seconds
+         bankURL:(nullable NSURL *)bankURL
+           audio:(nullable NSDictionary *)audio
+           error:(NSError **)error
 {
   [self stopSequencer];
   _generation += 1;
   if (_engine == nil) {
     [self buildEngine];
   }
-  if (![_instruments prepareBank:bankURL error:error] || ![self startEngine:error]) {
+  if (![_instruments prepareBank:bankURL error:error]) {
+    return NO;
+  }
+  // The audio track's nodes are connected before the sequencer starts (a new connection would stop it).
+  if (audio != nil && ![_audioTrack prepare:audio fromSeconds:seconds error:error]) {
+    return NO;
+  }
+  if (![self startEngine:error]) {
     return NO;
   }
   AVAudioSequencer *sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:_engine];
@@ -74,13 +90,39 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   }
   _sequencer = sequencer;
   _length = length;
+  if (audio != nil) {
+    _audioPlayback = audio;
+    [_audioTrack startAtHostTime:[self hostTimeAtSeconds:seconds]];
+  }
   return YES;
+}
+
+/** The host time the playing sequencer is at `seconds` of the song (now, when it cannot say). */
+- (uint64_t)hostTimeAtSeconds:(NSTimeInterval)seconds
+{
+  uint64_t hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds)] error:nil];
+  return hostTime == 0 ? mach_absolute_time() : hostTime;
+}
+
+/** After the sequencer started again at `seconds` (a rewire, the line in): the audio track from there too. */
+- (void)resumeAudioAt:(NSTimeInterval)seconds
+{
+  if (_audioPlayback != nil && [_audioTrack prepare:_audioPlayback fromSeconds:seconds error:nil]) {
+    [_audioTrack startAtHostTime:[self hostTimeAtSeconds:seconds]];
+  }
+}
+
+- (void)setAudioTrackGain:(double)gain detuneCents:(double)detuneCents
+{
+  [_audioTrack setGain:gain detuneCents:detuneCents];
 }
 
 - (void)stopSequencer
 {
   [_sequencer stop];
   _sequencer = nil;
+  [_audioTrack stop];
+  _audioPlayback = nil;
   // Notes still ringing when the song stops would otherwise sound on: all notes off, every instrument.
   [_instruments silence];
 }
@@ -115,6 +157,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   _graph = nil;
   _instruments = nil;
   _lineIn = nil;
+  _audioTrack = nil;
   _hasOpenedInput = NO;
 }
 
@@ -129,6 +172,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   _sequencer.currentPositionInSeconds = position;
   [_sequencer prepareToPlay];
   [_sequencer startAndReturnError:nil];
+  [self resumeAudioAt:position];
 }
 
 - (NSTimeInterval)positionSeconds
@@ -192,6 +236,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
     _sequencer.currentPositionInSeconds = position;
     [_sequencer prepareToPlay];
     [_sequencer startAndReturnError:nil];
+    [self resumeAudioAt:position];
   }
   if (isConnected && !isRunning) {
     [_lineIn disconnect];

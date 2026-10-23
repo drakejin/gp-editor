@@ -29,7 +29,7 @@ export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
     id: 'gp',
     label: 'Guitar Pro 7/8 (.gp)',
     extension: 'gp',
-    note: 'Guitar Pro 7/8 keeps what the editor edits; Guitar Pro’s own sound settings (RSE), stylesheet and audio tracks are not kept.',
+    note: 'Guitar Pro 7/8 keeps what the editor edits and the audio track; Guitar Pro’s own sound settings (RSE) and stylesheet are not kept.',
   },
   {
     id: 'gp4',
@@ -83,10 +83,12 @@ function hasEffects(song: Song): boolean {
   return song.tracks.some((track) => (track.effects?.length ?? 0) > 0) || (song.master !== undefined && !isDefaultMaster(song.master));
 }
 
-/** What the hint strip says when `song` is saved in `format`: its note, and the effects it leaves out. */
+/** What the hint strip says when `song` is saved in `format`: its note, and the effects and audio track it leaves out. */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
-  const effects = format.id !== 'gp' && hasEffects(song) ? `${format.label.replace(/ \(.*\)$/, '')} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
-  const parts = [format.note, effects].filter((part): part is string => part !== undefined);
+  const name = format.label.replace(/ \(.*\)$/, '');
+  const effects = format.id !== 'gp' && hasEffects(song) ? `${name} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
+  const audio = format.id !== 'gp' && song.audioTrack !== undefined ? `${name} keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.` : undefined;
+  const parts = [format.note, effects, audio].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 

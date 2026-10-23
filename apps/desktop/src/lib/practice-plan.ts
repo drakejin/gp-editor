@@ -1,4 +1,4 @@
-import { type MidiOptions, QUARTER_TIME, type Song, type TimelineEntry, timelineIndexAt } from '@gp-editor/core';
+import { type MidiOptions, QUARTER_TIME, type Song, type TimelineEntry, entrySecondsAt, timelineIndexAt } from '@gp-editor/core';
 import { type LoopRange, type PracticeSettings, resolveLoopRange } from '../state/practice';
 import { resolveTrainerMaxTempo, trainerPassTempo } from './practice-tempo';
 
@@ -45,6 +45,15 @@ export function passesPerBatch(range: LoopRange): number {
   return Math.max(1, Math.min(LOOP_BATCH_PASSES, Math.floor(LOOP_BATCH_MEASURES / length)));
 }
 
+/**
+ * With an audio track, the passes of a render share one tempo: its time-pitch unit changes rate only roughly in time
+ * (GPAudioTrackPlayer), so while the speed trainer raises the tempo each pass renders on its own.
+ */
+function sameTempoPasses(passTempos: readonly number[]): readonly number[] {
+  const changeIndex = passTempos.findIndex((tempo) => tempo !== passTempos[0]);
+  return changeIndex < 0 ? passTempos : passTempos.slice(0, changeIndex);
+}
+
 /** A batch of loop passes; undefined when the loop's first bar is missing (a song without bars). */
 function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan | undefined {
   const range = resolveLoopRange(practice.loop, song.measureHeaders.length, request.measureIndex);
@@ -55,9 +64,10 @@ function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest):
   const startTempo = writtenTempo * practice.tempoScale;
   const maxTempo = resolveTrainerMaxTempo(practice.trainerMaxTempo, writtenTempo, practice.tempoScale);
   const firstPassIndex = request.firstPassIndex ?? 0;
-  const passTempos = Array.from({ length: passesPerBatch(range) }, (_, offset) =>
+  const batch = Array.from({ length: passesPerBatch(range) }, (_, offset) =>
     trainerPassTempo(startTempo, practice.trainerStep, maxTempo, firstPassIndex + offset),
   );
+  const passTempos = song.audioTrack === undefined ? batch : sameTempoPasses(batch);
   const { measureIndex } = request;
   const isInside =
     measureIndex !== undefined && measureIndex >= range.fromMeasureIndex && measureIndex <= range.toMeasureIndex;
@@ -102,6 +112,10 @@ export function startSeconds(timeline: readonly TimelineEntry[], measureIndex: n
     return 0;
   }
   const offsetTicks = tick === undefined ? 0 : Math.max(0, Math.min(tick, entry.endTick ?? tick) - entry.tick);
+  // A bar following the audio track may change tempo inside (at a sync point).
+  if (entry.tempoChanges !== undefined) {
+    return entrySecondsAt(entry, entry.tick + offsetTicks);
+  }
   return entry.seconds + (offsetTicks / QUARTER_TIME) * (60 / entry.tempo);
 }
 

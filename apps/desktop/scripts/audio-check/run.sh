@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Audio check: renders songs offline through the playback engine's effects (GPMixRenderer, manual rendering mode) and
 # measures what each effect changes; also checks that a mix without effects renders as playback did before effects,
-# and prints how fast many-track songs render. The songs' MIDI comes from gp-core's renderMidi, run in Hermes.
+# the audio track (time-pitch at half speed, detune, gain, the runs' sync), and prints how fast many-track songs render. The songs' MIDI comes from gp-core's renderMidi, run in Hermes.
 # Usage: scripts/audio-check/run.sh   (from apps/desktop; needs npm run pods and npm run soundfont first)
 set -euo pipefail
 
@@ -44,5 +44,6 @@ for (const [name, base64] of Object.entries(JSON.parse(fs.readFileSync(json, "ut
 clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" \
     "${SRC}/GPConvolver.m" "${SRC}/GPCabinetImpulses.m" "${SRC}/GPDSPKernels.m" "${SRC}/GPDSPUnit.m" \
     "${SRC}/GPEffectNodes.m" "${SRC}/GPMixGraph.m" "${SRC}/GPTrackInstruments.m" "${SRC}/GPMixRenderer.m" \
-    "${HERE}/audio-measures.m" "${HERE}/audio-check.m" -o "${OUT}/audio-check"
+    "${SRC}/GPAudioAssets.m" "${SRC}/GPAudioTrackPlayer.m" \
+    "${HERE}/audio-measures.m" "${HERE}/audio-track-check.m" "${HERE}/audio-check.m" -o "${OUT}/audio-check"
 "${OUT}/audio-check" "$BANK" "${OUT}/song.mid" "${OUT}/twelve.mid" "${OUT}/bends.mid"

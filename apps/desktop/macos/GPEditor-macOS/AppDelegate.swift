@@ -128,6 +128,12 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("p", modifiers: [.command, .shift])
       }
+      // Track ▸ Add Audio Track…: a recording played in sync with the score (GPAudioTrack.m forwards it).
+      CommandMenu("Track") {
+        Button("Add Audio Track…") {
+          NotificationCenter.default.post(name: .GPEditorAddAudioTrackCommand, object: nil)
+        }
+      }
       // View ▸ Mixer: the tracks' effects and the master strip (GPPlayer.m forwards it).
       CommandGroup(after: .toolbar) {
         Button("Mixer") {

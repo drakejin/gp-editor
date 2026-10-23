@@ -1,5 +1,6 @@
 // MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) on GPMidiEngine with the
-// selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added). JS polls
+// selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added), and the song's
+// audio track under it (GPAudioTrackPlayer). JS polls
 // -position to follow the playing beat, and changes a channel's program live when a track's instrument changes.
 // The song's effects (setMix) and the line in (Tools ▸ Line In) live on the same engine. View ▸ Mixer and
 // Tools ▸ Line In… (GPEditorNotifications.h) are forwarded to JS as "mixerRequested" / "lineInRequested".
@@ -93,7 +94,8 @@ RCT_EXPORT_MODULE();
   return _engine;
 }
 
-RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+/** Plays the MIDI file from `seconds`, with the audio track's runs under it (`audio`, GPAudioTrackPlayer.h; null: none). */
+RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds audio : (nullable NSDictionary *)audio resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
   if (data == nil) {
@@ -102,7 +104,8 @@ RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds resolv
     return;
   }
   NSError *error = nil;
-  if (![self.engine playData:data fromSeconds:seconds bankURL:[GPSoundBanks selectedBankURL] error:&error]) {
+  NSDictionary *audioTrack = [audio isKindOfClass:[NSDictionary class]] ? audio : nil;
+  if (![self.engine playData:data fromSeconds:seconds bankURL:[GPSoundBanks selectedBankURL] audio:audioTrack error:&error]) {
     reject(@"player_failed", error.localizedDescription ?: @"Could not play the song", error);
     return;
   }
@@ -126,6 +129,15 @@ RCT_EXPORT_METHOD(setProgram : (double)channel program : (double)program resolve
 RCT_EXPORT_METHOD(setController : (double)channel controller : (double)controller value : (double)value resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   [_engine setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel];
+  resolve(nil);
+}
+
+/** The playing audio track's volume (`gain`, 0–1) and detune (`detuneCents`), heard at once. */
+RCT_EXPORT_METHOD(setAudioTrackMix : (NSDictionary *)mix resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  double gain = [mix[@"gain"] isKindOfClass:[NSNumber class]] ? [mix[@"gain"] doubleValue] : 1;
+  double detune = [mix[@"detuneCents"] isKindOfClass:[NSNumber class]] ? [mix[@"detuneCents"] doubleValue] : 0;
+  [_engine setAudioTrackGain:gain detuneCents:detune];
   resolve(nil);
 }
 

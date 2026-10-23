@@ -1,4 +1,4 @@
-import { DEFAULT_MASTER, buildEffect, readSong, setMasterMix, setTrackEffects, writeSong } from '@gp-editor/core';
+import { DEFAULT_MASTER, buildAudioTrack, buildEffect, readSong, setMasterMix, setTrackEffects, writeSong } from '@gp-editor/core';
 import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
@@ -22,7 +22,7 @@ describe('SAVE_FORMATS', () => {
 
     // Assert
     expect(notes[0]).toBeUndefined();
-    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits.*audio tracks are not kept/);
+    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits and the audio track.*RSE.*not kept/);
     expect(notes[2]).toMatch(/^Guitar Pro 4 keeps one voice per bar/);
     expect(notes[3]).toMatch(/^Guitar Pro 3 keeps one voice per bar.*no lyrics/);
   });
@@ -94,5 +94,15 @@ describe('saveHint', () => {
     expect(saveHint(format('gp'), withEffects)).toBe(format('gp').note);
     expect(saveHint(format('gp5'), withEffects)).toBe('Guitar Pro 5 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.');
     expect(saveHint(format('gp4'), withMaster)).toBe(`${format('gp4').note} Guitar Pro 4 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.`);
+  });
+
+  it('says that GP5, GP4 and GP3 leave the audio track out', () => {
+    // Arrange
+    const withAudio = { ...song, audioTrack: buildAudioTrack({ assetId: 'take' }) };
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), withAudio)).toBe('Guitar Pro 5 keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.');
+    expect(saveHint(format('gp3'), withAudio)).toContain('Guitar Pro 3 keeps no audio track');
+    expect(saveHint(format('gp'), withAudio)).toBe(format('gp').note);
   });
 });

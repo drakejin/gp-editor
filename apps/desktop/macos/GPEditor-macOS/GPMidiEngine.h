@@ -19,8 +19,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithQueue:(dispatch_queue_t)queue NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
-/** Loads the MIDI file and plays it from `seconds` with the bank at `bankURL` (nil: the synth's built-in bank). */
-- (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error;
+/**
+ * Loads the MIDI file and plays it from `seconds` with the bank at `bankURL` (nil: the synth's built-in bank), and the
+ * audio track's runs under it when `audio` is given (GPAudioTrackPlayer's playback dictionary; nil: no audio track).
+ */
+- (BOOL)playData:(NSData *)midi
+     fromSeconds:(NSTimeInterval)seconds
+         bankURL:(nullable NSURL *)bankURL
+           audio:(nullable NSDictionary *)audio
+           error:(NSError **)error;
+
+/** The playing audio track's volume (gain 0–1) and detune (cents), heard at once. */
+- (void)setAudioTrackGain:(double)gain detuneCents:(double)detuneCents;
 
 /** Stops the song; the engine and the loaded bank stay ready for the next one, for a minute. */
 - (void)stop;

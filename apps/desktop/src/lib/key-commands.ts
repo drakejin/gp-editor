@@ -21,6 +21,8 @@ export type KeyCommand =
   | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
   /** K: the chord diagram panel for the beat at the cursor. */
   | { readonly type: 'openChordPanel' }
+  /** Y: while the audio track plays, the cursor's bar starts at the moment heard now (a sync point). */
+  | { readonly type: 'markSyncPoint' }
   | { readonly type: 'copy' }
   | { readonly type: 'cut' }
   | { readonly type: 'paste' };
@@ -67,7 +69,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
   { key: 'Backspace', shiftKey: true },
-  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k'].map((key) => ({ key })),
+  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k', 'y'].map((key) => ({ key })),
 ];
 
 /**
@@ -95,6 +97,7 @@ const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
 const PANEL_KEYS: Readonly<Record<string, NotePanel>> = { b: 'vibrato', c: 'bend' };
 /** Guitar Pro's chord diagram key is A, taken here by the accent. */
 const CHORD_PANEL_KEY = 'k';
+const SYNC_POINT_KEY = 'y';
 
 const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
 
@@ -158,6 +161,9 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   }
   if (press.key.toLowerCase() === CHORD_PANEL_KEY) {
     return { type: 'openChordPanel' };
+  }
+  if (press.key.toLowerCase() === SYNC_POINT_KEY) {
+    return { type: 'markSyncPoint' };
   }
   if (press.altKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
     return { type: 'shiftNoteString', delta: press.key === 'ArrowUp' ? -1 : 1 };

@@ -20,6 +20,8 @@ import { ScoreView } from './components/ScoreView';
 import { SongHeader } from './components/SongHeader';
 import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
+import { AudioTrackLane } from './components/audio-track/AudioTrackLane';
+import { useAudioTrack } from './hooks/use-audio-track';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
 import { SaveChangesPanel } from './components/SaveChangesPanel';
@@ -202,6 +204,8 @@ export default function App() {
       closeChordPanel();
     }
   }, [hasCursor, closeChordPanel]);
+  // The audio track's lane, Track ▸ Add Audio Track… and Y (the cursor's bar starts at this moment of the recording).
+  const audioLane = useAudioTrack({ song, cursor, dispatch, audioSecondsNow: playback.audioSecondsNow });
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -215,6 +219,7 @@ export default function App() {
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: openNotePanel,
     onChordPanel: openChordPanel,
+    onMarkSyncPoint: audioLane.markSyncPoint,
     closeOverlay,
     isOverlayOpen,
     clipboard,
@@ -349,6 +354,7 @@ export default function App() {
     openLineIn: audio.lineIn.open,
     openLyrics: () => openLyrics.current(),
     pickInstrument: () => chrome.pickInstrument(trackIndex),
+    addAudioTrack: audioLane.addAudioTrack,
     togglePanel: chrome.togglePanel,
     toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
   };
@@ -547,7 +553,19 @@ export default function App() {
                   playingMeasureIndex={playback.playing?.measureIndex}
                   palette={palette}
                   onEditInstrument={chrome.pickInstrument}
+                  onAddAudioTrack={document.song.audioTrack === undefined ? audioLane.addAudioTrack : undefined}
                   {...trackCommands}
+                />
+              ) : null}
+              {chrome.panels.tracks && document.song.audioTrack !== undefined ? (
+                <AudioTrackLane
+                  song={document.song}
+                  audioTrack={document.song.audioTrack}
+                  lane={audioLane}
+                  cursorMeasureIndex={cursor?.measureIndex}
+                  playingSeconds={playback.audioSeconds}
+                  palette={palette}
+                  onSelectBar={(measureIndex) => trackCommands.onSelectBar(trackIndex, measureIndex)}
                 />
               ) : null}
               {chrome.panels.mixer ? (
@@ -557,6 +575,7 @@ export default function App() {
                   selectedTrackIndex={trackIndex}
                   onSelectTrack={trackCommands.onSelectTrack}
                   {...effectCommands}
+                  onSetAudioTrackMix={audioLane.setMix}
                   onPreview={audio.previewMix}
                   onClose={() => chrome.togglePanel('mixer')}
                 />

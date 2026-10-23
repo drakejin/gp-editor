@@ -257,4 +257,17 @@ describe('TracksPanel bar map', () => {
     // Assert
     expect(scrollTo).toHaveBeenCalledWith({ x: scrollOffsetToShowBar(20, 0, 150), animated: false });
   });
+
+  it('offers Guitar Pro’s audio track button while the song has no audio track', () => {
+    // Arrange
+    const onAddAudioTrack = jest.fn();
+    const panel = render({ onAddAudioTrack });
+
+    // Act
+    panel.press('Add an audio track');
+
+    // Assert
+    expect(onAddAudioTrack).toHaveBeenCalledTimes(1);
+    expect(render().texts()).not.toContain('+ Audio Track');
+  });
 });

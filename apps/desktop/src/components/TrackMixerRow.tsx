@@ -187,6 +187,8 @@ export function PanelIconButton(props: PanelIconButtonProps) {
 
 interface TrackTableBandProps {
   readonly palette: Palette;
+  /** Guitar Pro's "Audio track" button (the song has none yet). */
+  readonly onAddAudioTrack?: () => void;
 }
 
 /** "Tracks" over the table, with the mixer columns named, as tall as the bar numbers beside it. */
@@ -202,11 +204,22 @@ export function TrackTableHeader({ palette }: TrackTableBandProps) {
   );
 }
 
-/** Beside the sections row of the bar map. */
-export function TrackTableFooter({ palette }: TrackTableBandProps) {
+/** Beside the sections row of the bar map; "+ Audio Track" while the song has none. */
+export function TrackTableFooter({ palette, onAddAudioTrack }: TrackTableBandProps) {
   return (
     <View style={[styles.band, { height: BAR_MAP.sectionsHeight, backgroundColor: palette.chromeDeep }]}>
-      <Text style={[styles.caption, { color: palette.chromeMuted }]}>Sections</Text>
+      <Text style={[styles.caption, styles.sections, { color: palette.chromeMuted }]}>Sections</Text>
+      {onAddAudioTrack === undefined ? null : (
+        <Pressable
+          testID="tracks-panel-add-audio-track"
+          onPress={onAddAudioTrack}
+          tooltip="Add a recording that plays in sync with the score (Track ▸ Add Audio Track…)"
+          accessibilityRole="button"
+          accessibilityLabel="Add an audio track"
+        >
+          <Text style={[styles.caption, { color: palette.chromeText }]}>+ Audio Track</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -222,6 +235,7 @@ const styles = StyleSheet.create({
   band: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: TRACK_TABLE.padding },
   title: { flex: 1, fontSize: 11, fontWeight: '700' },
   caption: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  sections: { flex: 1, textAlign: 'left' },
   name: { flex: 1, height: BAR_MAP.rowHeight, justifyContent: 'center', marginLeft: 6, marginRight: 4 },
   nameText: { fontSize: 12 },
   selectedName: { fontWeight: '700' },

@@ -1,6 +1,6 @@
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import { DEFAULT_MASTER, type Effect, type MasterMix, buildEffect, setTrackEffects } from '@gp-editor/core';
+import { type AudioTrackMix, DEFAULT_MASTER, type Effect, type MasterMix, buildAudioTrack, buildEffect, setTrackEffects } from '@gp-editor/core';
 import { MixerPanel } from '../src/components/effects/MixerPanel';
 import type { MixPreview } from '../src/lib/mix';
 import { PALETTE } from '../test-support/score-helpers';
@@ -78,5 +78,34 @@ describe('MixerPanel', () => {
     // Assert
     const preview = mixer.onPreview.mock.calls[0]?.[0];
     expect(preview !== undefined && 'trackIndex' in preview ? [preview.trackIndex, preview.effects[0]?.params.gain] : undefined).toEqual([0, 0]);
+  });
+
+  it('shows the audio track’s strip with its volume, mute, solo and detune', () => {
+    // Arrange
+    const onSetAudioTrackMix = jest.fn<void, [AudioTrackMix]>();
+    const withAudio = { ...song, audioTrack: buildAudioTrack({ assetId: 'take', solo: true }) };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <MixerPanel palette={PALETTE} song={withAudio} selectedTrackIndex={0} onSelectTrack={jest.fn()} onSetTrackEffects={jest.fn()} onSetMasterMix={jest.fn()} onPreview={jest.fn()} onClose={jest.fn()} onSetAudioTrackMix={onSetAudioTrackMix} />,
+      );
+    });
+    const press = (label: string) => ReactTestRenderer.act(() => renderer.root.find((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function').props.onPress());
+
+    // Act
+    press('Solo the audio track');
+    press('Detune a semitone up');
+
+    // Assert
+    expect(renderer.root.findAllByProps({ testID: 'mixer-audio-strip' }).length).toBeGreaterThan(0);
+    expect(onSetAudioTrackMix.mock.calls).toEqual([[{ solo: false }], [{ detuneCents: 100 }]]);
+  });
+
+  it('has no audio strip without an audio track', () => {
+    // Arrange / Act
+    const mixer = render();
+
+    // Assert
+    expect(mixer.renderer.root.findAllByProps({ testID: 'mixer-audio-strip' })).toHaveLength(0);
   });
 });

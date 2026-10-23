@@ -29,3 +29,4 @@ NSString *const GPEditorNextTabCommandNotification = @"GPEditorNextTabCommand";
 NSString *const GPEditorPreviousTabCommandNotification = @"GPEditorPreviousTabCommand";
 NSString *const GPEditorMixerCommandNotification = @"GPEditorMixerCommand";
 NSString *const GPEditorLineInCommandNotification = @"GPEditorLineInCommand";
+NSString *const GPEditorAddAudioTrackCommandNotification = @"GPEditorAddAudioTrackCommand";

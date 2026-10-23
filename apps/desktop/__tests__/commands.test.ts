@@ -43,6 +43,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     openLineIn: jest.fn(),
     openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
+    addAudioTrack: jest.fn(),
     togglePanel: jest.fn(),
     toggleLoop: jest.fn(),
   };
@@ -205,5 +206,22 @@ describe('command registry: running', () => {
     find('view.mode.tab').run(actions);
     find('palette.value8').run(actions);
     expect(actions.runCommand.mock.calls).toEqual([[{ type: 'exportPdf' }], [{ type: 'setMode', mode: 'tab' }], [{ type: 'edit', edit: { type: 'setNoteValue', value: 8 } }]]);
+  });
+
+  it('adds and removes the audio track, syncs the cursor’s bar with Y and sets the tempo from the sync points', () => {
+    // Arrange
+    const actions = mockActions();
+
+    // Act
+    find('track.addAudioTrack').run(actions);
+    find('track.removeAudioTrack').run(actions);
+    find('track.syncBar').run(actions);
+    find('track.tempoFromAudio').run(actions);
+
+    // Assert
+    expect(actions.addAudioTrack).toHaveBeenCalledTimes(1);
+    expect(actions.runCommand.mock.calls).toEqual([[{ type: 'setAudioTrack', audioTrack: undefined }], [{ type: 'markSyncPoint' }], [{ type: 'setTempoFromAudio' }]]);
+    expect(find('track.syncBar').shortcut).toBe('Y');
+    expect(find('track.addAudioTrack').isEnabled(NO_DOCUMENT)).toBe(false);
   });
 });
