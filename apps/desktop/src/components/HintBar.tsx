@@ -10,7 +10,7 @@ interface HintBarProps {
   readonly onDismiss: () => void;
 }
 
-/** Why the last edit did nothing, under the document tab; a click dismisses it. */
+/** Why the last edit did nothing, under the tab strip; a click dismisses it. */
 export function HintBar({ palette, message, onDismiss }: HintBarProps) {
   return (
     <Pressable onPress={onDismiss} tooltip="Dismiss" accessibilityRole="alert" style={[styles.bar, { borderColor: palette.chromeBorder }]}>

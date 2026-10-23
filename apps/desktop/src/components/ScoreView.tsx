@@ -2,6 +2,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } 
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View, type ViewToken } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
+import { type PageTop, isRowOnFirstScreen } from '../lib/score-scroll';
 import { hasDynamicChanges } from '../score/dynamics';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
@@ -44,6 +45,7 @@ const SCROLL_POSITION = 0.25;
  */
 export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, palette, zoom, header, onPressBeat }: ScoreViewProps) {
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
   const listRef = useRef<FlatList<RowLayout>>(null);
   const track = song.tracks[trackIndex];
@@ -64,7 +66,14 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
   const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);
   const rows = useMemo(() => (rowWidth > 0 ? layoutRows(measures, rowWidth - headerWidth) : []), [measures, rowWidth, headerWidth]);
   const rowHeight = geometry.height * zoom;
-  const onLayout = useCallback((event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width), []);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    setWidth(event.nativeEvent.layout.width);
+    setHeight(event.nativeEvent.layout.height);
+  }, []);
+  // Read by the cursor's scroll below without making it run again on every layout change.
+  const page: PageTop = { headerHeight, rowHeight, topMargin: DESK_MARGIN, viewportHeight: height };
+  const pageTop = useRef(page);
+  pageTop.current = page;
 
   const rowOf = (measureIndex: number | undefined) =>
     measureIndex === undefined ? -1 : rows.findIndex((row) => row.measures.some((m) => m.measureIndex === measureIndex));
@@ -81,7 +90,9 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
     }
   }, [playingRow]);
   useEffect(() => {
-    if (cursorRow >= 0 && playingRow < 0 && !visibleRows.current.has(cursorRow)) {
+    // Until the list says which rows it shows, the page is at the top (a file just opened, another tab).
+    const isInView = visibleRows.current.size > 0 ? visibleRows.current.has(cursorRow) : isRowOnFirstScreen(cursorRow, pageTop.current);
+    if (cursorRow >= 0 && playingRow < 0 && !isInView) {
       listRef.current?.scrollToIndex({ index: cursorRow, viewPosition: SCROLL_POSITION, animated: false });
     }
   }, [cursorRow, playingRow]);

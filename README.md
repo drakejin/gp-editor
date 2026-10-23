@@ -87,8 +87,8 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **Window** (Guitar Pro 8's layout): the **top bar** — the panel toggles (palette, tracks, inspector); zoom (50–200%, ⌘- / ⌘=); undo and redo; the transport (first, previous, play/stop,
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
-  piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Save, Import PDF, Export PDF,
-  Print — are in the macOS menu bar's **File** menu. Under it the document tab, then: the **edition palette** on the left, the **score** as a page on a
+  piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
+  Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
   grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
@@ -98,6 +98,15 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
   (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **Tabs**: as in Guitar Pro 8, every document opens in a tab of its own — New, Open, a file from Finder or dropped on
+  the window, a finished PDF import; opening a file that is already open shows its tab instead. A tab shows the song's
+  title (else the file name), a • while edited and a × to close it; the shown tab is lit, and many tabs scroll
+  sideways. Click a tab, or File ▸ Next Tab (⌃⇥) / Previous Tab (⌃⇧⇥), to switch: each tab keeps its own song, undo
+  history, cursor, selection, view and track, and switching stops playback. Save, Export PDF, Print, the clipboard, the
+  palette, the inspector and the tracks panel act on the shown tab; zoom and the panels are the same for every tab.
+  File ▸ Close Tab (⌘W) or the × closes a tab; an edited one asks first — *Save changes to “…”?* *Save* saves and
+  then closes it (cancelling the save panel keeps it open), *Don't Save* closes it, *Cancel* (or Esc) keeps it.
+  Closing the last tab shows the start screen again.
 - **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I) or the start screen. Claude (Anthropic API,
   your own key) reads the sheet music page by page — tab staves as string/fret, standard notation as pitches placed on
   the tuning's strings — and the app builds a Guitar Pro 5 song from it and opens it. Every import is a project folder
@@ -132,7 +141,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings.
 - **Edit** at the cursor (keys, or the edition palette — each button's tooltip names its key; a lit button is what
-  the cursor's note, beat or bar has; an edit that cannot apply says why in a strip under the document tab):
+  the cursor's note, beat or bar has; an edit that cannot apply says why in a strip under the tab strip):
   - frets: 0–9 (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret down/up,
     ⌥↑/⌥↓ move the note to the neighbouring string
   - erase: ⌫ or ⌦ turns the note into a rest; on a rest it removes the rest (the beats after it move up and the bar
@@ -166,9 +175,10 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     bar lines: a note that runs over a bar line becomes tied notes, and bars are added at the end when needed. Cut and
     paste are one undo step each; drum beats paste only into drum tracks.
 - **Keys everywhere**: Space play / stop; `]` / `[` the playback tempo 5 BPM up / down (the speed menu follows; the
-  song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘P print; ⌘H (Help ▸
+  song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
+  tab; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
-- **Save**: ⌘S saves a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
+- **Save**: ⌘S saves the shown tab — a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many

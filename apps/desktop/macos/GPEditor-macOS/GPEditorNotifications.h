@@ -1,5 +1,6 @@
 // Notification names shared by AppDelegate.swift (posts them, via the bridging header), GPFiles.m (forwards them
-// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "printRequested" / "helpRequested" / "songWriterRequested" / "openRequested" / "fileOpened" / "saveRequested" events) and GPQADriver.m.
+// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "printRequested" / "helpRequested" / "songWriterRequested" / "openRequested" / "fileOpened" /
+// "saveRequested" / "closeTabRequested" / "nextTabRequested" / "previousTabRequested" events) and GPQADriver.m.
 
 #import <Foundation/Foundation.h>
 
@@ -34,5 +35,14 @@ FOUNDATION_EXPORT NSString *const GPEditorSaveCommandNotification;
 
 /** File ▸ Save As… (⇧⌘S). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorSaveAsCommandNotification;
+
+/** File ▸ Close Tab (⌘W) was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorCloseTabCommandNotification;
+
+/** File ▸ Next Tab (⌃Tab) was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorNextTabCommandNotification;
+
+/** File ▸ Previous Tab (⌃⇧Tab) was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorPreviousTabCommandNotification;
 
 NS_ASSUME_NONNULL_END

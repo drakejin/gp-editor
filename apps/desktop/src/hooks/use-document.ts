@@ -12,18 +12,27 @@ import {
   writeFile,
 } from '../native/gp-files';
 import type { ScoreMode } from '../score/geometry';
-import { type EditorAction, type EditorState, isEdited } from '../state/editor';
+import { type EditorAction, type OpenDocument, isEdited } from '../state/editor';
+import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { errorMessage } from '../lib/errors';
 
+/** Each document opens in a new tab (or the tab already holding its file is shown); saving acts on one tab. */
 export interface DocumentCommands {
   /** A blank sheet shown as score + tab, score or tab (File ▸ New, New button, start screen). */
   readonly create: (mode: ScoreMode) => void;
   /** Open panel (⌘O, Open button). */
   readonly openDialog: () => void;
-  /** Read a file the system handed over (drop, Finder); a PDF is imported instead. */
+  /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. */
   readonly openPath: (pathOrUrl: string) => void;
-  /** ⌘S overwrites a .gp5 document; anything else, and ⇧⌘S, asks where to save a .gp5 file. */
+  /**
+   * A song made in the app (no file holds it yet: `path` is empty, `fileName` is what Save suggests) in a new tab,
+   * edited until saved, so closing it asks first.
+   */
+  readonly openDocument: (document: OpenDocument) => void;
+  /** The shown tab: ⌘S overwrites a .gp5 document; anything else, and ⇧⌘S, asks where to save a .gp5 file. */
   readonly save: (saveAs: boolean) => void;
+  /** Saves one tab as `save` does; true once it is saved, false when the save panel was cancelled or it failed. */
+  readonly saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>;
 }
 
 /** "Song.gpx" → "Song.gp5". */
@@ -44,76 +53,32 @@ export function isPdfPath(pathOrUrl: string): boolean {
   return pathOrUrl.toLowerCase().endsWith('.pdf');
 }
 
-/** New sheets, loading and saving files (open panel, drag and drop, Finder, File menu) and the window title. */
+/**
+ * New sheets, loading files into tabs (open panel, drag and drop, Finder, File menu), saving a tab, and the window
+ * title (the shown tab's file).
+ */
 export function useDocument(
-  state: EditorState,
-  dispatch: Dispatch<EditorAction>,
+  workspace: WorkspaceState,
+  dispatch: Dispatch<WorkspaceAction>,
   onOpenPdf: (pathOrUrl: string) => void = IGNORE_PDF,
 ): DocumentCommands {
-  const open = useCallback(
-    async (load: () => Promise<OpenedFile | null>) => {
-      dispatch({ type: 'loadStarted' });
-      try {
-        const file = await load();
-        if (file === null) {
-          dispatch({ type: 'loadCancelled' });
-          return;
-        }
-        const song = readSong(base64ToBytes(file.base64));
-        dispatch({
-          type: 'loaded',
-          document: { fileName: file.name, path: file.path, song },
-        });
-      } catch (error: unknown) {
-        dispatch({
-          type: 'loadFailed',
-          message: errorMessage(
-            error,
-            'Unexpected error while opening the file',
-          ),
-        });
-      }
-    },
-    [dispatch],
-  );
-
-  // Save reads the latest state through a ref so the File-menu listener does not need re-subscribing per edit.
-  const latest = useRef(state);
-  latest.current = state;
+  const open = useOpenFile(dispatch);
+  const saveTab = useSaveTab(workspace, dispatch);
+  // The shown tab is read through a ref, so the File-menu listener is not re-added on every switch.
+  const latest = useRef(workspace);
+  latest.current = workspace;
   const save = useCallback(
     (saveAs: boolean) => {
-      const document = latest.current.document;
-      if (document === undefined) {
-        return;
+      const { activeTabId } = latest.current;
+      if (activeTabId !== undefined) {
+        void saveTab(activeTabId, saveAs);
       }
-      const { song } = document;
-      void (async () => {
-        try {
-          const base64 = bytesToBase64(writeSong(song, 'gp5'));
-          const saved =
-            !saveAs && canOverwrite(document.path)
-              ? await writeFile(document.path, base64)
-              : await showSaveDialog(base64, gp5Name(document.fileName));
-          if (saved !== null) {
-            dispatch({
-              type: 'saved',
-              fileName: saved.name,
-              path: saved.path,
-              song,
-            });
-          }
-        } catch (error: unknown) {
-          dispatch({
-            type: 'saveFailed',
-            message: errorMessage(error, 'Unexpected error while saving'),
-          });
-        }
-      })();
     },
-    [dispatch],
+    [saveTab],
   );
 
   const create = useCallback((mode: ScoreMode) => dispatch({ type: 'created', mode }), [dispatch]);
+  const openDocument = useCallback((document: OpenDocument) => dispatch({ type: 'openTab', document, isUnsaved: true }), [dispatch]);
   const openDialog = useCallback(() => {
     void open(showOpenDialog);
   }, [open]);
@@ -139,8 +104,9 @@ export function useDocument(
     [create, openDialog, openPath, save],
   );
 
-  const fileName = state.document?.fileName;
-  const edited = isEdited(state);
+  const editor = activeEditor(workspace);
+  const fileName = editor.document?.fileName;
+  const edited = isEdited(editor);
   useEffect(() => {
     setDocumentTitle(
       fileName === undefined
@@ -149,5 +115,59 @@ export function useDocument(
     );
   }, [fileName, edited]);
 
-  return { create, openDialog, openPath, save };
+  return { create, openDialog, openPath, openDocument, save, saveTab };
+}
+
+/** Reads a file and opens it in a new tab (`loaded`); the window's error banner says why it could not be. */
+function useOpenFile(dispatch: Dispatch<WorkspaceAction>): (load: () => Promise<OpenedFile | null>) => Promise<void> {
+  return useCallback(
+    async (load: () => Promise<OpenedFile | null>) => {
+      dispatch({ type: 'loadStarted' });
+      try {
+        const file = await load();
+        if (file === null) {
+          dispatch({ type: 'loadCancelled' });
+          return;
+        }
+        const song = readSong(base64ToBytes(file.base64));
+        dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
+      } catch (error: unknown) {
+        dispatch({ type: 'loadFailed', message: errorMessage(error, 'Unexpected error while opening the file') });
+      }
+    },
+    [dispatch],
+  );
+}
+
+/** Saving one tab: GP5 bytes to its file or through the save panel; the result goes to that tab (`inTab`). */
+function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>): DocumentCommands['saveTab'] {
+  // Reads the latest tabs through a ref, so the File-menu listener does not need re-subscribing per edit.
+  const latest = useRef(workspace);
+  latest.current = workspace;
+  return useCallback(
+    async (tabId: string, saveAs: boolean) => {
+      const document = latest.current.tabs.find((tab) => tab.id === tabId)?.editor.document;
+      if (document === undefined) {
+        return false;
+      }
+      const toTab = (action: EditorAction) => dispatch({ type: 'inTab', tabId, action });
+      const { song } = document;
+      try {
+        const base64 = bytesToBase64(writeSong(song, 'gp5'));
+        const saved =
+          !saveAs && canOverwrite(document.path)
+            ? await writeFile(document.path, base64)
+            : await showSaveDialog(base64, gp5Name(document.fileName));
+        if (saved === null) {
+          return false;
+        }
+        toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
+        return true;
+      } catch (error: unknown) {
+        toTab({ type: 'saveFailed', message: errorMessage(error, 'Unexpected error while saving') });
+        return false;
+      }
+    },
+    [dispatch],
+  );
 }

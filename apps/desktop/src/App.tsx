@@ -3,7 +3,6 @@ import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react
 import { type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { DocumentLayout } from './components/DocumentLayout';
-import { DocumentTab } from './components/DocumentTab';
 import { EmptyState } from './components/EmptyState';
 import { ExportPanel } from './components/ExportPanel';
 import { HintBar } from './components/HintBar';
@@ -20,6 +19,8 @@ import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
+import { SaveChangesPanel } from './components/SaveChangesPanel';
+import { TabStrip } from './components/TabStrip';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
 import { useClipboard } from './hooks/use-clipboard';
@@ -30,6 +31,7 @@ import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
+import { useTabs } from './hooks/use-tabs';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import { trackInstrument } from './lib/instruments';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
@@ -38,19 +40,22 @@ import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
 import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
-import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
+import { type EditorAction, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { describeReference } from './song-writer/reference';
 import { playbackStartTempo } from './state/practice';
 import { selectionRange } from './state/selection';
 import type { SongEdit } from './state/song-edits';
+import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
 import { type Palette, onChrome, usePalette } from './theme';
 
 export default function App() {
   const palette = usePalette();
   // Panels and banners around the score share Guitar Pro's dark chrome.
   const chromePalette = useMemo(() => onChrome(palette), [palette]);
-  const [state, dispatch] = useReducer(editorReducer, INITIAL_EDITOR_STATE);
+  // Every open document is a tab; `state` is the shown tab's editor, and editor actions go to it.
+  const [workspace, dispatch] = useReducer(workspaceReducer, INITIAL_WORKSPACE);
+  const state = activeEditor(workspace);
   // Keyboard edits arrive at this view; clicking the score does not make it first responder by itself.
   const keyboardView = useRef<View>(null);
   const { document, cursor, trackIndex } = state;
@@ -63,7 +68,8 @@ export default function App() {
   // opens its result.
   const importPdfPath = useRef<(pathOrUrl: string) => void>(() => undefined);
   const openPdf = useCallback((pathOrUrl: string) => importPdfPath.current(pathOrUrl), []);
-  const { create, openDialog, openPath, save } = useDocument(state, dispatch, openPdf);
+  const { create, openDialog, openPath, save, saveTab } = useDocument(workspace, dispatch, openPdf);
+  const tabs = useTabs(workspace, dispatch, saveTab);
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const openImportPanel = useCallback(() => setIsImportPanelOpen(true), []);
   const pdfImport = usePdfImport(openPath, openImportPanel);
@@ -79,7 +85,10 @@ export default function App() {
   const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
   const hasCursorNote = cursorNote !== undefined;
   const stringAtCursor = cursor?.string;
-  const { openNotePanel: showNotePanel } = chrome;
+  const { openNotePanel: showNotePanel, closeOverlay: closeChromeOverlay } = chrome;
+  const { cancelClose } = tabs;
+  // Esc answers the save question first (Cancel), then closes the chrome's overlays.
+  const closeOverlay = useCallback(() => cancelClose() || closeChromeOverlay(), [cancelClose, closeChromeOverlay]);
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -105,7 +114,7 @@ export default function App() {
     save,
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: openNotePanel,
-    closeOverlay: chrome.closeOverlay,
+    closeOverlay,
     clipboard,
     keyboardView,
   });
@@ -140,9 +149,9 @@ export default function App() {
   const { openShortcutSheet } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
 
-  // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens as a new score, with a summary in the hint strip.
+  // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip.
   const onSongWritten = useCallback((written: Song, fileName: string, warnings: readonly string[]) => {
-    dispatch({ type: 'loaded', document: { fileName, path: '', song: written } });
+    dispatch({ type: 'openTab', document: { fileName, path: '', song: written }, isUnsaved: true });
     dispatch({ type: 'showHint', hint: writtenSummary(written, warnings) });
   }, []);
   const songWriter = useSongWriter(onSongWritten);
@@ -150,13 +159,17 @@ export default function App() {
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
 
+  // Another tab: playback stops (the player plays the shown song) and the keyboard goes to its score.
   const { stop: stopPlayback } = playback;
+  const { closePicker } = chrome;
+  const { activeTabId } = workspace;
   useEffect(() => {
     stopPlayback();
-    if (document?.fileName !== undefined) {
+    closePicker();
+    if (activeTabId !== undefined) {
       focusView(keyboardView.current);
     }
-  }, [document?.fileName, stopPlayback]);
+  }, [activeTabId, stopPlayback, closePicker]);
 
   const lcd = useMemo(
     () => (song === undefined ? undefined : lcdInfo({ song, trackIndex, cursor, playing: playback.playing, practice: playback.practice, loopPass: playback.loopPass })),
@@ -172,6 +185,7 @@ export default function App() {
   }, [hasCursorNote, closeNotePanel]);
   const errorText =
     state.error ??
+    workspace.error ??
     (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined);
   const dismissError = () => {
     dispatch({ type: 'dismissError' });
@@ -213,7 +227,7 @@ export default function App() {
         onShowShortcuts={chrome.openShortcutSheet}
         onCommand={commands.runCommand}
       />
-      {document !== undefined ? <DocumentTab palette={palette} title={document.song.info.title} fileName={document.fileName} isEdited={isEdited(state)} /> : null}
+      {workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={tabLabels(workspace)} activeTabId={activeTabId} onSelect={tabs.switchTo} onClose={tabs.requestClose} /> : null}
       {state.hint !== undefined ? <HintBar palette={palette} message={state.hint} onDismiss={() => dispatch({ type: 'dismissHint' })} /> : null}
       {isImportPanelOpen ? (
         <ImportPanel
@@ -249,6 +263,8 @@ export default function App() {
           left={chrome.panels.palette ? <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} /> : null}
           center={
             <ScoreView
+              // A page of its own per tab: it opens at the tab's cursor, not where the last tab was scrolled.
+              key={activeTabId}
               song={document.song}
               trackIndex={trackIndex}
               mode={state.mode}
@@ -310,7 +326,7 @@ export default function App() {
         />
       ) : (
         <EmptyState
-          isLoading={state.isLoading}
+          isLoading={workspace.isLoading}
           palette={palette}
           onCreate={create}
           onOpen={openDialog}
@@ -355,6 +371,9 @@ export default function App() {
         <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onClose={chrome.closeNotePanel} />
       ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
+      {tabs.closing !== undefined ? (
+        <SaveChangesPanel palette={palette} name={tabs.closing.name} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} />
+      ) : null}
     </View>
   );
 }

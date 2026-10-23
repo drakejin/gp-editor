@@ -3,7 +3,8 @@ import ReactTestRenderer from 'react-test-renderer';
 import { type DocumentCommands, useDocument } from '../src/hooks/use-document';
 import { base64ToBytes, bytesToBase64 } from '../src/lib/base64';
 import type { FileEventHandlers, OpenedFile, SavedFile } from '../src/native/gp-files';
-import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
+import type { EditorAction } from '../src/state/editor';
+import { INITIAL_WORKSPACE, type WorkspaceAction, type WorkspaceState, workspaceReducer } from '../src/state/workspace';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const mockFiles = {
@@ -30,29 +31,29 @@ const ETUDE: OpenedFile = { name: 'Etude.gp5', path: '/scores/Etude.gp5', base64
 
 interface HookProbe {
   readonly current: () => DocumentCommands;
-  readonly dispatch: jest.Mock<void, [EditorAction]>;
+  readonly dispatch: jest.Mock<void, [WorkspaceAction]>;
   readonly onOpenPdf: jest.Mock<void, [string]>;
-  readonly setState: (next: EditorState) => void;
+  readonly setState: (next: WorkspaceState) => void;
   readonly unmount: () => void;
 }
 
-function renderHook(state: EditorState = INITIAL_EDITOR_STATE): HookProbe {
-  const dispatch = jest.fn<void, [EditorAction]>();
+function renderHook(state: WorkspaceState = INITIAL_WORKSPACE): HookProbe {
+  const dispatch = jest.fn<void, [WorkspaceAction]>();
   const onOpenPdf = jest.fn<void, [string]>();
   let latest: DocumentCommands | undefined;
-  function Probe({ editor }: { readonly editor: EditorState }) {
-    latest = useDocument(editor, dispatch, onOpenPdf);
+  function Probe({ workspace }: { readonly workspace: WorkspaceState }) {
+    latest = useDocument(workspace, dispatch, onOpenPdf);
     return null;
   }
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<Probe editor={state} />);
+    renderer = ReactTestRenderer.create(<Probe workspace={state} />);
   });
   return {
     current: () => latest!,
     dispatch,
     onOpenPdf,
-    setState: (next) => ReactTestRenderer.act(() => renderer.update(<Probe editor={next} />)),
+    setState: (next) => ReactTestRenderer.act(() => renderer.update(<Probe workspace={next} />)),
     unmount: () => ReactTestRenderer.act(() => renderer.unmount()),
   };
 }
@@ -65,8 +66,14 @@ async function settle(action: () => void): Promise<void> {
   });
 }
 
-function opened(fileName: string, path: string, song: Song = SONG): EditorState {
-  return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName, path, song } });
+/** A workspace with the file open in its first tab ("tab-1"), shown. */
+function opened(fileName: string, path: string, song: Song = SONG, start: WorkspaceState = INITIAL_WORKSPACE): WorkspaceState {
+  return workspaceReducer(start, { type: 'loaded', document: { fileName, path, song } });
+}
+
+/** `action` sent to the tab with the id. */
+function inTab(tabId: string, action: EditorAction): WorkspaceAction {
+  return { type: 'inTab', tabId, action };
 }
 
 /** The song in a GP5 file handed to the native side. */
@@ -177,10 +184,10 @@ describe('useDocument opening', () => {
 
   it('ignores a PDF when the caller gave no PDF handler', async () => {
     // Arrange
-    const dispatch = jest.fn<void, [EditorAction]>();
+    const dispatch = jest.fn<void, [WorkspaceAction]>();
     let latest: DocumentCommands | undefined;
     function Probe() {
-      latest = useDocument(INITIAL_EDITOR_STATE, dispatch);
+      latest = useDocument(INITIAL_WORKSPACE, dispatch);
       return null;
     }
     ReactTestRenderer.act(() => {
@@ -200,6 +207,18 @@ describe('useDocument opening', () => {
     ReactTestRenderer.act(() => hook.current().create('tab'));
     expect(hook.dispatch).toHaveBeenCalledWith({ type: 'created', mode: 'tab' });
   });
+
+  it('opens a document no file holds yet in a new tab, edited until saved', () => {
+    // Arrange
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+    const document = { fileName: 'Riff.gp5', path: '', song: SONG };
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().openDocument(document));
+
+    // Assert
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'openTab', document, isUnsaved: true });
+  });
 });
 
 describe('useDocument saving', () => {
@@ -215,7 +234,7 @@ describe('useDocument saving', () => {
     expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Etude.gp5', expect.any(String));
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).tracks[0]?.measures[0]?.beats[0]?.voices[0]?.notes[0]?.fret).toBe(3);
     expect(mockFiles.showSaveDialog).not.toHaveBeenCalled();
-    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG });
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG }));
   });
 
   it('asks where to save a .gpx document with plain Save, suggesting the same name as .gp5', async () => {
@@ -229,13 +248,13 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.writeFile).not.toHaveBeenCalled();
     expect(mockFiles.showSaveDialog).toHaveBeenCalledWith(expect.any(String), 'Etude.gp5');
-    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG });
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG }));
   });
 
   it('asks where to save a new sheet that has no path yet', async () => {
     // Arrange
     mockFiles.showSaveDialog.mockResolvedValueOnce(null);
-    const hook = renderHook(editorReducer(INITIAL_EDITOR_STATE, { type: 'created', mode: 'notationAndTab' }));
+    const hook = renderHook(workspaceReducer(INITIAL_WORKSPACE, { type: 'created', mode: 'notationAndTab' }));
 
     // Act
     await settle(() => hook.current().save(false));
@@ -250,7 +269,7 @@ describe('useDocument saving', () => {
     const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
     await settle(() => hook.current().save(true));
     expect(mockFiles.writeFile).not.toHaveBeenCalled();
-    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'saved', fileName: 'Copy.gp5', path: '/scores/Copy.gp5', song: SONG });
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Copy.gp5', path: '/scores/Copy.gp5', song: SONG }));
   });
 
   it('dispatches nothing when the save panel is cancelled', async () => {
@@ -269,7 +288,7 @@ describe('useDocument saving', () => {
     await settle(() => hook.current().save(false));
 
     // Assert
-    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'saveFailed', message: 'The disk is full' });
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saveFailed', message: 'The disk is full' }));
   });
 
   it('does nothing when no document is open', async () => {
@@ -280,12 +299,50 @@ describe('useDocument saving', () => {
     expect(hook.dispatch).not.toHaveBeenCalled();
   });
 
+  it('saves a tab that is not shown and tells the caller it was saved', async () => {
+    // Arrange: Etude in tab-1, Riff shown in tab-2
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5' });
+    const hook = renderHook(opened('Riff.gp5', '/scores/Riff.gp5', SONG, opened('Etude.gp5', '/scores/Etude.gp5')));
+    let isSaved: boolean | undefined;
+
+    // Act
+    await settle(() => {
+      void hook.current().saveTab('tab-1', false).then((result) => {
+        isSaved = result;
+      });
+    });
+
+    // Assert
+    expect(isSaved).toBe(true);
+    expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Etude.gp5', expect.any(String));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG }));
+  });
+
+  it('tells the caller nothing was saved when the save panel is cancelled, the write fails or the tab is gone', async () => {
+    // Arrange
+    mockFiles.showSaveDialog.mockResolvedValueOnce(null);
+    mockFiles.writeFile.mockRejectedValueOnce(new Error('The disk is full'));
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+    const results: boolean[] = [];
+    const record = (saving: Promise<boolean>) => {
+      void saving.then((result) => results.push(result));
+    };
+
+    // Act
+    await settle(() => record(hook.current().saveTab('tab-1', true)));
+    await settle(() => record(hook.current().saveTab('tab-1', false)));
+    await settle(() => record(hook.current().saveTab('tab-9', false)));
+
+    // Assert
+    expect(results).toEqual([false, false, false]);
+  });
+
   it('saves the song as last edited when ⌘S comes from the File menu', async () => {
     // Arrange: open, then change the fret under the cursor from 3 to 7
     mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5' });
     const start = opened('Etude.gp5', '/scores/Etude.gp5');
     const hook = renderHook(start);
-    hook.setState(editorReducer(start, { type: 'setNoteFret', fret: 7 }));
+    hook.setState(workspaceReducer(start, { type: 'setNoteFret', fret: 7 }));
 
     // Act
     await settle(() => menu().onSaveRequested(false));
@@ -330,9 +387,25 @@ describe('useDocument File menu and window title', () => {
 
     // Act
     hook.setState(start);
-    hook.setState(editorReducer(start, { type: 'setNoteFret', fret: 7 }));
+    hook.setState(workspaceReducer(start, { type: 'setNoteFret', fret: 7 }));
 
     // Assert
     expect(titles()).toEqual(['GP Editor', 'Etude.gp5', 'Etude.gp5 — Edited']);
+  });
+
+  it('titles the window after the shown tab, and “GP Editor” once the last tab is closed', () => {
+    // Arrange
+    const both = opened('Riff.gp5', '/scores/Riff.gp5', SONG, opened('Etude.gp5', '/scores/Etude.gp5'));
+    const hook = renderHook(both);
+    const titles = () => mockFiles.setDocumentTitle.mock.calls.map(([title]) => title);
+
+    // Act
+    const onEtude = workspaceReducer(both, { type: 'switchTab', tabId: 'tab-1' });
+    hook.setState(onEtude);
+    const closed = [onEtude.activeTabId!, 'tab-2'].reduce((state, tabId) => workspaceReducer(state, { type: 'closeTab', tabId }), onEtude);
+    hook.setState(closed);
+
+    // Assert
+    expect(titles()).toEqual(['Riff.gp5', 'Etude.gp5', 'GP Editor']);
   });
 });
