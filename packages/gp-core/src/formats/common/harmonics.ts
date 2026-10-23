@@ -27,3 +27,8 @@ export function harmonicFretOffset(index: number): number {
 export function artificialHarmonicOffsetAtFret(fret: number): number {
   return NATURAL_FREQUENCIES.find(([harmonicFret]) => harmonicFret === fret)?.[1] ?? 0;
 }
+
+/** The first harmonic fret whose harmonic sounds `offset` semitones above the fretted note; undefined when none does. */
+export function harmonicFretAtOffset(offset: number): number | undefined {
+  return NATURAL_FREQUENCIES.find(([, semitones]) => semitones === offset)?.[0];
+}

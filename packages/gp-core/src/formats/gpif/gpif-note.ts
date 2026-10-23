@@ -33,7 +33,7 @@ const DEFAULT_MIDDLE_OFFSET = 50;
 /** Middle offsets equal to 12 are skipped, as TuxGuitar does. */
 const SKIPPED_MIDDLE_OFFSET = 12;
 /** Trill speeds are stored with 480 ticks per quarter; the model uses 960. */
-const TRILL_TICKS_FACTOR = 2;
+export const TRILL_TICKS_FACTOR = 2;
 
 /** A grace beat (GPIF stores grace notes on their own beat, before the note they decorate). */
 export interface GraceSource {
@@ -164,8 +164,12 @@ function curvePosition(offset: number): number {
 
 /** GPXDocumentParser#parseBend. */
 function parseBend(note: GpifNote): Bend | undefined {
-  const curve = note.bend;
-  if (!note.bendEnabled || curve.originValue === undefined || curve.destinationValue === undefined) {
+  return note.bendEnabled ? bendFromCurve(note.bend) : undefined;
+}
+
+/** The bend a GPIF bend curve reads as; undefined without an origin or destination value. */
+export function bendFromCurve(curve: GpifBendCurve): Bend | undefined {
+  if (curve.originValue === undefined || curve.destinationValue === undefined) {
     return undefined;
   }
   const origin = bendValueFromGp(curve.originValue);
@@ -196,8 +200,12 @@ function curveEnd(curve: GpifBendCurve, destination: number): BendPoint[] {
 
 /** GPXDocumentParser#parseTremoloBar (values in quarter tones instead of TuxGuitar's semitones). */
 function parseTremoloBar(beat: GpifBeat): Bend | undefined {
-  const curve = beat.whammyBar;
-  if (!beat.whammyBarEnabled || curve.originValue === undefined || curve.destinationValue === undefined) {
+  return beat.whammyBarEnabled ? tremoloBarFromCurve(beat.whammyBar) : undefined;
+}
+
+/** The tremolo bar a GPIF whammy curve reads as; undefined without an origin or destination value. */
+export function tremoloBarFromCurve(curve: GpifBendCurve): Bend | undefined {
+  if (curve.originValue === undefined || curve.destinationValue === undefined) {
     return undefined;
   }
   const origin = tremoloBarValueFromGp(curve.originValue);
@@ -227,7 +235,7 @@ function whammyMiddle(curve: GpifBendCurve): BendPoint[] {
   return points;
 }
 
-const HARMONIC_TYPES: Readonly<Record<string, HarmonicType>> = {
+export const HARMONIC_TYPES: Readonly<Record<string, HarmonicType>> = {
   natural: 'natural',
   artificial: 'artificial',
   pinch: 'pinch',
@@ -302,7 +310,7 @@ function graceTransition(grace: GpifNote): GraceTransition {
 }
 
 /** GPIF slide flags: 1 shift, 2 legato, 4 out down, 8 out up, 16 in from below, 32 in from above. */
-const SLIDE_FLAGS: readonly (readonly [number, SlideType])[] = [
+export const SLIDE_FLAGS: readonly (readonly [number, SlideType])[] = [
   [0x01, 'shift'],
   [0x02, 'legato'],
   [0x04, 'outDownwards'],

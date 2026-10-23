@@ -11,8 +11,8 @@ import {
   parseJavaInt,
 } from './xml';
 
-const XPROPERTY_BRUSH_DURATION = '687935489';
-const XPROPERTY_TRILL_DURATION = '688062467';
+export const XPROPERTY_BRUSH_DURATION = '687935489';
+export const XPROPERTY_TRILL_DURATION = '688062467';
 /** The GPIF vibrato strength that is wide (lower-cased); the other one is Slight. */
 const WIDE_VIBRATO = 'wide';
 
