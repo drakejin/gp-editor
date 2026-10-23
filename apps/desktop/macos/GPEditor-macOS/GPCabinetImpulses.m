@@ -60,36 +60,53 @@ static const double kNoiseDecaySeconds = 0.002;
 /** The last fifth of the response fades out, so its end does not click. */
 static const double kFadeFraction = 0.2;
 
-/** RBJ audio EQ cookbook coefficients: b0 b1 b2 a1 a2, normalised by a0. */
+/** RBJ audio EQ cookbook coefficients, normalised by a0: b0 b1 b2 a1 a2. */
 static void BiquadCoefficients(GPBiquadSpec spec, double sampleRate, double c[5])
 {
   double w0 = 2 * M_PI * MIN(spec.frequency, sampleRate * 0.45) / sampleRate;
   double alpha = sin(w0) / (2 * spec.q);
   double cosw = cos(w0);
   double a = pow(10, spec.gainDb / 40);
-  double b0, b1, b2, a0, a1, a2;
+  // b0 b1 b2 a0 a1 a2
+  double raw[6];
   switch (spec.kind) {
-    case GPBiquadHighPass:
-      b0 = (1 + cosw) / 2, b1 = -(1 + cosw), b2 = (1 + cosw) / 2, a0 = 1 + alpha, a1 = -2 * cosw, a2 = 1 - alpha;
+    case GPBiquadHighPass: {
+      double values[6] = {(1 + cosw) / 2, -(1 + cosw), (1 + cosw) / 2, 1 + alpha, -2 * cosw, 1 - alpha};
+      memcpy(raw, values, sizeof(raw));
       break;
-    case GPBiquadLowPass:
-      b0 = (1 - cosw) / 2, b1 = 1 - cosw, b2 = (1 - cosw) / 2, a0 = 1 + alpha, a1 = -2 * cosw, a2 = 1 - alpha;
+    }
+    case GPBiquadLowPass: {
+      double values[6] = {(1 - cosw) / 2, 1 - cosw, (1 - cosw) / 2, 1 + alpha, -2 * cosw, 1 - alpha};
+      memcpy(raw, values, sizeof(raw));
       break;
-    case GPBiquadPeak:
-      b0 = 1 + alpha * a, b1 = -2 * cosw, b2 = 1 - alpha * a, a0 = 1 + alpha / a, a1 = -2 * cosw, a2 = 1 - alpha / a;
+    }
+    case GPBiquadPeak: {
+      double values[6] = {1 + alpha * a, -2 * cosw, 1 - alpha * a, 1 + alpha / a, -2 * cosw, 1 - alpha / a};
+      memcpy(raw, values, sizeof(raw));
       break;
+    }
   }
-  c[0] = b0 / a0, c[1] = b1 / a0, c[2] = b2 / a0, c[3] = a1 / a0, c[4] = a2 / a0;
+  c[0] = raw[0] / raw[3];
+  c[1] = raw[1] / raw[3];
+  c[2] = raw[2] / raw[3];
+  c[3] = raw[4] / raw[3];
+  c[4] = raw[5] / raw[3];
 }
 
 /** Runs the samples through one biquad, in place (direct form I). */
 static void ApplyBiquad(double *samples, NSUInteger count, const double c[5])
 {
-  double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  double x1 = 0;
+  double x2 = 0;
+  double y1 = 0;
+  double y2 = 0;
   for (NSUInteger i = 0; i < count; i++) {
     double x = samples[i];
     double y = c[0] * x + c[1] * x1 + c[2] * x2 - c[3] * y1 - c[4] * y2;
-    x2 = x1, x1 = x, y2 = y1, y1 = y;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
     samples[i] = y;
   }
 }

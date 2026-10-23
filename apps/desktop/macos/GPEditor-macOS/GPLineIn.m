@@ -4,10 +4,17 @@
 #import <CoreAudio/CoreAudio.h>
 #import <stdatomic.h>
 
+#import "GPSandbox.h"
+
 static const double kMinGainDb = -24;
 static const double kMaxGainDb = 24;
 static const double kSilenceDb = -120;
 static const AVAudioFrameCount kLevelTapFrames = 1024;
+/** QA: outside the App Sandbox, GPEDITOR_QA_LINE_IN_HZ=<Hz> plays a sine at -12 dBFS instead of an audio input, and asks
+ * for no microphone access, so the QA driver can turn the line in on without a microphone or a permission prompt. */
+static NSString *const kQAToneVariable = @"GPEDITOR_QA_LINE_IN_HZ";
+static const double kQAToneRate = 48000;
+static const float kQAToneLevel = 0.25f;
 
 static AudioObjectPropertyAddress Address(AudioObjectPropertySelector selector, AudioObjectPropertyScope scope)
 {
@@ -72,6 +79,16 @@ static BOOL IsBuiltIn(AudioDeviceID device)
   return AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &transport) == noErr && transport == kAudioDeviceTransportTypeBuiltIn;
 }
 
+/** Devices the system keeps out of sight, such as the aggregate an audio engine makes of an input and an output. */
+static BOOL IsHidden(AudioDeviceID device)
+{
+  AudioObjectPropertyAddress address = Address(kAudioDevicePropertyIsHidden, kAudioObjectPropertyScopeGlobal);
+  UInt32 isHidden = 0;
+  UInt32 size = sizeof(isHidden);
+  BOOL hasFlag = AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &isHidden) == noErr && isHidden != 0;
+  return hasFlag || [StringProperty(device, kAudioDevicePropertyDeviceUID) hasPrefix:@"CADefaultDeviceAggregate"];
+}
+
 static AudioDeviceID DefaultDevice(AudioObjectPropertySelector selector)
 {
   AudioObjectPropertyAddress address = Address(selector, kAudioObjectPropertyScopeGlobal);
@@ -93,9 +110,36 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
   return DefaultDevice(kAudioHardwarePropertyDefaultInputDevice);
 }
 
+/** GPEDITOR_QA_LINE_IN_HZ, honoured only outside the App Sandbox (the QA copy); 0 when unset or out of range. */
+static double QAToneHz(void)
+{
+  NSString *value = NSProcessInfo.processInfo.environment[kQAToneVariable];
+  double hz = value.length == 0 || GPIsSandboxed() ? 0 : value.doubleValue;
+  return hz >= 20 && hz <= 5000 ? hz : 0;
+}
+
+/** The QA's stand-in for an audio input: a mono sine. */
+static AVAudioSourceNode *QAToneNode(double hz)
+{
+  AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:kQAToneRate channels:1];
+  __block double phase = 0;
+  double step = 2 * M_PI * hz / kQAToneRate;
+  return [[AVAudioSourceNode alloc] initWithFormat:format
+                                       renderBlock:^OSStatus(BOOL *isSilence, const AudioTimeStamp *timestamp, AVAudioFrameCount frameCount, AudioBufferList *outputData) {
+                                         float *samples = outputData->mBuffers[0].mData;
+                                         for (AVAudioFrameCount frame = 0; frame < frameCount; frame++) {
+                                           samples[frame] = kQAToneLevel * (float)sin(phase);
+                                           phase = fmod(phase + step, 2 * M_PI);
+                                         }
+                                         return noErr;
+                                       }];
+}
+
 @implementation GPLineIn {
   AVAudioEngine *_engine;
   GPMixGraph *_graph;
+  /** The QA's tone in place of the input (GPEDITOR_QA_LINE_IN_HZ); nil with a real input. */
+  AVAudioSourceNode *_qaTone;
   /** Input gain: an EQ's global gain (−96…+24 dB; a mixer's volume stops at 1.0). */
   AVAudioUnitEQ *_gain;
   /** Monitoring on or off: this mixer's volume, 1 or 0. Its output is mono: one guitar into both sides. */
@@ -108,7 +152,7 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
   NSMutableArray *devices = [NSMutableArray array];
   for (NSNumber *device in AllDevices()) {
     AudioDeviceID deviceID = device.unsignedIntValue;
-    if (InputChannelCount(deviceID) > 0) {
+    if (InputChannelCount(deviceID) > 0 && !IsHidden(deviceID)) {
       [devices addObject:@{
         @"id" : StringProperty(deviceID, kAudioDevicePropertyDeviceUID),
         @"name" : StringProperty(deviceID, kAudioObjectPropertyName),
@@ -126,6 +170,10 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
 
 + (void)requestAccess:(void (^)(BOOL isGranted))completion
 {
+  if (QAToneHz() > 0) {
+    completion(YES);
+    return;
+  }
   switch ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio]) {
     case AVAuthorizationStatusAuthorized:
       completion(YES);
@@ -149,9 +197,15 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
   return self;
 }
 
-- (BOOL)connectDevice:(nullable NSString *)deviceId error:(NSError **)error
+/** The input node on the device (nil or unknown: the default), or the QA's tone; nil with `error` set when it cannot open. */
+- (nullable AVAudioNode *)sourceForDevice:(nullable NSString *)deviceId error:(NSError **)error
 {
-  [self disconnect];
+  double toneHz = QAToneHz();
+  if (toneHz > 0) {
+    _qaTone = QAToneNode(toneHz);
+    [_engine attachNode:_qaTone];
+    return _qaTone;
+  }
   AVAudioInputNode *input = _engine.inputNode;
   AudioDeviceID device = InputDeviceWithId(deviceId);
   OSStatus status = device == kAudioObjectUnknown ? kAudioHardwareBadDeviceError
@@ -161,8 +215,19 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
     if (error != NULL) {
       *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status ?: kAudioHardwareBadDeviceError userInfo:@{NSLocalizedDescriptionKey : @"That audio input could not be opened"}];
     }
+    return nil;
+  }
+  return input;
+}
+
+- (BOOL)connectDevice:(nullable NSString *)deviceId error:(NSError **)error
+{
+  [self disconnect];
+  AVAudioNode *input = [self sourceForDevice:deviceId error:error];
+  if (input == nil) {
     return NO;
   }
+  AVAudioFormat *format = [input outputFormatForBus:0];
   _gain = [[AVAudioUnitEQ alloc] initWithNumberOfBands:1];
   _gain.bands.firstObject.bypass = YES;
   _monitor = [AVAudioMixerNode new];
@@ -222,6 +287,10 @@ static AudioDeviceID InputDeviceWithId(NSString *_Nullable deviceId)
   [_engine disconnectNodeInput:_gain];
   [_engine detachNode:_gain];
   [_engine detachNode:_monitor];
+  if (_qaTone != nil) {
+    [_engine detachNode:_qaTone];
+    _qaTone = nil;
+  }
   _gain = nil;
   _monitor = nil;
   _isConnected = NO;

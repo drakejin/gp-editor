@@ -106,6 +106,9 @@ resolved but never needed there.
 It also honours `GPEDITOR_QA_TUNER_HZ=<Hz>`: the tuner hears a synthetic plucked tone at that frequency through the
 same decimation instead of the microphone (no microphone, no permission prompt); open the tuner with
 `{"notify": "GPEditorTunerCommand"}`.
+And `GPEDITOR_QA_LINE_IN_HZ=<Hz>`: Tools ▸ Line In… plays a sine at that frequency (−12 dBFS) in place of the audio
+input, without asking for microphone access; open it with `{"notify": "GPEditorLineInCommand"}`, the mixer with
+`{"notify": "GPEditorMixerCommand"}`.
 
 ## Notes
 

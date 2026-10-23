@@ -139,6 +139,7 @@ static AVBeatRange WholeTrack(AVMusicTrack *track)
   for (NSUInteger position = 0; position < channels.count; position++) {
     UInt8 channel = (UInt8)channels[position].intValue;
     AVMusicTrack *target = position == 0 ? track : [self moveChannel:channel ofTrack:track toNewTrackOf:sequencer];
+    target.destinationAudioUnit = _synth;
     GPChannelSampler *entry = [self samplerForTrack:trackIndex channel:channel head:head bankURL:bankURL program:(UInt8)program[channel] bank:(UInt8)bank[channel]];
     if (entry == nil) {
       continue; // The bank has no such instrument: the shared synth plays it, without the effects.

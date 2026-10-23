@@ -8,7 +8,7 @@ import { ChromeButton } from '../chrome/ChromeButton';
 import { EffectChainEditor } from './EffectChainEditor';
 import { MasterStripEditor, OUTPUT_GAIN } from './MasterStripEditor';
 
-export const MIXER_PANEL = { height: 250, stripWidth: 128, editorWidth: 300 } as const;
+export const MIXER_PANEL = { height: 270, stripWidth: 128, editorWidth: 300 } as const;
 
 export interface MixerPanelProps {
   readonly palette: Palette;
@@ -107,7 +107,7 @@ export function MixerPanel(props: MixerPanelProps) {
           </Text>
           <ChromeButton palette={palette} label="✕" tooltip="Close the mixer" onPress={props.onClose} />
         </View>
-        <ScrollView>
+        <ScrollView style={styles.editorScroll}>
           {isMasterSelected ? (
             <MasterStripEditor palette={palette} master={master} width={MIXER_PANEL.editorWidth - 20} onChange={props.onSetMasterMix} onPreview={(next) => props.onPreview(next === undefined ? undefined : { master: next })} />
           ) : (
@@ -138,4 +138,5 @@ const styles = StyleSheet.create({
   editorPane: { width: MIXER_PANEL.editorWidth, borderLeftWidth: 1, paddingHorizontal: 10 },
   editorHeader: { flexDirection: 'row', alignItems: 'center', height: 30 },
   editorTitle: { flex: 1, fontSize: 12, fontWeight: '800', letterSpacing: 0.4 },
+  editorScroll: { flex: 1 },
 });

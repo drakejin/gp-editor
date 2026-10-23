@@ -2,7 +2,8 @@
 // through a track's effects (the head of its GPMixGraph strip; straight into the mix when the track has none) at an
 // input gain, heard while monitoring is on. Needs microphone access (NSMicrophoneUsageDescription,
 // com.apple.security.device.audio-input). The input device is set while the engine is stopped (GPMidiEngine does it).
-// Not thread-safe: use it on the queue that owns the engine, except `peakLevel`, which any thread may read.
+// QA: outside the App Sandbox, GPEDITOR_QA_LINE_IN_HZ=<Hz> plays a sine instead of the input, with no access asked.
+// Not thread-safe: use it on the queue that owns the engine, except `takePeakLevel`, which any thread may call.
 
 #import <AVFoundation/AVFoundation.h>
 
