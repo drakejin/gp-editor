@@ -41,6 +41,12 @@ function directionOption(direction: MusicalDirection): PaletteOption {
   return { label, tooltip, edit: { type: 'toggleDirection', direction }, isActive: (c) => c.header?.directions?.includes(direction) === true };
 }
 
+/** The targets and the jumps to a coda first, then the jumps back (D.C. …, D.S. …, D.S.S. …). */
+const DIRECTION_ORDER: readonly MusicalDirection[] = [
+  ...MUSICAL_DIRECTIONS.filter((direction) => NAMED[direction] !== undefined),
+  ...MUSICAL_DIRECTIONS.filter((direction) => NAMED[direction] === undefined),
+];
+
 /** The bar's segno, coda, fine and jumps, each on or off (the Bar group). */
 export function directionsTool(): PaletteTool {
   return {
@@ -49,7 +55,7 @@ export function directionsTool(): PaletteTool {
     glyph: 'mark',
     tooltip: 'Directions on this bar: segno, coda, fine and the jumps (D.C., D.S. al Coda …), which playback follows',
     scope: 'bar',
-    run: { kind: 'options', options: MUSICAL_DIRECTIONS.map(directionOption) },
+    run: { kind: 'options', options: DIRECTION_ORDER.map(directionOption) },
     isActive: (c) => (c.header?.directions?.length ?? 0) > 0,
   };
 }
