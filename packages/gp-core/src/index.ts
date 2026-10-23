@@ -133,6 +133,17 @@ export {
   bendShapeOf,
   buildBend,
 } from './edit/bend-shapes';
+export {
+  CURVE_VALUE_RANGES,
+  type CurveEffect,
+  type CurveValueRange,
+  addCurvePoint,
+  curveFromPoints,
+  moveCurvePoint,
+  normalizeCurvePoints,
+  removeCurvePoint,
+} from './edit/curve-points';
+export { canGpifHoldCurve, toGpifCurve } from './write/gpif/gpif-curves';
 export { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from './edit/ornaments';
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
