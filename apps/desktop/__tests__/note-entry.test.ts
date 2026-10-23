@@ -1,13 +1,9 @@
 import { QUARTER, type Song, findNote } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from '../src/state/note-entry';
-import { beat, makeSong, note } from '../test-support/songs';
+import { beat, makeSong, note, onStrings } from '../test-support/songs';
 
 const OPEN_G = [62, 59, 55, 50, 67];
-
-function withStrings(song: Song, tuning: readonly number[], isPercussion = false): Song {
-  return { ...song, tracks: song.tracks.map((track) => ({ ...track, isPercussion, strings: tuning.map((open, i) => ({ number: i + 1, tuning: open })) })) };
-}
 
 function opened(song: Song, string = 1): EditorState {
   const state = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } });
@@ -22,7 +18,7 @@ const FOUR_BEATS = makeSong([[beat(960, [note(1, 3)]), beat(1920, [note(2, 1)]),
 
 describe('storedFret', () => {
   it('stores a fret typed on a banjo’s short 5th string from its peg, and refuses frets 1–5 there', () => {
-    const banjo = withStrings(FOUR_BEATS, OPEN_G);
+    const banjo = onStrings(FOUR_BEATS, OPEN_G);
     const cursor = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 5 };
     expect(storedFret(banjo, cursor, 7)).toBe(2);
     expect(storedFret(banjo, cursor, 0)).toBe(0);
@@ -34,7 +30,7 @@ describe('storedFret', () => {
 describe('typing a fret on a banjo', () => {
   it('types the drone’s real fret (7) and the file gets its own fret (2); 0 is the open drone', () => {
     // Arrange
-    const state = opened(withStrings(FOUR_BEATS, OPEN_G), 5);
+    const state = opened(onStrings(FOUR_BEATS, OPEN_G), 5);
 
     // Act
     const typed = editorReducer(state, { type: 'setNoteFret', fret: 7 });
@@ -46,7 +42,7 @@ describe('typing a fret on a banjo', () => {
   });
 
   it('says why a fret below the drone’s peg does nothing, and a good fret clears that hint', () => {
-    const state = opened(withStrings(FOUR_BEATS, OPEN_G), 5);
+    const state = opened(onStrings(FOUR_BEATS, OPEN_G), 5);
     const refused = editorReducer(state, { type: 'setNoteFret', fret: 3 });
     expect(refused.document).toBe(state.document);
     expect(refused.hint).toBe(DRONE_FRET_HINT);
@@ -57,7 +53,7 @@ describe('typing a fret on a banjo', () => {
 describe('toggleDrumNote', () => {
   it('adds a clicked drum to the cursor’s beat and takes it out on a second click, one undo step each', () => {
     // Arrange
-    const state = opened(withStrings(FOUR_BEATS, [0, 0, 0, 0, 0, 0], true), 2);
+    const state = opened(onStrings(FOUR_BEATS, [0, 0, 0, 0, 0, 0], { isPercussion: true }), 2);
 
     // Act
     const hit = editorReducer(state, { type: 'toggleDrumNote', key: 38 });
