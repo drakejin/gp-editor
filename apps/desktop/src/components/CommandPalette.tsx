@@ -19,7 +19,10 @@ interface CommandPaletteProps {
 
 /** Rows shown at once; ↑ and ↓ move the window along the list. */
 const VISIBLE_ROWS = 12;
-/** The field keeps these keys for the list: they move the highlighted row and run it. */
+/**
+ * Keys the list takes from the field: ↑ and ↓ move the highlighted row, ↩ runs it. The field is a multi-line one kept to
+ * one line, because only that kind hands every key to JS on react-native-macos (a single-line field keeps the arrows).
+ */
 const LIST_KEYS = [{ key: 'ArrowUp' }, { key: 'ArrowDown' }, { key: 'Enter' }];
 
 interface CommandRowProps {
@@ -81,12 +84,14 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
           testID="command-palette-field"
           value={query}
           onChangeText={(text) => {
-            setQuery(text);
+            setQuery(text.replace(/\n/g, ''));
             setHighlighted(0);
           }}
           placeholder="Type a command (e.g. exp pdf, transpose)"
           placeholderTextColor={palette.chromeMuted}
           autoFocus
+          multiline
+          numberOfLines={1}
           keyDownEvents={LIST_KEYS}
           onKeyDown={onKeyDown}
           style={[styles.field, { color: palette.chromeText, backgroundColor: palette.chromeRaised, borderColor: palette.chromeBorder }]}
@@ -109,7 +114,7 @@ const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', paddingTop: 72 },
   backdrop: { backgroundColor: 'rgba(0, 0, 0, 0.3)' },
   panel: { width: 600, borderRadius: 10, borderWidth: 1, padding: 10 },
-  field: { fontSize: 15, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 6, borderWidth: 1 },
+  field: { height: 36, fontSize: 15, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 6, borderWidth: 1 },
   list: { marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 28, paddingHorizontal: 10, borderRadius: 5 },
   disabled: { opacity: 0.4 },

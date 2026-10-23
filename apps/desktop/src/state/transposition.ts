@@ -20,6 +20,9 @@ export interface TranspositionDraft {
 export const MAX_TRANSPOSE_AMOUNT = 24;
 export const MAX_TRANSPOSE_OCTAVES = 4;
 
+/** Transposing the selection with none: the hint strip says how to make one. */
+export const NO_SELECTION_HINT = 'Select the beats to transpose first: drag across the score, or ⇧← / ⇧→.';
+
 const SEMITONES_PER_OCTAVE = 12;
 const STEPS_PER_OCTAVE = 7;
 

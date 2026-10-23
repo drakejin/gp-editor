@@ -61,7 +61,7 @@ import { describeReference } from './song-writer/reference';
 import { playbackStartTempo } from './state/practice';
 import { selectedFragment, selectionRange, selectionSummary } from './state/selection';
 import type { SongEdit } from './state/song-edits';
-import { type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
+import { NO_SELECTION_HINT, type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
 import { type Palette, onChrome, usePalette } from './theme';
 
@@ -315,9 +315,7 @@ export default function App() {
   };
   const transposeTo = (draft: TranspositionDraft) => {
     const scope = transpositionScope(state, draft.target);
-    if (scope !== undefined) {
-      dispatch({ type: 'transpose', scope, options: toTranspositionOptions(draft) });
-    }
+    dispatch(scope === undefined ? { type: 'showHint', hint: NO_SELECTION_HINT } : { type: 'transpose', scope, options: toTranspositionOptions(draft) });
     closeTranspose();
     focusScore();
   };

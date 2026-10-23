@@ -52,9 +52,12 @@ describe('CommandPalette', () => {
     expect(rows(rendered).slice(0, 3)).toEqual(['>Transpose…', 'Export MIDI…', 'New Score + Tab']);
   });
 
-  it('keeps its keys out of the score and claims ↑, ↓ and ↩ for the list', () => {
+  it('keeps its keys out of the score and claims ↑, ↓ and ↩ for the list, in a field that hands every key to JS', () => {
     const rendered = render();
     expect(field(rendered).props.keyDownEvents).toEqual([{ key: 'ArrowUp' }, { key: 'ArrowDown' }, { key: 'Enter' }]);
+    expect(field(rendered).props.multiline).toBe(true);
+    type(rendered, 'exp\npdf');
+    expect(field(rendered).props.value).toBe('exppdf');
     const event = { nativeEvent: { key: 'x' }, stopPropagation: jest.fn() };
     ReactTestRenderer.act(() => field(rendered).props.onKeyDown(event));
     expect(event.stopPropagation).toHaveBeenCalled();
