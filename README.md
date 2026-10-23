@@ -32,7 +32,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 and ASCII tab writers, song model, immutable edit operations
                    (incl. tunings), MIDI rendering, PDF transcription → song
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
@@ -88,7 +88,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
   piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
-  Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
+  Export MIDI, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
   grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
@@ -180,7 +180,11 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
   tab; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
-- **Save**: ⌘S saves the shown tab — a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
+- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp4`,
+  `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel: Guitar
+  Pro 5 (`.gp5`, chosen first unless the file is a `.gp4` or `.gp3`), Guitar Pro 4 (`.gp4`) or Guitar Pro 3 (`.gp3`);
+  the extension follows the choice. GP4 and GP3 keep one voice per bar (voice 2 joins voice 1) and one triplet feel,
+  and GP3 holds no lyrics and fewer effects: the save panel and the hint strip say what is left out when one is written.
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
@@ -202,6 +206,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
   closer (and an extremely dense one is printed smaller) so nothing runs off the page.
+- **Export MIDI**: File ▸ Export MIDI… saves the song as playback plays it as a Standard MIDI File (`.mid`): repeats
+  unfolded, at the written tempo (not the practice speed), muted tracks left out and, when a track is solo, only the
+  solo tracks.
+- **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
+  (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
+  slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
 - **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
   the printer's paper), through the macOS print panel.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel

@@ -29,6 +29,7 @@ import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
+import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
@@ -78,6 +79,8 @@ export default function App() {
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel.
   const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch);
+  // File ▸ Export MIDI… and Export ASCII Tab….
+  useSongExport(document, dispatch);
   const clipboard = useClipboard(state, dispatch);
   const { selectionAnchor } = state;
   // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.

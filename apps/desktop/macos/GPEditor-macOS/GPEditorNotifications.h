@@ -15,6 +15,12 @@ FOUNDATION_EXPORT NSString *const GPEditorImportPdfCommandNotification;
 /** File ▸ Export PDF… (⇧⌘E) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportCommandNotification;
 
+/** File ▸ Export MIDI… was chosen (JS event "exportMidiRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportMidiCommandNotification;
+
+/** File ▸ Export ASCII Tab… was chosen (JS event "exportAsciiTabRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportAsciiTabCommandNotification;
+
 /** File ▸ Print… (⌘P) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 
