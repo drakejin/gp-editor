@@ -9,7 +9,7 @@ const FILE_ROWS: readonly Command[] = [
   editorRow('file.new', 'File', 'New Score + Tab', { type: 'newFile', mode: 'notationAndTab' }, { when: 'always', shortcut: '⌘N', keywords: ['create', 'sheet', 'document'] }),
   editorRow('file.newScore', 'File', 'New Score', { type: 'newFile', mode: 'notation' }, { when: 'always', keywords: ['create', 'notation', 'standard'] }),
   editorRow('file.newTab', 'File', 'New Tab', { type: 'newFile', mode: 'tab' }, { when: 'always', keywords: ['create', 'tablature'] }),
-  editorRow('file.open', 'File', 'Open…', { type: 'openFile' }, { when: 'always', shortcut: '⌘O', keywords: ['file', 'gp', 'gp5', 'load'] }),
+  editorRow('file.open', 'File', 'Open…', { type: 'openFile' }, { when: 'always', shortcut: '⌘O', keywords: ['file', 'gp', 'gp5', 'load', 'musicxml', 'ptb', 'tef', 'midi'] }),
   row('file.recent', 'File', 'Recent Files…', (a) => a.openRecentFiles(), { when: 'always', keywords: ['open', 'recent', 'pinned', 'history'] }),
   editorRow('file.importPdf', 'File', 'Import PDF…', { type: 'importPdf' }, { when: 'always', shortcut: '⇧⌘I', keywords: ['transcribe', 'ai', 'claude', 'scan'] }),
   editorRow('file.save', 'File', 'Save', { type: 'saveFile' }, { shortcut: '⌘S', keywords: ['write'] }),
@@ -18,6 +18,8 @@ const FILE_ROWS: readonly Command[] = [
   row('file.exportPng', 'File', 'Export PNG…', (a) => a.exportPng(), { keywords: ['image', 'picture', 'dpi'] }),
   row('file.exportMidi', 'File', 'Export MIDI…', (a) => a.exportMidi(), { keywords: ['mid', 'smf'] }),
   row('file.exportAsciiTab', 'File', 'Export ASCII Tab…', (a) => a.exportAsciiTab(), { keywords: ['text', 'txt', 'plain'] }),
+  row('file.exportMusicXml', 'File', 'Export MusicXML…', (a) => a.exportMusicXml(), { keywords: ['xml', 'musescore', 'sibelius', 'finale'] }),
+  row('file.exportCompressedMusicXml', 'File', 'Export Compressed MusicXML…', (a) => a.exportCompressedMusicXml(), { keywords: ['mxl', 'xml', 'zip'] }),
   row('file.print', 'File', 'Print…', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
   row('file.closeTab', 'File', 'Close Tab', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
   row('file.nextTab', 'File', 'Next Tab', (a) => a.cycleTab(1), { when: 'tabs', shortcut: '⌃⇥', keywords: ['document', 'switch'] }),
@@ -51,6 +53,7 @@ const VIEW_ROWS: readonly Command[] = [
 ];
 
 const TOOLS_ROWS: readonly Command[] = [
+  row('tools.tuner', 'Tools', 'Tuner…', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
   row('tools.transpose', 'Tools', 'Transpose…', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
   row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
 ];
@@ -77,6 +80,7 @@ const NOTE_ROWS: readonly Command[] = [
 const BEAT_ROWS: readonly Command[] = [
   keyRow('beat.delete', 'Beat', 'Delete the Beat', press('Backspace', { shiftKey: true }), { when: 'beat' }),
   keyRow('beat.insert', 'Beat', 'Insert a Beat After the Cursor', press('i'), { when: 'beat' }),
+  keyRow('beat.chord', 'Beat', 'Chord Diagram…', press('k'), { when: 'beat', keywords: ['chord', 'library', 'grid', 'name'] }),
   keyRow('beat.longer', 'Beat', 'Longer Note Value', press('[', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
   keyRow('beat.shorter', 'Beat', 'Shorter Note Value', press(']', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
   keyRow('beat.dotted', 'Beat', 'Dotted', press('.'), { when: 'beat', keywords: ['dot', 'duration'] }),

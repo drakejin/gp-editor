@@ -49,7 +49,9 @@ export type PaletteRun =
   /** Opens a text field under the group (section name, beat text). */
   | { readonly kind: 'text'; readonly placeholder: string; readonly value: (context: PaletteContext) => string; readonly edit: (text: string) => SongEdit }
   /** Opens the vibrato or bend panel for the note, as B and C do. */
-  | { readonly kind: 'panel'; readonly panel: NotePanel };
+  | { readonly kind: 'panel'; readonly panel: NotePanel }
+  /** Opens the chord diagram panel for the beat, as K does. */
+  | { readonly kind: 'chordPanel' };
 
 export interface PaletteTool {
   readonly id: string;

@@ -1,5 +1,6 @@
 import {
   type BeatAddress,
+  type Chord,
   type Duration,
   NORMAL_TUPLET,
   NOTE_VALUES,
@@ -18,6 +19,8 @@ import {
   insertBeat,
   insertMeasure,
   isSameTuplet,
+  setBeatChord,
+  setBeatChordNotes,
   setBeatDuration,
   setBeatPickStroke,
   setBeatStroke,
@@ -47,7 +50,9 @@ type BeatEdit =
   | { readonly type: 'makeRest' }
   | { readonly type: 'setStroke'; readonly direction: StrokeDirection }
   | { readonly type: 'setPickStroke'; readonly direction: StrokeDirection }
-  | { readonly type: 'setBeatText'; readonly text: string };
+  | { readonly type: 'setBeatText'; readonly text: string }
+  /** The beat's chord diagram (undefined removes it); `withNotes` also writes its notes into the voice, as Guitar Pro can. */
+  | { readonly type: 'setBeatChord'; readonly chord: Chord | undefined; readonly withNotes?: boolean };
 
 /** Edits that act at the cursor; each returns the same song when it does not apply. */
 export type SongEdit =
@@ -99,6 +104,7 @@ export function applySongEdit(
     case 'setStroke':
     case 'setPickStroke':
     case 'setBeatText':
+    case 'setBeatChord':
       return editBeat(song, beatAddress(cursor), edit);
     case 'erase':
       return erase(song, cursor);
@@ -150,6 +156,10 @@ function editBeat(song: Song, at: BeatAddress, edit: BeatEdit): Song {
       return setBeatPickStroke(song, at, edit.direction);
     case 'setBeatText':
       return setBeatText(song, at, edit.text);
+    case 'setBeatChord': {
+      const chorded = setBeatChord(song, at, edit.chord);
+      return edit.withNotes === true && edit.chord !== undefined ? setBeatChordNotes(chorded, at, edit.chord) : chorded;
+    }
   }
 }
 

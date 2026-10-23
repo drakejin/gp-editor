@@ -24,6 +24,8 @@ export interface CommandActions {
   readonly exportPng: () => void;
   readonly exportMidi: () => void;
   readonly exportAsciiTab: () => void;
+  readonly exportMusicXml: () => void;
+  readonly exportCompressedMusicXml: () => void;
   readonly print: () => void;
   readonly closeTab: () => void;
   readonly cycleTab: (step: 1 | -1) => void;
@@ -31,6 +33,7 @@ export interface CommandActions {
   readonly openSongWriter: () => void;
   readonly openShortcuts: () => void;
   readonly openTranspose: () => void;
+  readonly openTuner: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;
   readonly togglePanel: (panel: PanelId) => void;

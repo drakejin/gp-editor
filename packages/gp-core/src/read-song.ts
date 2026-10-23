@@ -8,6 +8,7 @@ import { readGp3 } from './formats/gtp/gp3';
 import { readGp4 } from './formats/gtp/gp4';
 import { readGp5 } from './formats/gtp/gp5';
 import { readMidi } from './formats/midi/midi-song-reader';
+import { readMusicXml } from './formats/musicxml/musicxml-reader';
 import { type ReadOptions, type ResolvedReadOptions, resolveReadOptions } from './formats/options';
 import { readPtb } from './formats/ptb/ptb';
 import { readTef } from './formats/tef/tef';
@@ -26,11 +27,12 @@ const READERS: Readonly<Record<FileFormat, FormatReader>> = {
   ptb: readPtb,
   tef: readTef,
   midi: readMidi,
+  musicxml: readMusicXml,
 };
 
 /**
- * Read any Guitar Pro file (GP1–GP5 binary, GP6 .gpx, GP7/8 .gp), Power Tab (.ptb), TablEdit (.tef) or Standard MIDI
- * File (.mid).
+ * Read any Guitar Pro file (GP1–GP5 binary, GP6 .gpx, GP7/8 .gp), Power Tab (.ptb), TablEdit (.tef), Standard MIDI
+ * File (.mid) or MusicXML (.musicxml / .xml, compressed .mxl).
  * The format is detected from the content, not the file name.
  *
  * @throws UnsupportedFormatError when the bytes are not a known Guitar Pro format

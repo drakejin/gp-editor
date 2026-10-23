@@ -14,6 +14,7 @@ The goal is to open every Guitar Pro file:
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
 | MIDI (Standard MIDI File 0, 1) | `.mid`, `.midi` | MThd / MTrk chunks | `midi/midi-song-reader.ts` |
+| MusicXML | `.musicxml`, `.xml`, `.mxl` | XML (`.mxl`: zip) | `musicxml/musicxml-reader.ts` (written by `write/musicxml/`) |
 
 It also imports two other tablature programs' files (saved as `.gp5`):
 
@@ -161,6 +162,23 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   says how many of each (⌘Z restores the old tuning). When a track is not on a preset that plays it — a 7-string part, a custom tuning,
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
+- **Banjo**: a track playing the General MIDI banjo (or tuned like a 5-string banjo) gets banjo presets — Open G
+  (g D G B D), Double C, Open D, G modal, and the 4-string Tenor, Irish tenor and Plectrum banjos. On a 5-string banjo
+  the short 5th string starts at the 5th fret: the fretboard draws it from its peg there, and the tab numbers it as
+  Guitar Pro does — 0 is the open drone, then 6, 7, 8 … (the file stores 0, 1, 2 …, as Guitar Pro's files do). Type
+  the tab's numbers on that string; 1–5 are refused with a hint.
+- **Drum kit**: for a drum track the instrument view (either toggle) shows a drum kit from above — kick, snare and
+  rim, hi-hat (closed, open, pedal), three toms and a floor tom, crash, crash 2, ride and its bell, china, splash,
+  cowbell — with the drums of the current beat lit (the playing beat while playing); drums the kit has no piece for are
+  named underneath. Clicking a piece enters that drum (its General MIDI key) into the cursor's beat, a second click
+  takes it out (one undo step each).
+- **MIDI input**: the SONG inspector's *MIDI INPUT* turns it on and picks the source (every source, or one keyboard or
+  MIDI guitar; CoreMIDI, devices plugged in later are found). Notes struck within 50 ms make one beat at the cursor
+  — replacing what the beat held, keeping its duration — and the cursor moves to the next beat, adding a bar after the
+  last one (step entry, one undo step per beat). Guitar and bass notes go on the strings nearest the hand position of the last fretted beat, in pitch
+  order across the strings; *MIDI guitar* puts channel *n* on string *n* (one channel per string); on a drum track the
+  key is the drum. *Velocity* gives the notes the velocity they were played with. A note the track cannot play is left
+  out with a hint. The settings are kept on this Mac.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings. Keys reach the score only from the score: what is typed in a text field (the Song Writer, the
   inspector, the palette's texts) stays in it, and while a panel, sheet or menu is open over the score every key but
@@ -228,6 +246,24 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
 - **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
+- **Tuner** (Tools ▸ Tuner…): play one string at a time into the Mac's microphone; the panel shows the nearest note
+  and octave in large letters, how many cents it is off (green within ±5) on a -50 … +50 cent strip, its frequency,
+  the shown track's open strings with the one being tuned lit (the nearest, within 1.5 semitones; standard guitar
+  tuning without a score), and the input level. The reference A4 steps from 415 to 466 Hz (440 by default). Single
+  notes only, from a low bass B (31 Hz) to B6 (1976 Hz); a quiet room or noise reads nothing. macOS asks for microphone access the first time; if it was
+  refused, the panel says where to allow it (System Settings ▸ Privacy & Security ▸ Microphone). The microphone runs
+  only while the panel is open (Esc closes it) and nothing is recorded.
+- **Chords**: a beat's chord shows over the staves — its name, and its diagram (the strings, the nut or the first fret's
+  number, a dot per fretted string, a barre, o / x over open and unplayed strings). The Track inspector's *Chords*
+  toggles show names, diagrams or both (per score; Export PDF and Print follow). `K` (or the palette's *Chord*, in the
+  Beat group) opens the **chord diagram** panel for the beat at the cursor: click the grid to put a finger on a fret
+  or take it off (above the nut: open / not played), *Fret − / +* moves the shape along the neck, and the chord is
+  named as you go (the name can be typed); *Notes of the beat* fills the grid from the beat; *Apply* puts the chord on
+  the beat — and, with *Write the notes into the beat* (on for a rest), its notes too — and *Remove* takes it off, one
+  undo step each. Beside the grid, the **chord library**: *By name* (type Am7, C/G, F#m7b5, G13 … → the best voicings on
+  the track's tuning, plain, inversions, close or open; click one to load it), *By position* (every name the grid's
+  frets can have, with how complete each is) and *In this track* (the chords the track already uses). Chords are saved
+  in GP3, GP4 and GP5 files.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
@@ -248,6 +284,15 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
   (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
   slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
+- **MusicXML**: Open, Finder and drag and drop also read MusicXML — `.musicxml` / `.xml` and compressed `.mxl`,
+  score-partwise or score-timewise (converted). Each part becomes a track: a tab staff gives its tuning, capo, strings
+  and frets; without one, the written pitches go on a guitar's (or bass's) strings. Bars, meters, tempos, repeats,
+  endings, rehearsal marks, voices, ties, tuplets (nested ones too), grace notes, dynamics, lyrics and the guitar
+  effects MusicXML has (hammer-ons, slides, bends, harmonics, vibrato, palm mute, let ring …) are read. File ▸ Export
+  MusicXML… / Export Compressed MusicXML… saves the song as `.musicxml` / `.mxl` (MusicXML 4.0 as TuxGuitar writes it:
+  a notation staff and a tab staff per track) for other notation programs. MusicXML has no place for chord diagrams,
+  slapping, popping, fade-in, a stroke's speed, pinch / tapped / semi-harmonics (written as artificial or plain ones)
+  or when in the note a bend moves (it reads back in even steps).
 - **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
   the printer's paper), through the macOS print panel.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel

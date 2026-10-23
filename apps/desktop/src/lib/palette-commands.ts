@@ -48,6 +48,8 @@ function toolCommands(group: PaletteGroup, tool: PaletteTool): readonly Command[
       return [paletteRow(id, group, title, run.action, tool.scope, faceKeywords(tool))];
     case 'panel':
       return [paletteRow(id, group, title, { type: 'openNotePanel', panel: run.panel }, tool.scope, faceKeywords(tool))];
+    case 'chordPanel':
+      return [paletteRow(id, group, title, { type: 'openChordPanel' }, tool.scope, faceKeywords(tool))];
     case 'options':
       return run.options.map((option, index) => paletteRow(`${id}.${index}`, group, optionTitle(tool, option), edit(option.edit), tool.scope, [option.label, toolName(tool.tooltip)]));
     case 'text':

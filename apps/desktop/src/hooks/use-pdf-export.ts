@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/errors';
 import { subscribeExportPngRequests, subscribeExportRequests, subscribePrintRequests } from '../native/gp-files';
 import { printPdf, savePdf } from '../native/pdf-export';
 import { savePngs } from '../native/png-export';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -65,6 +66,7 @@ export function usePdfExport(
   trackIndex: number,
   mode: ScoreMode,
   dispatch: Dispatch<EditorAction>,
+  chordDisplay: ChordDisplay = DEFAULT_CHORD_DISPLAY,
 ): PdfExport {
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('pdf');
@@ -91,19 +93,19 @@ export function usePdfExport(
     (exportMode: ScoreMode, paper: PaperId) => {
       if (document !== undefined) {
         run(async () => {
-          const pdf = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName });
+          const pdf = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName, chordDisplay });
           return (await savePdf(pdf, pdfFileName(document.song, trackIndex, exportMode, document.fileName))) !== null;
         });
       }
     },
-    [document, trackIndex, run],
+    [document, trackIndex, run, chordDisplay],
   );
 
   const savePng = useCallback(
     (exportMode: ScoreMode, paper: PaperId, png: PngOptions) => {
       if (document !== undefined) {
         run(async () => {
-          const pages = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName });
+          const pages = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName, chordDisplay });
           const names = pngFileNames(exportBaseName(document.song, trackIndex, exportMode, document.fileName), pages.pages.length);
           const saved = await savePngs(pages, names, png);
           if (saved !== null) {
@@ -113,16 +115,16 @@ export function usePdfExport(
         });
       }
     },
-    [document, trackIndex, run, dispatch],
+    [document, trackIndex, run, dispatch, chordDisplay],
   );
 
   const print = useCallback(() => {
     if (document === undefined) {
       return;
     }
-    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName });
+    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName, chordDisplay });
     printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
-  }, [document, trackIndex, mode, dispatch]);
+  }, [document, trackIndex, mode, dispatch, chordDisplay]);
   useEffect(() => subscribePrintRequests(print), [print]);
 
   return { isOpen: isOpen && hasDocument, format, isSaving, open, openPng, close, save, savePng, print };

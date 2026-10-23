@@ -1,6 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type Song, findNote } from '@gp-editor/core';
+import { type PlayedNote, type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
 import { DocumentLayout } from './components/DocumentLayout';
@@ -26,11 +26,14 @@ import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
 import { TransposePanel } from './components/TransposePanel';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
+import { TunerPanel } from './components/tuner/TunerPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
+import { ChordPanel } from './components/chords/ChordPanel';
 import { useClipboard } from './hooks/use-clipboard';
 import { commandStateOf, useCommandPalette, useTransposePanel } from './hooks/use-command-palette';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
+import { useMidiInput } from './hooks/use-midi-input';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
@@ -39,6 +42,7 @@ import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
+import { useTuner } from './hooks/use-tuner';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import type { CommandActions } from './lib/command-types';
 import { COMMANDS } from './lib/commands';
@@ -46,6 +50,8 @@ import { trackInstrument } from './lib/instruments';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
+import { tunerStrings } from './lib/tuner-display';
+import { subscribeTunerRequests } from './native/audio-input';
 import { focusView } from './native/focus-view';
 import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
@@ -92,7 +98,7 @@ export default function App() {
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel; File ▸ Export PNG… opens it for PNG images.
-  const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch);
+  const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch, state.chordDisplay);
   // File ▸ Export MIDI… and Export ASCII Tab….
   const songExport = useSongExport(document, dispatch);
   const clipboard = useClipboard(state, dispatch);
@@ -113,6 +119,10 @@ export default function App() {
   const { isOpen: isSongWriterOpen, close: closeSongWriter } = songWriter;
   const { isOpen: isExportPanelOpen, close: closeExportPanel } = pdfExport;
   const { isPanelOpen: isRecentFilesOpen, closePanel: closeRecentFiles } = recentFiles;
+  // Tools ▸ Tuner…: the microphone runs while its panel is open.
+  const tuner = useTuner();
+  const { isOpen: isTunerOpen, open: openTuner, close: closeTuner } = tuner;
+  useEffect(() => subscribeTunerRequests(openTuner), [openTuner]);
   // Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P); the keyboard goes back to the score when they close.
   const focusScore = useCallback(() => focusView(keyboardView.current), []);
   const transposePanel = useTransposePanel(document !== undefined);
@@ -122,6 +132,7 @@ export default function App() {
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
+      [isTunerOpen, closeTuner],
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
       [isExportPanelOpen, closeExportPanel],
@@ -135,13 +146,13 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
-    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || isTransposeOpen || isCommandPaletteOpen || chrome.notePanel !== undefined ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
+    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isTransposeOpen || isCommandPaletteOpen;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -155,6 +166,19 @@ export default function App() {
     },
     [hasCursorNote, stringAtCursor, showNotePanel],
   );
+  // K and the palette's Chord tool open the chord panel for the cursor's beat; without a cursor there is no beat.
+  const hasCursor = cursor !== undefined;
+  const { openChordPanel: showChordPanel, closeChordPanel } = chrome;
+  const openChordPanel = useCallback(() => {
+    if (hasCursor) {
+      showChordPanel();
+    }
+  }, [hasCursor, showChordPanel]);
+  useEffect(() => {
+    if (!hasCursor) {
+      closeChordPanel();
+    }
+  }, [hasCursor, closeChordPanel]);
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -167,6 +191,7 @@ export default function App() {
     save,
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: openNotePanel,
+    onChordPanel: openChordPanel,
     closeOverlay,
     isOverlayOpen,
     clipboard,
@@ -182,6 +207,26 @@ export default function App() {
     dispatch(action);
     focusView(keyboardView.current);
   }, []);
+  // A drum kit click enters that drum at the cursor (or takes it out of the beat).
+  const hitDrum = useCallback((key: number) => actAtCursor({ type: 'toggleDrumNote', key }), [actAtCursor]);
+  // MIDI step entry: a struck chord becomes the cursor's beat; not while a panel or menu is over the score.
+  const enterPlayed = useCallback(
+    (notes: readonly PlayedNote[]) => {
+      if (!isOverlayOpen) {
+        dispatch({ type: 'enterPlayedNotes', notes });
+      }
+    },
+    [isOverlayOpen],
+  );
+  const midiInput = useMidiInput(enterPlayed);
+  // The chord panel closes back to the score; Apply and Remove are one undo step each.
+  const leaveChordPanel = useCallback((edit?: SongEdit) => {
+    closeChordPanel();
+    if (edit !== undefined) {
+      dispatch({ type: 'edit', edit });
+    }
+    focusView(keyboardView.current);
+  }, [closeChordPanel]);
 
   const cursorString = cursor?.string ?? 1;
   const trackCommands = useMemo(
@@ -207,17 +252,19 @@ export default function App() {
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
 
-  // Another tab: playback stops (the player plays the shown song) and the keyboard goes to its score.
+  // Another tab: playback stops (the player plays the shown song), the chord panel of the last tab's beat closes and
+  // the keyboard goes to its score.
   const { stop: stopPlayback } = playback;
   const { closePicker } = chrome;
   const { activeTabId } = workspace;
   useEffect(() => {
     stopPlayback();
     closePicker();
+    closeChordPanel();
     if (activeTabId !== undefined) {
       focusView(keyboardView.current);
     }
-  }, [activeTabId, stopPlayback, closePicker]);
+  }, [activeTabId, stopPlayback, closePicker, closeChordPanel]);
 
   const lcd = useMemo(
     () => (song === undefined ? undefined : lcdInfo({ song, trackIndex, cursor, playing: playback.playing, practice: playback.practice, loopPass: playback.loopPass })),
@@ -252,6 +299,8 @@ export default function App() {
     exportPng: pdfExport.openPng,
     exportMidi: songExport.exportMidi,
     exportAsciiTab: songExport.exportAsciiTab,
+    exportMusicXml: songExport.exportMusicXml,
+    exportCompressedMusicXml: songExport.exportCompressedMusicXml,
     print: pdfExport.print,
     closeTab: () => activeTabId !== undefined && tabs.requestClose(activeTabId),
     cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
@@ -259,6 +308,7 @@ export default function App() {
     openSongWriter: songWriter.open,
     openShortcuts: chrome.openShortcutSheet,
     openTranspose: transposePanel.open,
+    openTuner,
     pickInstrument: () => chrome.pickInstrument(trackIndex),
     togglePanel: chrome.togglePanel,
     toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
@@ -328,6 +378,7 @@ export default function App() {
           trackIndex={trackIndex}
           fileName={document.fileName}
           mode={state.mode}
+          chordDisplay={state.chordDisplay}
           format={pdfExport.format}
           isSaving={pdfExport.isSaving}
           onSave={pdfExport.save}
@@ -365,7 +416,11 @@ export default function App() {
       {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
       {document !== undefined ? (
         <DocumentLayout
-          left={chrome.panels.palette ? <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} /> : null}
+          left={
+            chrome.panels.palette ? (
+              <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel} />
+            ) : null
+          }
           center={
             <ScoreView
               // A page of its own per tab: it opens at the tab's cursor, not where the last tab was scrolled.
@@ -373,6 +428,7 @@ export default function App() {
               song={document.song}
               trackIndex={trackIndex}
               mode={state.mode}
+              chordDisplay={state.chordDisplay}
               cursor={cursor}
               playing={playback.playing}
               selection={selection}
@@ -393,6 +449,8 @@ export default function App() {
                 notice={state.notice}
                 soundBanks={sound.soundBanks}
                 onChangeMode={(mode) => dispatch({ type: 'setMode', mode })}
+                chordDisplay={state.chordDisplay}
+                onChangeChordDisplay={(display) => dispatch({ type: 'setChordDisplay', display })}
                 onSetSongInfo={(info) => dispatch({ type: 'setSongInfo', info })}
                 onSetTrackName={(index, name) => dispatch({ type: 'setTrackName', trackIndex: index, name })}
                 onSetTrackCapo={(index, capo) => dispatch({ type: 'setTrackCapo', trackIndex: index, capo })}
@@ -402,6 +460,7 @@ export default function App() {
                 onSelectSoundBank={sound.select}
                 onAddSoundBank={sound.add}
                 onRemoveSoundBank={sound.remove}
+                midiInput={midiInput}
               />
             ) : null
           }
@@ -415,6 +474,7 @@ export default function App() {
                 palette={palette}
                 showsKeyboard={chrome.panels.keyboard}
                 showsFretboard={chrome.panels.neck}
+                onDrumHit={hitDrum}
               />
               {chrome.panels.tracks ? (
                 <TracksPanel
@@ -498,6 +558,25 @@ export default function App() {
           onWrite={() => songWriter.write(pdfImport.model, reference)}
           onCancel={songWriter.cancel}
           onClose={songWriter.close}
+        />
+      ) : null}
+      {isTunerOpen ? (
+        <TunerPanel
+          palette={palette}
+          referenceA4={tuner.referenceA4}
+          strings={tunerStrings(track)}
+          onShiftReferenceA4={tuner.shiftReferenceA4}
+          onClose={closeTuner}
+        />
+      ) : null}
+      {chrome.isChordPanelOpen && song !== undefined && cursor !== undefined ? (
+        <ChordPanel
+          palette={palette}
+          song={song}
+          cursor={cursor}
+          onApply={(chord, withNotes) => leaveChordPanel({ type: 'setBeatChord', chord, withNotes })}
+          onRemove={() => leaveChordPanel({ type: 'setBeatChord', chord: undefined })}
+          onClose={() => leaveChordPanel()}
         />
       ) : null}
       {chrome.notePanel !== undefined && cursorNote !== undefined ? (

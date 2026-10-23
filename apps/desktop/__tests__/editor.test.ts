@@ -58,6 +58,22 @@ describe('editorReducer: loading and modes', () => {
     expect(state.cursor).toEqual({ trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 });
     expect(isEdited(state)).toBe(false);
   });
+
+  it('shows or hides the score’s chord names and diagrams without editing the song, and a new score shows both', () => {
+    // Arrange
+    const loaded = loadedState();
+
+    // Act
+    const namesOnly = editorReducer(loaded, { type: 'setChordDisplay', display: { showsNames: true, showsDiagrams: false } });
+    const reopened = editorReducer(namesOnly, { type: 'loaded', document: loaded.document! });
+
+    // Assert
+    expect(loaded.chordDisplay).toEqual({ showsNames: true, showsDiagrams: true });
+    expect(namesOnly.chordDisplay).toEqual({ showsNames: true, showsDiagrams: false });
+    expect(namesOnly.document).toBe(loaded.document);
+    expect(namesOnly.past).toBe(loaded.past);
+    expect(reopened.chordDisplay).toEqual({ showsNames: true, showsDiagrams: true });
+  });
 });
 
 describe('editorReducer: cursor', () => {
