@@ -342,6 +342,8 @@ export interface BeatEffects {
   readonly effect: NoteEffect;
   readonly stroke?: Stroke;
   readonly pickStroke?: StrokeDirection;
+  /** GP4/GP5's rasgueado flag (no pattern). */
+  readonly isRasgueado?: boolean;
 }
 
 export interface NoteContext {

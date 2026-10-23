@@ -15,6 +15,7 @@ import {
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
+import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool, isSameBend } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
@@ -136,6 +137,7 @@ function barGroup(): PaletteGroup {
         run: { kind: 'text', placeholder: 'Section name, e.g. Verse 1', value: (c) => c.header?.marker?.title ?? '', edit: (title) => ({ type: 'setSection', title }) },
         isActive: (c) => c.header?.marker !== undefined,
       },
+      directionsTool(),
     ],
     steppers: [
       { id: 'numerator', label: 'Beats', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
@@ -196,15 +198,18 @@ function noteGroup(): PaletteGroup {
 function dynamicsGroup(): PaletteGroup {
   return {
     title: 'Dynamics',
-    tools: DYNAMIC_ORDER.map((dynamic) => ({
-      id: `dynamic-${dynamic}`,
-      face: DYNAMIC_GLYPHS[dynamic].text,
-      glyph: 'dynamic',
-      tooltip: `Dynamic ${dynamic}`,
-      scope: 'note',
-      run: edit({ type: 'setDynamic', dynamic }),
-      isActive: (c) => c.note !== undefined && dynamicOf(c.note.velocity) === dynamic,
-    })),
+    tools: [
+      ...DYNAMIC_ORDER.map((dynamic): PaletteTool => ({
+        id: `dynamic-${dynamic}`,
+        face: DYNAMIC_GLYPHS[dynamic].text,
+        glyph: 'dynamic',
+        tooltip: `Dynamic ${dynamic}`,
+        scope: 'note',
+        run: edit({ type: 'setDynamic', dynamic }),
+        isActive: (c) => c.note !== undefined && dynamicOf(c.note.velocity) === dynamic,
+      })),
+      ...hairpinTools(),
+    ],
   };
 }
 
@@ -265,7 +270,8 @@ function techniquesGroup(): PaletteGroup {
       effectTool('tapping', 'Tap', 'Tapping', 'tapping'),
       effectTool('slapping', 'Slap', 'Slap', 'slapping'),
       effectTool('popping', 'Pop', 'Pop', 'popping'),
-      effectTool('fadeIn', 'Fade', 'Fade in (volume swell)', 'fadeIn'),
+      effectTool('fadeIn', 'Fade', 'Fade in', 'fadeIn'),
+      ...fadeTools(),
     ],
   };
 }
@@ -316,6 +322,8 @@ function strokeGroup(): PaletteGroup {
         isActive: (c) => (c.beat?.text ?? '') !== '',
       },
       { id: 'chord', face: 'Chord', key: 'K', tooltip: withKey('Chord diagram: grid, name and chord library', 'K'), scope: 'beat', run: { kind: 'chordPanel' }, isActive: (c) => c.beat?.chord !== undefined },
+      rasgueadoTool(),
+      ...pedalTools(),
     ],
   };
 }

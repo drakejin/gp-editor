@@ -58,6 +58,14 @@ export const ROW = {
   dynamicsBaseline: 13,
   /** The chord names line under the heading; the diagrams follow it (`diagramHeight`). */
   chordNames: 16,
+  /** Directions (segno, coda, D.S. al Coda …) under the heading, when the song has any. */
+  directions: 22,
+  /** Baseline of the direction signs, from the top of their band. */
+  directionsBaseline: 18,
+  /** The sustain pedal (Ped. ✱) under the dynamics, when the track has pedal marks. */
+  pedals: 20,
+  /** Baseline of the pedal marks, from the top of their band. */
+  pedalsBaseline: 13,
   /** Under the chord band, before the staff's own room. */
   chordsBottom: 6,
   gap: 14,
@@ -66,6 +74,10 @@ export const ROW = {
 
 /** Y positions inside a row; undefined when the band is not shown in the mode. */
 export interface RowGeometry {
+  /** Baseline of the direction signs; only when the song has directions (`hasDirections`). */
+  readonly directionsY?: number;
+  /** Baseline of the sustain pedal marks; only when the track has pedal marks (`hasPedals`). */
+  readonly pedalsY?: number;
   /** Centre of the chord names line; only when the track has named chords and names are shown (`chordBands`). */
   readonly chordNamesY?: number;
   /** Top of the chord diagrams; only when a chord of the track has a diagram and diagrams are shown. */
@@ -110,9 +122,22 @@ export interface RowBands {
   readonly hasChordNames: boolean;
   /** Chord diagrams shown over the staves, under the names. */
   readonly hasChordDiagrams: boolean;
+  /** The song has musical directions (`hasDirections`): their band under the heading. */
+  readonly hasDirections: boolean;
+  /** The track has sustain pedal marks (`hasPedals`): their band under the dynamics. */
+  readonly hasPedals: boolean;
 }
 
-const PLAIN_ROW: RowBands = { markLaneCount: 1, hasDynamics: false, hasBends: false, hasLyrics: false, hasChordNames: false, hasChordDiagrams: false };
+const PLAIN_ROW: RowBands = {
+  markLaneCount: 1,
+  hasDynamics: false,
+  hasBends: false,
+  hasLyrics: false,
+  hasChordNames: false,
+  hasChordDiagrams: false,
+  hasDirections: false,
+  hasPedals: false,
+};
 
 type ChordBand = Pick<RowGeometry, 'chordNamesY' | 'chordDiagramsTop'> & { readonly bottom: number };
 
@@ -130,12 +155,15 @@ function chordBand(top: number, hasNames: boolean, hasDiagrams: boolean): ChordB
 }
 
 export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial<RowBands> = {}): RowGeometry {
-  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams } = { ...PLAIN_ROW, ...bands };
-  const { bottom: chordsBottom, ...chords } = chordBand(ROW.heading, hasChordNames, hasChordDiagrams);
+  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams, hasDirections, hasPedals } = { ...PLAIN_ROW, ...bands };
+  const directionsY = hasDirections ? ROW.heading + ROW.directionsBaseline : undefined;
+  const { bottom: chordsBottom, ...chords } = chordBand(ROW.heading + (hasDirections ? ROW.directions : 0), hasChordNames, hasChordDiagrams);
+  const top = { ...chords, directionsY };
   let y = chordsBottom;
   let notationTop: number | undefined;
   let lyricsY: number | undefined;
   let dynamicsY: number | undefined;
+  let pedalsY: number | undefined;
   if (showsNotation(mode)) {
     notationTop = y + NOTATION.above;
     y += notationBandHeight();
@@ -147,9 +175,13 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial
       dynamicsY = y + ROW.dynamicsBaseline;
       y += ROW.dynamics;
     }
+    if (hasPedals) {
+      pedalsY = y + ROW.pedalsBaseline;
+      y += ROW.pedals;
+    }
   }
   if (!showsTab(mode)) {
-    return { ...chords, notationTop, lyricsY, dynamicsY, height: y + ROW.gap };
+    return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, height: y + ROW.gap };
   }
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
@@ -164,5 +196,9 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial
     dynamicsY = y + ROW.dynamicsBaseline;
     y += ROW.dynamics;
   }
-  return { ...chords, notationTop, lyricsY, dynamicsY, marksY, tabTop, height: y + ROW.gap };
+  if (hasPedals && pedalsY === undefined) {
+    pedalsY = y + ROW.pedalsBaseline;
+    y += ROW.pedals;
+  }
+  return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, marksY, tabTop, height: y + ROW.gap };
 }

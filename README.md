@@ -214,7 +214,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
     harmonic, `T` tie. The palette's **Techniques** group, right under Rhythm (visible without scrolling), has every
     one of them as a button with its key in the corner — Bend C, Slide S, H/P H, Harm. N, P.M. M, L.R. R, Dead X,
     Vib. B, ( ) G — lit while the note has it, then the whammy bar, trill, tremolo picking, grace note, tap, slap,
-    pop and fade in
+    pop, fade in, fade out and volume swell
   - `B` (or the palette's *Vib.*) opens the **vibrato** panel (none / slight / wide, with how it is drawn); `C` (or *Bend*) the **bend (choking)** panel:
     the shape (bend, bend & release, bend-release-bend, pre-bend, pre-bend & release, release) and the amount (¼ to 3
     tones), with its curve. A choice applies at once (one undo step each); *Done*, Esc or a click outside closes the
@@ -225,6 +225,14 @@ Guitar Pro's own files differently are listed, with that evidence, in
     strokes up / down; text above the beat. Options open under their group.
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
     number of plays, alternate endings 1–8, triplet feel, a section name
+  - musical directions (the Bar group's 𝄋): segno, segno segno, coda, double coda, fine and the jumps — D.C., D.S.,
+    D.S.S., each plain or al Coda / al Double Coda / al Fine, and Da Coda / Da Double Coda (drawn "To Coda") — each on
+    or off for the bar; the signs show at the start of the bar, the words at its end, in a band under the bar numbers
+  - crescendo / decrescendo (the Dynamics group): a wedge under the staff over the selected beats (or the cursor's
+    beat); playback goes from the dynamic where it starts to the dynamic after it (one dynamic further when that one
+    does not go its way)
+  - rasgueado (the Beat group, Guitar Pro's 18 finger patterns, shown as "rasg. mii" over the tab) and the sustain
+    pedal: Ped. where the beat starts, ✱ where it ends, a line while it is held, in a band under the staff
   - ⌘Z / ⇧⌘Z undo and redo
   - copy and paste: drag across the score — into other rows too — or ⇧← / ⇧→ or ⇧-click select beats from the
     cursor (tinted on both staves; any other move clears the selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests
@@ -242,7 +250,8 @@ Guitar Pro's own files differently are listed, with that evidence, in
   (voices 1–4, nested tuplets …) but not Guitar Pro's own sound settings (RSE), stylesheet or audio tracks. GP4 and GP3
   keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
   save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
-  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings, hairpins, fade outs, volume swells, the
+  sustain pedal, a rasgueado's pattern; a direction stays on its first bar only).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
   steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
@@ -371,6 +380,10 @@ Guitar Pro's own files differently are listed, with that evidence, in
     the written tempo or 20 BPM above the playback tempo, whichever is higher). The LCD shows the pass and its tempo.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
     keeps its pass count). Adding or deleting a bar while playing stops playback.
+  - Playback follows the musical directions as Guitar Pro does: a D.C. / D.S. / D.S.S. goes back once, then the bars
+    play one after the other without repeats (the last ending) — to the end, to the fine, or to the Da Coda and on at
+    the coda. A loop plays its bars as written. Fade out and volume swell play as volume envelopes, a rasgueado as a
+    quick strum per finger, the sustain pedal as the MIDI damper pedal.
 
 ## License
 

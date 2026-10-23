@@ -18,6 +18,7 @@ export {
   durationTicks,
   isMeasureOverfull,
   isNoteValue,
+  isPedalDownBefore,
   isSameTuplet,
   measureTicks,
   toNoteValue,
@@ -87,6 +88,9 @@ export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency 
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
+export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
+export { DIRECTION_JUMPS, DIRECTION_TARGETS, MUSICAL_DIRECTIONS, isDirectionTarget } from './formats/common/directions';
+export { RASGUEADO_PATTERNS, type RasgueadoInfo, rasgueadoInfo } from './formats/common/rasgueado';
 export { setBeatChord, setBeatChordNotes } from './edit/beat-chord';
 export { CHORD_TYPES, type ChordType, type ChordTypeName } from './chords/database';
 export {

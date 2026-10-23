@@ -93,3 +93,16 @@ export const GRACE_NOTEHEAD_WIDTH = 0.78;
 export function staffSpace(size: number): number {
   return size / 4;
 }
+
+/** Directions, hairpins, fades and the piano pedal (Bravura's metrics, measured from the bundled font). */
+export const MARK_GLYPHS = {
+  segno: glyph(0xe047, 2.228, 3.036, -0.108),
+  coda: glyph(0xe048, 3.816, 3.592, -0.632),
+  dynamicCrescendoHairpin: glyph(0xe53e, 3, 1.424, 0.372),
+  dynamicDiminuendoHairpin: glyph(0xe53f, 3, 1.424, 0.372),
+  guitarFadeIn: glyph(0xe843, 1.448, 1.46, 0),
+  guitarFadeOut: glyph(0xe844, 1.448, 1.46, 0),
+  guitarVolumeSwell: glyph(0xe845, 2.896, 1.46, 0),
+  keyboardPedalPed: glyph(0xe650, 4.076, 2.22, -0.032),
+  keyboardPedalUp: glyph(0xe655, 1.8, 1.8, 0),
+} as const;

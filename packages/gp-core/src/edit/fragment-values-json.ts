@@ -166,7 +166,23 @@ function withFlags(raw: RawObject, effect: NoteEffect): NoteEffect | undefined {
     result = { ...result, [flag]: value };
   }
   // A note has one vibrato: when both are on, the wide one.
-  return result.vibrato && result.wideVibrato ? { ...result, vibrato: false } : result;
+  const vibrato = result.vibrato && result.wideVibrato ? { ...result, vibrato: false } : result;
+  return withFades(raw, vibrato);
+}
+
+/** Fade out and volume swell: absent or a boolean each; a note has one fade (fade in, else fade out, else volume swell). */
+function withFades(raw: RawObject, effect: NoteEffect): NoteEffect | undefined {
+  const { fadeOut, volumeSwell } = raw;
+  if ((fadeOut !== undefined && typeof fadeOut !== 'boolean') || (volumeSwell !== undefined && typeof volumeSwell !== 'boolean')) {
+    return undefined;
+  }
+  if (effect.fadeIn) {
+    return effect;
+  }
+  if (fadeOut === true) {
+    return { ...effect, fadeOut };
+  }
+  return volumeSwell === true ? { ...effect, volumeSwell } : effect;
 }
 
 function withOptionalEffects(raw: RawObject, effect: NoteEffect, maxFret: number): NoteEffect | undefined {

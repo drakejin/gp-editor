@@ -93,6 +93,7 @@ export function readBeatEffectsGp45(reader: ByteReader, firstStroke: 'up' | 'dow
     effect,
     ...(stroke === undefined ? {} : { stroke }),
     ...(pickStroke === undefined ? {} : { pickStroke }),
+    ...((flags2 & 0x01) !== 0 ? { isRasgueado: true } : {}),
   };
 }
 
