@@ -4,6 +4,7 @@ import { buildPdfDocument, pdfFileName } from '../export/pdf-document';
 import { errorMessage } from '../lib/errors';
 import { subscribeExportRequests, subscribePrintRequests } from '../native/gp-files';
 import { printPdf, savePdf } from '../native/pdf-export';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -30,6 +31,7 @@ export function usePdfExport(
   trackIndex: number,
   mode: ScoreMode,
   dispatch: Dispatch<EditorAction>,
+  chordDisplay: ChordDisplay = DEFAULT_CHORD_DISPLAY,
 ): PdfExport {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -49,7 +51,7 @@ export function usePdfExport(
       setIsSaving(true);
       void (async () => {
         try {
-          const pdf = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName });
+          const pdf = buildPdfDocument(document.song, trackIndex, exportMode, { paper, fileName: document.fileName, chordDisplay });
           const saved = await savePdf(pdf, pdfFileName(document.song, trackIndex, exportMode, document.fileName));
           if (saved !== null) {
             setIsOpen(false);
@@ -62,16 +64,16 @@ export function usePdfExport(
         }
       })();
     },
-    [document, trackIndex, dispatch],
+    [document, trackIndex, dispatch, chordDisplay],
   );
 
   const print = useCallback(() => {
     if (document === undefined) {
       return;
     }
-    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName });
+    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName, chordDisplay });
     printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
-  }, [document, trackIndex, mode, dispatch]);
+  }, [document, trackIndex, mode, dispatch, chordDisplay]);
   useEffect(() => subscribePrintRequests(print), [print]);
 
   return { isOpen: isOpen && hasDocument, isSaving, open, close, save, print };

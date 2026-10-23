@@ -128,6 +128,28 @@ describe('pick strokes in a row', () => {
   });
 });
 
+describe('chords in a row', () => {
+  it.each(SCORE_MODES)('draws the chord name and diagram over its beat, above the staves (%s)', (mode) => {
+    // Arrange
+    const [first, ...rest] = bar(1, ['f', 'f', 'f', 'f']);
+    const song = makeSong([[{ ...first!, chord: { name: 'Am', firstFret: 1, frets: [0, 1, 2, 2, 0, -1] } }, ...rest]]);
+    const track = song.tracks[0]!;
+    const geometry = rowGeometry(mode, 6, { markLaneCount: tabMarkLanes(track.measures).length, hasChordNames: true, hasChordDiagrams: true });
+    const headerWidth = rowHeaderWidth(mode, track);
+    const row = { measures: [layoutMeasure(song, 0, 0)] };
+
+    // Act
+    const commands = engraveRow({ song, trackIndex: 0, row, headerWidth, mode, geometry, palette: PALETTE });
+
+    // Assert
+    const [name] = glyphsOf(commands, 'Am');
+    expect(name).toMatchObject({ x: placeRow(row, headerWidth)[0]!.x + row.measures[0]!.beats[0]!.x, y: geometry.chordNamesY });
+    const dots = commands.filter((command) => command.kind === 'circle' && command.strokeWidth === undefined);
+    expect(dots.length).toBeGreaterThanOrEqual(3);
+    expect(dots.every((dot) => dot.kind === 'circle' && dot.y < (geometry.notationTop ?? geometry.marksY!))).toBe(true);
+  });
+});
+
 describe('triplet feel in a row', () => {
   it('draws the swing mark in the heading of the bar where it starts', () => {
     // Arrange

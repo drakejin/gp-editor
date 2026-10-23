@@ -315,6 +315,7 @@ function strokeGroup(): PaletteGroup {
         run: { kind: 'text', placeholder: 'Text above the beat', value: (c) => c.beat?.text ?? '', edit: (text) => ({ type: 'setBeatText', text }) },
         isActive: (c) => (c.beat?.text ?? '') !== '',
       },
+      { id: 'chord', face: 'Chord', key: 'K', tooltip: withKey('Chord diagram: grid, name and chord library', 'K'), scope: 'beat', run: { kind: 'chordPanel' }, isActive: (c) => c.beat?.chord !== undefined },
     ],
   };
 }

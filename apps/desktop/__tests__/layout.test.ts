@@ -69,6 +69,23 @@ describe('layoutMeasure with bends', () => {
   });
 });
 
+describe('layoutMeasure with a minimum beat width', () => {
+  it('widens the beats that need more room (a chord diagram), keeping the others as they are', () => {
+    // Arrange
+    const song = makeSong([[beat(960, [note(1, 0)], EIGHTH), beat(1440, [note(1, 2)], EIGHTH), beat(1920, [note(1, 3)], EIGHTH)]]);
+    const plain = layoutMeasure(song, 0, 0);
+
+    // Act
+    const widened = layoutMeasure(song, 0, 0, (target) => (target.start === 1440 ? 80 : 0));
+
+    // Assert
+    const eighthWidth = plain.beats[1]!.x - plain.beats[0]!.x;
+    const extra = 80 - eighthWidth;
+    expect(widened.width).toBe(plain.width + extra);
+    expect(widened.beats.map((b) => b.x)).toEqual([plain.beats[0]!.x, plain.beats[1]!.x + extra / 2, plain.beats[2]!.x + extra]);
+  });
+});
+
 describe('layoutRows', () => {
   const measure = (measureIndex: number, width: number) => ({
     measureIndex,

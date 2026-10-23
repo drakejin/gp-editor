@@ -19,6 +19,8 @@ export type KeyCommand =
   | { readonly type: 'goToBar'; readonly jump: BarJump }
   | { readonly type: 'zoom'; readonly direction: 1 | -1 }
   | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
+  /** K: the chord diagram panel for the beat at the cursor. */
+  | { readonly type: 'openChordPanel' }
   | { readonly type: 'copy' }
   | { readonly type: 'cut' }
   | { readonly type: 'paste' };
@@ -64,7 +66,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
   { key: 'Backspace', shiftKey: true },
-  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i'].map((key) => ({ key })),
+  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k'].map((key) => ({ key })),
 ];
 
 /**
@@ -90,6 +92,8 @@ const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
 };
 
 const PANEL_KEYS: Readonly<Record<string, NotePanel>> = { b: 'vibrato', c: 'bend' };
+/** Guitar Pro's chord diagram key is A, taken here by the accent. */
+const CHORD_PANEL_KEY = 'k';
 
 const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
 
@@ -111,7 +115,7 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
 /**
  * The editor's keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
- * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend), ⌫ / ⌦ turn a note into
+ * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration, I inserts a beat, Space plays,
  * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste.
@@ -146,6 +150,9 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   const panel = PANEL_KEYS[press.key.toLowerCase()];
   if (panel !== undefined) {
     return { type: 'openNotePanel', panel };
+  }
+  if (press.key.toLowerCase() === CHORD_PANEL_KEY) {
+    return { type: 'openChordPanel' };
   }
   if (press.altKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
     return { type: 'shiftNoteString', delta: press.key === 'ArrowUp' ? -1 : 1 };

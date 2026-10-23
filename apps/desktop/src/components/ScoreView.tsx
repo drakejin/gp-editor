@@ -4,6 +4,7 @@ import type { Song, StringAddress } from '@gp-editor/core';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
 import { type PageTop, isRowOnFirstScreen } from '../lib/score-scroll';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY, chordBands, chordBeatWidth } from '../score/chords';
 import { hasDynamicChanges } from '../score/dynamics';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
@@ -19,6 +20,8 @@ interface ScoreViewProps {
   readonly song: Song;
   readonly trackIndex: number;
   readonly mode: ScoreMode;
+  /** What the score shows of its chords (names, diagrams); both by default. */
+  readonly chordDisplay?: ChordDisplay;
   readonly cursor?: StringAddress;
   readonly playing?: PlayingBeat;
   /** Selected beats of the shown track (selectionRange), tinted; keep it the same object while it does not change. */
@@ -47,7 +50,7 @@ const SCROLL_POSITION = 0.25;
  * The score as one page on Guitar Pro's grey desk: the title block, then the rows of the shown track, zoomed. The
  * playing row, and the cursor's row when it leaves the view (a bar picked in the bar map), are scrolled into view.
  */
-export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, palette, zoom, header, onPressBeat, onDragBeat }: ScoreViewProps) {
+export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, playing, selection, palette, zoom, header, onPressBeat, onDragBeat }: ScoreViewProps) {
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -55,16 +58,21 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
   const track = song.tracks[trackIndex];
   const stringCount = track?.strings.length ?? 6;
   const headerWidth = useMemo(() => (track === undefined ? 0 : rowHeaderWidth(mode, track)), [mode, track]);
-  // Lanes and the dynamics, bend and lyrics bands for the whole track, so all rows keep one height (the list uses fixed row heights).
+  // Lanes and the dynamics, bend, lyrics and chord bands for the whole track, so all rows keep one height (the list uses fixed row heights).
   const markLanes = useMemo(() => tabMarkLanes(track?.measures ?? []), [track?.measures]);
   const hasDynamics = useMemo(() => hasDynamicChanges(track?.measures ?? []), [track?.measures]);
   const isBent = useMemo(() => hasBends(track?.measures ?? []), [track?.measures]);
   const isSung = hasLyrics(track);
+  const { hasChordNames, hasChordDiagrams } = useMemo(() => chordBands(track?.measures ?? [], chordDisplay), [track?.measures, chordDisplay]);
   const geometry = useMemo(
-    () => rowGeometry(mode, stringCount, { markLaneCount: markLanes.length, hasDynamics, hasBends: isBent, hasLyrics: isSung }),
-    [mode, stringCount, markLanes.length, hasDynamics, isBent, isSung],
+    () => rowGeometry(mode, stringCount, { markLaneCount: markLanes.length, hasDynamics, hasBends: isBent, hasLyrics: isSung, hasChordNames, hasChordDiagrams }),
+    [mode, stringCount, markLanes.length, hasDynamics, isBent, isSung, hasChordNames, hasChordDiagrams],
   );
-  const measures = useMemo(() => song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i)), [song, trackIndex]);
+  // A beat with a chord is as wide as its diagram or name, so neighbouring chords do not overlap.
+  const measures = useMemo(
+    () => song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i, (beat) => chordBeatWidth(beat, chordDisplay))),
+    [song, trackIndex, chordDisplay],
+  );
   const pageWidth = Math.max(0, width - DESK_MARGIN * 2);
   // Rows are laid out in unzoomed points: a zoomed page holds fewer bars per line, as in Guitar Pro.
   const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);

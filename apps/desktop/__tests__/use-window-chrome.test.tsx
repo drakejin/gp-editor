@@ -56,6 +56,23 @@ describe('useWindowChrome: closeOverlay (Esc)', () => {
     expect(current().menu).toBeUndefined();
   });
 
+  it('closes the chord panel, under a menu opened over it', () => {
+    // Arrange
+    const current = renderChrome();
+    ReactTestRenderer.act(() => current().openChordPanel());
+    const isOpen = current().isChordPanelOpen;
+
+    // Act + Assert
+    expect(isOpen).toBe(true);
+    expect(closeOverlay(current)).toBe(true);
+    expect(current().isChordPanelOpen).toBe(false);
+    ReactTestRenderer.act(() => {
+      current().openChordPanel();
+      current().closeChordPanel();
+    });
+    expect(current().isChordPanelOpen).toBe(false);
+  });
+
   it('reports that nothing was open', () => {
     const current = renderChrome();
     expect(closeOverlay(current)).toBe(false);

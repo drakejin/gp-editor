@@ -49,6 +49,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '⌫ / ⌦', action: 'Note → rest; on a rest, remove it', press: key('Backspace') },
       { keys: '⇧⌫', action: 'Delete the beat', press: key('Backspace', { shiftKey: true }) },
       { keys: 'I', action: 'Insert a beat after the cursor', press: key('i') },
+      { keys: 'K', action: 'Chord diagram… (grid, name, chord library)', press: key('k') },
       { keys: '⌥[ / ⌥]', action: 'Longer / shorter note value', press: key('[', { altKey: true }) },
       { keys: '.', action: 'Dotted', press: key('.') },
       { keys: '/', action: 'Triplet', press: key('/') },

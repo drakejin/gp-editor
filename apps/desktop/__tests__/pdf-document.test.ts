@@ -288,6 +288,26 @@ describe('buildPdfDocument', () => {
     expect(quietPitches[0]! - plainPitches[0]!).toBeCloseTo(ROW.dynamics * PRINT_SCALE);
   });
 
+  it('prints the chord names and diagrams the screen shows, and leaves out those it hides', () => {
+    // Arrange: an Am chord on bar 2's first beat.
+    const [track] = song.tracks;
+    const measures = track!.measures.map((measure, i) =>
+      i === 1 ? { ...measure, beats: measure.beats.map((b, j) => (j === 0 ? { ...b, chord: { name: 'Am', firstFret: 1, frets: [0, 1, 2, 2, 0, -1] } } : b)) } : measure,
+    );
+    const chorded = { ...song, tracks: [{ ...track!, measures }] };
+    const print = (showsNames: boolean, showsDiagrams: boolean) => buildPdfDocument(chorded, 0, 'tab', { paper: 'a4', chordDisplay: { showsNames, showsDiagrams } });
+
+    // Act
+    const both = print(true, true);
+    const hidden = print(false, false);
+
+    // Assert
+    expect(textValues(both.pages[0]!.commands)).toContain('Am');
+    expect(textValues(hidden.pages[0]!.commands)).not.toContain('Am');
+    expect(rowPitches(both.pages[1]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[1]!)[0]!);
+    expect(buildPdfDocument(chorded, 0, 'tab', { paper: 'a4' })).toEqual(both);
+  });
+
   it('makes one page with the title block when the track does not exist', () => {
     const pdf = buildPdfDocument(song, 5, 'tab', { paper: 'a4' });
     expect(pdf.pages).toHaveLength(1);

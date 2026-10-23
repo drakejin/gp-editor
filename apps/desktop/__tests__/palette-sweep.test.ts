@@ -44,7 +44,8 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
         case 'text':
           return [{ name, action: asEdit(tool.run.edit('Verse 1')), isAlreadySo: tool.run.value(CONTEXT) === 'Verse 1' }];
         case 'panel':
-          // Opens the vibrato or bend panel (no edit by itself); the panels' choices are checked in NotePanels.test.
+        case 'chordPanel':
+          // Opens the vibrato, bend or chord panel (no edit by itself); their choices are checked in NotePanels.test and ChordPanel.test.
           return [];
       }
     }),

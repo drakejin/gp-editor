@@ -26,6 +26,7 @@ import {
   firstCursor,
 } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { refusalHint } from './edit-hints';
@@ -67,6 +68,8 @@ export interface EditorState {
    */
   readonly selectionAnchor?: StringAddress;
   readonly mode: ScoreMode;
+  /** What this score shows of its chords (the track inspector's Chords toggles); names and diagrams for a new score. */
+  readonly chordDisplay: ChordDisplay;
   readonly isLoading: boolean;
   readonly error?: string;
   /** What the last retune could not keep (notes moved by octaves or left out); shown under the neck settings. */
@@ -112,6 +115,7 @@ export type EditorAction =
   | { readonly type: 'showHint'; readonly hint: string }
   | { readonly type: 'selectTrack'; readonly trackIndex: number }
   | { readonly type: 'setMode'; readonly mode: ScoreMode }
+  | { readonly type: 'setChordDisplay'; readonly display: ChordDisplay }
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
@@ -149,6 +153,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
   future: [],
   trackIndex: 0,
   mode: 'notationAndTab',
+  chordDisplay: DEFAULT_CHORD_DISPLAY,
   isLoading: false,
 };
 
@@ -198,6 +203,8 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return selectTrack(state, action.trackIndex);
     case 'setMode':
       return { ...state, mode: action.mode };
+    case 'setChordDisplay':
+      return { ...state, chordDisplay: action.display };
     default:
       return cursorReducer(state, action);
   }

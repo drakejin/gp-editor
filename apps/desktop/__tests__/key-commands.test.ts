@@ -82,6 +82,8 @@ describe('keyCommand', () => {
     const digit = { current: undefined };
     expect(keyCommand(press('b'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'vibrato' });
     expect(keyCommand(press('c'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'bend' });
+    expect(keyCommand(press('k'), digit, 0)).toEqual({ type: 'openChordPanel' });
+    expect(keyCommand(press('K'), digit, 0)).toEqual({ type: 'openChordPanel' });
   });
 
   it('keeps the other edit keys and moves the duration to ⌥[ and ⌥]', () => {
