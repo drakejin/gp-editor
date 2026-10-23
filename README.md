@@ -139,7 +139,9 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
-  also empty strings.
+  also empty strings. Keys reach the score only from the score: what is typed in a text field (the Song Writer, the
+  inspector, the palette's texts) stays in it, and while a panel, sheet or menu is open over the score every key but
+  Esc leaves the score alone (Esc closes it, the topmost first).
 - **Edit** at the cursor (keys, or the edition palette — each button's tooltip names its key; a lit button is what
   the cursor's note, beat or bar has; an edit that cannot apply says why in a strip under the tab strip):
   - frets: 0–9 (two quick digits make 10–29; on an empty string this adds a note), `-`/`=` fret down/up,
@@ -169,8 +171,8 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
     number of plays, alternate endings 1–8, triplet feel, a section name
   - ⌘Z / ⇧⌘Z undo and redo
-  - copy and paste: ⇧← / ⇧→ select beats from the cursor (tinted on both staves; any other move clears the
-    selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests
+  - copy and paste: drag across the score — into other rows too — or ⇧← / ⇧→ or ⇧-click select beats from the
+    cursor (tinted on both staves; any other move clears the selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests
     too, and the beats after them move up; ⌘V inserts the copied beats at the cursor and pushes what follows on, across
     bar lines: a note that runs over a bar line becomes tied notes, and bars are added at the end when needed. Cut and
     paste are one undo step each; drum beats paste only into drum tracks.

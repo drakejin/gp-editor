@@ -59,11 +59,27 @@ export function extendSelection(state: EditorState, step: -1 | 1): EditorState {
 }
 
 /**
+ * A mouse drag, or a shift-click: the cursor on `target`, the selection anchored where it started (the cursor before
+ * the first such move). Back on the anchor's beat nothing is selected.
+ */
+export function selectTo(state: EditorState, target: StringAddress): EditorState {
+  const song = state.document?.song;
+  const { cursor } = state;
+  if (song === undefined || cursor === undefined) {
+    return state;
+  }
+  const moved = clampCursor(song, target) ?? cursor;
+  const anchor = state.selectionAnchor ?? cursor;
+  const isAnchorBeat = moved.measureIndex === anchor.measureIndex && moved.beatIndex === anchor.beatIndex;
+  return { ...state, cursor: moved, selectionAnchor: isAnchorBeat ? undefined : anchor };
+}
+
+/**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
  * changed the song or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection') {
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo') {
     return after;
   }
   const isKept = after.cursor === before.cursor && after.document?.song === before.document?.song && after.trackIndex === before.trackIndex;

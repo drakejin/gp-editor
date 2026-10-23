@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { TextField } from '../TextField';
 import type { SongWriterDraft } from '../../hooks/use-song-writer';
 import { lengthLabel } from '../../song-writer/request';
 import type { Palette } from '../../theme';
@@ -36,7 +37,7 @@ const fieldHeight = (lines: number): number => (lines > 1 ? lines * LINE_HEIGHT 
 
 function Field({ palette, label, value, placeholder, lines = 1, onChange }: { readonly palette: Palette; readonly label: string; readonly value: string; readonly placeholder: string; readonly lines?: number; readonly onChange: (text: string) => void }) {
   return (
-    <TextInput
+    <TextField
       accessibilityLabel={label}
       value={value}
       onChangeText={onChange}

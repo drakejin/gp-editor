@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { TextField } from '../TextField';
 import type { Palette } from '../../theme';
 
 /** A titled block of the inspector ("INFORMATION", "MUSICAL NOTATION" …), as Guitar Pro groups its settings. */
@@ -42,7 +43,7 @@ export function InspectorTextField({ palette, label, value, placeholder, onCommi
   };
   return (
     <InspectorField palette={palette} label={label}>
-      <TextInput
+      <TextField
         value={draft}
         placeholder={placeholder}
         placeholderTextColor={palette.chromeMuted}

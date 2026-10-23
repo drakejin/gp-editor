@@ -8,4 +8,14 @@ module.exports = {
     // own errors); the rule still flags `void` used as a value.
     'no-void': ['warn', { allowAsStatement: true }],
   },
+  overrides: [
+    {
+      // A bare TextInput lets its keys bubble to the score's key handler: the app's fields are TextFields.
+      files: ['src/**/*.ts', 'src/**/*.tsx'],
+      excludedFiles: ['src/components/TextField.tsx'],
+      rules: {
+        'no-restricted-imports': ['error', { paths: [{ name: 'react-native', importNames: ['TextInput'], message: 'Use TextField (src/components/TextField.tsx): its keys stay in the field.' }] }],
+      },
+    },
+  ],
 };

@@ -6,6 +6,7 @@
 // behaviour is checked; everyday QA uses the unsandboxed copy made by scripts/qa/run.sh.
 //
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
+//          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
@@ -106,6 +107,12 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     [self clickAt:[self windowPoint:step[@"click"] in:window] window:window];
     return 0.4;
   }
+  if (step[@"drag"] != nil) {
+    NSDictionary *drag = step[@"drag"];
+    NSInteger steps = MAX(1, [drag[@"steps"] integerValue]);
+    [self dragFrom:[self windowPoint:drag[@"from"] in:window] to:[self windowPoint:drag[@"to"] in:window] steps:steps window:window];
+    return 0.8;
+  }
   if (step[@"key"] != nil) {
     [self pressKey:step[@"key"] modifiers:step[@"modifiers"] window:window];
     return 0.3;
@@ -171,6 +178,18 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 {
   [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location window:window] atStart:NO];
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location window:window]];
+}
+
+/** Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. */
+- (void)dragFrom:(NSPoint)from to:(NSPoint)to steps:(NSInteger)steps window:(NSWindow *)window
+{
+  for (NSInteger i = 1; i <= steps; i++) {
+    CGFloat t = (CGFloat)i / (CGFloat)steps;
+    NSPoint point = NSMakePoint(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+    [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseDragged at:point window:window] atStart:NO];
+  }
+  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:to window:window] atStart:NO];
+  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:from window:window]];
 }
 
 - (void)pressKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window

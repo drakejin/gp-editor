@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TextField } from '../TextField';
 import { type SongWriterDraft, type SongWriterStatus, stepLabel } from '../../hooks/use-song-writer';
 import { errorMessage } from '../../lib/errors';
 import { TRANSCRIPTION_MODELS } from '../../pdf-import/request';
@@ -43,7 +44,7 @@ function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<So
         <Text style={[styles.note, { color: palette.chromeMuted }]}>API key saved on this Mac</Text>
       ) : (
         <>
-          <TextInput
+          <TextField
             accessibilityLabel="Anthropic API key"
             value={draftKey}
             onChangeText={setDraftKey}

@@ -49,7 +49,7 @@ function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = f
   const playback = { isPlaying, start: sources.start, stop: sources.stop, practice: INITIAL_PRACTICE, changePractice: sources.changePractice } as unknown as Playback;
   let commands: EditorCommands | undefined;
   function Probe() {
-    commands = useEditorCommands({ ...sources, state, playback, openPath: jest.fn(), keyboardView: { current: null } });
+    commands = useEditorCommands({ ...sources, state, playback, openPath: jest.fn(), keyboardView: { current: null }, isOverlayOpen });
     return null;
   }
   ReactTestRenderer.act(() => {
@@ -157,5 +157,53 @@ describe('useEditorCommands: Esc', () => {
     const { commands, sources } = renderCommands(openSong(), true, false);
     commands.runCommand({ type: 'stopPlayback' });
     expect(sources.stop).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useEditorCommands: mouse selection', () => {
+  const hit = { measureIndex: 3, beatIndex: 0, string: 2 };
+
+  it('places the cursor where the mouse goes down, and extends the selection on a shift-click', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.onPressBeat(hit, false);
+    commands.onPressBeat(hit, true);
+    expect(sources.dispatch.mock.calls.map(([action]) => action.type)).toEqual(['placeCursor', 'selectTo']);
+  });
+
+  it('selects to the beat a drag reaches, in the cursor’s voice', () => {
+    // Act
+    const { commands, sources } = renderCommands(openSong());
+    commands.onDragBeat({ measureIndex: 3, beatIndex: 0 });
+
+    // Assert
+    expect(sources.dispatch).toHaveBeenCalledWith({ type: 'selectTo', cursor: { trackIndex: 0, measureIndex: 3, beatIndex: 0, voiceIndex: 0, string: 3 } });
+  });
+});
+
+describe('useEditorCommands: keys while a popup is open', () => {
+  const key = (k: string) => ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false } }) as never;
+
+  it('leaves the score alone, whatever is typed', () => {
+    // Arrange: the score with a popup over it
+    const { commands, sources } = renderCommands(openSong(), true, true);
+
+    // Act
+    ['5', 'r', ' ', 'Backspace', 'ArrowRight'].forEach((k) => commands.onKeyDown(key(k)));
+
+    // Assert
+    expect(sources.dispatch).not.toHaveBeenCalled();
+    expect(sources.stop).not.toHaveBeenCalled();
+  });
+
+  it('still closes the popup with Esc', () => {
+    const { commands, sources } = renderCommands(openSong(), false, true);
+    commands.onKeyDown(key('Escape'));
+    expect(sources.closeOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles the keys as usual with no popup', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.onKeyDown(key('ArrowRight'));
+    expect(sources.dispatch).toHaveBeenCalledWith({ type: 'moveCursorBeat', step: 1 });
   });
 });

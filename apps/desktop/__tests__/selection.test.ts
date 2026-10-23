@@ -104,6 +104,36 @@ describe('selection', () => {
   });
 });
 
+describe('selectTo (a mouse drag, a shift-click)', () => {
+  const to = (measureIndex: number, beatIndex: number): EditorAction => ({ type: 'selectTo', cursor: { trackIndex: 0, measureIndex, beatIndex, voiceIndex: 0, string: 1 } });
+
+  it('selects from where the cursor was to the beat dragged to, across a bar line', () => {
+    // Act
+    const dragged = reduce(loaded(), to(1, 1));
+
+    // Assert
+    expect(selectionRange(dragged)).toEqual({ first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 1, beatIndex: 1 } });
+    expect(dragged.cursor).toMatchObject({ measureIndex: 1, beatIndex: 1 });
+  });
+
+  it('keeps where the drag began while it goes on, and selects nothing back on that beat', () => {
+    // Act
+    const back = reduce(loaded(), to(1, 1), to(0, 2));
+    const home = reduce(back, to(0, 0));
+
+    // Assert
+    expect(selectionRange(back)).toEqual({ first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 0, beatIndex: 2 } });
+    expect(home.selectionAnchor).toBeUndefined();
+    expect(home.cursor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+  });
+
+  it('keeps the selection a drag made until the cursor moves some other way', () => {
+    const dragged = reduce(loaded(), to(0, 3));
+    expect(reduce(dragged, { type: 'moveCursorString', delta: 1 }).selectionAnchor).toBeUndefined();
+    expect(reduce(dragged, to(1, 0)).selectionAnchor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+  });
+});
+
 describe('cutSelection', () => {
   it('deletes the selected beats, pulls the next bar back and puts the cursor where they were', () => {
     // Arrange

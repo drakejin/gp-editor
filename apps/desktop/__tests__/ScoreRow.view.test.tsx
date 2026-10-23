@@ -30,7 +30,7 @@ const SONG = makeSong([
 function rowProps(
   song: Song,
   mode: ScoreMode,
-  onPress: (hit: RowHit) => void,
+  onPress: (hit: RowHit, isExtending: boolean) => void,
 ): ScoreRowProps {
   const track = song.tracks[0]!;
   return {
@@ -43,18 +43,21 @@ function rowProps(
     geometry: rowGeometry(mode, track.strings.length),
     palette: PALETTE,
     zoom: 1,
+    rowIndex: 0,
     onPress,
+    onDrag: () => undefined,
   };
 }
 
 interface RenderedRow {
   readonly props: ScoreRowProps;
-  readonly onPress: jest.Mock<void, [RowHit]>;
+  readonly onPress: jest.Mock<void, [RowHit, boolean]>;
   readonly canvas: () => {
     readonly commands: readonly DrawCommand[];
     readonly style: unknown;
   };
   readonly pressAt: (x: number, y: number) => void;
+  readonly canvasNode: () => ReactTestRenderer.ReactTestInstance;
   readonly update: (next: ScoreRowProps) => void;
 }
 
@@ -63,7 +66,7 @@ function render(
   song: Song = SONG,
   zoom = 1,
 ): RenderedRow {
-  const onPress = jest.fn<void, [RowHit]>();
+  const onPress = jest.fn<void, [RowHit, boolean]>();
   const props = { ...rowProps(song, mode, onPress), zoom };
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
@@ -77,16 +80,17 @@ function render(
       commands: canvas().props.commands,
       style: canvas().props.style,
     }),
+    canvasNode: canvas,
     pressAt: (x, y) =>
       ReactTestRenderer.act(() =>
-        pressHandler(canvas())({ nativeEvent: { locationX: x, locationY: y } }),
+        pressHandler(canvas())({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y } }),
       ),
     update: next =>
       ReactTestRenderer.act(() => renderer.update(<ScoreRow {...next} />)),
   };
 }
 
-/** The press handler a press on the canvas reaches: the nearest enclosing `onPress` (the row's Pressable). */
+/** The handler the mouse going down on the canvas reaches: the nearest enclosing `onPressIn` (the row's Pressable). */
 function pressHandler(
   canvas: ReactTestRenderer.ReactTestInstance,
 ): (event: unknown) => void {
@@ -95,11 +99,21 @@ function pressHandler(
     node !== null;
     node = node.parent
   ) {
-    if (typeof node.props.onPress === 'function') {
-      return node.props.onPress;
+    if (typeof node.props.onPressIn === 'function') {
+      return node.props.onPressIn;
     }
   }
   throw new Error('Nothing around the canvas handles presses');
+}
+
+/** The row's Pressable: the nearest node around the canvas with press handlers. */
+function pressableOf(canvas: ReactTestRenderer.ReactTestInstance): ReactTestRenderer.ReactTestInstance {
+  for (let node: ReactTestRenderer.ReactTestInstance | null = canvas; node !== null; node = node.parent) {
+    if (typeof node.props.onPressMove === 'function') {
+      return node;
+    }
+  }
+  throw new Error('Nothing around the canvas follows drags');
 }
 
 /** Centre of beat `beatIndex` of the row's first bar, on the tab line of `string`. */
@@ -196,7 +210,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
-    });
+    }, false);
   });
 
   it('picks the beat but no string for a press on the notation staff', () => {
@@ -212,7 +226,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: undefined,
-    });
+    }, false);
   });
 
   it('ignores a press past the last bar of the row', () => {
@@ -234,11 +248,38 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
-    });
+    }, false);
     expect(row.canvas().style).toEqual({
       width: ROW_WIDTH * 1.5,
       height: row.props.geometry.height * 1.5,
     });
+  });
+
+  it('says when shift was held, to grow the selection', () => {
+    // Arrange
+    const row = render();
+    const { x, y } = tabPoint(row.props, 1, 2);
+
+    // Act
+    ReactTestRenderer.act(() => pressHandler(row.canvasNode())({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, shiftKey: true } }));
+
+    // Assert
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2 }, true);
+  });
+
+  it('follows a drag from where the mouse went down, in layout points, into the rows around it', () => {
+    // Arrange: the row at 200%, the third of the score
+    const onDrag = jest.fn();
+    const row = render('notationAndTab', SONG, 2);
+    row.update({ ...row.props, rowIndex: 2, onDrag });
+    const pressable = pressableOf(row.canvasNode());
+
+    // Act: down at (100, 40) on screen (page 500, 300), then the pointer 60 right and 300 down
+    ReactTestRenderer.act(() => pressable.props.onPressIn({ nativeEvent: { locationX: 100, locationY: 40, pageX: 500, pageY: 300 } }));
+    ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { locationX: 0, locationY: 0, pageX: 560, pageY: 600 } }));
+
+    // Assert
+    expect(onDrag).toHaveBeenCalledWith(2, 80, 170);
   });
 
   it('finds the string on a bass track in tab-only mode', () => {
@@ -255,6 +296,6 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: 4,
-    });
+    }, false);
   });
 });

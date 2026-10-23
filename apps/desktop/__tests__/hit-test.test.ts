@@ -1,5 +1,5 @@
 import { TAB } from '../src/lib/layout';
-import { hitTestRow } from '../src/score/hit-test';
+import { hitTestDrag, hitTestRow } from '../src/score/hit-test';
 
 const measure = (measureIndex: number, x: number, beatXs: number[]) => ({
   x,
@@ -22,5 +22,30 @@ describe('hitTestRow', () => {
     expect(hitTestRow(placed, geometry, 6, 150, 100)).toBeUndefined();
     expect(hitTestRow(placed, geometry, 6, 900, 100)).toBeUndefined();
     expect(hitTestRow(placed, { height: 100 }, 6, 45, 100)).toEqual({ measureIndex: 4, beatIndex: 0, string: undefined });
+  });
+});
+
+describe('hitTestDrag', () => {
+  const rowA = [measure(0, 40, [20, 60]), measure(1, 140, [20, 60])];
+  const rowB = [measure(2, 40, [20, 60]), measure(3, 140, [20, 60])];
+  const rows = [rowA, rowB];
+
+  it('finds the beat under the pointer in the row where the drag began', () => {
+    expect(hitTestDrag(rows, 0, geometry, 6, 165, 30)).toMatchObject({ measureIndex: 1, beatIndex: 0 });
+  });
+
+  it('follows the pointer into the row below or above', () => {
+    expect(hitTestDrag(rows, 0, geometry, 6, 95, geometry.height + 30)).toMatchObject({ measureIndex: 2, beatIndex: 1 });
+    expect(hitTestDrag(rows, 1, geometry, 6, 95, -30)).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+  });
+
+  it('stays on the first and last rows beyond them, and on the row’s ends beside it', () => {
+    expect(hitTestDrag(rows, 0, geometry, 6, 95, -500)).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+    expect(hitTestDrag(rows, 0, geometry, 6, 95, geometry.height * 9)).toMatchObject({ measureIndex: 2, beatIndex: 1 });
+    expect(hitTestDrag(rows, 0, geometry, 6, 5000, 30)).toMatchObject({ measureIndex: 1, beatIndex: 1 });
+  });
+
+  it('finds nothing without rows', () => {
+    expect(hitTestDrag([], 0, geometry, 6, 95, 30)).toBeUndefined();
   });
 });

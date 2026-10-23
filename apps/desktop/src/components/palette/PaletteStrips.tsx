@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { TextField } from '../TextField';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -44,7 +45,7 @@ export function PaletteTextField({ palette, run, context, onChoose }: PaletteTex
   const apply = () => onChoose(run.edit(draft));
   return (
     <View style={[styles.strip, { backgroundColor: palette.chromeDeep }]}>
-      <TextInput
+      <TextField
         value={draft}
         placeholder={run.placeholder}
         placeholderTextColor={palette.chromeMuted}

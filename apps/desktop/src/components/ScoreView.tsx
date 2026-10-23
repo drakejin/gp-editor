@@ -1,6 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View, type ViewToken } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
+import { useDragSelection } from '../hooks/use-drag-selection';
 import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
 import { type PageTop, isRowOnFirstScreen } from '../lib/score-scroll';
 import { hasDynamicChanges } from '../score/dynamics';
@@ -27,7 +28,10 @@ interface ScoreViewProps {
   readonly zoom: number;
   /** The page's title block, above the first row. */
   readonly header?: ReactElement;
-  readonly onPressBeat: (hit: RowHit) => void;
+  /** The mouse went down on a beat (`isExtending`: with shift). */
+  readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
+  /** A drag reached another beat. */
+  readonly onDragBeat: (hit: RowHit) => void;
 }
 
 /** Rows rendered at once and kept around the viewport. */
@@ -43,7 +47,7 @@ const SCROLL_POSITION = 0.25;
  * The score as one page on Guitar Pro's grey desk: the title block, then the rows of the shown track, zoomed. The
  * playing row, and the cursor's row when it leaves the view (a bar picked in the bar map), are scrolled into view.
  */
-export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, palette, zoom, header, onPressBeat }: ScoreViewProps) {
+export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, palette, zoom, header, onPressBeat, onDragBeat }: ScoreViewProps) {
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -66,6 +70,7 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
   const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);
   const rows = useMemo(() => (rowWidth > 0 ? layoutRows(measures, rowWidth - headerWidth) : []), [measures, rowWidth, headerWidth]);
   const rowHeight = geometry.height * zoom;
+  const { onPressRow, onDragRow } = useDragSelection({ rows, headerWidth, geometry, stringCount, onPressBeat, onDragBeat });
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     setWidth(event.nativeEvent.layout.width);
     setHeight(event.nativeEvent.layout.height);
@@ -98,7 +103,7 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
   }, [cursorRow, playingRow]);
 
   const renderRow = useCallback(
-    ({ item }: ListRenderItemInfo<RowLayout>) => {
+    ({ item, index }: ListRenderItemInfo<RowLayout>) => {
       const inRow = (measureIndex: number | undefined) => item.measures.some((m) => m.measureIndex === measureIndex);
       return (
         <View style={[styles.pageRow, { backgroundColor: palette.paper }]}>
@@ -116,12 +121,14 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
             selection={clipRange(selection, item.measures[0]?.measureIndex ?? 0, item.measures[item.measures.length - 1]?.measureIndex ?? 0)}
             markLanes={markLanes}
             zoom={zoom}
-            onPress={onPressBeat}
+            rowIndex={index}
+            onPress={onPressRow}
+            onDrag={onDragRow}
           />
         </View>
       );
     },
-    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, selection, markLanes, zoom, onPressBeat],
+    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, selection, markLanes, zoom, onPressRow, onDragRow],
   );
 
   return (

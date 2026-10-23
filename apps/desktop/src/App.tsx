@@ -85,10 +85,33 @@ export default function App() {
   const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
   const hasCursorNote = cursorNote !== undefined;
   const stringAtCursor = cursor?.string;
+  // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip.
+  const onSongWritten = useCallback((written: Song, fileName: string, warnings: readonly string[]) => {
+    dispatch({ type: 'openTab', document: { fileName, path: '', song: written }, isUnsaved: true });
+    dispatch({ type: 'showHint', hint: writtenSummary(written, warnings) });
+  }, []);
+  const songWriter = useSongWriter(onSongWritten);
   const { openNotePanel: showNotePanel, closeOverlay: closeChromeOverlay } = chrome;
   const { cancelClose } = tabs;
-  // Esc answers the save question first (Cancel), then closes the chrome's overlays.
-  const closeOverlay = useCallback(() => cancelClose() || closeChromeOverlay(), [cancelClose, closeChromeOverlay]);
+  const { isOpen: isSongWriterOpen, close: closeSongWriter } = songWriter;
+  const { isOpen: isExportPanelOpen, close: closeExportPanel } = pdfExport;
+  // The panels over the window that are not the chrome's: closed by Esc after the save question.
+  const closePanel = useCallback(() => {
+    const closers: readonly (readonly [boolean, () => void])[] = [
+      [isSongWriterOpen, closeSongWriter],
+      [isImportPanelOpen, () => setIsImportPanelOpen(false)],
+      [isExportPanelOpen, closeExportPanel],
+    ];
+    const open = closers.find(([isOpen]) => isOpen);
+    open?.[1]();
+    return open !== undefined;
+  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel]);
+  // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
+  const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
+  // While anything is over the score, typing goes to it (or nowhere), not to the score.
+  const isOverlayOpen =
+    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || chrome.notePanel !== undefined ||
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -115,6 +138,7 @@ export default function App() {
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: openNotePanel,
     closeOverlay,
+    isOverlayOpen,
     clipboard,
     keyboardView,
   });
@@ -149,12 +173,6 @@ export default function App() {
   const { openShortcutSheet } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
 
-  // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip.
-  const onSongWritten = useCallback((written: Song, fileName: string, warnings: readonly string[]) => {
-    dispatch({ type: 'openTab', document: { fileName, path: '', song: written }, isUnsaved: true });
-    dispatch({ type: 'showHint', hint: writtenSummary(written, warnings) });
-  }, []);
-  const songWriter = useSongWriter(onSongWritten);
   const { open: openSongWriter } = songWriter;
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
@@ -275,6 +293,7 @@ export default function App() {
               zoom={chrome.zoom}
               header={<SongHeader song={document.song} trackIndex={trackIndex} fileName={document.fileName} palette={palette} />}
               onPressBeat={commands.onPressBeat}
+              onDragBeat={commands.onDragBeat}
             />
           }
           right={

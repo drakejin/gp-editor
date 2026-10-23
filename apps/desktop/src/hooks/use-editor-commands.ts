@@ -12,7 +12,10 @@ import type { Playback } from './use-playback';
 
 export interface EditorCommands {
   readonly runCommand: (command: AppCommand | KeyCommand) => void;
-  readonly onPressBeat: (hit: RowHit) => void;
+  /** The mouse went down on a beat: the cursor goes there, or (shift) the selection grows to it. */
+  readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
+  /** A drag reached a beat: the beats from where it began to here are selected. */
+  readonly onDragBeat: (hit: RowHit) => void;
   readonly onKeyDown: (event: KeyEvent) => void;
   readonly onDrop: (event: DragEvent) => void;
 }
@@ -32,6 +35,8 @@ interface EditorCommandSources {
   readonly onZoom: (direction: 1 | -1) => void;
   /** B / C: the vibrato or bend panel for the note at the cursor. */
   readonly onNotePanel: (panel: NotePanel) => void;
+  /** A popup or menu is over the score: keys do nothing to the score then, except Esc, which closes it. */
+  readonly isOverlayOpen?: boolean;
   /** Esc closes an open panel or menu first (true when one was open); with none open it stops playback. */
   readonly closeOverlay: () => boolean;
   /** ⌘C / ⌘X / ⌘V on the score. */
@@ -112,23 +117,29 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   );
 
   const onPressBeat = useCallback(
-    (hit: RowHit) => {
+    (hit: RowHit, isExtending: boolean) => {
       const string = hit.string ?? cursor?.string ?? 1;
-      dispatch({ type: 'placeCursor', cursor: { trackIndex, measureIndex: hit.measureIndex, beatIndex: hit.beatIndex, voiceIndex: cursor?.voiceIndex ?? 0, string } });
+      const at = { trackIndex, measureIndex: hit.measureIndex, beatIndex: hit.beatIndex, voiceIndex: cursor?.voiceIndex ?? 0, string };
+      dispatch(isExtending ? { type: 'selectTo', cursor: at } : { type: 'placeCursor', cursor: at });
       focusView(keyboardView.current);
     },
     [trackIndex, cursor?.string, cursor?.voiceIndex, dispatch, keyboardView],
   );
+  const onDragBeat = useCallback((hit: RowHit) => onPressBeat(hit, true), [onPressBeat]);
 
+  const isOverlayOpen = sources.isOverlayOpen === true;
   const onKeyDown = useCallback(
     (event: KeyEvent) => {
       const { key, metaKey, shiftKey, altKey } = event.nativeEvent;
+      if (isOverlayOpen && key !== 'Escape') {
+        return;
+      }
       const command = keyCommand({ key, metaKey, shiftKey, altKey }, lastDigit, Date.now());
       if (command !== undefined) {
         runCommand(command);
       }
     },
-    [runCommand],
+    [runCommand, isOverlayOpen],
   );
 
   const onDrop = useCallback(
@@ -141,5 +152,5 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     [openPath],
   );
 
-  return { runCommand, onPressBeat, onKeyDown, onDrop };
+  return { runCommand, onPressBeat, onDragBeat, onKeyDown, onDrop };
 }

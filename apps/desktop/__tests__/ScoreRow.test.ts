@@ -9,7 +9,7 @@ function rowProps(): ScoreRowProps {
   return {
     song, trackIndex: 0, row: { measures: [layoutMeasure(song, 0, 0)] }, width: 800, headerWidth: 40,
     mode: 'notationAndTab', geometry: rowGeometry('notationAndTab', 6), palette: PALETTE,
-    markLanes: ['palmMute'], zoom: 1, onPress: () => undefined,
+    markLanes: ['palmMute'], zoom: 1, rowIndex: 0, onPress: () => undefined, onDrag: () => undefined,
   };
 }
 

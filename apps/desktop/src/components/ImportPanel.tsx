@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { TextField } from './TextField';
 import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -47,7 +48,7 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
             <BarButton label="Remove key" palette={palette} onPress={onRemoveKey} />
           </>
         ) : null}
-        <TextInput
+        <TextField
           value={draft}
           onChangeText={setDraft}
           secureTextEntry

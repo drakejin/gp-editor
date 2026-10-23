@@ -20,6 +20,22 @@ export function hitTestRow(placed: readonly PlacedMeasure[], geometry: RowGeomet
   return { measureIndex: measure.layout.measureIndex, beatIndex: nearest.beatIndex, string: tabString(geometry, stringCount, y) };
 }
 
+/**
+ * The beat under a drag that began in row `fromRow` of `rows`: `y` counts from that row's top and runs into the rows
+ * below (or above, when negative); past the first or last row it stays on it, and beside a row on its ends.
+ */
+export function hitTestDrag(rows: readonly (readonly PlacedMeasure[])[], fromRow: number, geometry: RowGeometry, stringCount: number, x: number, y: number): RowHit | undefined {
+  const rowIndex = Math.min(rows.length - 1, Math.max(0, fromRow + Math.floor(y / geometry.height)));
+  const row = rows[rowIndex];
+  const first = row?.[0];
+  const last = row?.at(-1);
+  if (row === undefined || first === undefined || last === undefined) {
+    return undefined;
+  }
+  const inRowX = Math.min(last.x + last.layout.width - 1, Math.max(first.x, x));
+  return hitTestRow(row, geometry, stringCount, inRowX, y - (rowIndex - fromRow) * geometry.height);
+}
+
 function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {
   if (geometry.tabTop === undefined) {
     return undefined;

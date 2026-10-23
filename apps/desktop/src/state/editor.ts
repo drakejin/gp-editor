@@ -33,6 +33,7 @@ import {
   type ClipboardEdit,
   cutSelectionAt,
   extendSelection,
+  selectTo,
   pasteBeatsAt,
   pasteRefusal,
   settleSelection,
@@ -130,6 +131,8 @@ export type EditorAction =
   | { readonly type: 'dismissHint' }
   /** The cursor a beat further (as moveCursorBeat), keeping the selection's start where the cursor was. */
   | { readonly type: 'extendSelection'; readonly step: -1 | 1 }
+  /** A mouse drag or a shift-click: select from where the cursor was to here. */
+  | { readonly type: 'selectTo'; readonly cursor: StringAddress }
   | { readonly type: 'clearSelection' }
   /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. One undo step. */
   | { readonly type: 'cutSelection' }
@@ -216,6 +219,8 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       return selectVoice(state, action.voiceIndex);
     case 'extendSelection':
       return extendSelection(state, action.step);
+    case 'selectTo':
+      return selectTo(state, action.cursor);
     case 'clearSelection':
       return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:
