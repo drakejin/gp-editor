@@ -1,4 +1,4 @@
-import type { Beat, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
+import type { Beat, Duration, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
 import { type BeamLayout, beamGroupTicks, flagCount, layoutBeams } from '../lib/beams';
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
 import { fretLabel, tabFretOf } from '../lib/notation';
@@ -203,11 +203,20 @@ function rhythmStem(voice: Voice, x: number, top: number, beamed: boolean, palet
   if (voice.duration.dotted || voice.duration.doubleDotted) {
     commands.push({ kind: 'circle', x: x + 5, y: top + height - 3, radius: 1.5, color });
   }
-  const { enters, times } = voice.duration.tuplet;
-  if (enters !== times) {
-    commands.push({ kind: 'text', x, y: top + height + 6, text: String(enters), size: 8, color: palette.muted, font: 'ui', align: 'center' });
+  const label = tupletLabel(voice.duration);
+  if (label !== undefined) {
+    commands.push({ kind: 'text', x, y: top + height + 6, text: label, size: 8, color: palette.muted, font: 'ui', align: 'center' });
   }
   return commands;
+}
+
+/** The tuplet number under a stem: "3", or "5(3)" for a triplet inside a quintuplet; undefined for no tuplet. */
+function tupletLabel(duration: Duration): string | undefined {
+  const { tuplet, innerTuplet } = duration;
+  if (tuplet.enters === tuplet.times) {
+    return undefined;
+  }
+  return innerTuplet === undefined ? String(tuplet.enters) : `${tuplet.enters}(${innerTuplet.enters})`;
 }
 
 function measureBeams(context: TabContext): BeamLayout {

@@ -9,7 +9,7 @@ import { ScoreCanvas } from '../src/native/score-canvas';
 import { BAR_MAP, barMapCellX, barMapHeight, barMapWidth, scrollOffsetToShowBar } from '../src/score/bar-map';
 import type { DrawCommand } from '../src/score/draw';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 /** The native canvas becomes a plain host element, so its props can be read. */
 jest.mock('../src/native/score-canvas', () => ({ ScoreCanvas: 'MockScoreCanvas' }));
@@ -23,7 +23,7 @@ function rest(start: number): Beat {
 /** Guitar (channel 1, volume 100, centred) with notes in bar 1; Bass (channel 2, volume 90, pan 30, muted) with rests. */
 function buildSong(): Song {
   const headers = Array.from({ length: BAR_COUNT }, (_, i) => header(i + 1));
-  const song = makeSong(headers.map((h, i) => (i === 0 ? [beat(h.start, [note(1, 3)])] : [])), headers);
+  const song = makeSong(headers.map((h, i) => (i === 0 ? [beat(toTux(h.start), [note(1, 3)])] : [])), headers);
   const guitar = song.tracks[0]!;
   const bass: Track = { ...guitar, number: 2, name: 'Bass', channelId: 2, mute: true, measures: guitar.measures.map((m, i) => ({ ...m, beats: [rest(headers[i]!.start)] })) };
   const channels = [

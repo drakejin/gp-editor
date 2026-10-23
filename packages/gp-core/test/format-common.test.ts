@@ -11,6 +11,7 @@ import { dynamicVelocity } from '../src/formats/gpif/gpif-duration';
 import { durationFromTicks, NOTE_VALUES, plainDuration } from '../src/model/defaults';
 import { dynamicFromVelocity } from '../src/write/gp-units';
 import type { Channel } from '../src/model/song';
+import { fromTux } from './helpers/ticks';
 
 describe('bend units', () => {
   it('converts GP 1/100 tones to quarter tones, rounding half up', () => {
@@ -225,7 +226,7 @@ describe('GM percussion names', () => {
 describe('durationFromTicks', () => {
   it('returns the longest plain note value that fits', () => {
     // Arrange
-    const ticks = [3840 * 2, 960, 959, 60];
+    const ticks = [3840 * 2, 960, 959, 60].map(fromTux);
 
     // Act
     const values = ticks.map((t) => durationFromTicks(t));

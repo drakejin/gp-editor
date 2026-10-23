@@ -18,6 +18,7 @@ export {
   durationTicks,
   isMeasureOverfull,
   isNoteValue,
+  isSameTuplet,
   measureTicks,
   toNoteValue,
   tupletOf,
@@ -26,6 +27,7 @@ export {
 export { DYNAMICS, type DynamicName, dynamicOf } from './formats/common/velocity';
 export { readSong } from './read-song';
 export { type WritableFormat, writeSong } from './write';
+export { type AsciiTabOptions, DEFAULT_ASCII_LINE_WIDTH, writeAsciiTab } from './write/ascii/ascii-tab-writer';
 export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
