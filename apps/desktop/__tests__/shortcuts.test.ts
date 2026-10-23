@@ -13,9 +13,9 @@ describe('the shortcut sheet', () => {
     expect(unanswered.map((shortcut) => shortcut.keys)).toEqual([]);
   });
 
-  it('covers the user’s keys: R S H P M X B C, digits, ⌫, ] [, Space and ⌘Z C X V P H S', () => {
+  it('covers the user’s keys: R S H P M X B C, digits, ⌫, ] [, Space, ⌘Z C X V P H S W and ⌃⇥', () => {
     const keys = SHORTCUT_GROUPS.flatMap((group) => group.shortcuts.map((shortcut) => shortcut.keys)).join(' ');
-    for (const expected of ['R', 'S', 'H', 'P', 'M', 'X', 'B', 'C', '0 – 9', '⌫', '] / [', 'Space', '⌘Z', '⌘C', '⌘X', '⌘V', '⌘P', '⌘H', '⌘S']) {
+    for (const expected of ['R', 'S', 'H', 'P', 'M', 'X', 'B', 'C', '0 – 9', '⌫', '] / [', 'Space', '⌘Z', '⌘C', '⌘X', '⌘V', '⌘P', '⌘H', '⌘S', '⌘W', '⌃⇥']) {
       expect(keys).toContain(expected);
     }
   });
