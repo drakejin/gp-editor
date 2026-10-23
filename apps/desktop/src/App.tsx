@@ -20,6 +20,7 @@ import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
+import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
 import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
@@ -27,6 +28,7 @@ import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
+import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import { trackInstrument } from './lib/instruments';
@@ -34,10 +36,11 @@ import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
-import { subscribeHelpRequests, subscribeImportPdfRequests } from './native/gp-files';
+import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
 import { type EditorAction, INITIAL_EDITOR_STATE, editorReducer, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
+import { describeReference } from './song-writer/reference';
 import { playbackStartTempo } from './state/practice';
 import { selectionRange } from './state/selection';
 import type { SongEdit } from './state/song-edits';
@@ -136,6 +139,16 @@ export default function App() {
 
   const { openShortcutSheet } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
+
+  // Edit ▸ AI Wizard ▸ Song Writer…: a written song opens as a new score, with a summary in the hint strip.
+  const onSongWritten = useCallback((written: Song, fileName: string, warnings: readonly string[]) => {
+    dispatch({ type: 'loaded', document: { fileName, path: '', song: written } });
+    dispatch({ type: 'showHint', hint: writtenSummary(written, warnings) });
+  }, []);
+  const songWriter = useSongWriter(onSongWritten);
+  const { open: openSongWriter } = songWriter;
+  useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
+  const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
 
   const { stop: stopPlayback } = playback;
   useEffect(() => {
@@ -322,6 +335,22 @@ export default function App() {
         </ChromeMenu>
       ) : null}
       {chrome.isShortcutSheetOpen ? <ShortcutSheet palette={palette} onClose={chrome.closeShortcutSheet} /> : null}
+      {songWriter.isOpen ? (
+        <SongWriterPanel
+          palette={chromePalette}
+          draft={songWriter.draft}
+          onChangeDraft={songWriter.changeDraft}
+          status={songWriter.status}
+          reference={reference === undefined || document === undefined ? undefined : `${document.fileName} · ${track?.name ?? ''}`}
+          hasKey={pdfImport.hasKey}
+          model={pdfImport.model}
+          onSaveKey={pdfImport.saveKey}
+          onChooseModel={pdfImport.chooseModel}
+          onWrite={() => songWriter.write(pdfImport.model, reference)}
+          onCancel={songWriter.cancel}
+          onClose={songWriter.close}
+        />
+      ) : null}
       {chrome.notePanel !== undefined && cursorNote !== undefined ? (
         <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onClose={chrome.closeNotePanel} />
       ) : null}

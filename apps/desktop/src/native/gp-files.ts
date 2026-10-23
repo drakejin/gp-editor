@@ -107,6 +107,15 @@ export function subscribePrintRequests(onPrintRequested: () => void): () => void
   return () => subscription.remove();
 }
 
+/** Edit ▸ AI Wizard ▸ Song Writer…. */
+export function subscribeSongWriterRequests(onSongWriterRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('songWriterRequested', onSongWriterRequested);
+  return () => subscription.remove();
+}
+
 /** Help ▸ Keyboard Shortcuts (⌘H). */
 export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
   if (native === undefined) {

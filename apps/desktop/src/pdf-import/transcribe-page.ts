@@ -2,7 +2,8 @@ import { type TranscriptionPage, parseTranscriptionPage } from '@gp-editor/core'
 import type { ApiResponse } from '../native/anthropic';
 import type { ImportProject } from './project-file';
 import { buildTranscriptionRequest } from './request';
-import { type TokenUsage, readTranscriptionResponse } from './response';
+import { readTranscriptionResponse } from './response';
+import { NO_USAGE, type TokenUsage, addUsage } from '../lib/tool-answer';
 import { errorMessage } from '../lib/errors';
 
 /** What an import needs from the outside world; injected so the run can be tested without native code or network. */
@@ -23,11 +24,7 @@ export type PageResult =
   | { readonly isOk: true; readonly page: TranscriptionPage; readonly usage: TokenUsage }
   | { readonly isOk: false; readonly isFatal: boolean; readonly message: string; readonly usage: TokenUsage };
 
-const NO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0 };
-
-export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
-  return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
-}
+export { addUsage };
 
 /** One attempt at one page: the request, the answer, and the transcription checked against the contract. */
 async function attemptPage(project: ImportProject, page: number, firstPage: TranscriptionPage | undefined, deps: ImportDeps): Promise<PageResult & { readonly isRetryable: boolean }> {

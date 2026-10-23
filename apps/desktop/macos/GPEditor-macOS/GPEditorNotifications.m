@@ -5,6 +5,7 @@ NSString *const GPEditorImportPdfCommandNotification = @"GPEditorImportPdfComman
 NSString *const GPEditorExportCommandNotification = @"GPEditorExportCommand";
 NSString *const GPEditorPrintCommandNotification = @"GPEditorPrintCommand";
 NSString *const GPEditorHelpCommandNotification = @"GPEditorHelpCommand";
+NSString *const GPEditorSongWriterCommandNotification = @"GPEditorSongWriterCommand";
 NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";
 NSString *const GPEditorOpenURLsNotification = @"GPEditorOpenURLs";
 NSString *const GPEditorSaveCommandNotification = @"GPEditorSaveCommand";

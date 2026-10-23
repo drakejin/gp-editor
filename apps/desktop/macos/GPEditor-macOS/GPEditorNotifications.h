@@ -1,5 +1,5 @@
 // Notification names shared by AppDelegate.swift (posts them, via the bridging header), GPFiles.m (forwards them
-// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "printRequested" / "helpRequested" / "openRequested" / "fileOpened" / "saveRequested" events) and GPQADriver.m.
+// to JS as the "newRequested" / "importPdfRequested" / "exportRequested" / "printRequested" / "helpRequested" / "songWriterRequested" / "openRequested" / "fileOpened" / "saveRequested" events) and GPQADriver.m.
 
 #import <Foundation/Foundation.h>
 
@@ -19,6 +19,9 @@ FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 
 /** Help ▸ Keyboard Shortcuts (⌘H) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorHelpCommandNotification;
+
+/** Edit ▸ AI Wizard ▸ Song Writer… was chosen. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;

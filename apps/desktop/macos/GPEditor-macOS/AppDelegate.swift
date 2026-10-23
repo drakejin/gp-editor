@@ -56,6 +56,15 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("p")
       }
+      // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
+      CommandGroup(after: .pasteboard) {
+        Divider()
+        Menu("AI Wizard") {
+          Button("Song Writer…") {
+            NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
+          }
+        }
+      }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {
         Button("Hide GP Editor") { NSApp.hide(nil) }
