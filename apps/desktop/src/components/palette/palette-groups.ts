@@ -142,8 +142,8 @@ function barGroup(): PaletteGroup {
       beamGroupingTool(),
     ],
     steppers: [
-      { id: 'numerator', label: 'Beats', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
-      { id: 'denominator', label: 'Beat value', tooltip: 'Time signature: the beat’s note value', value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 } },
+      { id: 'numerator', label: 'Time', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
+      { id: 'denominator', label: 'Beat value', tooltip: 'Time signature: the beat’s note value', value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 }, isBesidePrevious: true },
       { id: 'tempo', label: 'Tempo', tooltip: 'Written tempo from this bar (5 BPM steps)', value: (c) => `♩ ${c.header?.tempo ?? '–'}`, minus: { type: 'shiftTempo', delta: -5 }, plus: { type: 'shiftTempo', delta: 5 } },
       { id: 'key', label: 'Key', tooltip: 'Key signature from this bar', value: (c) => (c.keySignature === 0 ? 'C / Am' : `${Math.abs(c.keySignature)}${c.keySignature > 0 ? '♯' : '♭'}`), minus: { type: 'shiftKeySignature', delta: -1 }, plus: { type: 'shiftKeySignature', delta: 1 } },
       { id: 'repeats', label: 'Repeats', tooltip: 'Times the repeat is played', value: (c) => ((c.header?.repeatClose ?? 0) > 0 ? `×${c.header?.repeatClose}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },

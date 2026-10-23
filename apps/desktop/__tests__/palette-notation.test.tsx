@@ -1,7 +1,8 @@
+import { Text, View } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { QUARTER, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
-import { EditionPalette } from '../src/components/palette/EditionPalette';
+import { EditionPalette, PALETTE_ROW_HEIGHT } from '../src/components/palette/EditionPalette';
 import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, header, makeSong, note } from '../test-support/songs';
@@ -118,3 +119,51 @@ describe('edition palette: notation marks', () => {
     expect(palette.option('One beam over the whole bar')?.props.isActive).toBe(false);
   });
 });
+
+describe('edition palette: compact rows', () => {
+  it('draws every tool and stepper button in the compact row height, so all groups fit the default window', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<EditionPalette palette={PALETTE} song={SONG} cursor={ON_NOTE} onEdit={jest.fn()} onAction={jest.fn()} onOpenPanel={jest.fn()} />);
+    });
+
+    // Act
+    const heights = new Set(renderer.root.findAllByType(ChromeButton).map((button) => button.props.height));
+
+    // Assert
+    expect([...heights]).toEqual([PALETTE_ROW_HEIGHT]);
+  });
+
+  it('puts the time signature’s two numbers on one row under one label, so the Bar group takes a row fewer', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<EditionPalette palette={PALETTE} song={SONG} cursor={ON_NOTE} onEdit={jest.fn()} onAction={jest.fn()} onOpenPanel={jest.fn()} />);
+    });
+    // The texts and button tooltips of the row holding a button (plain strings: a test instance does not print).
+    const rowOf = (tooltip: string) => {
+      let node = renderer.root.findAllByType(ChromeButton).find((button) => button.props.tooltip === tooltip)?.parent ?? null;
+      while (node !== null && node.type !== View) {
+        node = node.parent;
+      }
+      return {
+        texts: (node?.findAllByType(Text) ?? []).map((text) => String(text.props.children)),
+        tooltips: (node?.findAllByType(ChromeButton) ?? []).map((button) => String(button.props.tooltip)),
+      };
+    };
+
+    // Act
+    const row = rowOf('Time signature: beats per bar: less');
+
+    // Assert
+    expect(row.tooltips).toEqual([
+      'Time signature: beats per bar: less',
+      'Time signature: beats per bar: more',
+      'Time signature: the beat’s note value: less',
+      'Time signature: the beat’s note value: more',
+    ]);
+    expect(row.texts).toEqual(['Time', '−', '4', '+', '−', '÷4', '+']);
+  });
+});
+
