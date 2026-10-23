@@ -1,6 +1,7 @@
 import {
   type Beat,
   type BeatFragment,
+  type Lyrics,
   type PlayedNote,
   type Song,
   type SongInfo,
@@ -17,6 +18,7 @@ import {
   setSongInfo,
   setTrackBalance,
   setTrackCapo,
+  setTrackLyrics,
   setTrackMute,
   setTrackName,
   setTrackProgram,
@@ -100,6 +102,8 @@ type SongAction =
   | { readonly type: 'setTrackBalance'; readonly trackIndex: number; readonly balance: number }
   /** Capo fret 0–24; the frets stay as written. */
   | { readonly type: 'setTrackCapo'; readonly trackIndex: number; readonly capo: number }
+  /** The track's lyrics (Edit ▸ Lyrics…); a blank text takes them away. */
+  | { readonly type: 'setTrackLyrics'; readonly trackIndex: number; readonly lyrics: Lyrics }
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export type EditorAction =
@@ -279,6 +283,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'setTrackVolume':
     case 'setTrackBalance':
     case 'setTrackCapo':
+    case 'setTrackLyrics':
     case 'setSongInfo':
       return state.document === undefined
         ? state
@@ -320,6 +325,8 @@ function applySongAction(song: Song, action: SongAction): Song {
       return setTrackBalance(song, action.trackIndex, action.balance);
     case 'setTrackCapo':
       return setTrackCapo(song, action.trackIndex, action.capo);
+    case 'setTrackLyrics':
+      return setTrackLyrics(song, action.trackIndex, action.lyrics);
     case 'setSongInfo':
       return setSongInfo(song, action.info);
   }

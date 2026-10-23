@@ -34,6 +34,8 @@ export interface CommandActions {
   readonly openShortcuts: () => void;
   readonly openTranspose: () => void;
   readonly openTuner: () => void;
+  readonly openScales: () => void;
+  readonly openLyrics: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;
   readonly togglePanel: (panel: PanelId) => void;

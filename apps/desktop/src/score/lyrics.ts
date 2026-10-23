@@ -1,4 +1,4 @@
-import type { Measure, Track } from '@gp-editor/core';
+import { type Measure, type Track, lyricsSyllables } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { TextCommand } from './draw';
@@ -17,13 +17,8 @@ export function hasLyrics(track: Track | undefined): boolean {
   return (track?.lyrics?.text.trim() ?? '') !== '';
 }
 
-/** Guitar Pro's syllables: line breaks count as spaces, and every single space separates two (TuxGuitar's TGLyric). */
-function syllables(text: string): readonly string[] {
-  return text.replace(/\r\n|\r|\n/g, ' ').split(' ');
-}
-
 /** Indexes of the measure's beats that have notes in any voice: each takes one syllable (TuxGuitar's TGLyricImpl). */
-function sungBeats(measure: Measure | undefined): readonly number[] {
+export function sungBeats(measure: Measure | undefined): readonly number[] {
   return (measure?.beats ?? []).flatMap((beat, index) => (beat.voices.some((voice) => voice.notes.length > 0) ? [index] : []));
 }
 
@@ -34,7 +29,8 @@ export function measureSyllables(track: Track, measureIndex: number): readonly P
   if (lyrics === undefined || measureIndex < firstIndex) {
     return [];
   }
-  const tokens = syllables(lyrics.text);
+  // Guitar Pro's syllables: spaces and line breaks, hyphens, "+" (gp-core's lyricsSyllables).
+  const tokens = lyricsSyllables(lyrics.text);
   const before = track.measures.slice(Math.max(0, firstIndex), measureIndex).reduce((count, measure) => count + sungBeats(measure).length, 0);
   return sungBeats(track.measures[measureIndex]).flatMap((beatIndex, order) => {
     const text = tokens[before + order]?.trim() ?? '';

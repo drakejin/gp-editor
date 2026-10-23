@@ -47,6 +47,12 @@ FOUNDATION_EXPORT NSString *const GPEditorTransposeCommandNotification;
 /** Tools ▸ Command Palette… (⇧⌘P) was chosen (JS event "commandPaletteRequested"). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorCommandPaletteCommandNotification;
 
+/** Edit ▸ Lyrics… was chosen ("lyricsRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorLyricsCommandNotification;
+
+/** Tools ▸ Scales… was chosen ("scalesRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorScalesCommandNotification;
+
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;
 

@@ -95,17 +95,25 @@ struct GPEditorApp: App {
       // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
       CommandGroup(after: .pasteboard) {
         Divider()
+        // The lyrics of a track, above the score (Guitar Pro's lyrics editor).
+        Button("Lyrics…") {
+          NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
+        }
         Menu("AI Wizard") {
           Button("Song Writer…") {
             NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
           }
         }
       }
-      // Tools: the microphone tuner (GPAudioInput.m), Transpose… (notes and chords by semitones or scale steps) and the
-      // command palette, which finds any command.
+      // Tools: the microphone tuner (GPAudioInput.m), the scale panel (scale finder, boxes; the scale is marked on the
+      // keyboard and the fretboard), Transpose… (notes and chords by semitones or scale steps) and the command palette,
+      // which finds any command.
       CommandMenu("Tools") {
         Button("Tuner…") {
           NotificationCenter.default.post(name: .GPEditorTunerCommand, object: nil)
+        }
+        Button("Scales…") {
+          NotificationCenter.default.post(name: .GPEditorScalesCommand, object: nil)
         }
         Button("Transpose…") {
           NotificationCenter.default.post(name: .GPEditorTransposeCommand, object: nil)

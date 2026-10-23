@@ -39,6 +39,8 @@ function mockActions(): jest.Mocked<CommandActions> {
     openShortcuts: jest.fn(),
     openTranspose: jest.fn(),
     openTuner: jest.fn(),
+    openScales: jest.fn(),
+    openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
     togglePanel: jest.fn(),
     toggleLoop: jest.fn(),
@@ -81,6 +83,8 @@ describe('command registry', () => {
         'edit.redo',
         'edit.songWriter',
         'tools.tuner',
+        'tools.scales',
+        'edit.lyrics',
         'tools.transpose',
         'tools.instrument',
         'beat.chord',
@@ -138,7 +142,7 @@ describe('command registry', () => {
 describe('command registry: when a command can run', () => {
   it('runs only what needs no document when none is open', () => {
     const enabled = APP_COMMANDS.filter((command) => command.isEnabled(NO_DOCUMENT)).map((command) => command.id);
-    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'help.shortcuts']);
+    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales', 'help.shortcuts']);
   });
 
   it('needs a note for note commands, history for undo, two tabs to switch and a pitched track for the instrument', () => {
@@ -164,7 +168,7 @@ describe('command registry: running', () => {
     const actions = mockActions();
 
     // Act
-    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'tools.tuner', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument']) {
+    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument']) {
       find(id).run(actions);
     }
 
@@ -175,6 +179,8 @@ describe('command registry: running', () => {
     expect(actions.exportMusicXml).toHaveBeenCalled();
     expect(actions.exportCompressedMusicXml).toHaveBeenCalled();
     expect(actions.openTuner).toHaveBeenCalled();
+    expect(actions.openScales).toHaveBeenCalled();
+    expect(actions.openLyrics).toHaveBeenCalled();
     expect(actions.exportPng).toHaveBeenCalled();
     expect(actions.print).toHaveBeenCalled();
     expect(actions.closeTab).toHaveBeenCalled();

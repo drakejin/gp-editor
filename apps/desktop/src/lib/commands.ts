@@ -32,6 +32,7 @@ const EDIT_ROWS: readonly Command[] = [
   keyRow('edit.copy', 'Edit', 'Copy the Selected Beats', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
   keyRow('edit.cut', 'Edit', 'Cut the Selected Beats', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
   keyRow('edit.paste', 'Edit', 'Paste Beats', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
+  row('edit.lyrics', 'Edit', 'Lyrics…', (a) => a.openLyrics(), { keywords: ['words', 'syllables', 'sing'] }),
   row('edit.songWriter', 'Edit', 'Song Writer…', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
 ];
 
@@ -54,6 +55,7 @@ const VIEW_ROWS: readonly Command[] = [
 
 const TOOLS_ROWS: readonly Command[] = [
   row('tools.tuner', 'Tools', 'Tuner…', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
+  row('tools.scales', 'Tools', 'Scales…', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
   row('tools.transpose', 'Tools', 'Transpose…', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
   row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
 ];
