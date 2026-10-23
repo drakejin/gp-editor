@@ -1,0 +1,150 @@
+// Port of TuxGuitar app.tuxguitar.io.musicxml.MusicXMLWriter#writeSong / #writeHeaders / #writePartList / #writeTrack (LGPL-2.1).
+import { UNROUTED, buildChannelRoutes } from '../../midi/channel-routes';
+import type { Channel, Song, SongInfo, Track } from '../../model/song';
+import type { PartContext } from './musicxml-beat';
+import { buildTrackFlow } from './musicxml-flow';
+import { buildTrackLyrics } from './musicxml-lyrics';
+import { buildMeasure } from './musicxml-measure';
+import { type XmlChild, type XmlNode, element, serializeXml, textElement } from './xml-text';
+
+export const MUSICXML_VERSION = '4.0';
+export const MUSICXML_DOCTYPE =
+  '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">';
+const SOFTWARE = 'GP Editor';
+
+/** TuxGuitar falls back to MIDI channel 16 for a channel it could not route. */
+const UNROUTED_MIDI_CHANNEL = 16;
+const PERCUSSION_MIDI_CHANNEL = 10;
+const MAX_MIDI_VALUE = 127;
+/** MusicXML's volume is a percentage; its pan runs -90 (left) … 90 (right) for the MIDI range. */
+const VOLUME_PERCENT = 100;
+const PAN_DEGREES = 90;
+const PAN_CENTRE = 64;
+
+export function partId(track: Track): string {
+  return `P${track.number}`;
+}
+
+function creator(type: string, name: string): XmlChild {
+  return name !== '' && textElement('creator', name, { type });
+}
+
+/** writeHeaders: the title, and who wrote, sang and transcribed the song. */
+function headerElements(info: SongInfo): XmlNode[] {
+  return [
+    element('work', {}, [textElement('work-title', info.title)]),
+    element('identification', {}, [
+      creator('composer', info.music),
+      creator('lyricist', info.words),
+      creator('artist', info.artist),
+      info.copyright !== '' && textElement('rights', info.copyright),
+      element('encoding', {}, [textElement('software', SOFTWARE), info.transcriber !== '' && textElement('encoder', info.transcriber)]),
+    ]),
+  ];
+}
+
+function percent(value: number): number {
+  return Math.round((Math.max(0, Math.min(MAX_MIDI_VALUE, value)) / MAX_MIDI_VALUE) * VOLUME_PERCENT);
+}
+
+function pan(balance: number): number {
+  return Math.round(((Math.max(0, Math.min(MAX_MIDI_VALUE, balance)) - PAN_CENTRE) / PAN_CENTRE) * PAN_DEGREES);
+}
+
+/** The drum keys a percussion track plays (its notes' frets, grace notes included), lowest first. */
+function percussionKeys(track: Track): readonly number[] {
+  const keys = new Set<number>();
+  for (const measure of track.measures) {
+    for (const beat of measure.beats) {
+      for (const voice of beat.voices) {
+        voice.notes.forEach((note) => {
+          keys.add(note.fret);
+          if (note.effect.grace !== undefined) {
+            keys.add(note.effect.grace.fret);
+          }
+        });
+      }
+    }
+  }
+  return [...keys].filter((key) => key >= 0 && key <= MAX_MIDI_VALUE).sort((a, b) => a - b);
+}
+
+function percussionInstruments(track: Track, channel: Channel | undefined): XmlNode[] {
+  const keys = percussionKeys(track);
+  const id = (key: number): string => `${partId(track)}-I${key + 1}`;
+  return [
+    ...keys.map((key) => element('score-instrument', { id: id(key) }, [textElement('instrument-name', `${channel?.name ?? 'Drums'} ${key}`)])),
+    ...keys.map((key) =>
+      element('midi-instrument', { id: id(key) }, [
+        textElement('midi-channel', PERCUSSION_MIDI_CHANNEL),
+        textElement('midi-program', 1),
+        textElement('midi-unpitched', key + 1),
+        channel !== undefined && textElement('volume', percent(channel.volume)),
+        channel !== undefined && textElement('pan', pan(channel.balance)),
+      ]),
+    ),
+  ];
+}
+
+function melodicInstruments(track: Track, channel: Channel, midiChannel: number): XmlNode[] {
+  const id = `${partId(track)}-I1`;
+  return [
+    element('score-instrument', { id }, [textElement('instrument-name', channel.name)]),
+    element('midi-instrument', { id }, [
+      textElement('midi-channel', midiChannel),
+      channel.bank > 0 && textElement('midi-bank', channel.bank + 1),
+      textElement('midi-program', channel.program + 1),
+      textElement('volume', percent(channel.volume)),
+      textElement('pan', pan(channel.balance)),
+    ]),
+  ];
+}
+
+/** writePartList: a score-part per track, with its channel's instrument (one per drum key for percussion). */
+function partList(song: Song): XmlNode {
+  const routes = buildChannelRoutes(song.channels);
+  return element(
+    'part-list',
+    {},
+    song.tracks.map((track) => {
+      const channel = song.channels.find((candidate) => candidate.id === track.channelId);
+      const route = routes.get(track.channelId);
+      const midiChannel = route === undefined || route.channel1 === UNROUTED ? UNROUTED_MIDI_CHANNEL : route.channel1 + 1;
+      const instruments = track.isPercussion
+        ? percussionInstruments(track, channel)
+        : channel === undefined
+          ? []
+          : melodicInstruments(track, channel, midiChannel);
+      return element('score-part', { id: partId(track) }, [textElement('part-name', track.name), ...instruments]);
+    }),
+  );
+}
+
+function partElement(song: Song, track: Track): XmlNode {
+  const context: PartContext = { track, partId: partId(track), flow: buildTrackFlow(track), lyrics: buildTrackLyrics(track) };
+  return element(
+    'part',
+    { id: context.partId },
+    track.measures.map((_, measureIndex) => buildMeasure(context, song.measureHeaders, measureIndex)),
+  );
+}
+
+/**
+ * The song as a MusicXML 4.0 score-partwise document, as TuxGuitar writes it: each track a part with a notation staff
+ * (sounding an octave below the written notes) and a tab staff (string and fret of every note); a percussion track has
+ * one staff of unpitched notes. Beyond TuxGuitar: ties and slurs across bar lines, bends as relative steps, slides,
+ * vibrato, dynamics, tuplet brackets, grace notes, tempo sounds, left and right barlines.
+ *
+ * @throws RangeError when the song has no measure or no track
+ */
+export function writeMusicXml(song: Song): string {
+  if (song.measureHeaders.length === 0 || song.tracks.length === 0) {
+    throw new RangeError('A MusicXML score needs at least one measure and one track');
+  }
+  const root = element('score-partwise', { version: MUSICXML_VERSION }, [
+    ...headerElements(song.info),
+    partList(song),
+    ...song.tracks.map((track) => partElement(song, track)),
+  ]);
+  return serializeXml(root, MUSICXML_DOCTYPE);
+}
