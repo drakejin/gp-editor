@@ -215,6 +215,15 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     strokes up / down; text above the beat. Options open under their group.
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
     number of plays, alternate endings 1–8, triplet feel, a section name
+  - notation marks, as Guitar Pro 8 writes them (each a lit palette button, one undo step, also in the command palette):
+    fingering — the Note group's *L.H.* (T 1 2 3 4, written left of the notehead), *R.H.* (p i m a c, over or under the
+    note) and *Piano* (1–5 over or under the notes; a piano or organ track writes every finger that way); *Accidental*
+    — cautionary (in parentheses) or forced (always written); the Beat group's *Slash* (the beat as a rhythm slash on
+    the middle line, its frets left out of the tab) and *Break* / *Join* / *Break 2* (the beam to the next beat broken,
+    joined across the beat, or with only its eighth beam); the Bar group's *Beams* (by beat, by two beats, the whole
+    bar — from this bar on while the time signature lasts). The Track inspector's *Slash* writes the whole track in
+    slashes. GPIF (`.gp`, `.gpx`) and GP5 files keep fingering and beaming (GP5: four groups of eighths), GP3/GP4
+    fingering only; slashes stay in `.gp` files; no Guitar Pro file holds a cautionary or forced accidental
   - ⌘Z / ⇧⌘Z undo and redo
   - copy and paste: drag across the score — into other rows too — or ⇧← / ⇧→ or ⇧-click select beats from the
     cursor (tinted on both staves; any other move clears the selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests
