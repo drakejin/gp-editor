@@ -1,5 +1,7 @@
 import { decodeWindows1252 } from '../io/text';
 import type { FileFormat } from '../model/song';
+import { isMusicXmlArchive } from './musicxml/musicxml-container';
+import { isMusicXmlText } from './musicxml/musicxml-document';
 
 export interface DetectedFormat {
   readonly format: FileFormat;
@@ -35,13 +37,17 @@ const BCFS = 'BCFS';
  * Identify a Guitar Pro file from its first bytes. Returns undefined for anything
  * that is not a known Guitar Pro format.
  *
- * - `.gp` (Guitar Pro 7/8): a ZIP archive
+ * - `.gp` (Guitar Pro 7/8): a ZIP archive; `.mxl` (compressed MusicXML) is one too, with META-INF/container.xml
+ * - `.musicxml` / `.xml`: XML whose root element is score-partwise or score-timewise
  * - `.gpx` (Guitar Pro 6): a BCFZ (compressed) or BCFS container
  * - `.gtp/.gp3/.gp4/.gp5` (Guitar Pro 1–5): a length-prefixed version string
  */
 export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   if (startsWith(bytes, ZIP_MAGIC)) {
-    return { format: 'gp7', version: '' };
+    return { format: isMusicXmlArchive(bytes) ? 'musicxml' : 'gp7', version: '' };
+  }
+  if (isMusicXmlText(bytes)) {
+    return { format: 'musicxml', version: '' };
   }
   const magic = decodeWindows1252(bytes.subarray(0, 4));
   if (magic === BCFZ || magic === BCFS) {
