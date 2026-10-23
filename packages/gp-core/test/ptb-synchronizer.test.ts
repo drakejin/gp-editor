@@ -168,6 +168,19 @@ describe('Power Tab synchronizer: directions', () => {
     expect(playOrder([[[beat(1), direction(99)], [beat(2)]]])).toEqual([1, 2]);
   });
 
+  it('counts the sections and staffs it plays out, so jumps over many empty sections cannot pile up', () => {
+    // Arrange: 2 500 empty sections of 100 staffs, then 10 D.C. jumps
+    const empty: (readonly PtComponent[])[][] = Array.from({ length: 2500 }, () => []);
+    const song = songOf([...empty, [Array.from({ length: 10 }, () => direction(D.DA_CAPO))]]);
+    const wide: PtSong = { ...song, track1: { ...song.track1, sections: song.track1.sections.map((section) => ({ ...section, staffs: 100 })) } };
+
+    // Act
+    const play = (): unknown => synchronizeSong(wide);
+
+    // Assert
+    expect(play).toThrow(GpFormatError);
+  });
+
   it('rejects repeats and jumps that would play without end', () => {
     // Arrange: many bars that each repeat 31 times
     const positions = Array.from({ length: MAX_SYNCHRONIZED_COMPONENTS / 40 }, () => [bar(true), beat(1), bar(false, 31)]);

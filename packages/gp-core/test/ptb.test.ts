@@ -282,6 +282,18 @@ describe('Power Tab errors', () => {
     expect(read).toThrow('Power Tab guitar "Broken" has 0 strings');
   });
 
+  it('rejects a section with more staffs than any Power Tab score has', () => {
+    // Arrange
+    const staffs = Array.from({ length: 33 }, () => ({ voices: [] }));
+    const spec: PtbSongSpec = { guitarScore: { ...ONE_BEAT.guitarScore, sections: [{ staffs }] } };
+
+    // Act
+    const read = (): Song => readSong(buildPtb(spec));
+
+    // Assert
+    expect(read).toThrow('A Power Tab section has 33 staffs');
+  });
+
   it('rejects a multi-bar rest so long the song would pass the measure limit', () => {
     // Arrange
     const spec: PtbSongSpec = {

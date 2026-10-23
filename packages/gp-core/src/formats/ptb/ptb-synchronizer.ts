@@ -15,7 +15,10 @@ import {
   sortSection,
 } from './ptb-model';
 
-/** Components a score may visit while it is played out: repeats and jumps in a corrupt file must not run without end. */
+/**
+ * What a score may play out: each component, position and section (with its staffs) counts. Repeats and jumps in a
+ * corrupt file must not run, or pile up sections, without end.
+ */
 export const MAX_SYNCHRONIZED_COMPONENTS = 500_000;
 
 /** PTIndex: section, position and component indexes. */
@@ -127,6 +130,7 @@ class Unroller {
       if (section === undefined) {
         continue;
       }
+      this.spend(1 + section.staffs);
       const target: UnrolledSection = { number: section.number, staffs: section.staffs, positions: [] };
       this.sections.push(target);
       for (let p = s === from.s ? from.p : 0; p < section.positions.length; p++) {
@@ -143,6 +147,7 @@ class Unroller {
     if (position === undefined) {
       return 'continue';
     }
+    this.spend(1);
     const components: PtComponent[] = [];
     section.positions.push({ position: position.position, components });
     for (let c = from.c; c < position.components.length; c++) {
@@ -150,10 +155,7 @@ class Unroller {
       if (component === undefined) {
         continue;
       }
-      this.visited++;
-      if (this.visited > MAX_SYNCHRONIZED_COMPONENTS) {
-        throw new GpFormatError(`The repeats and jumps of the Power Tab score play more than ${MAX_SYNCHRONIZED_COMPONENTS} items`);
-      }
+      this.spend(1);
       if (!this.isSkipping) {
         components.push(component);
       }
@@ -163,6 +165,13 @@ class Unroller {
       }
     }
     return 'continue';
+  }
+
+  private spend(cost: number): void {
+    this.visited += cost;
+    if (this.visited > MAX_SYNCHRONIZED_COMPONENTS) {
+      throw new GpFormatError(`The repeats and jumps of the Power Tab score play more than ${MAX_SYNCHRONIZED_COMPONENTS} items`);
+    }
   }
 
   private visit(component: PtComponent, at: PtIndex): Outcome {

@@ -1,10 +1,13 @@
 // Port of TuxGuitar app.tuxguitar.io.ptb.PTInputStream.readSection (and the staff, position, note and bar line readers it
 // calls) and of base.PTSection's position list (LGPL-2.1).
+import { GpFormatError } from '../../errors';
 import type { PtBar, PtBeat, PtComponent, PtNote, PtSection } from './ptb-model';
 import type { PtByteReader } from './ptb-byte-reader';
 
 /** PTInputStream.readStaff: every staff has two voices. */
 const VOICES_PER_STAFF = 2;
+/** More staffs than a Power Tab system has; each one costs every bar line a pass over its voices. */
+const MAX_STAFFS = 32;
 /** readBarLine: the top three bits of a bar line's type (3 = repeat start, 4 = repeat end + count). */
 const BAR_REPEAT_START = 3;
 const BAR_REPEAT_END = 4;
@@ -66,6 +69,9 @@ export function readSection(reader: PtByteReader, section: PtSectionBuilder): vo
   reader.readItems(() => readChordText(reader));
   reader.readItems(() => readRhythmSlash(reader));
   section.staffs = reader.readItems((staff) => readStaff(reader, section, staff));
+  if (section.staffs > MAX_STAFFS) {
+    throw new GpFormatError(`A Power Tab section has ${section.staffs} staffs`);
+  }
   reader.readItems(() => readBarLine(reader, section));
   const end: PtBar = { kind: 'bar', repeatStart: false, repeatClose: repeatCloseOf(lastBarData), numerator: 0, denominator: 0 };
   section.add(section.nextPositionNumber(), end);

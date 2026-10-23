@@ -23,10 +23,21 @@ function adjustMeasure(measure: DraftMeasure): void {
   for (let voice = 0; voice < VOICE_COUNT; voice++) {
     adjustVoice(measure.beats, voice, end);
   }
-  for (const beat of [...measure.beats]) {
+  const kept: DraftBeat[] = [];
+  let lastWithNotes: DraftBeat | undefined;
+  for (const beat of measure.beats) {
     if (beat.voices.every((voice) => voice.isEmpty)) {
-      removeBeat(measure, beat);
+      moveMarks(beat, lastWithNotes);
+      continue;
     }
+    kept.push(beat);
+    if (beat.voices.some((voice) => voice.notes.length > 0)) {
+      lastWithNotes = beat;
+    }
+  }
+  measure.beats.length = 0;
+  for (const beat of kept) {
+    measure.beats.push(beat);
   }
 }
 
@@ -66,9 +77,8 @@ function clearVoice(voice: DraftVoice): void {
   voice.isEmpty = true;
 }
 
-function removeBeat(measure: DraftMeasure, beat: DraftBeat): void {
-  measure.beats.splice(measure.beats.indexOf(beat), 1);
-  const target = [...measure.beats].reverse().find((candidate) => candidate.start <= beat.start && candidate.voices.some((voice) => voice.notes.length > 0));
+/** A removed beat's chord and text go to the latest beat with notes before it, unless it has its own. */
+function moveMarks(beat: DraftBeat, target: DraftBeat | undefined): void {
   if (target === undefined) {
     return;
   }

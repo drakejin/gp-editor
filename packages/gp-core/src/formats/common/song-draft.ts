@@ -27,6 +27,8 @@ import { createChannelName } from './channels';
 
 /** Measures a reader may create; a corrupt count, rest or position must not make it allocate without end. */
 export const MAX_DRAFT_MEASURES = 4096;
+/** Tracks a reader may create (each holds a measure per header). */
+export const MAX_DRAFT_TRACKS = 128;
 
 /** TGTempo's default. */
 const DEFAULT_TEMPO = 120;
@@ -93,6 +95,8 @@ export class SongDraft {
   readonly headers: DraftHeader[] = [];
   readonly tracks: DraftTrack[] = [];
   readonly channels: Channel[] = [];
+  /** Each measure's beats by start, so a reader placing thousands of beats does not search the measure each time. */
+  private readonly beatIndex = new WeakMap<DraftMeasure, Map<number, DraftBeat>>();
 
   /**
    * TGSongManager.addNewMeasureBeforeEnd: a header after the last one, with its tempo and triplet feel, and a measure in
@@ -144,6 +148,9 @@ export class SongDraft {
 
   /** TGSongManager.addTrack: numbered after the last track, one empty measure per header. */
   addTrack(setup: TrackSetup): DraftTrack {
+    if (this.tracks.length >= MAX_DRAFT_TRACKS) {
+      throw new GpFormatError(`The song has more than ${MAX_DRAFT_TRACKS} tracks`);
+    }
     const measures = this.headers.map((header) => newMeasure(header, setup.clef, 0));
     const track: DraftTrack = { ...setup, number: this.tracks.length + 1, measures };
     this.tracks.push(track);
@@ -172,12 +179,24 @@ export class SongDraft {
 
   /** TGMeasureManager.getBeat, else a new beat at `start`. */
   beatAt(measure: DraftMeasure, start: number): DraftBeat {
-    const found = measure.beats.find((beat) => beat.start === start);
+    let index = this.beatIndex.get(measure);
+    if (index === undefined || index.size !== measure.beats.length) {
+      // Built again when beats were pushed onto the measure directly.
+      index = new Map();
+      for (const beat of measure.beats) {
+        if (!index.has(beat.start)) {
+          index.set(beat.start, beat);
+        }
+      }
+      this.beatIndex.set(measure, index);
+    }
+    const found = index.get(start);
     if (found !== undefined) {
       return found;
     }
     const beat: DraftBeat = { start, voices: [emptyDraftVoice(), emptyDraftVoice()], stroke: NO_STROKE };
     measure.beats.push(beat);
+    index.set(start, beat);
     return beat;
   }
 
