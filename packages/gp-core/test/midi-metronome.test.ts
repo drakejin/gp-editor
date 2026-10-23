@@ -89,6 +89,18 @@ describe('renderMidi metronome', () => {
     expect(renderMidi(song).metronomeTrackIndex).toBeUndefined();
   });
 
+  it('follows the musical directions: a D.C. al Fine clicks the bars it plays again, up to the fine', () => {
+    // Arrange: bars 0, 1 (fine), 2, 3 (D.C. al Fine) play as 0 1 2 3 0 1
+    const song = countingSong([{}, { directions: ['fine'] }, {}, { directions: ['daCapoAlFine'] }]);
+
+    // Act
+    const clicks = clicksOf(readMidi(renderMidi(song, { metronome: { velocity: VELOCITY } }).bytes), 2);
+
+    // Assert
+    expect(clicks).toHaveLength(6 * 4);
+    expect(clicks.filter(([, key]) => key === CLICK_KEYS.accent).map(([start]) => start)).toEqual([0, 4, 8, 12, 16, 20].map((beat) => beat * QUARTER));
+  });
+
   it('refuses a velocity outside 1…127', () => {
     const song = countingSong([{}]);
     expect(() => renderMidi(song, { metronome: { velocity: 0 } })).toThrow(RangeError);
