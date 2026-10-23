@@ -26,7 +26,7 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
     <View style={styles.empty}>
       <Text style={[styles.title, { color: palette.text }]}>GP Editor</Text>
       <Text style={[styles.text, { color: palette.muted }]}>
-        Start a new sheet, import a PDF of sheet music or tab, or open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2){'\n'}or drop
+        Start a new sheet, import a PDF of sheet music or tab, or open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2) — or a MIDI file (.mid){'\n'}or drop
         one onto this window.
       </Text>
       <Text style={[styles.sectionTitle, { color: palette.muted }]}>NEW SHEET (⌘N)</Text>

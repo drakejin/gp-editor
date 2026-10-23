@@ -211,7 +211,7 @@ RCT_EXPORT_MODULE();
 + (NSArray<UTType *> *)guitarProTypes
 {
   NSMutableArray<UTType *> *types = [NSMutableArray array];
-  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp" ]) {
+  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp", @"mid", @"midi" ]) {
     UTType *type = [UTType typeWithFilenameExtension:ext];
     if (type != nil) {
       [types addObject:type];
@@ -241,7 +241,7 @@ RCT_EXPORT_METHOD(showOpenDialog : (RCTPromiseResolveBlock)resolve reject : (RCT
     panel.canChooseDirectories = NO;
     panel.allowsMultipleSelection = NO;
     panel.allowedContentTypes = [GPFiles guitarProTypes];
-    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp)";
+    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp) or a MIDI file (.mid)";
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve([NSNull null]);
       return;

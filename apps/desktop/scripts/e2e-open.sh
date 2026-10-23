@@ -27,6 +27,7 @@ if [[ ${#files[@]} -eq 0 ]]; then
         "${FIXTURES}/guitarpro6/serenade.gpx"
         "${FIXTURES}/guitarpro7/serenade.gp"
         "${FIXTURES}/guitarpro8/directions.gp"
+        "${FIXTURES}/midi/anna-magdalena-04-guitar.mid"
     )
 fi
 
