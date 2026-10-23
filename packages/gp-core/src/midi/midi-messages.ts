@@ -3,6 +3,7 @@ import type { ChannelRoute } from './channel-routes';
 import { utf8Bytes, variableLength } from './midi-bytes';
 import type { SequenceEvent } from './midi-events';
 import type { MidiMessage } from './midi-file';
+import { toMidiTick } from './midi-ticks';
 
 const STATUS = { NOTE_OFF: 0x80, NOTE_ON: 0x90, CONTROL_CHANGE: 0xb0, PROGRAM_CHANGE: 0xc0, PITCH_BEND: 0xe0 } as const;
 const META = 0xff;
@@ -79,14 +80,14 @@ function routeChannels(route: ChannelRoute): number[] {
   return first === second ? [first] : [first, second];
 }
 
-/** MidiSequenceHandlerImpl: route and encode events; `origin` (a sequence tick) becomes MIDI tick 0. */
+/** MidiSequenceHandlerImpl: route and encode events; `origin` (a sequence tick) becomes MIDI file tick 0. */
 export function toMidiMessages(
   events: readonly SequenceEvent[],
   routes: ReadonlyMap<number, ChannelRoute>,
   origin: number,
 ): MidiMessage[] {
   return events.flatMap((event) => {
-    const tick = Math.max(0, Math.round(event.tick - origin));
+    const tick = Math.max(0, toMidiTick(event.tick - origin));
     return encode(event, routes).map((data) => ({ tick, data }));
   });
 }

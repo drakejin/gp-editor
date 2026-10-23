@@ -171,6 +171,9 @@ export interface GpifRhythm {
   readonly augmentationDotCount: number;
   readonly primaryTupletNum: number;
   readonly primaryTupletDen: number;
+  /** A tuplet inside the primary one (GP7+ nesting); 1:1 when absent. */
+  readonly secondaryTupletNum: number;
+  readonly secondaryTupletDen: number;
 }
 
 export interface GpifDocument {

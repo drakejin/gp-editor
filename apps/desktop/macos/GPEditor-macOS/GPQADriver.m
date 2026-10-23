@@ -10,6 +10,7 @@
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
+//          {"menu": ["File", "Open Recent"]} (logs the items), {"menu": ["File", "Open Recent", "Song.gp5"]} (chooses it),
 //          {"quit": true}]}
 // Coordinates are points in the window's content view, origin top-left. Progress goes to "<script>.log".
 
@@ -103,6 +104,10 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"wait"] != nil) {
     return [step[@"wait"] doubleValue] / 1000.0;
   }
+  if ([step[@"menu"] isKindOfClass:[NSArray class]]) {
+    [self menuStep:step[@"menu"]];
+    return 1.0;
+  }
   if (step[@"click"] != nil) {
     [self clickAt:[self windowPoint:step[@"click"] in:window] window:window];
     return 0.4;
@@ -148,6 +153,48 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     [NSApp terminate:nil];
   }
   return 0;
+}
+
+/** Brings a menu of the menu bar up to date (SwiftUI fills some when they open). */
+- (void)updateMenu:(NSMenu *)menu
+{
+  if ([menu.delegate respondsToSelector:@selector(menuNeedsUpdate:)]) {
+    [menu.delegate menuNeedsUpdate:menu];
+  }
+  [menu update];
+}
+
+/**
+ * A path of titles in the menu bar: ending at a menu, logs its items ("-" a separator, "(off)" a disabled item);
+ * ending at an item, chooses it as a click in the menu does.
+ */
+- (void)menuStep:(NSArray<NSString *> *)path
+{
+  NSMenu *menu = NSApp.mainMenu;
+  NSMenuItem *item = nil;
+  for (NSString *title in path) {
+    [self updateMenu:menu];
+    item = [menu itemWithTitle:title];
+    if (item == nil || item.submenu == nil) {
+      break;
+    }
+    menu = item.submenu;
+  }
+  if (item == nil) {
+    [self log:[NSString stringWithFormat:@"menu: no item %@", path.lastObject]];
+  } else if (item.submenu == nil && !item.isEnabled) {
+    [self log:[NSString stringWithFormat:@"menu: %@ is disabled", item.title]];
+  } else if (item.submenu == nil) {
+    [self log:[NSString stringWithFormat:@"menu: chose %@", item.title]];
+    [item.menu performActionForItemAtIndex:[item.menu indexOfItem:item]];
+  } else {
+    [self updateMenu:menu];
+    NSMutableArray<NSString *> *titles = [NSMutableArray array];
+    for (NSMenuItem *each in menu.itemArray) {
+      [titles addObject:each.isSeparatorItem ? @"-" : each.isEnabled ? each.title : [each.title stringByAppendingString:@" (off)"]];
+    }
+    [self log:[NSString stringWithFormat:@"menu %@: %@", [path componentsJoinedByString:@" > "], [titles componentsJoinedByString:@" | "]]];
+  }
 }
 
 /** Top-left content coordinates → window coordinates (bottom-left origin). */

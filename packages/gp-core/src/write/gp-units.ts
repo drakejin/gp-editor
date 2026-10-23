@@ -76,7 +76,8 @@ function gpTuplets(allowThirteen: boolean): readonly Tuplet[] {
 function isStorable(duration: Duration, allowThirteen: boolean): boolean {
   const { tuplet } = duration;
   const isNormal = tuplet.enters === NORMAL_TUPLET.enters && tuplet.times === NORMAL_TUPLET.times;
-  return !duration.doubleDotted && (isNormal || tupletDivisionToGp(tuplet, allowThirteen) !== undefined);
+  const isSingle = duration.innerTuplet === undefined;
+  return isSingle && !duration.doubleDotted && (isNormal || tupletDivisionToGp(tuplet, allowThirteen) !== undefined);
 }
 
 /** Durations GP3–GP5 can store, the tuplet `enters` ones first, then the plain ones, then the other tuplets. */
@@ -94,8 +95,9 @@ function storableDurations(enters: number, allowThirteen: boolean): readonly Dur
 
 /**
  * The duration to write: `duration` itself when GP3–GP5 can store it, else one of the same length
- * (5:2 eighths = 5:4 sixteenths, a 2:3 duplet = a dotted note), else the nearest it has (a double dot
- * becomes a dot, an unknown tuplet none) — which shifts the beats after it.
+ * (5:2 eighths = 5:4 sixteenths, a 2:3 duplet = a dotted note, a triplet inside a triplet = a 9:8 tuplet),
+ * else the nearest it has (a double dot becomes a dot, an unknown tuplet none, a tuplet inside a tuplet the
+ * outer one) — which shifts the beats after it.
  */
 export function writableDuration(duration: Duration, allowThirteen: boolean): Duration {
   if (isStorable(duration, allowThirteen)) {

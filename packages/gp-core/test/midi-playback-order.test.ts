@@ -3,6 +3,7 @@ import { readSong, type Song } from '../src/index';
 import { buildPlaybackOrder } from '../src/midi/playback-order';
 import { type FixtureFolder, loadFixture } from './helpers/fixtures';
 import { makeSong } from './helpers/midi-song';
+import { toTux } from './helpers/ticks';
 
 function read(folder: FixtureFolder, name: string): Song {
   return readSong(loadFixture(folder, name));
@@ -12,10 +13,10 @@ function order(song: Song, fromHeaderIndex = 0): number[] {
   return buildPlaybackOrder(song.measureHeaders, fromHeaderIndex).map((measure) => measure.headerIndex);
 }
 
-/** Sequence tick (header start + repeat move) of every played measure. */
+/** Sequence tick (header start + repeat move) of every played measure, in TuxGuitar ticks. */
 function sequenceTicks(song: Song, fromHeaderIndex = 0): number[] {
   return buildPlaybackOrder(song.measureHeaders, fromHeaderIndex).map(
-    (measure) => (song.measureHeaders[measure.headerIndex]?.start ?? Number.NaN) + measure.move,
+    (measure) => toTux((song.measureHeaders[measure.headerIndex]?.start ?? Number.NaN) + measure.move),
   );
 }
 

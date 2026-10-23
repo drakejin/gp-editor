@@ -63,7 +63,7 @@ export function fillEmptyVoice(song: Song, at: BeatAddress, note: Note): Song {
   }
   const length = headerTicks(header);
   const filled = [...placed, ...(measureGapRests(measure, length - eventsTicks(placed)) ?? [])];
-  const voices = replaceAt(measureVoices.voices, at.voiceIndex, trimTrailingRests(filled, length, duration.tuplet));
+  const voices = replaceAt(measureVoices.voices, at.voiceIndex, trimTrailingRests(filled, length, duration));
   const beats = toBeats(header.start, { ...measureVoices, voices }, measure.beats);
   return updateMeasure(song, at.trackIndex, at.measureIndex, (current) => ({ ...current, beats }));
 }

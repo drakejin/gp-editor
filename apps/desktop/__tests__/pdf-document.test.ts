@@ -5,7 +5,7 @@ import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
 import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
 import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
 import { textValues } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const BEATS_PER_BAR = 4;
 const QUARTER_TICKS = 960;
@@ -13,7 +13,7 @@ const QUARTER_TICKS = 960;
 /** `count` bars of four quarter notes walking over the strings. */
 function songOfBars(count: number): Song {
   const bars = Array.from({ length: count }, (_, i) =>
-    Array.from({ length: BEATS_PER_BAR }, (__, b) => beat(header(i + 1).start + b * QUARTER_TICKS, [note((b % 6) + 1, (i + b) % 5)])),
+    Array.from({ length: BEATS_PER_BAR }, (__, b) => beat(toTux(header(i + 1).start) + b * QUARTER_TICKS, [note((b % 6) + 1, (i + b) % 5)])),
   );
   return makeSong(bars);
 }

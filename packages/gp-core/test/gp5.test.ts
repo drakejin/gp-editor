@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Beat, GpFormatError, type Note, readSong, type Song, type Voice, vibratoOf } from '../src/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 
 // Expected values follow alphaTab's Gp5Importer.test.ts / GpImporterTestHelper.ts, translated to our
 // model: alphaTab numbers strings from the lowest, we from the highest; alphaTab keeps grace notes as
@@ -235,7 +236,7 @@ describe('readGp5 voices', () => {
   it('merges both voices into beats ordered by start', () => {
     // nightwish.gp5, drums, measure 46: quarter notes in voice 1, a rest then sixteenths in voice 2
     const measure = read('nightwish.gp5').tracks[10]?.measures[45];
-    const summary = measure?.beats.map((beat) => [beat.start, describeVoice(beat.voices[0]), describeVoice(beat.voices[1])]);
+    const summary = measure?.beats.map((beat) => [toTux(beat.start), describeVoice(beat.voices[0]), describeVoice(beat.voices[1])]);
 
     expect(summary?.slice(0, 6)).toEqual([
       [173760, '4:1/49,2/57,6/36', '4:'],
@@ -251,7 +252,7 @@ describe('readGp5 voices', () => {
   it('keeps a second-voice note held under first-voice beats', () => {
     const measure = read('nightwish.gp5').tracks[0]?.measures[85];
 
-    expect(measure?.beats.map((beat) => [beat.start, describeVoice(beat.voices[0]), describeVoice(beat.voices[1])])).toEqual([
+    expect(measure?.beats.map((beat) => [toTux(beat.start), describeVoice(beat.voices[0]), describeVoice(beat.voices[1])])).toEqual([
       [327360, '4:', '1:3/14'],
       [328320, '8:1/1', '-'],
       [328800, '4:1/0', '-'],

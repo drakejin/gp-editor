@@ -8,7 +8,7 @@ import { type ScoreMode, rowGeometry } from '../src/score/geometry';
 import type { RowHit } from '../src/score/hit-test';
 import { placeRow, rowHeaderWidth } from '../src/score/row';
 import { PALETTE, textValues } from '../test-support/score-helpers';
-import { beat, header, makeSong, note, onStrings } from '../test-support/songs';
+import { beat, header, makeSong, note, onStrings, toTux } from '../test-support/songs';
 
 /** The native canvas becomes a plain host element (`ScoreCanvas` below is that element), so its props can be read. */
 jest.mock('../src/native/score-canvas', () => ({
@@ -20,11 +20,11 @@ const ROW_WIDTH = 800;
 /** Bar 1: fret 3 on string 1, then fret 5 on string 2. Bars 2 and 3 hold one note each. */
 const SONG = makeSong([
   [
-    beat(header(1).start, [note(1, 3)]),
-    beat(header(1).start + 960, [note(2, 5)]),
+    beat(toTux(header(1).start), [note(1, 3)]),
+    beat(toTux(header(1).start) + 960, [note(2, 5)]),
   ],
-  [beat(header(2).start, [note(3, 7)])],
-  [beat(header(3).start, [note(4, 9)])],
+  [beat(toTux(header(2).start), [note(3, 7)])],
+  [beat(toTux(header(3).start), [note(4, 9)])],
 ]);
 
 function rowProps(
