@@ -85,10 +85,11 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
 
 /**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
- * changed the song or showed another track (a plain cursor move, a click, an edit, undo).
+ * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo') {
+  // A transposition changes no beat, so the selection stays for another one.
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'transpose') {
     return after;
   }
   const isKept = after.cursor === before.cursor && after.document?.song === before.document?.song && after.trackIndex === before.trackIndex;
