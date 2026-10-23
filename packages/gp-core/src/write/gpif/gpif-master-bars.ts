@@ -34,12 +34,12 @@ function tempoAutomations(song: Song): readonly XmlNode[] {
   });
 }
 
-/** `<MasterTrack>`: the track order, an anacrusis, and the tempo automations. */
-export function masterTrackNode(song: Song, isAnacrusis: boolean): XmlNode {
+/** `<MasterTrack>`: the track order, an anacrusis, the tempo automations, then `syncPoints` (the audio track's). */
+export function masterTrackNode(song: Song, isAnacrusis: boolean, syncPoints: readonly XmlNode[] = []): XmlNode {
   return xmlElement('MasterTrack', [
     isAnacrusis && xmlElement('Anacrusis'),
     xmlText('Tracks', song.tracks.map((_, index) => index).join(' ')),
-    xmlElement('Automations', tempoAutomations(song)),
+    xmlElement('Automations', [...tempoAutomations(song), ...syncPoints]),
   ]);
 }
 

@@ -1,5 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.score.* (LGPL-2.1): the intermediate GPIF document.
 import type { VibratoKind } from '../../model/song';
+import type { GpifAudioTrack } from './gpif-audio-track';
 
 /** Which GPIF dialect: 6 = Guitar Pro 6 (.gpx), 7 = Guitar Pro 7/8 (.gp). */
 export type GpifVersion = 6 | 7;
@@ -200,6 +201,8 @@ export interface GpifDocument {
   readonly beats: ReadonlyMap<number, GpifBeat>;
   readonly notes: ReadonlyMap<number, GpifNote>;
   readonly rhythms: ReadonlyMap<number, GpifRhythm>;
+  /** Guitar Pro 7/8's audio track (`<BackingTrack>`), when the document has one. */
+  readonly audioTrack?: GpifAudioTrack;
 }
 
 /** Index items by id; the first item with a given id wins, as TuxGuitar's linear lookups do. */

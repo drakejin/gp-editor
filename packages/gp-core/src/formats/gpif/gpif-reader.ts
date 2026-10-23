@@ -12,6 +12,7 @@ import {
   indexById,
 } from './gpif-document';
 import { readAutomation } from './gpif-automation';
+import { readGpifAudioTrack } from './gpif-audio-track';
 import { readBeat, readNote } from './gpif-read-beat';
 import { readTracks } from './gpif-read-track';
 import { type XmlElement, attribute, child, childList, childText, children, parseIntList, parseJavaInt, parseXml } from './xml';
@@ -24,6 +25,7 @@ export function readGpifDocument(input: Uint8Array | string, version: GpifVersio
   if (root.name !== ROOT_ELEMENT) {
     throw new GpFormatError(`Invalid GPIF document: root element is <${root.name}>, expected <${ROOT_ELEMENT}>`);
   }
+  const audioTrack = readGpifAudioTrack(root);
   return {
     version,
     gpVersion: nonEmpty(childText(root, 'GPVersion')),
@@ -37,6 +39,7 @@ export function readGpifDocument(input: Uint8Array | string, version: GpifVersio
     beats: indexById(childList(root, 'Beats', 'Beat').map(readBeat)),
     notes: indexById(childList(root, 'Notes', 'Note').map(readNote)),
     rhythms: indexById(childList(root, 'Rhythms', 'Rhythm').map(readRhythm)),
+    ...(audioTrack === undefined ? {} : { audioTrack }),
   };
 }
 

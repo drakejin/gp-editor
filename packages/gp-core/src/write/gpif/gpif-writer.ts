@@ -4,6 +4,7 @@ import { resolveKeySignatures } from '../gtp-song';
 import { type TrackPlan, buildPools } from './gpif-bars';
 import { chordIdsOf } from './gpif-chords';
 import { isAnacrusis, leadingShiftOf, noteLinksOf } from './gpif-layout';
+import { assetsNode, backingTrackNode, syncPointNodes } from './gpif-audio-track';
 import { masterBarsNode, masterTrackNode } from './gpif-master-bars';
 import { scoreNode } from './gpif-score';
 import { assignMidiChannels, isPercussionTrack } from './gpif-sounds';
@@ -39,8 +40,12 @@ function planTrack(song: Song, track: Track, firstHeader: MeasureHeader | undefi
   };
 }
 
-/** The GPIF document (Content/score.gpif) of a song, as Guitar Pro 7.6 writes it. */
+/**
+ * The GPIF document (Content/score.gpif) of a song, as Guitar Pro 7.6 writes it; its audio track as Guitar Pro 8 does
+ * (the caller embeds the audio file at audioAssetPath).
+ */
 export function buildGpifXml(song: Song): string {
+  const { audioTrack } = song;
   const firstHeader = song.measureHeaders[0];
   const keySignatures = resolveKeySignatures(song);
   const plans = song.tracks.map((track) => planTrack(song, track, firstHeader));
@@ -50,7 +55,8 @@ export function buildGpifXml(song: Song): string {
     xmlText('GPRevision', GP_REVISION.revision, { required: GP_REVISION.required, recommended: GP_REVISION.recommended }),
     xmlElement('Encoding', [xmlText('EncodingDescription', ENCODING)]),
     scoreNode(song.info),
-    masterTrackNode(song, isAnacrusis(song.tracks, firstHeader)),
+    masterTrackNode(song, isAnacrusis(song.tracks, firstHeader), audioTrack === undefined ? [] : syncPointNodes(song, audioTrack)),
+    audioTrack !== undefined && backingTrackNode(audioTrack),
     xmlElement('AudioTracks'),
     tracksNode(song, plans, assignMidiChannels(song)),
     masterBarsNode(song, keySignatures, pools.barIds),
@@ -59,6 +65,7 @@ export function buildGpifXml(song: Song): string {
     xmlElement('Beats', pools.beats),
     xmlElement('Notes', pools.notes),
     xmlElement('Rhythms', pools.rhythms),
+    audioTrack !== undefined && assetsNode(audioTrack),
   ]);
   return serializeXmlDocument(root);
 }

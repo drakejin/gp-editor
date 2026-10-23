@@ -26,8 +26,8 @@ export {
   vibratoOf,
 } from './model/defaults';
 export { DYNAMICS, type DynamicName, dynamicOf } from './formats/common/velocity';
-export { readSong } from './read-song';
-export { type WritableFormat, writeSong } from './write';
+export { type SongFile, readSong, readSongFile } from './read-song';
+export { type WritableFormat, type WriteOptions, writeSong } from './write';
 export { type AsciiTabOptions, DEFAULT_ASCII_LINE_WIDTH, writeAsciiTab } from './write/ascii/ascii-tab-writer';
 export { writeMusicXml } from './write/musicxml/musicxml-writer';
 export { encodeMusicXml, writeMusicXmlArchive } from './write/musicxml/musicxml-archive';
@@ -178,6 +178,39 @@ export {
 } from './effects/effect-chain';
 export { parseEffectChain, parseMasterMix } from './effects/effects-json';
 export { readSongEffects, songEffectsToJson } from './effects/song-effects';
+export {
+  AUDIO_TRACK_NAME,
+  type AudioTrackFields,
+  DEFAULT_AUDIO_VOLUME,
+  MAX_DETUNE_CENTS,
+  buildAudioTrack,
+  fileExtensionOf,
+  normalizeFileExtension,
+} from './audio-track/audio-track';
+export {
+  type PlayedBar,
+  type PlayedPosition,
+  type SyncAnchor,
+  type SyncMap,
+  audioSecondsAt,
+  buildSyncMap,
+  playedBarIndex,
+  playedPositionAt,
+  scoreSecondsAt,
+  syncPointTick,
+  tickAtAudioSeconds,
+} from './audio-track/sync-map';
+export {
+  type AudioTrackMix,
+  type SecondsRange,
+  canSetAudioSyncPoint,
+  deleteAudioSyncPoint,
+  moveAudioSyncPoint,
+  setAudioSyncPoint,
+  setAudioTrack,
+  setAudioTrackMix,
+  syncPointSecondsRange,
+} from './edit/audio-track';
 export { setSongInfo } from './edit/song-info';
 export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionName } from './formats/common/channels';
 export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';
@@ -193,13 +226,16 @@ export {
   setTripletFeel,
 } from './edit/measure-headers';
 export {
+  type AudioRun,
   type ChannelRoute,
   type MidiOptions,
   type MidiRender,
   type ScorePosition,
   type TimelineEntry,
+  type TimelineTempo,
   UNROUTED,
   buildChannelRoutes,
+  entrySecondsAt,
   positionAt,
   renderMidi,
   timelineIndexAt,

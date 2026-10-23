@@ -40,7 +40,8 @@ import type {
  * - marks: no hairpins, fade outs, volume swells or sustain pedals; a rasgueado without its pattern (read back as the
  *   first pattern, DEFAULT_RASGUEADO);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
- * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts).
+ * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts);
+ * - the audio track (Guitar Pro 7/8's): GP3/GP4/GP5 have no place for it.
  */
 
 const MAX_STRINGS = 7;
@@ -320,7 +321,7 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
  * without beats.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
-  const { master: _master, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),
@@ -338,7 +339,7 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
-  const { master: _master, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),

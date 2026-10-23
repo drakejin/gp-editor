@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { durationTicks, measureTicks } from '../../src/model/defaults';
-import type { Song } from '../../src/model/song';
+import { buildAudioTrack } from '../../src/audio-track/audio-track';
+import type { AudioTrack, Song } from '../../src/model/song';
 
 /**
  * Structural checks every reader's output must pass, whatever the format.
@@ -9,6 +10,9 @@ import type { Song } from '../../src/model/song';
 export function assertSongInvariants(song: Song): void {
   expect(song.measureHeaders.length).toBeGreaterThan(0);
   expect(song.tracks.length).toBeGreaterThan(0);
+  if (song.audioTrack !== undefined) {
+    assertAudioTrackInvariants(song.audioTrack);
+  }
 
   song.measureHeaders.forEach((header, index) => {
     expect(header.number).toBe(index + 1);
@@ -55,4 +59,10 @@ export function assertSongInvariants(song: Song): void {
       }
     });
   });
+}
+
+/** An audio track is within its bounds (buildAudioTrack leaves it as it is) and has an id for its data. */
+function assertAudioTrackInvariants(track: AudioTrack): void {
+  expect(track.assetId.trim()).not.toBe('');
+  expect(buildAudioTrack(track)).toEqual(track);
 }

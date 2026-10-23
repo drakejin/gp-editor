@@ -27,6 +27,46 @@ export interface Song {
   readonly tracks: readonly Track[];
   /** The app's master effects on the whole mix; absent: the default (only the limiter, at 0 dB). */
   readonly master?: MasterMix;
+  /** A recording played with the score (Guitar Pro 7/8's audio track); its audio data lives outside the model. */
+  readonly audioTrack?: AudioTrack;
+}
+
+/**
+ * Where the audio track meets the score: a played bar (repeats and jumps unfolded: `occurrence` 0 is the bar's first
+ * time), a place in it, and the moment of the audio heard there. Between two points the audio follows the score's
+ * ticks linearly (audio-track/sync-map.ts).
+ */
+export interface AudioSyncPoint {
+  readonly measureIndex: number;
+  readonly occurrence: number;
+  /** 0 = the bar's start … 1 = its end. */
+  readonly position: number;
+  /** Seconds from the start of the audio. */
+  readonly seconds: number;
+}
+
+/** Guitar Pro 7/8's audio track (backing track): one audio file played in sync with the score. */
+export interface AudioTrack {
+  /**
+   * Which audio data the track plays: Guitar Pro's asset name (the file's SHA-1 as a UUID), or the app's. The bytes are
+   * not in the model: `readSongFile` returns them and `writeSong` takes them.
+   */
+  readonly assetId: string;
+  /** The audio file's extension, lower case without the dot ("ogg", "mp3", "wav" …); empty when unknown. */
+  readonly fileExtension: string;
+  /** The file the audio was taken from (Guitar Pro keeps its path). */
+  readonly originalFilePath: string;
+  readonly name: string;
+  /** Fader 0–1 (Guitar Pro's channel strip; 0.8 = its default). */
+  readonly volume: number;
+  readonly mute: boolean;
+  readonly solo: boolean;
+  /** Pitch shift in cents, −2400…2400 (Guitar Pro: semitones and cents). */
+  readonly detuneCents: number;
+  /** Where in the audio (seconds) the score starts while no sync point says otherwise (Guitar Pro's frame padding). */
+  readonly startSeconds: number;
+  /** In playback order: each point later in the score and in the audio than the one before. */
+  readonly syncPoints: readonly AudioSyncPoint[];
 }
 
 /**
