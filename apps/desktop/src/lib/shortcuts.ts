@@ -93,6 +93,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '⌘N / ⌘O / ⇧⌘I', action: 'New / open / import a PDF (each in a new tab)' },
       { keys: '⌘W', action: 'Close the tab (asks to save an edited one)' },
       { keys: '⌃⇥ / ⌃⇧⇥', action: 'Next / previous tab' },
+      { keys: '⇧⌘P', action: 'Command palette: find and run any command (Tools ▸ Transpose… too)' },
       { keys: '⌘H', action: 'This sheet' },
     ],
   },

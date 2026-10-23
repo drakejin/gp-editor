@@ -24,6 +24,12 @@ FOUNDATION_EXPORT NSString *const GPEditorExportMidiCommandNotification;
 /** File ▸ Export ASCII Tab… was chosen (JS event "exportAsciiTabRequested"). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportAsciiTabCommandNotification;
 
+/** File ▸ Export MusicXML… was chosen (JS event "exportMusicXmlRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportMusicXmlCommandNotification;
+
+/** File ▸ Export Compressed MusicXML… was chosen (JS event "exportCompressedMusicXmlRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportCompressedMusicXmlCommandNotification;
+
 /** File ▸ Print… (⌘P) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 
@@ -38,6 +44,17 @@ FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
 /** Tools ▸ Tuner… was chosen; GPAudioInput.m forwards it to JS as "tunerRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorTunerCommandNotification;
+/** Tools ▸ Transpose… was chosen (JS event "transposeRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorTransposeCommandNotification;
+
+/** Tools ▸ Command Palette… (⇧⌘P) was chosen (JS event "commandPaletteRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorCommandPaletteCommandNotification;
+
+/** Edit ▸ Lyrics… was chosen ("lyricsRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorLyricsCommandNotification;
+
+/** Tools ▸ Scales… was chosen ("scalesRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorScalesCommandNotification;
 
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;

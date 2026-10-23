@@ -1,4 +1,5 @@
-import type { RectCommand } from '../src/score/draw';
+import type { CircleCommand, RectCommand } from '../src/score/draw';
+import { SCALE_COLORS } from '../src/score/scale-marks';
 import { KEY_COLORS, PIANO, engraveKeyboard, keyboardHeight, keyboardHoverRegions, pianoKey, soundingPitches } from '../src/score/keyboard';
 import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
 import { makeSong, note } from '../test-support/songs';
@@ -57,6 +58,21 @@ describe('engraveKeyboard', () => {
   it('leaves out pitches a piano does not have', () => {
     const commands = engraveKeyboard({ width: WIDTH, pitches: [12, 120], palette: PALETTE });
     expect(rects(commands).filter((rect) => rect.color === PALETTE.accent)).toHaveLength(0);
+  });
+
+  it('marks every key of the chosen scale with a dot, the root’s in its own colour', () => {
+    // Arrange: A minor pentatonic (A C D E G)
+    const scale = { pitchClasses: [9, 0, 2, 4, 7], root: 9 };
+
+    // Act
+    const commands = engraveKeyboard({ width: WIDTH, pitches: [64], palette: PALETTE, scale });
+
+    // Assert: A0 … A7 are roots; C D E G of every octave the other notes; the sounding E4 stays lit
+    const dots = commands.filter((command): command is CircleCommand => command.kind === 'circle');
+    expect(dots.filter((dot) => dot.color === SCALE_COLORS.root)).toHaveLength(8);
+    expect(dots.filter((dot) => dot.color === SCALE_COLORS.note)).toHaveLength(8 + 7 + 7 + 7);
+    expect(rects(commands).filter((rect) => rect.color === PALETTE.accent)).toHaveLength(1);
+    expect(allFinite(commands)).toBe(true);
   });
 
   it('has the height of its white keys and room around them', () => {

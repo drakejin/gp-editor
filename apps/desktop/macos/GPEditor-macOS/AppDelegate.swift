@@ -79,6 +79,13 @@ struct GPEditorApp: App {
         Button("Export ASCII Tab…") {
           NotificationCenter.default.post(name: .GPEditorExportAsciiTabCommand, object: nil)
         }
+        // MusicXML 4.0 for other notation programs, as text or zipped.
+        Button("Export MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportMusicXmlCommand, object: nil)
+        }
+        Button("Export Compressed MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportCompressedMusicXmlCommand, object: nil)
+        }
         Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
@@ -88,6 +95,10 @@ struct GPEditorApp: App {
       // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
       CommandGroup(after: .pasteboard) {
         Divider()
+        // The lyrics of a track, above the score (Guitar Pro's lyrics editor).
+        Button("Lyrics…") {
+          NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
+        }
         Menu("AI Wizard") {
           Button("Song Writer…") {
             NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
@@ -102,11 +113,24 @@ struct GPEditorApp: App {
         .keyboardShortcut("f", modifiers: [.command, .shift])
         Divider()
       }
-      // Tools ▸ Tuner…: the microphone tuner (GPAudioInput.m).
+      // Tools: the microphone tuner (GPAudioInput.m), the scale panel (scale finder, boxes; the scale is marked on the
+      // keyboard and the fretboard), Transpose… (notes and chords by semitones or scale steps) and the command palette,
+      // which finds any command.
       CommandMenu("Tools") {
         Button("Tuner…") {
           NotificationCenter.default.post(name: .GPEditorTunerCommand, object: nil)
         }
+        Button("Scales…") {
+          NotificationCenter.default.post(name: .GPEditorScalesCommand, object: nil)
+        }
+        Button("Transpose…") {
+          NotificationCenter.default.post(name: .GPEditorTransposeCommand, object: nil)
+        }
+        Divider()
+        Button("Command Palette…") {
+          NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)
+        }
+        .keyboardShortcut("p", modifiers: [.command, .shift])
       }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {

@@ -4,6 +4,7 @@ import { DrumKit } from '../src/components/DrumKit';
 import { Fretboard } from '../src/components/Fretboard';
 import { InstrumentView } from '../src/components/InstrumentView';
 import { Keyboard } from '../src/components/Keyboard';
+import type { ScaleHighlight } from '../src/score/scale-marks';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -11,7 +12,7 @@ import { beat, makeSong, note } from '../test-support/songs';
 const SONG: Song = makeSong([[beat(960, [note(1, 0), note(2, 0)])]]);
 const CURSOR = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 };
 
-function render(parts: { readonly showsKeyboard: boolean; readonly showsFretboard: boolean }, song: Song = SONG) {
+function render(parts: { readonly showsKeyboard: boolean; readonly showsFretboard: boolean; readonly scale?: ScaleHighlight }, song: Song = SONG) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<InstrumentView song={song} trackIndex={0} cursor={CURSOR} palette={PALETTE} {...parts} />);
@@ -64,6 +65,18 @@ describe('InstrumentView', () => {
   it('shows no drum kit when both instrument parts are switched off', () => {
     const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
     expect(render({ showsKeyboard: false, showsFretboard: false }, percussion).findAllByType(DrumKit)).toHaveLength(0);
+  });
+
+  it('hands the Scales panel’s scale to the keyboard and the fretboard', () => {
+    // Arrange
+    const scale = { pitchClasses: [9, 0, 2, 4, 7], root: 9 };
+
+    // Act
+    const root = render({ showsKeyboard: true, showsFretboard: true, scale });
+
+    // Assert
+    expect(root.findByType(Keyboard).props.scale).toBe(scale);
+    expect(root.findByType(Fretboard).props.scale).toBe(scale);
   });
 });
 

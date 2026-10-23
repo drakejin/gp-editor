@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setTrackLyrics } from '../src/edit/lyrics';
 import { detectFormat } from '../src/formats/detect';
 import { decodeWindows1252 } from '../src/io/text';
 import { plainDuration } from '../src/model/defaults';
@@ -552,6 +553,19 @@ describe('writeSong losses (what GP5 cannot hold)', () => {
     // Assert
     expect(again.tracks[0]?.lyrics).toEqual({ from: 1, text: '종 이  배 를' });
     expect(again.info.title).toBe('종이배');
+  });
+
+  it('keeps lyrics edited on the second track: first bar, hyphens, joined words, line breaks and Japanese', () => {
+    // Arrange: lyrics as the lyrics editor applies them (setTrackLyrics)
+    const song = buildSong({ headers: [{}, {}, {}], tracks: [{ measures: [] }, { measures: [] }] });
+    const text = 'Beau-ti-ful a+lot\nき ょ う  は';
+    const edited = setTrackLyrics(song, 1, { from: 2, text });
+
+    // Act
+    const again = roundTrip(edited);
+
+    // Assert
+    expect(again.tracks.map((track) => track.lyrics)).toEqual([undefined, { from: 2, text }]);
   });
 
   it('puts the melodic channels beyond the fifteenth on MIDI channel 16, with the fifteenth', () => {
