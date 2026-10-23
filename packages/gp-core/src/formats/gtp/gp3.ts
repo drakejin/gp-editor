@@ -4,6 +4,7 @@ import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../
 import type { Beat, Chord, Grace, Note, NoteEffect, Song, TimeSignature, TripletFeel } from '../../model/song';
 import { BEND_MAX_POSITION, bendValueFromGp, tremoloBarValueFromGp } from '../common/bend-units';
 import { artificialHarmonicOffset } from '../common/harmonics';
+import { DEFAULT_RASGUEADO } from '../common/rasgueado';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
@@ -198,6 +199,7 @@ function readBeatGp34(
     pickStroke: effects.pickStroke ?? 'none',
     ...(chord === undefined ? {} : { chord }),
     ...(text === undefined ? {} : { text }),
+    ...(effects.isRasgueado === true ? { rasgueado: DEFAULT_RASGUEADO } : {}),
   };
   return { beat, ticks: durationTicks(duration), ...(tempo === undefined ? {} : { tempo }) };
 }

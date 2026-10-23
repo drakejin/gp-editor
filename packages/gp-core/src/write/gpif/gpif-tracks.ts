@@ -3,6 +3,7 @@ import { DEFAULT_CHANNEL } from '../../model/defaults';
 import type { Channel, Song, Track } from '../../model/song';
 import type { TrackPlan } from './gpif-bars';
 import { chordPropertiesOf } from './gpif-chords';
+import { pedalAutomationNodes } from './gpif-marks';
 import { flagProperty, property } from './gpif-properties';
 import { type MidiChannels, channelOf, instrumentSetOf, soundNameOf, tuningInstrumentOf } from './gpif-sounds';
 import type { DrumElement } from './drum-kit';
@@ -85,8 +86,8 @@ function instrumentSetNode(program: number, plan: TrackPlan): XmlNode {
   ]);
 }
 
-/** The track's sound: `<Sounds>` and the Sound automation that selects it at the start. */
-function soundNodes(channel: Channel, isPercussion: boolean): readonly [XmlNode, XmlNode] {
+/** The track's sound: `<Sounds>` and the Sound automation that selects it at the start (then `extra` automations). */
+function soundNodes(channel: Channel, isPercussion: boolean, extra: readonly XmlNode[]): readonly [XmlNode, XmlNode] {
   const program = isPercussion ? 0 : Math.min(MAX_MIDI_VALUE, Math.max(0, channel.program));
   const bank = isPercussion ? 0 : Math.max(0, channel.bank);
   const name = soundNameOf(program, isPercussion);
@@ -106,7 +107,7 @@ function soundNodes(channel: Channel, isPercussion: boolean): readonly [XmlNode,
     xmlText('Visible', 'true'),
     xmlCdata('Value', `${path};${name};${SOUND_ROLE}`),
   ]);
-  return [xmlElement('Sounds', [sound]), xmlElement('Automations', [automation])];
+  return [xmlElement('Sounds', [sound]), xmlElement('Automations', [automation, ...extra])];
 }
 
 /** Five lyrics lines; the model's lyrics on the first, left for Guitar Pro to place on the beats (not dispatched). */
@@ -159,7 +160,7 @@ function trackNode(song: Song, plan: TrackPlan, index: number, midi: MidiChannel
   const isPercussion = plan.noteContext.isPercussion;
   const program = isPercussion ? 0 : channel.program;
   const set = instrumentSetOf(program, isPercussion);
-  const [sounds, automations] = soundNodes(channel, isPercussion);
+  const [sounds, automations] = soundNodes(channel, isPercussion, pedalAutomationNodes(track, song.measureHeaders));
   return xmlElement(
     'Track',
     [
