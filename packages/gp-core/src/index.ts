@@ -55,6 +55,33 @@ export {
   trackPitchRange,
 } from './edit/tuning-fit';
 export { type TuningChange, setTrackTuning } from './edit/retune';
+export {
+  DEFAULT_GATE_DB,
+  DEFAULT_MAX_FREQUENCY,
+  DEFAULT_MIN_FREQUENCY,
+  MAX_FRAME_LENGTH,
+  MIN_FRAME_LENGTH,
+  type PitchDetection,
+  type PitchDetectorOptions,
+  SILENCE_DB,
+  detectPitch,
+} from './tuner/pitch-detector';
+export {
+  DEFAULT_REFERENCE_A4,
+  MAX_REFERENCE_A4,
+  MIN_REFERENCE_A4,
+  type NotePitch,
+  type StringPitch,
+  type TunerReading,
+  clampReferenceA4,
+  frequencyFromNote,
+  nearestNote,
+  nearestString,
+  pitchFromFrequency,
+  toTunerReading,
+} from './tuner/notes';
+export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency } from './tuner/tuner-queue';
+export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
