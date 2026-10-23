@@ -3,6 +3,10 @@ import { detectFormat } from '../src/formats/detect';
 import { plainDuration } from '../src/model/defaults';
 import type { Note, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
+import { ByteWriter } from '../src/write/byte-writer';
+import { writeMeasureGp34 } from '../src/write/gp34-beats';
+import { GP3_DIALECT } from '../src/write/gp3-dialect';
+import { GP4_DIALECT } from '../src/write/gp4-dialect';
 import { type WritableFormat, writeSong } from '../src/write/index';
 import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
@@ -125,8 +129,8 @@ describe('GP4 and GP3 song data', () => {
       ],
     });
 
-    // Act / Assert
-    expect(songDifference(song, roundTrip(song, format))).toBeUndefined();
+    // Act / Assert (the drum track's empty measures read back as a quarter rest)
+    expect(songDifference(expectedAfterGp34(song), roundTrip(song, format))).toBeUndefined();
   });
 
   it('writes GP4 lyrics, chords, pick strokes and the GP4 note effects', () => {
@@ -179,6 +183,35 @@ describe('GP4 and GP3 song data', () => {
 
     // Act / Assert
     expect(songDifference(song, roundTrip(song, 'gp3'))).toBeUndefined();
+  });
+});
+
+describe('GP4 and GP3 files other readers open', () => {
+  it.each([
+    ['gp4', GP4_DIALECT],
+    ['gp3', GP3_DIALECT],
+  ] as const)('writes a %s measure without beats as Guitar Pro does: one empty quarter beat', (_format, dialect) => {
+    // Arrange
+    const writer = new ByteWriter();
+
+    // Act
+    writeMeasureGp34(writer, [], { dialect, stringCount: 6, keptTies: new Set<Note>() });
+
+    // Assert: one beat; flags 0x40 (status follows), status 0x00 (empty), a quarter, no string
+    expect([...writer.toBytes()]).toEqual([1, 0, 0, 0, 0x40, 0x00, 0x00, 0x00]);
+  });
+
+  it.each(['gp4', 'gp3'] as const)('reads an empty %s measure back as the quarter rest TuxGuitar makes of an empty beat', (format) => {
+    // Arrange
+    const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 3)]) }], []] }] });
+
+    // Act
+    const again = roundTrip(song, format);
+
+    // Assert
+    const beats = again.tracks[0]?.measures[1]?.beats ?? [];
+    expect(beats.map((beat) => [beat.voices[0]?.duration.value, beat.voices[0]?.notes.length, beat.voices[0]?.isEmpty])).toEqual([[4, 0, false]]);
+    expect(songDifference(expectedAfterGp34(song), again)).toBeUndefined();
   });
 });
 
