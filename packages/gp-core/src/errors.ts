@@ -37,3 +37,11 @@ export class CompositionError extends Error {
     this.name = 'CompositionError';
   }
 }
+
+/** Audio the tuner cannot analyse: a sample rate, frame length or search range out of bounds. */
+export class TunerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TunerError';
+  }
+}

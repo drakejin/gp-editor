@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { Inspector, type InspectorProps } from '../src/components/inspector/Inspector';
+import { DEFAULT_MIDI_INPUT } from '../src/lib/midi-input';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -63,6 +64,21 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Choose the track’s instrument')?.props.label).toBe('♪ Distortion Electric Guitar ▾');
   });
 
+  it('shows or hides the score’s chord names and diagrams', () => {
+    // Arrange
+    const onChangeChordDisplay = jest.fn();
+    const inspector = render({ chordDisplay: { showsNames: true, showsDiagrams: false }, onChangeChordDisplay });
+
+    // Act
+    inspector.press('Show chord diagrams over the staff');
+    inspector.press('Show chord names over the staff');
+
+    // Assert
+    expect(inspector.button('Show chord names over the staff')?.props.isActive).toBe(true);
+    expect(inspector.button('Show chord diagrams over the staff')?.props.isActive).toBe(false);
+    expect(onChangeChordDisplay.mock.calls).toEqual([[{ showsNames: true, showsDiagrams: true }], [{ showsNames: false, showsDiagrams: false }]]);
+  });
+
   it('renames the track when typing ends, not on every key', () => {
     // Arrange
     const inspector = render();
@@ -102,6 +118,20 @@ describe('Inspector TRACK tab', () => {
 });
 
 describe('Inspector SONG tab', () => {
+  it.each([
+    ['ptb', 'Power Tab'],
+    ['tef', 'TablEdit'],
+  ] as const)('names a song read from a %s file after its program', (format, name) => {
+    // Arrange
+    const inspector = render({ song: { ...SONG, source: { format, version: '4' } } });
+
+    // Act
+    inspector.openTab('SONG');
+
+    // Assert
+    expect(inspector.texts()).toContain(`${name} · 1 track · 1 bar · 00:02`);
+  });
+
   it('edits a song field and shows the file facts', () => {
     // Arrange
     const inspector = render();
@@ -113,6 +143,17 @@ describe('Inspector SONG tab', () => {
     // Assert
     expect(inspector.props.onSetSongInfo).toHaveBeenCalledWith({ artist: 'Blur' });
     expect(inspector.texts()).toContain('Guitar Pro 5 · 1 track · 1 bar · 00:02');
+  });
+
+  it('names a song opened from a MIDI file', () => {
+    // Arrange
+    const inspector = render({ song: { ...SONG, source: { format: 'midi', version: 'SMF 1' } } });
+
+    // Act
+    inspector.openTab('SONG');
+
+    // Assert
+    expect(inspector.texts()).toContain('MIDI file · 1 track · 1 bar · 00:02');
   });
 
   it('lists the sound banks: select one, remove one the user added, add a SoundFont', () => {
@@ -130,5 +171,14 @@ describe('Inspector SONG tab', () => {
     expect(inspector.props.onSelectSoundBank).toHaveBeenCalledWith('generaluser');
     expect(inspector.props.onRemoveSoundBank).toHaveBeenCalledWith('file:mine.sf2');
     expect(inspector.props.onAddSoundBank).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the MIDI input settings when the app has them', () => {
+    const midiInput = { settings: DEFAULT_MIDI_INPUT, sources: [], listening: 0, changeSettings: jest.fn() };
+    const inspector = render({ midiInput });
+    inspector.openTab('SONG');
+    expect(inspector.texts()).toContain('MIDI INPUT');
+    inspector.press('Enter notes at the cursor from a MIDI keyboard or MIDI guitar');
+    expect(midiInput.changeSettings).toHaveBeenCalledWith({ isEnabled: true });
   });
 });

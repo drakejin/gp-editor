@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { trackInstrument } from '../../lib/instruments';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../../score/chords';
 import { type ScoreMode, type Staff, showsStaff, toggleStaff } from '../../score/geometry';
 import { type Palette, onChrome } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -15,9 +16,12 @@ export interface TrackInspectorProps {
   readonly song: Song;
   readonly trackIndex: number;
   readonly mode: ScoreMode;
+  /** What the score shows of its chords. */
+  readonly chordDisplay?: ChordDisplay;
   /** What the last retune could not keep. */
   readonly notice?: string;
   readonly onChangeMode: (mode: ScoreMode) => void;
+  readonly onChangeChordDisplay?: (display: ChordDisplay) => void;
   readonly onSetTrackName: (trackIndex: number, name: string) => void;
   readonly onSetTrackCapo: (trackIndex: number, capo: number) => void;
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
@@ -30,9 +34,14 @@ const STAVES: readonly { readonly staff: Staff; readonly label: string; readonly
   { staff: 'tab', label: 'Tab', tooltip: 'Show tablature' },
 ];
 
+const CHORD_PARTS: readonly { readonly part: keyof ChordDisplay; readonly label: string; readonly tooltip: string }[] = [
+  { part: 'showsNames', label: 'Names', tooltip: 'Show chord names over the staff' },
+  { part: 'showsDiagrams', label: 'Diagrams', tooltip: 'Show chord diagrams over the staff' },
+];
+
 /** The TRACK tab: the shown track's name, notation, tuning and capo, and its instrument. */
 export function TrackInspector(props: TrackInspectorProps) {
-  const { palette, song, trackIndex, mode } = props;
+  const { palette, song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY } = props;
   const track = song.tracks[trackIndex];
   if (track === undefined) {
     return null;
@@ -51,6 +60,11 @@ export function TrackInspector(props: TrackInspectorProps) {
         <InspectorField palette={palette} label="Notation">
           {STAVES.map(({ staff, label, tooltip }) => (
             <ChromeButton key={staff} palette={palette} label={label} tooltip={tooltip} isActive={showsStaff(mode, staff)} onPress={() => props.onChangeMode(toggleStaff(mode, staff))} />
+          ))}
+        </InspectorField>
+        <InspectorField palette={palette} label="Chords">
+          {CHORD_PARTS.map(({ part, label, tooltip }) => (
+            <ChromeButton key={part} palette={palette} label={label} tooltip={tooltip} isActive={chordDisplay[part]} onPress={() => props.onChangeChordDisplay?.({ ...chordDisplay, [part]: !chordDisplay[part] })} />
           ))}
         </InspectorField>
         {track.isPercussion ? null : (

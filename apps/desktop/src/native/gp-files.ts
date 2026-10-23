@@ -132,9 +132,13 @@ export interface SongExportHandlers {
   readonly onExportMidiRequested: () => void;
   /** File ▸ Export ASCII Tab…. */
   readonly onExportAsciiTabRequested: () => void;
+  /** File ▸ Export MusicXML…. */
+  readonly onExportMusicXmlRequested: () => void;
+  /** File ▸ Export Compressed MusicXML…. */
+  readonly onExportCompressedMusicXmlRequested: () => void;
 }
 
-/** File ▸ Export MIDI… and Export ASCII Tab…; returns the unsubscribe function. */
+/** File ▸ Export MIDI…, Export ASCII Tab…, Export MusicXML… and Export Compressed MusicXML…; returns the unsubscribe function. */
 export function subscribeSongExportRequests(handlers: SongExportHandlers): () => void {
   if (native === undefined) {
     return () => undefined;
@@ -143,6 +147,8 @@ export function subscribeSongExportRequests(handlers: SongExportHandlers): () =>
   const subscriptions = [
     emitter.addListener('exportMidiRequested', handlers.onExportMidiRequested),
     emitter.addListener('exportAsciiTabRequested', handlers.onExportAsciiTabRequested),
+    emitter.addListener('exportMusicXmlRequested', handlers.onExportMusicXmlRequested),
+    emitter.addListener('exportCompressedMusicXmlRequested', handlers.onExportCompressedMusicXmlRequested),
   ];
   return () => subscriptions.forEach((subscription) => subscription.remove());
 }

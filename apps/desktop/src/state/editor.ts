@@ -2,12 +2,15 @@ import {
   type Beat,
   type BeatFragment,
   type Lyrics,
+  type PlayedNote,
   type Song,
   type SongInfo,
   type StringAddress,
   buildNewSong,
   deleteNote,
+  enterPlayedNotes,
   findNote,
+  insertMeasure,
   setNoteFret,
   setNoteString,
   setSongInfo,
@@ -20,6 +23,7 @@ import {
   setTrackSolo,
   setTrackTuning,
   setTrackVolume,
+  toggleDrumNote,
 } from '@gp-editor/core';
 import {
   adjacentBeat,
@@ -28,8 +32,10 @@ import {
   firstCursor,
 } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
+import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
 import {
   type ClipboardEdit,
@@ -69,6 +75,8 @@ export interface EditorState {
    */
   readonly selectionAnchor?: StringAddress;
   readonly mode: ScoreMode;
+  /** What this score shows of its chords (the track inspector's Chords toggles); names and diagrams for a new score. */
+  readonly chordDisplay: ChordDisplay;
   readonly isLoading: boolean;
   readonly error?: string;
   /** What the last retune could not keep (notes moved by octaves or left out); shown under the neck settings. */
@@ -116,12 +124,18 @@ export type EditorAction =
   | { readonly type: 'showHint'; readonly hint: string }
   | { readonly type: 'selectTrack'; readonly trackIndex: number }
   | { readonly type: 'setMode'; readonly mode: ScoreMode }
+  | { readonly type: 'setChordDisplay'; readonly display: ChordDisplay }
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
   /** The cursor on voice 1 (0) or 2 (1) of the same beat. */
   | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
+  /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
+  | { readonly type: 'toggleDrumNote'; readonly key: number }
+  /** MIDI step entry: notes played together become the cursor's beat (one undo step); the cursor goes to the next beat. */
+  | { readonly type: 'enterPlayedNotes'; readonly notes: readonly PlayedNote[] }
   | { readonly type: 'shiftNoteFret'; readonly delta: number }
   | { readonly type: 'shiftNoteString'; readonly delta: number }
   | { readonly type: 'deleteNote' }
@@ -153,6 +167,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
   future: [],
   trackIndex: 0,
   mode: 'notationAndTab',
+  chordDisplay: DEFAULT_CHORD_DISPLAY,
   isLoading: false,
 };
 
@@ -202,6 +217,8 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return selectTrack(state, action.trackIndex);
     case 'setMode':
       return { ...state, mode: action.mode };
+    case 'setChordDisplay':
+      return { ...state, chordDisplay: action.display };
     default:
       return cursorReducer(state, action);
   }
@@ -235,10 +252,11 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
 function editReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'setNoteFret':
-      return followBeatStart(
-        state,
-        applyEdit(state, (song, at) => setNoteFret(song, at, action.fret)),
-      );
+      return typeFret(state, action.fret);
+    case 'toggleDrumNote':
+      return followBeatStart(state, applyEdit(state, (song, at) => toggleDrumNote(song, at, action.key)));
+    case 'enterPlayedNotes':
+      return enterPlayed(state, action.notes);
     case 'shiftNoteFret':
       return applyEdit(state, (song, at) => {
         const note = findNote(song, at);
@@ -344,6 +362,39 @@ function followBeatStart(before: EditorState, after: EditorState): EditorState {
   return beatIndex < 0 || beatIndex === cursor.beatIndex
     ? after
     : { ...after, cursor: { ...cursor, beatIndex } };
+}
+
+/** A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg) leaves a hint instead. */
+function typeFret(state: EditorState, typed: number): EditorState {
+  const { document, cursor } = state;
+  const fret = document === undefined || cursor === undefined ? typed : storedFret(document.song, cursor, typed);
+  if (fret === undefined) {
+    return { ...state, hint: DRONE_FRET_HINT };
+  }
+  const typedState = followBeatStart(state, applyEdit(state, (song, at) => setNoteFret(song, at, fret)));
+  return typedState.hint === DRONE_FRET_HINT ? { ...typedState, hint: undefined } : typedState;
+}
+
+/** MIDI step entry at the cursor: the played notes become its beat, then the cursor steps on; a hint names what was left out. */
+function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const entry = enterPlayedNotes(document.song, cursor, notes);
+  const hint = playedNotesHint(entry.skipped);
+  const entered = followBeatStart(state, recordSong(state, document, entry.song));
+  if (entered === state || entered.cursor === undefined || entered.document === undefined) {
+    return hint === undefined ? state : { ...state, hint };
+  }
+  const next = adjacentBeat(entry.song, entered.cursor, 1);
+  if (next !== entered.cursor) {
+    return { ...entered, cursor: next, hint };
+  }
+  // The song's last beat: a new bar to go on writing in, in the same undo step.
+  const song = insertMeasure(entry.song, next.measureIndex, 'after');
+  const cursorInNewBar = clampCursor(song, { ...next, measureIndex: next.measureIndex + 1, beatIndex: 0 });
+  return { ...entered, document: { ...entered.document, song }, cursor: cursorInNewBar, hint };
 }
 
 /** The document under its new file name, `song` being what the file now holds. */

@@ -37,21 +37,26 @@ export function parseXml(xml: string): XmlElement {
   if (/<!DOCTYPE/i.test(source)) {
     throw new GpFormatError('Invalid GPIF document: DOCTYPE declarations are not allowed');
   }
+  return parseXmlDocument(source, PARSER, 'GPIF');
+}
+
+/** Check and parse a document with `parser` (its options set how entities are read); `kind` names it in errors. */
+export function parseXmlDocument(source: string, parser: XMLParser, kind: string): XmlElement {
   const validation = XMLValidator.validate(source);
   if (validation !== true) {
     const { msg, line } = validation.err;
-    throw new GpFormatError(`Invalid GPIF document: ${msg} (line ${line})`);
+    throw new GpFormatError(`Invalid ${kind} document: ${msg} (line ${line})`);
   }
   let nodes: unknown;
   try {
-    nodes = PARSER.parse(source);
+    nodes = parser.parse(source);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`Invalid GPIF document: ${reason}`, { cause: error });
+    throw new GpFormatError(`Invalid ${kind} document: ${reason}`, { cause: error });
   }
   const root = toElements(nodes)[0];
   if (root === undefined) {
-    throw new GpFormatError('Invalid GPIF document: no root element');
+    throw new GpFormatError(`Invalid ${kind} document: no root element`);
   }
   return root;
 }

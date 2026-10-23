@@ -26,6 +26,12 @@ export interface SaveFormat extends FileFormat {
 export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
   { id: 'gp5', label: 'Guitar Pro 5 (.gp5)', extension: 'gp5' },
   {
+    id: 'gp',
+    label: 'Guitar Pro 7/8 (.gp)',
+    extension: 'gp',
+    note: 'Guitar Pro 7/8 keeps what the editor edits; Guitar Pro’s own sound settings (RSE), stylesheet and audio tracks are not kept.',
+  },
+  {
     id: 'gp4',
     label: 'Guitar Pro 4 (.gp4)',
     extension: 'gp4',
@@ -54,6 +60,22 @@ export const ASCII_TAB_FILE: FileFormat = {
   label: 'ASCII tab (.txt)',
   extension: 'txt',
   note: 'The fretted tracks as ASCII tab; drum tracks are left out.',
+};
+
+/** File ▸ Export MusicXML…: MusicXML 4.0 as UTF-8 text, for other notation programs. */
+export const MUSICXML_FILE: FileFormat = {
+  id: 'musicxml',
+  label: 'MusicXML (.musicxml)',
+  extension: 'musicxml',
+  note: 'Each track as a notation staff and a tab staff; bends, slides, vibrato and the other guitar effects as MusicXML marks them.',
+};
+
+/** File ▸ Export Compressed MusicXML…: the same score zipped. */
+export const MXL_FILE: FileFormat = {
+  id: 'mxl',
+  label: 'Compressed MusicXML (.mxl)',
+  extension: 'mxl',
+  note: 'MusicXML zipped: smaller, and opened by the same programs.',
 };
 
 /** The format of a file the app writes back as it is (by its extension, any case); undefined for any other file. */

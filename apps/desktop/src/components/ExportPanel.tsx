@@ -6,6 +6,7 @@ import { exportBaseName, pdfPageCount } from '../export/pdf-document';
 import { DEFAULT_PNG_OPTIONS, PNG_RESOLUTIONS, type PngOptions, pngFileNames, pngFilesText, pngPixelSize } from '../export/png-export';
 import type { ExportFormat } from '../hooks/use-pdf-export';
 import { plural } from '../lib/wording';
+import type { ChordDisplay } from '../score/chords';
 import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -19,6 +20,8 @@ interface ExportPanelProps {
   readonly fileName: string;
   /** The score's view mode, selected when the panel opens. */
   readonly mode: ScoreMode;
+  /** What the score shows of its chords, for the page count. */
+  readonly chordDisplay?: ChordDisplay;
   /** A PDF, or PNG images (one per page of the same layout). */
   readonly format: ExportFormat;
   readonly isSaving: boolean;
@@ -73,11 +76,11 @@ function PngOptionsRow({ palette, png, onChange }: PngOptionsRowProps) {
  * Letter, with the number of pages it makes; Save PDF… asks where to save it. For PNG images, also the resolution and
  * the background, and the files it writes (one per page).
  */
-export function ExportPanel({ palette, song, trackIndex, fileName, mode: viewMode, format, isSaving, onSave, onSavePng, onClose }: ExportPanelProps) {
+export function ExportPanel({ palette, song, trackIndex, fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose }: ExportPanelProps) {
   const [mode, setMode] = useState<ScoreMode>(viewMode);
   const [paper, setPaper] = useState<PaperId>(DEFAULT_PAPER);
   const [png, setPng] = useState<PngOptions>(DEFAULT_PNG_OPTIONS);
-  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { paper, fileName }), [song, trackIndex, mode, paper, fileName]);
+  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { paper, fileName, chordDisplay }), [song, trackIndex, mode, paper, fileName, chordDisplay]);
   const trackName = song.tracks[trackIndex]?.name ?? '';
   const isPng = format === 'png';
   const summary = isPng ? pngSummary({ song, trackIndex, fileName, mode, paper, pageCount, png }) : plural(pageCount, 'page');

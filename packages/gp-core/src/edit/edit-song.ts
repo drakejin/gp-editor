@@ -15,16 +15,21 @@ export function isFret(fret: number): boolean {
   return Number.isInteger(fret) && fret >= 0 && fret <= MAX_FRET;
 }
 
+/** Highest "fret" of a drum note: on a percussion track the fret is the General MIDI percussion key (0–127). */
+export const MAX_DRUM_KEY = 127;
+
 /** Frets of the neck the app draws, and that tunings are fitted to (a 24-fret guitar or bass). */
 export const NECK_FRETS = 24;
 
 /**
- * New song with the fret at the position set (clamped to 0…MAX_FRET); adds a note when the string is empty. In an
- * empty voice (the second voice where it has no event yet) the note lasts as long as the beat and the voice is filled
- * with rests up to the bar lines (fillEmptyVoice). Same song when the position does not exist or the fret is not a number.
+ * New song with the fret at the position set (clamped to 0…MAX_FRET, on a drum track to the key range 0…MAX_DRUM_KEY);
+ * adds a note when the string is empty. In an empty voice (the second voice where it has no event yet) the note lasts as
+ * long as the beat and the voice is filled with rests up to the bar lines (fillEmptyVoice). Same song when the position
+ * does not exist or the fret is not a number.
  */
 export function setNoteFret(song: Song, at: StringAddress, fret: number): Song {
-  const clamped = Math.min(MAX_FRET, Math.max(0, Math.round(fret)));
+  const highest = song.tracks[at.trackIndex]?.isPercussion === true ? MAX_DRUM_KEY : MAX_FRET;
+  const clamped = Math.min(highest, Math.max(0, Math.round(fret)));
   if (!hasString(song, at) || !Number.isFinite(fret)) {
     return song;
   }

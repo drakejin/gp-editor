@@ -1,5 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
+import { DrumKit } from '../src/components/DrumKit';
 import { Fretboard } from '../src/components/Fretboard';
 import { InstrumentView } from '../src/components/InstrumentView';
 import { Keyboard } from '../src/components/Keyboard';
@@ -35,10 +36,35 @@ describe('InstrumentView', () => {
     expect(render({ showsKeyboard: true, showsFretboard: false }).findAllByType(Fretboard)).toHaveLength(0);
   });
 
-  it('shows neither for a drum track, which has no pitches', () => {
-    const drums: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
-    const root = render({ showsKeyboard: true, showsFretboard: true }, drums);
+  it('shows a drum kit instead for a drum track, lighting the cursor beat’s drums', () => {
+    // Arrange: a kick (36) and a closed hi-hat (42) in the first beat.
+    const drums: Song = makeSong([[beat(960, [note(1, 36), note(2, 42)])]]);
+    const percussion: Song = { ...drums, tracks: drums.tracks.map((track) => ({ ...track, isPercussion: true })) };
+
+    // Act
+    const root = render({ showsKeyboard: true, showsFretboard: false }, percussion);
+
+    // Assert
     expect(root.findAll((node) => node.type === Keyboard || node.type === Fretboard)).toHaveLength(0);
+    expect(root.findByType(DrumKit).props.keys).toEqual([36, 42]);
+  });
+
+  it('enters the clicked drum through onDrumHit', () => {
+    const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
+    const hits: number[] = [];
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <InstrumentView song={percussion} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard={false} showsFretboard onDrumHit={(key) => hits.push(key)} />,
+      );
+    });
+    ReactTestRenderer.act(() => renderer.root.findByType(DrumKit).props.onHit(38));
+    expect(hits).toEqual([38]);
+  });
+
+  it('shows no drum kit when both instrument parts are switched off', () => {
+    const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
+    expect(render({ showsKeyboard: false, showsFretboard: false }, percussion).findAllByType(DrumKit)).toHaveLength(0);
   });
 
   it('hands the Scales panel’s scale to the keyboard and the fretboard', () => {

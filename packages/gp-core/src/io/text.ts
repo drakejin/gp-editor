@@ -121,3 +121,47 @@ function codePointsToString(codePoints: readonly number[]): string {
   }
   return out;
 }
+
+/** A UTF-16 code unit never takes more than three UTF-8 bytes (a surrogate pair: two units, four bytes). */
+const UTF8_MAX_BYTES_PER_UNIT = 3;
+
+/** The code point at `index` (a surrogate pair read as one), U+FFFD for a lone surrogate. */
+function codePointAt(text: string, index: number): number {
+  const unit = text.charCodeAt(index);
+  if (unit < 0xd800 || unit > 0xdfff) {
+    return unit;
+  }
+  const next = text.charCodeAt(index + 1);
+  return unit <= 0xdbff && next >= 0xdc00 && next <= 0xdfff ? 0x10000 + ((unit - 0xd800) << 10) + (next - 0xdc00) : REPLACEMENT;
+}
+
+/**
+ * UTF-8 bytes of a string (no TextEncoder: Hermes has none). Lone surrogates become U+FFFD. Walks code units rather
+ * than iterating the string, which allocates a string per character in Hermes.
+ */
+export function encodeUtf8(text: string): Uint8Array {
+  const bytes = new Uint8Array(text.length * UTF8_MAX_BYTES_PER_UNIT);
+  let length = 0;
+  for (let i = 0; i < text.length; i++) {
+    const codePoint = codePointAt(text, i);
+    if (codePoint >= 0x10000) {
+      i++;
+    }
+    if (codePoint < 0x80) {
+      bytes[length++] = codePoint;
+    } else if (codePoint < 0x800) {
+      bytes[length++] = 0xc0 | (codePoint >> 6);
+      bytes[length++] = 0x80 | (codePoint & 0x3f);
+    } else if (codePoint < 0x10000) {
+      bytes[length++] = 0xe0 | (codePoint >> 12);
+      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
+      bytes[length++] = 0x80 | (codePoint & 0x3f);
+    } else {
+      bytes[length++] = 0xf0 | (codePoint >> 18);
+      bytes[length++] = 0x80 | ((codePoint >> 12) & 0x3f);
+      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
+      bytes[length++] = 0x80 | (codePoint & 0x3f);
+    }
+  }
+  return bytes.slice(0, length);
+}

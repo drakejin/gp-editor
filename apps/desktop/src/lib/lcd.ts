@@ -1,5 +1,6 @@
 import { type Song, type StringAddress, findNote } from '@gp-editor/core';
 import type { PlayingBeat } from '../score/row';
+import { tabFretOf } from './notation';
 import type { LoopPass } from './practice-plan';
 import type { PracticeSettings } from '../state/practice';
 import { playbackTempo, tempoPercent } from './practice-tempo';
@@ -34,8 +35,9 @@ function positionText(song: Song, cursor: StringAddress | undefined): string {
   if (cursor === undefined) {
     return '';
   }
-  const fret = findNote(song, cursor)?.fret;
-  const what = fret === undefined ? 'empty' : `Fret ${fret}`;
+  const note = findNote(song, cursor);
+  const track = song.tracks[cursor.trackIndex];
+  const what = note === undefined || track === undefined ? 'empty' : `Fret ${tabFretOf(track, note)}`;
   return `Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
 }
 

@@ -6,6 +6,7 @@ import { SAVE_FORMATS } from '../src/lib/file-formats';
 import type { ChosenFile, FileEventHandlers, OpenedFile, SavePanelOptions, SavedFile } from '../src/native/gp-files';
 import type { EditorAction } from '../src/state/editor';
 import { INITIAL_WORKSPACE, type WorkspaceAction, type WorkspaceState, workspaceReducer } from '../src/state/workspace';
+import { readFixture } from '../test-support/fixtures';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const mockFiles = {
@@ -249,7 +250,7 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp4');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[1]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp4')?.note ?? '' }));
     expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp4', path: '/scores/Etude.gp4', song: SONG }));
   });
 
@@ -280,7 +281,7 @@ describe('useDocument saving', () => {
 
     // Assert
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp3');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[2]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp3')?.note ?? '' }));
     expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp3', path: '/scores/Etude.gp3', song: SONG }));
   });
 
@@ -468,5 +469,36 @@ describe('useDocument File menu and window title', () => {
 
     // Assert
     expect(titles()).toEqual(['Riff.gp5', 'Etude.gp5', 'GP Editor']);
+  });
+});
+
+describe('useDocument with Power Tab and TablEdit files', () => {
+  it.each([
+    ['notes.ptb', 'powertab', 'ptb', 'notes.gp5'],
+    ['guitar_bass.tef', 'tabledit', 'tef', 'guitar_bass.gp5'],
+  ])('opens %s and saves it through the save panel, GP5 chosen, as a new file', async (name, folder, format, gp5Name) => {
+    // Arrange
+    const file: OpenedFile = { name, path: `/scores/${name}`, base64: bytesToBase64(readFixture(folder, name)) };
+    mockFiles.readFile.mockResolvedValueOnce(file);
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: gp5Name, path: `/scores/${gp5Name}`, formatId: 'gp5' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: gp5Name, path: `/scores/${gp5Name}` });
+    const hook = renderHook();
+    await settle(() => hook.current().openPath(file.path));
+    const loaded = hook.dispatch.mock.calls.at(-1)?.[0];
+    if (loaded?.type !== 'loaded') {
+      throw new Error(`expected the file to load, got ${JSON.stringify(loaded)}`);
+    }
+    hook.setState(workspaceReducer(INITIAL_WORKSPACE, loaded));
+
+    // Act
+    await settle(() => hook.current().save(false));
+
+    // Assert
+    expect(loaded.document.song.source.format).toBe(format);
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: gp5Name, formats: SAVE_FORMATS, formatId: 'gp5' });
+    expect(mockFiles.writeFile).toHaveBeenCalledWith(`/scores/${gp5Name}`, expect.any(String));
+    const saved = songIn(mockFiles.writeFile.mock.calls[0]?.[1]);
+    expect(saved.source.format).toBe('gp5');
+    expect(saved.tracks.map((track) => track.strings.map((s) => s.tuning))).toEqual(loaded.document.song.tracks.map((track) => track.strings.map((s) => s.tuning)));
   });
 });

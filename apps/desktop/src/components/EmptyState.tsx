@@ -15,7 +15,7 @@ interface EmptyStateProps {
   readonly projects?: ReactNode;
 }
 
-/** Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro file. */
+/** Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro, Power Tab or TablEdit file. */
 export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, recentFiles, projects }: EmptyStateProps) {
   if (isLoading) {
     return (
@@ -28,8 +28,8 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
     <View style={styles.empty}>
       <Text style={[styles.title, { color: palette.text }]}>GP Editor</Text>
       <Text style={[styles.text, { color: palette.muted }]}>
-        Start a new sheet, import a PDF of sheet music or tab, or open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2){'\n'}or drop
-        one onto this window.
+        Start a new sheet, import a PDF of sheet music or tab, or open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2) —,{'\n'}a
+        Power Tab (.ptb), TablEdit (.tef) or MIDI file (.mid), or drop one onto this window.
       </Text>
       <Text style={[styles.sectionTitle, { color: palette.muted }]}>NEW SHEET (⌘N)</Text>
       <View style={styles.row}>

@@ -24,7 +24,7 @@ const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direct
 
 const SIMILE_STEPS: Readonly<Record<string, number>> = { Simple: 1, FirstOfDouble: 2, SecondOfDouble: 2 };
 
-const CLEFS: Readonly<Record<string, Clef>> = { F4: 'bass', C3: 'alto', C4: 'tenor', Neutral: 'neutral' };
+export const CLEFS: Readonly<Record<string, Clef>> = { F4: 'bass', C3: 'alto', C4: 'tenor', Neutral: 'neutral' };
 
 const MAX_ACCIDENTALS = 7;
 

@@ -79,6 +79,13 @@ struct GPEditorApp: App {
         Button("Export ASCII Tab…") {
           NotificationCenter.default.post(name: .GPEditorExportAsciiTabCommand, object: nil)
         }
+        // MusicXML 4.0 for other notation programs, as text or zipped.
+        Button("Export MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportMusicXmlCommand, object: nil)
+        }
+        Button("Export Compressed MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportCompressedMusicXmlCommand, object: nil)
+        }
         Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
@@ -98,8 +105,12 @@ struct GPEditorApp: App {
           }
         }
       }
-      // Tools: the scale panel (scale finder, boxes; the scale is marked on the keyboard and the fretboard).
+      // Tools ▸ Tuner…: the microphone tuner (GPAudioInput.m). Tools ▸ Scales…: the scale panel (scale finder, boxes; the
+      // scale is marked on the keyboard and the fretboard).
       CommandMenu("Tools") {
+        Button("Tuner…") {
+          NotificationCenter.default.post(name: .GPEditorTunerCommand, object: nil)
+        }
         Button("Scales…") {
           NotificationCenter.default.post(name: .GPEditorScalesCommand, object: nil)
         }
@@ -142,6 +153,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // Finder "Open With", dropping a file on the dock icon, `open -a`.
   func application(_ application: NSApplication, open urls: [URL]) {
     NotificationCenter.default.post(name: .GPEditorOpenURLs, object: urls)
+  }
+
+  // Quitting with the tuner listening: its microphone stops first, and JS gets a moment to draw the frames already
+  // sent, since a render while the process exits aborts it (GPAudioInput.h).
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard GPAudioInputStopForQuit() else {
+      return .terminateNow
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+    return .terminateLater
   }
 }
 

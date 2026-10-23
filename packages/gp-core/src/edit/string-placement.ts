@@ -1,3 +1,4 @@
+import { tabFret } from './banjo';
 import { NECK_FRETS } from './edit-song';
 
 const SEMITONES_PER_OCTAVE = 12;
@@ -144,4 +145,58 @@ export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly numbe
     }
     return leftover;
   });
+}
+
+/** Frets the fretting hand covers without moving: one per finger, from the index finger's fret. */
+export const HAND_SPAN = 4;
+
+/** How far the hand (index finger at `handFret`, first position at least) must reach for a fret, as the tab counts it. */
+function handDistance(neckFret: number, handFret: number): number {
+  const index = Math.max(1, handFret);
+  if (neckFret === 0) {
+    return index - 1;
+  }
+  return neckFret < index ? index - neckFret : Math.max(0, neckFret - (index + HAND_SPAN - 1));
+}
+
+/** The string nearest the hand among `strings` that play `pitch` on the neck; undefined when none does. */
+function nearestToHand(pitch: number, strings: readonly number[], tuning: readonly number[], handFret: number, neck: number): number | undefined {
+  let best: { readonly string: number; readonly distance: number } | undefined;
+  for (const string of strings) {
+    const fret = fretOf(pitch, tuning, string);
+    const distance = handDistance(tabFret(tuning, string, fret), handFret);
+    if (fitsFrets(pitch, tuning, string, neck) && (best === undefined || distance < best.distance)) {
+      best = { string, distance };
+    }
+  }
+  return best?.string;
+}
+
+/**
+ * Preferred strings (in input order) for notes played together with the fretting hand at `handFret`: from the highest
+ * pitch down, each takes the string nearest the hand among the free strings below the one the higher note took — so a
+ * chord keeps its pitch order across the strings —, else among any free string, else string 1 (placeNotes then finds
+ * it a place). `taken` strings are left alone.
+ */
+export function stringsNearHand(pitches: readonly number[], tuning: readonly number[], handFret: number, neck: number, taken: readonly number[] = []): readonly number[] {
+  const order = pitches.map((pitch, index) => ({ pitch, index })).sort((a, b) => b.pitch - a.pitch);
+  const used = new Set(taken);
+  const preferred: number[] = pitches.map(() => 1);
+  let lastString = 0;
+  for (const { pitch, index } of order) {
+    const free = tuning.map((_, i) => i + 1).filter((string) => !used.has(string));
+    const string = nearestToHand(pitch, free.filter((candidate) => candidate > lastString), tuning, handFret, neck) ?? nearestToHand(pitch, free, tuning, handFret, neck);
+    if (string !== undefined) {
+      used.add(string);
+      preferred[index] = string;
+      lastString = Math.max(lastString, string);
+    }
+  }
+  return preferred;
+}
+
+/** Where step entry puts notes played together: placeNotes with the strings nearest the hand preferred (stringsNearHand). */
+export function placePitchesNearHand(pitches: readonly number[], tuning: readonly number[], handFret: number, neck: number): readonly (StringPlacement | undefined)[] {
+  const preferred = stringsNearHand(pitches, tuning, handFret, neck);
+  return placeNotes(pitches.map((pitch, i) => ({ pitch, preferredString: preferred[i] ?? 1 })), tuning, neck);
 }

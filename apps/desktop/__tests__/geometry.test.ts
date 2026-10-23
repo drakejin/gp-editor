@@ -1,4 +1,5 @@
 import { TAB } from '../src/lib/layout';
+import { diagramHeight } from '../src/score/chord-diagram';
 import { ROW, SCORE_MODES, type ScoreMode, rowGeometry, showsFretboard, showsNotation, showsTab, toScoreMode } from '../src/score/geometry';
 import { NOTATION, notationBandHeight } from '../src/score/notation';
 import { BEND } from '../src/score/symbols/bends';
@@ -136,5 +137,33 @@ describe('the lyrics band', () => {
 
   it('is left out without lyrics', () => {
     expect(rowGeometry('notation', 6).lyricsY).toBeUndefined();
+  });
+});
+
+describe('the chord band', () => {
+  it.each(SCORE_MODES)('puts the names and the diagrams under the heading, above the %s staves', (mode) => {
+    // Act
+    const plain = rowGeometry(mode, 6);
+    const chorded = rowGeometry(mode, 6, { hasChordNames: true, hasChordDiagrams: true });
+
+    // Assert
+    expect(chorded.height).toBe(plain.height + ROW.chordNames + diagramHeight() + ROW.chordsBottom);
+    expect(chorded.chordNamesY).toBe(ROW.heading + ROW.chordNames / 2);
+    expect(chorded.chordDiagramsTop).toBe(ROW.heading + ROW.chordNames);
+    expect((chorded.notationTop ?? chorded.marksY)! - (plain.notationTop ?? plain.marksY)!).toBe(chorded.height - plain.height);
+  });
+
+  it('makes room for the names or the diagrams alone', () => {
+    const names = rowGeometry('tab', 6, { hasChordNames: true });
+    const diagrams = rowGeometry('tab', 6, { hasChordDiagrams: true });
+    expect(names).toMatchObject({ chordNamesY: ROW.heading + ROW.chordNames / 2, chordDiagramsTop: undefined });
+    expect(diagrams).toMatchObject({ chordNamesY: undefined, chordDiagramsTop: ROW.heading });
+    expect(diagrams.height - names.height).toBe(diagramHeight() - ROW.chordNames);
+  });
+
+  it('is left out without chords', () => {
+    const geometry = rowGeometry('notationAndTab', 6);
+    expect(geometry.chordNamesY).toBeUndefined();
+    expect(geometry.chordDiagramsTop).toBeUndefined();
   });
 });
