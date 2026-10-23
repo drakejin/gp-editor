@@ -6,6 +6,7 @@ import { encodeMusicXml } from '../src/write/musicxml/musicxml-archive';
 import { writeMusicXml } from '../src/write/musicxml/musicxml-writer';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { fromTux } from './helpers/ticks';
 import { beatsOf, voiceNotes } from './helpers/musicxml-snippets';
 
 function read(name: string): Song {
@@ -97,7 +98,7 @@ describe('MusicXML test suite values', () => {
       { enters: 3, times: 2 },
     ]);
     const last = beats[beats.length - 1];
-    expect((last?.start ?? 0) + durationTicks(last?.voices[0]?.duration ?? { value: 1, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } })).toBe(960 + 14 * 960);
+    expect((last?.start ?? 0) + durationTicks(last?.voices[0]?.duration ?? { value: 1, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } })).toBe(fromTux(960 + 14 * 960));
   });
 
   it('43a-PianoStaff: the two staves become two voices', () => {

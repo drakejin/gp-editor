@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GpFormatError } from '../src/errors';
 import { durationTicks } from '../src/model/defaults';
 import { readSong } from '../src/read-song';
+import { fromTux, toTux } from './helpers/ticks';
 import { assertSongInvariants } from './helpers/invariants';
 import {
   DIVISIONS_1,
@@ -47,7 +48,7 @@ describe('readMusicXml basics', () => {
     expect(track.strings.map((s) => s.tuning)).toEqual([64, 59, 55, 50, 45, 40]);
     expect(track.measures[0]?.keySignature).toBe(1);
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start)).toEqual([960, 1920, 3360]);
+    expect(beats.map((beat) => toTux(beat.start))).toEqual([960, 1920, 3360]);
     expect(beats.map((beat) => beat.voices[0]?.duration)).toEqual([
       { value: 4, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } },
       { value: 4, dotted: true, doubleDotted: false, tuplet: { enters: 1, times: 1 } },
@@ -98,10 +99,26 @@ describe('readMusicXml basics', () => {
     // Assert
     assertSongInvariants(song);
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start - 960)).toEqual([0, 1920, 2240, 2560, 2880]);
+    expect(beats.map((beat) => toTux(beat.start) - 960)).toEqual([0, 1920, 2240, 2560, 2880]);
     expect(beats[0]?.voices[0]?.notes).toEqual([]);
-    expect(durationTicks(beats[0]?.voices[0]?.duration ?? { value: 1, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } })).toBe(1920);
+    expect(durationTicks(beats[0]?.voices[0]?.duration ?? { value: 1, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } })).toBe(fromTux(1920));
     expect(beats[1]?.voices[0]?.duration.tuplet).toEqual({ enters: 3, times: 2 });
+  });
+
+  it('reads a combined time-modification as a tuplet inside a tuplet, the smaller one outside', () => {
+    // Arrange
+    const modified = (actual: number, normal: number) =>
+      pitchedNote('E4', `<duration>1</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>${actual}</actual-notes><normal-notes>${normal}</normal-notes></time-modification>`);
+    const xml = onePart('<attributes><divisions>60</divisions></attributes>' + modified(15, 8) + modified(9, 4));
+
+    // Act
+    const durations = beatsOf(readXml(xml)).map((beat) => beat.voices[0]?.duration);
+
+    // Assert
+    expect(durations.map((duration) => [duration?.tuplet, duration?.innerTuplet])).toEqual([
+      [{ enters: 3, times: 2 }, { enters: 5, times: 4 }],
+      [{ enters: 3, times: 2 }, { enters: 3, times: 2 }],
+    ]);
   });
 
   it('turns a sounding pitch written with a transposition into the sounding pitch', () => {

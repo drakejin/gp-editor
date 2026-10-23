@@ -1,11 +1,22 @@
 // A MusicXML part's measures in time order (no TuxGuitar reader exists): attributes, directions, barlines and notes with their positions.
 import { GpFormatError } from '../../errors';
-import { type Clef, QUARTER_TIME, type TimeSignature } from '../../model/song';
+import type { Clef, TimeSignature } from '../../model/song';
 import { type XmlElement, attribute, child, childText, children, lookupName } from '../gpif/xml';
 import { DYNAMICS } from '../common/velocity';
 import type { MusicXmlPart } from './musicxml-document';
 import { type NoteContext, type RawNote, readNote } from './musicxml-note';
-import { MAX_DIVISIONS, MAX_MEASURES, MAX_MEASURE_ELEMENTS, MAX_MEASURE_TICKS, clamp, readIntegerIn, readNumber, readPitch, readText } from './musicxml-values';
+import {
+  MAX_DIVISIONS,
+  MAX_MEASURES,
+  MAX_MEASURE_ELEMENTS,
+  MAX_MEASURE_TICKS,
+  clamp,
+  divisionsToTicks,
+  readIntegerIn,
+  readNumber,
+  readPitch,
+  readText,
+} from './musicxml-values';
 
 export type ClefKind = Clef | 'tab' | 'percussion';
 
@@ -208,7 +219,7 @@ function readMeasure(measure: XmlElement, state: PartState, measureNumber: numbe
   const draft = newDraft();
   let cursor = 0;
   let onset = 0;
-  const ticksOf = (element: XmlElement): number => Math.max(0, (readNumber(childText(element, 'duration')) ?? 0) * (QUARTER_TIME / state.divisions));
+  const ticksOf = (element: XmlElement): number => Math.max(0, divisionsToTicks(readNumber(childText(element, 'duration')) ?? 0, state.divisions));
   for (const element of measure.children) {
     const tick = Math.round(cursor);
     switch (element.name) {

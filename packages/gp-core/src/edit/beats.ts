@@ -1,6 +1,6 @@
 // Beat edits after TuxGuitar's TGMeasureManager (changeDuration, insert rest, removeVoice with moveNextVoices,
 // cleanVoiceNotes), LGPL-2.1.
-import { NORMAL_TUPLET, durationTicks, isNoteValue, measureTicks } from '../model/defaults';
+import { type DurationTuplets, NORMAL_TUPLET, durationTicks, isNoteValue, measureTicks } from '../model/defaults';
 import type { Duration, Measure, MeasureHeader, Song, Tuplet } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
 import { replaceAt, updateMeasure, updateVoice } from './song-paths';
@@ -34,10 +34,10 @@ interface VoiceContext {
   readonly length: number;
 }
 
-/** A voice's new events, and the tuplet of the edited event (a rest cut at the measure end may use it). */
+/** A voice's new events, and the tuplets of the edited event (a rest cut at the measure end may use them). */
 interface VoiceChange {
   readonly events: VoiceEvents;
-  readonly tuplet: Tuplet;
+  readonly tuplets: DurationTuplets;
 }
 
 function voiceContext(song: Song, at: BeatAddress): VoiceContext | undefined {
@@ -67,7 +67,7 @@ function editVoiceEvents(song: Song, at: BeatAddress, change: (context: VoiceCon
   if (context === undefined || proposed === undefined) {
     return song;
   }
-  const settled = trimTrailingRests(proposed.events, context.length, proposed.tuplet);
+  const settled = trimTrailingRests(proposed.events, context.length, proposed.tuplets);
   if (hasSameEvents(settled, context.events)) {
     return song;
   }
@@ -80,10 +80,22 @@ function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0;
 }
 
+function isTupletShape(tuplet: Tuplet): boolean {
+  return isPositiveInteger(tuplet.enters) && isPositiveInteger(tuplet.times);
+}
+
+/** The inner tuplet a duration keeps: one that is a tuplet, inside an outer one that is too. */
+function keptInnerTuplet(duration: Duration): { readonly innerTuplet?: Tuplet } {
+  const { tuplet, innerTuplet } = duration;
+  const isKept = innerTuplet !== undefined && tuplet.enters !== tuplet.times && innerTuplet.enters !== innerTuplet.times;
+  return isKept ? { innerTuplet: { enters: innerTuplet.enters, times: innerTuplet.times } } : {};
+}
+
 /** A duration the model can hold, or undefined. Dotted wins over double dotted, as in durationTicks. */
 function normalizeDuration(duration: Duration): Duration | undefined {
   const { enters, times } = duration.tuplet;
-  if (!isNoteValue(duration.value) || !isPositiveInteger(enters) || !isPositiveInteger(times)) {
+  const isInnerValid = duration.innerTuplet === undefined || isTupletShape(duration.innerTuplet);
+  if (!isNoteValue(duration.value) || !isTupletShape(duration.tuplet) || !isInnerValid) {
     return undefined;
   }
   const normalized: Duration = {
@@ -91,12 +103,13 @@ function normalizeDuration(duration: Duration): Duration | undefined {
     dotted: duration.dotted,
     doubleDotted: duration.doubleDotted && !duration.dotted,
     tuplet: enters === 1 && times === 1 ? NORMAL_TUPLET : { enters, times },
+    ...keptInnerTuplet(duration),
   };
   return durationTicks(normalized) > 0 ? normalized : undefined;
 }
 
 /**
- * New song with the addressed event's duration changed (value, dots, tuplet). A shorter event leaves rests of the new
+ * New song with the addressed event's duration changed (value, dots, tuplet and the tuplet inside it). A shorter event leaves rests of the new
  * duration behind it; a longer one takes the time from the free rests that follow (later notes move right only as far
  * as needed, past the measure end when the rests run out). Same song when the duration is the same or invalid, or the
  * voice is empty there.
@@ -114,7 +127,7 @@ export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration)
     const replaced = replaceAt(events, index, { ...event, voice: { ...event.voice, duration: next } });
     const delta = durationTicks(next) - eventTicks(event);
     const resized = delta > 0 ? takeRestsAfter(replaced, index, delta, next) : restAfter(replaced, index, -delta, next);
-    return resized === undefined ? undefined : { events: resized, tuplet: next.tuplet };
+    return resized === undefined ? undefined : { events: resized, tuplets: next };
   });
 }
 
@@ -144,7 +157,7 @@ export function insertBeat(song: Song, at: BeatAddress, position: 'before' | 'af
     }
     const insertIndex = position === 'before' ? index : index + 1;
     const inserted = [...events.slice(0, insertIndex), restEvent(event.voice.duration), ...events.slice(insertIndex)];
-    return { events: inserted, tuplet: event.voice.duration.tuplet };
+    return { events: inserted, tuplets: event.voice.duration };
   });
 }
 
@@ -163,6 +176,6 @@ export function deleteBeat(song: Song, at: BeatAddress): Song {
     const remaining = [...events.slice(0, index), ...events.slice(index + 1)];
     const padding = Math.max(0, Math.min(eventsTicks(events), length) - eventsTicks(remaining));
     const padded = [...remaining, ...(restEvents(padding, removed.voice.duration) ?? [])];
-    return { events: padded, tuplet: removed.voice.duration.tuplet };
+    return { events: padded, tuplets: removed.voice.duration };
   });
 }

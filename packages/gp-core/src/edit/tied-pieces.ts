@@ -49,12 +49,11 @@ function roleAt(index: number, count: number): PieceRole {
 
 /**
  * The event cut into one share per bar it reaches (`shares`: ticks left in its bar, then each later bar's part), each
- * share written as plain or dotted durations, also in the event's tuplet. A rest becomes rests; notes go on as tied
+ * share written as plain or dotted durations, also in the event's tuplets. A rest becomes rests; notes go on as tied
  * notes (see pieceNote), and the beat marks stay on the first piece. Undefined when a share cannot be written.
  */
 export function splitAtBarLines(event: VoiceEvent, shares: readonly number[]): readonly (readonly VoiceEvent[])[] | undefined {
-  const tuplet = event.voice.duration.tuplet;
-  const durations = shares.map((ticks) => restDurations(ticks, undefined, tuplet));
+  const durations = shares.map((ticks) => restDurations(ticks, undefined, event.voice.duration));
   if (!durations.every((list): list is readonly Duration[] => list !== undefined)) {
     return undefined;
   }

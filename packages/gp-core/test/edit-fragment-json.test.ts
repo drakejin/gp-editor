@@ -141,6 +141,8 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['two kinds of dot', (value) => Object.assign(rawItem(value).duration as Raw, { dotted: true, doubleDotted: true })],
     ['a tuplet Guitar Pro has not', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 4, times: 3 })],
     ['a tuplet with the wrong time', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 3, times: 3 })],
+    ['an inner tuplet without an outer one', (value) => ((rawItem(value).duration as Raw).innerTuplet = { enters: 3, times: 2 })],
+    ['an inner tuplet Guitar Pro has not', (value) => ((rawItem(value, 1).duration as Raw).innerTuplet = { enters: 4, times: 3 })],
     ['string 0', (value) => (rawNote(value).string = 0)],
     ['string 8', (value) => (rawNote(value).string = 8)],
     ['a negative fret', (value) => (rawNote(value).fret = -1)],
@@ -181,6 +183,28 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['a text that is no text', (value) => (rawItem(value).text = 42)],
   ])('rejects %s', (_label, tamper) => {
     expect(parseTampered(tamper)).toBeUndefined();
+  });
+
+  it('reads back a tuplet inside a tuplet', () => {
+    // Arrange
+    const nested: BeatFragment = { isPercussion: false, items: [{ ...item([n(1, 5)]), duration: dur(16, { tuplet: { enters: 5, times: 4 }, innerTuplet: { enters: 3, times: 2 } }) }] };
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(serializeBeatFragment(nested)));
+
+    // Assert
+    expect(parsed).toEqual(nested);
+  });
+
+  it('still reads a fragment copied by an earlier version (durations without an inner tuplet)', () => {
+    // Arrange: as gp-editor 0.11 put it on the clipboard
+    const earlier = '{"format":"gp-editor.beats","version":1,"isPercussion":false,"items":[{"duration":{"value":8,"dotted":false,"doubleDotted":false,"tuplet":{"enters":3,"times":2}},"notes":[],"stroke":{"direction":"none","value":0},"pickStroke":"none"}]}';
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(earlier));
+
+    // Assert
+    expect(parsed?.items[0]?.duration).toEqual(dur(8, { tuplet: { enters: 3, times: 2 } }));
   });
 
   it('reads a stroke of no direction as no stroke, whatever speed it stored', () => {

@@ -1,32 +1,34 @@
-import { NORMAL_TUPLET, NOTE_VALUES, durationTicks } from '../model/defaults';
-import type { Duration, Tuplet } from '../model/song';
+import { type DurationTuplets, NO_TUPLETS, NOTE_VALUES, durationTicks, withTuplets } from '../model/defaults';
+import type { Duration } from '../model/song';
 
-/** Plain and dotted durations of every note value in a tuplet, longest first. */
-function fillCandidates(tuplet: Tuplet): readonly Duration[] {
-  return NOTE_VALUES.flatMap((value) =>
-    [false, true].map((dotted): Duration => ({ value, dotted, doubleDotted: false, tuplet })),
-  ).sort((a, b) => durationTicks(b) - durationTicks(a));
+function byLength(a: Duration, b: Duration): number {
+  return durationTicks(b) - durationTicks(a);
 }
 
-const PLAIN_CANDIDATES = fillCandidates(NORMAL_TUPLET);
+/** Plain and dotted durations of every note value in `tuplets`, longest first. */
+function fillCandidates(tuplets: DurationTuplets): readonly Duration[] {
+  return NOTE_VALUES.flatMap((value) => [false, true].map((dotted) => withTuplets({ value, dotted, doubleDotted: false }, tuplets))).sort(byLength);
+}
 
-function candidatesFor(tuplet: Tuplet): readonly Duration[] {
+const PLAIN_CANDIDATES = fillCandidates(NO_TUPLETS);
+
+/** Plain values, those of the outer tuplet, and those of the tuplet inside it. */
+function candidatesFor(tuplets: DurationTuplets): readonly Duration[] {
+  const { tuplet, innerTuplet } = tuplets;
   if (tuplet.enters === tuplet.times) {
     return PLAIN_CANDIDATES;
   }
-  return [...PLAIN_CANDIDATES, ...fillCandidates(tuplet)].sort((a, b) => durationTicks(b) - durationTicks(a));
+  const outer = fillCandidates({ tuplet });
+  const inner = innerTuplet === undefined || innerTuplet.enters === innerTuplet.times ? [] : fillCandidates({ tuplet, innerTuplet });
+  return [...PLAIN_CANDIDATES, ...outer, ...inner].sort(byLength);
 }
 
 /**
  * Rest durations that add up to exactly `ticks`: `preferred` as many times as it fits (TuxGuitar's createSilences with a
- * preferred duration), then the longest plain or dotted values, also in `tuplet` (by default `preferred`'s). Undefined
- * when the time cannot be filled exactly.
+ * preferred duration), then the longest plain or dotted values, also in `tuplets`' tuplet and in the tuplet inside it
+ * (by default `preferred`'s). Undefined when the time cannot be filled exactly.
  */
-export function restDurations(
-  ticks: number,
-  preferred?: Duration,
-  tuplet: Tuplet = preferred?.tuplet ?? NORMAL_TUPLET,
-): readonly Duration[] | undefined {
+export function restDurations(ticks: number, preferred?: Duration, tuplets: DurationTuplets = preferred ?? NO_TUPLETS): readonly Duration[] | undefined {
   if (ticks <= 0) {
     return ticks === 0 ? [] : undefined;
   }
@@ -37,7 +39,7 @@ export function restDurations(
     durations.push(preferred);
     remaining -= preferredTicks;
   }
-  for (const candidate of candidatesFor(tuplet)) {
+  for (const candidate of candidatesFor(tuplets)) {
     const length = durationTicks(candidate);
     while (remaining >= length) {
       durations.push(candidate);

@@ -4,6 +4,7 @@ import type { Beat, Note, Song } from '../src/model/song';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { buildLegacyGtp, type LegacyBeatSpec, type LegacySongSpec } from './helpers/gtp-legacy-builder';
 import { assertSongInvariants } from './helpers/invariants';
+import { fromTux, toTux } from './helpers/ticks';
 
 const V100 = 'FICHIER GUITARE PRO v1';
 const V101 = 'FICHIER GUITARE PRO v1.01';
@@ -73,11 +74,11 @@ describe.skipIf(!HAS_REAL_FILES)('GP1 real files', () => {
     expect(song.info.words).toBe('Carulli');
     expect(song.tracks).toHaveLength(8);
     expect(song.measureHeaders).toHaveLength(25);
-    expect(song.measureHeaders[0]).toMatchObject({ start: 960, tempo: 120, tripletFeel: 'none' });
+    expect(song.measureHeaders[0]).toMatchObject({ start: fromTux(960), tempo: 120, tripletFeel: 'none' });
     expect(song.tracks[0]?.strings.map((s) => s.tuning)).toEqual([64, 59, 55, 50, 45, 40]);
     expect(song.tracks[7]?.name).toBe('Percussions');
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start).slice(0, 3)).toEqual([960, 1440, 1920]);
+    expect(beats.map((beat) => toTux(beat.start)).slice(0, 3)).toEqual([960, 1440, 1920]);
     expect(beats[0]?.voices[0]?.duration.value).toBe(8);
     expect(beats[2]?.voices[0]?.notes[0]).toMatchObject({ string: 1, fret: 1, velocity: 95 });
     expect(beats[2]?.voices[0]?.notes[0]?.effect.hammer).toBe(true);
@@ -115,7 +116,7 @@ describe.skipIf(!HAS_REAL_FILES)('GP1 real files', () => {
     expect(song.measureHeaders.every((header) => header.tripletFeel === 'eighth')).toBe(true);
     expect(song.measureHeaders[0]?.tempo).toBe(96);
     const firstBar = beatsOf(song, 0, 0);
-    expect(firstBar.map((beat) => beat.start)).toEqual([960, 2880, 3360, 3840, 4320]);
+    expect(firstBar.map((beat) => toTux(beat.start))).toEqual([960, 2880, 3360, 3840, 4320]);
     expect(firstBar[0]?.voices[0]).toMatchObject({ isEmpty: false, notes: [] });
     expect(firstBar[4]?.chord).toBeUndefined();
     const tied = beatsOf(song, 0, 1)[0]?.voices[0]?.notes ?? [];
@@ -210,7 +211,7 @@ describe('GP1 durations and positions', () => {
     // Assert
     const read = beatsOf(song);
     expect(read.slice(0, 7).map((beat) => beat.voices[0]?.duration.value)).toEqual([1, 2, 4, 8, 16, 32, 64]);
-    expect(read.slice(0, 7).map((beat) => beat.start)).toEqual([960, 4800, 6720, 7680, 8160, 8400, 8520]);
+    expect(read.slice(0, 7).map((beat) => toTux(beat.start))).toEqual([960, 4800, 6720, 7680, 8160, 8400, 8520]);
   });
 
   it('reads dotted notes and triplets (3:2) with their skipped byte', () => {
@@ -230,7 +231,7 @@ describe('GP1 durations and positions', () => {
     // Assert
     expect(read[0]?.voices[0]?.duration).toMatchObject({ value: 4, dotted: true, doubleDotted: false });
     expect(read[1]?.voices[0]?.duration.tuplet).toEqual({ enters: 3, times: 2 });
-    expect(read.map((beat) => beat.start)).toEqual([960, 2400, 2720, 3040, 3360, 3840]);
+    expect(read.map((beat) => toTux(beat.start))).toEqual([960, 2400, 2720, 3040, 3360, 3840]);
     expect(read.map((beat) => beat.voices[0]?.notes[0]?.fret)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
@@ -239,7 +240,7 @@ describe('GP1 durations and positions', () => {
     const song = readGp1({ measures: [{ numerator: 3, denominator: 4 }, { numerator: 6, denominator: 8 }, {}] });
 
     // Assert
-    expect(song.measureHeaders.map((header) => header.start)).toEqual([960, 3840, 6720]);
+    expect(song.measureHeaders.map((header) => toTux(header.start))).toEqual([960, 3840, 6720]);
     expect(song.measureHeaders[1]?.timeSignature).toEqual({ numerator: 6, denominator: 8 });
     expect(song.measureHeaders.map((header) => header.number)).toEqual([1, 2, 3]);
   });
@@ -265,7 +266,7 @@ describe('GP1 rests completed like TuxGuitar (autoCompleteSilences)', () => {
     const whole = beatsOf(song, 0, 0);
     expect(whole).toHaveLength(1);
     expect(whole[0]?.voices[0]).toMatchObject({ isEmpty: false, notes: [], duration: { value: 1 } });
-    expect(beatsOf(song, 0, 1).map((beat) => [beat.start, beat.voices[0]?.duration.value])).toEqual([
+    expect(beatsOf(song, 0, 1).map((beat) => [toTux(beat.start), beat.voices[0]?.duration.value])).toEqual([
       [4800, 4],
       [5760, 4],
       [6720, 4],
@@ -278,7 +279,7 @@ describe('GP1 rests completed like TuxGuitar (autoCompleteSilences)', () => {
     const read = beatsOf(oneMeasure([QUARTER_NOTE]));
 
     // Assert
-    expect(read.map((beat) => [beat.start, beat.voices[0]?.duration.value, beat.voices[0]?.notes.length])).toEqual([
+    expect(read.map((beat) => [toTux(beat.start), beat.voices[0]?.duration.value, beat.voices[0]?.notes.length])).toEqual([
       [960, 4, 1],
       [1920, 4, 0],
       [2880, 4, 0],
@@ -296,7 +297,10 @@ describe('GP1 rests completed like TuxGuitar (autoCompleteSilences)', () => {
       Array(3).fill({ value: 64, dotted: false, doubleDotted: false, tuplet: { enters: 9, times: 8 } }),
     );
     expect(rests.slice(3).map((beat) => beat.voices[0]?.duration.value)).toEqual(Array(7).fill(8));
-    expect(rests.map((beat) => beat.start)).toEqual([1280, 1333, 1386, 1440, 1920, 2400, 2880, 3360, 3840, 4320]);
+    // Exact positions: TuxGuitar's 960 ticks per quarter floor the 9:8 sixty-fourths to 1333 and 1386.
+    const ninth = fromTux(160) / 3;
+    const after = [1440, 1920, 2400, 2880, 3360, 3840, 4320].map(fromTux);
+    expect(rests.map((beat) => beat.start)).toEqual([fromTux(1280), fromTux(1280) + ninth, fromTux(1280) + 2 * ninth, ...after]);
   });
 
   it('leaves an over-full measure as written', () => {
@@ -304,7 +308,7 @@ describe('GP1 rests completed like TuxGuitar (autoCompleteSilences)', () => {
     const read = beatsOf(oneMeasure([{ duration: -2, notes: [NOTE(5, 0)] }, QUARTER_NOTE]));
 
     // Assert
-    expect(read.map((beat) => beat.start)).toEqual([960, 4800]);
+    expect(read.map((beat) => toTux(beat.start))).toEqual([960, 4800]);
   });
 
   it('treats a beat-count byte above 127 as zero beats', () => {

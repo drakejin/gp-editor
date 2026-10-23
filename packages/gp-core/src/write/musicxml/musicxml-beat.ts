@@ -15,6 +15,8 @@ export interface PartContext {
   readonly partId: string;
   readonly flow: TrackFlow;
   readonly lyrics: TrackLyrics;
+  /** Ticks per MusicXML division (tickUnit): durations are written in divisions. */
+  readonly unit: number;
 }
 
 /** One staff of the part: 1 = notation, 2 = tab. */
@@ -188,7 +190,7 @@ function mainNote(input: MainNoteInput, note: Note, index: number): XmlNode {
     attributes: { dynamics: dynamicsPercent(note.velocity) },
     isChord: index > 0,
     ...soundOf(context, note.fret, soundingPitch(context.track, note, staff.isTab), input.keySignature),
-    ticks: durationTicks(event.voice.duration),
+    ticks: durationTicks(event.voice.duration) / context.unit,
     ties: [...(note.isTied ? ['stop' as const] : []), ...(next?.isTied === true ? ['start' as const] : [])],
     voice: voiceNumber(event.voiceIndex, staff),
     duration: event.voice.duration,
@@ -207,7 +209,7 @@ export function eventElements(context: PartContext, event: VoiceEvent, staff: St
   const directions = staff.isTab ? [] : eventDirections(context, event, marks, voice);
   if (event.voice.notes.length === 0) {
     const notations = marks.tuplet === undefined ? undefined : element('notations', {}, [element('tuplet', { type: marks.tuplet })]);
-    return [...directions, restElement(durationTicks(event.voice.duration), event.voice.duration, voice, staff.staff, notations)];
+    return [...directions, restElement(durationTicks(event.voice.duration) / context.unit, event.voice.duration, voice, staff.staff, notations)];
   }
   const lyric = !staff.isTab && marks.isLyricVoice ? context.lyrics.get(event.measureIndex)?.get(event.beatIndex) : undefined;
   const input: MainNoteInput = { context, event, staff, marks, keySignature, lyric };

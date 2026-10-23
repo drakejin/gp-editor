@@ -32,7 +32,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 and ASCII tab writers, song model, immutable edit operations
                    (incl. tunings), MIDI rendering, PDF transcription → song
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
@@ -88,7 +88,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
   piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
-  Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
+  Export MIDI, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
   grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
@@ -98,6 +98,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
   (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **Recent files**: File ▸ Open Recent lists the last 20 files opened or saved, newest first, and *Clear Menu* empties it;
+  File ▸ Recent Files… (and the start screen, for the first five) shows the same list with *Open*, *Pin* / *Unpin* and
+  *Remove* for each file. Pinned files stay on top, in the order they were pinned, and new files never push them out
+  (*Clear Menu* keeps them too). A file opens as File ▸ Open does — in a new tab, or its tab is shown when it is already
+  open —, also after a relaunch: the sandboxed app keeps a security-scoped bookmark of each file, which follows a file
+  that was moved or renamed; a file that is gone shows as *missing* until it is removed or found again.
 - **Tabs**: as in Guitar Pro 8, every document opens in a tab of its own — New, Open, a file from Finder or dropped on
   the window, a finished PDF import; opening a file that is already open shows its tab instead. A tab shows the song's
   title (else the file name), a • while edited and a × to close it; the shown tab is lit, and many tabs scroll
@@ -150,8 +156,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     ends with a rest again)
   - voices: the palette's 1 / 2 (Guitar Pro 5 files hold two); typing a fret on voice 2 starts that voice there
   - duration: ⌥`[` longer, ⌥`]` shorter, `.` dot, `/` triplet, or the palette's Rhythm: whole to 64th, dot, tuplets
-    (3, 5, 6, 10, 12 — 7, 9 and 11 are read and played but cannot be made: their notes are not whole ticks), rest,
-    tie
+    (3, 5, 6, 7, 9, 10, 11, 12), rest, tie
+  - a tuplet inside a tuplet (as Guitar Pro 7 and 8 write them): ⌥`/` puts a triplet inside the beat's tuplet, or the
+    palette's *Inner* sets any size. Every tuplet is exact: a bar of 7, 9, 11 or 13-tuplets fills exactly. Notation
+    draws the inner bracket and number next to the notes and the outer one beyond it; the tab rhythm shows `5(3)`.
+    GP3–GP5 files cannot hold one: Save writes a same-length tuplet when there is one (a triplet in a triplet = 9:8),
+    else only the outer tuplet
   - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
     drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
   - techniques: `R` let ring, `S` slide, `H` / `P` hammer-on / pull-off (one Guitar Pro effect: the tab shows H or P
@@ -180,7 +190,11 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
   tab; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
-- **Save**: ⌘S saves the shown tab — a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
+- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp4`,
+  `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel: Guitar
+  Pro 5 (`.gp5`, chosen first unless the file is a `.gp4` or `.gp3`), Guitar Pro 4 (`.gp4`) or Guitar Pro 3 (`.gp3`);
+  the extension follows the choice. GP4 and GP3 keep one voice per bar (voice 2 joins voice 1) and one triplet feel,
+  and GP3 holds no lyrics and fewer effects: the save panel and the hint strip say what is left out when one is written.
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
@@ -201,7 +215,20 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   staff), in black and grey on white even in dark mode: the title, subtitle, artist, album and credits with the
   track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
-  closer (and an extremely dense one is printed smaller) so nothing runs off the page.
+  closer (and an extremely dense one is printed smaller) so nothing runs off the page. The PDF is vector graphics (lines,
+  curves and the fonts' glyphs), sharp at any zoom or printer resolution, so it has no resolution setting.
+- **Export PNG**: File ▸ Export PNG… opens the same panel for images: the same pages (mode and paper as for the PDF) at
+  *72*, *150* or *300 dpi* (an A4 page is 595 × 842, 1240 × 1754 or 2479 × 3508 pixels, the dpi recorded in the file),
+  on a *White* or *Transparent* background (no paper: only the notation is drawn, and the tab lines still stop around
+  the fret numbers). One page is saved through a save panel as *name*.png; several pages go into a folder you choose as
+  *name*-1.png … *name*-N.png (numbers padded so they sort in order — the app may write only where you point it), and
+  the hint strip says what was saved where.
+- **Export MIDI**: File ▸ Export MIDI… saves the song as playback plays it as a Standard MIDI File (`.mid`): repeats
+  unfolded, at the written tempo (not the practice speed), muted tracks left out and, when a track is solo, only the
+  solo tracks.
+- **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
+  (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
+  slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
 - **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
   the printer's paper), through the macOS print panel.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel

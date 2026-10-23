@@ -97,7 +97,7 @@ describe('writeMusicXml document', () => {
 });
 
 describe('writeMusicXml measure attributes', () => {
-  it('writes divisions, key, time, two staves, the clefs and the tab tuning in the first measure', () => {
+  it('writes divisions (quarter notes only: 1), key, time, two staves, the clefs and the tab tuning in the first measure', () => {
     // Arrange
     const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 0)]) }]], offset: 2, keySignatures: [-2] }] });
 
@@ -106,7 +106,7 @@ describe('writeMusicXml measure attributes', () => {
 
     // Assert
     expect(childNames(attributes)).toEqual(['divisions', 'key', 'time', 'staves', 'part-symbol', 'clef', 'clef', 'staff-details']);
-    expect(childText(attributes, 'divisions')).toBe('960');
+    expect(childText(attributes, 'divisions')).toBe('1');
     expect(childText(child(attributes, 'key'), 'fifths')).toBe('-2');
     expect(childText(child(attributes, 'time'), 'beats')).toBe('4');
     expect(childText(child(attributes, 'time'), 'beat-type')).toBe('4');
@@ -172,7 +172,7 @@ describe('writeMusicXml notes', () => {
     expect(child(notation[0], 'chord')).toBeUndefined();
     expect(child(notation[1], 'chord')).toBeDefined();
     expect(notation.map((note) => childText(note, 'type'))).toEqual(['quarter', 'quarter']);
-    expect(notation.map((note) => childText(note, 'duration'))).toEqual(['960', '960']);
+    expect(notation.map((note) => childText(note, 'duration'))).toEqual(['1', '1']);
     const tab = notesOn(measure, 2);
     expect(tab.map((note) => [childText(technicalOf(note), 'string'), childText(technicalOf(note), 'fret')])).toEqual([['2', '1'], ['3', '2']]);
     expect(tab.map((note) => childText(note, 'stem'))).toEqual(['none', 'none']);
@@ -191,7 +191,7 @@ describe('writeMusicXml notes', () => {
     expect([childText(pitch, 'step'), childText(pitch, 'octave')]).toEqual(['G', '4']);
   });
 
-  it('writes rests, dots and tuplets with time-modification and tuplet brackets', () => {
+  it('writes rests, dots and tuplets with time-modification and tuplet brackets, in divisions every length divides', () => {
     // Arrange
     const dotted: Duration = { value: 4, dotted: true, doubleDotted: false, tuplet: NORMAL_TUPLET };
     const song = buildSong({
@@ -211,17 +211,33 @@ describe('writeMusicXml notes', () => {
     });
 
     // Act
-    const notes = notesOn(measuresOf(written(song))[0], 1);
+    const measure = measuresOf(written(song))[0];
+    const notes = notesOn(measure, 1);
 
     // Assert
+    expect(childText(child(measure, 'attributes'), 'divisions')).toBe('6');
     expect(child(notes[0], 'rest')).toBeDefined();
-    expect(childText(notes[0], 'duration')).toBe('1440');
+    expect(childText(notes[0], 'duration')).toBe('9');
     expect(children(notes[0], 'dot')).toHaveLength(1);
     const modification = child(notes[1], 'time-modification');
     expect([childText(modification, 'actual-notes'), childText(modification, 'normal-notes')]).toEqual(['3', '2']);
-    expect(childText(notes[1], 'duration')).toBe('320');
+    expect(childText(notes[1], 'duration')).toBe('2');
     const tuplets = notes.map((note) => attribute(child(child(note, 'notations'), 'tuplet'), 'type'));
     expect(tuplets).toEqual([undefined, 'start', undefined, 'stop', undefined]);
+  });
+
+  it('writes a tuplet inside a tuplet as their combined ratio, without a bracket', () => {
+    // Arrange
+    const nested: Duration = { ...EIGHTH, value: 16, tuplet: { enters: 3, times: 2 }, innerTuplet: { enters: 3, times: 2 } };
+    const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 0)], nested) }, { voice: buildVoice([buildNote(1, 2)], nested) }]] }] });
+
+    // Act
+    const notes = notesOn(measuresOf(written(song))[0], 1);
+
+    // Assert
+    const modification = child(notes[0], 'time-modification');
+    expect([childText(modification, 'actual-notes'), childText(modification, 'normal-notes')]).toEqual(['9', '4']);
+    expect(notes.map((note) => child(child(note, 'notations'), 'tuplet'))).toEqual([undefined, undefined]);
   });
 
   it('ties a note to the tied note that continues it, across the bar line', () => {
@@ -411,8 +427,8 @@ describe('writeMusicXml measure headers', () => {
 
     // Assert
     expect(notes.map((note) => [attribute(child(note, 'rest'), 'measure'), childText(note, 'duration'), childText(note, 'staff')])).toEqual([
-      ['yes', '3840', '1'],
-      ['yes', '3840', '2'],
+      ['yes', '4', '1'],
+      ['yes', '4', '2'],
     ]);
   });
 });

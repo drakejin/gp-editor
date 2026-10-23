@@ -2,7 +2,8 @@ import { type Song, readSong, writeSong } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type DocumentCommands, useDocument } from '../src/hooks/use-document';
 import { base64ToBytes, bytesToBase64 } from '../src/lib/base64';
-import type { FileEventHandlers, OpenedFile, SavedFile } from '../src/native/gp-files';
+import { SAVE_FORMATS } from '../src/lib/file-formats';
+import type { ChosenFile, FileEventHandlers, OpenedFile, SavePanelOptions, SavedFile } from '../src/native/gp-files';
 import type { EditorAction } from '../src/state/editor';
 import { INITIAL_WORKSPACE, type WorkspaceAction, type WorkspaceState, workspaceReducer } from '../src/state/workspace';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -10,7 +11,7 @@ import { beat, makeSong, note } from '../test-support/songs';
 const mockFiles = {
   showOpenDialog: jest.fn<Promise<OpenedFile | null>, []>(),
   readFile: jest.fn<Promise<OpenedFile>, [string]>(),
-  showSaveDialog: jest.fn<Promise<SavedFile | null>, [string, string]>(),
+  showSavePanel: jest.fn<Promise<ChosenFile | null>, [SavePanelOptions]>(),
   writeFile: jest.fn<Promise<SavedFile>, [string, string]>(),
   setDocumentTitle: jest.fn<void, [string]>(),
   unsubscribe: jest.fn<void, []>(),
@@ -20,7 +21,7 @@ const mockFiles = {
 jest.mock('../src/native/gp-files', () => ({
   showOpenDialog: () => mockFiles.showOpenDialog(),
   readFile: (pathOrUrl: string) => mockFiles.readFile(pathOrUrl),
-  showSaveDialog: (base64: string, suggestedName: string) => mockFiles.showSaveDialog(base64, suggestedName),
+  showSavePanel: (options: SavePanelOptions) => mockFiles.showSavePanel(options),
   writeFile: (path: string, base64: string) => mockFiles.writeFile(path, base64),
   setDocumentTitle: (title: string) => mockFiles.setDocumentTitle(title),
   subscribeFileEvents: (handlers: FileEventHandlers) => mockFiles.subscribe(handlers),
@@ -233,27 +234,59 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Etude.gp5', expect.any(String));
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).tracks[0]?.measures[0]?.beats[0]?.voices[0]?.notes[0]?.fret).toBe(3);
-    expect(mockFiles.showSaveDialog).not.toHaveBeenCalled();
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG }));
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
+    expect(hook.dispatch.mock.calls).toEqual([[inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG })]]);
   });
 
-  it('asks where to save a .gpx document with plain Save, suggesting the same name as .gp5', async () => {
+  it('keeps a .gp4 document a GP4 file with plain Save, saying what GP4 cannot hold', async () => {
     // Arrange
-    mockFiles.showSaveDialog.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp4', path: '/scores/Etude.gp4' });
+    const hook = renderHook(opened('Etude.gp4', '/scores/Etude.gp4'));
+
+    // Act
+    await settle(() => hook.current().save(false));
+
+    // Assert
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
+    expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp4');
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[1]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp4', path: '/scores/Etude.gp4', song: SONG }));
+  });
+
+  it('asks where to save a .gpx document with plain Save, offering every format with GP5 chosen', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5', formatId: 'gp5' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5' });
     const hook = renderHook(opened('Etude.gpx', '/scores/Etude.gpx'));
 
     // Act
     await settle(() => hook.current().save(false));
 
     // Assert
-    expect(mockFiles.writeFile).not.toHaveBeenCalled();
-    expect(mockFiles.showSaveDialog).toHaveBeenCalledWith(expect.any(String), 'Etude.gp5');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG }));
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Etude.gp5', formats: SAVE_FORMATS, formatId: 'gp5' });
+    expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Etude.gp5', expect.any(String));
+    expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp5');
+    expect(hook.dispatch.mock.calls).toEqual([[inTab('tab-1', { type: 'saved', fileName: 'Etude.gp5', path: '/scores/Etude.gp5', song: SONG })]]);
+  });
+
+  it('writes the format chosen in the save panel, saying what it cannot hold', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Etude.gp3', path: '/scores/Etude.gp3', formatId: 'gp3' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp3', path: '/scores/Etude.gp3' });
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+
+    // Act
+    await settle(() => hook.current().save(true));
+
+    // Assert
+    expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp3');
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[2]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp3', path: '/scores/Etude.gp3', song: SONG }));
   });
 
   it('asks where to save a new sheet that has no path yet', async () => {
     // Arrange
-    mockFiles.showSaveDialog.mockResolvedValueOnce(null);
+    mockFiles.showSavePanel.mockResolvedValueOnce(null);
     const hook = renderHook(workspaceReducer(INITIAL_WORKSPACE, { type: 'created', mode: 'notationAndTab' }));
 
     // Act
@@ -261,21 +294,42 @@ describe('useDocument saving', () => {
 
     // Assert
     expect(mockFiles.writeFile).not.toHaveBeenCalled();
-    expect(mockFiles.showSaveDialog).toHaveBeenCalledWith(expect.any(String), 'Untitled.gp5');
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'Untitled.gp5', formatId: 'gp5' }));
   });
 
-  it('asks where to save with Save As even when the document is a .gp5', async () => {
-    mockFiles.showSaveDialog.mockResolvedValueOnce({ name: 'Copy.gp5', path: '/scores/Copy.gp5' });
-    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+  it('asks where to save with Save As, the document’s own format chosen', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Copy.gp4', path: '/scores/Copy.gp4', formatId: 'gp4' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Copy.gp4', path: '/scores/Copy.gp4' });
+    const hook = renderHook(opened('Etude.gp4', '/scores/Etude.gp4'));
+
+    // Act
     await settle(() => hook.current().save(true));
-    expect(mockFiles.writeFile).not.toHaveBeenCalled();
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Copy.gp5', path: '/scores/Copy.gp5', song: SONG }));
+
+    // Assert
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'Etude.gp4', formatId: 'gp4' }));
+    expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Copy.gp4', expect.any(String));
+    expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Copy.gp4', path: '/scores/Copy.gp4', song: SONG }));
+  });
+
+  it('writes GP5 when the save panel answers with a format it did not offer', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5', formatId: 'mp3' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp5', path: '/scores/Etude.gp5' });
+    const hook = renderHook(opened('Etude.gpx', '/scores/Etude.gpx'));
+
+    // Act
+    await settle(() => hook.current().save(true));
+
+    // Assert
+    expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp5');
   });
 
   it('dispatches nothing when the save panel is cancelled', async () => {
-    mockFiles.showSaveDialog.mockResolvedValueOnce(null);
+    mockFiles.showSavePanel.mockResolvedValueOnce(null);
     const hook = renderHook(opened('Etude.gpx', '/scores/Etude.gpx'));
     await settle(() => hook.current().save(false));
+    expect(mockFiles.writeFile).not.toHaveBeenCalled();
     expect(hook.dispatch).not.toHaveBeenCalled();
   });
 
@@ -291,11 +345,18 @@ describe('useDocument saving', () => {
     expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saveFailed', message: 'The disk is full' }));
   });
 
+  it('dispatches saveFailed when the save panel cannot be shown', async () => {
+    mockFiles.showSavePanel.mockRejectedValueOnce(new Error('No window'));
+    const hook = renderHook(opened('Etude.gpx', '/scores/Etude.gpx'));
+    await settle(() => hook.current().save(true));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saveFailed', message: 'No window' }));
+  });
+
   it('does nothing when no document is open', async () => {
     const hook = renderHook();
     await settle(() => hook.current().save(false));
     expect(mockFiles.writeFile).not.toHaveBeenCalled();
-    expect(mockFiles.showSaveDialog).not.toHaveBeenCalled();
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
     expect(hook.dispatch).not.toHaveBeenCalled();
   });
 
@@ -320,7 +381,7 @@ describe('useDocument saving', () => {
 
   it('tells the caller nothing was saved when the save panel is cancelled, the write fails or the tab is gone', async () => {
     // Arrange
-    mockFiles.showSaveDialog.mockResolvedValueOnce(null);
+    mockFiles.showSavePanel.mockResolvedValueOnce(null);
     mockFiles.writeFile.mockRejectedValueOnce(new Error('The disk is full'));
     const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
     const results: boolean[] = [];
@@ -357,7 +418,7 @@ describe('useDocument File menu and window title', () => {
     // Arrange
     mockFiles.showOpenDialog.mockResolvedValueOnce(null);
     mockFiles.readFile.mockResolvedValueOnce(ETUDE);
-    mockFiles.showSaveDialog.mockResolvedValueOnce(null);
+    mockFiles.showSavePanel.mockResolvedValueOnce(null);
     const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
 
     // Act
@@ -370,7 +431,7 @@ describe('useDocument File menu and window title', () => {
     expect(hook.dispatch).toHaveBeenCalledWith({ type: 'created', mode: 'notation' });
     expect(mockFiles.showOpenDialog).toHaveBeenCalledTimes(1);
     expect(mockFiles.readFile).toHaveBeenCalledWith('/scores/Etude.gp5');
-    expect(mockFiles.showSaveDialog).toHaveBeenCalledWith(expect.any(String), 'Etude.gp5');
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'Etude.gp5' }));
   });
 
   it('stops listening to the File menu when it unmounts', () => {

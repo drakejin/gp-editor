@@ -8,7 +8,8 @@
  * Strings are numbered from 1 = highest-pitched string, as in Guitar Pro.
  */
 
-export const QUARTER_TIME = 960;
+/** Ticks per quarter note: 960 × 135135, so every duration Guitar Pro writes is a whole number of ticks (see defaults.ts). */
+export const QUARTER_TIME = 129_729_600;
 
 export type FileFormat = 'gp1' | 'gp2' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'musicxml';
 
@@ -176,7 +177,10 @@ export interface Duration {
   readonly value: NoteValue;
   readonly dotted: boolean;
   readonly doubleDotted: boolean;
+  /** The tuplet the note is in (NORMAL_TUPLET for none); with an inner tuplet, the outer one. */
   readonly tuplet: Tuplet;
+  /** A tuplet inside `tuplet` (GP7/GP8's secondary tuplet); set only when both are real tuplets. */
+  readonly innerTuplet?: Tuplet;
 }
 
 export type VoiceDirection = 'none' | 'up' | 'down';

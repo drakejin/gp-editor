@@ -4,8 +4,6 @@ import type { Clef, Measure, MeasureHeader, Track } from '../../model/song';
 import { pitchChildren } from './musicxml-note';
 import { type XmlNode, element, textElement } from './xml-text';
 
-/** Ticks per quarter note: positions and durations are written in the model's own ticks. */
-export const DIVISIONS = QUARTER_TIME;
 
 const CLEF_SIGNS: Readonly<Record<Clef, readonly [sign: string, line: number | undefined]>> = {
   treble: ['G', 2],
@@ -47,8 +45,11 @@ function isSameTime(a: MeasureHeader, b: MeasureHeader): boolean {
   return a.timeSignature.numerator === b.timeSignature.numerator && a.timeSignature.denominator === b.timeSignature.denominator;
 }
 
-/** `<attributes>` where the measure is the first or its key, time signature or clef changes; undefined elsewhere. */
-export function attributesElement(track: Track, measureIndex: number, headers: readonly MeasureHeader[]): XmlNode | undefined {
+/**
+ * `<attributes>` where the measure is the first or its key, time signature or clef changes; undefined elsewhere. The
+ * divisions (TuxGuitar: 960) are a quarter note in `unit`s of ticks (tickUnit).
+ */
+export function attributesElement(track: Track, measureIndex: number, headers: readonly MeasureHeader[], unit: number): XmlNode | undefined {
   const measure = track.measures[measureIndex];
   const header = headers[measureIndex];
   if (measure === undefined || header === undefined) {
@@ -64,7 +65,7 @@ export function attributesElement(track: Track, measureIndex: number, headers: r
     return undefined;
   }
   return element('attributes', {}, [
-    isStart && textElement('divisions', DIVISIONS),
+    isStart && textElement('divisions', QUARTER_TIME / unit),
     keyChanges && element('key', {}, [textElement('fifths', measure.keySignature)]),
     timeChanges &&
       element('time', {}, [textElement('beats', header.timeSignature.numerator), textElement('beat-type', header.timeSignature.denominator)]),

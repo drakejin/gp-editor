@@ -3,10 +3,10 @@ import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { SongHeader } from '../src/components/SongHeader';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const BASE = makeSong([
-  [beat(header(1).start, [note(1, 0)])],
+  [beat(toTux(header(1).start), [note(1, 0)])],
   [beat(header(2).start, [note(1, 2)])],
 ]);
 

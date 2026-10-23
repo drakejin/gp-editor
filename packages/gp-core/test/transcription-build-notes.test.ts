@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BEND_PRESETS } from '../src/edit/effects';
 import { DEFAULT_VELOCITY } from '../src/formats/common/velocity';
-import { EMPTY_NOTE_EFFECT, NORMAL_TUPLET, isMeasureOverfull } from '../src/model/defaults';
+import { EMPTY_NOTE_EFFECT, NORMAL_TUPLET, durationTicks, isMeasureOverfull, measureTicks } from '../src/model/defaults';
 import type { Note, Song } from '../src/model/song';
 import { buildSongFromTranscription } from '../src/transcription/build-song';
 import { MAX_TUPLET_SIZE, isTupletSize, toTuplet } from '../src/transcription/durations';
 import type { TranscribedBeat, TranscribedEffect, TranscriptionPage } from '../src/transcription/types';
 import { assertEditInvariants, deepFreeze, voiceLayout } from './helpers/edit-songs';
+import { fromTux } from './helpers/ticks';
 import { BASS, GUITAR, bar, page, play, rest, run, tab, written } from './helpers/transcription-pages';
 
 function build(...pages: TranscriptionPage[]) {
@@ -231,12 +232,14 @@ describe('buildSongFromTranscription: durations and voices', () => {
     expect(layout(song)).toEqual(['0:8/3:2:1/0', '320:8/3:2:1/1', '640:2.:r', '3520:8/3:2:r']);
   });
 
-  it('leaves a voice short when no rests can write the time left (a lone septuplet note)', () => {
+  it('pads a lone septuplet note with septuplet rests to the end of its bar', () => {
     // Act
     const { song } = build(page([bar([{ duration: '16th', tuplet: 7, notes: [tab(1, 0)] }])]));
 
     // Assert
-    expect(layout(song)).toEqual(['0:16/7:4:1/0']);
+    const voices = song.tracks[0]!.measures[0]!.beats.map((beat) => beat.voices[0]!);
+    expect(voices.map((voice) => voice.duration.tuplet)).toEqual([{ enters: 7, times: 4 }, { enters: 7, times: 4 }, { enters: 7, times: 4 }]);
+    expect(voices.reduce((sum, voice) => sum + durationTicks(voice.duration), 0)).toBe(measureTicks(4, 4));
   });
 
   it('keeps a part that runs past the end of its bar, and says so', () => {
@@ -246,7 +249,7 @@ describe('buildSongFromTranscription: durations and voices', () => {
     // Assert
     expect(layout(song)).toEqual(['0:4:1/0', '960:4:1/1', '1920:4:1/2', '2880:4:1/3', '3840:4:1/4']);
     expect(isMeasureOverfull(song.tracks[0]!.measures[0]!, song.measureHeaders[0]!)).toBe(true);
-    expect(song.measureHeaders[1]?.start).toBe(960 + 3840);
+    expect(song.measureHeaders[1]?.start).toBe(fromTux(960 + 3840));
     expect(warnings).toEqual(['Bar 1: the beats run past the end of the bar']);
   });
 

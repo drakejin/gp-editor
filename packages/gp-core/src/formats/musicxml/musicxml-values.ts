@@ -11,7 +11,8 @@ export const MAX_MEASURE_ELEMENTS = 4096;
 /** Positions past 16 whole notes into a measure are not read. */
 export const MAX_MEASURE_TICKS = QUARTER_TIME * 4 * 16;
 export const MAX_TEXT_LENGTH = 1024;
-export const MAX_DIVISIONS = 1_000_000;
+/** Divisions per quarter note beyond the model's own ticks add nothing (the writer uses at most QUARTER_TIME). */
+export const MAX_DIVISIONS = QUARTER_TIME;
 
 /** A finite number from the element's text; undefined when it is missing or not a decimal number. */
 export function readNumber(text: string | undefined): number | undefined {
@@ -50,6 +51,12 @@ export function readPitch(element: XmlElement | undefined, prefix = ''): number 
     return undefined;
   }
   return parsePitch(`${step}${ACCIDENTALS[alter] ?? ''}${octave}`);
+}
+
+/** A length in divisions as ticks: QUARTER_TIME per quarter note, exact whenever the divisions divide it. */
+export function divisionsToTicks(divisions: number, perQuarter: number): number {
+  const ticksPerDivision = QUARTER_TIME / perQuarter;
+  return Number.isInteger(ticksPerDivision) ? divisions * ticksPerDivision : (divisions * QUARTER_TIME) / perQuarter;
 }
 
 /** A child's presence, for empty elements such as `<chord/>`. */

@@ -2,6 +2,7 @@
 import { UNROUTED, buildChannelRoutes } from '../../midi/channel-routes';
 import type { Channel, Song, SongInfo, Track } from '../../model/song';
 import type { PartContext } from './musicxml-beat';
+import { tickUnit } from './musicxml-divisions';
 import { buildTrackFlow } from './musicxml-flow';
 import { buildTrackLyrics } from './musicxml-lyrics';
 import { buildMeasure } from './musicxml-measure';
@@ -120,8 +121,8 @@ function partList(song: Song): XmlNode {
   );
 }
 
-function partElement(song: Song, track: Track): XmlNode {
-  const context: PartContext = { track, partId: partId(track), flow: buildTrackFlow(track), lyrics: buildTrackLyrics(track) };
+function partElement(song: Song, track: Track, unit: number): XmlNode {
+  const context: PartContext = { track, partId: partId(track), flow: buildTrackFlow(track), lyrics: buildTrackLyrics(track), unit };
   return element(
     'part',
     { id: context.partId },
@@ -141,10 +142,11 @@ export function writeMusicXml(song: Song): string {
   if (song.measureHeaders.length === 0 || song.tracks.length === 0) {
     throw new RangeError('A MusicXML score needs at least one measure and one track');
   }
+  const unit = tickUnit(song);
   const root = element('score-partwise', { version: MUSICXML_VERSION }, [
     ...headerElements(song.info),
     partList(song),
-    ...song.tracks.map((track) => partElement(song, track)),
+    ...song.tracks.map((track) => partElement(song, track, unit)),
   ]);
   return serializeXml(root, MUSICXML_DOCTYPE);
 }

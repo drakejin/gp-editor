@@ -1,12 +1,12 @@
 // One MusicXML `<note>` (no TuxGuitar reader exists): its sound, written duration, ties, tab position, velocity and lyric.
 import { MAX_FRET } from '../../edit/edit-song';
 import { DEFAULT_VELOCITY, MAX_VELOCITY } from '../common/velocity';
-import { NORMAL_TUPLET, NOTE_VALUES, TUPLET_SIZES, durationFromTicks, durationTicks, tupletOf } from '../../model/defaults';
-import { type Duration, type NoteValue, QUARTER_TIME, type Tuplet } from '../../model/song';
+import { NORMAL_TUPLET, NOTE_VALUES, TUPLET_SIZES, durationFromTicks, durationTicks, tupletOf, withTuplets } from '../../model/defaults';
+import type { Duration, NoteValue, Tuplet } from '../../model/song';
 import { toTuplet } from '../../transcription/durations';
 import { type XmlElement, attribute, child, childText, children, lookupName } from '../gpif/xml';
 import { type NoteMarks, readNoteMarks } from './musicxml-effects';
-import { clamp, has, readIntegerIn, readNumber, readPitch, readText } from './musicxml-values';
+import { clamp, divisionsToTicks, has, readIntegerIn, readNumber, readPitch, readText } from './musicxml-values';
 
 /** A note or rest as the file writes it, before it is placed on a string. */
 export interface RawNote {
@@ -52,6 +52,8 @@ const MAX_TAB_STRING = 12;
 const PERCENT = 100;
 const MAX_DOTS = 2;
 const MAX_MIDI_PITCH = 127;
+/** Notes of a time-modification: a tuplet inside a tuplet multiplies two ratios of at most 13. */
+const MAX_TUPLET_RATIO = 169;
 
 /** Every duration the model holds, by its length in ticks (plain values before dotted ones before tuplets). */
 const DURATIONS_BY_TICKS: ReadonlyMap<number, Duration> = (() => {
@@ -82,6 +84,30 @@ function knownTuplet(actual: number, normal: number): Tuplet | undefined {
   return tuplet.enters === actual && tuplet.times === normal ? tuplet : undefined;
 }
 
+/** Every tuplet the model knows, smallest first (the duplets of compound time included). */
+const KNOWN_TUPLETS: readonly Tuplet[] = [2, ...TUPLET_SIZES, 4, 8].flatMap((size) => knownTuplet(size, toTuplet(size).times) ?? []);
+
+/**
+ * The tuplets of a time-modification: one the model knows, else a tuplet inside a tuplet whose ratios multiply to it
+ * (MusicXML writes nested tuplets as the combined ratio; 15:8 reads as 5:4 inside 3:2, the smaller one outside).
+ */
+function readTuplets(actual: number, normal: number): Pick<Duration, 'tuplet' | 'innerTuplet'> | undefined {
+  if (actual === normal) {
+    return { tuplet: NORMAL_TUPLET };
+  }
+  const single = knownTuplet(actual, normal);
+  if (single !== undefined) {
+    return { tuplet: single };
+  }
+  for (const outer of KNOWN_TUPLETS) {
+    const inner = KNOWN_TUPLETS.find((candidate) => outer.enters * candidate.enters === actual && outer.times * candidate.times === normal);
+    if (inner !== undefined) {
+      return { tuplet: outer, innerTuplet: inner };
+    }
+  }
+  return undefined;
+}
+
 function readDuration(note: XmlElement): Duration | undefined {
   const value = lookupName(NOTE_TYPES, childText(note, 'type')?.trim());
   if (value === undefined) {
@@ -89,10 +115,10 @@ function readDuration(note: XmlElement): Duration | undefined {
   }
   const dots = Math.min(MAX_DOTS, children(note, 'dot').length);
   const modification = child(note, 'time-modification');
-  const actual = readIntegerIn(childText(modification, 'actual-notes'), 1, 64) ?? 1;
-  const normal = readIntegerIn(childText(modification, 'normal-notes'), 1, 64) ?? 1;
-  const tuplet = actual === normal ? NORMAL_TUPLET : knownTuplet(actual, normal);
-  return tuplet === undefined ? undefined : { value, dotted: dots === 1, doubleDotted: dots === 2, tuplet };
+  const actual = readIntegerIn(childText(modification, 'actual-notes'), 1, MAX_TUPLET_RATIO) ?? 1;
+  const normal = readIntegerIn(childText(modification, 'normal-notes'), 1, MAX_TUPLET_RATIO) ?? 1;
+  const tuplets = readTuplets(actual, normal);
+  return tuplets === undefined ? undefined : withTuplets({ value, dotted: dots === 1, doubleDotted: dots === 2 }, tuplets);
 }
 
 function readTab(note: XmlElement): RawNote['tab'] {
@@ -143,7 +169,7 @@ function readGrace(note: XmlElement): RawNote['grace'] {
 /** A `<note>` at `tick`; cue notes (which do not sound) read as rests. */
 export function readNote(note: XmlElement, tick: number, context: NoteContext): RawNote {
   const grace = readGrace(note);
-  const divisionTicks = (readNumber(childText(note, 'duration')) ?? 0) * (QUARTER_TIME / context.divisions);
+  const divisionTicks = divisionsToTicks(readNumber(childText(note, 'duration')) ?? 0, context.divisions);
   const isRest = has(note, 'rest') || has(note, 'cue');
   return {
     tick,

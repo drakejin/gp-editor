@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.musicxml.MusicXMLWriter#writeNote / #writeDurationAndVoice / #insertRest / #writePlay (LGPL-2.1).
+import { NORMAL_TUPLET } from '../../model/defaults';
 import type { Duration, NoteValue } from '../../model/song';
 import { spellPitch } from './musicxml-pitch';
 import { type XmlAttributes, type XmlChild, type XmlNode, element, textElement } from './xml-text';
@@ -67,12 +68,14 @@ function durationChildren(duration: Duration | undefined): XmlChild[] {
     return [];
   }
   const dots = duration.doubleDotted ? 2 : duration.dotted ? 1 : 0;
-  const { tuplet } = duration;
+  // A tuplet inside a tuplet is written as their combined ratio (3:2 in 5:4 → 15:8).
+  const inner = duration.innerTuplet ?? NORMAL_TUPLET;
+  const actual = duration.tuplet.enters * inner.enters;
+  const normal = duration.tuplet.times * inner.times;
   return [
     textElement('type', NOTE_TYPES[duration.value]),
     ...Array.from({ length: dots }, () => element('dot')),
-    tuplet.enters !== tuplet.times &&
-      element('time-modification', {}, [textElement('actual-notes', tuplet.enters), textElement('normal-notes', tuplet.times)]),
+    actual !== normal && element('time-modification', {}, [textElement('actual-notes', actual), textElement('normal-notes', normal)]),
   ];
 }
 

@@ -59,6 +59,20 @@ describe('engraveTabMeasure', () => {
     const playing = engraveTabMeasure(context({ playingBeatIndex: 0 }));
     expect(playing[0]).toMatchObject({ kind: 'rect', color: `${PALETTE.accent}33` });
   });
+
+  it('numbers a beat of a tuplet inside a tuplet with both sizes under its stem', () => {
+    // Arrange: a quintuplet sixteenth, then one of a triplet inside the quintuplet
+    const quintuplet = { ...QUARTER, value: 16 as const, tuplet: { enters: 5, times: 4 } };
+    const nested = { ...quintuplet, innerTuplet: { enters: 3, times: 2 } };
+    const song = makeSong([[beat(960, [note(1, 0)], quintuplet), beat(960 + 192, [note(1, 0)], nested)]]);
+    const track = song.tracks[0]!;
+
+    // Act
+    const commands = engraveTabMeasure({ ...context(), track, header: song.measureHeaders[0]!, measure: track.measures[0]!, layout: layoutMeasure(song, 0, 0) });
+
+    // Assert
+    expect(textValues(commands)).toEqual(expect.arrayContaining(['5', '5(3)']));
+  });
 });
 
 describe('engraveTabRowHeader', () => {

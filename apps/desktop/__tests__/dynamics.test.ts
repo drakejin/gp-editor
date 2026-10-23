@@ -12,7 +12,7 @@ import {
 } from '../src/score/dynamics';
 import { DYNAMIC_GLYPHS, staffSpace } from '../src/score/symbols/smufl';
 import { PALETTE, texts } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const QUARTER_TICKS = 960;
 const Y = 200;
@@ -29,7 +29,7 @@ function at(dynamic: DynamicName, string = 1, fret = 5): Note {
 
 /** Quarter beats of bar `number` (1-based), one per entry: a note at that dynamic, or a rest for undefined. */
 function bar(number: number, dynamics: readonly (DynamicName | undefined)[]) {
-  return dynamics.map((dynamic, i) => beat(header(number).start + i * QUARTER_TICKS, dynamic === undefined ? [] : [at(dynamic)]));
+  return dynamics.map((dynamic, i) => beat(toTux(header(number).start) + i * QUARTER_TICKS, dynamic === undefined ? [] : [at(dynamic)]));
 }
 
 describe('beatDynamic', () => {

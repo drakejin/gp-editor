@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.musicxml.MusicXMLWriter#writeTrack's measure loop / #backToMeasureStart (LGPL-2.1).
-import { NORMAL_TUPLET, durationTicks, measureTicks, plainDuration } from '../../model/defaults';
+import { NORMAL_TUPLET, durationTicks, isSameTuplet, measureTicks, plainDuration } from '../../model/defaults';
 import type { MeasureHeader, Tuplet } from '../../model/song';
 import { attributesElement, headerDirection, leftBarline, rightBarline } from './musicxml-attributes';
 import { type EventMarks, type PartContext, type StaffSpec, eventElements, voiceNumber } from './musicxml-beat';
@@ -14,13 +14,10 @@ function isTuplet(tuplet: Tuplet): boolean {
   return tuplet.enters !== tuplet.times;
 }
 
-function isSameTuplet(a: Tuplet, b: Tuplet): boolean {
-  return a.enters === b.enters && a.times === b.times;
-}
-
 /**
  * Tuplet brackets of one voice in one measure: consecutive events in the same tuplet, a bracket closing once they fill
- * `times` notes of the first event's plain value (three eighth-note triplets fill two eighths). One-event groups get none.
+ * `times` notes of the first event's plain value (three eighth-note triplets fill two eighths). One-event groups get none,
+ * nor do tuplets inside tuplets (their time-modification holds the combined ratio).
  */
 export function tupletBrackets(events: readonly VoiceEvent[]): ReadonlyMap<number, 'start' | 'stop'> {
   const brackets = new Map<number, 'start' | 'stop'>();
@@ -30,7 +27,7 @@ export function tupletBrackets(events: readonly VoiceEvent[]): ReadonlyMap<numbe
   events.forEach((event, index) => {
     const { tuplet } = event.voice.duration;
     const previous = events[index - 1]?.voice.duration.tuplet ?? NORMAL_TUPLET;
-    if (!isTuplet(tuplet)) {
+    if (!isTuplet(tuplet) || event.voice.duration.innerTuplet !== undefined) {
       groupStart = -1;
       return;
     }
@@ -85,7 +82,7 @@ function measureEvents(context: PartContext, measureIndex: number): MeasureEvent
 
 interface StaffContent {
   readonly nodes: readonly XmlNode[];
-  /** Where the time cursor ends, in ticks from the measure start. */
+  /** Where the time cursor ends, in divisions from the measure start. */
   readonly cursor: number;
   readonly reached: number;
 }
@@ -98,7 +95,7 @@ function staffContent(context: PartContext, header: MeasureHeader, events: Measu
   for (const voiceEvents of events.voices) {
     const brackets = tupletBrackets(voiceEvents);
     voiceEvents.forEach((event, index) => {
-      const position = event.beat.start - header.start;
+      const position = (event.beat.start - header.start) / context.unit;
       const move = cursorMove(cursor, position);
       const marks: EventMarks = {
         tuplet: brackets.get(index),
@@ -106,7 +103,7 @@ function staffContent(context: PartContext, header: MeasureHeader, events: Measu
         isLyricVoice: events.lyricVoice.get(event.beatIndex) === event.voiceIndex,
       };
       nodes.push(...(move === undefined ? [] : [move]), ...eventElements(context, event, staff, marks, keySignature));
-      cursor = position + durationTicks(event.voice.duration);
+      cursor = position + durationTicks(event.voice.duration) / context.unit;
       reached = Math.max(reached, cursor);
     });
   }
@@ -124,7 +121,7 @@ export function buildMeasure(context: PartContext, headers: readonly MeasureHead
   if (header === undefined || measure === undefined) {
     throw new RangeError(`No measure ${measureIndex + 1} in track ${context.track.number}`);
   }
-  const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator) / context.unit;
   const events = measureEvents(context, measureIndex);
   const staves = context.track.isPercussion ? [NOTATION_STAFF] : [NOTATION_STAFF, TAB_STAFF];
   const content: XmlNode[] = [];
@@ -139,7 +136,7 @@ export function buildMeasure(context: PartContext, headers: readonly MeasureHead
   });
   const toEnd = reached < length ? cursorMove(cursor, length) : undefined;
   return element('measure', { number: header.number }, [
-    attributesElement(context.track, measureIndex, headers),
+    attributesElement(context.track, measureIndex, headers, context.unit),
     leftBarline(header, headers[measureIndex - 1]),
     headerDirection(header, headers[measureIndex - 1]),
     ...content,
