@@ -188,6 +188,22 @@ describe('fades and rasgueado over the tab', () => {
     expect(lines(commands)[0]).toMatchObject({ y1: 37, y2: 40 });
   });
 
+  it('draws them over the notation staff when the tab is hidden, and only them', () => {
+    // Arrange
+    const marked = makeSong([[{ ...beat(960, [note(1, 0, { fadeOut: true, tapping: true })]), rasgueado: 'ii' }]]);
+    const row = { measures: [layoutMeasure(marked, 0, 0)] };
+    const draw = (mode: 'notation' | 'notationAndTab') =>
+      engraveRow({ song: marked, trackIndex: 0, row, headerWidth: 40, mode, geometry: rowGeometry(mode, 6, { markLaneCount: 1 }), palette: PALETTE });
+
+    // Act
+    const notation = draw('notation');
+    const both = draw('notationAndTab');
+
+    // Assert
+    expect(textValues(notation).filter((text) => text.startsWith('rasg.') || text === 'T')).toEqual(['rasg. ii']);
+    expect(textValues(both).filter((text) => text.startsWith('rasg.'))).toEqual(['rasg. ii']);
+  });
+
   it('writes "rasg." and the pattern over a rasgueado beat', () => {
     // Arrange
     const marked = makeSong([[{ ...beat(960, [note(1, 0)]), rasgueado: 'miiAnapaest' }]]);

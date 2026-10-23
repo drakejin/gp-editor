@@ -5,6 +5,7 @@ import { type DrawCommand, translateCommands } from './draw';
 import { engraveDirections } from './directions';
 import { engraveDynamics } from './dynamics';
 import { engraveHairpins } from './hairpins';
+import { engraveNotationExpressions } from './notation-expressions';
 import { engravePedals } from './pedals';
 import { engraveChords } from './chords';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
@@ -164,13 +165,19 @@ function engraveMeasureDynamics(context: RowContext, scope: MeasureScope, notati
   return engraveDynamics({ measures: scope.track.measures, measureIndex: layout.measureIndex, layout, y: dynamicsY, palette: context.palette, staff });
 }
 
-/** The bar's directions under the heading, and the hairpins and the sustain pedal under the staves, in their bands. */
+/**
+ * The bar's directions under the heading, the hairpins and the sustain pedal under the staves, in their bands (and the
+ * fades and rasgueados over a notation staff without tab).
+ */
 function engraveMeasureMarks(context: RowContext, scope: MeasureScope): DrawCommand[] {
-  const { directionsY, dynamicsY, pedalsY } = context.geometry;
-  const { track, header, layout } = scope;
+  const { directionsY, dynamicsY, pedalsY, notationTop, tabTop } = context.geometry;
+  const { track, header, measure, layout } = scope;
   const { measureIndex } = layout;
   const { palette } = context;
+  // Without a tab staff, the fades and rasgueados go over the notation.
+  const expressions = notationTop !== undefined && tabTop === undefined ? engraveNotationExpressions(measure, layout, notationTop, palette) : [];
   return [
+    ...expressions,
     ...(directionsY === undefined ? [] : engraveDirections(header, layout.width, directionsY, palette)),
     ...(dynamicsY === undefined ? [] : engraveHairpins({ measures: track.measures, measureIndex, layout, y: dynamicsY, palette })),
     ...(pedalsY === undefined ? [] : engravePedals({ measures: track.measures, measureIndex, header, layout, y: pedalsY, palette })),
