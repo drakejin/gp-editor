@@ -13,6 +13,7 @@ The goal is to open every Guitar Pro file:
 | 5 | `.gp5` | binary | `gtp/gp5.ts` |
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
+| MIDI (Standard MIDI File 0, 1) | `.mid`, `.midi` | MThd / MTrk chunks | `midi/midi-song-reader.ts` |
 
 The format is detected from the file content, not the extension.
 
@@ -98,6 +99,10 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
   (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **MIDI files** (`.mid`, `.midi`) open like Guitar Pro files, as TuxGuitar imports them: one track per MIDI track (a
+  format 0 file's channels each get one), drums on channel 10 as a drum track, tempo, time and key signature changes as
+  bars, note lengths rounded to sixteenths (no tuplets) and tied across bar lines, notes on a standard guitar — or a
+  4-string bass for a bass program — when they fit it, else on TuxGuitar's next tuning. Save writes a new `.gp5`.
 - **Tabs**: as in Guitar Pro 8, every document opens in a tab of its own — New, Open, a file from Finder or dropped on
   the window, a finished PDF import; opening a file that is already open shows its tab instead. A tab shows the song's
   title (else the file name), a • while edited and a × to close it; the shown tab is lit, and many tabs scroll
@@ -237,6 +242,7 @@ GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the wh
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2 files are not committed (fetched by
 `fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`.
+The MIDI test file is in the public domain (Mutopia Project).
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).
