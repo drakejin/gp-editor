@@ -26,14 +26,17 @@ function legatoKind(from: Note, to: Note): LegatoKind {
 
 const LEGATO_TEXT: Readonly<Record<LegatoKind, string>> = { 'hammer-on': 'H', 'pull-off': 'P' };
 
-/** The hammer-on or pull-off this note ends (previous note's hammer) and the one it starts (its own, to the next note). */
+/**
+ * The hammer-on or pull-off this note ends (previous note's hammer) and the one it starts (its own, to the next note; a
+ * hammer-on as TuxGuitar writes it when no note follows on the string, so the mark is kept).
+ */
 function legatoMarks({ note, next, previous }: TechnicalInput): XmlNode[] {
   const marks: XmlNode[] = [];
   if (previous?.effect.hammer === true) {
     marks.push(element(legatoKind(previous, note), { type: 'stop' }));
   }
-  if (note.effect.hammer && next !== undefined) {
-    const kind = legatoKind(note, next);
+  if (note.effect.hammer) {
+    const kind = next === undefined ? 'hammer-on' : legatoKind(note, next);
     marks.push(textElement(kind, LEGATO_TEXT[kind], { type: 'start' }));
   }
   return marks;
@@ -47,13 +50,18 @@ interface BendStep {
 
 const QUARTER_TONES_PER_SEMITONE = 2;
 
+/** A curve's values with repeats in a row left out: the levels it moves between. */
+function curveLevels(curve: Bend): readonly number[] {
+  return curve.points.map((point) => point.value).filter((value, index, all) => index === 0 || value !== all[index - 1]);
+}
+
 /**
  * The bend as MusicXML's sequence of steps: the curve's distinct values in order, each step relative to the one before
  * (TuxGuitar writes absolute values); a curve that starts bent is a pre-bend, a step down a release. A bend held from
  * the note before ('release' of bendShapeOf) is a release alone.
  */
 export function bendSteps(bend: Bend): readonly BendStep[] {
-  const values = bend.points.map((point) => point.value).filter((value, index, all) => index === 0 || value !== all[index - 1]);
+  const values = curveLevels(bend);
   const shaped = bendShapeOf(bend);
   if (shaped?.shape === 'release') {
     return [{ alter: -shaped.amount / QUARTER_TONES_PER_SEMITONE, kind: 'release' }];
@@ -67,10 +75,21 @@ export function bendSteps(bend: Bend): readonly BendStep[] {
   });
 }
 
-function bendElements(bend: Bend | undefined): XmlNode[] {
-  return bend === undefined
-    ? []
-    : bendSteps(bend).map((step) => element('bend', {}, [textElement('bend-alter', step.alter), step.kind !== 'bend' && element(step.kind)]));
+/** The tremolo bar as bend steps (TuxGuitar's TODO "with-bar"): a curve that starts away from the pitch is a pre-bend. */
+export function tremoloBarSteps(bar: Bend): readonly BendStep[] {
+  const values = curveLevels(bar);
+  return values.flatMap((value, index): BendStep[] => {
+    if (index === 0) {
+      return value === 0 ? [] : [{ alter: value / QUARTER_TONES_PER_SEMITONE, kind: 'pre-bend' }];
+    }
+    return [{ alter: (value - (values[index - 1] ?? 0)) / QUARTER_TONES_PER_SEMITONE, kind: 'bend' }];
+  });
+}
+
+function bendElements(steps: readonly BendStep[], isWithBar: boolean): XmlNode[] {
+  return steps.map((step) =>
+    element('bend', {}, [textElement('bend-alter', step.alter), step.kind !== 'bend' && element(step.kind), isWithBar && element('with-bar')]),
+  );
 }
 
 /** Natural harmonics are natural; artificial, pinch and tapped ones artificial; a semi-harmonic has no kind. */
@@ -98,7 +117,8 @@ export function technicalElement(input: TechnicalInput): XmlNode | undefined {
     ...legatoMarks(input),
     note.effect.tapping && element('tap'),
     pickStrokeElement(input),
-    ...bendElements(note.effect.bend),
+    ...bendElements(note.effect.bend === undefined ? [] : bendSteps(note.effect.bend), false),
+    ...bendElements(note.effect.tremoloBar === undefined ? [] : tremoloBarSteps(note.effect.tremoloBar), true),
     harmonicElement(note.effect.harmonic),
   ]);
 }

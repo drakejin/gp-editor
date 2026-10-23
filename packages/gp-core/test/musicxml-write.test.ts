@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BEND_PRESETS } from '../src/edit/effects';
+import { BEND_PRESETS, TREMOLO_BAR_PRESETS } from '../src/edit/effects';
 import { buildBend } from '../src/edit/bend-shapes';
 import { NORMAL_TUPLET } from '../src/model/defaults';
 import type { Duration } from '../src/model/song';
@@ -299,6 +299,42 @@ describe('writeMusicXml notes', () => {
       [['2', 'pre-bend'], ['-2', 'release']],
       [['-2', 'release']],
     ]);
+  });
+
+  it('writes the tremolo bar as bends with the bar, and keeps a hammer-on or slide with no note after it', () => {
+    // Arrange
+    const song = songWithNotes(
+      [buildNote(1, 5, { effect: { tremoloBar: TREMOLO_BAR_PRESETS.dip } })],
+      [buildNote(1, 5, { effect: { hammer: true, slides: ['shift'] } })],
+    );
+
+    // Act
+    const notes = notesOn(measuresOf(written(song))[0], 1);
+
+    // Assert
+    const bar = children(technicalOf(notes[0]), 'bend').map((bend) => [childText(bend, 'bend-alter'), childNames(bend).slice(1).join()]);
+    expect(bar).toEqual([['-2', 'with-bar'], ['2', 'with-bar']]);
+    expect(attribute(child(technicalOf(notes[1]), 'hammer-on'), 'type')).toBe('start');
+    expect(attribute(child(child(notes[1], 'notations'), 'slide'), 'type')).toBe('start');
+    expect(child(child(notes[1], 'notations'), 'slur')).toBeUndefined();
+  });
+
+  it('writes a stroke as an arpeggio on every note of the beat (a down stroke plays upwards)', () => {
+    // Arrange
+    const base = songWithNotes([buildNote(1, 0), buildNote(2, 0)]);
+    const track = base.tracks[0];
+    const measure = track?.measures[0];
+    if (track === undefined || measure === undefined) {
+      throw new Error('test song has a track and a measure');
+    }
+    const beats = measure.beats.map((beat) => ({ ...beat, stroke: { direction: 'down' as const, value: 16 } }));
+    const song = { ...base, tracks: [{ ...track, measures: [{ ...measure, beats }] }] };
+
+    // Act
+    const notes = notesOn(measuresOf(written(song))[0], 1);
+
+    // Assert
+    expect(notes.map((note) => attribute(child(child(note, 'notations'), 'arpeggiate'), 'direction'))).toEqual(['up', 'up']);
   });
 
   it('writes slides, harmonics, vibrato, let ring, palm mute and articulations', () => {

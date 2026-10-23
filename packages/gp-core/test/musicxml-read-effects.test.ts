@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBend } from '../src/edit/bend-shapes';
+import { TREMOLO_BAR_PRESETS } from '../src/edit/effects';
 import { DYNAMICS } from '../src/formats/common/velocity';
 import type { Note } from '../src/model/song';
 import { DIVISIONS_1, beatsOf, firstTrack, onePart, quarter, readXml, tabQuarter, voiceNotes } from './helpers/musicxml-snippets';
@@ -46,6 +47,43 @@ describe('readMusicXml note effects', () => {
 
     // Assert
     expect(bends).toEqual([buildBend('bend', 4), buildBend('bendRelease', 2), buildBend('preBendRelease', 4), buildBend('release', 4)]);
+  });
+
+  it('reads bends with the bar as the tremolo bar, and a bend of many steps without repeated positions', () => {
+    // Arrange
+    const bend = (inner: string) => tabQuarter('E4', 1, 5).replace('</technical>', `${inner}</technical>`);
+    const many = Array.from({ length: 8 }, (_, index) => `<bend><bend-alter>${index % 2 === 0 ? 1 : -1}</bend-alter></bend>`).join('');
+    const xml = onePart(
+      TAB +
+        bend('<bend><bend-alter>-2</bend-alter><with-bar/></bend><bend><bend-alter>2</bend-alter><with-bar/></bend>') +
+        bend(many),
+    );
+
+    // Act
+    const [dip, wavy] = firstNotes(xml);
+
+    // Assert
+    expect(dip?.effect.tremoloBar).toEqual(TREMOLO_BAR_PRESETS.dip);
+    expect(dip?.effect.bend).toBeUndefined();
+    const positions = wavy?.effect.bend?.points.map((point) => point.position) ?? [];
+    expect(new Set(positions).size).toBe(positions.length);
+    expect(positions[positions.length - 1]).toBe(12);
+  });
+
+  it('reads an arpeggio as a stroke of the beat: upwards is a down stroke', () => {
+    // Arrange
+    const xml = onePart(
+      TAB +
+        tabQuarter('E4', 1, 0, '<arpeggiate direction="up"/>') +
+        tabQuarter('E4', 1, 0, '<arpeggiate direction="down"/>') +
+        tabQuarter('E4', 1, 0),
+    );
+
+    // Act
+    const beats = beatsOf(readXml(xml));
+
+    // Assert
+    expect(beats.map((beat) => beat.stroke.direction)).toEqual(['down', 'up', 'none']);
   });
 
   it('reads harmonics, vibrato, palm mute, let ring, dead and ghost notes, articulations and tapping', () => {

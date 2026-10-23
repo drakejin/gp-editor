@@ -1,7 +1,7 @@
 // A MusicXML part's measure as the model's beats (no TuxGuitar reader exists): one beat per position any voice starts at.
 import { restDurations } from '../../edit/rests';
 import { NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
-import type { Beat, MeasureHeader, StrokeDirection, Voice } from '../../model/song';
+import type { Beat, MeasureHeader, Stroke, StrokeDirection, Voice } from '../../model/song';
 import type { Timed } from './musicxml-measures';
 import type { RawNote } from './musicxml-note';
 import { type Neck, type PlacedNote, placeBeat } from './musicxml-placement';
@@ -26,6 +26,14 @@ export interface BuiltBeats {
 function pickStrokeOf(events: readonly (VoiceEventDraft | undefined)[]): StrokeDirection {
   const notes = events.flatMap((event) => event?.notes ?? []);
   return notes.map((note: RawNote) => note.marks.pickStroke).find((direction) => direction !== 'none') ?? 'none';
+}
+
+/** MusicXML gives an arpeggio no speed: a stroke of the beat's notes takes a sixteenth. */
+const STROKE_VALUE = 16;
+
+function strokeOf(events: readonly (VoiceEventDraft | undefined)[]): Stroke {
+  const direction = events.flatMap((event) => event?.notes ?? []).map((note) => note.marks.stroke).find((value) => value !== 'none');
+  return direction === undefined ? NO_STROKE : { direction, value: STROKE_VALUE };
 }
 
 /** Texts at or after the previous beat's position up to this one go to this beat (a text between two beats goes to the later). */
@@ -62,7 +70,7 @@ export function buildBeats(source: MeasureSource, neck: Neck): BuiltBeats {
       event === undefined ? EMPTY_VOICE : { duration: event.duration, notes: placed.notes[voiceIndex] ?? [], isEmpty: false, direction: 'none' },
     );
     const text = textAt(source.texts, index === 0 ? -1 : (ticks[index - 1] ?? -1), tick);
-    const beat: Beat = { start: header.start + tick, voices: beatVoices, stroke: NO_STROKE, pickStroke: pickStrokeOf(events), ...(text === undefined ? {} : { text }) };
+    const beat: Beat = { start: header.start + tick, voices: beatVoices, stroke: strokeOf(events), pickStroke: pickStrokeOf(events), ...(text === undefined ? {} : { text }) };
     return beat;
   });
   return { beats, previous };

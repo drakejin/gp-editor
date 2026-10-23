@@ -1,15 +1,16 @@
 // Note effects from MusicXML notations (no TuxGuitar reader exists; the marks mirror TuxGuitar's MusicXMLWriter).
-import { BEND_MAX_VALUE } from '../common/bend-units';
+import { BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../common/bend-units';
 import { EMPTY_NOTE_EFFECT, NORMAL_TUPLET, toVibratoFlags } from '../../model/defaults';
 import type { Bend, BendPoint, Duration, Harmonic, NoteEffect, NoteValue, SlideType, StrokeDirection, VibratoKind } from '../../model/song';
 import { type XmlElement, attribute, child, childText, children, lookupName } from '../gpif/xml';
 import { clamp, has, readIntegerIn, readNumber } from './musicxml-values';
 
-/** One `<bend>`: semitones relative to the bend before it, and whether it is a pre-bend or a release. */
+/** One `<bend>`: semitones relative to the bend before it, and whether it is a pre-bend, a release, done with the bar. */
 export interface BendStep {
   readonly alter: number;
   readonly isPreBend: boolean;
   readonly isRelease: boolean;
+  readonly isWithBar: boolean;
 }
 
 /** What a note's notations, notehead and play elements say, before it is a NoteEffect. */
@@ -18,7 +19,10 @@ export interface NoteMarks {
   readonly isLegatoStart: boolean;
   readonly isSlurStart: boolean;
   readonly isSlideStart: boolean;
+  /** Bends; those with the bar make the tremolo bar. */
   readonly bends: readonly BendStep[];
+  /** A stroke (MusicXML's arpeggio: up is a down stroke). */
+  readonly stroke: StrokeDirection;
   readonly harmonic?: Harmonic;
   readonly vibrato: VibratoKind;
   readonly isLetRing: boolean;
@@ -43,7 +47,7 @@ const SLIDE_ARTICULATIONS: Readonly<Record<string, SlideType>> = {
   scoop: 'intoFromBelow',
   plop: 'intoFromAbove',
 };
-const TRILL_STEPS: Readonly<Record<string, number>> = { half: 1, whole: 2, unison: 2 };
+const TRILL_STEPS: Readonly<Record<string, number>> = { half: 1, whole: 2, unison: 0 };
 /** An artificial harmonic sounds an octave above the fretted note unless the file says otherwise. */
 const ARTIFICIAL_HARMONIC_OFFSET = 12;
 const MAX_TREMOLO_MARKS = 8;
@@ -64,7 +68,7 @@ function hasStart(elements: readonly XmlElement[]): boolean {
 function readBends(technical: readonly XmlElement[]): BendStep[] {
   return inside(technical, 'bend').flatMap((bend) => {
     const alter = readNumber(childText(bend, 'bend-alter'));
-    return alter === undefined ? [] : [{ alter, isPreBend: has(bend, 'pre-bend'), isRelease: has(bend, 'release') }];
+    return alter === undefined ? [] : [{ alter, isPreBend: has(bend, 'pre-bend'), isRelease: has(bend, 'release'), isWithBar: has(bend, 'with-bar') }];
   });
 }
 
@@ -99,6 +103,15 @@ function readPickStroke(technical: readonly XmlElement[]): StrokeDirection {
   return inside(technical, 'down-bow').length > 0 ? 'down' : 'none';
 }
 
+/** An arpeggio played downwards (from the high strings) is an up stroke; upwards or without an arrow, a down stroke. */
+function readStroke(arpeggios: readonly XmlElement[]): StrokeDirection {
+  const [arpeggio] = arpeggios;
+  if (arpeggio === undefined) {
+    return 'none';
+  }
+  return attribute(arpeggio, 'direction') === 'down' ? 'up' : 'down';
+}
+
 /** The marks of a `<note>`: its notations, notehead and play elements. */
 export function readNoteMarks(note: XmlElement): NoteMarks {
   const notations = children(note, 'notations');
@@ -127,53 +140,73 @@ export function readNoteMarks(note: XmlElement): NoteMarks {
     trill: readTrill(ornaments),
     tremoloMarks: tremolo === undefined ? undefined : readIntegerIn(tremolo.text, 0, MAX_TREMOLO_MARKS),
     pickStroke: readPickStroke(technical),
+    stroke: readStroke(allOf(notations, 'arpeggiate')),
   };
 }
 
 const QUARTER_TONES_PER_SEMITONE = 2;
 const BEND_END = 12;
 
-function toBendValue(semitones: number): number {
-  return clamp(Math.round(semitones * QUARTER_TONES_PER_SEMITONE), 0, BEND_MAX_VALUE);
+/**
+ * The values a curve may take, in quarter tones (a bend's 0…12, the tremolo bar's ±24), and whether it holds each value
+ * it reaches (buildBend's shapes do; the tremolo bar's presets, such as the dip, move straight on).
+ */
+interface CurveRange {
+  readonly min: number;
+  readonly max: number;
+  readonly holds: boolean;
+}
+
+const BEND_RANGE: CurveRange = { min: 0, max: BEND_MAX_VALUE, holds: true };
+const TREMOLO_BAR_RANGE: CurveRange = { min: -TREMOLO_BAR_LIMIT, max: TREMOLO_BAR_LIMIT, holds: false };
+
+function toCurveValue(semitones: number, range: CurveRange): number {
+  return clamp(Math.round(semitones * QUARTER_TONES_PER_SEMITONE), range.min, range.max) + 0;
 }
 
 /** The value after a step: relative, as MusicXML has it; a release by 0 or more is TuxGuitar's absolute value. */
-function afterStep(value: number, step: BendStep): number {
+function afterStep(value: number, step: BendStep, range: CurveRange): number {
   if (step.isRelease && step.alter >= 0) {
-    return toBendValue(step.alter);
+    return toCurveValue(step.alter, range);
   }
-  return toBendValue(value / QUARTER_TONES_PER_SEMITONE + step.alter);
+  return toCurveValue(value / QUARTER_TONES_PER_SEMITONE + step.alter, range);
 }
 
 /**
- * The bend of a note from its steps: a pre-bend starts the curve bent, a release that comes first starts it bent too (the
+ * A curve from its steps: a pre-bend starts it away from the pitch, a release that comes first starts it bent too (the
  * bend is held from the note before), every other step moves the value. The curve holds each value as long as it took
- * to reach it (a pre-bend is held for one such span), so the steps of buildBend's shapes read back as those shapes.
+ * to reach it (a pre-bend is held for one such span), so the steps of buildBend's shapes read back as those shapes; with
+ * more steps than the 12 positions hold that way, the values are not held, and steps past 12 are left out.
  */
-export function bendFromSteps(steps: readonly BendStep[]): Bend | undefined {
+export function bendFromSteps(steps: readonly BendStep[], range: CurveRange = BEND_RANGE): Bend | undefined {
   const [first, ...rest] = steps;
   if (first === undefined) {
     return undefined;
   }
   const isPreBend = first.isPreBend;
-  const start = isPreBend ? toBendValue(first.alter) : first.isRelease && first.alter < 0 ? toBendValue(-first.alter) : 0;
-  const moves = isPreBend ? rest : steps;
-  const step = BEND_END / (moves.length * 2 + (isPreBend ? 1 : 0));
+  const start = isPreBend ? toCurveValue(first.alter, range) : first.isRelease && first.alter < 0 ? toCurveValue(-first.alter, range) : 0;
+  const moves = (isPreBend ? rest : steps).slice(0, BEND_END - (isPreBend ? 1 : 0));
+  const preSpans = isPreBend ? 1 : 0;
+  const isHeld = range.holds && moves.length * 2 + preSpans <= BEND_END;
+  const step = BEND_END / Math.max(1, moves.length * (isHeld ? 2 : 1) + preSpans);
   const points: BendPoint[] = [{ position: 0, value: start }];
   let value = start;
   let position = 0;
-  if (isPreBend) {
+  const push = (): void => {
     position += step;
     points.push({ position: Math.round(position), value });
+  };
+  if (isPreBend) {
+    push();
   }
   for (const move of moves) {
-    value = afterStep(value, move);
-    position += step;
-    points.push({ position: Math.round(position), value });
-    position += step;
-    points.push({ position: Math.round(position), value });
+    value = afterStep(value, move, range);
+    push();
+    if (isHeld) {
+      push();
+    }
   }
-  return points.some((point) => point.value > 0) ? { points } : undefined;
+  return points.some((point) => point.value !== 0) ? { points } : undefined;
 }
 
 /** The tremolo picking speed for MusicXML's marks (one mark: eighths); undefined for none. */
@@ -196,12 +229,14 @@ function trillValue(noteValue: NoteValue, beats: number | undefined): NoteValue 
 
 /** The note effect of the marks (the grace note is attached later); `fret` places a trill, `noteValue` times it. */
 export function toNoteEffect(marks: NoteMarks, fret: number, noteValue: NoteValue, isPercussion: boolean): NoteEffect {
-  const bend = bendFromSteps(marks.bends);
+  const bend = bendFromSteps(marks.bends.filter((step) => !step.isWithBar));
+  const tremoloBar = bendFromSteps(marks.bends.filter((step) => step.isWithBar), TREMOLO_BAR_RANGE);
   const tremolo = tremoloValue(marks.tremoloMarks);
   const slides: SlideType[] = [...(marks.isSlideStart ? [marks.isSlurStart ? ('legato' as const) : ('shift' as const)] : []), ...marks.slides];
   return {
     ...EMPTY_NOTE_EFFECT,
     ...(bend === undefined ? {} : { bend }),
+    ...(tremoloBar === undefined ? {} : { tremoloBar }),
     ...(marks.harmonic === undefined ? {} : { harmonic: marks.harmonic }),
     ...(marks.trill === undefined ? {} : { trill: { fret: fret + marks.trill.step, duration: plain(trillValue(noteValue, marks.trill.beats)) } }),
     ...(tremolo === undefined ? {} : { tremoloPicking: { duration: plain(tremolo) } }),

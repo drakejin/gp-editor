@@ -236,7 +236,9 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   endings, rehearsal marks, voices, ties, tuplets (nested ones too), grace notes, dynamics, lyrics and the guitar
   effects MusicXML has (hammer-ons, slides, bends, harmonics, vibrato, palm mute, let ring …) are read. File ▸ Export
   MusicXML… / Export Compressed MusicXML… saves the song as `.musicxml` / `.mxl` (MusicXML 4.0 as TuxGuitar writes it:
-  a notation staff and a tab staff per track) for other notation programs.
+  a notation staff and a tab staff per track) for other notation programs. MusicXML has no place for chord diagrams,
+  slapping, popping, fade-in, a stroke's speed, pinch / tapped / semi-harmonics (written as artificial or plain ones)
+  or when in the note a bend moves (it reads back in even steps).
 - **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
   the printer's paper), through the macOS print panel.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel

@@ -2,7 +2,7 @@
 import { DEFAULT_VELOCITY } from '../../formats/common/velocity';
 import { artificialHarmonicOffsetAtFret } from '../../formats/common/harmonics';
 import { durationTicks } from '../../model/defaults';
-import type { Grace, Note, Track } from '../../model/song';
+import type { Grace, Note, Stroke, Track } from '../../model/song';
 import { type TrackFlow, type VoiceEvent, eventKey, noteKey } from './musicxml-flow';
 import type { NoteLyric, TrackLyrics } from './musicxml-lyrics';
 import { noteElement, pitchElement, restElement, unpitchedElement } from './musicxml-note';
@@ -129,7 +129,8 @@ function spanners(note: Note, next: Note | undefined, previous: Note | undefined
   const isSlurEnd = previous?.effect.hammer === true || previous?.effect.slides.includes('legato') === true || note.effect.grace?.transition === 'hammer';
   const isSlurStart = next !== undefined && (note.effect.hammer || note.effect.slides.includes('legato'));
   const isSlideEnd = hasConnectedSlide(previous) || note.effect.grace?.transition === 'slide';
-  const isSlideStart = next !== undefined && hasConnectedSlide(note);
+  // A slide with no note after it on the string keeps its start (as TuxGuitar writes it), so the slide is not lost.
+  const isSlideStart = hasConnectedSlide(note);
   return [
     isSlurEnd && element('slur', { type: 'stop', number }),
     isSlurStart && element('slur', { type: 'start', number }),
@@ -159,10 +160,16 @@ function noteNotations(input: MainNoteInput, note: Note, index: number): XmlNode
     note.effect.letRing && element('tied', { type: 'let-ring' }),
     ...spanners(note, next, previous),
     index === 0 && marks.tuplet !== undefined && element('tuplet', { type: marks.tuplet }),
+    arpeggiateElement(event.beat.stroke),
     technicalElement({ note, next, previous, isTab: staff.isTab, isChordNote: index > 0, pickStroke: event.beat.pickStroke }),
     articulationsElement(note),
     ornamentsElement(note, event.voice.duration),
   ]);
+}
+
+/** A stroke as an arpeggio on each note: a down stroke goes from the low strings up, so its arrow points up. */
+function arpeggiateElement(stroke: Stroke): XmlNode | undefined {
+  return stroke.direction === 'none' ? undefined : element('arpeggiate', { direction: stroke.direction === 'down' ? 'up' : 'down' });
 }
 
 function lyricElement(lyric: NoteLyric): XmlNode {

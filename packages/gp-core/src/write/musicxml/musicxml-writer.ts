@@ -133,8 +133,11 @@ function partElement(song: Song, track: Track, unit: number): XmlNode {
 /**
  * The song as a MusicXML 4.0 score-partwise document, as TuxGuitar writes it: each track a part with a notation staff
  * (sounding an octave below the written notes) and a tab staff (string and fret of every note); a percussion track has
- * one staff of unpitched notes. Beyond TuxGuitar: ties and slurs across bar lines, bends as relative steps, slides,
- * vibrato, dynamics, tuplet brackets, grace notes, tempo sounds, left and right barlines.
+ * one staff of unpitched notes. Beyond TuxGuitar: ties and slurs across bar lines, bends as relative steps and the
+ * tremolo bar as bends with the bar, slides, vibrato, strokes as arpeggios, dynamics, tuplet brackets, grace notes,
+ * tempo sounds, left and right barlines.
+ * MusicXML has no place for: when in the note a bend or tremolo bar moves (read back as even steps), tapped, pinch and
+ * semi-harmonics (written as artificial / plain harmonics), slapping, popping, fade-in, chord diagrams, a stroke's speed.
  *
  * @throws RangeError when the song has no measure or no track
  */
