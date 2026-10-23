@@ -35,6 +35,7 @@ import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
+import { withSelectionStart } from './mark-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
 import {
@@ -287,7 +288,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
             applySongAction(state.document.song, action),
           );
     case 'edit':
-      return applyCursorEdit(state, action.edit);
+      return applyCursorEdit(state, withSelectionStart(action.edit, state.selectionAnchor));
     case 'cutSelection':
       return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
     case 'pasteBeats':
