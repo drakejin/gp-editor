@@ -24,6 +24,12 @@ FOUNDATION_EXPORT NSString *const GPEditorExportMidiCommandNotification;
 /** File ▸ Export ASCII Tab… was chosen (JS event "exportAsciiTabRequested"). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportAsciiTabCommandNotification;
 
+/** File ▸ Export MusicXML… was chosen (JS event "exportMusicXmlRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportMusicXmlCommandNotification;
+
+/** File ▸ Export Compressed MusicXML… was chosen (JS event "exportCompressedMusicXmlRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportCompressedMusicXmlCommandNotification;
+
 /** File ▸ Print… (⌘P) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 

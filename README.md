@@ -14,6 +14,7 @@ The goal is to open every Guitar Pro file:
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
 | MIDI (Standard MIDI File 0, 1) | `.mid`, `.midi` | MThd / MTrk chunks | `midi/midi-song-reader.ts` |
+| MusicXML | `.musicxml`, `.xml`, `.mxl` | XML (`.mxl`: zip) | `musicxml/musicxml-reader.ts` (written by `write/musicxml/`) |
 
 It also imports two other tablature programs' files (saved as `.gp5`):
 
@@ -283,6 +284,15 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
   (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
   slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
+- **MusicXML**: Open, Finder and drag and drop also read MusicXML — `.musicxml` / `.xml` and compressed `.mxl`,
+  score-partwise or score-timewise (converted). Each part becomes a track: a tab staff gives its tuning, capo, strings
+  and frets; without one, the written pitches go on a guitar's (or bass's) strings. Bars, meters, tempos, repeats,
+  endings, rehearsal marks, voices, ties, tuplets (nested ones too), grace notes, dynamics, lyrics and the guitar
+  effects MusicXML has (hammer-ons, slides, bends, harmonics, vibrato, palm mute, let ring …) are read. File ▸ Export
+  MusicXML… / Export Compressed MusicXML… saves the song as `.musicxml` / `.mxl` (MusicXML 4.0 as TuxGuitar writes it:
+  a notation staff and a tab staff per track) for other notation programs. MusicXML has no place for chord diagrams,
+  slapping, popping, fade-in, a stroke's speed, pinch / tapped / semi-harmonics (written as artificial or plain ones)
+  or when in the note a bend moves (it reads back in even steps).
 - **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
   the printer's paper), through the macOS print panel.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel

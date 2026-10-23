@@ -1,6 +1,8 @@
 import { decodeWindows1252 } from '../io/text';
 import type { FileFormat } from '../model/song';
 import { MIDI_HEADER_MAGIC } from './midi/midi-file-reader';
+import { isMusicXmlArchive } from './musicxml/musicxml-container';
+import { isMusicXmlText } from './musicxml/musicxml-document';
 import { readTefVersion } from './tef/tef-header';
 
 export interface DetectedFormat {
@@ -40,7 +42,8 @@ const PTAB_HEADER_SIZE = 6;
  * Identify a Guitar Pro file from its first bytes. Returns undefined for anything
  * that is not a known Guitar Pro format.
  *
- * - `.gp` (Guitar Pro 7/8): a ZIP archive
+ * - `.gp` (Guitar Pro 7/8): a ZIP archive; `.mxl` (compressed MusicXML) is one too, with META-INF/container.xml
+ * - `.musicxml` / `.xml`: XML whose root element is score-partwise or score-timewise
  * - `.gpx` (Guitar Pro 6): a BCFZ (compressed) or BCFS container
  * - `.gtp/.gp3/.gp4/.gp5` (Guitar Pro 1–5): a length-prefixed version string
  * - `.ptb` (Power Tab): "ptab" and a version number
@@ -49,7 +52,10 @@ const PTAB_HEADER_SIZE = 6;
  */
 export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   if (startsWith(bytes, ZIP_MAGIC)) {
-    return { format: 'gp7', version: '' };
+    return { format: isMusicXmlArchive(bytes) ? 'musicxml' : 'gp7', version: '' };
+  }
+  if (isMusicXmlText(bytes)) {
+    return { format: 'musicxml', version: '' };
   }
   if (startsWith(bytes, MIDI_HEADER_MAGIC)) {
     return { format: 'midi', version: '' };

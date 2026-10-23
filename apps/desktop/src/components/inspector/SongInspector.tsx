@@ -32,6 +32,7 @@ const FORMAT_NAMES: Readonly<Record<Song['source']['format'], string>> = {
   ptb: 'Power Tab',
   tef: 'TablEdit',
   midi: 'MIDI file',
+  musicxml: 'MusicXML',
 };
 
 export interface SongInspectorProps {

@@ -3,7 +3,7 @@
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
-// writeFile / writeTextFile.
+// writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -30,6 +30,8 @@ static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
 static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
 static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
 static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
+static NSString *const kExportMusicXmlRequestedEvent = @"exportMusicXmlRequested";
+static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompressedMusicXmlRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -181,6 +183,11 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportMidiCommand:) name:GPEditorExportMidiCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportAsciiTabCommand:) name:GPEditorExportAsciiTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportMusicXmlCommand:) name:GPEditorExportMusicXmlCommandNotification object:nil];
+    [center addObserver:self
+               selector:@selector(onExportCompressedMusicXmlCommand:)
+                   name:GPEditorExportCompressedMusicXmlCommandNotification
+                 object:nil];
   }
   return self;
 }
@@ -195,7 +202,8 @@ RCT_EXPORT_MODULE();
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
+    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent
   ];
 }
 
@@ -318,6 +326,20 @@ RCT_EXPORT_MODULE();
   }
 }
 
+- (void)onExportMusicXmlCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportMusicXmlRequestedEvent body:@{}];
+  }
+}
+
+- (void)onExportCompressedMusicXmlCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportCompressedMusicXmlRequestedEvent body:@{}];
+  }
+}
+
 - (void)onOpenURLs:(NSNotification *)note
 {
   // GPFilesQueueOpenedURLs already queued the paths; deliver them now if JS is listening.
@@ -341,7 +363,7 @@ RCT_EXPORT_MODULE();
 + (NSArray<UTType *> *)guitarProTypes
 {
   NSMutableArray<UTType *> *types = [NSMutableArray array];
-  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp", @"ptb", @"tef", @"mid", @"midi" ]) {
+  for (NSString *ext in @[ @"gp", @"gpx", @"gp5", @"gp4", @"gp3", @"gtp", @"ptb", @"tef", @"mid", @"midi", @"musicxml", @"mxl", @"xml" ]) {
     UTType *type = [UTType typeWithFilenameExtension:ext];
     if (type != nil) {
       [types addObject:type];
@@ -371,7 +393,7 @@ RCT_EXPORT_METHOD(showOpenDialog : (RCTPromiseResolveBlock)resolve reject : (RCT
     panel.canChooseDirectories = NO;
     panel.allowsMultipleSelection = NO;
     panel.allowedContentTypes = [GPFiles guitarProTypes];
-    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef) or MIDI file (.mid)";
+    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef), MIDI (.mid) or MusicXML file (.musicxml, .xml, .mxl)";
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve([NSNull null]);
       return;

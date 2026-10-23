@@ -79,6 +79,13 @@ struct GPEditorApp: App {
         Button("Export ASCII Tab…") {
           NotificationCenter.default.post(name: .GPEditorExportAsciiTabCommand, object: nil)
         }
+        // MusicXML 4.0 for other notation programs, as text or zipped.
+        Button("Export MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportMusicXmlCommand, object: nil)
+        }
+        Button("Export Compressed MusicXML…") {
+          NotificationCenter.default.post(name: .GPEditorExportCompressedMusicXmlCommand, object: nil)
+        }
         Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
