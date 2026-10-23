@@ -61,3 +61,51 @@ const GM_BASS_PROGRAMS = { first: 32, last: 39 } as const;
 export function isGmBassProgram(program: number): boolean {
   return program >= GM_BASS_PROGRAMS.first && program <= GM_BASS_PROGRAMS.last;
 }
+
+/** General MIDI program 105: banjo. */
+export const GM_BANJO_PROGRAM = 105;
+
+/** The first General MIDI percussion key with a sound (channel 10). */
+const GM_PERCUSSION_FIRST_KEY = 35;
+
+/** General MIDI percussion sounds, keys 35–81 (GM 1 sound set), the fret of a drum note. */
+const GM_PERCUSSION_NAMES: readonly string[] = [
+  'Acoustic Bass Drum', 'Bass Drum 1', 'Side Stick', 'Acoustic Snare', 'Hand Clap', 'Electric Snare', 'Low Floor Tom',
+  'Closed Hi-Hat', 'High Floor Tom', 'Pedal Hi-Hat', 'Low Tom', 'Open Hi-Hat', 'Low-Mid Tom', 'Hi-Mid Tom',
+  'Crash Cymbal 1', 'High Tom', 'Ride Cymbal 1', 'Chinese Cymbal', 'Ride Bell', 'Tambourine', 'Splash Cymbal',
+  'Cowbell', 'Crash Cymbal 2', 'Vibraslap', 'Ride Cymbal 2', 'Hi Bongo', 'Low Bongo', 'Mute Hi Conga',
+  'Open Hi Conga', 'Low Conga', 'High Timbale', 'Low Timbale', 'High Agogo', 'Low Agogo', 'Cabasa', 'Maracas',
+  'Short Whistle', 'Long Whistle', 'Short Guiro', 'Long Guiro', 'Claves', 'Hi Wood Block', 'Low Wood Block',
+  'Mute Cuica', 'Open Cuica', 'Mute Triangle', 'Open Triangle',
+];
+
+/** The General MIDI percussion keys of a drum kit's pieces. */
+export const GM_DRUM_KEYS = {
+  acousticBassDrum: 35,
+  bassDrum: 36,
+  sideStick: 37,
+  snare: 38,
+  electricSnare: 40,
+  lowFloorTom: 41,
+  closedHiHat: 42,
+  highFloorTom: 43,
+  pedalHiHat: 44,
+  lowTom: 45,
+  openHiHat: 46,
+  lowMidTom: 47,
+  hiMidTom: 48,
+  crash1: 49,
+  highTom: 50,
+  ride: 51,
+  china: 52,
+  rideBell: 53,
+  tambourine: 54,
+  splash: 55,
+  cowbell: 56,
+  crash2: 57,
+} as const;
+
+/** The General MIDI name of a percussion key (35–81); undefined for any other number. */
+export function gmPercussionName(key: number): string | undefined {
+  return Number.isInteger(key) && key >= GM_PERCUSSION_FIRST_KEY ? GM_PERCUSSION_NAMES[key - GM_PERCUSSION_FIRST_KEY] : undefined;
+}

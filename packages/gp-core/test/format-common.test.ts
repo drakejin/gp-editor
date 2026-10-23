@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bendPositionFromGp, bendValueFromGp, tremoloBarValueFromGp } from '../src/formats/common/bend-units';
-import { createChannelName } from '../src/formats/common/channels';
+import { createChannelName, gmPercussionName } from '../src/formats/common/channels';
 import {
   artificialHarmonicOffset,
   artificialHarmonicOffsetAtFret,
@@ -198,6 +198,27 @@ describe('channel names', () => {
 
     // Assert
     expect(names).toEqual(['DrumKit 1', 'Untitled 1']);
+  });
+});
+
+describe('GM percussion names', () => {
+  it('names the General MIDI drum keys 35–81', () => {
+    expect([35, 36, 38, 42, 44, 46, 49, 51, 56, 81].map(gmPercussionName)).toEqual([
+      'Acoustic Bass Drum',
+      'Bass Drum 1',
+      'Acoustic Snare',
+      'Closed Hi-Hat',
+      'Pedal Hi-Hat',
+      'Open Hi-Hat',
+      'Crash Cymbal 1',
+      'Ride Cymbal 1',
+      'Cowbell',
+      'Open Triangle',
+    ]);
+  });
+
+  it('names no key outside the GM drum map', () => {
+    expect([34, 82, -1, 36.5].map(gmPercussionName)).toEqual([undefined, undefined, undefined, undefined]);
   });
 });
 

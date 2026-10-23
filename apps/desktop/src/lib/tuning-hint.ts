@@ -5,7 +5,7 @@ import { plural } from './wording';
 /** Suggested presets the hint offers as buttons. */
 export const HINT_SUGGESTIONS = 3;
 
-const INSTRUMENT_TITLES: Readonly<Record<TuningAdvice['instrument'], string>> = { guitar: 'Guitar', bass: 'Bass', percussion: 'Drums' };
+const INSTRUMENT_TITLES: Readonly<Record<TuningAdvice['instrument'], string>> = { guitar: 'Guitar', bass: 'Bass', banjo: 'Banjo', percussion: 'Drums' };
 
 /** Why the neck settings need the user, and the presets offered as one-click buttons. */
 export interface TuningHint {
