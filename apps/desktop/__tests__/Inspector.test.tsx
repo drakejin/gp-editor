@@ -102,6 +102,20 @@ describe('Inspector TRACK tab', () => {
 });
 
 describe('Inspector SONG tab', () => {
+  it.each([
+    ['ptb', 'Power Tab'],
+    ['tef', 'TablEdit'],
+  ] as const)('names a song read from a %s file after its program', (format, name) => {
+    // Arrange
+    const inspector = render({ song: { ...SONG, source: { format, version: '4' } } });
+
+    // Act
+    inspector.openTab('SONG');
+
+    // Assert
+    expect(inspector.texts()).toContain(`${name} · 1 track · 1 bar · 00:02`);
+  });
+
   it('edits a song field and shows the file facts', () => {
     // Arrange
     const inspector = render();

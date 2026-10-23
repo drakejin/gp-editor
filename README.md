@@ -14,6 +14,13 @@ The goal is to open every Guitar Pro file:
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
 
+It also imports two other tablature programs' files (saved as `.gp5`):
+
+| program | extension | reader |
+| --- | --- | --- |
+| Power Tab Editor 1.7 | `.ptb` | `ptb/ptb.ts` (repeats and jumps played out, as TuxGuitar does) |
+| TablEdit 3 and later | `.tef` | `tef/tef.ts` (not TablEdit 2, which has no header to detect) |
+
 The format is detected from the file content, not the extension.
 
 `gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
@@ -101,7 +108,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
-  (Guitar Pro files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+  (Guitar Pro, Power Tab and TablEdit files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
 - **Recent files**: File ▸ Open Recent lists the last 20 files opened or saved, newest first, and *Clear Menu* empties it;
   File ▸ Recent Files… (and the start screen, for the first five) shows the same list with *Open*, *Pin* / *Unpin* and
   *Remove* for each file. Pinned files stay on top, in the order they were pinned, and new files never push them out
@@ -269,7 +276,8 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the whole repository — see `LICENSE`.
 `packages/gp-core` follows TuxGuitar's readers (also LGPL-2.1) and carries its own copy in `packages/gp-core/LICENSE`.
 GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2 files are not committed (fetched by
-`fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`.
+`fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
+powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

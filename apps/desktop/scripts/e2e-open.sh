@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E smoke test of the built app: hand it Guitar Pro files the way Finder does (`open -a`) and check that
+# E2E smoke test of the built app: hand it Guitar Pro (and Power Tab, TablEdit) files the way Finder does (`open -a`) and check that
 # each one loads (the app logs its new window title, which is set only after a successful parse) and that
 # the app is still running afterwards. Needs a Release build (npm run build:macos).
 # Usage: scripts/e2e-open.sh [file ...]   — default: one fixture per format
@@ -27,6 +27,8 @@ if [[ ${#files[@]} -eq 0 ]]; then
         "${FIXTURES}/guitarpro6/serenade.gpx"
         "${FIXTURES}/guitarpro7/serenade.gp"
         "${FIXTURES}/guitarpro8/directions.gp"
+        "${FIXTURES}/powertab/guitar_ins.ptb"
+        "${FIXTURES}/tabledit/guitar_bass.tef"
     )
 fi
 
