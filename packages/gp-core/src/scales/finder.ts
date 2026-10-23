@@ -14,10 +14,48 @@ export interface ScaleMatch {
   readonly rootShare: number;
   /** Other names in the list for the same notes on the same root ("Ionian Mode" for "Major Scale"). */
   readonly aliases: readonly string[];
+  /** A scale, mode or arpeggio of everyday use (COMMON_SCALE_NAMES): these come first. */
+  readonly isCommon: boolean;
 }
 
 /** Matches findScales lists unless asked for another number. */
 export const MAX_SCALE_MATCHES = 40;
+
+/** What an unused scale note costs a match, against the share of the notes on its root (a tenth of them). */
+const UNUSED_NOTE_WEIGHT = 0.1;
+
+/** The scales, church modes and triad / seventh arpeggios guitarists use most; the finder lists them first. */
+const COMMON_SCALE_NAMES: ReadonlySet<string> = new Set([
+  'Major Scale',
+  'Pentatonic Major Scale',
+  'Blues Major Scale',
+  'Minor Scale',
+  'Melodic Minor Scale',
+  'Harmonic Minor Scale',
+  'Pentatonic Minor Scale',
+  'Blues Minor Scale',
+  'Be-Bop Scale',
+  'Whole-Half Scale',
+  'Half-Whole Scale',
+  'Whole Tone Scale',
+  'Dorian Mode',
+  'Phrygian Mode',
+  'Lydian Mode',
+  'Mixolydian Mode',
+  'Locrian Mode',
+  'Major Arpeggio',
+  'Minor Arpeggio',
+  'Major 7th Major Arpeggio',
+  'Major 7th Minor Arpeggio',
+  'Minor 7th Major Arpeggio',
+  'Minor 7th Minor Arpeggio',
+  'Augmented Arpeggio',
+  'Diminished Arpeggio',
+]);
+
+function isCommonScale(scaleIndex: number): boolean {
+  return COMMON_SCALE_NAMES.has(SCALES[scaleIndex]?.name ?? '');
+}
 
 interface Candidate {
   readonly pitchClass: number;
@@ -44,8 +82,9 @@ function pitchClassCounts(pitches: readonly number[]): readonly number[] {
 
 /**
  * The scales and keys that hold every one of the notes (MIDI pitches; a note played more often weighs more), best
- * first: those the notes fill most (fewest unused notes), then those whose root is played most, then the list's order
- * (common scales first). The same notes on the same root are listed once, the other names as aliases.
+ * first: the common scales, modes and arpeggios before the others, and in each those whose root is played most and
+ * that leave fewest of their notes unused (each unused note weighs a tenth of the notes), then the list's order. The
+ * same notes on the same root are listed once, the other names as aliases.
  */
 export function findScales(pitches: readonly number[], limit = MAX_SCALE_MATCHES): readonly ScaleMatch[] {
   const counts = pitchClassCounts(pitches);
@@ -61,18 +100,23 @@ export function findScales(pitches: readonly number[], limit = MAX_SCALE_MATCHES
     const key = `${candidate.pitchClass}:${candidate.mask}`;
     groups.set(key, [...(groups.get(key) ?? []), candidate]);
   });
-  const ranked = [...groups.values()].flatMap(([first, ...others]): RankedGroup[] =>
-    first === undefined ? [] : [{ first, others, unusedNotes: first.noteCount - usedCount, rootShare: (counts[first.pitchClass] ?? 0) / total }],
-  );
+  const ranked = [...groups.values()].flatMap(([first, ...others]): RankedGroup[] => {
+    if (first === undefined) {
+      return [];
+    }
+    const isCommon = [first, ...others].some((candidate) => isCommonScale(candidate.scaleIndex));
+    return [{ first, others, isCommon, unusedNotes: first.noteCount - usedCount, rootShare: (counts[first.pitchClass] ?? 0) / total }];
+  });
   // Only the matches listed are spelled (preferredScaleChoice tries the root's names).
   return ranked
     .sort(compareGroups)
     .slice(0, Math.max(0, limit))
-    .map(({ first, others, unusedNotes, rootShare }) => ({
+    .map(({ first, others, isCommon, unusedNotes, rootShare }) => ({
       choice: preferredScaleChoice(first.pitchClass, first.scaleIndex),
       unusedNotes,
       rootShare,
       aliases: others.map((other) => SCALES[other.scaleIndex]?.name ?? ''),
+      isCommon,
     }));
 }
 
@@ -80,12 +124,18 @@ export function findScales(pitches: readonly number[], limit = MAX_SCALE_MATCHES
 interface RankedGroup {
   readonly first: Candidate;
   readonly others: readonly Candidate[];
+  readonly isCommon: boolean;
   readonly unusedNotes: number;
   readonly rootShare: number;
 }
 
+/** How well a scale fits: much of the playing on its root, few of its notes unused. */
+function fit(group: RankedGroup): number {
+  return group.rootShare - group.unusedNotes * UNUSED_NOTE_WEIGHT;
+}
+
 function compareGroups(a: RankedGroup, b: RankedGroup): number {
-  return a.unusedNotes - b.unusedNotes || b.rootShare - a.rootShare || a.first.scaleIndex - b.first.scaleIndex || a.first.pitchClass - b.first.pitchClass;
+  return Number(b.isCommon) - Number(a.isCommon) || fit(b) - fit(a) || a.first.scaleIndex - b.first.scaleIndex || a.first.pitchClass - b.first.pitchClass;
 }
 
 type BeatPlace = Pick<BeatAddress, 'measureIndex' | 'beatIndex'>;

@@ -5,7 +5,7 @@ import type { Palette } from '../../theme';
 import { TextField } from '../TextField';
 
 /** Rows shown at once; the list scrolls for more. */
-const LIST_HEIGHT = 168;
+const LIST_HEIGHT = 140;
 
 export interface ScaleListRowProps {
   readonly palette: Palette;

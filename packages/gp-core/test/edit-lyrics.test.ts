@@ -63,6 +63,11 @@ describe('lyricsSyllables', () => {
     expect(lyricsSyllables('a+lot of love__ __')).toEqual(['a lot', 'of', 'love', '']);
   });
 
+  it('leaves out comments in brackets, with the space after them, as Guitar Pro does', () => {
+    expect(lyricsSyllables('[Verse 1]\nsing a [la la] song [with comments]')).toEqual(['sing', 'a', 'song']);
+    expect(lyricsSyllables('a[b]')).toEqual(['a[b]']);
+  });
+
   it('keeps hyphens that start or fill a syllable', () => {
     expect(lyricsSyllables('- --la')).toEqual(['-', '--', 'la']);
   });

@@ -18,18 +18,39 @@ describe('findScales', () => {
     // Assert
     expect(scaleTitle(found[0]!.choice)).toBe('A Pentatonic Minor Scale');
     expect(found[0]).toMatchObject({ unusedNotes: 0, rootShare: 4 / 9 });
-    expect(titles(lick).slice(0, 3)).toContain('C Pentatonic Major Scale');
+    expect(titles(lick).slice(0, 3)).toEqual(['A Pentatonic Minor Scale', 'A Blues Minor Scale', 'A Minor Scale']);
+    expect(found.find((match) => scaleTitle(match.choice) === 'C Pentatonic Major Scale')?.unusedNotes).toBe(0);
   });
 
-  it('only lists scales that hold every note, tighter fits first', () => {
+  it('only lists scales that hold every note, the common ones first, those on the most played root leading', () => {
     // Act: C E G
     const found = findScales([60, 64, 67, 72], 500);
 
     // Assert
     expect(scaleTitle(found[0]!.choice)).toBe('C Major Arpeggio');
-    expect(found.every((match, i, all) => i === 0 || match.unusedNotes >= (all[i - 1]?.unusedNotes ?? 0))).toBe(true);
+    const common = found.filter((match) => match.isCommon);
+    const others = found.filter((match) => !match.isCommon);
+    expect(found).toEqual([...common, ...others]);
+    expect(common.slice(0, 4).map((match) => scaleTitle(match.choice))).toEqual([
+      'C Major Arpeggio',
+      'C Major 7th Major Arpeggio',
+      'C Major 7th Minor Arpeggio',
+      'C Pentatonic Major Scale',
+    ]);
     expect(found.some((match) => scaleTitle(match.choice) === 'C Major Scale')).toBe(true);
     expect(found.some((match) => scaleTitle(match.choice) === 'C Minor Scale')).toBe(false);
+  });
+
+  it('puts the common scales, modes and arpeggios before exotic scales that fit tighter', () => {
+    // Act: C D Eb G, C most played
+    const found = findScales([60, 62, 63, 67, 60, 72], 500);
+
+    // Assert
+    expect(scaleTitle(found[0]!.choice)).toBe('C Minor Scale');
+    expect(found[0]).toMatchObject({ isCommon: true, unusedNotes: 3 });
+    const iwato = found.findIndex((match) => scaleTitle(match.choice) === 'D Iwato Scale');
+    expect(iwato).toBeGreaterThan(found.findIndex((match) => scaleTitle(match.choice) === 'Eb Major Scale'));
+    expect(found[iwato]?.unusedNotes).toBe(1);
   });
 
   it('lists the same notes on the same root once, with the other names as aliases', () => {

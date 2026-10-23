@@ -72,7 +72,7 @@ export function ScalesPanel(props: ScalesPanelProps) {
         <ChromeButton palette={palette} label="Clear" tooltip="Clear the scale from the keyboard and the fretboard" fontSize={11} isEnabled={choice !== undefined} onPress={props.onClear} />
         <ChromeButton palette={palette} label="Close" tooltip="Close the Scales panel" fontSize={11} onPress={props.onClose} />
       </View>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
         <Section palette={palette} label="Root">
           <View style={styles.wrap}>
             {SCALE_ROOTS.map((root, index) => (
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
   panel: { width: SCALES_PANEL_WIDTH, borderLeftWidth: 1 },
   header: { flexDirection: 'row', alignItems: 'center', height: 32, paddingLeft: BODY_PADDING, paddingRight: 6 },
   title: { flex: 1, fontSize: 13, fontWeight: '800' },
+  scroll: { flex: 1 },
   body: { padding: BODY_PADDING, rowGap: 10 },
   section: { rowGap: 4 },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },

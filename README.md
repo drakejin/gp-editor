@@ -211,12 +211,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
 - **Lyrics editor** (Edit ▸ Lyrics…): a panel above the score — pick the track and the bar the lyrics start at, and type
   them; the score follows once the typing pauses (each pause is one undo step). Guitar Pro's syntax: a space or a
-  hyphen ends a syllable (*Beau-ti-ful*), two spaces skip a note, `+` sings words on one note (*a+lot*); Korean,
+  hyphen ends a syllable (*Beau-ti-ful*), two spaces skip a note, `+` sings words on one note (*a+lot*), `[text in brackets]` is a comment; Korean,
   Japanese and Chinese get one character per note. The panel counts the syllables against the notes. Saved as `.gp5`,
   a song keeps one track's lyrics (the first track's with some).
 - **Scales** (Tools ▸ Scales…): TuxGuitar's 275 scales and arpeggios on any of 17 roots, in a searchable list, or
   *From selection* (the cursor's bar without one) / *From track* lists the scales and keys that hold those notes, best
-  first. The chosen scale is marked on the fretboard (all 24 frets, 3–10 strings, the root in orange) and on the piano
+  first (common scales, modes and arpeggios before exotic ones; then the root played most, the fewest notes unused). The chosen scale is marked on the fretboard (all 24 frets, 3–10 strings, the root in orange) and on the piano
   keyboard, stays marked after the panel closes until *Clear*, and the panel spells its notes and draws its five-fret
   boxes on the track's neck, one position at a time.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in

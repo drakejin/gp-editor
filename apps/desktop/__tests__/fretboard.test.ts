@@ -54,6 +54,12 @@ describe('engraveFretboard', () => {
     expect(texts(commands).filter((text) => text.size === 7.5 && text.color === SCALE_COLORS.text && text.text === 'A')).toHaveLength(13);
   });
 
+  it('names a scale’s positions as the scale spells them', () => {
+    const scale = { pitchClasses: [3, 5, 7, 8, 10, 0, 2], root: 3, names: ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'] };
+    const names = texts(engraveFretboard({ track: guitar, width: 1000, palette: PALETTE, notes: [], scale })).filter((text) => text.color === SCALE_COLORS.text);
+    expect(new Set(names.map((text) => text.text))).toEqual(new Set(scale.names));
+  });
+
   it('draws necks of 3 to 10 strings, every string named on all 24 frets', () => {
     for (const count of [3, 4, 5, 6, 7, 8, 9, 10]) {
       const track = { ...guitar, strings: Array.from({ length: count }, (_, i) => ({ number: i + 1, tuning: 64 - i * 5 })) };

@@ -21,7 +21,7 @@ const LINE_HEIGHT = 17;
 
 /** Guitar Pro's lyrics syntax, as the score reads it (gp-core's lyricsSyllables). */
 const SYNTAX =
-  'One syllable per note: a space or a hyphen ends one (Beau-ti-ful), two spaces skip a note, + sings words on one note (a+lot). Korean, Japanese and Chinese: one character per note.';
+  'One syllable per note: a space or a hyphen ends one (Beau-ti-ful), two spaces skip a note, + sings words on one note (a+lot), [brackets] hold a comment. Korean, Japanese and Chinese: one character per note.';
 
 /**
  * Edit ▸ Lyrics…: a track's lyrics and the bar they start at, as in Guitar Pro's lyrics editor. Above the score, which

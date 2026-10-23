@@ -2,7 +2,7 @@ import { NECK_FRETS, type Note, type Track } from '@gp-editor/core';
 import { pitchClassName } from '../lib/pitch';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
-import { SCALE_COLORS, type ScaleHighlight, scaleMarkColor } from './scale-marks';
+import { SCALE_COLORS, type ScaleHighlight, scaleMarkColor, scaleMarkName } from './scale-marks';
 
 /** Fretboard geometry, in points. */
 export const FRETBOARD = {
@@ -126,7 +126,7 @@ function noteNames(geometry: NeckGeometry, track: Track, palette: Palette, scale
       if (scaleColor !== undefined) {
         return [
           { kind: 'circle', x, y, radius: FRETBOARD.noteRadius - 1, color: scaleColor },
-          { kind: 'text', x, y, text: pitchClassName(guitarString.tuning + fret), size: 7.5, color: SCALE_COLORS.text, font: 'ui', align: 'center', bold: true },
+          { kind: 'text', x, y, text: scaleMarkName(guitarString.tuning + fret, scale), size: 7.5, color: SCALE_COLORS.text, font: 'ui', align: 'center', bold: true },
         ];
       }
       return [

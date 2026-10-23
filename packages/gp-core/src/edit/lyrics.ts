@@ -32,13 +32,20 @@ const HYPHENATED = /[^-]*-+|[^-]+/g;
 /** Underscores that hold the syllable before them ("love___"): Guitar Pro shows the syllable alone. */
 const HOLD = /_+$/;
 
+/** A comment in brackets where a syllable would start ("[Chorus]"), and the spaces after it: no note takes it. */
+const COMMENT = /(^|\s)\[[^\]]*\]\s*/g;
+
 /**
  * The syllables of a lyrics text, one per note with notes: line breaks count as spaces and every single space
  * separates two, so two spaces leave a note without a syllable (TuxGuitar's TGLyric); as in Guitar Pro, a hyphen also
- * ends a syllable and stays on it, "+" joins words sung on one note, and trailing underscores are dropped.
+ * ends a syllable and stays on it, "+" joins words sung on one note, trailing underscores are dropped and comments in
+ * brackets are left out.
  */
 export function lyricsSyllables(text: string): readonly string[] {
   return text
+    .replace(COMMENT, '$1')
+    // Spaces at the end leave no note bare (and a comment there leaves the space before it).
+    .trimEnd()
     .replace(/\r\n|\r|\n/g, ' ')
     .split(' ')
     .flatMap((word) => (word === '' ? [''] : (word.match(HYPHENATED) ?? [word])))

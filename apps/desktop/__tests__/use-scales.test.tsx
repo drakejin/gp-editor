@@ -32,7 +32,7 @@ describe('useScales', () => {
     // Assert
     expect(current().isOpen).toBe(false);
     expect(current().choice).toEqual({ rootIndex: 13, scaleIndex: 6 });
-    expect(current().highlight).toEqual({ pitchClasses: [9, 0, 2, 4, 7], root: 9 });
+    expect(current().highlight).toEqual({ pitchClasses: [9, 0, 2, 4, 7], root: 9, names: ['A', 'C', 'D', 'E', 'G'] });
   });
 
   it('clears the marks', () => {
