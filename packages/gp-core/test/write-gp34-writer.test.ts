@@ -186,6 +186,33 @@ describe('GP4 and GP3 song data', () => {
   });
 });
 
+/** Offset of the song's key signature (an int after the texts, triplet feel and tempo) in a GP3/GP4 file. */
+function songKeyOffset(bytes: Uint8Array, format: 'gp3' | 'gp4'): number {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const skipString = (offset: number): number => offset + 4 + view.getInt32(offset, true);
+  let offset = VERSION_BLOCK_SIZE;
+  for (let i = 0; i < INFO_STRING_COUNT; i++) {
+    offset = skipString(offset);
+  }
+  const noticeLines = view.getInt32(offset, true);
+  offset += 4;
+  for (let i = 0; i < noticeLines; i++) {
+    offset = skipString(offset);
+  }
+  offset += 1; // triplet feel
+  if (format === 'gp4') {
+    offset += 8; // lyric track and first measure
+    offset = skipString(offset);
+    for (let i = 0; i < 4; i++) {
+      offset = skipString(offset + 4);
+    }
+  }
+  return offset + 4; // after the tempo
+}
+
+const VERSION_BLOCK_SIZE = 31;
+const INFO_STRING_COUNT = 8;
+
 describe('GP4 and GP3 files other readers open', () => {
   it.each([
     ['gp4', GP4_DIALECT],
@@ -212,6 +239,20 @@ describe('GP4 and GP3 files other readers open', () => {
     const beats = again.tracks[0]?.measures[1]?.beats ?? [];
     expect(beats.map((beat) => [beat.voices[0]?.duration.value, beat.voices[0]?.notes.length, beat.voices[0]?.isEmpty])).toEqual([[4, 0, false]]);
     expect(songDifference(expectedAfterGp34(song), again)).toBeUndefined();
+  });
+
+  it.each(['gp4', 'gp3'] as const)('keeps the key in %s measure 1 for readers that skip the song key', (format) => {
+    // Arrange
+    const song = buildSong({ tracks: [{ keySignatures: [2, 2], measures: [[{ voice: buildVoice([buildNote(1, 3)]) }], [{ voice: restVoice() }]] }] });
+    const bytes = writeSong(song, format);
+
+    // Act: zero the song's key, as a reader that never looks at it sees the file
+    const withoutSongKey = new Uint8Array(bytes);
+    new DataView(withoutSongKey.buffer).setInt32(songKeyOffset(bytes, format), 0, true);
+    const again = readSong(withoutSongKey);
+
+    // Assert
+    expect(again.tracks[0]?.measures.map((measure) => measure.keySignature)).toEqual([2, 2]);
   });
 });
 
