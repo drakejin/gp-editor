@@ -346,6 +346,7 @@ export default function App() {
     openTranspose: transposePanel.open,
     openTuner,
     openScales,
+    openLineIn: audio.lineIn.open,
     openLyrics: () => openLyrics.current(),
     pickInstrument: () => chrome.pickInstrument(trackIndex),
     togglePanel: chrome.togglePanel,
