@@ -250,6 +250,8 @@ export default function App() {
           left={chrome.panels.palette ? <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} /> : null}
           center={
             <ScoreView
+              // A page of its own per tab: it opens at the tab's cursor, not where the last tab was scrolled.
+              key={activeTabId}
               song={document.song}
               trackIndex={trackIndex}
               mode={state.mode}
