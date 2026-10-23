@@ -1,5 +1,6 @@
 import { decodeWindows1252 } from '../io/text';
 import type { FileFormat } from '../model/song';
+import { MIDI_HEADER_MAGIC } from './midi/midi-file-reader';
 
 export interface DetectedFormat {
   readonly format: FileFormat;
@@ -38,10 +39,14 @@ const BCFS = 'BCFS';
  * - `.gp` (Guitar Pro 7/8): a ZIP archive
  * - `.gpx` (Guitar Pro 6): a BCFZ (compressed) or BCFS container
  * - `.gtp/.gp3/.gp4/.gp5` (Guitar Pro 1–5): a length-prefixed version string
+ * - `.mid/.midi` (Standard MIDI File): an MThd chunk
  */
 export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   if (startsWith(bytes, ZIP_MAGIC)) {
     return { format: 'gp7', version: '' };
+  }
+  if (startsWith(bytes, MIDI_HEADER_MAGIC)) {
+    return { format: 'midi', version: '' };
   }
   const magic = decodeWindows1252(bytes.subarray(0, 4));
   if (magic === BCFZ || magic === BCFS) {
