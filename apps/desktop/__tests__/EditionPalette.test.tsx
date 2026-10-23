@@ -16,9 +16,12 @@ const ON_EMPTY_STRING: StringAddress = { ...ON_NOTE, string: 4 };
 function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
+  const onOpenPanel = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} />);
+    renderer = ReactTestRenderer.create(
+      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} />,
+    );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
   const tool = (id: string) => {
@@ -34,13 +37,39 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   const pressTooltip = (tooltip: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.tooltip === tooltip)?.props.onPress());
   const groupTitles = new Set(PALETTE_GROUPS.map((group) => group.title.toUpperCase()));
   const titles = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join('')).filter((text) => groupTitles.has(text));
-  return { renderer, onEdit, onAction, tool, byLabel, press, pressLabel, pressTooltip, titles };
+  return { renderer, onEdit, onAction, onOpenPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
 }
 
 describe('EditionPalette layout', () => {
-  it('shows Guitar Pro’s groups top to bottom', () => {
-    expect(render().titles()).toEqual(['VOICE', 'BAR', 'RHYTHM', 'NOTE', 'DYNAMICS', 'ARTICULATION', 'EFFECTS', 'BEAT']);
+  it('puts the note’s techniques right under the rhythm, where they show without scrolling', () => {
+    expect(render().titles()).toEqual(['VOICE', 'RHYTHM', 'TECHNIQUES', 'ARTICULATION', 'DYNAMICS', 'NOTE', 'BEAT', 'BAR']);
     expect(PALETTE_GROUPS.flatMap((group) => group.tools).length).toBeGreaterThan(45);
+  });
+
+  it('keeps every guitar technique in the techniques group, each with its key', () => {
+    // Act
+    const techniques = PALETTE_GROUPS.find((group) => group.title === 'Techniques')?.tools ?? [];
+
+    // Assert
+    expect(techniques.map((tool) => [tool.id, tool.key])).toEqual(
+      expect.arrayContaining([
+        ['bend', 'C'],
+        ['slide', 'S'],
+        ['hammer', 'H'],
+        ['harmonic', 'N'],
+        ['palmMute', 'M'],
+        ['letRing', 'R'],
+        ['dead', 'X'],
+        ['vibrato', 'B'],
+        ['ghost', 'G'],
+      ]),
+    );
+  });
+
+  it('shows a tool’s key on its button', () => {
+    const palette = render();
+    const texts = palette.tool('palmMute').findAllByType(Text).map((text) => text.props.children);
+    expect(texts).toEqual(['P.M.', 'M']);
   });
 
   it('gives every tool a tooltip and draws music symbols as Bravura glyphs on the score canvas', () => {
@@ -111,14 +140,28 @@ describe('EditionPalette edits', () => {
     const palette = render();
 
     // Act
-    palette.press('bend');
-    const half = palette.byLabel('Bend ½')?.props.isActive;
-    palette.pressLabel('Pre-bend');
+    palette.press('harmonic');
+    const none = palette.byLabel('None')?.props.isActive;
+    palette.pressLabel('P.H.');
 
     // Assert
-    expect(half).toBe(true);
-    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setBend', preset: 'preBend' });
-    expect(palette.byLabel('Pre-bend')).toBeUndefined();
+    expect(none).toBe(true);
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setHarmonic', harmonic: 'pinch' });
+    expect(palette.byLabel('P.H.')).toBeUndefined();
+  });
+
+  it('opens the bend and vibrato panels, as C and B do, and lights a bent note’s bend', () => {
+    // Arrange
+    const palette = render();
+
+    // Act
+    palette.press('bend');
+    palette.press('vibrato');
+
+    // Assert
+    expect(palette.tool('bend').props.isActive).toBe(true);
+    expect(palette.onOpenPanel.mock.calls).toEqual([['bend'], ['vibrato']]);
+    expect(palette.onEdit).not.toHaveBeenCalled();
   });
 
   it('closes an open option strip when its tool is pressed again', () => {

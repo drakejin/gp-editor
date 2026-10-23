@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { ScoreCanvas } from '../../native/score-canvas';
 
 /** How a kind of SMuFL glyph sits in a palette button: its size and where its baseline goes. */
-export type GlyphKind = 'note' | 'dynamic' | 'articulation' | 'barline' | 'mark';
+export type GlyphKind = 'note' | 'dynamic' | 'articulation' | 'barline' | 'mark' | 'stroke';
 
 /** Size (points) and baseline (from the top of the icon) per glyph kind: SMuFL glyphs hang from their baseline. */
 const GLYPH_BOXES: Readonly<Record<GlyphKind, { readonly size: number; readonly baseline: number }>> = {
@@ -11,6 +11,8 @@ const GLYPH_BOXES: Readonly<Record<GlyphKind, { readonly size: number; readonly 
   articulation: { size: 24, baseline: 15 },
   barline: { size: 15, baseline: 20 },
   mark: { size: 18, baseline: 16 },
+  /** Brush arrows (arpeggiato), about 1.5 sizes tall. */
+  stroke: { size: 13, baseline: 22 },
 };
 
 export const MUSIC_ICON_SIZE = 24;

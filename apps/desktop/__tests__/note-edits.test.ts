@@ -1,4 +1,4 @@
-import { BEND_PRESETS, QUARTER, TREMOLO_BAR_PRESETS, bendShapeOf, buildBend, findNote, vibratoOf } from '@gp-editor/core';
+import { QUARTER, TREMOLO_BAR_PRESETS, bendShapeOf, buildBend, findNote, vibratoOf } from '@gp-editor/core';
 import type { Note } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
@@ -34,13 +34,6 @@ describe('note edits at the cursor', () => {
     expect(noteAt(both).effect.slides).toEqual(['legato', 'outDownwards']);
     expect(noteAt(legatoOnly).effect.slides).toEqual(['legato']);
     expect(legatoOnly.past).toHaveLength(3);
-  });
-
-  it('sets a bend preset and removes it; the same preset again adds no undo step', () => {
-    const bent = edit(loaded(), { type: 'setBend', preset: 'bendReleaseBend' });
-    expect(noteAt(bent).effect.bend).toEqual(BEND_PRESETS.bendReleaseBend);
-    expect(edit(bent, { type: 'setBend', preset: 'bendReleaseBend' })).toBe(bent);
-    expect(noteAt(edit(bent, { type: 'setBend', preset: 'none' })).effect.bend).toBeUndefined();
   });
 
   it('sets a bend of any shape and amount, and removes it', () => {
@@ -144,7 +137,6 @@ describe('note edits at the cursor', () => {
 
   it.each<SongEdit>([
     { type: 'toggleSlideType', slide: 'shift' },
-    { type: 'setBend', preset: 'full' },
     { type: 'setBendShape', shape: 'preBend', amount: 3 },
     { type: 'setVibrato', vibrato: 'wide' },
     { type: 'setTremoloBar', preset: 'dip' },

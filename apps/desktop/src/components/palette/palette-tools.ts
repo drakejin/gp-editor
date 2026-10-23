@@ -1,5 +1,6 @@
 import type { GlyphKind } from './MusicIcon';
 import { type Beat, type Bend, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
+import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
 
@@ -46,7 +47,9 @@ export type PaletteRun =
   /** Opens a strip of options under the group. */
   | { readonly kind: 'options'; readonly options: readonly PaletteOption[] }
   /** Opens a text field under the group (section name, beat text). */
-  | { readonly kind: 'text'; readonly placeholder: string; readonly value: (context: PaletteContext) => string; readonly edit: (text: string) => SongEdit };
+  | { readonly kind: 'text'; readonly placeholder: string; readonly value: (context: PaletteContext) => string; readonly edit: (text: string) => SongEdit }
+  /** Opens the vibrato or bend panel for the note, as B and C do. */
+  | { readonly kind: 'panel'; readonly panel: NotePanel };
 
 export interface PaletteTool {
   readonly id: string;
@@ -55,6 +58,8 @@ export interface PaletteTool {
   readonly glyph?: GlyphKind;
   /** Name, what it does and its key, shown on hover. */
   readonly tooltip: string;
+  /** The key that does the same (a letter of key-commands), shown in the button's corner. */
+  readonly key?: string;
   readonly scope: ToolScope;
   readonly isActive?: (context: PaletteContext) => boolean;
   readonly run: PaletteRun;
@@ -74,6 +79,8 @@ export interface PaletteStepper {
 export interface PaletteGroup {
   readonly title: string;
   readonly tools: readonly PaletteTool[];
+  /** Every tool this wide, for an even grid (tools with a key need the room); default: as narrow as the face. */
+  readonly toolWidth?: number;
   readonly steppers?: readonly PaletteStepper[];
 }
 

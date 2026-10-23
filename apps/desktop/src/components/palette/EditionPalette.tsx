@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
+import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
@@ -18,14 +19,17 @@ export interface EditionPaletteProps {
   readonly cursor?: StringAddress;
   readonly onEdit: (edit: SongEdit) => void;
   readonly onAction: (action: EditorAction) => void;
+  /** The bend and vibrato tools open the same panels as C and B. */
+  readonly onOpenPanel: (panel: NotePanel) => void;
 }
 
 /**
- * Guitar Pro's edition palette, on the left: every setting of the note, beat and bar at the cursor — durations,
- * dynamics, articulations, effects with their options (bends, slides, harmonics, trills …), strokes, and the bar's
- * time signature, tempo, key, repeats and section. A lit button is what the cursor's note, beat or bar has.
+ * Guitar Pro's edition palette, on the left: every setting of the note, beat and bar at the cursor — durations, the
+ * note's techniques (bends, slides, hammer-ons, harmonics, palm mute … each with its key in the corner), articulations,
+ * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
+ * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, onEdit, onAction }: EditionPaletteProps) {
+function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel }: EditionPaletteProps) {
   const context = paletteContext(song, cursor);
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
@@ -35,6 +39,8 @@ function EditionPaletteView({ palette, song, cursor, onEdit, onAction }: Edition
       onEdit(run.edit);
     } else if (run.kind === 'action') {
       onAction(run.action);
+    } else if (run.kind === 'panel') {
+      onOpenPanel(run.panel);
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }
@@ -76,10 +82,11 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
               testID={`palette-${tool.id}`}
               palette={palette}
               label={tool.face}
-              icon={tool.glyph === undefined ? undefined : <MusicIcon glyph={tool.face} kind={tool.glyph} color={isActive ? palette.chromeAccentText : palette.chromeText} />}
+              icon={toolIcon(palette, tool, isActive)}
               tooltip={tool.tooltip}
               fontSize={11}
               minWidth={30}
+              width={group.toolWidth}
               isEnabled={isToolEnabled(tool, context)}
               isActive={isActive}
               onPress={() => onPress(tool)}
@@ -92,6 +99,25 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
       {(group.steppers ?? []).map((stepper) => (
         <StepperRow key={stepper.id} palette={palette} stepper={stepper} context={context} onEdit={onEdit} />
       ))}
+    </View>
+  );
+}
+
+/** A music glyph, or (for a tool with a key) the face with its key in the corner; undefined for a plain text face. */
+function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
+  const color = isActive ? palette.chromeAccentText : palette.chromeText;
+  const face = tool.glyph === undefined ? undefined : <MusicIcon glyph={tool.face} kind={tool.glyph} color={color} />;
+  if (tool.key === undefined) {
+    return face;
+  }
+  return (
+    <View style={styles.keyedFace}>
+      {face ?? (
+        <Text numberOfLines={1} style={[styles.faceText, { color }]}>
+          {tool.face}
+        </Text>
+      )}
+      <Text style={[styles.keyBadge, face === undefined ? null : styles.keyBesideGlyph, { color: isActive ? palette.chromeAccentText : palette.chromeMuted }]}>{tool.key}</Text>
     </View>
   );
 }
@@ -116,6 +142,12 @@ const styles = StyleSheet.create({
   group: { paddingHorizontal: 8, paddingTop: 7, paddingBottom: 6, borderBottomWidth: 1 },
   groupTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 4, marginLeft: 2 },
   tools: { flexDirection: 'row', flexWrap: 'wrap' },
+  keyedFace: { flexDirection: 'row', alignItems: 'center' },
+  faceText: { fontSize: 10.5, fontWeight: '600' },
+  /** The key, small and raised like an exponent. */
+  keyBadge: { fontSize: 8, fontWeight: '700', marginLeft: 2, alignSelf: 'flex-start', marginTop: 1 },
+  /** A glyph sits low in its 24-point box: the key goes level with its top. */
+  keyBesideGlyph: { marginTop: 6 },
   stepper: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   stepperLabel: { width: 62, fontSize: 11 },
   stepperValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },

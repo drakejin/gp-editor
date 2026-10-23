@@ -1,6 +1,4 @@
 import {
-  BEND_PRESETS,
-  type BendPresetName,
   type DynamicName,
   type HarmonicType,
   type NoteValue,
@@ -10,7 +8,6 @@ import {
   type ToggleableEffect,
   type TremoloBarPresetName,
   type TripletFeel,
-  type VibratoKind,
   dynamicOf,
   vibratoOf,
 } from '@gp-editor/core';
@@ -21,9 +18,13 @@ import { type PaletteContext, type PaletteGroup, type PaletteOption, type Palett
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
 
+/** A tooltip that names the tool's key, as the shortcut sheet does. */
+const withKey = (name: string, key: string | undefined): string => (key === undefined ? name : `${name} (${key})`);
+
 /** An on/off note effect: pressing toggles it, the button is lit while the note has it. */
-function effectTool(id: string, face: string, tooltip: string, effect: ToggleableEffect, glyph?: GlyphKind): PaletteTool {
-  return { id, face, glyph, tooltip, scope: 'note', run: edit({ type: 'toggleEffect', effect }), isActive: (context) => context.note?.effect[effect] === true };
+function effectTool(id: string, face: string, name: string, effect: ToggleableEffect, look: { readonly glyph?: GlyphKind; readonly key?: string } = {}): PaletteTool {
+  const { glyph, key } = look;
+  return { id, face, glyph, key, tooltip: withKey(name, key), scope: 'note', run: edit({ type: 'toggleEffect', effect }), isActive: (context) => context.note?.effect[effect] === true };
 }
 
 /** SMuFL code points of the palette's music symbols (drawn with Bravura). */
@@ -35,7 +36,6 @@ const GLYPH = {
   accent: '',
   marcato: '',
   staccato: '',
-  deadNote: '',
   tremolo: '',
   trill: '',
   grace: '',
@@ -45,6 +45,9 @@ const GLYPH = {
   brushDown: '',
   tuplet: '',
 } as const;
+
+/** Room for a short face and its key in the corner: four tools a row (the palette's 198 points inside). */
+const TECHNIQUE_TOOL_WIDTH = 47;
 
 const NOTE_VALUES: readonly (readonly [NoteValue, string, string])[] = [
   [1, '', 'Whole note'],
@@ -80,15 +83,6 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
   ['pinch', 'P.H.', 'Pinch harmonic'],
   ['semi', 'S.H.', 'Semi harmonic'],
 ];
-
-export const BEND_LABELS: Readonly<Record<BendPresetName, string>> = {
-  half: 'Bend ½',
-  full: 'Bend full',
-  bendRelease: 'Bend & release',
-  bendReleaseBend: 'Bend, release, bend',
-  preBend: 'Pre-bend',
-  preBendRelease: 'Pre-bend & release',
-};
 
 export const TREMOLO_BAR_LABELS: Readonly<Record<TremoloBarPresetName, string>> = {
   dip: 'Dip',
@@ -217,40 +211,13 @@ function dynamicsGroup(): PaletteGroup {
 function articulationGroup(): PaletteGroup {
   return {
     title: 'Articulation',
+    toolWidth: TECHNIQUE_TOOL_WIDTH,
     tools: [
-      effectTool('accent', GLYPH.accent, 'Accent (A)', 'accentuatedNote', 'articulation'),
-      effectTool('heavyAccent', GLYPH.marcato, 'Heavy accent', 'heavyAccentuatedNote', 'articulation'),
-      effectTool('staccato', GLYPH.staccato, 'Staccato', 'staccato', 'articulation'),
-      effectTool('ghost', '( )', 'Ghost note (G)', 'ghostNote'),
-      effectTool('dead', GLYPH.deadNote, 'Dead note (X)', 'deadNote', 'mark'),
-      effectTool('letRing', 'L.R.', 'Let ring (L)', 'letRing'),
-      effectTool('palmMute', 'P.M.', 'Palm mute (P)', 'palmMute'),
+      effectTool('accent', GLYPH.accent, 'Accent', 'accentuatedNote', { glyph: 'articulation', key: 'A' }),
+      effectTool('heavyAccent', GLYPH.marcato, 'Heavy accent', 'heavyAccentuatedNote', { glyph: 'articulation' }),
+      effectTool('staccato', GLYPH.staccato, 'Staccato', 'staccato', { glyph: 'articulation' }),
     ],
   };
-}
-
-function vibratoOptions(): readonly PaletteOption[] {
-  const kinds: readonly (readonly [VibratoKind, string, string])[] = [
-    ['none', 'None', 'No vibrato'],
-    ['slight', 'Slight', 'Slight vibrato'],
-    ['wide', 'Wide', 'Wide vibrato'],
-  ];
-  return kinds.map(([vibrato, label, tooltip]) => ({
-    label,
-    tooltip,
-    edit: { type: 'setVibrato', vibrato },
-    isActive: (c: PaletteContext) => c.note !== undefined && vibratoOf(c.note.effect) === vibrato,
-  }));
-}
-
-function bendOptions(): readonly PaletteOption[] {
-  const presets = (Object.keys(BEND_LABELS) as BendPresetName[]).map((preset) => ({
-    label: BEND_LABELS[preset],
-    tooltip: BEND_LABELS[preset],
-    edit: { type: 'setBend', preset } as const,
-    isActive: (c: PaletteContext) => isSameBend(c.note?.effect.bend, BEND_PRESETS[preset]),
-  }));
-  return [{ label: 'None', tooltip: 'No bend', edit: { type: 'setBend', preset: 'none' }, isActive: (c) => c.note?.effect.bend === undefined }, ...presets];
 }
 
 function tremoloBarOptions(): readonly PaletteOption[] {
@@ -263,35 +230,42 @@ function tremoloBarOptions(): readonly PaletteOption[] {
   return [{ label: 'None', tooltip: 'No whammy bar', edit: { type: 'setTremoloBar', preset: 'none' }, isActive: (c) => c.note?.effect.tremoloBar === undefined }, ...presets];
 }
 
-function effectsGroup(): PaletteGroup {
+/** Everything played on the note, the ones with a key first (in the order guitarists name them). */
+function techniquesGroup(): PaletteGroup {
   const slides: readonly PaletteOption[] = SLIDES.map(([slide, label, tooltip]) => ({ label, tooltip, edit: { type: 'toggleSlideType', slide }, isActive: (c) => c.note?.effect.slides.includes(slide) === true }));
   const harmonics: readonly PaletteOption[] = [
     { label: 'None', tooltip: 'No harmonic', edit: { type: 'setHarmonic', harmonic: 'none' }, isActive: (c) => c.note?.effect.harmonic === undefined },
     ...HARMONICS.map(([harmonic, label, tooltip]) => ({ label, tooltip, edit: { type: 'setHarmonic', harmonic } as const, isActive: (c: PaletteContext) => c.note?.effect.harmonic?.type === harmonic })),
   ];
   return {
-    title: 'Effects',
+    title: 'Techniques',
+    toolWidth: TECHNIQUE_TOOL_WIDTH,
     tools: [
-      effectTool('hammer', 'H/P', 'Hammer-on / pull-off to the next note (H)', 'hammer'),
-      { id: 'slide', face: 'sl.', tooltip: 'Slides (S toggles a shift slide)', scope: 'note', run: { kind: 'options', options: slides }, isActive: (c) => (c.note?.effect.slides.length ?? 0) > 0 },
-      { id: 'bend', face: '↗', tooltip: 'Bend (C opens the bend panel: shape and amount)', scope: 'note', run: { kind: 'options', options: bendOptions() }, isActive: (c) => c.note?.effect.bend !== undefined },
-      { id: 'whammy', face: 'w/bar', tooltip: 'Whammy bar', scope: 'note', run: { kind: 'options', options: tremoloBarOptions() }, isActive: (c) => c.note?.effect.tremoloBar !== undefined },
+      { id: 'bend', face: 'Bend', key: 'C', tooltip: withKey('Bend (choking): shape and amount', 'C'), scope: 'note', run: { kind: 'panel', panel: 'bend' }, isActive: (c) => c.note?.effect.bend !== undefined },
+      { id: 'slide', face: 'Slide', key: 'S', tooltip: withKey('Slides: shift, legato, in and out — the key toggles a shift slide', 'S'), scope: 'note', run: { kind: 'options', options: slides }, isActive: (c) => (c.note?.effect.slides.length ?? 0) > 0 },
+      effectTool('hammer', 'H/P', 'Hammer-on / pull-off to the next note — P too', 'hammer', { key: 'H' }),
+      { id: 'harmonic', face: 'Harm.', key: 'N', tooltip: withKey('Harmonics — the key toggles a natural harmonic', 'N'), scope: 'note', run: { kind: 'options', options: harmonics }, isActive: (c) => c.note?.effect.harmonic !== undefined },
+      effectTool('palmMute', 'P.M.', 'Palm mute', 'palmMute', { key: 'M' }),
+      effectTool('letRing', 'L.R.', 'Let ring', 'letRing', { key: 'R' }),
+      effectTool('dead', 'Dead', 'Dead (muted) note', 'deadNote', { key: 'X' }),
       {
         id: 'vibrato',
-        face: '~',
-        tooltip: 'Vibrato: slight or wide (B opens the panel)',
+        face: 'Vib.',
+        key: 'B',
+        tooltip: withKey('Vibrato: slight or wide', 'B'),
         scope: 'note',
-        run: { kind: 'options', options: vibratoOptions() },
+        run: { kind: 'panel', panel: 'vibrato' },
         isActive: (c) => c.note !== undefined && vibratoOf(c.note.effect) !== 'none',
       },
-      { id: 'harmonic', face: '◇', tooltip: 'Harmonics (N toggles a natural harmonic)', scope: 'note', run: { kind: 'options', options: harmonics }, isActive: (c) => c.note?.effect.harmonic !== undefined },
+      effectTool('ghost', '( )', 'Ghost note', 'ghostNote', { key: 'G' }),
+      { id: 'whammy', face: 'W.bar', tooltip: 'Whammy bar', scope: 'note', run: { kind: 'options', options: tremoloBarOptions() }, isActive: (c) => c.note?.effect.tremoloBar !== undefined },
       { id: 'trill', face: GLYPH.trill, glyph: 'mark', tooltip: 'Trill (with the fret 2 above)', scope: 'note', run: { kind: 'options', options: speedOptions('setTrill', [16, 32, 64]) }, isActive: (c) => c.note?.effect.trill !== undefined },
       { id: 'tremoloPicking', face: GLYPH.tremolo, glyph: 'mark', tooltip: 'Tremolo picking', scope: 'note', run: { kind: 'options', options: speedOptions('setTremoloPicking', [8, 16, 32]) }, isActive: (c) => c.note?.effect.tremoloPicking !== undefined },
       { id: 'grace', face: GLYPH.grace, glyph: 'note', tooltip: 'Grace note (2 frets below, hammered)', scope: 'note', run: { kind: 'options', options: graceOptions() }, isActive: (c) => c.note?.effect.grace !== undefined },
-      effectTool('tapping', 'T', 'Tapping', 'tapping'),
-      effectTool('slapping', 'S', 'Slap', 'slapping'),
-      effectTool('popping', 'P', 'Pop', 'popping'),
-      effectTool('fadeIn', '<', 'Fade in (volume swell)', 'fadeIn'),
+      effectTool('tapping', 'Tap', 'Tapping', 'tapping'),
+      effectTool('slapping', 'Slap', 'Slap', 'slapping'),
+      effectTool('popping', 'Pop', 'Pop', 'popping'),
+      effectTool('fadeIn', 'Fade', 'Fade in (volume swell)', 'fadeIn'),
     ],
   };
 }
@@ -319,7 +293,8 @@ function strokeGroup(): PaletteGroup {
   const stroke = (id: string, face: string, tooltip: string, direction: StrokeDirection, kind: 'setStroke' | 'setPickStroke'): PaletteTool => ({
     id,
     face,
-    glyph: 'mark',
+    // A brush's wavy arrow is taller than a pick-stroke mark.
+    glyph: kind === 'setStroke' ? 'stroke' : 'mark',
     tooltip,
     scope: 'beat',
     run: { kind: 'edit', edit: { type: kind, direction } },
@@ -344,14 +319,18 @@ function strokeGroup(): PaletteGroup {
   };
 }
 
-/** The edition palette, top to bottom as in Guitar Pro: voice, bar, rhythm, note, dynamics, articulation, effects, beat. */
+/**
+ * The edition palette, top to bottom: what is set on every note first — voice, rhythm, the note's techniques,
+ * articulation, dynamics — so it shows without scrolling above the fretboard and tracks; then the note's fret and
+ * string, the beat's strokes and text, and the bar.
+ */
 export const PALETTE_GROUPS: readonly PaletteGroup[] = [
   voiceGroup(),
-  barGroup(),
   rhythmGroup(),
-  noteGroup(),
-  dynamicsGroup(),
+  techniquesGroup(),
   articulationGroup(),
-  effectsGroup(),
+  dynamicsGroup(),
+  noteGroup(),
   strokeGroup(),
+  barGroup(),
 ];

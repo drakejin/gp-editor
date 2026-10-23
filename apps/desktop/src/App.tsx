@@ -30,7 +30,7 @@ import { usePdfImport } from './hooks/use-pdf-import';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import { trackInstrument } from './lib/instruments';
-import { HANDLED_KEYS } from './lib/key-commands';
+import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
@@ -73,6 +73,23 @@ export default function App() {
   const { selectionAnchor } = state;
   // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.
   const selection = useMemo(() => selectionRange({ cursor, selectionAnchor }), [cursor, selectionAnchor]);
+  const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
+  const hasCursorNote = cursorNote !== undefined;
+  const stringAtCursor = cursor?.string;
+  const { openNotePanel: showNotePanel } = chrome;
+  // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
+  // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
+  const openNotePanel = useCallback(
+    (panel: NotePanel) => {
+      if (hasCursorNote) {
+        showNotePanel(panel);
+      } else if (stringAtCursor !== undefined) {
+        dispatch({ type: 'showHint', hint: noNoteHint(stringAtCursor) });
+      }
+      focusView(keyboardView.current);
+    },
+    [hasCursorNote, stringAtCursor, showNotePanel],
+  );
   const commands = useEditorCommands({
     state,
     dispatch,
@@ -84,14 +101,7 @@ export default function App() {
     openPath,
     save,
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
-    // B / C open a panel for the note at the cursor; on an empty string a hint says to type a fret first.
-    onNotePanel: (panel) => {
-      if (cursorNote !== undefined) {
-        chrome.openNotePanel(panel);
-      } else if (cursor !== undefined) {
-        dispatch({ type: 'showHint', hint: noNoteHint(cursor.string) });
-      }
-    },
+    onNotePanel: openNotePanel,
     closeOverlay: chrome.closeOverlay,
     clipboard,
     keyboardView,
@@ -140,9 +150,7 @@ export default function App() {
     [song, trackIndex, cursor, playback.playing, playback.practice, playback.loopPass],
   );
   const track = song?.tracks[trackIndex];
-  const cursorNote = song === undefined || cursor === undefined ? undefined : findNote(song, cursor);
   // A note panel follows the cursor from note to note; an empty string closes it.
-  const hasCursorNote = cursorNote !== undefined;
   const { closeNotePanel } = chrome;
   useEffect(() => {
     if (!hasCursorNote) {
@@ -225,7 +233,7 @@ export default function App() {
       {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
       {document !== undefined ? (
         <DocumentLayout
-          left={chrome.panels.palette ? <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} /> : null}
+          left={chrome.panels.palette ? <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} /> : null}
           center={
             <ScoreView
               song={document.song}

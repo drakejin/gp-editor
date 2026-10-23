@@ -1,7 +1,4 @@
 import {
-  BEND_PRESETS,
-  type Bend,
-  type BendPresetName,
   type BendShape,
   DYNAMICS,
   type Duration,
@@ -44,8 +41,6 @@ export type NoteEdit =
   | { readonly type: 'toggleSlide' }
   /** Adds or removes one slide type, keeping the others. */
   | { readonly type: 'toggleSlideType'; readonly slide: SlideType }
-  | { readonly type: 'cycleBend' }
-  | { readonly type: 'setBend'; readonly preset: BendPresetName | 'none' }
   /** A bend of any shape, `amount` quarter tones high (1–12, rounded and clamped by buildBend). */
   | {
       readonly type: 'setBendShape';
@@ -76,8 +71,6 @@ const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
   toggleTie: true,
   toggleSlide: true,
   toggleSlideType: true,
-  cycleBend: true,
-  setBend: true,
   setBendShape: true,
   setVibrato: true,
   setTremoloBar: true,
@@ -128,33 +121,12 @@ export function applyNoteEdit(
         cursor,
         toggled(note.effect.slides, edit.slide),
       );
-    case 'cycleBend':
-    case 'setBend':
     case 'setBendShape':
-      return setNoteBend(song, cursor, bendFor(note, edit));
+      return setNoteBend(song, cursor, edit.shape === 'none' ? undefined : buildBend(edit.shape, edit.amount));
     case 'setVibrato':
       return setNoteVibrato(song, cursor, edit.vibrato);
     default:
       return applyNoteDetail(song, cursor, note, edit);
-  }
-}
-
-type BendEdit = Extract<
-  NoteEdit,
-  { readonly type: 'cycleBend' | 'setBend' | 'setBendShape' }
->;
-
-/** The bend a bend edit gives the note: the next one of the cycle, a preset, a shape, or none. */
-function bendFor(note: Note, edit: BendEdit): Bend | undefined {
-  switch (edit.type) {
-    case 'cycleBend':
-      return nextBend(bendPeak(note.effect.bend?.points ?? []));
-    case 'setBend':
-      return edit.preset === 'none' ? undefined : BEND_PRESETS[edit.preset];
-    case 'setBendShape':
-      return edit.shape === 'none'
-        ? undefined
-        : buildBend(edit.shape, edit.amount);
   }
 }
 
@@ -257,21 +229,4 @@ function graceFor(
     onBeat,
     isDead: false,
   };
-}
-
-function bendPeak(points: readonly { readonly value: number }[]): number {
-  return Math.max(0, ...points.map(point => point.value));
-}
-
-/** No bend → ½ → full → no bend. */
-function nextBend(peak: number): Bend | undefined {
-  const half = bendPeak(BEND_PRESETS.half.points);
-  const full = bendPeak(BEND_PRESETS.full.points);
-  if (peak === 0) {
-    return BEND_PRESETS.half;
-  }
-  if (peak <= half) {
-    return BEND_PRESETS.full;
-  }
-  return peak >= full ? undefined : BEND_PRESETS.full;
 }

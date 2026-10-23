@@ -43,6 +43,9 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
           return tool.run.options.map((option) => ({ name: `${name} / ${option.label}`, action: asEdit(option.edit), isAlreadySo: option.isActive?.(CONTEXT) ?? false }));
         case 'text':
           return [{ name, action: asEdit(tool.run.edit('Verse 1')), isAlreadySo: tool.run.value(CONTEXT) === 'Verse 1' }];
+        case 'panel':
+          // Opens the vibrato or bend panel (no edit by itself); the panels' choices are checked in NotePanels.test.
+          return [];
       }
     }),
     ...(group.steppers ?? []).flatMap((stepper) =>

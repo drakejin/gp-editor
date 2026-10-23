@@ -140,16 +140,18 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     tie
   - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
     drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
-  - effects: `R` let ring, `S` slide, `H` / `P` hammer-on / pull-off (one Guitar Pro effect: the tab shows H or P by
-    the next note's pitch), `M` palm mute, `X` dead (muted) note, `G` ghost note, `A` accent, `N` natural harmonic,
-    `T` tie
-  - `B` opens the **vibrato** panel (none / slight / wide, with how it is drawn); `C` the **bend (choking)** panel:
+  - techniques: `R` let ring, `S` slide, `H` / `P` hammer-on / pull-off (one Guitar Pro effect: the tab shows H or P
+    by the next note's pitch), `M` palm mute, `X` dead (muted) note, `G` ghost note, `A` accent, `N` natural
+    harmonic, `T` tie. The palette's **Techniques** group, right under Rhythm (visible without scrolling), has every
+    one of them as a button with its key in the corner — Bend C, Slide S, H/P H, Harm. N, P.M. M, L.R. R, Dead X,
+    Vib. B, ( ) G — lit while the note has it, then the whammy bar, trill, tremolo picking, grace note, tap, slap,
+    pop and fade in
+  - `B` (or the palette's *Vib.*) opens the **vibrato** panel (none / slight / wide, with how it is drawn); `C` (or *Bend*) the **bend (choking)** panel:
     the shape (bend, bend & release, bend-release-bend, pre-bend, pre-bend & release, release) and the amount (¼ to 3
     tones), with its curve. A choice applies at once (one undo step each); *Done*, Esc or a click outside closes the
     panel, and it closes by itself when the cursor moves onto an empty string.
   - the palette also sets: dynamics ppp–fff, heavy accent, staccato; the slide kinds (shift, legato, in from below /
-    above, out down / up); vibrato (slight / wide); bends (½, full, bend & release, bend-release-bend, pre-bend, pre-bend & release); the whammy
-    bar (dip, dive, release up / down, inverted dip, return); harmonics (natural, artificial, tapped, pinch, semi);
+    above, out down / up); the whammy bar (dip, dive, release up / down, inverted dip, return); harmonics (natural, artificial, tapped, pinch, semi);
     trill and tremolo picking speeds; a grace note before or on the beat; tapping, slap, pop, fade in; brush and pick
     strokes up / down; text above the beat. Options open under their group.
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the

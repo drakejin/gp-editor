@@ -43,20 +43,15 @@ describe('cursor edits in the reducer', () => {
     expect(beats[beats.length - 1]!.voices[0]!.notes).toEqual([]);
   });
 
-  it('toggles effects, slide, bend, harmonic and tie on the note at the cursor', () => {
+  it('toggles effects, slide, harmonic and tie on the note at the cursor', () => {
     let state = loaded();
     state = edit(state, { type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
     state = edit(state, { type: 'edit', edit: { type: 'toggleSlide' } });
-    state = edit(state, { type: 'edit', edit: { type: 'cycleBend' } });
     state = edit(state, { type: 'edit', edit: { type: 'toggleHarmonic' } });
     const effect = findNote(song(state), state.cursor!)!.effect;
     expect(effect.palmMute).toBe(true);
     expect(effect.slides).toEqual(['shift']);
-    expect(effect.bend).toBeDefined();
     expect(effect.harmonic?.type).toBe('natural');
-    const fullBend = edit(state, { type: 'edit', edit: { type: 'cycleBend' } });
-    const noBend = edit(fullBend, { type: 'edit', edit: { type: 'cycleBend' } });
-    expect(findNote(song(noBend), noBend.cursor!)!.effect.bend).toBeUndefined();
   });
 
   it('inserts and deletes bars, moving the cursor into the new bar', () => {
