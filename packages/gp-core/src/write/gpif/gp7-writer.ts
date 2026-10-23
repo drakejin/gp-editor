@@ -1,4 +1,5 @@
 // Guitar Pro 7/8 (.gp) output (no TuxGuitar counterpart: TuxGuitar reads .gp files, GPXInputStream v7, but cannot write them).
+import { songEffectsToJson } from '../../effects/song-effects';
 import { encodeUtf8 } from '../../io/text';
 import type { Song } from '../../model/song';
 import { assertWritable } from '../gtp-song';
@@ -13,5 +14,6 @@ export function writeGp7(song: Song): Uint8Array {
   return zipGp7(
     score,
     song.tracks.map((track) => isPercussionTrack(song, track)),
+    songEffectsToJson(song),
   );
 }
