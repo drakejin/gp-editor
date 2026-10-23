@@ -1,6 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type Song, findNote } from '@gp-editor/core';
+import { type PlayedNote, type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { DocumentLayout } from './components/DocumentLayout';
 import { EmptyState } from './components/EmptyState';
@@ -26,6 +26,7 @@ import { NotePanelView } from './components/note-panels/NotePanels';
 import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
+import { useMidiInput } from './hooks/use-midi-input';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
@@ -152,6 +153,18 @@ export default function App() {
     dispatch(action);
     focusView(keyboardView.current);
   }, []);
+  // A drum kit click enters that drum at the cursor (or takes it out of the beat).
+  const hitDrum = useCallback((key: number) => actAtCursor({ type: 'toggleDrumNote', key }), [actAtCursor]);
+  // MIDI step entry: a struck chord becomes the cursor's beat; not while a panel or menu is over the score.
+  const enterPlayed = useCallback(
+    (notes: readonly PlayedNote[]) => {
+      if (!isOverlayOpen) {
+        dispatch({ type: 'enterPlayedNotes', notes });
+      }
+    },
+    [isOverlayOpen],
+  );
+  const midiInput = useMidiInput(enterPlayed);
 
   const cursorString = cursor?.string ?? 1;
   const trackCommands = useMemo(
@@ -315,6 +328,7 @@ export default function App() {
                 onSelectSoundBank={sound.select}
                 onAddSoundBank={sound.add}
                 onRemoveSoundBank={sound.remove}
+                midiInput={midiInput}
               />
             ) : null
           }
@@ -328,6 +342,7 @@ export default function App() {
                 palette={palette}
                 showsKeyboard={chrome.panels.keyboard}
                 showsFretboard={chrome.panels.neck}
+                onDrumHit={hitDrum}
               />
               {chrome.panels.tracks ? (
                 <TracksPanel

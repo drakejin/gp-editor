@@ -1,11 +1,11 @@
-import type { Note } from '@gp-editor/core';
+import { type Note, type Track, tabFret, trackTuning } from '@gp-editor/core';
 
-/** Fret label as Guitar Pro shows it: x for dead notes, (n) for ghost/tied, <n> for natural harmonics. */
-export function fretLabel(note: Note): string {
+/** Fret label as Guitar Pro shows it: x for dead notes, (n) for ghost/tied, <n> for natural harmonics; `shownFret` is tabFretOf's fret. */
+export function fretLabel(note: Note, shownFret = note.fret): string {
   if (note.effect.deadNote) {
     return 'x';
   }
-  const fret = String(note.fret);
+  const fret = String(shownFret);
   if (note.effect.harmonic?.type === 'natural') {
     return `<${fret}>`;
   }
@@ -13,6 +13,11 @@ export function fretLabel(note: Note): string {
     return `(${fret})`;
   }
   return fret;
+}
+
+/** The fret the tab shows for a note: a banjo's short 5th string is numbered from the main nut (stored 2 → 7). */
+export function tabFretOf(track: Track, note: Note): number {
+  return tabFret(trackTuning(track), note.string, note.fret);
 }
 
 /** Short bend amount: ½, full, 1½ … from quarter tones. */

@@ -44,6 +44,21 @@ describe('engraveTabMeasure', () => {
     expect(five?.y).toBe(stringY(60, 2));
   });
 
+  it('numbers a banjo’s short 5th string from the main nut, as Guitar Pro shows it: stored 2 is fret 7, the open drone 0', () => {
+    // Arrange: open G banjo; the file stores the drone's frets from its own peg.
+    const song = makeSong([[beat(960, [note(5, 2)]), beat(1920, [note(5, 0), note(4, 2)])]]);
+    const banjo = { ...song.tracks[0]!, strings: [62, 59, 55, 50, 67].map((tuning, i) => ({ number: i + 1, tuning })) };
+    const banjoSong: Song = { ...song, tracks: [banjo] };
+
+    // Act
+    const commands = engraveTabMeasure({ ...context(), track: banjo, measure: banjo.measures[0]!, layout: layoutMeasure(banjoSong, 0, 0), cursor: { beatIndex: 0, string: 5 } });
+
+    // Assert: the drone's frets (the cursor box draws its note again); the 4th string's fret 2 stays 2.
+    const onString = (string: number) => texts(commands).filter((t) => t.font === 'mono' && t.y === stringY(60, string)).map((t) => t.text);
+    expect(onString(5).sort()).toEqual(['0', '7', '7']);
+    expect(onString(4)).toEqual(['2']);
+  });
+
   it('draws a SMuFL rest, stems and a beam only when rhythm is shown', () => {
     const withRhythm = engraveTabMeasure(context());
     expect(textValues(withRhythm)).toContain(SMUFL.restQuarter);

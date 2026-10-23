@@ -103,6 +103,7 @@ export const GM_DRUM_KEYS = {
   splash: 55,
   cowbell: 56,
   crash2: 57,
+  ride2: 59,
 } as const;
 
 /** The General MIDI name of a percussion key (35–81); undefined for any other number. */
