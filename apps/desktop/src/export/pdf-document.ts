@@ -1,6 +1,7 @@
 import type { Song } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
 import { type RowLayout, layoutMeasure, layoutRows, squeezeRow } from '../lib/layout';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY, chordBands, chordBeatWidth } from '../score/chords';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
 import { hasDynamicChanges } from '../score/dynamics';
 import { type RowGeometry, SCORE_MODE_LABELS, type ScoreMode, rowGeometry } from '../score/geometry';
@@ -31,6 +32,8 @@ export interface PdfOptions {
   readonly paper: PaperId;
   /** The open file's name, the title of a song without one. */
   readonly fileName?: string;
+  /** What the score shows of its chords, as on screen; names and diagrams by default. */
+  readonly chordDisplay?: ChordDisplay;
 }
 
 /** Everything the pages are made from, before engraving the rows. */
@@ -95,19 +98,21 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   const printWidth = paper.width - 2 * PAGE.margin;
   const titleBlock = engraveTitleBlock(song, trackIndex, title, printWidth, PRINT_PALETTE);
   const track = song.tracks[trackIndex];
-  // Lanes and the dynamics, bend and lyrics bands of the whole track, so every row has one height, as on screen.
+  // Lanes and the dynamics, bend, lyrics and chord bands of the whole track, so every row has one height, as on screen.
   const trackMeasures = track?.measures ?? [];
   const markLanes = tabMarkLanes(trackMeasures);
+  const chordDisplay = options.chordDisplay ?? DEFAULT_CHORD_DISPLAY;
   const geometry = rowGeometry(mode, track?.strings.length ?? 6, {
     markLaneCount: markLanes.length,
     hasDynamics: hasDynamicChanges(trackMeasures),
     hasBends: hasBends(trackMeasures),
     hasLyrics: hasLyrics(track),
+    ...chordBands(trackMeasures, chordDisplay),
   });
   const headerWidth = track === undefined ? 0 : rowHeaderWidth(mode, track);
   // Rows are laid out at screen size across the printable width, then printed at PRINT_SCALE; a measure too wide for
   // a line is squeezed instead of running off the page.
-  const measures = track === undefined ? [] : song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i));
+  const measures = track === undefined ? [] : song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i, (beat) => chordBeatWidth(beat, chordDisplay)));
   const rowWidth = printWidth / PRINT_SCALE;
   const rows = layoutRows(measures, rowWidth - headerWidth).map((row) => squeezeRow(row, rowWidth - headerWidth));
   const rowHeight = geometry.height * PRINT_SCALE;

@@ -3,6 +3,7 @@ import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
 import { engraveDynamics } from './dynamics';
+import { engraveChords } from './chords';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
 import { engraveLyrics } from './lyrics';
@@ -121,8 +122,10 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
   };
   const notation = engraveNotation(context, scope);
+  const { chordNamesY, chordDiagramsTop } = context.geometry;
   const commands = [
     ...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header)),
+    ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette: context.palette }),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),
     ...(context.geometry.lyricsY === undefined ? [] : engraveLyrics({ track, layout, y: context.geometry.lyricsY, palette: context.palette })),

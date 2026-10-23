@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { TUNING_PRESETS, findTuningPreset, isBassTuning, keepsStandardShapes, resolveInstrument, tuningPresetsFor } from '../src/edit/tuning-presets';
+import {
+  TUNING_PRESETS,
+  findTuningPreset,
+  isBassTuning,
+  keepsStandardShapes,
+  resolveInstrument,
+  standardTuningFor,
+  tuningPresetsFor,
+} from '../src/edit/tuning-presets';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../src/model/defaults';
 import { readSong } from '../src/read-song';
 import { loadFixture } from './helpers/fixtures';
@@ -8,7 +16,7 @@ import { songOnStrings } from './helpers/tuning-songs';
 const SEVEN_STRING = [64, 59, 55, 50, 45, 40, 35];
 const FIVE_STRING_BASS = [43, 38, 33, 28, 23];
 
-function presetTuning(instrument: 'guitar' | 'bass', name: string): readonly number[] | undefined {
+function presetTuning(instrument: 'guitar' | 'bass' | 'banjo', name: string): readonly number[] | undefined {
   return tuningPresetsFor(instrument).find((preset) => preset.name === name)?.tuning;
 }
 
@@ -42,6 +50,24 @@ describe('tuning presets', () => {
     expect(bass[0]?.tuning).toBe(STANDARD_BASS_TUNING);
     expect(STANDARD_BASS_TUNING).toEqual([43, 38, 33, 28]);
     expect(bass.every((preset) => preset.tuning.length === 4)).toBe(true);
+  });
+
+  it('lists banjo presets: the 5-string tunings, open G first, then the 4-string tenor and plectrum banjos', () => {
+    // Act
+    const banjo = tuningPresetsFor('banjo');
+
+    // Assert
+    expect(banjo.map((preset) => preset.name)).toEqual(['Open G', 'Double C', 'Open D', 'G modal', 'Tenor', 'Irish tenor', 'Plectrum']);
+    expect(banjo.map((preset) => preset.tuning.length)).toEqual([5, 5, 5, 5, 4, 4, 4]);
+    expect(standardTuningFor('banjo')).toEqual([62, 59, 55, 50, 67]);
+  });
+
+  it('spells the banjo tunings string 1 first, the short 5th string last (g D G B D: the high g is string 5)', () => {
+    expect(presetTuning('banjo', 'Open G')).toEqual([62, 59, 55, 50, 67]);
+    expect(presetTuning('banjo', 'Double C')).toEqual([62, 60, 55, 48, 67]);
+    expect(presetTuning('banjo', 'Open D')).toEqual([62, 57, 54, 50, 66]);
+    expect(presetTuning('banjo', 'Tenor')).toEqual([69, 62, 55, 48]);
+    expect(presetTuning('banjo', 'Plectrum')).toEqual([62, 59, 55, 48]);
   });
 
   it('spells the tunings string 1 first, as GuitarString.tuning', () => {
@@ -99,6 +125,20 @@ describe('resolveInstrument', () => {
     const fiveString = songOnStrings(FIVE_STRING_BASS, [[[]]], { program: 25 });
     expect(resolveInstrument(fourString, fourString.tracks[0]!)).toBe('bass');
     expect(resolveInstrument(fiveString, fiveString.tracks[0]!)).toBe('bass');
+  });
+
+  it('calls the GM banjo program (105) a banjo, on four or five strings', () => {
+    const tenor = songOnStrings([69, 62, 55, 48], [[[]]], { program: 105 });
+    const onGuitarStrings = songOnStrings(STANDARD_TUNING, [[[]]], { program: 105 });
+    expect(resolveInstrument(tenor, tenor.tracks[0]!)).toBe('banjo');
+    expect(resolveInstrument(onGuitarStrings, onGuitarStrings.tracks[0]!)).toBe('banjo');
+  });
+
+  it('calls a five-string track with the short high 5th string a banjo whatever its program, but not a 5-string bass', () => {
+    const banjo = songOnStrings([62, 59, 55, 50, 67], [[[]]], { program: 25 });
+    expect(resolveInstrument(banjo, banjo.tracks[0]!)).toBe('banjo');
+    const bass = songOnStrings(FIVE_STRING_BASS, [[[]]], { program: 25 });
+    expect(resolveInstrument(bass, bass.tracks[0]!)).toBe('bass');
   });
 
   it('draws every other pitched track as a guitar: 7 strings, strings ensemble, a part tuned an octave down', () => {
