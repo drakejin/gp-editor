@@ -249,7 +249,7 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp4');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[1]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp4')?.note ?? '' }));
     expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp4', path: '/scores/Etude.gp4', song: SONG }));
   });
 
@@ -280,7 +280,7 @@ describe('useDocument saving', () => {
 
     // Assert
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp3');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS[2]?.note ?? '' }));
+    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp3')?.note ?? '' }));
     expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp3', path: '/scores/Etude.gp3', song: SONG }));
   });
 

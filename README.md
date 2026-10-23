@@ -194,12 +194,14 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
   tab; ⌘P print; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
-- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp4`,
-  `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel: Guitar
-  Pro 5 (`.gp5`, chosen first unless the file is a `.gp4` or `.gp3`), Guitar Pro 4 (`.gp4`) or Guitar Pro 3 (`.gp3`);
-  the extension follows the choice. GP4 and GP3 keep one voice per bar (voice 2 joins voice 1) and one triplet feel,
-  and GP3 holds no lyrics and fewer effects: the save panel and the hint strip say what is left out when one is written.
-  GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+- **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp`,
+  `.gp4`, `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel:
+  Guitar Pro 5 (`.gp5`, chosen first unless the file is one of the others), Guitar Pro 7/8 (`.gp`), Guitar Pro 4
+  (`.gp4`) or Guitar Pro 3 (`.gp3`); the extension follows the choice. A `.gp` keeps everything the editor edits
+  (voices 1–4, nested tuplets …) but not Guitar Pro's own sound settings (RSE), stylesheet or audio tracks. GP4 and GP3
+  keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
+  save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
+  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
   steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
