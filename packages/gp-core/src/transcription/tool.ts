@@ -18,6 +18,7 @@ import {
   MAX_TRANSCRIBED_NUMERATOR,
   MAX_TRANSCRIBED_PARTS,
   MAX_TRANSCRIBED_REPEAT_PLAYS,
+  MAX_TRANSCRIBED_SYLLABLE_LENGTH,
   MAX_TRANSCRIBED_TEMPO,
   MAX_TRANSCRIBED_TRACKS,
   MIN_TRANSCRIBED_TEMPO,
@@ -52,7 +53,8 @@ const BEAT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const MEASURE_SCHEMA = {
+/** One measure: its parts, the marks printed at it, and the syllables sung in it. Shared with the song writer's tools. */
+export const MEASURE_SCHEMA = {
   type: 'object',
   properties: {
     timeSignature: {
@@ -79,6 +81,12 @@ const MEASURE_SCHEMA = {
         additionalProperties: false,
       },
     },
+    lyrics: {
+      type: 'array',
+      maxItems: MAX_TRANSCRIBED_BEATS,
+      items: { type: 'string', maxLength: MAX_TRANSCRIBED_SYLLABLE_LENGTH },
+      description: 'Syllables sung in this measure on the lyrics track, one per beat that has notes (rests take none), in order; "" for a note without one. Split a word over several notes: "Hel-", "lo".',
+    },
   },
   required: ['parts'],
   additionalProperties: false,
@@ -92,7 +100,12 @@ export const TRANSCRIPTION_TOOL = {
     properties: {
       song: {
         type: 'object',
-        properties: { title: { type: 'string' }, artist: { type: 'string' }, tempo: TEMPO_SCHEMA },
+        properties: {
+          title: { type: 'string' },
+          artist: { type: 'string' },
+          tempo: TEMPO_SCHEMA,
+          lyricsTrack: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_TRACKS - 1, description: 'The track the lyrics are sung on.' },
+        },
         additionalProperties: false,
       },
       tracks: {

@@ -29,3 +29,11 @@ export class TranscriptionError extends Error {
     this.name = 'TranscriptionError';
   }
 }
+
+/** A song writer's plan (a model's answer to plan_song) that cannot be written into a song. */
+export class CompositionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CompositionError';
+  }
+}

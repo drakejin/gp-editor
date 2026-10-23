@@ -5,6 +5,7 @@ import type { Song, SongInfo, Track } from '../model/song';
 import { GP5_VERSION } from '../write/gp5-writer';
 import { DEFAULT_TEMPO, type PlannedMeasure, buildMeasureHeaders } from './header-plan';
 import { type TrackPlan, buildChannels, resolveTrackPlans } from './track-plans';
+import { resolveLyricsTrack, withLyrics } from './lyrics';
 import { buildTrackMeasures } from './track-measures';
 import type { TranscribedMeasure, TranscribedSongInfo, TranscriptionPage } from './types';
 
@@ -87,15 +88,26 @@ export function buildSongFromTranscription(pages: readonly TranscriptionPage[], 
   const { plans, warnings: trackWarnings } = resolveTrackPlans(pages, measures);
   const headers = buildMeasureHeaders(measures, resolveTempo(pages));
   const tracks = plans.map((plan, trackIndex) => buildTrack(plan, trackIndex, plans.length, headers.measures));
+  const sung = withLyrics(
+    tracks.map((built) => built.track),
+    measures,
+    resolveLyricsTrack(pages),
+  );
   const song: Song = {
     source: { format: 'gp5', version: GP5_VERSION },
     info: resolveSongInfo(pages, options),
     channels: buildChannels(plans),
     measureHeaders: headers.measureHeaders,
-    tracks: tracks.map((built) => built.track),
+    tracks: sung.tracks,
   };
   return {
     song,
-    warnings: [...pageWarnings(pages), ...trackWarnings, ...unknownPartWarnings(measures, plans.length), ...tracks.flatMap((built) => built.warnings)],
+    warnings: [
+      ...pageWarnings(pages),
+      ...trackWarnings,
+      ...unknownPartWarnings(measures, plans.length),
+      ...tracks.flatMap((built) => built.warnings),
+      ...sung.warnings,
+    ],
   };
 }

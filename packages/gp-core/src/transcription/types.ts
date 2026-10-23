@@ -15,6 +15,8 @@ export const MAX_TRANSCRIBED_MEASURES = 256;
 export const MAX_TRANSCRIBED_PARTS = MAX_TRANSCRIBED_TRACKS * 2;
 export const MAX_TRANSCRIBED_BEATS = 128;
 export const MAX_TRANSCRIBED_NOTES = 12;
+/** A sung syllable longer than this is cut. */
+export const MAX_TRANSCRIBED_SYLLABLE_LENGTH = 32;
 
 /** Ranges of the contract: the tool's JSON schema states them and parseTranscriptionPage clamps to them. */
 export const MIN_TRANSCRIBED_TEMPO = 10;
@@ -49,6 +51,8 @@ export interface TranscribedSongInfo {
   readonly artist?: string;
   /** Quarter-note BPM at the start. */
   readonly tempo?: number;
+  /** Index of the track the lyrics are sung on (the melody); 0 when absent. */
+  readonly lyricsTrack?: number;
 }
 
 export interface TranscribedTrack {
@@ -103,6 +107,11 @@ export interface TranscribedMeasure {
   /** The volta (1st/2nd ending) number this measure belongs to; 0 or absent for none. */
   readonly alternateEnding?: number;
   readonly parts: readonly TranscribedPart[];
+  /**
+   * Syllables sung in this measure on the lyrics track: one per beat that has notes (rests take none), in order, ""
+   * for a note sung without one. A word over several notes is split ("Hel-", "lo").
+   */
+  readonly lyrics?: readonly string[];
 }
 
 /** One page's transcription. The first page names the song and the tracks; later pages may repeat them or leave them out. */

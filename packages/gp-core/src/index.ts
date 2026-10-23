@@ -29,7 +29,7 @@ export { type WritableFormat, writeSong } from './write';
 export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
-export { GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
+export { CompositionError, GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
 export { MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from './edit/edit-song';
 export {
   type Instrument,
@@ -125,3 +125,17 @@ export type {
 export { TRANSCRIPTION_TOOL } from './transcription/tool';
 export { parseTranscriptionPage } from './transcription/parse-page';
 export { type TranscribedSong, type TranscriptionOptions, buildSongFromTranscription } from './transcription/build-song';
+export {
+  DEFAULT_PLAN_TEMPO,
+  MAX_PLAN_BARS,
+  MAX_PLAN_SECTIONS,
+  MAX_PLAN_TEMPO,
+  MAX_PLAN_TRACKS,
+  MAX_SECTION_BARS,
+  MIN_PLAN_TEMPO,
+  type PlannedSection,
+  type SongPlan,
+} from './composition/types';
+export { PLAN_SONG_TOOL, WRITE_SECTION_TOOL } from './composition/tool';
+export { parseSongPlan } from './composition/parse-plan';
+export { SONG_WRITER_CREDIT, type SongDetails, buildComposedSong } from './composition/build';

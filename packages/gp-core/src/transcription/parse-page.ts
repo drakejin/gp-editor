@@ -26,6 +26,7 @@ import {
   MAX_TRANSCRIBED_NOTES,
   MAX_TRANSCRIBED_PARTS,
   MAX_TRANSCRIBED_REPEAT_PLAYS,
+  MAX_TRANSCRIBED_SYLLABLE_LENGTH,
   MAX_TRANSCRIBED_TEMPO,
   MAX_TRANSCRIBED_TRACKS,
   MIN_TRANSCRIBED_TEMPO,
@@ -53,12 +54,17 @@ function parseSongInfo(value: unknown): TranscribedSongInfo | undefined {
   if (!isRawObject(value)) {
     return undefined;
   }
-  const info = withoutUndefined({ title: toText(value.title), artist: toText(value.artist), tempo: parseTempo(value.tempo) });
+  const info = withoutUndefined({
+    title: toText(value.title),
+    artist: toText(value.artist),
+    tempo: parseTempo(value.tempo),
+    lyricsTrack: toClampedInteger(value.lyricsTrack, 0, MAX_TRANSCRIBED_TRACKS - 1),
+  });
   return Object.keys(info).length === 0 ? undefined : info;
 }
 
 /** A track; odd fields fall back (no name, a guitar, no tuning: standard, no capo) since the builder can do without them. */
-function parseTrack(value: unknown, path: string): TranscribedTrack {
+export function parseTrack(value: unknown, path: string): TranscribedTrack {
   const track = readObject(value, path);
   const tuning = Array.isArray(track.tuning) ? track.tuning.map((entry: unknown) => (typeof entry === 'string' ? entry.trim() : String(entry))) : [];
   return {
@@ -144,6 +150,17 @@ function parsePart(value: unknown, path: string, trackCount: number | undefined)
   return { track, beats };
 }
 
+/**
+ * A measure's syllables: trimmed and cut to MAX_TRANSCRIBED_SYLLABLE_LENGTH; spaces inside one become no-break spaces,
+ * since a space separates syllables in Guitar Pro's lyrics; anything but text is a note without a syllable ("").
+ */
+function parseLyrics(value: unknown, path: string): readonly string[] | undefined {
+  const syllables = readOptionalList(value, path, MAX_TRANSCRIBED_BEATS).map((syllable) =>
+    typeof syllable === 'string' ? syllable.trim().replace(/\s+/g, '\u00A0').slice(0, MAX_TRANSCRIBED_SYLLABLE_LENGTH) : '',
+  );
+  return syllables.length === 0 ? undefined : syllables;
+}
+
 function parseTimeSignature(value: unknown, path: string): TranscribedMeasure['timeSignature'] {
   if (value === undefined || value === null) {
     return undefined;
@@ -167,6 +184,7 @@ function parseMeasure(value: unknown, path: string, trackCount: number | undefin
     repeatClose: toPositive(toClampedInteger(measure.repeatClose, 0, MAX_TRANSCRIBED_REPEAT_PLAYS)),
     alternateEnding: toPositive(toClampedInteger(measure.alternateEnding, 0, MAX_TRANSCRIBED_ALTERNATE_ENDING)),
     parts,
+    lyrics: parseLyrics(measure.lyrics, `${path}.lyrics`),
   });
 }
 
