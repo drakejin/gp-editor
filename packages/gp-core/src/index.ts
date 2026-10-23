@@ -18,6 +18,7 @@ export {
   durationTicks,
   isMeasureOverfull,
   isNoteValue,
+  isSameTuplet,
   measureTicks,
   toNoteValue,
   tupletOf,

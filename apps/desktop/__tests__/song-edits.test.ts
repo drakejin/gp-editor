@@ -1,7 +1,7 @@
 import { QUARTER, findNote } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { cursorVoice, isTriplet } from '../src/state/song-edits';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note } from '../test-support/songs';
 
 /** One 4/4 bar: beat 0 = quarter on string 1 (fret 3), beat 1 = quarter on string 2 (fret 5). */
 function loaded(): EditorState {
@@ -39,7 +39,7 @@ describe('cursor edits in the reducer', () => {
     const deleted = edit(inserted, { type: 'edit', edit: { type: 'deleteBeat' } });
     const beats = song(deleted).tracks[0]!.measures[0]!.beats;
     expect(beats[1]!.voices[0]!.notes[0]).toMatchObject({ string: 2, fret: 5 });
-    expect(beats[1]!.start).toBe(1920);
+    expect(beats[1]!.start).toBe(fromTux(1920));
     expect(beats[beats.length - 1]!.voices[0]!.notes).toEqual([]);
   });
 

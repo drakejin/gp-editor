@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { positionAt, readSong, renderMidi, type TimelineEntry, timelineIndexAt } from '../src/index';
 import { loadFixture } from './helpers/fixtures';
 import { makeSong } from './helpers/midi-song';
+import { fromTux, toTux } from './helpers/ticks';
 
 describe('renderMidi timeline', () => {
   it('has one entry per played measure of repeat-close.gp5, in playback order', () => {
@@ -12,7 +13,7 @@ describe('renderMidi timeline', () => {
     const { timeline, durationSeconds } = renderMidi(song);
 
     // Assert
-    expect(timeline.map((entry) => [entry.headerIndex, entry.tick, entry.seconds, entry.tempo])).toEqual([
+    expect(timeline.map((entry) => [entry.headerIndex, toTux(entry.tick), entry.seconds, entry.tempo])).toEqual([
       [0, 960, 0, 120],
       [1, 4800, 2, 120],
       [0, 960, 4, 120],
@@ -81,14 +82,14 @@ describe('positionAt', () => {
       const position = positionAt(timeline, entry.seconds + halfMeasure);
 
       // Assert
-      expect(position, `entry ${index}`).toEqual({ headerIndex: entry.headerIndex, tick: entry.tick + 1920 });
+      expect(position, `entry ${index}`).toEqual({ headerIndex: entry.headerIndex, tick: entry.tick + fromTux(1920) });
     });
   });
 
   it('returns the measure start exactly at a measure boundary', () => {
     // Act / Assert
-    expect(positionAt(timeline, 2)).toEqual({ headerIndex: 1, tick: 4800 });
-    expect(positionAt(timeline, 0)).toEqual({ headerIndex: 0, tick: 960 });
+    expect(positionAt(timeline, 2)).toEqual({ headerIndex: 1, tick: fromTux(4800) });
+    expect(positionAt(timeline, 0)).toEqual({ headerIndex: 0, tick: fromTux(960) });
   });
 
   it('stays inside the measure just before its end', () => {
@@ -97,8 +98,8 @@ describe('positionAt', () => {
 
     // Assert
     expect(position?.headerIndex).toBe(0);
-    expect(position?.tick).toBeLessThan(4800);
-    expect(position?.tick).toBeGreaterThanOrEqual(4799);
+    expect(toTux(position?.tick ?? 0)).toBeLessThan(4800);
+    expect(toTux(position?.tick ?? 0)).toBeGreaterThanOrEqual(4799);
   });
 
   it('returns undefined before the start and past the end', () => {
@@ -127,9 +128,9 @@ describe('positionAt', () => {
 
   it('treats the last entry of a hand-made timeline without end as open-ended', () => {
     // Arrange
-    const handMade: TimelineEntry[] = [{ seconds: 0, headerIndex: 3, tick: 960, tempo: 60 }];
+    const handMade: TimelineEntry[] = [{ seconds: 0, headerIndex: 3, tick: fromTux(960), tempo: 60 }];
 
     // Act / Assert
-    expect(positionAt(handMade, 10)).toEqual({ headerIndex: 3, tick: 960 + 9600 });
+    expect(positionAt(handMade, 10)).toEqual({ headerIndex: 3, tick: fromTux(960 + 9600) });
   });
 });

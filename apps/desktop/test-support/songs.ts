@@ -1,4 +1,4 @@
-import { DEFAULT_CHANNEL, EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, RED } from '@gp-editor/core';
+import { DEFAULT_CHANNEL, EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, QUARTER_TIME, RED } from '@gp-editor/core';
 import type { Beat, Duration, MeasureHeader, Note, NoteEffect, Song } from '@gp-editor/core';
 
 export interface StringsOptions {
@@ -21,13 +21,27 @@ export function onStrings(song: Song, tuning: readonly number[], options: String
   return { ...song, channels, tracks: [tuned, ...others] };
 }
 
+/** Song ticks of one tick of TuxGuitar's grid (960 per quarter note): tests write positions as TuxGuitar counts them. */
+const TUX_TICK = QUARTER_TIME / 960;
+
+/** Song ticks of a position written in TuxGuitar ticks. */
+export function fromTux(tuxTicks: number): number {
+  return tuxTicks * TUX_TICK;
+}
+
+/** A song position in TuxGuitar ticks. */
+export function toTux(songTicks: number): number {
+  return songTicks / TUX_TICK;
+}
+
 export function note(string: number, fret: number, effect: Partial<NoteEffect> = {}): Note {
   return { string, fret, velocity: 95, isTied: false, effect: { ...EMPTY_NOTE_EFFECT, ...effect } };
 }
 
+/** A beat at `start` TuxGuitar ticks. */
 export function beat(start: number, notes: Note[], duration: Duration = QUARTER): Beat {
   return {
-    start,
+    start: fromTux(start),
     voices: [{ duration, notes, isEmpty: false, direction: 'none' }],
     stroke: NO_STROKE,
     pickStroke: 'none',
@@ -37,7 +51,7 @@ export function beat(start: number, notes: Note[], duration: Duration = QUARTER)
 export function header(number: number, overrides: Partial<MeasureHeader> = {}): MeasureHeader {
   return {
     number,
-    start: 960 + (number - 1) * 3840,
+    start: fromTux(960 + (number - 1) * 3840),
     timeSignature: { numerator: 4, denominator: 4 },
     tempo: 120,
     repeatOpen: false,

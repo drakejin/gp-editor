@@ -1,4 +1,4 @@
-// Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseRhythm / #parseDynamic (LGPL-2.1).
+// Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseRhythm / #parseDynamic (LGPL-2.1); the secondary tuplet is not in TuxGuitar.
 import { NORMAL_TUPLET, NOTE_VALUES, STROKE_VALUES, plainDuration } from '../../model/defaults';
 import type { Duration, NoteValue, Tuplet } from '../../model/song';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
@@ -23,19 +23,27 @@ const RHYTHM_NOTE_VALUES: Readonly<Record<string, NoteValue>> = {
 
 const QUARTER_VALUE: NoteValue = 4;
 
-/** Duration of a GPIF rhythm; a missing rhythm is a quarter note. */
+/**
+ * Duration of a GPIF rhythm; a missing rhythm is a quarter note. The secondary tuplet lies inside the primary one
+ * (a secondary tuplet alone is the tuplet itself).
+ */
 export function rhythmDuration(rhythm: GpifRhythm | undefined): Duration {
   if (rhythm === undefined) {
     return plainDuration(QUARTER_VALUE);
   }
+  const primary = tupletOf(rhythm.primaryTupletNum, rhythm.primaryTupletDen);
+  const secondary = tupletOf(rhythm.secondaryTupletNum, rhythm.secondaryTupletDen);
+  const [tuplet, innerTuplet]: readonly [Tuplet, Tuplet] = primary === NORMAL_TUPLET ? [secondary, NORMAL_TUPLET] : [primary, secondary];
   return {
     value: lookupName(RHYTHM_NOTE_VALUES, rhythm.noteValue) ?? QUARTER_VALUE,
     dotted: rhythm.augmentationDotCount === 1,
     doubleDotted: rhythm.augmentationDotCount === 2,
-    tuplet: tupletOf(rhythm.primaryTupletNum, rhythm.primaryTupletDen),
+    tuplet,
+    ...(innerTuplet === NORMAL_TUPLET ? {} : { innerTuplet }),
   };
 }
 
+/** A tuplet of `enters` notes in the time of `times`; NORMAL_TUPLET for 1:1 or a count that is not positive. */
 function tupletOf(enters: number, times: number): Tuplet {
   return enters > 0 && times > 0 && !(enters === 1 && times === 1) ? { enters, times } : NORMAL_TUPLET;
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Beat, type Note, readSong, type Song, vibratoOf } from '../src/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 
 // Expected values follow alphaTab's Gp3Importer.test.ts, translated to our model:
 // alphaTab numbers strings from the lowest (1 = low E), we from the highest (1 = high E).
@@ -97,9 +98,9 @@ describe('readGp3 values', () => {
     const song = read('notes.gp3');
     const measure = song.tracks[0]?.measures[0];
 
-    expect(song.measureHeaders[0]?.start).toBe(960);
-    expect(measure?.beats.slice(0, 6).map((beat) => beat.start)).toEqual([960, 4800, 8640, 12480, 16320, 20160]);
-    expect(measure?.beats[6]?.start).toBe(20160 + 1920);
+    expect(toTux(song.measureHeaders[0]?.start ?? 0)).toBe(960);
+    expect(measure?.beats.slice(0, 6).map((beat) => toTux(beat.start))).toEqual([960, 4800, 8640, 12480, 16320, 20160]);
+    expect(toTux(measure?.beats[6]?.start ?? 0)).toBe(20160 + 1920);
   });
 
   it('carries time signatures over from measure to measure', () => {
@@ -383,7 +384,7 @@ describe('readGp3 synthetic files', () => {
       timeSignature: { numerator: 3, denominator: 8 },
       marker: { title: 'Verse', color: { r: 0, g: 128, b: 255 } },
     });
-    expect(song.measureHeaders[1]?.start).toBe(960 + 1440);
+    expect(toTux(song.measureHeaders[1]?.start ?? 0)).toBe(960 + 1440);
     expect(song.tracks[0]?.measures[0]?.beats[0]?.voices[0]?.duration).toMatchObject({ value: 8, dotted: true });
   });
 

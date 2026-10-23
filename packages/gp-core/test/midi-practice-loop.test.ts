@@ -3,6 +3,7 @@ import { positionAt, readSong, renderMidi, type Song } from '../src/index';
 import { loadFixture } from './helpers/fixtures';
 import { eventsOf, playedNotes, readMidi } from './helpers/midi-reader';
 import { type HeaderSpec, makeSong, note } from './helpers/midi-song';
+import { toTux } from './helpers/ticks';
 
 const MEASURE = 3840;
 
@@ -87,7 +88,7 @@ describe('renderMidi passTempoScales', () => {
     const render = renderMidi(song, options);
 
     // Assert
-    expect(render.timeline.map((entry) => [entry.passIndex, entry.headerIndex, entry.tick, entry.seconds])).toEqual([
+    expect(render.timeline.map((entry) => [entry.passIndex, entry.headerIndex, toTux(entry.tick), entry.seconds])).toEqual([
       [0, 1, 4800, 0],
       [0, 2, 8640, 2],
       [1, 1, 4800, 4],
@@ -177,7 +178,7 @@ describe('renderMidi passTempoScales', () => {
     const { timeline } = renderMidi(song, { fromHeaderIndex: 1, toHeaderIndex: 2, passTempoScales: [1, 2] });
 
     // Act
-    const positions = [0.25, 2.25, 4.125, 5.125].map((seconds) => positionAt(timeline, seconds));
+    const positions = [0.25, 2.25, 4.125, 5.125].map((seconds) => positionAt(timeline, seconds)).map((position) => position && { ...position, tick: toTux(position.tick) });
 
     // Assert: an eighth note into each measure, at 120 BPM in the first pass and 240 BPM in the second.
     expect(positions).toEqual([
