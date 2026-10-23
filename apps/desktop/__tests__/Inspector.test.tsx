@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { Inspector, type InspectorProps } from '../src/components/inspector/Inspector';
+import { DEFAULT_MIDI_INPUT } from '../src/lib/midi-input';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -155,5 +156,14 @@ describe('Inspector SONG tab', () => {
     expect(inspector.props.onSelectSoundBank).toHaveBeenCalledWith('generaluser');
     expect(inspector.props.onRemoveSoundBank).toHaveBeenCalledWith('file:mine.sf2');
     expect(inspector.props.onAddSoundBank).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the MIDI input settings when the app has them', () => {
+    const midiInput = { settings: DEFAULT_MIDI_INPUT, sources: [], listening: 0, changeSettings: jest.fn() };
+    const inspector = render({ midiInput });
+    inspector.openTab('SONG');
+    expect(inspector.texts()).toContain('MIDI INPUT');
+    inspector.press('Enter notes at the cursor from a MIDI keyboard or MIDI guitar');
+    expect(midiInput.changeSettings).toHaveBeenCalledWith({ isEnabled: true });
   });
 });

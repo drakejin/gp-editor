@@ -161,6 +161,23 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   says how many of each (⌘Z restores the old tuning). When a track is not on a preset that plays it — a 7-string part, a custom tuning,
   a part below low E — the row says why (e.g. *Standard guitar tuning can't play this track (lowest note D2)*) and
   offers the best tunings as one-click buttons. Opening a file never changes its tuning by itself.
+- **Banjo**: a track playing the General MIDI banjo (or tuned like a 5-string banjo) gets banjo presets — Open G
+  (g D G B D), Double C, Open D, G modal, and the 4-string Tenor, Irish tenor and Plectrum banjos. On a 5-string banjo
+  the short 5th string starts at the 5th fret: the fretboard draws it from its peg there, and the tab numbers it as
+  Guitar Pro does — 0 is the open drone, then 6, 7, 8 … (the file stores 0, 1, 2 …, as Guitar Pro's files do). Type
+  the tab's numbers on that string; 1–5 are refused with a hint.
+- **Drum kit**: for a drum track the instrument view (either toggle) shows a drum kit from above — kick, snare and
+  rim, hi-hat (closed, open, pedal), three toms and a floor tom, crash, crash 2, ride and its bell, china, splash,
+  cowbell — with the drums of the current beat lit (the playing beat while playing); drums the kit has no piece for are
+  named underneath. Clicking a piece enters that drum (its General MIDI key) into the cursor's beat, a second click
+  takes it out (one undo step each).
+- **MIDI input**: the SONG inspector's *MIDI INPUT* turns it on and picks the source (every source, or one keyboard or
+  MIDI guitar; CoreMIDI, devices plugged in later are found). Notes struck within 50 ms make one beat at the cursor
+  — replacing what the beat held, keeping its duration — and the cursor moves to the next beat, adding a bar after the
+  last one (step entry, one undo step per beat). Guitar and bass notes go on the strings nearest the hand position of the last fretted beat, in pitch
+  order across the strings; *MIDI guitar* puts channel *n* on string *n* (one channel per string); on a drum track the
+  key is the drum. *Velocity* gives the notes the velocity they were played with. A note the track cannot play is left
+  out with a hint. The settings are kept on this Mac.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings. Keys reach the score only from the score: what is typed in a text field (the Song Writer, the
   inspector, the palette's texts) stays in it, and while a panel, sheet or menu is open over the score every key but

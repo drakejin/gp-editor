@@ -1,7 +1,7 @@
 import type { Beat, Duration, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
 import { type BeamLayout, beamGroupTicks, flagCount, layoutBeams } from '../lib/beams';
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
-import { fretLabel } from '../lib/notation';
+import { fretLabel, tabFretOf } from '../lib/notation';
 import type { Palette } from '../theme';
 import { type DrawCommand, SMUFL } from './draw';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
@@ -143,7 +143,7 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
       const y = stringY(top, note.string);
       commands.push(
         { kind: 'rect', x: x - FRET_BOX.width / 2, y: y - FRET_BOX.height / 2, width: FRET_BOX.width, height: FRET_BOX.height, color: palette.paper, radius: 3 },
-        { kind: 'text', x, y, text: fretLabel(note), size: FRET_FONT_SIZE, color: voiceColor(voiceIndex, palette), font: 'mono', align: 'center', bold: true },
+        { kind: 'text', x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color: voiceColor(voiceIndex, palette), font: 'mono', align: 'center', bold: true },
       );
     });
   });
@@ -168,7 +168,7 @@ function cursorBox(context: TabContext, cursor: { readonly beatIndex: number; re
   const box = { x: beat.x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
   const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: context.palette.selection, radius: 4 }];
   if (note !== undefined) {
-    commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(note), size: FRET_FONT_SIZE, color: context.palette.text, font: 'mono', align: 'center', bold: true });
+    commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color: context.palette.text, font: 'mono', align: 'center', bold: true });
   }
   return commands;
 }
