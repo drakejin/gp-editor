@@ -11,6 +11,8 @@
 //
 // The differences alphaTab reads on purpose are in alphatab-known-differences.ts, each with its evidence; the last
 // describe block below pins that evidence on Guitar Pro's own files, so a rule cannot hide a mismatch of our writer.
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { plainDuration } from '../src/model/defaults';
 import type { Song } from '../src/model/song';
@@ -102,14 +104,17 @@ describe('the cross-check itself', () => {
     expect(unexplained).toEqual([]);
   });
 
-  it('reads every fixture folder readSong reads', () => {
-    // Arrange / Act
-    const folders = new Set(sourceFiles().map((source) => source.folder));
+  it('writes the files of every fixture folder', () => {
+    // Arrange
+    const fixturesDir = join(import.meta.dirname, 'fixtures');
+    const folders = readdirSync(fixturesDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 
-    // Assert (GP1/GP2 only when fetched)
-    expect([...folders].filter((folder) => folder !== 'guitarpro1' && folder !== 'guitarpro2').sort()).toEqual(
-      ['guitarpro3', 'guitarpro4', 'guitarpro5', 'guitarpro6', 'guitarpro7', 'guitarpro8', 'midi', 'musicxml', 'powertab', 'tabledit'],
-    );
+    // Act
+    const swept = new Set(sourceFiles().map((source) => source.folder));
+
+    // Assert
+    expect(folders.filter((folder) => !swept.has(folder as FixtureFolder))).toEqual([]);
+    expect(swept.size).toBeGreaterThanOrEqual(10);
   });
 });
 
