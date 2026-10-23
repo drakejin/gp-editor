@@ -107,6 +107,7 @@ function readVoice(node: XmlElement): GpifVoice {
 
 function readRhythm(node: XmlElement): GpifRhythm {
   const tuplet = child(node, 'PrimaryTuplet');
+  const secondary = child(node, 'SecondaryTuplet');
   const dot = child(node, 'AugmentationDot');
   return {
     id: parseJavaInt(attribute(node, 'id'), 0),
@@ -114,5 +115,7 @@ function readRhythm(node: XmlElement): GpifRhythm {
     augmentationDotCount: dot === undefined ? 0 : parseJavaInt(attribute(dot, 'count'), 0),
     primaryTupletNum: tuplet === undefined ? 1 : parseJavaInt(attribute(tuplet, 'num'), 0),
     primaryTupletDen: tuplet === undefined ? 1 : parseJavaInt(attribute(tuplet, 'den'), 0),
+    secondaryTupletNum: secondary === undefined ? 1 : parseJavaInt(attribute(secondary, 'num'), 0),
+    secondaryTupletDen: secondary === undefined ? 1 : parseJavaInt(attribute(secondary, 'den'), 0),
   };
 }

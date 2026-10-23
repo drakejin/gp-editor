@@ -9,12 +9,14 @@ interface EmptyStateProps {
   readonly onCreate: (mode: ScoreMode) => void;
   readonly onOpen: () => void;
   readonly onImportPdf: () => void;
-  /** Recent PDF import projects, under the buttons. */
+  /** Recent files (pinned on top), under the buttons. */
+  readonly recentFiles?: ReactNode;
+  /** Recent PDF import projects, under the recent files. */
   readonly projects?: ReactNode;
 }
 
 /** Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro, Power Tab or TablEdit file. */
-export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, projects }: EmptyStateProps) {
+export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, recentFiles, projects }: EmptyStateProps) {
   if (isLoading) {
     return (
       <View style={styles.empty}>
@@ -45,6 +47,7 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
           <Text style={[styles.openButtonText, { color: palette.accentText }]}>Import PDF… (⇧⌘I)</Text>
         </Pressable>
       </View>
+      {recentFiles === undefined ? null : <View style={styles.recentFiles}>{recentFiles}</View>}
       {projects}
     </View>
   );
@@ -60,4 +63,5 @@ const styles = StyleSheet.create({
   newButtonText: { fontSize: 14, fontWeight: '700' },
   openButton: { marginTop: 20, marginHorizontal: 5, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 8 },
   openButtonText: { fontSize: 14, fontWeight: '700' },
+  recentFiles: { marginTop: 26 },
 });

@@ -39,6 +39,29 @@ export function tupletOf(enters: number): Tuplet | undefined {
   return times === undefined ? undefined : { enters, times };
 }
 
+/** The tuplets a duration lies in: `tuplet` and, inside it, `innerTuplet` (Duration's own fields). */
+export type DurationTuplets = Pick<Duration, 'tuplet' | 'innerTuplet'>;
+
+/** No tuplet at all. */
+export const NO_TUPLETS: DurationTuplets = { tuplet: NORMAL_TUPLET };
+
+/** Same number of notes in the same time. */
+export function isSameTuplet(a: Tuplet, b: Tuplet): boolean {
+  return a.enters === b.enters && a.times === b.times;
+}
+
+/** Same outer and inner tuplet (a missing inner tuplet is the normal 1:1). */
+export function hasSameTuplets(a: DurationTuplets, b: DurationTuplets): boolean {
+  return isSameTuplet(a.tuplet, b.tuplet) && isSameTuplet(a.innerTuplet ?? NORMAL_TUPLET, b.innerTuplet ?? NORMAL_TUPLET);
+}
+
+/** `duration` in `tuplets`: their outer tuplet, and their inner one when they have one. */
+export function withTuplets(duration: Omit<Duration, 'tuplet' | 'innerTuplet'>, tuplets: DurationTuplets): Duration {
+  const { value, dotted, doubleDotted } = duration;
+  const base: Duration = { value, dotted, doubleDotted, tuplet: tuplets.tuplet };
+  return tuplets.innerTuplet === undefined ? base : { ...base, innerTuplet: tuplets.innerTuplet };
+}
+
 export const QUARTER: Duration = {
   value: 4,
   dotted: false,
@@ -119,18 +142,35 @@ export const STANDARD_TUNING: readonly number[] = [64, 59, 55, 50, 45, 40];
 /** Standard 4-string bass tuning (E A D G), string 1 (G) first. */
 export const STANDARD_BASS_TUNING: readonly number[] = [43, 38, 33, 28];
 
-/**
- * Length of a duration in ticks (QUARTER_TIME per quarter note). Integer maths as in
- * TuxGuitar's TGDuration.getTime, so positions match TuxGuitar's.
+/*
+ * Tick resolution. TuxGuitar counts 960 ticks per quarter note, which a 7, 9, 11 or 13-tuplet does not divide: seven
+ * 7:4 sixteenths came to 959 ticks, so bars with them never filled. QUARTER_TIME is instead 960 × 135135
+ * = 2^6 · 3^4 · 5^2 · 7 · 11 · 13 = 129,729,600:
+ * - 2^6 lets a double-dotted 64th (7/64 of a quarter) be whole;
+ * - 3, 5, 7, 3^2 (9), 11 and 13 are the odd parts of every tuplet Guitar Pro stores (3:2, 5:4, 6:4, 7:4, 9:8, 10:8,
+ *   11:8, 12:8, 13:8), so every note value 1…64, plain, dotted or double dotted, in any of them, is a whole number of
+ *   ticks; 3^4 and 5^2 add one level of nesting (GP7/GP8's secondary tuplet) for any pair of those tuplets but a 7, 11
+ *   or 13-tuplet inside one of the same size, whose length (like any other ratio a file may hold) is rounded down to
+ *   a whole tick.
+ * Exact rationals would have changed every position in the code; an integer keeps them plain numbers. Being a
+ * multiple of 960, old positions scale exactly, and the MIDI files keep 960 PPQ (midi/midi-ticks.ts). Positions stay
+ * exact integers (below 2^53) for 69 million quarter notes, far past any song with its repeats played out.
  */
-export function durationTicks(duration: Duration): number {
-  let ticks = Math.floor((QUARTER_TIME * 4) / duration.value);
+
+/** A dot adds half the value, a double dot three quarters: the value times 3/2 or 7/4 (a dot wins over a double dot). */
+function dotRatio(duration: Duration): readonly [number, number] {
   if (duration.dotted) {
-    ticks += Math.floor(ticks / 2);
-  } else if (duration.doubleDotted) {
-    ticks += Math.floor(ticks / 4) * 3;
+    return [3, 2];
   }
-  return Math.floor((ticks * duration.tuplet.times) / duration.tuplet.enters);
+  return duration.doubleDotted ? [7, 4] : [1, 1];
+}
+
+/** Length of a duration in ticks (QUARTER_TIME per quarter note): exact for every duration Guitar Pro writes. */
+export function durationTicks(duration: Duration): number {
+  const inner = duration.innerTuplet ?? NORMAL_TUPLET;
+  const [dotTimes, dotParts] = dotRatio(duration);
+  const numerator = QUARTER_TIME * 4 * dotTimes * duration.tuplet.times * inner.times;
+  return Math.floor(numerator / (duration.value * dotParts * duration.tuplet.enters * inner.enters));
 }
 
 /** Length of a measure in ticks for a time signature. */

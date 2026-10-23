@@ -1,7 +1,7 @@
 import type { Song } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type Playback, usePlayback } from '../src/hooks/use-playback';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const mockPlayer = {
   play: jest.fn<Promise<void>, [string, number?]>(),
@@ -21,7 +21,7 @@ jest.mock('../src/native/player', () => ({
 
 const song = makeSong([[beat(960, [note(1, 0)])]]);
 /** Three bars at 120 BPM: 2 s each. */
-const threeBars = makeSong([1, 2, 3].map((number) => [beat(header(number).start, [note(1, 0)])]));
+const threeBars = makeSong([1, 2, 3].map((number) => [beat(toTux(header(number).start), [note(1, 0)])]));
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve: () => void = () => undefined;

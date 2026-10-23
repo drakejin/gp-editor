@@ -15,7 +15,7 @@ import {
 } from '../src/score/bar-map';
 import { rgbHex } from '../src/score/heading';
 import { PALETTE, allFinite, texts, textValues } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const PITCH = BAR_MAP.cellWidth + BAR_MAP.gap;
 const BLUE = { r: 0, g: 0, b: 255 };
@@ -40,7 +40,7 @@ function twoTrackSong(markers: Record<number, string> = {}, barCount = 4): Song 
     return header(i + 1, title === undefined ? {} : { marker: { title, color: { r: 255, g: 0, b: 0 } } });
   });
   const start = (i: number) => headers[i]!.start;
-  const firstBeats = headers.map((_, i): Beat[] => (i === 0 ? [beat(start(0), [note(1, 3)])] : i === 1 ? [rest(start(1))] : i === 2 ? [beat(start(2), [note(2, 5)])] : []));
+  const firstBeats = headers.map((_, i): Beat[] => (i === 0 ? [beat(toTux(start(0)), [note(1, 3)])] : i === 1 ? [rest(start(1))] : i === 2 ? [beat(toTux(start(2)), [note(2, 5)])] : []));
   const song = makeSong(firstBeats, headers);
   const first = song.tracks[0]!;
   const second: Track = {
@@ -48,7 +48,7 @@ function twoTrackSong(markers: Record<number, string> = {}, barCount = 4): Song 
     number: 2,
     name: 'Bass',
     color: BLUE,
-    measures: first.measures.map((measure, i): Measure => ({ ...measure, beats: i === 1 ? [beat(start(1), [note(4, 2)])] : [rest(start(i))] })),
+    measures: first.measures.map((measure, i): Measure => ({ ...measure, beats: i === 1 ? [beat(toTux(start(1)), [note(4, 2)])] : [rest(start(i))] })),
   };
   return { ...song, tracks: [first, second] };
 }

@@ -3,6 +3,7 @@ import { GpFormatError } from '../src';
 import { MAX_DRAFT_MEASURES, MAX_DRAFT_TRACKS, SongDraft, type TrackSetup } from '../src/formats/common/song-draft';
 import { DEFAULT_CHANNEL, STANDARD_TUNING } from '../src/model/defaults';
 import { QUARTER_TIME } from '../src/model/song';
+import { fromTux } from './helpers/ticks';
 
 const SETUP: TrackSetup = {
   name: 'Guitar',
@@ -33,8 +34,8 @@ describe('SongDraft', () => {
     // Assert
     expect([first, second, third].map((header) => [header.start, header.timeSignature.numerator, header.tempo])).toEqual([
       [QUARTER_TIME, 4, 90],
-      [QUARTER_TIME + 3840, 3, 90],
-      [QUARTER_TIME + 3840 + 2880, 3, 90],
+      [QUARTER_TIME + fromTux(3840), 3, 90],
+      [QUARTER_TIME + fromTux(3840 + 2880), 3, 90],
     ]);
     expect(draft.tracks[0]?.measures).toHaveLength(3);
   });
@@ -48,7 +49,7 @@ describe('SongDraft', () => {
     }
 
     // Act
-    const measure = draft.ensureMeasureAt(track, QUARTER_TIME + 3 * 3840 + 10);
+    const measure = draft.ensureMeasureAt(track, QUARTER_TIME + fromTux(3 * 3840 + 10));
 
     // Assert
     expect(measure.header.number).toBe(4);
@@ -64,11 +65,11 @@ describe('SongDraft', () => {
       throw new Error('no measure');
     }
     const first = draft.beatAt(measure, QUARTER_TIME);
-    measure.beats.push({ ...first, start: QUARTER_TIME + 960 });
+    measure.beats.push({ ...first, start: QUARTER_TIME + fromTux(960) });
 
     // Act
     const again = draft.beatAt(measure, QUARTER_TIME);
-    const pushed = draft.beatAt(measure, QUARTER_TIME + 960);
+    const pushed = draft.beatAt(measure, QUARTER_TIME + fromTux(960));
 
     // Assert
     expect(again).toBe(first);

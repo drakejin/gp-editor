@@ -2,8 +2,11 @@
 import { QUARTER_TIME } from '../../model/song';
 
 const VOICES_PER_STAFF = 2;
-/** fixValue snaps a start within this many ticks below an eighth-note line up onto the line (triplet rounding). */
-const SNAP_TICKS = 10;
+/**
+ * fixValue snaps a start within this many ticks below an eighth-note line up onto the line (triplet rounding): 10 of
+ * TuxGuitar's 960 ticks per quarter note.
+ */
+const SNAP_TICKS = QUARTER_TIME / 96;
 const EIGHTH_TIME = QUARTER_TIME / 2;
 
 export class TrackStartHelper {

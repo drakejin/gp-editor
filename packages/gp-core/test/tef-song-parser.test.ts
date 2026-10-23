@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GpFormatError, UnexpectedEndOfFileError, readSong } from '../src';
 import type { Beat, NoteEffect, Song } from '../src/model/song';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 import {
   type TefNoteSpec,
   type TefSongSpec,
@@ -29,7 +30,7 @@ function beatsOf(song: Song, track = 0, measure = 0): readonly Beat[] {
 
 function offsetsOf(song: Song, track = 0, measure = 0): number[] {
   const start = song.measureHeaders[measure]?.start ?? 0;
-  return beatsOf(song, track, measure).map((beat) => beat.start - start);
+  return beatsOf(song, track, measure).map((beat) => toTux(beat.start - start));
 }
 
 function effectOf(note: Partial<TefNoteSpec>): NoteEffect | undefined {

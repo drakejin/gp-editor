@@ -4,6 +4,7 @@ import { detectFormat } from '../src/formats/detect';
 import type { Beat, Song } from '../src/model/song';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 import { type PtbInfoSpec, type PtbSongSpec, buildPtb } from './helpers/ptb-builder';
 
 const POWER_TAB_FILES = listFixtures('powertab').filter((name) => name.endsWith('.ptb'));
@@ -95,7 +96,7 @@ describe('Power Tab real files', () => {
     ]);
     expect(song.tracks[1]?.measures[0]?.clef).toBe('bass');
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start)).toEqual([960, 1440]);
+    expect(beats.map((beat) => toTux(beat.start))).toEqual([960, 1440]);
     expect(beats.map((beat) => beat.voices[0]?.notes.map((note) => [note.string, note.fret]))).toEqual([[[4, 3]], [[4, 5]]]);
     expect(beats[0]?.voices[0]?.duration.value).toBe(8);
   });
@@ -135,7 +136,7 @@ describe('Power Tab real files', () => {
     expect(first?.voices[0]?.duration).toMatchObject({ value: 2, doubleDotted: true });
     expect(first?.voices[0]?.notes[0]?.effect.vibrato).toBe(true);
     expect(first?.stroke).toEqual({ direction: 'up', value: 16 });
-    expect(second).toMatchObject({ start: 960 + 3360 });
+    expect(toTux(second?.start ?? 0)).toBe(960 + 3360);
     expect(second?.voices[0]?.notes).toEqual([]);
   });
 

@@ -5,6 +5,7 @@ import { readTeSong } from '../src/formats/tef/tef-input-stream';
 import type { Beat, Song } from '../src/model/song';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 import { type TefHeaderSpec, buildTef, tefNote } from './helpers/tef-builder';
 
 const TABLEDIT_FILES = listFixtures('tabledit').filter((name) => name.endsWith('.tef'));
@@ -21,7 +22,7 @@ function beatsOf(song: Song, track = 0, measure = 0): readonly Beat[] {
 /** Beat starts from the measure start. */
 function offsetsOf(song: Song, track = 0, measure = 0): number[] {
   const start = song.measureHeaders[measure]?.start ?? 0;
-  return beatsOf(song, track, measure).map((beat) => beat.start - start);
+  return beatsOf(song, track, measure).map((beat) => toTux(beat.start - start));
 }
 
 describe('TablEdit detection', () => {

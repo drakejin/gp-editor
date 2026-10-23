@@ -7,6 +7,7 @@ import { gpifToSong } from '../src/formats/gpif/gpif-to-song';
 import type { GpifVersion } from '../src/formats/gpif/gpif-document';
 import type { Beat, Song } from '../src/model/song';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 
 function at<T>(items: readonly T[], index: number): T {
   const item = items[index];
@@ -288,7 +289,7 @@ describe('gpifToSong: beats and notes', () => {
 
     // Assert
     const measure = at(at(song.tracks, 0).measures, 0);
-    expect(measure.beats.map((b) => b.start)).toEqual([960, 960 + 840, 960 + 3840]);
+    expect(measure.beats.map((b) => toTux(b.start))).toEqual([960, 960 + 840, 960 + 3840]);
     const first = at(measure.beats, 0);
     expect(first.voices.map((v) => v.isEmpty)).toEqual([true, false, true, false]);
     expect(at(first.voices, 1).duration).toEqual({ value: 8, dotted: false, doubleDotted: true, tuplet: { enters: 1, times: 1 } });
@@ -333,7 +334,7 @@ describe('gpifToSong: beats and notes', () => {
     // Assert
     const measure = at(at(song.tracks, 0).measures, 0);
     // Two quarter notes in a 4/4 first bar: right-aligned like an anacrusis.
-    expect(measure.beats.map((b) => b.start)).toEqual([2880, 3840]);
+    expect(measure.beats.map((b) => toTux(b.start))).toEqual([2880, 3840]);
     expect(at(at(at(measure.beats, 0).voices, 0).notes, 0).effect.grace).toEqual({
       fret: 7, duration: 3, velocity: 31, transition: 'none', onBeat: true, isDead: false,
     });

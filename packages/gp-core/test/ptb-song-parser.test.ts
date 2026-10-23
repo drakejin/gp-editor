@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readSong } from '../src';
 import type { Beat, Note, Song } from '../src/model/song';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 import { type PtbBarSpec, type PtbBeatSpec, type PtbScoreSpec, type PtbSectionSpec, buildPtb } from './helpers/ptb-builder';
 
 const NOTE = { string: 1, fret: 5 } as const;
@@ -39,7 +40,7 @@ describe('Power Tab beats', () => {
 
     // Assert
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start)).toEqual([960, 1440, 2880, 3200]);
+    expect(beats.map((beat) => toTux(beat.start))).toEqual([960, 1440, 2880, 3200]);
     expect(beats.map((beat) => beat.voices[0]?.duration)).toEqual([
       { value: 8, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } },
       { value: 4, dotted: true, doubleDotted: false, tuplet: { enters: 1, times: 1 } },
@@ -119,7 +120,7 @@ describe('Power Tab beats', () => {
     ]);
 
     // Assert
-    expect(beatsOf(song).map((beat) => beat.start)).toEqual([960]);
+    expect(beatsOf(song).map((beat) => toTux(beat.start))).toEqual([960]);
   });
 
   it('skips the bars of a multi-bar rest', () => {
@@ -129,7 +130,7 @@ describe('Power Tab beats', () => {
     // Assert
     expect(song.measureHeaders).toHaveLength(4);
     expect(song.tracks[0]?.measures.map((measure) => measure.beats.length)).toEqual([0, 0, 0, 1]);
-    expect(beatsOf(song, 0, 3)[0]?.start).toBe(960 + 3 * 3840);
+    expect(toTux(beatsOf(song, 0, 3)[0]?.start ?? 0)).toBe(960 + 3 * 3840);
   });
 
   it('lets a rest that starts a bar last no longer than the bar', () => {
@@ -137,7 +138,7 @@ describe('Power Tab beats', () => {
     const song = readBeats([{ position: 0, duration: 1 }, { position: 1, notes: [NOTE] }], [], { position: 0, numerator: 3, denominator: 4 });
 
     // Assert
-    expect(beatsOf(song, 0, 1)[0]?.start).toBe(960 + 2880);
+    expect(toTux(beatsOf(song, 0, 1)[0]?.start ?? 0)).toBe(960 + 2880);
   });
 
   it('puts a staff’s two voices on shared beats', () => {
@@ -152,7 +153,7 @@ describe('Power Tab beats', () => {
 
     // Assert
     const beats = beatsOf(song);
-    expect(beats.map((beat) => beat.start)).toEqual([960, 1920]);
+    expect(beats.map((beat) => toTux(beat.start))).toEqual([960, 1920]);
     expect(beats[0]?.voices.map((voice) => [voice.isEmpty, voice.duration.value])).toEqual([[false, 2], [false, 4]]);
     expect(beats[1]?.voices.map((voice) => voice.isEmpty)).toEqual([true, false]);
   });
@@ -168,7 +169,7 @@ describe('Power Tab bars and measures', () => {
     );
 
     // Assert
-    expect(song.measureHeaders.map((header) => [header.timeSignature.numerator, header.timeSignature.denominator, header.start])).toEqual([
+    expect(song.measureHeaders.map((header) => [header.timeSignature.numerator, header.timeSignature.denominator, toTux(header.start)])).toEqual([
       [3, 4, 960],
       [3, 4, 3840],
       [2, 4, 6720],
@@ -185,7 +186,7 @@ describe('Power Tab bars and measures', () => {
 
     // Assert
     expect(song.measureHeaders.map((header) => `${header.timeSignature.numerator}/${header.timeSignature.denominator}`)).toEqual(['4/4', '4/4']);
-    expect(beatsOf(song, 0, 1)[0]?.start).toBe(960 + 3840);
+    expect(toTux(beatsOf(song, 0, 1)[0]?.start ?? 0)).toBe(960 + 3840);
   });
 
   it('plays a repeat out: the repeated bar is written twice', () => {
@@ -216,7 +217,7 @@ describe('Power Tab bars and measures', () => {
     const song = readSong(buildPtb({ guitarScore: guitarScore([{ staffs: [{ voices: [[{ position: 0, duration: 1, notes: [NOTE] }]] }] }]), bassScore: bass }));
 
     // Assert
-    expect(song.tracks.map((track) => [track.name, track.measures[0]?.clef, track.measures[0]?.beats[0]?.start])).toEqual([
+    expect(song.tracks.map((track) => [track.name, track.measures[0]?.clef, toTux(track.measures[0]?.beats[0]?.start ?? 0)])).toEqual([
       ['Lead', 'treble', 960],
       ['Bass', 'bass', 960],
     ]);

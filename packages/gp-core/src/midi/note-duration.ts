@@ -1,16 +1,17 @@
 // Port of TuxGuitar MidiSequenceParser.getRealNoteDuration / applyDurationEffects (LGPL-2.1): how long a note sounds.
 import { durationTicks } from '../model/defaults';
 import type { Note, Voice } from '../model/song';
+import { fromMidiTicks, truncToMidiTicks } from './midi-ticks';
 import { beatsAfter, type PlacedNote, type PlayedBeat, type TrackContext, voiceAt } from './note-search';
 
-/** DEFAULT_DURATION_DEAD / DEFAULT_DURATION_PM: ticks at 60 BPM, scaled with the tempo so they last the same time. */
+/** DEFAULT_DURATION_DEAD / DEFAULT_DURATION_PM: MIDI file ticks at 60 BPM, scaled with the tempo so they last the same time. */
 export const DEAD_NOTE_DURATION = 30;
 const PALM_MUTE_DURATION = 60;
 const STACCATO_PERCENT = 50;
 
-/** applyStaticDuration: `duration` ticks at 60 BPM scaled to the tempo, at most `maximum`. */
+/** applyStaticDuration: `duration` MIDI file ticks at 60 BPM scaled to the tempo, in song ticks, at most `maximum`. */
 export function staticDuration(tempo: number, duration: number, maximum: number): number {
-  return Math.min(Math.floor((tempo * duration) / 60), maximum);
+  return Math.min(fromMidiTicks(Math.floor((tempo * duration) / 60)), maximum);
 }
 
 function applyDurationEffects(note: Note, tempo: number, duration: number): number {
@@ -21,7 +22,7 @@ function applyDurationEffects(note: Note, tempo: number, duration: number): numb
     return staticDuration(tempo, PALM_MUTE_DURATION, duration);
   }
   if (note.effect.staccato) {
-    return Math.trunc((duration * STACCATO_PERCENT) / 100);
+    return truncToMidiTicks(duration * STACCATO_PERCENT, 100);
   }
   return duration;
 }
