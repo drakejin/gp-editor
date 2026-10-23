@@ -26,7 +26,8 @@ interface GPPlayerModule {
   setProgram(channel: number, program: number): Promise<void>;
   setController(channel: number, controller: number, value: number): Promise<void>;
   setMutedTracks(trackIndexes: readonly number[]): Promise<void>;
-  previewNote(channel: number, program: number, key: number, velocity: number, durationMs: number): Promise<void>;
+  setClickTracks(trackIndexes: readonly number[]): Promise<void>;
+  previewNote(note: PreviewNote): Promise<void>;
   soundBanks(): Promise<SoundBanks>;
   selectSoundBank(id: string): Promise<SoundBanks>;
   addSoundBank(): Promise<SoundBanks | null>;
@@ -69,9 +70,27 @@ export function setMutedTracks(trackIndexes: readonly number[]): Promise<void> {
   return native === undefined ? Promise.resolve() : native.setMutedTracks(trackIndexes);
 }
 
-/** Plays one note now, for `durationMs`, with `program` on `midiChannel` (a key or fret hovered in the instrument view). */
-export function previewNote(midiChannel: number, program: number, key: number, velocity: number, durationMs: number): Promise<void> {
-  return native === undefined ? Promise.resolve() : native.previewNote(midiChannel, program, key, velocity, durationMs);
+/**
+ * The tracks of the MIDI file that play on the shared synth whatever the mix: renderMidi's metronome and count-in, which
+ * come after the song's tracks and must never go through a track's effects. For every song played after.
+ */
+export function setClickTracks(trackIndexes: readonly number[]): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setClickTracks(trackIndexes);
+}
+
+/** A note to preview: `key` with `program` on `midiChannel` for `durationMs`, through song track `trackIndex`'s effects. */
+export interface PreviewNote {
+  readonly midiChannel: number;
+  readonly program: number;
+  readonly key: number;
+  readonly velocity: number;
+  readonly durationMs: number;
+  readonly trackIndex: number;
+}
+
+/** Plays one note now (a key or fret hovered in the instrument view), with the track's effects when it has some. */
+export function previewNote(note: PreviewNote): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.previewNote(note);
 }
 
 export function playerPosition(): Promise<PlayerPosition> {

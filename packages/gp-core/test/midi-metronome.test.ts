@@ -145,6 +145,7 @@ describe('renderMidi count-in', () => {
 
     // Assert
     expect(render.metronomeTrackIndex).toBe(2);
+    expect(render.countInTrackIndex).toBe(3);
     expect(clicksOf(file, 2).map(([start]) => start)).toEqual([3840, 4800, 5760, 6720]);
     expect(clicksOf(file, 3).map(([start]) => start)).toEqual([0, 960, 1920, 2880]);
     expect(eventsOf(file, 3, 'trackName')).toEqual([{ kind: 'trackName', tick: 0, name: 'Count-in' }]);
@@ -152,6 +153,11 @@ describe('renderMidi count-in', () => {
 
   it('has no count-in without the option', () => {
     expect(renderMidi(countingSong([{}])).countInSeconds).toBe(0);
+    expect(renderMidi(countingSong([{}])).countInTrackIndex).toBeUndefined();
+  });
+
+  it('puts the count-in right after the song tracks without a metronome', () => {
+    expect(renderMidi(countingSong([{}]), { countIn: { velocity: VELOCITY } }).countInTrackIndex).toBe(2);
   });
 });
 

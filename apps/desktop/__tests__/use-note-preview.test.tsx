@@ -4,10 +4,10 @@ import { useNotePreview } from '../src/hooks/use-note-preview';
 import { PREVIEW_NOTE } from '../src/lib/note-preview';
 import { makeSong } from '../test-support/songs';
 
-const mockPreviewNote = jest.fn((..._args: number[]) => Promise.resolve());
+const mockPreviewNote = jest.fn((_note: object) => Promise.resolve());
 
 jest.mock('../src/native/player', () => ({
-  previewNote: (...args: number[]) => mockPreviewNote(...args),
+  previewNote: (note: object) => mockPreviewNote(note),
 }));
 
 const base = makeSong([[]]);
@@ -34,7 +34,7 @@ describe('useNotePreview', () => {
     renderPreview(true)?.(60);
 
     // Assert
-    expect(mockPreviewNote).toHaveBeenCalledWith(0, 27, 60, PREVIEW_NOTE.velocity, PREVIEW_NOTE.durationMs);
+    expect(mockPreviewNote).toHaveBeenCalledWith({ midiChannel: 0, program: 27, key: 60, velocity: PREVIEW_NOTE.velocity, durationMs: PREVIEW_NOTE.durationMs, trackIndex: 0 });
   });
 
   it('gives nothing to hover while the setting is off, or without a song', () => {

@@ -26,6 +26,8 @@ export interface MidiRender {
   readonly durationSeconds: number;
   /** Index of the metronome's track among the file's tracks (MidiOptions.metronome), so a player can mute it live. */
   readonly metronomeTrackIndex?: number;
+  /** Index of the count-in's track among the file's tracks (MidiOptions.countIn): the last one. */
+  readonly countInTrackIndex?: number;
   /** Seconds the count-in lasts before the first played measure (0 without one); the timeline starts after it. */
   readonly countInSeconds: number;
 }
@@ -72,6 +74,16 @@ function clickTracks(song: Song, played: readonly PlayedMeasure[], origin: numbe
   return [...metronome, ...counting];
 }
 
+/** Where the click tracks are among the file's tracks: after the conductor and the song's tracks, metronome first. */
+function clickTrackIndexes(songTracks: number, options: MidiOptions, countIn: CountIn | undefined): Pick<MidiRender, 'metronomeTrackIndex' | 'countInTrackIndex'> {
+  const metronomeTrackIndex = options.metronome === undefined ? undefined : 1 + songTracks;
+  const countInTrackIndex = countIn === undefined || options.countIn === undefined ? undefined : 1 + songTracks + (metronomeTrackIndex === undefined ? 0 : 1);
+  return {
+    ...(metronomeTrackIndex === undefined ? {} : { metronomeTrackIndex }),
+    ...(countInTrackIndex === undefined ? {} : { countInTrackIndex }),
+  };
+}
+
 /** Turns a song into a MIDI file and a timeline mapping playback time back to measures. */
 export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender {
   validateOptions(written, options);
@@ -104,7 +116,7 @@ export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender
     bytes: writeMidiFile(messages, MIDI_PPQ, measuresEnd),
     timeline: timeline.entries,
     durationSeconds: timeline.endSeconds + secondsFromTicks(tail, timeline.lastTempo),
-    ...(options.metronome === undefined ? {} : { metronomeTrackIndex: 1 + song.tracks.length }),
+    ...clickTrackIndexes(song.tracks.length, options, countIn),
     countInSeconds,
   };
 }

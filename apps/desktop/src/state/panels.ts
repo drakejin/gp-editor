@@ -10,18 +10,20 @@ export interface PanelVisibility {
   readonly keyboard: boolean;
   /** Fretboard (instrument view), above the tracks. */
   readonly neck: boolean;
+  /** View ▸ Mixer: the tracks' effect strips and the master, at the bottom. */
+  readonly mixer: boolean;
 }
 
 export type PanelId = keyof PanelVisibility;
 
-export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, keyboard: true, neck: true };
+export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, keyboard: true, neck: true, mixer: false };
 
 export function togglePanel(panels: PanelVisibility, panel: PanelId): PanelVisibility {
   return { ...panels, [panel]: !panels[panel] };
 }
 
 /** View ▸ Focus: only the score and the top bar's transport stay. */
-export const FOCUSED_PANELS: PanelVisibility = { palette: false, inspector: false, tracks: false, keyboard: false, neck: false };
+export const FOCUSED_PANELS: PanelVisibility = { palette: false, inspector: false, tracks: false, keyboard: false, neck: false, mixer: false };
 
 /** The panels shown, and while focused the ones shown before (what Unfocus brings back). */
 export interface PanelLayout {

@@ -126,11 +126,21 @@ struct GPEditorApp: App {
         Button("Transpose…") {
           NotificationCenter.default.post(name: .GPEditorTransposeCommand, object: nil)
         }
+        // A real instrument played through a track's effects (GPLineIn.m).
+        Button("Line In…") {
+          NotificationCenter.default.post(name: .GPEditorLineInCommand, object: nil)
+        }
         Divider()
         Button("Command Palette…") {
           NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)
         }
         .keyboardShortcut("p", modifiers: [.command, .shift])
+      }
+      // View ▸ Mixer: the tracks' effects and the master strip (GPPlayer.m forwards it).
+      CommandGroup(after: .toolbar) {
+        Button("Mixer") {
+          NotificationCenter.default.post(name: .GPEditorMixerCommand, object: nil)
+        }
       }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {

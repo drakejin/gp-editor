@@ -1,4 +1,4 @@
-import type { Song } from '@gp-editor/core';
+import { type Song, buildEffect, setTrackEffects } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type Playback, usePlayback } from '../src/hooks/use-playback';
 import { beat, header, makeSong, note, toTux } from '../test-support/songs';
@@ -10,6 +10,7 @@ const mockPlayer = {
   setProgram: jest.fn((_channel: number, _program: number) => Promise.resolve()),
   setController: jest.fn((_channel: number, _controller: number, _value: number) => Promise.resolve()),
   setMutedTracks: jest.fn((_trackIndexes: readonly number[]) => Promise.resolve()),
+  setClickTracks: jest.fn((_trackIndexes: readonly number[]) => Promise.resolve()),
 };
 
 jest.mock('../src/native/player', () => ({
@@ -19,6 +20,7 @@ jest.mock('../src/native/player', () => ({
   setMidiProgram: (channel: number, program: number) => mockPlayer.setProgram(channel, program),
   setMidiController: (channel: number, controller: number, value: number) => mockPlayer.setController(channel, controller, value),
   setMutedTracks: (trackIndexes: readonly number[]) => mockPlayer.setMutedTracks(trackIndexes),
+  setClickTracks: (trackIndexes: readonly number[]) => mockPlayer.setClickTracks(trackIndexes),
 }));
 
 const song = makeSong([[beat(960, [note(1, 0)])]]);
@@ -249,6 +251,22 @@ describe('usePlayback metronome and count-in', () => {
     hook.unmount();
   });
 
+  it('names the metronome and count-in tracks before playing, so the engine keeps them off the tracks’ effects', async () => {
+    // Arrange: one track — the metronome is the file's third track, the count-in its fourth
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook();
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'toggleCountIn' }));
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+
+    // Assert
+    expect(mockPlayer.setClickTracks.mock.calls).toEqual([[[2, 3]]]);
+    expect(mockPlayer.setClickTracks.mock.invocationCallOrder[0]).toBeLessThan(mockPlayer.play.mock.invocationCallOrder[0] ?? 0);
+    hook.unmount();
+  });
+
   it('restarts for a new metronome volume, which the render holds', async () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderHook();
@@ -439,6 +457,44 @@ describe('usePlayback while the song is edited', () => {
 
     // Assert
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('restarts once when a track gets its first effect while playing (it moves to instruments of its own)', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withChannel, 0, [buildEffect('reverb')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('keeps playing when only an effect’s values change: the engine hears them live', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withEffect = setTrackEffects({ ...threeBars, channels: [GUITAR] }, 0, [buildEffect('reverb')]);
+    const hook = renderEditableHook(withEffect);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withEffect, 0, [buildEffect('reverb', false), buildEffect('delay')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
     hook.unmount();
   });
 

@@ -2,11 +2,12 @@ import { FOCUSED_PANELS, INITIAL_PANELS, ZOOM_LEVELS, isFocused, stepZoom, toggl
 
 describe('panels', () => {
   it('starts with every panel shown, as Guitar Pro opens', () => {
-    expect(INITIAL_PANELS).toEqual({ palette: true, inspector: true, tracks: true, keyboard: true, neck: true });
+    expect(INITIAL_PANELS).toEqual({ palette: true, inspector: true, tracks: true, keyboard: true, neck: true, mixer: false });
   });
 
   it('toggles one panel and leaves the others', () => {
-    expect(togglePanel(INITIAL_PANELS, 'inspector')).toEqual({ palette: true, inspector: false, tracks: true, keyboard: true, neck: true });
+    expect(togglePanel(INITIAL_PANELS, 'inspector')).toEqual({ palette: true, inspector: false, tracks: true, keyboard: true, neck: true, mixer: false });
+    expect(togglePanel(INITIAL_PANELS, 'mixer').mixer).toBe(true);
     expect(togglePanel(INITIAL_PANELS, 'keyboard').keyboard).toBe(false);
   });
 });

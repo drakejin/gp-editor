@@ -12,7 +12,7 @@ import {
   planPlayback,
   playerStartSeconds,
 } from '../lib/practice-plan';
-import { type PlayerPosition, playMidi, playerPosition, setMutedTracks, stopMidi } from '../native/player';
+import { type PlayerPosition, playMidi, playerPosition, setClickTracks, setMutedTracks, stopMidi } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import type { PracticeSettings } from '../state/practice';
 import { errorMessage } from '../lib/errors';
@@ -46,6 +46,11 @@ export interface Follow {
   readonly countInSeconds?: number;
 }
 
+/** The render's click tracks (metronome, count-in): the engine keeps them on its shared synth, off any effects. */
+function clickTracksOf(render: { readonly metronomeTrackIndex?: number; readonly countInTrackIndex?: number }): number[] {
+  return [render.metronomeTrackIndex, render.countInTrackIndex].filter((index): index is number => index !== undefined);
+}
+
 /** The playback hook's refs and state setter, shared by the functions below. */
 export interface PlayerSession {
   readonly timer: MutableRefObject<ReturnType<typeof setInterval> | undefined>;
@@ -63,6 +68,7 @@ interface PreparedPlayback {
   readonly fromSeconds: number;
   readonly loopPass?: LoopPass;
   readonly metronomeTrackIndex?: number;
+  readonly clickTracks: readonly number[];
   readonly countInSeconds: number;
 }
 
@@ -77,6 +83,7 @@ function preparePlayback(song: Song, practice: PracticeSettings, request: PlayRe
     fromSeconds,
     loopPass: loopPassAt(plan, render.timeline, fromSeconds),
     metronomeTrackIndex: render.metronomeTrackIndex,
+    clickTracks: clickTracksOf(render),
     countInSeconds: render.countInSeconds,
   };
 }
@@ -134,12 +141,13 @@ export function launchPlayer(session: PlayerSession, request: PlayRequest): void
   const startedGeneration = session.generation.current;
   clearTimer(session);
   try {
-    const { plan, timeline, base64Midi, fromSeconds, loopPass, metronomeTrackIndex, countInSeconds } = preparePlayback(song, practice, request);
+    const { plan, timeline, base64Midi, fromSeconds, loopPass, metronomeTrackIndex, clickTracks, countInSeconds } = preparePlayback(song, practice, request);
     const measureIndex = plan.startMeasureIndex;
     session.follow.current = { ...session.follow.current, timeline, plan, measureIndex, passIndex: loopPass?.passIndex, metronomeTrackIndex, countInSeconds };
     // Shown as playing at once, so a second Space press stops it even before the player has started.
     session.setState((previous) => ({ isPlaying: true, playing: previous.playing, loopPass }));
     applyMetronome(session);
+    setClickTracks(clickTracks).catch(() => undefined);
     playMidi(base64Midi, fromSeconds)
       .then(() => startPolling(session, startedGeneration))
       .catch((error: unknown) => {

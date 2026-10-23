@@ -92,7 +92,7 @@ describe('useWindowChrome: Focus / Unfocus', () => {
     ReactTestRenderer.act(() => current().toggleFocus());
 
     // Assert
-    expect(focused).toEqual({ panels: { palette: false, inspector: false, tracks: false, keyboard: false, neck: false }, isFocused: true });
+    expect(focused).toEqual({ panels: { palette: false, inspector: false, tracks: false, keyboard: false, neck: false, mixer: false }, isFocused: true });
     expect(current().panels).toEqual(before);
     expect(current().isFocused).toBe(false);
   });

@@ -42,6 +42,7 @@ const PANEL_ROWS: readonly (readonly [PanelId, string, readonly string[]])[] = [
   ['tracks', 'Tracks Panel', ['mixer', 'bar map', 'bottom']],
   ['keyboard', 'Piano Keyboard', ['keys', 'instrument']],
   ['neck', 'Fretboard', ['neck', 'instrument', 'guitar']],
+  ['mixer', 'Mixer', ['effects', 'master', 'strips', 'reverb', 'drive', 'eq']],
 ];
 
 const VIEW_ROWS: readonly Command[] = [
@@ -58,6 +59,7 @@ const TOOLS_ROWS: readonly Command[] = [
   row('tools.tuner', 'Tools', 'Tuner…', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
   row('tools.scales', 'Tools', 'Scales…', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
   row('tools.transpose', 'Tools', 'Transpose…', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
+  row('tools.lineIn', 'Tools', 'Line In…', (a) => a.openLineIn(), { keywords: ['guitar', 'input', 'microphone', 'interface', 'sound lock', 'effects', 'amp'] }),
   row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
 ];
 

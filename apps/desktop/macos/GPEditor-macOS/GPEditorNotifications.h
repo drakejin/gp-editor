@@ -89,4 +89,10 @@ FOUNDATION_EXPORT NSString *const GPEditorNextTabCommandNotification;
 /** File ▸ Previous Tab (⌃⇧Tab) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPreviousTabCommandNotification;
 
+/** View ▸ Mixer was chosen; GPPlayer.m forwards it to JS as "mixerRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorMixerCommandNotification;
+
+/** Tools ▸ Line In… was chosen; GPPlayer.m forwards it to JS as "lineInRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorLineInCommandNotification;
+
 NS_ASSUME_NONNULL_END

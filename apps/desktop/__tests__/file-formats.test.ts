@@ -1,5 +1,5 @@
-import { readSong, writeSong } from '@gp-editor/core';
-import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf } from '../src/lib/file-formats';
+import { DEFAULT_MASTER, buildEffect, readSong, setMasterMix, setTrackEffects, writeSong } from '@gp-editor/core';
+import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
 describe('SAVE_FORMATS', () => {
@@ -77,5 +77,22 @@ describe('fileNameIn', () => {
     expect(fileNameIn('Song.gpx', SAVE_FORMATS[0])).toBe('Song.gp5');
     expect(fileNameIn('my.song.gp', MIDI_FILE)).toBe('my.song.mid');
     expect(fileNameIn('Untitled', ASCII_TAB_FILE)).toBe('Untitled.txt');
+  });
+});
+
+describe('saveHint', () => {
+  const song = makeSong([[beat(960, [note(1, 0)])]]);
+  const format = (id: string) => SAVE_FORMATS.find((candidate) => candidate.id === id)!;
+
+  it('is the format’s note, and says where effects go when the format cannot keep them', () => {
+    // Arrange
+    const withEffects = setTrackEffects(song, 0, [buildEffect('drive')]);
+    const withMaster = setMasterMix(song, { ...DEFAULT_MASTER, gainDb: -3 });
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), song)).toBeUndefined();
+    expect(saveHint(format('gp'), withEffects)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), withEffects)).toBe('Guitar Pro 5 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp4'), withMaster)).toBe(`${format('gp4').note} Guitar Pro 4 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.`);
   });
 });
