@@ -58,7 +58,10 @@ function writeInfo(writer: ByteWriter, info: SongInfo): void {
 interface HeaderContext {
   readonly song: Song;
   readonly keys: readonly number[];
-  /** GP4 repeats the song key in the first header (as TuxGuitar does); GP3 does not. */
+  /**
+   * GP4 repeats the song key in the first header (as TuxGuitar does); GP3 only when it is not C major (Guitar Pro 3's
+   * C-major files have no key there; readers such as alphaTab take a measure's key only from the headers).
+   */
   readonly isSongKeyInFirstHeader: boolean;
 }
 
@@ -85,7 +88,7 @@ function headerFlags(header: MeasureHeader, previous: TimeSignature | undefined,
 /** GP3/GP4 measure header: the order the readers use (TuxGuitar's GP4 writer puts the marker first). */
 function writeMeasureHeader(writer: ByteWriter, header: MeasureHeader, index: number, context: HeaderContext): void {
   const key = context.keys[index] ?? 0;
-  const keyChanges = index === 0 ? context.isSongKeyInFirstHeader : key !== context.keys[index - 1];
+  const keyChanges = index === 0 ? context.isSongKeyInFirstHeader || key !== 0 : key !== context.keys[index - 1];
   const flags = headerFlags(header, context.song.measureHeaders[index - 1]?.timeSignature, keyChanges);
   writer.writeUnsignedByte(flags);
   if ((flags & 0x01) !== 0) {
