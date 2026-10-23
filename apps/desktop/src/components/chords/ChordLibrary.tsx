@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Chord, type NoteSpelling, type Song, type VoicingStyle, buildChordVoicings, parseChordName, recognizeChord, songChords } from '@gp-editor/core';
 import type { Palette } from '../../theme';
@@ -65,9 +65,11 @@ export function ChordLibrary(props: ChordLibraryProps) {
 function ByName({ palette, tuning, spelling, onLoad }: ChordLibraryProps) {
   const [query, setQuery] = useState('');
   const [style, setStyle] = useState<VoicingStyle>('normal');
-  const spec = useMemo(() => parseChordName(query), [query]);
+  // The field shows each key at once; the voicings follow when React has time (an 8-string search takes a moment).
+  const searched = useDeferredValue(query);
+  const spec = useMemo(() => parseChordName(searched), [searched]);
   const voicings = useMemo(() => (spec === undefined ? [] : buildChordVoicings(spec, tuning, { style, spelling })), [spec, tuning, style, spelling]);
-  const message = query.trim() === '' ? 'Type a chord name: Am7, C/G, F#m7b5, Dsus4, G13…' : spec === undefined ? `“${query.trim()}” is not a chord name.` : voicings.length === 0 ? 'No voicing on these strings.' : undefined;
+  const message = searched.trim() === '' ? 'Type a chord name: Am7, C/G, F#m7b5, Dsus4, G13…' : spec === undefined ? `“${searched.trim()}” is not a chord name.` : voicings.length === 0 ? 'No voicing on these strings.' : undefined;
   return (
     <>
       <View style={styles.searchRow}>

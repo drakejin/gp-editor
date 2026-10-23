@@ -48,9 +48,12 @@ export interface Barre {
   readonly toString: number;
 }
 
+/** A finger lies across this many strings at least: fewer are fingertips, as in the open D (xx0232). */
+const MIN_BARRE_STRINGS = 4;
+
 /**
- * The barre a diagram shows: the lowest fret, held on two strings or more with every string between them fretted
- * at it or higher, and at least one of those higher (three dots of one fret alone are fingers, as in A).
+ * The barre a diagram shows: the lowest fret, held at both ends of MIN_BARRE_STRINGS strings or more, every string
+ * between fretted at it or higher and at least one of them higher (three dots of one fret alone are fingers, as in A).
  */
 export function diagramBarre(chord: Chord): Barre | undefined {
   const fretted = chord.frets.filter((fret) => fret > 0);
@@ -61,7 +64,7 @@ export function diagramBarre(chord: Chord): Barre | undefined {
   const strings = chord.frets.flatMap((value, i) => (value === fret ? [i + 1] : []));
   const toString = strings[0];
   const fromString = strings[strings.length - 1];
-  if (toString === undefined || fromString === undefined || strings.length < 2) {
+  if (toString === undefined || fromString === undefined || fromString - toString + 1 < MIN_BARRE_STRINGS) {
     return undefined;
   }
   const between = chord.frets.slice(toString - 1, fromString);

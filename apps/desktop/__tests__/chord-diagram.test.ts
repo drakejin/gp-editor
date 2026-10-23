@@ -73,6 +73,7 @@ describe('diagramBarre', () => {
   it.each<[string, Chord]>([
     ['three dots of one fret with nothing above them (A)', { name: 'A', firstFret: 1, frets: [0, 2, 2, 2, 0, -1] }],
     ['an open chord', C_MAJOR],
+    ['the open D, whose two dots of fret 2 are fingertips', { name: 'D', firstFret: 1, frets: [2, 3, 2, 0, -1, -1] }],
     ['a lowest fret broken by an open string', { name: '?', firstFret: 1, frets: [2, 0, 2, 4, -1, -1] }],
   ])('finds none for %s', (_, chord) => {
     expect(diagramBarre(chord)).toBeUndefined();

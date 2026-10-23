@@ -213,17 +213,19 @@ export default function App() {
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
 
-  // Another tab: playback stops (the player plays the shown song) and the keyboard goes to its score.
+  // Another tab: playback stops (the player plays the shown song), the chord panel of the last tab's beat closes and
+  // the keyboard goes to its score.
   const { stop: stopPlayback } = playback;
   const { closePicker } = chrome;
   const { activeTabId } = workspace;
   useEffect(() => {
     stopPlayback();
     closePicker();
+    closeChordPanel();
     if (activeTabId !== undefined) {
       focusView(keyboardView.current);
     }
-  }, [activeTabId, stopPlayback, closePicker]);
+  }, [activeTabId, stopPlayback, closePicker, closeChordPanel]);
 
   const lcd = useMemo(
     () => (song === undefined ? undefined : lcdInfo({ song, trackIndex, cursor, playing: playback.playing, practice: playback.practice, loopPass: playback.loopPass })),
