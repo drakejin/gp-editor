@@ -150,20 +150,27 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   return NSMakePoint([point[@"x"] doubleValue], height - [point[@"y"] doubleValue]);
 }
 
+- (NSEvent *)mouseEvent:(NSEventType)type at:(NSPoint)location window:(NSWindow *)window
+{
+  return [NSEvent mouseEventWithType:type
+                            location:location
+                       modifierFlags:0
+                           timestamp:NSProcessInfo.processInfo.systemUptime
+                        windowNumber:window.windowNumber
+                             context:nil
+                         eventNumber:0
+                          clickCount:1
+                            pressure:1.0];
+}
+
+/**
+ * Mouse down, then up. The up goes into the event queue first: a view that tracks the mouse inside mouseDown (a text
+ * field placing its caret) waits there for it, and would never return if the up were sent only afterwards.
+ */
 - (void)clickAt:(NSPoint)location window:(NSWindow *)window
 {
-  for (NSNumber *type in @[ @(NSEventTypeLeftMouseDown), @(NSEventTypeLeftMouseUp) ]) {
-    NSEvent *event = [NSEvent mouseEventWithType:(NSEventType)type.unsignedIntegerValue
-                                        location:location
-                                   modifierFlags:0
-                                       timestamp:NSProcessInfo.processInfo.systemUptime
-                                    windowNumber:window.windowNumber
-                                         context:nil
-                                     eventNumber:0
-                                      clickCount:1
-                                        pressure:1.0];
-    [window sendEvent:event];
-  }
+  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location window:window] atStart:NO];
+  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location window:window]];
 }
 
 - (void)pressKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window
