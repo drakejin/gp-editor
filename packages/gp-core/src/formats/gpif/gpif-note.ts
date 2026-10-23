@@ -135,6 +135,8 @@ function buildEffect(note: GpifNote, position: NotePosition, context: NoteContex
     slapping: beat.slapped,
     popping: beat.popped,
     fadeIn: beat.fadding === 'FadeIn',
+    ...(beat.fadding === 'FadeOut' ? { fadeOut: true } : {}),
+    ...(beat.fadding === 'VolumeSwell' ? { volumeSwell: true } : {}),
     letRing: note.letRing,
   };
 }

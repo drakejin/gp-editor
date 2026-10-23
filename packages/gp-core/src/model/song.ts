@@ -102,6 +102,29 @@ export interface Marker {
   readonly color: Rgb;
 }
 
+/** Where a jump goes: Guitar Pro's segno, segno segno, coda, double coda and fine (GPIF `<Target>`). */
+export type DirectionTarget = 'segno' | 'segnoSegno' | 'coda' | 'doubleCoda' | 'fine';
+
+/** D.C. / D.S. / D.S.S. (al Coda, al Double Coda, al Fine) and Da Coda / Da Double Coda (GPIF `<Jump>`). */
+export type DirectionJump =
+  | 'daCapo'
+  | 'daCapoAlCoda'
+  | 'daCapoAlDoubleCoda'
+  | 'daCapoAlFine'
+  | 'daSegno'
+  | 'daSegnoAlCoda'
+  | 'daSegnoAlDoubleCoda'
+  | 'daSegnoAlFine'
+  | 'daSegnoSegno'
+  | 'daSegnoSegnoAlCoda'
+  | 'daSegnoSegnoAlDoubleCoda'
+  | 'daSegnoSegnoAlFine'
+  | 'daCoda'
+  | 'daDoubleCoda';
+
+/** A musical direction of a measure: a target or a jump. */
+export type MusicalDirection = DirectionTarget | DirectionJump;
+
 export interface MeasureHeader {
   /** 1-based measure number. */
   readonly number: number;
@@ -117,6 +140,8 @@ export interface MeasureHeader {
   /** Bitmask of alternate endings (bit 0 = ending 1). 0 means none. */
   readonly repeatAlternative: number;
   readonly tripletFeel: TripletFeel;
+  /** Targets and jumps on the bar, each once, in MUSICAL_DIRECTIONS order; absent when none. */
+  readonly directions?: readonly MusicalDirection[];
 }
 
 export interface GuitarString {
@@ -153,6 +178,16 @@ export interface Track {
 
 export type Clef = 'treble' | 'bass' | 'tenor' | 'alto' | 'neutral';
 
+/** The sustain pedal pressed (Ped.) or released (✱). */
+export type PedalAction = 'down' | 'up';
+
+/** A sustain pedal change of a track (GPIF's SustainPedal automation), at a place in the measure. */
+export interface PedalMark {
+  /** Ticks from the measure's start (0 … the measure's length). */
+  readonly offset: number;
+  readonly action: PedalAction;
+}
+
 export interface Measure {
   /** Index into Song.measureHeaders. */
   readonly headerIndex: number;
@@ -160,6 +195,8 @@ export interface Measure {
   /** -7 (7 flats) … 7 (7 sharps). */
   readonly keySignature: number;
   readonly beats: readonly Beat[];
+  /** Sustain pedal changes, by offset (a release before a press at the same offset); absent when none. */
+  readonly pedals?: readonly PedalMark[];
 }
 
 export interface Chord {
@@ -170,6 +207,33 @@ export interface Chord {
 }
 
 export type StrokeDirection = 'none' | 'up' | 'down';
+
+/** A crescendo (<) or decrescendo (>) wedge; every beat it spans carries it (GPIF `<Hairpin>`). */
+export type Hairpin = 'crescendo' | 'decrescendo';
+
+/**
+ * A rasgueado's fingers and rhythm, Guitar Pro's 18 patterns (GPIF `ii_1` … `peami_1`): p thumb, i index, m middle,
+ * a ring, e little finger; a triplet plays its strokes evenly, an anapaest short-short-long.
+ */
+export type RasgueadoPattern =
+  | 'ii'
+  | 'mi'
+  | 'miiTriplet'
+  | 'miiAnapaest'
+  | 'pmpTriplet'
+  | 'pmpAnapaest'
+  | 'peiTriplet'
+  | 'peiAnapaest'
+  | 'paiTriplet'
+  | 'paiAnapaest'
+  | 'amiTriplet'
+  | 'amiAnapaest'
+  | 'ppp'
+  | 'amii'
+  | 'amip'
+  | 'eami'
+  | 'eamii'
+  | 'peami';
 
 export interface Stroke {
   readonly direction: StrokeDirection;
@@ -186,6 +250,10 @@ export interface Beat {
   readonly pickStroke: StrokeDirection;
   readonly chord?: Chord;
   readonly text?: string;
+  /** The crescendo or decrescendo the beat is under; absent when none. */
+  readonly hairpin?: Hairpin;
+  /** The beat is strummed as a rasgueado of this pattern; absent when not. */
+  readonly rasgueado?: RasgueadoPattern;
 }
 
 export interface Tuplet {
@@ -304,5 +372,9 @@ export interface NoteEffect {
   readonly slapping: boolean;
   readonly popping: boolean;
   readonly fadeIn: boolean;
+  /** Fade out (GPIF FadeOut); never set together with `fadeIn` or `volumeSwell`. */
+  readonly fadeOut?: boolean;
+  /** Volume swell, louder then softer (GPIF VolumeSwell); never set together with `fadeIn` or `fadeOut`. */
+  readonly volumeSwell?: boolean;
   readonly letRing: boolean;
 }

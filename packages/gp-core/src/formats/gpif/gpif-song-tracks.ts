@@ -9,6 +9,7 @@ import type { Channel, GuitarString, Lyrics, Measure, Rgb, Track } from '../../m
 import { createChannelName } from '../common/channels';
 import type { GpifDocument, GpifTrack } from './gpif-document';
 import type { TrackLayout } from './gpif-measure';
+import { pedalAutomationsByBar } from './gpif-pedals';
 
 const PERCUSSION_STRING_COUNT = 6;
 const MAX_MIDI_VALUE = 127;
@@ -44,7 +45,7 @@ export function buildTracks(
       entries.push({ gmChannel1: gpTrack.gmChannel1, channel });
     }
     const strings = buildStrings(gpTrack, isPercussion);
-    const layout: TrackLayout = { strings, isPercussion, barIndex, chords: gpTrack.chords };
+    const layout: TrackLayout = { strings, isPercussion, barIndex, chords: gpTrack.chords, pedalAutomations: pedalAutomationsByBar(gpTrack.automations) };
     tracks.push(buildTrack(gpTrack, index, channel.id, layout, measuresFor(layout)));
     // GP7 multi-staff tracks have one bar per staff; the model keeps the first staff.
     barIndex += gpTrack.staffCount;

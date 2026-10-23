@@ -13,10 +13,13 @@ import {
   type Beat,
   type Channel,
   type Duration,
+  type Hairpin,
   type MeasureHeader,
   type Note,
   type NoteEffect,
+  type PedalMark,
   QUARTER_TIME,
+  type RasgueadoPattern,
   type Song,
   type Stroke,
   type Track,
@@ -52,6 +55,8 @@ export interface BeatSpec {
   readonly secondDuration?: Duration;
   /** Leave voice 0 empty (no beat in this voice). */
   readonly isEmpty?: boolean;
+  readonly hairpin?: Hairpin;
+  readonly rasgueado?: RasgueadoPattern;
 }
 
 export interface HeaderSpec {
@@ -62,6 +67,7 @@ export interface HeaderSpec {
   readonly repeatClose?: number;
   readonly repeatAlternative?: number;
   readonly tripletFeel?: MeasureHeader['tripletFeel'];
+  readonly directions?: MeasureHeader['directions'];
 }
 
 export interface TrackSpec {
@@ -74,6 +80,8 @@ export interface TrackSpec {
   readonly isPercussion?: boolean;
   readonly solo?: boolean;
   readonly mute?: boolean;
+  /** Sustain pedal marks of each measure. */
+  readonly pedals?: readonly (readonly PedalMark[] | undefined)[];
 }
 
 export interface SongSpec {
@@ -93,7 +101,8 @@ function buildBeats(specs: readonly BeatSpec[], measureStart: number): Beat[] {
     const voices = [voice(spec.notes, duration, spec.isEmpty ?? false)];
     const withSecond =
       spec.second === undefined ? voices : [...voices, voice(spec.second, spec.secondDuration ?? duration, false)];
-    const beat: Beat = { start, voices: withSecond, stroke: spec.stroke ?? NO_STROKE, pickStroke: 'none' };
+    const marks = { ...(spec.hairpin === undefined ? {} : { hairpin: spec.hairpin }), ...(spec.rasgueado === undefined ? {} : { rasgueado: spec.rasgueado }) };
+    const beat: Beat = { start, voices: withSecond, stroke: spec.stroke ?? NO_STROKE, pickStroke: 'none', ...marks };
     start += durationTicks(duration);
     return beat;
   });
@@ -113,6 +122,7 @@ function buildHeaders(specs: readonly HeaderSpec[]): MeasureHeader[] {
       repeatClose: spec.repeatClose ?? 0,
       repeatAlternative: spec.repeatAlternative ?? 0,
       tripletFeel: spec.tripletFeel ?? 'none',
+      ...(spec.directions === undefined ? {} : { directions: spec.directions }),
     };
     start += measureTicks(numerator, denominator);
     return header;
@@ -131,12 +141,16 @@ function buildTrack(spec: TrackSpec, index: number, headers: readonly MeasureHea
     isPercussion: spec.isPercussion ?? false,
     solo: spec.solo ?? false,
     mute: spec.mute ?? false,
-    measures: headers.map((header, headerIndex) => ({
-      headerIndex,
-      clef: 'treble',
-      keySignature: 0,
-      beats: buildBeats(spec.measures[headerIndex] ?? [], header.start),
-    })),
+    measures: headers.map((header, headerIndex) => {
+      const pedals = spec.pedals?.[headerIndex];
+      return {
+        headerIndex,
+        clef: 'treble',
+        keySignature: 0,
+        beats: buildBeats(spec.measures[headerIndex] ?? [], header.start),
+        ...(pedals === undefined ? {} : { pedals }),
+      };
+    }),
   };
 }
 

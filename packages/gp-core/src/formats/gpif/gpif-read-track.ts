@@ -9,6 +9,7 @@ import {
   type GpifVersion,
   indexById,
 } from './gpif-document';
+import { readAutomation } from './gpif-automation';
 import {
   type XmlElement,
   attribute,
@@ -63,6 +64,7 @@ function readTrack(node: XmlElement, version: GpifVersion, previous: readonly Gp
     staffCount: version === 6 ? 1 : Math.max(1, childList(node, 'Staves', 'Staff').length),
     lyrics: childList(node, 'Lyrics', 'Line').map(readLyricsLine),
     chords: readChords(properties),
+    automations: childList(node, 'Automations', 'Automation').map(readAutomation),
   };
 }
 
