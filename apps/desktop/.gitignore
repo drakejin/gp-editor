@@ -78,3 +78,5 @@ scripts/audio-check/fixtures.generated.js
 
 # GeneralUser GS SoundFont: fetched by scripts/soundfont/fetch.sh (32 MB, pinned + checksummed)
 macos/GPEditor-macOS/SoundFonts/*.sf2
+# LAME, libogg and libvorbis built from pinned sources by scripts/audio-codecs/fetch.sh
+macos/ThirdParty/

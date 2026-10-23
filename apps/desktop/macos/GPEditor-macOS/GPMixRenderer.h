@@ -10,7 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Renders `seconds` of the MIDI file (gp-core's renderMidi) through `mix` (`{ tracks, master }`, see GPMixGraph) with
- * the bank at `bankURL`, stereo at `sampleRate`, handing each rendered chunk (at most 4096 frames, reused) to `chunk`.
+ * the bank at `bankURL`, stereo at `sampleRate`, handing each rendered chunk (at most 4096 frames, reused) to `chunk`;
+ * `chunk` setting `*stop` ends the render there (still a success).
  */
 + (BOOL)renderMidi:(NSData *)midi
            bankURL:(nullable NSURL *)bankURL
@@ -18,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
            seconds:(NSTimeInterval)seconds
         sampleRate:(double)sampleRate
              error:(NSError **)error
-             chunk:(void (^)(AVAudioPCMBuffer *buffer))chunk;
+             chunk:(void (^)(AVAudioPCMBuffer *buffer, BOOL *stop))chunk;
 
 /** The same, into one buffer. */
 + (nullable AVAudioPCMBuffer *)renderMidi:(NSData *)midi
