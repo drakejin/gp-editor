@@ -6,6 +6,7 @@ import {
   type NoteAudio,
   type NoteEffect,
   type NoteValue,
+  type PedalMark,
   QUARTER_TIME,
   type Rgb,
   type SongInfo,
@@ -258,4 +259,23 @@ export function durationFromTicks(ticks: number): Duration {
     }
   }
   return SHORTEST_DURATION;
+}
+
+/** Whether the sustain pedal is held where measure `measureIndex` starts: the last pedal mark before it presses it. */
+export function isPedalDownBefore(measures: readonly Measure[], measureIndex: number): boolean {
+  for (let index = Math.min(measureIndex, measures.length) - 1; index >= 0; index--) {
+    const last = measures[index]?.pedals?.at(-1);
+    if (last !== undefined) {
+      return last.action === 'down';
+    }
+  }
+  return false;
+}
+
+/** Sustain pedal marks by offset; at the same offset a release comes before a press (a pedal change). */
+export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
+  if (a.offset !== b.offset) {
+    return a.offset - b.offset;
+  }
+  return a.action === b.action ? 0 : a.action === 'up' ? -1 : 1;
 }

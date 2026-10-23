@@ -4,6 +4,7 @@ import type { Channel, MeasureHeader, Song, SongInfo, TimeSignature, Track, Trip
 import { ByteWriter } from './byte-writer';
 import { buildChannelTable, type ChannelTable, writeChannelTable } from './gp-channels';
 import { writeMeasureGp5 } from './gp5-beats';
+import { writeDirectionsGp5 } from './gp5-directions';
 import { readOrderGp5 } from './gp5-voices';
 import { writeColor, writeLyrics, writeTrackBlock } from './gtp-blocks';
 import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings, writtenTempo } from './gtp-song';
@@ -14,7 +15,6 @@ export const GP5_VERSION = 'FICHIER GUITAR PRO v5.10';
 const VERSION_BLOCK = 30;
 /** Track clef value GP5 uses for bass-clef tunings (the reader's GP5_BASS_CLEF). */
 const GP5_BASS_CLEF = 12;
-const DIRECTION_COUNT = 19;
 /** Score size, page and margins in millimetres (A4), as Guitar Pro 5 and TuxGuitar write them. */
 const PAGE_SETUP = [210, 297, 10, 10, 15, 10, 100] as const;
 /** Header/footer flags: every element shown. */
@@ -57,7 +57,8 @@ export function writeGp5(song: Song): Uint8Array {
   writer.writeInt(writtenTempo(song, 0) ?? 0).writeByte(0); // tempo, "hide tempo"
   writer.writeByte(keys[0] ?? 0).writeInt(0); // key signature, octave
   writeChannelTable(writer, channels);
-  writer.writeBytes(new Array<number>(DIRECTION_COUNT * 2).fill(0xff)).writeInt(0); // no directions, master reverb
+  writeDirectionsGp5(writer, song.measureHeaders);
+  writer.writeInt(0); // master reverb
   writer.writeInt(song.measureHeaders.length).writeInt(song.tracks.length);
   song.measureHeaders.forEach((header, index) => writeMeasureHeader(writer, header, index, { song, keys }));
   song.tracks.forEach((track) => writeTrack(writer, track, song.channels, channels));

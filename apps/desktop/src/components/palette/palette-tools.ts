@@ -1,5 +1,5 @@
 import type { GlyphKind } from './MusicIcon';
-import { type Beat, type Bend, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
+import { type Beat, type Bend, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
@@ -12,6 +12,8 @@ export interface PaletteContext {
   readonly beat?: Beat;
   readonly header?: MeasureHeader;
   readonly keySignature: number;
+  /** The cursor's measure (its sustain pedal marks). */
+  readonly measure?: Measure;
 }
 
 export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {
@@ -26,6 +28,7 @@ export function paletteContext(song: Song, cursor: StringAddress | undefined): P
     beat: measure?.beats[cursor.beatIndex],
     header: song.measureHeaders[cursor.measureIndex],
     keySignature: measure?.keySignature ?? 0,
+    measure,
   };
 }
 

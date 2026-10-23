@@ -38,7 +38,8 @@ export function hasBeatEffects(beat: Beat, effects: VoiceEffects): boolean {
     effects.fadeIn ||
     effects.wideVibrato ||
     effects.slapType !== 0 ||
-    effects.tremoloBar !== undefined
+    effects.tremoloBar !== undefined ||
+    beat.rasgueado !== undefined
   );
 }
 
@@ -53,7 +54,8 @@ export function strokeBytes(direction: StrokeDirection, value: number, first: 'u
 export function writeBeatEffectsGp45(writer: ByteWriter, beat: Beat, effects: VoiceEffects, firstStroke: 'up' | 'down'): void {
   const hasStroke = beat.stroke.direction !== 'none';
   const flags1 = (effects.wideVibrato ? 0x02 : 0) | (effects.fadeIn ? 0x10 : 0) | (effects.slapType !== 0 ? 0x20 : 0) | (hasStroke ? 0x40 : 0);
-  const flags2 = (beat.pickStroke !== 'none' ? 0x02 : 0) | (effects.tremoloBar !== undefined ? 0x04 : 0);
+  // 0x01: rasgueado (GP4/GP5 keep no pattern).
+  const flags2 = (beat.rasgueado !== undefined ? 0x01 : 0) | (beat.pickStroke !== 'none' ? 0x02 : 0) | (effects.tremoloBar !== undefined ? 0x04 : 0);
   writer.writeUnsignedByte(flags1).writeUnsignedByte(flags2);
   if (effects.slapType !== 0) {
     writer.writeUnsignedByte(effects.slapType);

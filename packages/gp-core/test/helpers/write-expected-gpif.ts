@@ -26,6 +26,7 @@ import {
   type Note,
   type NoteEffect,
   type NoteValue,
+  type PedalMark,
   QUARTER_TIME,
   type SlideType,
   type Song,
@@ -35,6 +36,7 @@ import {
   type Tuplet,
   type Voice,
 } from '../../src/model/song';
+import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
 import { expectedCurve } from './write-expected-curves';
 
 /*
@@ -56,8 +58,10 @@ import { expectedCurve } from './write-expected-curves';
  *   directions (stem orientations) are not read; strokes at 4…128 (32 for a stroke without speed); measure 1, when its
  *   voices do not fill it, is laid out against its end (the reader's anacrusis);
  * - per voice (GPIF keeps them per beat): one dynamic (the first note's, on the eight dynamics), the whammy bar and
- *   tremolo picking of the first note that has one, slap / pop / fade in when any note has them, one grace duration,
- *   dynamic and placement (the first grace's);
+ *   tremolo picking of the first note that has one, slap / pop when any note has them, one fade (fade in, else fade
+ *   out, else volume swell, when a note has it), one grace duration, dynamic and placement (the first grace's);
+ * - marks: directions each once in GP5's order; sustain pedal marks inside their bar, a release before a press at the
+ *   same place;
  * - effects: bend and whammy curves as the reader can read them back (write-expected-curves.ts); tremolo picking at
  *   8/16/32; trill speeds as plain durations; slides in flag order; artificial harmonics on the harmonic table's frets,
  *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot;
@@ -145,10 +149,12 @@ function expectedChannels(song: Song): ChannelPlan {
 }
 
 function expectedHeader(header: MeasureHeader, start: number): MeasureHeader {
-  const { marker, ...rest } = header;
+  const { marker, directions, ...rest } = header;
   const title = marker === undefined ? '' : sanitized(marker.title).replaceAll('\n', '').trim();
+  const sorted = MUSICAL_DIRECTIONS.filter((direction) => directions?.includes(direction) === true);
   return {
     ...rest,
+    ...(sorted.length === 0 ? {} : { directions: sorted }),
     start,
     tempo: Math.max(1, roundTempo(header.tempo)),
     repeatAlternative: header.repeatAlternative & 0x7fffffff,
@@ -209,8 +215,18 @@ interface VoiceShared {
   readonly tremoloPicking: Duration | undefined;
   readonly slapping: boolean;
   readonly popping: boolean;
-  readonly fadeIn: boolean;
+  readonly fade: 'in' | 'out' | 'swell' | undefined;
   readonly grace: Grace | undefined;
+}
+
+function voiceFade(notes: readonly Note[]): VoiceShared['fade'] {
+  if (notes.some((note) => note.effect.fadeIn)) {
+    return 'in';
+  }
+  if (notes.some((note) => note.effect.fadeOut === true)) {
+    return 'out';
+  }
+  return notes.some((note) => note.effect.volumeSwell === true) ? 'swell' : undefined;
 }
 
 function voiceShared(notes: readonly Note[]): VoiceShared {
@@ -221,13 +237,13 @@ function voiceShared(notes: readonly Note[]): VoiceShared {
     tremoloPicking: picking === undefined ? undefined : plainDuration(nearest([8, 16, 32], picking.value) as NoteValue),
     slapping: notes.some((note) => note.effect.slapping),
     popping: notes.some((note) => note.effect.popping),
-    fadeIn: notes.some((note) => note.effect.fadeIn),
+    fade: voiceFade(notes),
     grace: notes.find((note) => note.effect.grace !== undefined)?.effect.grace,
   };
 }
 
 function expectedEffect(note: Note, shared: VoiceShared, tuning: number, capo: number): NoteEffect {
-  const { bend, tremoloBar: _bar, tremoloPicking: _picking, harmonic, grace, trill, ...rest } = note.effect;
+  const { bend, tremoloBar: _bar, tremoloPicking: _picking, harmonic, grace, trill, fadeOut: _out, volumeSwell: _swell, ...rest } = note.effect;
   const trillPitch = trill === undefined ? 0 : tuning + capo + note.fret + trill.fret - note.fret;
   const expectedBend = bend === undefined ? undefined : expectedCurve(bend, 'bend');
   const expectedBar = shared.tremoloBar === undefined ? undefined : expectedCurve(shared.tremoloBar, 'whammy');
@@ -245,7 +261,9 @@ function expectedEffect(note: Note, shared: VoiceShared, tuning: number, capo: n
     vibrato: rest.vibrato && !rest.wideVibrato,
     slapping: shared.slapping,
     popping: shared.popping,
-    fadeIn: shared.fadeIn,
+    fadeIn: shared.fade === 'in',
+    ...(shared.fade === 'out' ? { fadeOut: true } : {}),
+    ...(shared.fade === 'swell' ? { volumeSwell: true } : {}),
   };
 }
 
@@ -336,10 +354,23 @@ function anacrusisStarts(beats: readonly Beat[], header: MeasureHeader): Beat[] 
   return beats.map((beat) => ({ ...beat, start: beat.start + shift }));
 }
 
+/** Pedal marks inside the bar (the reader clamps the position), a release before a press at the same place. */
+function expectedPedals(pedals: readonly PedalMark[] | undefined, header: MeasureHeader): readonly PedalMark[] | undefined {
+  if (pedals === undefined || pedals.length === 0) {
+    return undefined;
+  }
+  const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  const inside = pedals.map((pedal) => ({ ...pedal, offset: Math.min(length, Math.max(0, pedal.offset)) }));
+  return inside.sort((a, b) => a.offset - b.offset || (a.action === b.action ? 0 : a.action === 'up' ? -1 : 1));
+}
+
 function expectedMeasure(measure: Measure, header: MeasureHeader, rules: TrackRules, keySignature: number): Measure {
   const beats = measure.beats.filter(hasVoice).map((beat) => expectedBeat(beat, rules));
+  const { pedals: _pedals, ...rest } = measure;
+  const pedals = expectedPedals(measure.pedals, header);
   return {
-    ...measure,
+    ...rest,
+    ...(pedals === undefined ? {} : { pedals }),
     keySignature: rules.isPercussion ? 0 : keySignature,
     beats: header.number === 1 ? anacrusisStarts(beats, header) : beats,
   };

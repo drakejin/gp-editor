@@ -18,10 +18,12 @@ import type {
 } from '../../model/song';
 import { bendValueFromGp } from '../common/bend-units';
 import { artificialHarmonicOffset } from '../common/harmonics';
+import { DEFAULT_RASGUEADO } from '../common/rasgueado';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { readBeatEffectsGp45 } from './gp4';
+import { readDirectionsGp5, withDirections } from './gp5-directions';
 import {
   type BeatEffects,
   buildChord,
@@ -91,11 +93,12 @@ export function readGp5(bytes: Uint8Array, detected: DetectedFormat, options: Re
   reader.skip(3);
   reader.readByte(); // octave
   const slots = readChannelSlots(reader);
-  reader.skip(42); // musical directions (19 shorts) and an unknown int
+  const directions = readDirectionsGp5(reader);
+  reader.skip(4); // master reverb
   const measureCount = reader.readInt();
   const trackCount = reader.readInt();
   const headers = readMeasureHeaders(measureCount, keySignature, (number, _previous, timeSignature) =>
-    readHeaderGp5(reader, number, timeSignature),
+    withDirections(readHeaderGp5(reader, number, timeSignature), directions),
   );
   const { tracks, registry } = readTrackList(trackCount, { lyricTrack, lyrics }, (number, current) =>
     readTrackGp5(reader, number, slots, current, isV510),
@@ -260,6 +263,7 @@ function placeVoice(beats: readonly Beat[], beatJob: BeatJob, voice: Voice, extr
     pickStroke: extras.effects.pickStroke ?? base.pickStroke,
     ...(extras.chord === undefined ? {} : { chord: extras.chord }),
     ...(extras.text === undefined ? {} : { text: extras.text }),
+    ...(extras.effects.isRasgueado === true ? { rasgueado: DEFAULT_RASGUEADO } : {}),
   };
   return index >= 0 ? beats.map((current, i) => (i === index ? beat : current)) : [...beats, beat];
 }

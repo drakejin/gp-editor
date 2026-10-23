@@ -3,16 +3,16 @@ import { artificialHarmonicOffset, artificialHarmonicOffsetAtFret } from '../for
 import { durationTicks } from '../model/defaults';
 import { type Grace, type Harmonic, type Note, QUARTER_TIME } from '../model/song';
 import type { BeatTiming } from './beat-timing';
-import { CONTROLLER, controlChangeEvent, type NoteOutput, noteEvents, type SequenceEvent } from './midi-events';
+import { fadeEvents } from './fades';
+import { type NoteOutput, noteEvents, type SequenceEvent } from './midi-events';
 import { MIDI_TICK, fromMidiTicks, truncToMidiTicks } from './midi-ticks';
 import { DEAD_NOTE_DURATION, realNoteDuration, staticDuration } from './note-duration';
 import { findNextNote, type PlacedNote, type TrackContext } from './note-search';
+import { rasgueadoStrikes } from './rasgueado';
 import { MAX_VELOCITY, VELOCITY_INCREMENT } from '../formats/common/velocity';
 import { realVelocity, softer } from './note-velocity';
 import { curveEvents, slideEvents, vibratoEvents } from './pitch-bends';
 
-const FADE_IN_START = 31;
-const FADE_IN_END = 127;
 /** A repeated note (trill, tremolo picking) stops this close to the end of the note. */
 const REPEAT_MARGIN = fromMidiTicks(10);
 const OCTAVE = 12;
@@ -37,18 +37,6 @@ function pitchOf(context: TrackContext, string: number, fret: number): number | 
   }
   const tuning = context.track.strings[string - 1]?.tuning;
   return tuning === undefined ? undefined : context.track.offset + fret + tuning;
-}
-
-/** addFadeIn: the expression controller climbs from 31 to 127 over the note. */
-function fadeInEvents(sound: Sound): SequenceEvent[] {
-  const { channelId } = sound.output;
-  const step = truncToMidiTicks(sound.duration, FADE_IN_END - FADE_IN_START);
-  const end = sound.start + sound.duration;
-  const ramp: SequenceEvent[] = [];
-  for (let tick = sound.start, value = FADE_IN_START; tick < end && value < FADE_IN_END; tick += step, value++) {
-    ramp.push(controlChangeEvent(channelId, tick, CONTROLLER.EXPRESSION, value));
-  }
-  return [...ramp, controlChangeEvent(channelId, end, CONTROLLER.EXPRESSION, FADE_IN_END)];
 }
 
 /** TGEffectGrace.getDurationTime: 3 = 16th, 2 = 32nd, anything else a 64th. */
@@ -185,6 +173,9 @@ export function buildNoteEvents(
   if (key === undefined) {
     return [];
   }
+  if (placed.beat.rasgueado !== undefined) {
+    return rasgueadoEvents(context, placed, timing, key);
+  }
   const realDuration = realNoteDuration(context, placed, timing.duration);
   const initial = applyNoteAudio(placed, {
     key,
@@ -193,7 +184,17 @@ export function buildNoteEvents(
     velocity: realVelocity(context, placed),
     output: { channelId: context.channel.id, bendMode: false },
   });
-  return [...(placed.note.effect.fadeIn ? fadeInEvents(initial) : []), ...effectEvents(context, placed, initial)];
+  const fade = fadeEvents(placed.note.effect, { channelId: initial.output.channelId, start: initial.start, duration: initial.duration });
+  return [...fade, ...effectEvents(context, placed, initial)];
+}
+
+/** A rasgueado beat's note, struck once per finger of the pattern (rasgueado.ts); its other effects are not played. */
+function rasgueadoEvents(context: TrackContext, placed: PlacedNote, timing: BeatTiming, key: number): SequenceEvent[] {
+  const { rasgueado } = placed.beat;
+  const output: NoteOutput = { channelId: context.channel.id, bendMode: false };
+  const velocity = realVelocity(context, placed);
+  const strikes = rasgueado === undefined ? [] : rasgueadoStrikes(rasgueado, placed.beat, placed.note.string, timing.duration);
+  return strikes.flatMap((strike) => noteEvents(output, key, timing.start + placed.move + strike.start, strike.duration, velocity));
 }
 
 function effectEvents(context: TrackContext, placed: PlacedNote, initial: Sound): SequenceEvent[] {
