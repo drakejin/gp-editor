@@ -2,6 +2,7 @@ import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, use
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { type PlayedNote, type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
+import { CommandPalette } from './components/CommandPalette';
 import { DocumentLayout } from './components/DocumentLayout';
 import { EmptyState } from './components/EmptyState';
 import { ExportPanel } from './components/ExportPanel';
@@ -23,6 +24,7 @@ import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
 import { ShortcutSheet } from './components/ShortcutSheet';
 import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
+import { TransposePanel } from './components/TransposePanel';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { TunerPanel } from './components/tuner/TunerPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
@@ -30,6 +32,7 @@ import { ChordPanel } from './components/chords/ChordPanel';
 import { LyricsPanel } from './components/lyrics/LyricsPanel';
 import { ScalesPanel } from './components/scales/ScalesPanel';
 import { useClipboard } from './hooks/use-clipboard';
+import { commandStateOf, useCommandPalette, useTransposePanel } from './hooks/use-command-palette';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { useLyricsEditor } from './hooks/use-lyrics-editor';
@@ -45,6 +48,8 @@ import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
 import { useTuner } from './hooks/use-tuner';
 import { useWindowChrome } from './hooks/use-window-chrome';
+import type { CommandActions } from './lib/command-types';
+import { COMMANDS } from './lib/commands';
 import { trackInstrument } from './lib/instruments';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
@@ -58,8 +63,9 @@ import { type EditorAction, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { describeReference } from './song-writer/reference';
 import { playbackStartTempo } from './state/practice';
-import { selectionRange } from './state/selection';
+import { selectedFragment, selectionRange, selectionSummary } from './state/selection';
 import type { SongEdit } from './state/song-edits';
+import { NO_SELECTION_HINT, type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
 import { type Palette, onChrome, usePalette } from './theme';
 
@@ -98,7 +104,7 @@ export default function App() {
   // Export button and File ▸ Export PDF… (⌘P) open the same panel; File ▸ Export PNG… opens it for PNG images.
   const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch, state.chordDisplay);
   // File ▸ Export MIDI… and Export ASCII Tab….
-  useSongExport(document, dispatch);
+  const songExport = useSongExport(document, dispatch);
   const clipboard = useClipboard(state, dispatch);
   const { selectionAnchor } = state;
   // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.
@@ -131,6 +137,12 @@ export default function App() {
   const tuner = useTuner();
   const { isOpen: isTunerOpen, open: openTuner, close: closeTuner } = tuner;
   useEffect(() => subscribeTunerRequests(openTuner), [openTuner]);
+  // Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P); the keyboard goes back to the score when they close.
+  const focusScore = useCallback(() => focusView(keyboardView.current), []);
+  const transposePanel = useTransposePanel(document !== undefined);
+  const commandPalette = useCommandPalette(focusScore);
+  const { isOpen: isTransposeOpen, close: closeTranspose } = transposePanel;
+  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = commandPalette;
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
@@ -141,17 +153,22 @@ export default function App() {
       [isRecentFilesOpen, closeRecentFiles],
       [isLyricsOpen, closeLyricsPanel],
       [isScalesOpen, closeScales],
+      [isTransposeOpen, closeTranspose],
+      [isCommandPaletteOpen, closeCommandPalette],
     ];
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
+    if (open !== undefined) {
+      focusScore();
+    }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -297,6 +314,36 @@ export default function App() {
   const measureCount = song?.measureHeaders.length ?? 0;
   const loopScope = { measureCount, cursorMeasureIndex: cursor?.measureIndex ?? 0 };
   const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, loopScope.cursorMeasureIndex);
+  // What the command palette's commands call: the handlers of the menus, keys and buttons.
+  const commandActions: CommandActions = {
+    runCommand: commands.runCommand,
+    save,
+    exportPng: pdfExport.openPng,
+    exportMidi: songExport.exportMidi,
+    exportAsciiTab: songExport.exportAsciiTab,
+    exportMusicXml: songExport.exportMusicXml,
+    exportCompressedMusicXml: songExport.exportCompressedMusicXml,
+    print: pdfExport.print,
+    closeTab: () => activeTabId !== undefined && tabs.requestClose(activeTabId),
+    cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
+    openRecentFiles: recentFiles.openPanel,
+    openSongWriter: songWriter.open,
+    openShortcuts: chrome.openShortcutSheet,
+    openTranspose: transposePanel.open,
+    openTuner,
+    openScales,
+    openLyrics: () => openLyrics.current(),
+    pickInstrument: () => chrome.pickInstrument(trackIndex),
+    togglePanel: chrome.togglePanel,
+    toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
+  };
+  const transposeTo = (draft: TranspositionDraft) => {
+    const scope = transpositionScope(state, draft.target);
+    dispatch(scope === undefined ? { type: 'showHint', hint: NO_SELECTION_HINT } : { type: 'transpose', scope, options: toTranspositionOptions(draft) });
+    closeTranspose();
+    focusScore();
+  };
+  const selectionFragment = isTransposeOpen && selectionAnchor !== undefined ? selectedFragment(state) : undefined;
 
   return (
     <View
@@ -359,6 +406,18 @@ export default function App() {
           onSave={pdfExport.save}
           onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
+        />
+      ) : null}
+      {isTransposeOpen ? (
+        <TransposePanel
+          palette={chromePalette}
+          trackName={track?.name ?? ''}
+          selection={selectionFragment === undefined ? undefined : selectionSummary(state, selectionFragment)}
+          onTranspose={transposeTo}
+          onClose={() => {
+            closeTranspose();
+            focusScore();
+          }}
         />
       ) : null}
       {isRecentFilesOpen ? (
@@ -518,6 +577,19 @@ export default function App() {
         </ChromeMenu>
       ) : null}
       {chrome.isShortcutSheetOpen ? <ShortcutSheet palette={palette} onClose={chrome.closeShortcutSheet} /> : null}
+      {isCommandPaletteOpen ? (
+        <CommandPalette
+          palette={palette}
+          commands={COMMANDS}
+          state={commandStateOf(workspace)}
+          recentIds={commandPalette.recentIds}
+          onRun={(command) => commandPalette.run(command, commandActions)}
+          onClose={() => {
+            closeCommandPalette();
+            focusScore();
+          }}
+        />
+      ) : null}
       {songWriter.isOpen ? (
         <SongWriterPanel
           palette={chromePalette}

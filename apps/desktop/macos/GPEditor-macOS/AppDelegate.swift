@@ -105,8 +105,9 @@ struct GPEditorApp: App {
           }
         }
       }
-      // Tools ▸ Tuner…: the microphone tuner (GPAudioInput.m). Tools ▸ Scales…: the scale panel (scale finder, boxes; the
-      // scale is marked on the keyboard and the fretboard).
+      // Tools: the microphone tuner (GPAudioInput.m), the scale panel (scale finder, boxes; the scale is marked on the
+      // keyboard and the fretboard), Transpose… (notes and chords by semitones or scale steps) and the command palette,
+      // which finds any command.
       CommandMenu("Tools") {
         Button("Tuner…") {
           NotificationCenter.default.post(name: .GPEditorTunerCommand, object: nil)
@@ -114,6 +115,14 @@ struct GPEditorApp: App {
         Button("Scales…") {
           NotificationCenter.default.post(name: .GPEditorScalesCommand, object: nil)
         }
+        Button("Transpose…") {
+          NotificationCenter.default.post(name: .GPEditorTransposeCommand, object: nil)
+        }
+        Divider()
+        Button("Command Palette…") {
+          NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)
+        }
+        .keyboardShortcut("p", modifiers: [.command, .shift])
       }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {
