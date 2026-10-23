@@ -212,3 +212,29 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     expect(parsed?.items[0]?.stroke).toEqual(NO_STROKE);
   });
 });
+
+describe('parseBeatFragment: notation marks of a note', () => {
+  it('reads back fingers and a shown accidental', () => {
+    // Arrange
+    const marked: Note = { ...n(2, 3), leftFinger: 'annular', rightFinger: 'thumb', accidentalDisplay: 'cautionary' };
+    const fragment: BeatFragment = { isPercussion: false, items: [item([marked])] };
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)));
+
+    // Assert
+    expect(parsed).toEqual(fragment);
+  });
+
+  it.each([
+    ['leftFinger', 'pinky'],
+    ['rightFinger', 3],
+    ['accidentalDisplay', 'loud'],
+  ])('refuses a note whose %s is %o', (key, value) => {
+    // Act
+    const parsed = parseTampered((raw) => (rawNote(raw)[key] = value));
+
+    // Assert
+    expect(parsed).toBeUndefined();
+  });
+});

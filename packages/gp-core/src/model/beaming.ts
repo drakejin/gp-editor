@@ -37,6 +37,28 @@ export function defaultBeamGrouping(timeSignature: TimeSignature): BeamGrouping 
   return { unit, groups: groupsOf(total, beat) };
 }
 
+/** Ready-made groupings the editor offers: the time signature's own, two beats per beam, or the whole bar. */
+export type BeamGroupingPreset = 'byBeat' | 'byTwoBeats' | 'byBar';
+
+export const BEAM_GROUPING_PRESETS: readonly BeamGroupingPreset[] = ['byBeat', 'byTwoBeats', 'byBar'];
+
+function pairs(groups: readonly number[]): readonly number[] {
+  return groups.flatMap((size, index) => (index % 2 === 1 ? [] : [size + (groups[index + 1] ?? 0)]));
+}
+
+/** A preset's grouping for a time signature (byTwoBeats joins the beats in pairs: 7/8 2+2+2+1 → 4+3). */
+export function presetBeamGrouping(timeSignature: TimeSignature, preset: BeamGroupingPreset): BeamGrouping {
+  const beats = defaultBeamGrouping(timeSignature);
+  switch (preset) {
+    case 'byTwoBeats':
+      return { unit: beats.unit, groups: pairs(beats.groups) };
+    case 'byBar':
+      return { unit: beats.unit, groups: [beats.groups.reduce((sum, size) => sum + size, 0)] };
+    default:
+      return beats;
+  }
+}
+
 /** The bar's grouping: its own, else the time signature's. */
 export function effectiveBeamGrouping(header: Pick<MeasureHeader, 'timeSignature' | 'beamGrouping'>): BeamGrouping {
   return header.beamGrouping ?? defaultBeamGrouping(header.timeSignature);

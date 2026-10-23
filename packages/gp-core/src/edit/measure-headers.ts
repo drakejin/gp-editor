@@ -27,7 +27,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** End (exclusive) of the run of measures from `from` that still have the value `from` has (GP's "until the next change"). */
-function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boolean): number {
+export function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boolean): number {
   let end = from + 1;
   while (end < items.length) {
     const item = items[end];
@@ -37,6 +37,11 @@ function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boole
     end += 1;
   }
   return end;
+}
+
+function withoutBeamGrouping(header: MeasureHeader): MeasureHeader {
+  const { beamGrouping: _dropped, ...rest } = header;
+  return rest;
 }
 
 function nearestNoteValue(denominator: number): NoteValue {
@@ -110,7 +115,8 @@ export function setTimeSignature(song: Song, measureIndex: number, timeSignature
   if (fitted.some((measures, trackIndex) => measures.length !== measuresByTrack[trackIndex]?.length)) {
     return song;
   }
-  const headers = song.measureHeaders.map((other, index) => (isChanged(index) ? { ...other, timeSignature: next } : other));
+  // A bar's own beam grouping was for the old time signature.
+  const headers = song.measureHeaders.map((other, index) => (isChanged(index) ? { ...withoutBeamGrouping(other), timeSignature: next } : other));
   return relayoutMeasures(song, headers, fitted);
 }
 
