@@ -16,6 +16,10 @@ The goal is to open every Guitar Pro file:
 
 The format is detected from the file content, not the extension.
 
+`gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
+Pro 7 and 8 open). What each format cannot hold is listed in `packages/gp-core/test/helpers/write-expected.ts` (GP3–GP5)
+and `write-expected-gpif.ts` (`.gp`).
+
 ## Download
 
 [Releases](https://github.com/drakejin/gp-editor/releases) carry two macOS builds:
@@ -32,7 +36,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ## Layout
 
 ```
-packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 writer, song model, immutable edit operations
+packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5 and GP7 (.gp) writers, song model, immutable edit operations
                    (incl. tunings), MIDI rendering, PDF transcription → song
 apps/desktop       React Native app; macOS project in apps/desktop/macos
 ```
