@@ -246,6 +246,16 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
 - **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
+- **Lyrics editor** (Edit ▸ Lyrics…): a panel above the score — pick the track and the bar the lyrics start at, and type
+  them; the score follows once the typing pauses (each pause is one undo step). Guitar Pro's syntax: a space or a
+  hyphen ends a syllable (*Beau-ti-ful*), two spaces skip a note, `+` sings words on one note (*a+lot*), `[text in brackets]` is a comment; Korean,
+  Japanese and Chinese get one character per note. The panel counts the syllables against the notes. Saved as `.gp5`,
+  a song keeps one track's lyrics (the first track's with some).
+- **Scales** (Tools ▸ Scales…): TuxGuitar's 275 scales and arpeggios on any of 17 roots, in a searchable list, or
+  *From selection* (the cursor's bar without one) / *From track* lists the scales and keys that hold those notes, best
+  first (common scales, modes and arpeggios before exotic ones; then the root played most, the fewest notes unused). The chosen scale is marked on the fretboard (all 24 frets, 3–10 strings, the root in orange) and on the piano
+  keyboard, stays marked after the panel closes until *Clear*, and the panel spells its notes and draws its five-fret
+  boxes on the track's neck, one position at a time.
 - **Tuner** (Tools ▸ Tuner…): play one string at a time into the Mac's microphone; the panel shows the nearest note
   and octave in large letters, how many cents it is off (green within ±5) on a -50 … +50 cent strip, its frequency,
   the shown track's open strings with the one being tuned lit (the nearest, within 1.5 semitones; standard guitar

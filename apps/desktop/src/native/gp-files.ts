@@ -171,6 +171,24 @@ export function subscribeSongWriterRequests(onSongWriterRequested: () => void): 
   return () => subscription.remove();
 }
 
+/** Edit ▸ Lyrics…. */
+export function subscribeLyricsRequests(onLyricsRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('lyricsRequested', onLyricsRequested);
+  return () => subscription.remove();
+}
+
+/** Tools ▸ Scales…. */
+export function subscribeScalesRequests(onScalesRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('scalesRequested', onScalesRequested);
+  return () => subscription.remove();
+}
+
 /** Help ▸ Keyboard Shortcuts (⌘H). */
 export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
   if (native === undefined) {

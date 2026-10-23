@@ -1,6 +1,7 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
+// Also Edit ▸ Lyrics… and Tools ▸ Scales….
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
 // writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
@@ -22,6 +23,8 @@ static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
+static NSString *const kLyricsRequestedEvent = @"lyricsRequested";
+static NSString *const kScalesRequestedEvent = @"scalesRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
@@ -175,6 +178,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onLyricsCommand:) name:GPEditorLyricsCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onScalesCommand:) name:GPEditorScalesCommandNotification object:nil];
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
@@ -203,7 +208,8 @@ RCT_EXPORT_MODULE();
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
-    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent
+    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent,
+    kLyricsRequestedEvent, kScalesRequestedEvent
   ];
 }
 
@@ -267,6 +273,20 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kSongWriterRequestedEvent body:@{}];
+  }
+}
+
+- (void)onLyricsCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kLyricsRequestedEvent body:@{}];
+  }
+}
+
+- (void)onScalesCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kScalesRequestedEvent body:@{}];
   }
 }
 
