@@ -180,6 +180,19 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
 - **Save**: ⌘S saves the shown tab — a `.gp5` document in place; other formats — and ⇧⌘S — save a new Guitar Pro 5 file (`.gp5`).
   GP6–GP8 files lose what GP5 cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+- **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
+  a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
+  steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
+  *Build on the open score*, the shown track's first bars with notes, whose melody, rhythm and feel it develops.
+  *Write song* plans the song first (tempo, meter, key, a lead guitar that plays the sung melody, usually a rhythm
+  guitar and a bass, and the sections with their chords and lyrics), then writes the sections three at a time; the
+  panel shows each step and *Stop* ends the run. The song opens in a new tab, unsaved: each section's name is a
+  marker on its first bar, the lyrics are under the lead guitar's staff, the genre and description are in the song
+  information, and the hint strip sums it up (with anything that went wrong — a section that could not be written
+  becomes rests). It uses the PDF import's Anthropic key and model (Claude Opus 5.5 by default, Sonnet 5 for
+  faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
+- **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
+  the tab — one syllable under each beat that has notes, as Guitar Pro places them.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
