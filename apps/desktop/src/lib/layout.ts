@@ -93,7 +93,12 @@ function changed(headers: readonly MeasureHeader[], index: number, pick: (h: Mea
   return current !== undefined && (previous === undefined || pick(previous) !== pick(current));
 }
 
-export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number): MeasureLayout {
+/** Room a beat needs beyond its notes (a chord diagram over it, `chordBeatWidth`); 0 for none. */
+export type BeatRoom = (beat: Beat) => number;
+
+const NO_ROOM: BeatRoom = () => 0;
+
+export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): MeasureLayout {
   const header = song.measureHeaders[measureIndex];
   const track = song.tracks[trackIndex];
   const beats = track?.measures[measureIndex]?.beats ?? [];
@@ -107,7 +112,7 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   const timeSignatureX = showTimeSignature ? x : undefined;
   x += showTimeSignature ? TAB.timeSignatureWidth : 0;
   const beatLayouts = beats.map((beat, beatIndex) => {
-    const width = beatWidth(beat);
+    const width = Math.max(beatWidth(beat), beatRoom(beat));
     const layout = { beatIndex, x: x + width / 2 };
     x += width;
     return layout;

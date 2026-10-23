@@ -84,6 +84,25 @@ export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency 
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
+export { setBeatChord, setBeatChordNotes } from './edit/beat-chord';
+export { CHORD_TYPES, type ChordType, type ChordTypeName } from './chords/database';
+export {
+  CHORD_EXTENSIONS,
+  type ChordExtension,
+  type ChordSpec,
+  type ChordSpecOptions,
+  DEGREE_SHIFTS,
+  type DegreeShift,
+  buildChordSpec,
+  chordSpecPitchClasses,
+} from './chords/spec';
+export { type NoteSpelling, chordName, noteName } from './chords/naming';
+export { parseChordName } from './chords/parse';
+export { MAX_FRET_SPAN, type VoicingOptions, buildChordVoicings } from './chords/creator';
+export type { VoicingStyle } from './chords/grades';
+export { type ChordProposal, type RecognizeOptions, recognizeChord } from './chords/recognizer';
+export { DIAGRAM_FRETS, chordFirstFret, chordLabel, hasChordDiagram, isSameChord } from './chords/shape';
+export { songChords } from './chords/song-chords';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
 export { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from './edit/beat-ranges';
 export { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';

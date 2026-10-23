@@ -20,6 +20,8 @@ describe('palette buttons and their keys', () => {
       expect(command).toEqual({ type: 'edit', edit: tool.run.edit });
     } else if (tool.run.kind === 'panel') {
       expect(command).toEqual({ type: 'openNotePanel', panel: tool.run.panel });
+    } else if (tool.run.kind === 'chordPanel') {
+      expect(command).toEqual({ type: 'openChordPanel' });
     } else {
       // An option strip's key sets its most common choice (S a shift slide, N a natural harmonic).
       expect(command?.type).toBe('edit');

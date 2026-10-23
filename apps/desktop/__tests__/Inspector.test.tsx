@@ -64,6 +64,21 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Choose the track’s instrument')?.props.label).toBe('♪ Distortion Electric Guitar ▾');
   });
 
+  it('shows or hides the score’s chord names and diagrams', () => {
+    // Arrange
+    const onChangeChordDisplay = jest.fn();
+    const inspector = render({ chordDisplay: { showsNames: true, showsDiagrams: false }, onChangeChordDisplay });
+
+    // Act
+    inspector.press('Show chord diagrams over the staff');
+    inspector.press('Show chord names over the staff');
+
+    // Assert
+    expect(inspector.button('Show chord names over the staff')?.props.isActive).toBe(true);
+    expect(inspector.button('Show chord diagrams over the staff')?.props.isActive).toBe(false);
+    expect(onChangeChordDisplay.mock.calls).toEqual([[{ showsNames: true, showsDiagrams: true }], [{ showsNames: false, showsDiagrams: false }]]);
+  });
+
   it('renames the track when typing ends, not on every key', () => {
     // Arrange
     const inspector = render();

@@ -252,6 +252,17 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   notes only, from a low bass B (31 Hz) to B6 (1976 Hz); a quiet room or noise reads nothing. macOS asks for microphone access the first time; if it was
   refused, the panel says where to allow it (System Settings ▸ Privacy & Security ▸ Microphone). The microphone runs
   only while the panel is open (Esc closes it) and nothing is recorded.
+- **Chords**: a beat's chord shows over the staves — its name, and its diagram (the strings, the nut or the first fret's
+  number, a dot per fretted string, a barre, o / x over open and unplayed strings). The Track inspector's *Chords*
+  toggles show names, diagrams or both (per score; Export PDF and Print follow). `K` (or the palette's *Chord*, in the
+  Beat group) opens the **chord diagram** panel for the beat at the cursor: click the grid to put a finger on a fret
+  or take it off (above the nut: open / not played), *Fret − / +* moves the shape along the neck, and the chord is
+  named as you go (the name can be typed); *Notes of the beat* fills the grid from the beat; *Apply* puts the chord on
+  the beat — and, with *Write the notes into the beat* (on for a rest), its notes too — and *Remove* takes it off, one
+  undo step each. Beside the grid, the **chord library**: *By name* (type Am7, C/G, F#m7b5, G13 … → the best voicings on
+  the track's tuning, plain, inversions, close or open; click one to load it), *By position* (every name the grid's
+  frets can have, with how complete each is) and *In this track* (the chords the track already uses). Chords are saved
+  in GP3, GP4 and GP5 files.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm

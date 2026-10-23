@@ -17,10 +17,11 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
   const onOpenPanel = jest.fn();
+  const onOpenChordPanel = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} />,
+      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
     );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
@@ -37,7 +38,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   const pressTooltip = (tooltip: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.tooltip === tooltip)?.props.onPress());
   const groupTitles = new Set(PALETTE_GROUPS.map((group) => group.title.toUpperCase()));
   const titles = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join('')).filter((text) => groupTitles.has(text));
-  return { renderer, onEdit, onAction, onOpenPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
+  return { renderer, onEdit, onAction, onOpenPanel, onOpenChordPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
 }
 
 describe('EditionPalette layout', () => {
@@ -162,6 +163,23 @@ describe('EditionPalette edits', () => {
     expect(palette.tool('bend').props.isActive).toBe(true);
     expect(palette.onOpenPanel.mock.calls).toEqual([['bend'], ['vibrato']]);
     expect(palette.onEdit).not.toHaveBeenCalled();
+  });
+
+  it('opens the chord diagram panel, as K does, lit on a beat with a chord', () => {
+    // Arrange
+    const [first] = SONG.tracks[0]!.measures[0]!.beats;
+    const chorded = makeSong([[{ ...first!, chord: { name: 'C', firstFret: 1, frets: [0, 1, 0, 2, 3, -1] } }]]);
+    const plain = render();
+    const lit = render(ON_NOTE, chorded);
+
+    // Act
+    plain.press('chord');
+
+    // Assert
+    expect(plain.onOpenChordPanel).toHaveBeenCalledTimes(1);
+    expect(plain.tool('chord').props.isActive).toBe(false);
+    expect(lit.tool('chord').props.isActive).toBe(true);
+    expect(plain.onEdit).not.toHaveBeenCalled();
   });
 
   it('offers every tuplet Guitar Pro stores, and a tuplet inside the beat’s tuplet', () => {
