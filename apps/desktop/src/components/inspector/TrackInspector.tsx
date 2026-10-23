@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { Song } from '@gp-editor/core';
+import type { Effect, Song } from '@gp-editor/core';
 import { trackInstrument } from '../../lib/instruments';
+import type { MixPreview } from '../../lib/mix';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../../score/chords';
 import { type ScoreMode, type Staff, showsStaff, toggleStaff } from '../../score/geometry';
 import { type Palette, onChrome } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { NeckSettings } from '../NeckSettings';
+import { EffectChainEditor } from '../effects/EffectChainEditor';
 import { InspectorField, InspectorSection, InspectorTextField } from './InspectorParts';
 
 /** Highest capo fret the inspector offers. */
@@ -27,9 +29,16 @@ export interface TrackInspectorProps {
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
   readonly onDismissNotice: () => void;
   readonly onEditInstrument: (trackIndex: number) => void;
+  /** The track's effect chain changed (one undo step). */
+  readonly onSetTrackEffects?: (trackIndex: number, effects: readonly Effect[]) => void;
+  /** While an effect's slider is dragged: what to hear now; undefined when the drag ended unchanged. */
+  readonly onPreviewMix?: (preview: MixPreview | undefined) => void;
   /** The track written in rhythm slashes, or as notes again (an edit of the song, undoable). */
   readonly onSetTrackSlashNotation?: (trackIndex: number, hasSlashNotation: boolean) => void;
 }
+
+/** The effects editor's width inside the inspector's sections. */
+const EFFECTS_WIDTH = 244;
 
 const STAVES: readonly { readonly staff: Staff; readonly label: string; readonly tooltip: string }[] = [
   { staff: 'standard', label: 'Standard', tooltip: 'Show standard notation' },
@@ -41,7 +50,7 @@ const CHORD_PARTS: readonly { readonly part: keyof ChordDisplay; readonly label:
   { part: 'showsDiagrams', label: 'Diagrams', tooltip: 'Show chord diagrams over the staff' },
 ];
 
-/** The TRACK tab: the shown track's name, notation, tuning and capo, and its instrument. */
+/** The TRACK tab: the shown track's name, notation, tuning and capo, its instrument and its effects. */
 export function TrackInspector(props: TrackInspectorProps) {
   const { palette, song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY } = props;
   const track = song.tracks[trackIndex];
@@ -106,6 +115,18 @@ export function TrackInspector(props: TrackInspectorProps) {
           />
         </InspectorField>
       </InspectorSection>
+      {props.onSetTrackEffects === undefined ? null : (
+        <InspectorSection palette={palette} title="EFFECTS">
+          <EffectChainEditor
+            key={trackIndex}
+            palette={palette}
+            effects={track.effects ?? []}
+            width={EFFECTS_WIDTH}
+            onChange={(effects) => props.onSetTrackEffects?.(trackIndex, effects)}
+            onPreview={(effects) => props.onPreviewMix?.(effects === undefined ? undefined : { trackIndex, effects })}
+          />
+        </InspectorSection>
+      )}
     </>
   );
 }

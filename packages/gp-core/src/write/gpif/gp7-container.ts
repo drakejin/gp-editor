@@ -1,7 +1,7 @@
 // The Guitar Pro 7/8 container (no TuxGuitar counterpart: it only reads it, GPXFileSystem): a zip of the GPIF document
 // and the binary view settings Guitar Pro keeps next to it.
 import { zipSync } from 'fflate';
-import { GP7_SCORE_ENTRY, GP7_VERSION_ENTRY } from '../../formats/gpif/container-gp7';
+import { GP7_EFFECTS_ENTRY, GP7_SCORE_ENTRY, GP7_VERSION_ENTRY } from '../../formats/gpif/container-gp7';
 import { encodeUtf8 } from '../../io/text';
 
 /** VERSION of a Guitar Pro 7 file (Guitar Pro 8 writes the same). */
@@ -73,8 +73,8 @@ export function binaryStylesheet(): Uint8Array {
   return Uint8Array.from([...int32(entries.length), ...bytes]);
 }
 
-/** The .gp file: the entries a Guitar Pro 7 file has, in its order. */
-export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], slashTracks: readonly boolean[] = []): Uint8Array {
+/** The .gp file: the entries a Guitar Pro 7 file has, in its order, and the app's effects JSON when there is one. */
+export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], effectsJson?: string, slashTracks: readonly boolean[] = []): Uint8Array {
   return zipSync(
     {
       'Content/': new Uint8Array(0),
@@ -84,6 +84,7 @@ export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], 
       'Content/Preferences.json': encodeUtf8(PREFERENCES_JSON),
       [GP7_SCORE_ENTRY]: score,
       [GP7_VERSION_ENTRY]: encodeUtf8(CONTAINER_VERSION),
+      ...(effectsJson === undefined ? {} : { [GP7_EFFECTS_ENTRY]: encodeUtf8(effectsJson) }),
     },
     { level: DEFLATE_LEVEL, mtime: ENTRY_TIME },
   );

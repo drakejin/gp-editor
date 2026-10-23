@@ -74,6 +74,7 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 scripts/hermes-smoke/fixtures.generated.js
+scripts/audio-check/fixtures.generated.js
 
 # GeneralUser GS SoundFont: fetched by scripts/soundfont/fetch.sh (32 MB, pinned + checksummed)
 macos/GPEditor-macOS/SoundFonts/*.sf2

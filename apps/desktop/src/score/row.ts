@@ -3,7 +3,11 @@ import { isKeyboardTrack } from '../lib/fingering';
 import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
+import { engraveDirections } from './directions';
 import { engraveDynamics } from './dynamics';
+import { engraveHairpins } from './hairpins';
+import { engraveNotationExpressions } from './notation-expressions';
+import { engravePedals } from './pedals';
 import { engraveChords } from './chords';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
@@ -129,6 +133,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette: context.palette }),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),
+    ...engraveMeasureMarks(context, scope),
     ...(context.geometry.lyricsY === undefined ? [] : engraveLyrics({ track, layout, y: context.geometry.lyricsY, palette: context.palette })),
     ...engraveTab(context, scope),
     ...engraveSelection(context.selection, layout, context.geometry, track.strings.length, context.palette),
@@ -160,6 +165,25 @@ function engraveMeasureDynamics(context: RowContext, scope: MeasureScope, notati
   const staff = notation === undefined || notationTop === undefined ? undefined : { commands: notation, bottomLine: notationTop + (NOTATION_LINES - 1) * STAFF_SPACE };
   const { layout } = scope;
   return engraveDynamics({ measures: scope.track.measures, measureIndex: layout.measureIndex, layout, y: dynamicsY, palette: context.palette, staff });
+}
+
+/**
+ * The bar's directions under the heading, the hairpins and the sustain pedal under the staves, in their bands (and the
+ * fades and rasgueados over a notation staff without tab).
+ */
+function engraveMeasureMarks(context: RowContext, scope: MeasureScope): DrawCommand[] {
+  const { directionsY, dynamicsY, pedalsY, notationTop, tabTop } = context.geometry;
+  const { track, header, measure, layout } = scope;
+  const { measureIndex } = layout;
+  const { palette } = context;
+  // Without a tab staff, the fades and rasgueados go over the notation.
+  const expressions = notationTop !== undefined && tabTop === undefined ? engraveNotationExpressions(measure, layout, notationTop, palette) : [];
+  return [
+    ...expressions,
+    ...(directionsY === undefined ? [] : engraveDirections(header, layout.width, directionsY, palette)),
+    ...(dynamicsY === undefined ? [] : engraveHairpins({ measures: track.measures, measureIndex, layout, y: dynamicsY, palette })),
+    ...(pedalsY === undefined ? [] : engravePedals({ measures: track.measures, measureIndex, header, layout, y: pedalsY, palette })),
+  ];
 }
 
 function engraveTab(context: RowContext, scope: MeasureScope): DrawCommand[] {

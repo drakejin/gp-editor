@@ -29,6 +29,7 @@ import {
 } from '@gp-editor/core';
 import { type BarEdit, applyBarEdit } from './bar-edits';
 import { type MarkEdit, applyMarkEdit } from './mark-edits';
+import { type NotationEdit, applyNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
@@ -62,6 +63,7 @@ export type SongEdit =
   | NoteEdit
   | BarEdit
   | MarkEdit
+  | NotationEdit
   | { readonly type: 'insertMeasure' }
   | { readonly type: 'deleteMeasure' }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
@@ -130,6 +132,11 @@ export function applySongEdit(
     case 'toggleSlash':
     case 'toggleBeamLink':
     case 'setBeamGrouping':
+      return applyNotationEdit(song, cursor, edit);
+    case 'toggleDirection':
+    case 'toggleHairpin':
+    case 'setRasgueado':
+    case 'togglePedal':
       return applyMarkEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);

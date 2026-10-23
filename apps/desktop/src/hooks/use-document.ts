@@ -1,7 +1,7 @@
 import { type Dispatch, useCallback, useEffect, useRef } from 'react';
 import { readSong, writeSong } from '@gp-editor/core';
 import { base64ToBytes, bytesToBase64 } from '../lib/base64';
-import { SAVE_FORMATS, type SaveFormat, defaultSaveFormat, fileNameIn, saveFormatOf } from '../lib/file-formats';
+import { SAVE_FORMATS, type SaveFormat, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../lib/file-formats';
 import {
   type OpenedFile,
   readFile,
@@ -202,8 +202,9 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
           return false;
         }
         const { path, format } = destination;
-        if (format.note !== undefined) {
-          toTab({ type: 'showHint', hint: format.note });
+        const hint = saveHint(format, song);
+        if (hint !== undefined) {
+          toTab({ type: 'showHint', hint });
         }
         const saved = await writeFile(path, bytesToBase64(writeSong(song, format.id)));
         toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });

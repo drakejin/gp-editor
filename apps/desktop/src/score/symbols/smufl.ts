@@ -127,3 +127,16 @@ export const ACCIDENTAL_PAREN_GLYPHS = {
   left: glyph(0xe26a, 0.564, 0.988, -0.992),
   right: glyph(0xe26b, 0.564, 0.988, -0.992),
 } as const;
+
+/** Directions, hairpins, fades and the piano pedal (Bravura's metrics, measured from the bundled font). */
+export const MARK_GLYPHS = {
+  segno: glyph(0xe047, 2.228, 3.036, -0.108),
+  coda: glyph(0xe048, 3.816, 3.592, -0.632),
+  dynamicCrescendoHairpin: glyph(0xe53e, 3, 1.424, 0.372),
+  dynamicDiminuendoHairpin: glyph(0xe53f, 3, 1.424, 0.372),
+  guitarFadeIn: glyph(0xe843, 1.448, 1.46, 0),
+  guitarFadeOut: glyph(0xe844, 1.448, 1.46, 0),
+  guitarVolumeSwell: glyph(0xe845, 2.896, 1.46, 0),
+  keyboardPedalPed: glyph(0xe650, 4.076, 2.22, -0.032),
+  keyboardPedalUp: glyph(0xe655, 1.8, 1.8, 0),
+} as const;

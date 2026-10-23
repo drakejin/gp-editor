@@ -2,7 +2,6 @@
 import { GpFormatError } from '../../errors';
 import { decodeUtf8Lenient } from '../../io/text';
 import {
-  type GpifAutomation,
   type GpifBar,
   type GpifDocument,
   type GpifMasterBar,
@@ -12,9 +11,10 @@ import {
   type GpifVoice,
   indexById,
 } from './gpif-document';
+import { readAutomation } from './gpif-automation';
 import { readBeat, readNote, xPropertyInt } from './gpif-read-beat';
 import { readTracks } from './gpif-read-track';
-import { type XmlElement, attribute, child, childList, childText, parseFloatOr, parseIntList, parseJavaInt, parseXml } from './xml';
+import { type XmlElement, attribute, child, childList, childText, children, parseIntList, parseJavaInt, parseXml } from './xml';
 
 const ROOT_ELEMENT = 'GPIF';
 /** Master bar beaming: the unit (a note value), then one XProperty per group from the first id on. */
@@ -66,19 +66,11 @@ function readScore(score: XmlElement | undefined): GpifScore {
   };
 }
 
-function readAutomation(node: XmlElement): GpifAutomation {
-  return {
-    type: childText(node, 'Type') ?? '',
-    barId: parseJavaInt(childText(node, 'Bar'), 0),
-    position: parseFloatOr(childText(node, 'Position'), 0),
-    value: parseIntList(childText(node, 'Value'), ' '),
-  };
-}
-
 function readMasterBar(node: XmlElement): GpifMasterBar {
   const repeat = child(node, 'Repeat');
   const key = child(node, 'Key');
   const section = child(node, 'Section');
+  const directions = child(node, 'Directions');
   const repeatEnds = attribute(repeat, 'end') === 'true';
   return {
     barIds: parseIntList(childText(node, 'Bars'), ' ') ?? [],
@@ -92,6 +84,8 @@ function readMasterBar(node: XmlElement): GpifMasterBar {
     markerText: childText(section, 'Text')?.replaceAll('\n', '').trim(),
     beamUnit: xPropertyInt(node, XPROPERTY_BEAM_UNIT),
     beamGroups: Array.from({ length: BEAM_GROUP_SLOTS }, (_, k) => xPropertyInt(node, String(XPROPERTY_FIRST_BEAM_GROUP + k)) ?? 0),
+    directionTargets: children(directions, 'Target').map((target) => target.text),
+    directionJumps: children(directions, 'Jump').map((jump) => jump.text),
   };
 }
 

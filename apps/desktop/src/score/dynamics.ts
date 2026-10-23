@@ -54,8 +54,11 @@ export function dynamicMarks(measures: readonly Measure[], measureIndex: number)
   ];
 }
 
-/** Whether any beat of the track changes dynamic: only then do its rows make room for the marks. */
+/** Whether any beat of the track changes dynamic or is under a hairpin: only then do its rows make room for the marks. */
 export function hasDynamicChanges(measures: readonly Measure[]): boolean {
+  if (measures.some((measure) => measure.beats.some((beat) => beat.hairpin !== undefined))) {
+    return true;
+  }
   const played = measures.flatMap((measure) => measure.beats.flatMap((beat) => beatDynamic(beat) ?? []));
   return played.some((dynamic, i) => dynamic !== (played[i - 1] ?? START_DYNAMIC));
 }

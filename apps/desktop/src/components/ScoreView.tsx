@@ -5,11 +5,13 @@ import { useDragSelection } from '../hooks/use-drag-selection';
 import { type RowLayout, layoutMeasure, layoutRows } from '../lib/layout';
 import { type PageTop, isRowOnFirstScreen } from '../lib/score-scroll';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY, chordBands, chordBeatWidth } from '../score/chords';
+import { hasDirections } from '../score/directions';
 import { hasDynamicChanges } from '../score/dynamics';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type PlayingBeat, rowHeaderWidth } from '../score/row';
 import { hasLyrics } from '../score/lyrics';
+import { hasPedals } from '../score/pedals';
 import { hasBends } from '../score/symbols/bends';
 import { type BeatRange, clipRange } from '../score/selection-tint';
 import { tabMarkLanes } from '../score/tab';
@@ -64,9 +66,21 @@ export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD
   const isBent = useMemo(() => hasBends(track?.measures ?? []), [track?.measures]);
   const isSung = hasLyrics(track);
   const { hasChordNames, hasChordDiagrams } = useMemo(() => chordBands(track?.measures ?? [], chordDisplay), [track?.measures, chordDisplay]);
+  const isDirected = useMemo(() => hasDirections(song), [song]);
+  const isPedalled = useMemo(() => hasPedals(track?.measures ?? []), [track?.measures]);
   const geometry = useMemo(
-    () => rowGeometry(mode, stringCount, { markLaneCount: markLanes.length, hasDynamics, hasBends: isBent, hasLyrics: isSung, hasChordNames, hasChordDiagrams }),
-    [mode, stringCount, markLanes.length, hasDynamics, isBent, isSung, hasChordNames, hasChordDiagrams],
+    () =>
+      rowGeometry(mode, stringCount, {
+        markLaneCount: markLanes.length,
+        hasDynamics,
+        hasBends: isBent,
+        hasLyrics: isSung,
+        hasChordNames,
+        hasChordDiagrams,
+        hasDirections: isDirected,
+        hasPedals: isPedalled,
+      }),
+    [mode, stringCount, markLanes.length, hasDynamics, isBent, isSung, hasChordNames, hasChordDiagrams, isDirected, isPedalled],
   );
   // A beat with a chord is as wide as its diagram or name, so neighbouring chords do not overlap.
   const measures = useMemo(

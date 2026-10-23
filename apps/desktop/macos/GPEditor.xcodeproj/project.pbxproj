@@ -37,6 +37,15 @@
 		EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */ = {isa = PBXBuildFile; fileRef = B6DF701D448D1420D076617F /* GPAudioInput.m */; };
 		ED260FB28ECF0EEE744B62ED /* GPPngExport.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A6206B313D2009C7A1FA1BC /* GPPngExport.m */; };
 		F41FBBE684D18DCACBAE8FDE /* GPSoundBanks.h in Headers */ = {isa = PBXBuildFile; fileRef = D7A8F2C42D535BFD55500166 /* GPSoundBanks.h */; };
+		38CF94967A5C81B33E09E4F8 /* GPConvolver.m in Sources */ = {isa = PBXBuildFile; fileRef = A8388F8A57D83B4EB2193BB3 /* GPConvolver.m */; };
+		C544C9380448214006EA860A /* GPCabinetImpulses.m in Sources */ = {isa = PBXBuildFile; fileRef = DED3947DE26996089E8D79A5 /* GPCabinetImpulses.m */; };
+		7815ABDDCE2529F1C8041E5E /* GPDSPKernels.m in Sources */ = {isa = PBXBuildFile; fileRef = A6F42EB3427BEE53F56CE6F8 /* GPDSPKernels.m */; };
+		7794DD5AF88461EF14266E08 /* GPDSPUnit.m in Sources */ = {isa = PBXBuildFile; fileRef = C3596603773BCC999180C507 /* GPDSPUnit.m */; };
+		1A4E37A6B9830D18089DFEC3 /* GPEffectNodes.m in Sources */ = {isa = PBXBuildFile; fileRef = CB2C7C9637EF606F363C6A2F /* GPEffectNodes.m */; };
+		9DFBFDA56541757CE5FCA170 /* GPMixGraph.m in Sources */ = {isa = PBXBuildFile; fileRef = 22C9C357F273289B593C74FB /* GPMixGraph.m */; };
+		27C5A817218360E23C279E5B /* GPTrackInstruments.m in Sources */ = {isa = PBXBuildFile; fileRef = F9A30530F25408A9498452F0 /* GPTrackInstruments.m */; };
+		88BD909AAD9FABBAE600E7C3 /* GPMixRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */; };
+		D0C5E5540A6C613B5AE6EC94 /* GPLineIn.m in Sources */ = {isa = PBXBuildFile; fileRef = B6CC810933EFF540A98D06B5 /* GPLineIn.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +89,24 @@
 		F466B94CDE374A978392C0FF /* GPCommandPainter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPCommandPainter.h; sourceTree = "<group>"; };
 		F854096019B3892178AB5EE4 /* GPPlayer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPPlayer.m; sourceTree = "<group>"; };
 		F9CF2F010D6316294A08F1CC /* GPRecentFiles.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPRecentFiles.m; sourceTree = "<group>"; };
+		1B187A264E07A3BCEB930EC8 /* GPConvolver.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPConvolver.h; sourceTree = "<group>"; };
+		A8388F8A57D83B4EB2193BB3 /* GPConvolver.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPConvolver.m; sourceTree = "<group>"; };
+		29DFB20EF90EDC9D112C8BCA /* GPCabinetImpulses.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPCabinetImpulses.h; sourceTree = "<group>"; };
+		DED3947DE26996089E8D79A5 /* GPCabinetImpulses.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPCabinetImpulses.m; sourceTree = "<group>"; };
+		5D48484967D7E851D8954DC1 /* GPDSPKernels.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPDSPKernels.h; sourceTree = "<group>"; };
+		A6F42EB3427BEE53F56CE6F8 /* GPDSPKernels.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPDSPKernels.m; sourceTree = "<group>"; };
+		ECAD3F560F8A4D15FD1C0272 /* GPDSPUnit.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPDSPUnit.h; sourceTree = "<group>"; };
+		C3596603773BCC999180C507 /* GPDSPUnit.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPDSPUnit.m; sourceTree = "<group>"; };
+		29CAC1466D3822E09E76E412 /* GPEffectNodes.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPEffectNodes.h; sourceTree = "<group>"; };
+		CB2C7C9637EF606F363C6A2F /* GPEffectNodes.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPEffectNodes.m; sourceTree = "<group>"; };
+		B396ABC494C0B9E172ABA130 /* GPMixGraph.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMixGraph.h; sourceTree = "<group>"; };
+		22C9C357F273289B593C74FB /* GPMixGraph.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMixGraph.m; sourceTree = "<group>"; };
+		991E912A1B40696820975B8C /* GPTrackInstruments.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPTrackInstruments.h; sourceTree = "<group>"; };
+		F9A30530F25408A9498452F0 /* GPTrackInstruments.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPTrackInstruments.m; sourceTree = "<group>"; };
+		789E6B7C95659D3B6106F7E7 /* GPMixRenderer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMixRenderer.h; sourceTree = "<group>"; };
+		3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMixRenderer.m; sourceTree = "<group>"; };
+		D2C8D19AD746FFA978781BE5 /* GPLineIn.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPLineIn.h; sourceTree = "<group>"; };
+		B6CC810933EFF540A98D06B5 /* GPLineIn.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPLineIn.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +169,24 @@
 				CD13C4D4A2339F978671239A /* GPAnthropic.m */,
 				555D9E22760943032E93C2C8 /* GPMidiEngine.h */,
 				50AAF0ECF0640C92238D8E43 /* GPMidiEngine.m */,
+				1B187A264E07A3BCEB930EC8 /* GPConvolver.h */,
+				A8388F8A57D83B4EB2193BB3 /* GPConvolver.m */,
+				29DFB20EF90EDC9D112C8BCA /* GPCabinetImpulses.h */,
+				DED3947DE26996089E8D79A5 /* GPCabinetImpulses.m */,
+				5D48484967D7E851D8954DC1 /* GPDSPKernels.h */,
+				A6F42EB3427BEE53F56CE6F8 /* GPDSPKernels.m */,
+				ECAD3F560F8A4D15FD1C0272 /* GPDSPUnit.h */,
+				C3596603773BCC999180C507 /* GPDSPUnit.m */,
+				29CAC1466D3822E09E76E412 /* GPEffectNodes.h */,
+				CB2C7C9637EF606F363C6A2F /* GPEffectNodes.m */,
+				B396ABC494C0B9E172ABA130 /* GPMixGraph.h */,
+				22C9C357F273289B593C74FB /* GPMixGraph.m */,
+				991E912A1B40696820975B8C /* GPTrackInstruments.h */,
+				F9A30530F25408A9498452F0 /* GPTrackInstruments.m */,
+				789E6B7C95659D3B6106F7E7 /* GPMixRenderer.h */,
+				3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */,
+				D2C8D19AD746FFA978781BE5 /* GPLineIn.h */,
+				B6CC810933EFF540A98D06B5 /* GPLineIn.m */,
 				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
 				6E162BDD027D425378732E47 /* GPCommandPainter.m */,
 				ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */,
@@ -438,6 +483,15 @@
 				B994A63BC98C3978F337ECD7 /* GPProjects.m in Sources */,
 				6BE782B480298F0F60BEE438 /* GPAnthropic.m in Sources */,
 				C47933D74B8552138650CC52 /* GPMidiEngine.m in Sources */,
+				38CF94967A5C81B33E09E4F8 /* GPConvolver.m in Sources */,
+				C544C9380448214006EA860A /* GPCabinetImpulses.m in Sources */,
+				7815ABDDCE2529F1C8041E5E /* GPDSPKernels.m in Sources */,
+				7794DD5AF88461EF14266E08 /* GPDSPUnit.m in Sources */,
+				1A4E37A6B9830D18089DFEC3 /* GPEffectNodes.m in Sources */,
+				9DFBFDA56541757CE5FCA170 /* GPMixGraph.m in Sources */,
+				27C5A817218360E23C279E5B /* GPTrackInstruments.m in Sources */,
+				88BD909AAD9FABBAE600E7C3 /* GPMixRenderer.m in Sources */,
+				D0C5E5540A6C613B5AE6EC94 /* GPLineIn.m in Sources */,
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
 				EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */,

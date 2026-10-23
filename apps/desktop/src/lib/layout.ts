@@ -1,4 +1,5 @@
 import type { Beat, BendPoint, MeasureHeader, Song, Voice } from '@gp-editor/core';
+import { directionsWidth } from '../score/directions';
 
 /** Tab staff geometry, in points. */
 export const TAB = {
@@ -121,7 +122,9 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
     return layout;
   });
   const closeWidth = header !== undefined && header.repeatClose > 0 ? TAB.repeatWidth : 0;
-  const width = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
+  const natural = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
+  // A bar with directions is wide enough for its signs and words side by side.
+  const width = Math.max(natural, directionsWidth(header));
   return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
 }
 

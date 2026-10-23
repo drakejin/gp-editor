@@ -1,6 +1,7 @@
 // GPIF `<MasterTrack>` and `<MasterBars>` (no TuxGuitar counterpart): the inverse of the reader's readMasterBar / buildHeaders.
 import { normalizeBeamGrouping } from '../../model/beaming';
 import type { MeasureHeader, Song, TripletFeel } from '../../model/song';
+import { directionsNode } from './gpif-marks';
 import { intXProperty } from './gpif-properties';
 import { type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
 
@@ -82,6 +83,7 @@ function masterBarNode(header: MeasureHeader, keySignature: number, barIds: read
       xmlText('TransposeAs', keySignature < 0 ? 'Flats' : 'Sharps'),
     ]),
     xmlText('Time', `${header.timeSignature.numerator}/${header.timeSignature.denominator}`),
+    directionsNode(header),
     header.marker !== undefined && xmlElement('Section', [xmlCdata('Letter', ''), xmlCdata('Text', header.marker.title)]),
     repeatNode(header),
     endings.length > 0 && xmlText('AlternateEndings', endings.join(' ')),

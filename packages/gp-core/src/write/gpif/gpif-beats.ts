@@ -3,6 +3,7 @@ import { XPROPERTY_BEAM_MODE, XPROPERTY_BRUSH_DURATION, XPROPERTY_SECONDARY_BEAM
 import { DEFAULT_VELOCITY } from '../../formats/common/velocity';
 import type { BeamLink, Beat, Bend, Duration, Grace, Note, StrokeDirection, Voice, VoiceDirection } from '../../model/song';
 import { whammyCurveOf } from './gpif-curves';
+import { faddingOf, hairpinNode, rasgueadoProperty } from './gpif-marks';
 import { flagProperty, intXProperty, property } from './gpif-properties';
 import { brushTicksOf, dynamicNameOf, tremoloPickingOf } from './gpif-units';
 import { type XmlChild, type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
@@ -21,7 +22,8 @@ interface VoiceEffects {
   readonly tremoloPicking: Duration | undefined;
   readonly isSlapped: boolean;
   readonly isPopped: boolean;
-  readonly isFadeIn: boolean;
+  /** FadeIn, FadeOut or VolumeSwell (`faddingOf`). */
+  readonly fadding: string | undefined;
 }
 
 function voiceEffectsOf(notes: readonly Note[]): VoiceEffects {
@@ -31,7 +33,7 @@ function voiceEffectsOf(notes: readonly Note[]): VoiceEffects {
     tremoloPicking: notes.find((note) => note.effect.tremoloPicking !== undefined)?.effect.tremoloPicking?.duration,
     isSlapped: notes.some((note) => note.effect.slapping),
     isPopped: notes.some((note) => note.effect.popping),
-    isFadeIn: notes.some((note) => note.effect.fadeIn),
+    fadding: faddingOf(notes),
   };
 }
 
@@ -61,7 +63,7 @@ function stemNodes(direction: VoiceDirection): readonly XmlChild[] {
   return stem === undefined ? [] : [xmlText('TransposedPitchStemOrientation', stem), xmlText('UserTransposedPitchStemOrientation', stem)];
 }
 
-/** What a beat carries once, on the first voice written for it: stroke, pick stroke, chord and text. */
+/** What a beat carries once, on the first voice written for it: stroke, pick stroke, chord, text, hairpin and rasgueado. */
 export interface BeatCarrier {
   readonly beat: Beat;
   readonly chordId: number | undefined;
@@ -75,6 +77,7 @@ function beatProperties(effects: VoiceEffects, carrier: BeatCarrier | undefined)
     pick !== undefined && property('PickStroke', 'Direction', pick),
     effects.isPopped && flagProperty('Popped'),
     effects.isSlapped && flagProperty('Slapped'),
+    rasgueadoProperty(carrier?.beat.rasgueado),
   ];
 }
 
@@ -99,7 +102,7 @@ function group(name: string, children: readonly XmlChild[]): XmlChild {
 /** What `beatNode` builds a beat element from: equal keys give equal elements. */
 export function beatNodeKey(voice: Voice, rhythmId: number, noteIds: readonly number[], carrier: BeatCarrier | undefined): string {
   const beat = carrier?.beat;
-  const carried = beat === undefined ? undefined : [beat.stroke, beat.pickStroke, beat.text, carrier?.chordId];
+  const carried = beat === undefined ? undefined : [beat.stroke, beat.pickStroke, beat.text, carrier?.chordId, beat.hairpin, beat.rasgueado];
   const marks = [voice.isSlashed === true, voice.beamToNext];
   return JSON.stringify([rhythmId, noteIds, voice.direction, voice.notes.length === 0, voiceEffectsOf(voice.notes), carried, marks]);
 }
@@ -118,7 +121,8 @@ export function beatNode(id: number, voice: Voice, rhythmId: number, noteIds: re
       voice.isSlashed === true && xmlElement('Slashed'),
       carrier?.chordId !== undefined && xmlText('Chord', carrier.chordId),
       effects.tremoloPicking !== undefined && xmlText('Tremolo', tremoloPickingOf(effects.tremoloPicking)),
-      effects.isFadeIn && xmlText('Fadding', 'FadeIn'),
+      effects.fadding !== undefined && xmlText('Fadding', effects.fadding),
+      hairpinNode(carrier?.beat.hairpin),
       effects.tremoloBar !== undefined && whammyNode(effects.tremoloBar),
       text !== undefined && text !== '' && xmlCdata('FreeText', text),
       noteIds.length > 0 && xmlText('Notes', noteIds.join(' ')),

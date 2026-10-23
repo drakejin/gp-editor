@@ -18,6 +18,7 @@ export {
   durationTicks,
   isMeasureOverfull,
   isNoteValue,
+  isPedalDownBefore,
   isSameTuplet,
   measureTicks,
   toNoteValue,
@@ -87,6 +88,9 @@ export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency 
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
+export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
+export { DIRECTION_JUMPS, DIRECTION_TARGETS, MUSICAL_DIRECTIONS, isDirectionTarget } from './formats/common/directions';
+export { RASGUEADO_PATTERNS, type RasgueadoInfo, rasgueadoInfo } from './formats/common/rasgueado';
 export { setBeatChord, setBeatChordNotes } from './edit/beat-chord';
 export { CHORD_TYPES, type ChordType, type ChordTypeName } from './chords/database';
 export {
@@ -138,6 +142,42 @@ export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
 export { MAX_CAPO, setTrackCapo, setTrackName } from './edit/track-properties';
+export { setMasterMix, setTrackEffects } from './edit/track-effects';
+export {
+  CABINET_MODELS,
+  DRIVE_MODES,
+  EFFECT_NAMES,
+  EFFECT_PARAMS,
+  type EffectParamSpec,
+  type EffectParamUnit,
+  MASTER_EFFECT_TYPES,
+  MAX_TRACK_EFFECTS,
+  REVERB_ROOMS,
+  TRACK_EFFECT_TYPES,
+  buildEffect,
+  clampEffectParam,
+  effectParamSpec,
+} from './effects/effect-params';
+export { CHAIN_PRESETS, type ChainPreset, EFFECT_PRESETS, type EffectPreset } from './effects/effect-presets';
+export {
+  DEFAULT_MASTER,
+  MASTER_GAIN,
+  applyChainPreset,
+  applyEffectPreset,
+  deleteEffect,
+  insertEffect,
+  isDefaultMaster,
+  isSameChain,
+  isSameEffect,
+  isSameMaster,
+  matchingEffectPreset,
+  moveEffect,
+  setEffectParam,
+  setMasterGain,
+  toggleEffect,
+} from './effects/effect-chain';
+export { parseEffectChain, parseMasterMix } from './effects/effects-json';
+export { readSongEffects, songEffectsToJson } from './effects/song-effects';
 export { setSongInfo } from './edit/song-info';
 export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionName } from './formats/common/channels';
 export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';

@@ -10,11 +10,13 @@ export interface PanelVisibility {
   readonly keyboard: boolean;
   /** Fretboard (instrument view), above the tracks. */
   readonly neck: boolean;
+  /** View ▸ Mixer: the tracks' effect strips and the master, at the bottom. */
+  readonly mixer: boolean;
 }
 
 export type PanelId = keyof PanelVisibility;
 
-export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, keyboard: true, neck: true };
+export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, keyboard: true, neck: true, mixer: false };
 
 export function togglePanel(panels: PanelVisibility, panel: PanelId): PanelVisibility {
   return { ...panels, [panel]: !panels[panel] };

@@ -28,6 +28,7 @@ The format is detected from the file content, not the extension.
 `gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
 Pro 7 and 8 open). What each format cannot hold is listed in `packages/gp-core/test/helpers/write-expected.ts` (GP3–GP5)
 and `write-expected-gpif.ts` (`.gp`).
+Guitar Pro itself has not opened these files in our tests; alphaTab is the independent check (see Test).
 
 ## Download
 
@@ -94,6 +95,15 @@ npm run typecheck                           # tsc for both packages
 ```
 
 The Hermes smoke test, the `open -a` E2E check and the QA driver are described in `apps/desktop/README.md`.
+
+Compatibility of the files we write: Guitar Pro itself is not run by the tests, so nothing has proven that Guitar Pro
+opens them. `npm test` (and `npm run coverage`, so every release) runs an independent check instead,
+`packages/gp-core/test/cross-check-alphatab.test.ts`: every fixture (GP1–GP8, Power Tab, TablEdit, MIDI, MusicXML) is
+written as `.gp`, GP5, GP4 and GP3 and read by [alphaTab](https://github.com/CoderLine/alphaTab) (a widely used reader of
+Guitar Pro files; MPL-2.0, a test-only devDependency, not bundled into the app), which must read it as gp-core does —
+tracks, tunings, bars, signatures, repeats, beats, durations, notes and effects. The few places where alphaTab reads
+Guitar Pro's own files differently are listed, with that evidence, in
+`packages/gp-core/test/helpers/alphatab-known-differences.ts`.
 
 ## Using the app
 
@@ -204,7 +214,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     harmonic, `T` tie. The palette's **Techniques** group, right under Rhythm (visible without scrolling), has every
     one of them as a button with its key in the corner — Bend C, Slide S, H/P H, Harm. N, P.M. M, L.R. R, Dead X,
     Vib. B, ( ) G — lit while the note has it, then the whammy bar, trill, tremolo picking, grace note, tap, slap,
-    pop and fade in
+    pop, fade in, fade out and volume swell
   - `B` (or the palette's *Vib.*) opens the **vibrato** panel (none / slight / wide, with how it is drawn); `C` (or *Bend*) the **bend (choking)** panel:
     the shape (bend, bend & release, bend-release-bend, pre-bend, pre-bend & release, release) and the amount (¼ to 3
     tones), with its curve. A choice applies at once (one undo step each); *Done*, Esc or a click outside closes the
@@ -215,6 +225,14 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     strokes up / down; text above the beat. Options open under their group.
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the
     number of plays, alternate endings 1–8, triplet feel, a section name
+  - musical directions (the Bar group's 𝄋): segno, segno segno, coda, double coda, fine and the jumps — D.C., D.S.,
+    D.S.S., each plain or al Coda / al Double Coda / al Fine, and Da Coda / Da Double Coda (drawn "To Coda") — each on
+    or off for the bar; the signs show at the start of the bar, the words at its end, in a band under the bar numbers
+  - crescendo / decrescendo (the Dynamics group): a wedge under the staff over the selected beats (or the cursor's
+    beat); playback goes from the dynamic where it starts to the dynamic after it (one dynamic further when that one
+    does not go its way)
+  - rasgueado (the Beat group, Guitar Pro's 18 finger patterns, shown as "rasg. mii" over the tab) and the sustain
+    pedal: Ped. where the beat starts, ✱ where it ends, a line while it is held, in a band under the staff
   - notation marks, as Guitar Pro 8 writes them (each a lit palette button, one undo step, also in the command palette):
     fingering — the Note group's *L.H.* (T 1 2 3 4, written left of the notehead), *R.H.* (p i m a c, over or under the
     note) and *Piano* (1–5 over or under the notes; a piano or organ track writes every finger that way); *Accidental*
@@ -241,7 +259,8 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   (voices 1–4, nested tuplets …) but not Guitar Pro's own sound settings (RSE), stylesheet or audio tracks. GP4 and GP3
   keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
   save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
-  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings).
+  cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings, hairpins, fade outs, volume swells, the
+  sustain pedal, a rasgueado's pattern; a direction stays on its first bar only).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
   steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
@@ -340,6 +359,21 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   macOS, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the
   copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
   bar being played, once, shortly after the last click.
+- **Effects** (basic built-in effects — macOS's own audio units and a few of ours, not Guitar Pro's RSE sound): each
+  track can play through a chain of up to 8 effects — EQ, compressor, drive (overdrive / distortion / fuzz), chorus,
+  delay, reverb and a speaker cabinet (convolution with impulse responses the app generates: 1x12 open back, 2x12
+  combo, 4x12 closed back, 4x10 bass) —, each on or off, with a few parameters and presets, and whole-chain presets
+  (Clean, Crunch, Lead, Metal, Bass DI, Bass amp, Acoustic, Ambient). Edit them in the Track inspector's *EFFECTS* or in
+  View ▸ Mixer (a strip per track and a *Master* strip — EQ, compressor, reverb, limiter and output gain — at the
+  bottom); values are heard while a slider is dragged, and one release is one undo step. A track's first effect (or
+  its last removed) restarts playback at the bar being played. Effects are saved in Guitar Pro 7/8 (`.gp`) files
+  (our own entry in the zip, which Guitar Pro ignores); GP5, GP4 and GP3 cannot keep them, and saving one says so.
+  Tracks without effects sound exactly as before.
+- **Line in** (Tools ▸ Line In…): play a real guitar (an audio interface or the Mac's microphone) through a track's
+  effects — the selected track's, or, with *Lock*, the same track while you select others ("sound lock") — with an input
+  gain, a level meter and *Monitor* on/off. With the Mac's own microphone and speakers monitoring starts off and the
+  card warns about feedback (use headphones). macOS asks for microphone access the first time; closing the card turns
+  the line in off.
 - **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar — or, with beats
   selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
@@ -355,6 +389,10 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     the written tempo or 20 BPM above the playback tempo, whichever is higher). The LCD shows the pass and its tempo.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
     keeps its pass count). Adding or deleting a bar while playing stops playback.
+  - Playback follows the musical directions as Guitar Pro does: a D.C. / D.S. / D.S.S. goes back once, then the bars
+    play one after the other without repeats (the last ending) — to the end, to the fine, or to the Da Coda and on at
+    the coda. A loop plays its bars as written. Fade out and volume swell play as volume envelopes, a rasgueado as a
+    quick strum per finger, the sustain pedal as the MIDI damper pedal.
 
 ## License
 
@@ -364,6 +402,8 @@ GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2
 `fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
 powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
 The MIDI test file is in the public domain (Mutopia Project).
+The tests also read the written files with alphaTab itself (`@coderline/alphatab`, MPL-2.0), a devDependency of
+`packages/gp-core` used only by its tests; it is not part of the library or the app.
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

@@ -113,7 +113,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>GP Editor</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>The tuner (Tools ▸ Tuner…) listens to your instrument through the microphone while it is open. Nothing is recorded or sent anywhere.</string>
+	<string>The tuner (Tools ▸ Tuner…) and the line in (Tools ▸ Line In…) listen to your instrument through the microphone or audio input while they are open. Nothing is recorded or sent anywhere.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>

@@ -3,6 +3,7 @@ import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
 import { RED, isNoteValue, measureTicks } from '../../model/defaults';
 import {
   type MeasureHeader,
+  type MusicalDirection,
   QUARTER_TIME,
   type Song,
   type SongInfo,
@@ -10,6 +11,7 @@ import {
   type TimeSignature,
   type TripletFeel,
 } from '../../model/song';
+import { directionFromGpif, sortDirections } from '../common/directions';
 import type { GpifAutomation, GpifDocument, GpifMasterBar, GpifScore } from './gpif-document';
 import { buildMeasure } from './gpif-measure';
 import { buildTracks } from './gpif-song-tracks';
@@ -66,6 +68,7 @@ function buildHeader(masterBar: GpifMasterBar, index: number, start: number, tem
   const timeSignature = timeSignatureOf(masterBar.time);
   const grouping = masterBar.beamUnit === undefined ? undefined : parseBeamGrouping(masterBar.beamUnit, masterBar.beamGroups);
   const beamGrouping = normalizeBeamGrouping(grouping, timeSignature);
+  const directions = directionsOf(masterBar);
   return {
     number: index + 1,
     start,
@@ -77,7 +80,15 @@ function buildHeader(masterBar: GpifMasterBar, index: number, start: number, tem
     repeatAlternative: alternativeMask(masterBar.alternateEndings),
     tripletFeel: tripletFeelOf(masterBar.tripletFeel),
     ...(beamGrouping === undefined ? {} : { beamGrouping }),
+    ...(directions.length === 0 ? {} : { directions }),
   };
+}
+
+/** `<Directions>`: the known targets and jumps, each once, in GP5's order. */
+function directionsOf(masterBar: GpifMasterBar): readonly MusicalDirection[] {
+  const targets = masterBar.directionTargets.map((name) => directionFromGpif(name, 'target'));
+  const jumps = masterBar.directionJumps.map((name) => directionFromGpif(name, 'jump'));
+  return sortDirections([...targets, ...jumps].filter((direction): direction is MusicalDirection => direction !== undefined));
 }
 
 function timeSignatureOf(time: readonly number[] | undefined): TimeSignature {
