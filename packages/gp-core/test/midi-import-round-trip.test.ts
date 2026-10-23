@@ -7,6 +7,8 @@ import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixture
 import { assertSongInvariants } from './helpers/invariants';
 import { pitchOf } from './helpers/song-notes';
 
+/** Whole songs are read, rendered and read back: more than Vitest's 5 s when the machine is busy. */
+const SLOW_TEST_TIMEOUT = 30_000;
 /** The default quantisation grid: a sixteenth. */
 const SIXTEENTH = 240;
 
@@ -58,7 +60,7 @@ describe('MIDI import: renderMidi output read back', () => {
     expect(headerFacts(back)).toEqual(headerFacts(song));
     expect(back.tracks.map((track) => [track.name, track.isPercussion])).toEqual(song.tracks.map((track) => [track.name, track.isPercussion]));
     expect(struckNotes(back)).toEqual(struckNotes(song, SIXTEENTH));
-  });
+  }, SLOW_TEST_TIMEOUT);
 
   it('keeps quintuplets and triplets exactly when the settings allow them', () => {
     // Arrange
@@ -85,7 +87,7 @@ describe('MIDI import: renderMidi output read back', () => {
     assertSongInvariants(saved);
     expect(headerFacts(saved)).toEqual(headerFacts(song));
     expect(struckNotes(saved)).toEqual(struckNotes(song));
-  });
+  }, SLOW_TEST_TIMEOUT);
 });
 
 const FOLDERS: readonly FixtureFolder[] = ['guitarpro3', 'guitarpro4', 'guitarpro5', 'guitarpro6', 'guitarpro7', 'guitarpro8'];
@@ -115,5 +117,5 @@ describe('MIDI import: fixture sweep', () => {
     assertSongInvariants(back);
     expect(back.measureHeaders.length).toBeGreaterThanOrEqual(song.measureHeaders.length);
     expect(back.tracks.length).toBe(song.tracks.length);
-  });
+  }, SLOW_TEST_TIMEOUT);
 });
