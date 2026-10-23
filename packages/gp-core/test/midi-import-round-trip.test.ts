@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readSong, renderMidi, writeSong } from '../src/index';
 import { readMidiSong } from '../src/formats/midi/midi-song-reader';
 import type { MidiSettings } from '../src/formats/midi/midi-settings';
+import { durationTicks, plainDuration } from '../src/model/defaults';
 import type { Song } from '../src/model/song';
 import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
@@ -10,7 +11,7 @@ import { pitchOf } from './helpers/song-notes';
 /** Whole songs are read, rendered and read back: more than Vitest's 5 s when the machine is busy. */
 const SLOW_TEST_TIMEOUT = 30_000;
 /** The default quantisation grid: a sixteenth. */
-const SIXTEENTH = 240;
+const SIXTEENTH = durationTicks(plainDuration(16));
 
 /** The song as MIDI, measures in written order and every track played (no repeats, no mute). */
 function renderWritten(song: Song): Uint8Array {

@@ -164,6 +164,23 @@ describe('EditionPalette edits', () => {
     expect(palette.onEdit).not.toHaveBeenCalled();
   });
 
+  it('offers every tuplet Guitar Pro stores, and a tuplet inside the beat’s tuplet', () => {
+    // Arrange
+    const palette = render();
+    const labels = () => palette.renderer.root.findAllByType(ChromeButton).map((button) => button.props.label);
+
+    // Act
+    palette.press('tuplet');
+    const sizes = labels();
+    palette.press('innerTuplet');
+    palette.pressLabel('3');
+
+    // Assert
+    expect(sizes).toEqual(expect.arrayContaining(['None', '3', '5', '6', '7', '9', '10', '11', '12']));
+    expect(palette.tool('innerTuplet').props.tooltip).toContain('⌥/');
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setInnerTuplet', enters: 3 });
+  });
+
   it('closes an open option strip when its tool is pressed again', () => {
     const palette = render();
     palette.press('harmonic');

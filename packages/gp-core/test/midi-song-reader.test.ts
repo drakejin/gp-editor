@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { GpFormatError } from '../src/errors';
 import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write';
-import { readMidiSong } from '../src/formats/midi/midi-song-reader';
+import { readMidiSong, toSongTick } from '../src/formats/midi/midi-song-reader';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../src/model/defaults';
-import type { Song } from '../src/model/song';
+import { QUARTER_TIME, type Song } from '../src/model/song';
 import { loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
 import {
@@ -20,7 +20,7 @@ import {
 } from './helpers/smf-builder';
 import { beatsOf, pitchOf, struckNotes } from './helpers/song-notes';
 
-/** Synthetic files use 480 ticks per quarter; the song has 960, from tick 960. */
+/** Synthetic files use 480 ticks per quarter; the helpers report song positions in TuxGuitar ticks (960 per quarter, from 960). */
 const Q = 480;
 const SONG_Q = 960;
 
@@ -49,7 +49,7 @@ describe('readMidiSong: a format 1 file', () => {
     expect(song.source).toEqual({ format: 'midi', version: 'SMF 1' });
     expect(song.info.title).toBe('My Song');
     expect(song.measureHeaders).toHaveLength(1);
-    expect(song.measureHeaders[0]).toMatchObject({ number: 1, start: SONG_Q, tempo: 100, timeSignature: { numerator: 3, denominator: 4 } });
+    expect(song.measureHeaders[0]).toMatchObject({ number: 1, start: QUARTER_TIME, tempo: 100, timeSignature: { numerator: 3, denominator: 4 } });
     expect(song.tracks.map((track) => track.name)).toEqual(['Lead', 'Bass']);
     expect([programOf(song, 0), programOf(song, 1)]).toEqual([27, 33]);
   });
@@ -326,6 +326,20 @@ describe('readMidiSong: tunings', () => {
     // Assert
     expect(tunings(song)).toEqual([[31, 29, 27, 25, 23, 21]]);
     expect(struckNotes(song, 0).map(([, pitch]) => pitch)).toEqual([21, 60]);
+  });
+});
+
+describe('toSongTick', () => {
+  it('scales a file tick to QUARTER_TIME exactly, rounding down, the song starting a quarter note in', () => {
+    // Arrange
+    const exact = (tick: number, resolution: number): number =>
+      Number((BigInt(QUARTER_TIME) * BigInt(tick + resolution)) / BigInt(resolution));
+
+    // Act / Assert
+    expect(toSongTick(0, 480)).toBe(QUARTER_TIME);
+    expect(toSongTick(240, 480)).toBe(QUARTER_TIME * 1.5);
+    expect(toSongTick(1, 384)).toBe(exact(1, 384));
+    expect(toSongTick(70_000_000, 384)).toBe(exact(70_000_000, 384));
   });
 });
 

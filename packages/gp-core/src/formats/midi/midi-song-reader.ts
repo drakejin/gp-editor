@@ -39,6 +39,15 @@ function extendToTrackEnds(timeline: HeaderTimeline, tracks: readonly MidiTrackE
   }
 }
 
+/**
+ * MidiSongReader.parseTick(tick + resolution): a file tick as a song tick, the song starting a quarter note in.
+ * QUARTER_TIME * tick / resolution in exact integer steps (the product would pass 2^53), rounded down as TuxGuitar does.
+ */
+export function toSongTick(fileTick: number, resolution: number): number {
+  const quarters = Math.floor(fileTick / resolution);
+  return QUARTER_TIME * (1 + quarters) + Math.floor((QUARTER_TIME * (fileTick - quarters * resolution)) / resolution);
+}
+
 /** A track the file does not name: its instrument's General MIDI name, or "Drums". */
 function defaultTrackName(channel: Channel | undefined, number: number): string {
   if (channel?.isPercussion === true) {
@@ -110,7 +119,7 @@ export function readMidiSong(bytes: Uint8Array, options: Partial<MidiSettings> =
   const settings = resolveMidiSettings(options);
   const sequence = readMidiSequence(bytes);
   const tracks = splitFormat0(sequence);
-  const toTick = (fileTick: number): number => Math.floor((QUARTER_TIME * (fileTick + sequence.resolution)) / sequence.resolution);
+  const toTick = (fileTick: number): number => toSongTick(fileTick, sequence.resolution);
   const timeline = buildHeaderTimeline(tracks, toTick);
   const parsed = parseTracks(tracks, { timeline, settings, toTick, charset, maxTracks: MAX_IMPORT_TRACKS });
   if (parsed.ranges.size === 0) {

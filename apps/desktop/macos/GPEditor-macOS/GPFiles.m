@@ -2,6 +2,8 @@
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
+// File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
+// writeFile / writeTextFile.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -10,10 +12,13 @@
 #import <os/log.h>
 
 #import "GPEditorNotifications.h"
+#import "GPRecentFiles.h"
+#import "GPSandbox.h"
 
 static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
 static NSString *const kExportRequestedEvent = @"exportRequested";
+static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
@@ -23,11 +28,110 @@ static NSString *const kSaveRequestedEvent = @"saveRequested";
 static NSString *const kCloseTabRequestedEvent = @"closeTabRequested";
 static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
 static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
+static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
+static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
 
 @interface GPFiles : RCTEventEmitter <RCTBridgeModule>
+@end
+
+/**
+ * The save panel's formats: the selected one gives the file name its extension (the panel's allowed type) and the
+ * panel's message says what it keeps and leaves out. With more than one, a "Format" popup under the panel chooses; the
+ * chooser is the popup's target, so it must live as long as the panel runs.
+ */
+@interface GPSaveFormatChooser : NSObject
+@property(nonatomic, copy, readonly) NSArray<NSDictionary *> *formats;
+@property(nonatomic, readonly) NSDictionary *selectedFormat;
+- (instancetype)initWithFormats:(NSArray<NSDictionary *> *)formats selected:(NSUInteger)selected;
+- (void)selectFormatWithExtension:(NSString *)extension;
+- (void)attachToPanel:(NSSavePanel *)panel;
+@end
+
+@implementation GPSaveFormatChooser {
+  NSUInteger selectedIndex;
+  __weak NSSavePanel *panel;
+}
+
+- (instancetype)initWithFormats:(NSArray<NSDictionary *> *)formats selected:(NSUInteger)selected
+{
+  if (self = [super init]) {
+    _formats = [formats copy];
+    selectedIndex = MIN(selected, formats.count - 1);
+  }
+  return self;
+}
+
+- (NSDictionary *)selectedFormat
+{
+  return self.formats[selectedIndex];
+}
+
+/** Selects the format with this extension (any case); the selection stays when no format has it. */
+- (void)selectFormatWithExtension:(NSString *)extension
+{
+  NSUInteger index = [self.formats indexOfObjectPassingTest:^BOOL(NSDictionary *format, NSUInteger i, BOOL *stop) {
+    return [format[@"extension"] caseInsensitiveCompare:extension] == NSOrderedSame;
+  }];
+  if (index != NSNotFound) {
+    selectedIndex = index;
+  }
+}
+
+- (void)attachToPanel:(NSSavePanel *)savePanel
+{
+  panel = savePanel;
+  if (self.formats.count > 1) {
+    savePanel.accessoryView = [self accessoryView];
+  }
+  [self applySelection];
+}
+
+/** "Format: [Guitar Pro 5 (.gp5)]". */
+- (NSView *)accessoryView
+{
+  NSPopUpButton *popup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+  for (NSDictionary *format in self.formats) {
+    [popup addItemWithTitle:format[@"label"]];
+  }
+  [popup selectItemAtIndex:(NSInteger)selectedIndex];
+  popup.target = self;
+  popup.action = @selector(formatChosen:);
+  NSStackView *row = [NSStackView stackViewWithViews:@[ [NSTextField labelWithString:@"Format:"], popup ]];
+  row.edgeInsets = NSEdgeInsetsMake(12, 20, 12, 20);
+  [row setFrameSize:row.fittingSize];
+  return row;
+}
+
+- (void)formatChosen:(NSPopUpButton *)popup
+{
+  selectedIndex = (NSUInteger)MAX(0, popup.indexOfSelectedItem);
+  [self applySelection];
+}
+
+/**
+ * The panel saves the selected format's type and shows its note. A name ending in another offered format's extension
+ * gets this one's: the panel (remote, out of process) does not always swap it.
+ */
+- (void)applySelection
+{
+  NSDictionary *format = self.selectedFormat;
+  NSString *extension = format[@"extension"];
+  UTType *type = [UTType typeWithFilenameExtension:extension];
+  if (type != nil) {
+    panel.allowedContentTypes = @[ type ];
+  }
+  NSString *name = panel.nameFieldStringValue;
+  NSString *nameExtension = name.pathExtension.lowercaseString;
+  BOOL isOfferedExtension = [[self.formats valueForKey:@"extension"] containsObject:nameExtension];
+  if (isOfferedExtension && ![nameExtension isEqualToString:extension.lowercaseString]) {
+    panel.nameFieldStringValue = [name.stringByDeletingPathExtension stringByAppendingPathExtension:extension];
+  }
+  panel.message = [format[@"note"] isKindOfClass:[NSString class]] ? format[@"note"] : @"";
+}
+
 @end
 
 // Runs at image load, before AppDelegate can receive Finder's open event. (RCT_EXPORT_MODULE owns +load.)
@@ -65,6 +169,7 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
     [center addObserver:self selector:@selector(onImportPdfCommand:) name:GPEditorImportPdfCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportCommand:) name:GPEditorExportCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportPngCommand:) name:GPEditorExportPngCommandNotification object:nil];
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
@@ -74,6 +179,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onCloseTabCommand:) name:GPEditorCloseTabCommandNotification object:nil];
     [center addObserver:self selector:@selector(onNextTabCommand:) name:GPEditorNextTabCommandNotification object:nil];
     [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportMidiCommand:) name:GPEditorExportMidiCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onExportAsciiTabCommand:) name:GPEditorExportAsciiTabCommandNotification object:nil];
   }
   return self;
 }
@@ -87,7 +194,8 @@ RCT_EXPORT_MODULE();
 {
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
-    kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent
+    kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
   ];
 }
 
@@ -122,6 +230,14 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportRequestedEvent body:@{}];
+  }
+}
+
+/** File ▸ Export PNG…. */
+- (void)onExportPngCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportPngRequestedEvent body:@{}];
   }
 }
 
@@ -185,6 +301,20 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kPreviousTabRequestedEvent body:@{}];
+  }
+}
+
+- (void)onExportMidiCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportMidiRequestedEvent body:@{}];
+  }
+}
+
+- (void)onExportAsciiTabCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportAsciiTabRequestedEvent body:@{}];
   }
 }
 
@@ -279,33 +409,77 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
     }
     return nil;
   }
-  if (![data writeToFile:path options:NSDataWritingAtomic error:error]) {
+  // A file reopened from the recent files after a relaunch is writable only through its bookmark.
+  __block BOOL isWritten = NO;
+  __block NSError *writeError = nil;
+  GPWithRecentFileAccess(path, ^{
+    NSError *blockError = nil;
+    isWritten = [data writeToFile:path options:NSDataWritingAtomic error:&blockError];
+    writeError = blockError;
+  });
+  if (!isWritten) {
+    if (error != NULL) {
+      *error = writeError;
+    }
     return nil;
   }
   return @{@"name" : path.lastPathComponent, @"path" : path};
 }
 
-RCT_EXPORT_METHOD(showSaveDialog : (NSString *)base64 suggestedName : (NSString *)suggestedName resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+/** The formats a save panel offers ({id, label, extension, note?} from JS), in order; anything else is left out. */
++ (NSArray<NSDictionary *> *)formatsFrom:(id)value
 {
-  dispatch_async(dispatch_get_main_queue(), ^{
-    NSSavePanel *panel = [NSSavePanel savePanel];
-    UTType *gp5 = [UTType typeWithFilenameExtension:@"gp5"];
-    if (gp5 != nil) {
-      panel.allowedContentTypes = @[ gp5 ];
+  NSMutableArray<NSDictionary *> *formats = [NSMutableArray array];
+  for (id format in [value isKindOfClass:[NSArray class]] ? value : @[]) {
+    BOOL isFormat = [format isKindOfClass:[NSDictionary class]] && [format[@"id"] isKindOfClass:[NSString class]] &&
+                    [format[@"label"] isKindOfClass:[NSString class]] && [format[@"extension"] isKindOfClass:[NSString class]];
+    if (isFormat) {
+      [formats addObject:format];
     }
+  }
+  return formats;
+}
+
+/** Where to save without the panel: the unsandboxed QA copy (scripts/qa/run.sh) honours GPEDITOR_QA_SAVE_PATH. */
++ (nullable NSString *)qaSavePath
+{
+  NSString *path = [NSProcessInfo processInfo].environment[@"GPEDITOR_QA_SAVE_PATH"];
+  return path.length > 0 && !GPIsSandboxed() ? path : nil;
+}
+
+/**
+ * Save panel. With more than one format, a "Format" popup under it: choosing one gives the name its extension; the
+ * panel's message is the chosen format's note. Resolves {name, path, formatId} (the file is not written yet), or null
+ * when cancelled.
+ */
+RCT_EXPORT_METHOD(showSavePanel : (NSDictionary *)options resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSArray<NSDictionary *> *formats = [GPFiles formatsFrom:options[@"formats"]];
+  if (formats.count == 0) {
+    reject(@"no_format", @"No file format to save in", nil);
+    return;
+  }
+  NSString *suggestedName = [options[@"suggestedName"] isKindOfClass:[NSString class]] ? options[@"suggestedName"] : @"";
+  NSUInteger selected = [formats indexOfObjectPassingTest:^BOOL(NSDictionary *format, NSUInteger index, BOOL *stop) {
+    return [format[@"id"] isEqual:options[@"formatId"]];
+  }];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    GPSaveFormatChooser *chooser = [[GPSaveFormatChooser alloc] initWithFormats:formats selected:selected == NSNotFound ? 0 : selected];
+    NSString *qaPath = [GPFiles qaSavePath];
+    if (qaPath != nil) {
+      [chooser selectFormatWithExtension:qaPath.pathExtension];
+      resolve(@{@"name" : qaPath.lastPathComponent, @"path" : qaPath, @"formatId" : chooser.selectedFormat[@"id"]});
+      return;
+    }
+    NSSavePanel *panel = [NSSavePanel savePanel];
     panel.nameFieldStringValue = suggestedName;
-    panel.message = @"Save as a Guitar Pro 5 file (.gp5)";
+    panel.canCreateDirectories = YES;
+    [chooser attachToPanel:panel];
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve([NSNull null]);
       return;
     }
-    NSError *error = nil;
-    NSDictionary *saved = [GPFiles writeBase64:base64 toPath:panel.URL.path error:&error];
-    if (saved == nil) {
-      reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
-      return;
-    }
-    resolve(saved);
+    resolve(@{@"name" : panel.URL.lastPathComponent, @"path" : panel.URL.path, @"formatId" : chooser.selectedFormat[@"id"]});
   });
 }
 
@@ -318,6 +492,17 @@ RCT_EXPORT_METHOD(writeFile : (NSString *)path base64 : (NSString *)base64 resol
     return;
   }
   resolve(saved);
+}
+
+/** Writes text as UTF-8 to a file the user opened or chose in a save panel; the result names it like writeFile's. */
+RCT_EXPORT_METHOD(writeTextFile : (NSString *)path text : (NSString *)text resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSError *error = nil;
+  if (![text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
+    reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+    return;
+  }
+  resolve(@{@"name" : path.lastPathComponent, @"path" : path});
 }
 
 RCT_EXPORT_METHOD(setDocumentTitle : (NSString *)title)

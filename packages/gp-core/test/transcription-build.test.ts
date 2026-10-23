@@ -16,6 +16,7 @@ import {
 import type { TranscribedBeat, TranscribedInstrument, TranscribedTrack } from '../src/transcription/types';
 import { assertEditInvariants, deepFreeze, voiceLayout } from './helpers/edit-songs';
 import { assertSongInvariants } from './helpers/invariants';
+import { fromTux } from './helpers/ticks';
 import { BASS, GUITAR, bar, page, play, rest, run, tab, written } from './helpers/transcription-pages';
 import { songDifference } from './helpers/write-compare';
 import { expectedAfterGp5 } from './helpers/write-expected';
@@ -226,7 +227,7 @@ describe('buildSongFromTranscription: measure headers', () => {
     // Assert
     expect(song.measureHeaders).toEqual([
       { number: 1, start: QUARTER_TIME, timeSignature: { numerator: 4, denominator: 4 }, tempo: 120, repeatOpen: false, repeatClose: 0, repeatAlternative: 0, tripletFeel: 'none' },
-      { number: 2, start: QUARTER_TIME + 3840, timeSignature: { numerator: 4, denominator: 4 }, tempo: 120, repeatOpen: false, repeatClose: 0, repeatAlternative: 0, tripletFeel: 'none' },
+      { number: 2, start: QUARTER_TIME + fromTux(3840), timeSignature: { numerator: 4, denominator: 4 }, tempo: 120, repeatOpen: false, repeatClose: 0, repeatAlternative: 0, tripletFeel: 'none' },
     ]);
     expect(song.tracks[0]?.measures.map((measure) => measure.keySignature)).toEqual([0, 0]);
   });
@@ -245,7 +246,7 @@ describe('buildSongFromTranscription: measure headers', () => {
     const headers = song.measureHeaders;
     expect(headers.map((header) => `${header.timeSignature.numerator}/${header.timeSignature.denominator}`)).toEqual(['3/4', '3/4', '3/4', '6/8', '6/8']);
     expect(headers.map((header) => header.tempo)).toEqual([90, 90, 90, 90, 140]);
-    expect(headers.map((header) => header.start)).toEqual([960, 960 + 2880, 960 + 2 * 2880, 960 + 3 * 2880, 960 + 3 * 2880 + measureTicks(6, 8)]);
+    expect(headers.map((header) => header.start)).toEqual([960, 960 + 2880, 960 + 2 * 2880, 960 + 3 * 2880].map(fromTux).concat(fromTux(960 + 3 * 2880) + measureTicks(6, 8)));
     expect(song.tracks.map((current) => current.measures.map((measure) => measure.keySignature))).toEqual([
       [2, 2, 2, -1, -1],
       [2, 2, 2, -1, -1],

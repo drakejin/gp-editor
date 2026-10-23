@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Beat, type Note, readSong, type Song, vibratoOf } from '../src/index';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
+import { toTux } from './helpers/ticks';
 
 // Expected values follow alphaTab's Gp4Importer.test.ts / GpImporterTestHelper.ts, translated to our
 // model: alphaTab numbers strings from the lowest, we from the highest; alphaTab keeps grace notes as
@@ -136,7 +137,7 @@ describe('readGp4 values', () => {
       { numerator: 1, denominator: 4 },
       { numerator: 20, denominator: 32 },
     ]);
-    expect(song.measureHeaders.slice(0, 5).map((header) => header.start)).toEqual([960, 4800, 7680, 9600, 10560]);
+    expect(song.measureHeaders.slice(0, 5).map((header) => toTux(header.start))).toEqual([960, 4800, 7680, 9600, 10560]);
   });
 
   it('marks dead notes', () => {

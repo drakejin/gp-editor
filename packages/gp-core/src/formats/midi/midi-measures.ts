@@ -1,7 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiSongReader.SongAdjuster (LGPL-2.1): each measure completed with rests, its notes put on strings.
-import { type VoiceEvent, gapRests, toBeats } from '../../edit/timeline';
-import { NORMAL_TUPLET, durationTicks, measureTicks } from '../../model/defaults';
-import type { Clef, Measure, MeasureHeader, Note, Tuplet } from '../../model/song';
+import { type VoiceEvent, distinctTuplets, gapRests, toBeats } from '../../edit/timeline';
+import { durationTicks, measureTicks } from '../../model/defaults';
+import type { Clef, Measure, MeasureHeader, Note } from '../../model/song';
 import type { RawBeat, RawMeasures, RawNote } from './midi-quantize';
 import { durationFromPrecise, toPreciseTime } from './precise-duration';
 
@@ -21,17 +21,6 @@ export interface TrackMeasuresPlan {
 
 function beatEnd(beat: RawBeat): number {
   return beat.start + durationTicks(beat.duration);
-}
-
-/** The tuplets a measure's beats use: rests for time left at its end may be written in them. */
-function tupletsOf(beats: readonly RawBeat[]): readonly Tuplet[] {
-  const tuplets: Tuplet[] = [NORMAL_TUPLET];
-  for (const { duration } of beats) {
-    if (!tuplets.some((tuplet) => tuplet.enters === duration.tuplet.enters && tuplet.times === duration.tuplet.times)) {
-      tuplets.push(duration.tuplet);
-    }
-  }
-  return tuplets;
 }
 
 function restsFrom(start: number, durations: readonly VoiceEvent[]): RawBeat[] {
@@ -54,7 +43,7 @@ export function completeMeasureBeats(beats: readonly RawBeat[], start: number, l
   for (;;) {
     const last = current[current.length - 1];
     const filled = last === undefined ? start : beatEnd(last);
-    const rests = gapRests(end - filled, tupletsOf(current));
+    const rests = gapRests(end - filled, distinctTuplets(current.map((beat) => beat.duration)));
     if (rests !== undefined) {
       return [...current, ...restsFrom(filled, rests)];
     }

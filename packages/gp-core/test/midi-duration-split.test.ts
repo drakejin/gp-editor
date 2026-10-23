@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { splitPreciseDuration, splitPreciseDurationApproximately } from '../src/formats/midi/duration-split';
 import {
-  PRECISE_PER_TICK,
+  TICKS_PER_PRECISE,
   WHOLE_PRECISE_DURATION,
   durationFromPrecise,
   preciseTimeOf,
   toPreciseTime,
 } from '../src/formats/midi/precise-duration';
 import { NORMAL_TUPLET } from '../src/model/defaults';
-import type { Duration, NoteValue } from '../src/model/song';
+import { type Duration, type NoteValue, QUARTER_TIME } from '../src/model/song';
 
 const W = WHOLE_PRECISE_DURATION;
 const TRIPLET = { enters: 3, times: 2 };
@@ -30,11 +30,12 @@ function sixteenths(count: number): number {
 }
 
 describe('precise durations (TGDuration)', () => {
-  it('uses TuxGuitar unit: a whole is divisible by every tuplet and the dots', () => {
+  it("uses TuxGuitar's unit: a whole is divisible by every tuplet and the dots, and a whole number of song ticks", () => {
     // Assert
     expect(W).toBe(11531520);
-    expect(PRECISE_PER_TICK).toBe(3003);
-    expect(toPreciseTime(960)).toBe(W / 4);
+    expect(Number.isInteger(TICKS_PER_PRECISE)).toBe(true);
+    expect(toPreciseTime(QUARTER_TIME)).toBe(W / 4);
+    expect(toPreciseTime(QUARTER_TIME + 1)).toBe(W / 4);
   });
 
   it('measures plain, dotted and tuplet durations exactly', () => {

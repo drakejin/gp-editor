@@ -84,6 +84,11 @@ static NSString *const kMusicFontName = @"Bravura";
 {
   CGRect rect = CGRectMake([c[@"x"] doubleValue], [c[@"y"] doubleValue], [c[@"width"] doubleValue], [c[@"height"] doubleValue]);
   CGFloat radius = MIN([c[@"radius"] doubleValue], MIN(rect.size.width, rect.size.height) / 2);
+  BOOL isErasing = self.eraseColor != nil && [c[@"color"] isKindOfClass:[NSString class]] && [c[@"color"] caseInsensitiveCompare:self.eraseColor] == NSOrderedSame;
+  if (isErasing) {
+    CGContextSaveGState(context);
+    CGContextSetBlendMode(context, kCGBlendModeClear);
+  }
   CGContextSetFillColorWithColor(context, [self color:c[@"color"]].CGColor);
   if (radius > 0) {
     CGPathRef path = CGPathCreateWithRoundedRect(rect, radius, radius, NULL);
@@ -92,6 +97,9 @@ static NSString *const kMusicFontName = @"Bravura";
     CGPathRelease(path);
   } else {
     CGContextFillRect(context, rect);
+  }
+  if (isErasing) {
+    CGContextRestoreGState(context);
   }
 }
 

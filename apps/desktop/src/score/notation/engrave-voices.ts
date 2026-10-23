@@ -147,8 +147,8 @@ export function engraveVoices(
     ...beamed.flatMap(group => beamPolygons(group, ink)),
     ...flags(chords, tips, flagged, ink),
     ...engraveRests(layout, context),
-    ...tupletGroups(events).flatMap(members =>
-      tupletMarks(members, layout, beamed),
+    ...tupletGroups(events).flatMap(group =>
+      tupletMarks(group, layout, beamed),
     ),
     ...ties(layout),
     ...ottavaMarks(events, chords, context.top, ink),

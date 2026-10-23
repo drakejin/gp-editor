@@ -29,12 +29,15 @@ const DOT_FACTOR = 4;
 /** TGDuration.WHOLE_PRECISE_DURATION: a whole note, divisible by every division and dot (11 531 520). */
 export const WHOLE_PRECISE_DURATION = DIVISION_TYPES.reduce<number>((whole, division) => lcm(whole, division.enters), SHORTEST_VALUE) * DOT_FACTOR;
 
-/** Precise units per tick: a whole note is QUARTER_TIME * 4 ticks. */
-export const PRECISE_PER_TICK = WHOLE_PRECISE_DURATION / (QUARTER_TIME * 4);
+/**
+ * Song ticks per precise unit (45): a whole note is QUARTER_TIME * 4 ticks, a whole number of precise units, so every
+ * duration's ticks are a whole number of units too.
+ */
+export const TICKS_PER_PRECISE = (QUARTER_TIME * 4) / WHOLE_PRECISE_DURATION;
 
-/** TGDuration.toPreciseTime: ticks → precise units (exact: a tick is a whole number of units). */
+/** TGDuration.toPreciseTime: song ticks → precise units, a time read from a file (finer than a unit) rounded down. */
 export function toPreciseTime(ticks: number): number {
-  return ticks * PRECISE_PER_TICK;
+  return Math.floor(ticks / TICKS_PER_PRECISE);
 }
 
 /** TGDuration.getPreciseTime, with Java's integer division at each step. */

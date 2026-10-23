@@ -21,6 +21,7 @@ import {
   type Voice,
 } from '../src/index';
 import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
+import { fromTux, toTux } from './helpers/ticks';
 
 function deepFreeze<T>(value: T): T {
   if (value !== null && typeof value === 'object') {
@@ -44,13 +45,14 @@ function voice(value: Duration['value'], notes: readonly Note[]): Voice {
   return { duration: duration(value), notes, isEmpty: false, direction: 'none' };
 }
 
+/** A beat at `start` TuxGuitar ticks. */
 function beat(start: number, voices: readonly Voice[]): Beat {
-  return { start, voices, stroke: NO_STROKE, pickStroke: 'none' };
+  return { start: fromTux(start), voices, stroke: NO_STROKE, pickStroke: 'none' };
 }
 
 const HEADER: MeasureHeader = {
   number: 1,
-  start: 960,
+  start: fromTux(960),
   timeSignature: { numerator: 4, denominator: 4 },
   tempo: 120,
   repeatOpen: false,
@@ -167,7 +169,7 @@ describe('joinVoices', () => {
 
     const result = joinVoices(input, HEADER);
 
-    expect(result.beats.map((candidate) => candidate.start)).toEqual([960, 2880]);
+    expect(result.beats.map((candidate) => toTux(candidate.start))).toEqual([960, 2880]);
   });
 
   it('shortens a beat that overlaps the next one', () => {
@@ -211,7 +213,7 @@ describe('joinVoices', () => {
 
     const result = joinVoices(input, HEADER);
 
-    expect(result.beats.map((candidate) => candidate.start)).toEqual([960, 2880]);
+    expect(result.beats.map((candidate) => toTux(candidate.start))).toEqual([960, 2880]);
   });
 
   it('cuts the last beat at the end of the measure', () => {
@@ -428,14 +430,14 @@ function dumpBeat(beat: Beat, isGp5: boolean): string {
     ? ` chord ${beat.chord.name} ${beat.chord.firstFret} [${beat.chord.frets.join(', ')}]`
     : '';
   const text = beat.text === undefined ? '' : ` text ${beat.text}`;
-  return `  beat ${beat.start}${voices}${strokes}${chord}${text}`;
+  return `  beat ${toTux(beat.start)}${voices}${strokes}${chord}${text}`;
 }
 
 function dumpHeader(h: MeasureHeader): string {
   const marker = h.marker ? ` marker ${h.marker.title} ${h.marker.color.r},${h.marker.color.g},${h.marker.color.b}` : '';
   const { numerator, denominator } = h.timeSignature;
   const repeats = `${h.repeatOpen} ${h.repeatClose} ${h.repeatAlternative}`;
-  return `header ${h.number} ${h.start} ${numerator}/${denominator} ${h.tempo} ${repeats} ${TRIPLET_FEEL[h.tripletFeel]}${marker}`;
+  return `header ${h.number} ${toTux(h.start)} ${numerator}/${denominator} ${h.tempo} ${repeats} ${TRIPLET_FEEL[h.tripletFeel]}${marker}`;
 }
 
 function dumpTrack(t: Track, isGp5: boolean): string[] {

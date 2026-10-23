@@ -1,0 +1,89 @@
+import { type Dispatch, useCallback, useEffect, useMemo, useRef } from 'react';
+import { type Song, renderMidi, writeAsciiTab } from '@gp-editor/core';
+import { bytesToBase64 } from '../lib/base64';
+import { errorMessage } from '../lib/errors';
+import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, fileNameIn } from '../lib/file-formats';
+import { type SavedFile, showSavePanel, subscribeSongExportRequests, writeFile, writeTextFile } from '../native/gp-files';
+import type { EditorAction, OpenDocument } from '../state/editor';
+
+export interface SongExport {
+  /**
+   * File ▸ Export MIDI…: the song as playback plays it — repeats unfolded, at its own tempo (not the practice speed),
+   * muted tracks silent and, when a track is solo, only the solo tracks — as a .mid file.
+   */
+  readonly exportMidi: () => void;
+  /** File ▸ Export ASCII Tab…: the song's fretted tracks as ASCII tab in a .txt file. */
+  readonly exportAsciiTab: () => void;
+}
+
+/** One export: the file it makes, what the error banner calls it, and how its content is written. */
+interface ExportKind {
+  readonly file: FileFormat;
+  readonly what: string;
+  readonly write: (song: Song, path: string) => Promise<SavedFile>;
+}
+
+/** The tracks Export ASCII Tab… writes: the fretted ones (ASCII tab has no drum notation), every track for drums only. */
+export function asciiTabTrackIndexes(song: Song): readonly number[] {
+  const all = song.tracks.map((_, index) => index);
+  const fretted = all.filter((index) => song.tracks[index]?.isPercussion === false);
+  return fretted.length > 0 ? fretted : all;
+}
+
+const MIDI_EXPORT: ExportKind = {
+  file: MIDI_FILE,
+  what: 'the MIDI file',
+  write: (song, path) => writeFile(path, bytesToBase64(renderMidi(song).bytes)),
+};
+
+const ASCII_TAB_EXPORT: ExportKind = {
+  file: ASCII_TAB_FILE,
+  what: 'the ASCII tab',
+  write: (song, path) => writeTextFile(path, writeAsciiTab(song, { trackIndexes: asciiTabTrackIndexes(song) })),
+};
+
+/** File ▸ Export MIDI… and Export ASCII Tab… for the shown tab; a failure goes to the error banner (`exportFailed`). */
+export function useSongExport(document: OpenDocument | undefined, dispatch: Dispatch<EditorAction>): SongExport {
+  // The shown document is read through a ref, so the File-menu listener is not re-added on every edit.
+  const latest = useRef(document);
+  latest.current = document;
+  // One save panel at a time: a second menu choice can arrive while the first panel is up.
+  const isRunning = useRef(false);
+  const run = useCallback(
+    async (kind: ExportKind) => {
+      const current = latest.current;
+      if (current === undefined || isRunning.current) {
+        return;
+      }
+      isRunning.current = true;
+      try {
+        const { file } = kind;
+        const chosen = await showSavePanel({ suggestedName: fileNameIn(current.fileName, file), formats: [file], formatId: file.id });
+        if (chosen !== null) {
+          await kind.write(current.song, chosen.path);
+        }
+      } catch (error: unknown) {
+        dispatch({ type: 'exportFailed', what: kind.what, message: errorMessage(error) });
+      } finally {
+        isRunning.current = false;
+      }
+    },
+    [dispatch],
+  );
+  const commands = useMemo(
+    () => ({
+      exportMidi: () => {
+        void run(MIDI_EXPORT);
+      },
+      exportAsciiTab: () => {
+        void run(ASCII_TAB_EXPORT);
+      },
+    }),
+    [run],
+  );
+  useEffect(
+    () => subscribeSongExportRequests({ onExportMidiRequested: commands.exportMidi, onExportAsciiTabRequested: commands.exportAsciiTab }),
+    [commands],
+  );
+  return commands;
+}

@@ -38,7 +38,7 @@ import { createChannelName } from '../common/channels';
 import { artificialHarmonicOffset } from '../common/harmonics';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
-import { PRECISE_PER_TICK, preciseTime, splitPreciseDuration, wholePreciseLength } from './legacy-duration';
+import { TICKS_PER_PRECISE, preciseTime, splitPreciseDuration, wholePreciseLength } from './legacy-duration';
 import { normalizeSong } from './normalize';
 import {
   clefFromTuning,
@@ -591,7 +591,7 @@ function buildTrack(index: number, setup: TrackSetup, header: SongHeader, read: 
  * with rests, positions in TGDuration's precise units.
  */
 function buildBeats(measure: ReadMeasure, header: MeasureHeader): readonly Beat[] {
-  const measureStart = header.start * PRECISE_PER_TICK;
+  const measureStart = header.start / TICKS_PER_PRECISE;
   const measureLength = wholePreciseLength(header.timeSignature);
   const placed = measure.beats.reduce<{ readonly beats: readonly Beat[]; readonly end: number }>(
     (acc, beat) => ({
@@ -607,7 +607,7 @@ function buildBeats(measure: ReadMeasure, header: MeasureHeader): readonly Beat[
 function toBeat(read: ReadBeat, preciseStart: number): Beat {
   const voice: Voice = { duration: read.duration, notes: read.notes, isEmpty: false, direction: 'none' };
   return {
-    start: Math.floor(preciseStart / PRECISE_PER_TICK),
+    start: preciseStart * TICKS_PER_PRECISE,
     voices: [voice, EMPTY_VOICE],
     stroke: NO_STROKE,
     pickStroke: 'none',

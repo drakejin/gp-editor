@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { setKeySignature, setMeasureMarker, setRepeat, setTempo, setTimeSignature, setTripletFeel } from '../src/edit/measure-headers';
 import type { Marker, Song, TimeSignature, TripletFeel } from '../src/model/song';
 import { SONG_START, type EventSpec, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
+import { fromTux, toTux } from './helpers/ticks';
 
 const ts = (numerator: number, denominator: number): TimeSignature => ({ numerator, denominator });
 
@@ -32,8 +33,8 @@ describe('setTimeSignature', () => {
   it('moves the following measures and their beats to the new starts', () => {
     const song = restSong([ts(4, 4), ts(4, 4), ts(3, 4), ts(4, 4)]);
     const edited = setTimeSignature(song, 0, ts(2, 4));
-    expect(edited.measureHeaders.map((header) => header.start - SONG_START)).toEqual([0, 1920, 3840, 6720]);
-    expect(edited.tracks[0]?.measures[3]?.beats[0]?.start).toBe(SONG_START + 6720);
+    expect(edited.measureHeaders.map((header) => toTux(header.start - SONG_START))).toEqual([0, 1920, 3840, 6720]);
+    expect(edited.tracks[0]?.measures[3]?.beats[0]?.start).toBe(SONG_START + fromTux(6720));
     expect(voiceLayout(edited, 0, 3, 0)).toEqual(['0:1:r']);
     assertEditInvariants(edited);
   });

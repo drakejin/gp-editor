@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from '../src/edit/beats';
 import type { Beat, Song } from '../src/model/song';
 import { assertEditInvariants, buildSong, deepFreeze, dur, n, play, rest, voiceLayout } from './helpers/edit-songs';
+import { fromTux, toTux } from './helpers/ticks';
 
 const AT: BeatAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 };
 const TRIPLET = { enters: 3, times: 2 };
@@ -99,7 +100,7 @@ describe('setBeatDuration', () => {
     // Assert
     expect(layout(edited, 0)).toEqual(['0:2:1/0', '1920:4:1/2', '2880:4:r']);
     expect(layout(edited, 1)).toEqual(['0:2:4/0', '1920:2:4/2']);
-    expect(edited.tracks[0]?.measures[0]?.beats.map((beat) => beat.start - 960)).toEqual([0, 1920, 2880]);
+    expect(edited.tracks[0]?.measures[0]?.beats.map((beat) => toTux(beat.start) - 960)).toEqual([0, 1920, 2880]);
     assertEditInvariants(edited);
   });
 
@@ -115,7 +116,7 @@ describe('setBeatDuration', () => {
     const base = oneMeasure(play(4, n(1, 0)), play(4, n(2, 2)), rest(2));
     const song = patchBeat(base, 1, { text: 'riff', chord: { name: 'E', firstFret: 0, frets: [0] } });
     const moved = setBeatDuration(song, AT, dur(2)).tracks[0]?.measures[0]?.beats.find((beat) => beat.text === 'riff');
-    expect(moved?.start).toBe(960 + 1920);
+    expect(moved?.start).toBe(fromTux(960 + 1920));
     expect(moved?.chord?.name).toBe('E');
   });
 
@@ -123,7 +124,7 @@ describe('setBeatDuration', () => {
     const base = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 0)), play(4, n(1, 2)), rest(2)], [play(1, n(4, 0))]]]] }));
     const song = patchBeat(base, 0, { text: 'intro', stroke: { direction: 'down', value: 8 } });
     const beats = setBeatDuration(song, AT, dur(8)).tracks[0]?.measures[0]?.beats ?? [];
-    expect(beats[0]).toMatchObject({ start: 960, text: 'intro', stroke: { direction: 'down', value: 8 } });
+    expect(beats[0]).toMatchObject({ start: fromTux(960), text: 'intro', stroke: { direction: 'down', value: 8 } });
     expect(beats.slice(1).some((beat) => beat.text !== undefined)).toBe(false);
   });
 
@@ -150,7 +151,7 @@ describe('setBeatDuration', () => {
   it('keeps a pickup note in place, filling the time before it with rests (autoCompleteSilences)', () => {
     // Arrange: a lone quarter at the last beat of the measure, as readers place an anacrusis
     const base = oneMeasure(play(4, n(1, 0)));
-    const song = patchBeat(base, 0, { start: 960 + 2880 });
+    const song = patchBeat(base, 0, { start: fromTux(960 + 2880) });
 
     // Act
     const edited = setBeatDuration(song, AT, dur(8));
@@ -178,7 +179,7 @@ describe('setBeatDuration', () => {
   it('refuses to edit a measure whose voice leaves a gap no rest can fill', () => {
     const base = oneMeasure(play(4, n(1, 0)), rest(4), rest(2));
     const beats = base.tracks[0]!.measures[0]!.beats;
-    const odd = { ...beats[0]!, start: 960 + 50, voices: [{ ...beats[0]!.voices[0]!, isEmpty: true, notes: [] }, { duration: dur(4), notes: [n(4, 0)], isEmpty: false, direction: 'none' as const }] };
+    const odd = { ...beats[0]!, start: fromTux(960 + 50), voices: [{ ...beats[0]!.voices[0]!, isEmpty: true, notes: [] }, { duration: dur(4), notes: [n(4, 0)], isEmpty: false, direction: 'none' as const }] };
     const track = base.tracks[0]!;
     const song = deepFreeze({ ...base, tracks: [{ ...track, measures: [{ ...track.measures[0]!, beats: [beats[0]!, odd, ...beats.slice(1)] }] }] });
     expect(setBeatDuration(song, AT, dur(8))).toBe(song);
@@ -188,7 +189,7 @@ describe('setBeatDuration', () => {
     const base = oneMeasure(play(4, n(1, 0)), rest(4), rest(4), rest(4));
     const song = patchBeat(base, 1, { stroke: { direction: 'down', value: 8 }, pickStroke: 'up' });
     const beats = setBeatDuration(song, AT, dur(2)).tracks[0]?.measures[0]?.beats ?? [];
-    expect(beats.find((beat) => beat.stroke.direction === 'down')).toMatchObject({ start: 960 + 1920, pickStroke: 'up' });
+    expect(beats.find((beat) => beat.stroke.direction === 'down')).toMatchObject({ start: fromTux(960 + 1920), pickStroke: 'up' });
   });
 
   it('finds the addressed event even when a voice object appears twice in the measure', () => {

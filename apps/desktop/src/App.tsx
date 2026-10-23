@@ -13,6 +13,8 @@ import { InstrumentPicker } from './components/InstrumentPicker';
 import { InstrumentView } from './components/InstrumentView';
 import { EditionPalette } from './components/palette/EditionPalette';
 import { ProjectList } from './components/ProjectList';
+import { RecentFileList } from './components/RecentFileList';
+import { RecentFilesPanel } from './components/RecentFilesPanel';
 import { ScoreView } from './components/ScoreView';
 import { SongHeader } from './components/SongHeader';
 import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
@@ -29,6 +31,8 @@ import { useEditorCommands } from './hooks/use-editor-commands';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
+import { useRecentFiles } from './hooks/use-recent-files';
+import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
@@ -49,6 +53,9 @@ import type { SongEdit } from './state/song-edits';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
 import { type Palette, onChrome, usePalette } from './theme';
 
+/** How many recent files the start screen lists (above the PDF import projects); the panel lists all of them. */
+const START_SCREEN_RECENT_FILES = 5;
+
 export default function App() {
   const palette = usePalette();
   // Panels and banners around the score share Guitar Pro's dark chrome.
@@ -68,7 +75,9 @@ export default function App() {
   // opens its result.
   const importPdfPath = useRef<(pathOrUrl: string) => void>(() => undefined);
   const openPdf = useCallback((pathOrUrl: string) => importPdfPath.current(pathOrUrl), []);
-  const { create, openDialog, openPath, save, saveTab } = useDocument(workspace, dispatch, openPdf);
+  // File ▸ Open Recent, File ▸ Recent Files… and the start screen's list; every file opened or saved joins it.
+  const recentFiles = useRecentFiles();
+  const { create, openDialog, openPath, openRecent, save, saveTab } = useDocument(workspace, dispatch, openPdf, recentFiles);
   const tabs = useTabs(workspace, dispatch, saveTab);
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const openImportPanel = useCallback(() => setIsImportPanelOpen(true), []);
@@ -76,8 +85,10 @@ export default function App() {
   importPdfPath.current = pdfImport.importPath;
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
-  // Export button and File ▸ Export PDF… (⌘P) open the same panel.
+  // Export button and File ▸ Export PDF… (⌘P) open the same panel; File ▸ Export PNG… opens it for PNG images.
   const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch);
+  // File ▸ Export MIDI… and Export ASCII Tab….
+  useSongExport(document, dispatch);
   const clipboard = useClipboard(state, dispatch);
   const { selectionAnchor } = state;
   // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.
@@ -95,22 +106,24 @@ export default function App() {
   const { cancelClose } = tabs;
   const { isOpen: isSongWriterOpen, close: closeSongWriter } = songWriter;
   const { isOpen: isExportPanelOpen, close: closeExportPanel } = pdfExport;
+  const { isPanelOpen: isRecentFilesOpen, closePanel: closeRecentFiles } = recentFiles;
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
       [isExportPanelOpen, closeExportPanel],
+      [isRecentFilesOpen, closeRecentFiles],
     ];
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
     return open !== undefined;
-  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel]);
+  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
-    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || chrome.notePanel !== undefined ||
+    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || chrome.notePanel !== undefined ||
     chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
@@ -204,11 +217,13 @@ export default function App() {
   const errorText =
     state.error ??
     workspace.error ??
-    (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined);
+    (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined) ??
+    (recentFiles.error !== undefined ? `Recent files: ${recentFiles.error}` : undefined);
   const dismissError = () => {
     dispatch({ type: 'dismissError' });
     playback.dismissError();
     sound.dismissError();
+    recentFiles.dismissError();
   };
   const measureCount = song?.measureHeaders.length ?? 0;
   const loopScope = { measureCount, cursorMeasureIndex: cursor?.measureIndex ?? 0 };
@@ -269,9 +284,25 @@ export default function App() {
           trackIndex={trackIndex}
           fileName={document.fileName}
           mode={state.mode}
+          format={pdfExport.format}
           isSaving={pdfExport.isSaving}
           onSave={pdfExport.save}
+          onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
+        />
+      ) : null}
+      {isRecentFilesOpen ? (
+        <RecentFilesPanel
+          palette={chromePalette}
+          files={recentFiles.files}
+          onOpen={(path) => {
+            closeRecentFiles();
+            openRecent(path);
+          }}
+          onTogglePin={recentFiles.togglePin}
+          onRemove={recentFiles.remove}
+          onClear={recentFiles.clear}
+          onClose={closeRecentFiles}
         />
       ) : null}
       <ImportBanner palette={chromePalette} pdfImport={pdfImport} onOpenSettings={openImportPanel} />
@@ -350,6 +381,20 @@ export default function App() {
           onCreate={create}
           onOpen={openDialog}
           onImportPdf={startImport}
+          recentFiles={
+            recentFiles.files.length === 0 ? undefined : (
+              <RecentFileList
+                files={recentFiles.files}
+                palette={palette}
+                heading="RECENT FILES"
+                limit={START_SCREEN_RECENT_FILES}
+                onOpen={openRecent}
+                onTogglePin={recentFiles.togglePin}
+                onRemove={recentFiles.remove}
+                onShowAll={recentFiles.openPanel}
+              />
+            )
+          }
           projects={<ProjectList projects={pdfImport.projects} palette={palette} onOpenSong={openPath} onResume={pdfImport.resume} onReveal={pdfImport.reveal} />}
         />
       )}

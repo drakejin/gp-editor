@@ -1,6 +1,7 @@
 // Port of TuxGuitar MidiSequenceParser.checkTripletFeel / getStroke and TGStroke.getIncrementTime (LGPL-2.1).
 import { durationTicks, plainDuration } from '../model/defaults';
 import { type Beat, type Duration, type NoteValue, QUARTER_TIME, type TripletFeel, type Voice } from '../model/song';
+import { roundToMidiTicks } from './midi-ticks';
 import { voiceAt } from './note-search';
 
 /** Start and length of a voice's beat, in song ticks. */
@@ -15,7 +16,8 @@ const STROKE_REFERENCE_VALUE = 4;
 
 function isPlain(duration: Duration, value: NoteValue): boolean {
   const { tuplet } = duration;
-  return duration.value === value && !duration.dotted && !duration.doubleDotted && tuplet.enters === tuplet.times;
+  const isInTuplet = tuplet.enters !== tuplet.times || duration.innerTuplet !== undefined;
+  return duration.value === value && !duration.dotted && !duration.doubleDotted && !isInTuplet;
 }
 
 interface VoiceBeat {
@@ -101,7 +103,7 @@ function strokeIncrement(beat: Beat): number {
     return 0;
   }
   const shortest = Math.min(...lengths);
-  return Math.round((shortest / STROKE_STEPS) * (STROKE_REFERENCE_VALUE / beat.stroke.value));
+  return roundToMidiTicks(shortest * STROKE_REFERENCE_VALUE, STROKE_STEPS * beat.stroke.value);
 }
 
 /**

@@ -8,7 +8,7 @@ import { engraveRow, placeRow, rowHeaderWidth } from '../src/score/row';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS, TEXT_NOTE_GLYPHS, staffSpace } from '../src/score/symbols/smufl';
 import { tabMarkLanes } from '../src/score/tab';
 import { PALETTE, texts } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const QUARTER_TICKS = 960;
 
@@ -19,7 +19,7 @@ function velocityOf(dynamic: DynamicName): number {
 /** A bar of four quarter notes at these dynamics, the first beat picked as given. */
 function bar(number: number, dynamics: readonly DynamicName[], pickStroke: StrokeDirection = 'none'): Beat[] {
   return dynamics.map((dynamic, i) => ({
-    ...beat(header(number).start + i * QUARTER_TICKS, [{ ...note(3, 2), velocity: velocityOf(dynamic) }]),
+    ...beat(toTux(header(number).start) + i * QUARTER_TICKS, [{ ...note(3, 2), velocity: velocityOf(dynamic) }]),
     pickStroke: i === 0 ? pickStroke : 'none',
   }));
 }
@@ -81,7 +81,7 @@ describe('dynamics in a row', () => {
 
   it('keeps a mark clear of a low note above it', () => {
     // Arrange: the open low E sits three ledger lines under the staff.
-    const lowE = { ...beat(header(1).start, [{ ...note(6, 0), velocity: velocityOf('p') }]), pickStroke: 'none' as const };
+    const lowE = { ...beat(toTux(header(1).start), [{ ...note(6, 0), velocity: velocityOf('p') }]), pickStroke: 'none' as const };
     const song = makeSong([[lowE]]);
 
     // Act
