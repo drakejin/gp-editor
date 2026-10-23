@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { deleteMeasure, insertMeasure } from '../src/edit/measures';
 import type { Song } from '../src/model/song';
 import { SONG_START, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
+import { fromTux } from './helpers/ticks';
 
-const WHOLE = 3840;
+const WHOLE = fromTux(3840);
 
 /** Three 4/4 measures in two tracks; measure 2 has a marker and repeat signs, track 2 uses the bass clef and two sharps. */
 function makeSong(): Song {

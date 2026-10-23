@@ -4,6 +4,7 @@ import { durationTicks } from '../model/defaults';
 import { type Grace, type Harmonic, type Note, QUARTER_TIME } from '../model/song';
 import type { BeatTiming } from './beat-timing';
 import { CONTROLLER, controlChangeEvent, type NoteOutput, noteEvents, type SequenceEvent } from './midi-events';
+import { MIDI_TICK, fromMidiTicks, truncToMidiTicks } from './midi-ticks';
 import { DEAD_NOTE_DURATION, realNoteDuration, staticDuration } from './note-duration';
 import { findNextNote, type PlacedNote, type TrackContext } from './note-search';
 import { VELOCITY_INCREMENT } from '../formats/common/velocity';
@@ -13,7 +14,7 @@ import { curveEvents, slideEvents, vibratoEvents } from './pitch-bends';
 const FADE_IN_START = 31;
 const FADE_IN_END = 127;
 /** A repeated note (trill, tremolo picking) stops this close to the end of the note. */
-const REPEAT_MARGIN = 10;
+const REPEAT_MARGIN = fromMidiTicks(10);
 const OCTAVE = 12;
 
 /** A note's sounding window and MIDI output while its effects are applied. */
@@ -41,7 +42,7 @@ function pitchOf(context: TrackContext, string: number, fret: number): number | 
 /** addFadeIn: the expression controller climbs from 31 to 127 over the note. */
 function fadeInEvents(sound: Sound): SequenceEvent[] {
   const { channelId } = sound.output;
-  const step = Math.trunc(sound.duration / (FADE_IN_END - FADE_IN_START));
+  const step = truncToMidiTicks(sound.duration, FADE_IN_END - FADE_IN_START);
   const end = sound.start + sound.duration;
   const ramp: SequenceEvent[] = [];
   for (let tick = sound.start, value = FADE_IN_START; tick < end && value < FADE_IN_END; tick += step, value++) {
@@ -78,10 +79,10 @@ function applyGrace(
 /** Trill and tremolo picking: the note (or the note and the trill key, alternately) repeated over its length. */
 function repeatedEvents(sound: Sound, length: number, keys: readonly number[]): SequenceEvent[] {
   const end = sound.start + sound.duration;
-  const step = Math.max(1, length);
+  const step = Math.max(MIDI_TICK, length);
   const events: SequenceEvent[] = [];
   for (let tick = sound.start, i = 0; tick + REPEAT_MARGIN < end; i++) {
-    const noteLength = tick + step >= end ? end - tick - 1 : step;
+    const noteLength = tick + step >= end ? end - tick - MIDI_TICK : step;
     events.push(...noteEvents(sound.output, keys[i % keys.length] ?? sound.key, tick, noteLength, sound.velocity));
     tick += noteLength;
   }

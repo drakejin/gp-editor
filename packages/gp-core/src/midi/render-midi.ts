@@ -5,6 +5,7 @@ import { buildConductorEvents, buildTrackEvents } from './build-sequence';
 import { buildChannelRoutes } from './channel-routes';
 import { writeMidiFile } from './midi-file';
 import { toMidiMessages } from './midi-messages';
+import { MIDI_PPQ, fromMidiTicks, toMidiTick } from './midi-ticks';
 import { buildPlaybackOrder, type PlayedMeasure } from './playback-order';
 import { buildPasses, buildRangeOrder } from './practice-loop';
 import { buildTimeline, secondsFromTicks, type TimelineEntry } from './timeline';
@@ -29,7 +30,7 @@ export interface MidiOptions {
 }
 
 export interface MidiRender {
-  /** Standard MIDI File, format 1, 960 PPQ: a conductor track, then one track per song track. */
+  /** Standard MIDI File, format 1, MIDI_PPQ (960) ticks per quarter: a conductor track, then one track per song track. */
   readonly bytes: Uint8Array;
   /** One entry per played measure, in playback order (repeats expanded), pass after pass. */
   readonly timeline: readonly TimelineEntry[];
@@ -124,19 +125,20 @@ export function renderMidi(song: Song, options: MidiOptions = {}): MidiRender {
   });
   const messages = [conductor, ...tracks].map((events) => toMidiMessages(events, routes, origin));
   const timeline = buildTimeline(song.measureHeaders, played);
-  const measuresEnd = playbackEnd(song, played, origin);
+  const measuresEnd = toMidiTick(playbackEnd(song, played, origin));
   const lastEvent = messages.reduce(
     (tick, track) => track.reduce((latest, message) => Math.max(latest, message.tick), tick),
     0,
   );
+  const tail = fromMidiTicks(Math.max(0, lastEvent - measuresEnd));
   return {
-    bytes: writeMidiFile(messages, QUARTER_TIME, measuresEnd),
+    bytes: writeMidiFile(messages, MIDI_PPQ, measuresEnd),
     timeline: timeline.entries,
-    durationSeconds: timeline.endSeconds + secondsFromTicks(Math.max(0, lastEvent - measuresEnd), timeline.lastTempo),
+    durationSeconds: timeline.endSeconds + secondsFromTicks(tail, timeline.lastTempo),
   };
 }
 
-/** MIDI tick where the last played measure ends. */
+/** Sequence tick (from the origin) where the last played measure ends. */
 function playbackEnd(song: Song, played: readonly PlayedMeasure[], origin: number): number {
   const last = played[played.length - 1];
   const header = last === undefined ? undefined : song.measureHeaders[last.headerIndex];

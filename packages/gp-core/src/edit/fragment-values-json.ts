@@ -52,17 +52,28 @@ function parseTuplet(value: unknown): Tuplet | undefined {
   return tuplet !== undefined && tuplet.times === value.times ? tuplet : undefined;
 }
 
-/** A note value with at most one kind of dot, in a known tuplet. */
+/** No inner tuplet (`{}`), or a known tuplet inside a known tuplet; `null` stands for invalid. */
+function parseInnerTuplet(value: unknown, tuplet: Tuplet): { readonly innerTuplet?: Tuplet } | null {
+  if (value === undefined) {
+    return {};
+  }
+  const innerTuplet = parseTuplet(value);
+  const isNested = innerTuplet !== undefined && innerTuplet.enters !== 1 && tuplet.enters !== 1;
+  return isNested ? { innerTuplet } : null;
+}
+
+/** A note value with at most one kind of dot, in a known tuplet (and maybe a known tuplet inside it). */
 export function parseDuration(value: unknown): Duration | undefined {
   if (!isRawObject(value) || typeof value.value !== 'number' || !isNoteValue(value.value)) {
     return undefined;
   }
   const { dotted, doubleDotted } = value;
   const tuplet = parseTuplet(value.tuplet);
-  if (typeof dotted !== 'boolean' || typeof doubleDotted !== 'boolean' || (dotted && doubleDotted) || tuplet === undefined) {
+  const inner = tuplet === undefined ? null : parseInnerTuplet(value.innerTuplet, tuplet);
+  if (typeof dotted !== 'boolean' || typeof doubleDotted !== 'boolean' || (dotted && doubleDotted) || tuplet === undefined || inner === null) {
     return undefined;
   }
-  return { value: value.value, dotted, doubleDotted, tuplet };
+  return { value: value.value, dotted, doubleDotted, tuplet, ...inner };
 }
 
 function parseCurvePoint(value: unknown, min: number, max: number): BendPoint | undefined {

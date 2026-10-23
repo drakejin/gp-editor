@@ -1,6 +1,6 @@
 import { QUARTER, findNote } from '@gp-editor/core';
 import { type EditorAction, type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
-import { beat, makeSong, note } from '../test-support/songs';
+import { beat, makeSong, note, toTux } from '../test-support/songs';
 
 /** Bar 1: beat 0 = strings 1 (fret 3) and 2 (fret 5); bar 2: beat 0 = string 6 (fret 0). */
 function loadedState(): EditorState {
@@ -287,7 +287,7 @@ describe('editorReducer: second voice', () => {
   function voiceEvents(state: EditorState, voiceIndex: number): string[] {
     return song(state).tracks[0]!.measures[0]!.beats.flatMap((b) => {
       const voice = b.voices[voiceIndex];
-      return voice === undefined || voice.isEmpty ? [] : [`${b.start - 960}:${voice.duration.value}${voice.duration.dotted ? '.' : ''}:${voice.notes.map((n) => n.fret).join(',') || 'r'}`];
+      return voice === undefined || voice.isEmpty ? [] : [`${toTux(b.start) - 960}:${voice.duration.value}${voice.duration.dotted ? '.' : ''}:${voice.notes.map((n) => n.fret).join(',') || 'r'}`];
     });
   }
 

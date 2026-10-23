@@ -7,7 +7,7 @@ import { pdfPageCount } from '../src/export/pdf-document';
 import type { ExportFormat } from '../src/hooks/use-pdf-export';
 import type { ScoreMode } from '../src/score/geometry';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const SAVE = 'Save PDF…';
 
@@ -18,7 +18,7 @@ interface Rendered {
   readonly onClose: jest.Mock;
 }
 
-const song: Song = makeSong(Array.from({ length: 40 }, (_, i) => [beat(header(i + 1).start, [note(1, i % 5)])]));
+const song: Song = makeSong(Array.from({ length: 40 }, (_, i) => [beat(toTux(header(i + 1).start), [note(1, i % 5)])]));
 
 function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: ExportFormat = 'pdf', exportSong: Song = song): Rendered {
   const onSave = jest.fn();

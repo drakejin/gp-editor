@@ -17,6 +17,7 @@ import {
   findNote,
   insertBeat,
   insertMeasure,
+  isSameTuplet,
   setBeatDuration,
   setBeatPickStroke,
   setBeatStroke,
@@ -33,7 +34,10 @@ type DurationEdit =
   | { readonly type: 'toggleDot' }
   | { readonly type: 'toggleTriplet' }
   /** `enters` notes in the time of … (tupletOf); 1 = none. */
-  | { readonly type: 'setTuplet'; readonly enters: number };
+  | { readonly type: 'setTuplet'; readonly enters: number }
+  /** A tuplet of `enters` notes inside the beat's tuplet (tupletOf); 1 = none. Only on a beat in a tuplet. */
+  | { readonly type: 'setInnerTuplet'; readonly enters: number }
+  | { readonly type: 'toggleInnerTriplet' };
 
 /** Edits of the cursor's beat and voice. */
 type BeatEdit =
@@ -86,6 +90,8 @@ export function applySongEdit(
     case 'toggleDot':
     case 'toggleTriplet':
     case 'setTuplet':
+    case 'setInnerTuplet':
+    case 'toggleInnerTriplet':
       return editDuration(song, cursor, edit);
     case 'insertBeat':
     case 'deleteBeat':
@@ -177,15 +183,40 @@ function nextDuration(
     case 'toggleDot':
       return { ...current, dotted: !current.dotted, doubleDotted: false };
     case 'toggleTriplet':
-      return {
-        ...current,
-        tuplet: isTriplet(current) ? NORMAL_TUPLET : TRIPLET,
-      };
+      return withTuplet(current, isTriplet(current) ? NORMAL_TUPLET : TRIPLET);
     case 'setTuplet': {
       const tuplet = tupletOf(edit.enters);
-      return tuplet === undefined ? undefined : { ...current, tuplet };
+      return tuplet === undefined ? undefined : withTuplet(current, tuplet);
     }
+    case 'setInnerTuplet': {
+      const inner = tupletOf(edit.enters);
+      return inner === undefined || !isInTuplet(current) ? undefined : withInnerTuplet(current, inner);
+    }
+    case 'toggleInnerTriplet':
+      return isInTuplet(current) ? withInnerTuplet(current, isInnerTriplet(current) ? NORMAL_TUPLET : TRIPLET) : undefined;
   }
+}
+
+/** True when the beat is in a tuplet (so a tuplet may go inside it). */
+export function isInTuplet(duration: Duration): boolean {
+  return duration.tuplet.enters !== duration.tuplet.times;
+}
+
+function isInnerTriplet(duration: Duration): boolean {
+  return duration.innerTuplet !== undefined && isSameTuplet(duration.innerTuplet, TRIPLET);
+}
+
+/** The duration in `tuplet`; a tuplet inside the old one stays inside the new one, and goes when there is none. */
+function withTuplet(duration: Duration, tuplet: Tuplet): Duration {
+  const { value, dotted, doubleDotted, innerTuplet } = duration;
+  const isKept = innerTuplet !== undefined && tuplet.enters !== tuplet.times;
+  return { value, dotted, doubleDotted, tuplet, ...(isKept ? { innerTuplet } : {}) };
+}
+
+/** The duration with `inner` inside its tuplet (none for the normal 1:1). */
+function withInnerTuplet(duration: Duration, inner: Tuplet): Duration {
+  const { value, dotted, doubleDotted, tuplet } = duration;
+  return { value, dotted, doubleDotted, tuplet, ...(inner.enters === inner.times ? {} : { innerTuplet: inner }) };
 }
 
 export function isTriplet(duration: Duration): boolean {

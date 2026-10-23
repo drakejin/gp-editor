@@ -1,5 +1,4 @@
-import { NORMAL_TUPLET } from '../model/defaults';
-import type { Measure, Song, Tuplet } from '../model/song';
+import type { Measure, Song } from '../model/song';
 import { insertMeasure } from './measures';
 import { headerTicks } from './relayout';
 import { hasSameItems, updateTrack } from './song-paths';
@@ -7,6 +6,7 @@ import { splitAtBarLines } from './tied-pieces';
 import {
   type VoiceEvent,
   type VoiceEvents,
+  distinctTuplets,
   eventTicks,
   eventsTicks,
   gapRests,
@@ -112,14 +112,9 @@ export function layoutBars(events: VoiceEvents, barLength: (index: number) => nu
   return bars[bars.length - 1]?.length === 0 ? bars.slice(0, -1) : bars;
 }
 
-function tupletsOf(events: VoiceEvents): readonly Tuplet[] {
-  const tuplets = [NORMAL_TUPLET, ...events.map((event) => event.voice.duration.tuplet)];
-  return tuplets.filter((tuplet, index) => tuplets.findIndex((other) => other.enters === tuplet.enters && other.times === tuplet.times) === index);
-}
-
 /** The bar's events followed by rests up to its length (left short when the gap cannot be written as rests). */
 function fillBar(events: VoiceEvents, length: number): VoiceEvents {
-  const rests = gapRests(length - eventsTicks(events), tupletsOf(events)) ?? [];
+  const rests = gapRests(length - eventsTicks(events), distinctTuplets(events.map((event) => event.voice.duration))) ?? [];
   return rests.length === 0 ? events : [...events, ...rests];
 }
 

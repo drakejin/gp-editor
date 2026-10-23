@@ -4,6 +4,7 @@ import { readGp7Container } from '../src/formats/gpif/container-gp7';
 import { type Beat, GpFormatError, type Note, type Song, readSong, vibratoOf } from '../src/index';
 import { assertSongInvariants } from './helpers/invariants';
 import { listFixtures, loadFixture } from './helpers/fixtures';
+import { toTux } from './helpers/ticks';
 
 function at<T>(items: readonly T[], index: number): T {
   const item = items[index];
@@ -153,8 +154,8 @@ describe('Guitar Pro 7 (.gp) values', () => {
 
     // Assert
     const first = at(at(song.tracks, 0).measures, 0);
-    expect(first.beats.map((b) => b.start)).toEqual([960 + 1920, 960 + 2880]);
-    expect(at(at(song.tracks, 0).measures, 1).beats.map((b) => b.start)).toEqual([4800, 5760, 6720, 7680]);
+    expect(first.beats.map((b) => toTux(b.start))).toEqual([960 + 1920, 960 + 2880]);
+    expect(at(at(song.tracks, 0).measures, 1).beats.map((b) => toTux(b.start))).toEqual([4800, 5760, 6720, 7680]);
   });
 
   it('track-volume: channel volume from the RSE channel strip', () => {

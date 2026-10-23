@@ -1,4 +1,4 @@
-import { QUARTER } from '@gp-editor/core';
+import { QUARTER, durationTicks } from '@gp-editor/core';
 import type { Beat, Duration } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import {
@@ -8,8 +8,9 @@ import {
   type TextCommand,
 } from '../src/score/draw';
 import { NOTATION, engraveNotationMeasure } from '../src/score/notation';
+import { TUPLET } from '../src/score/notation/metrics';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
 const TOP = NOTATION.above;
 const SPACE = NOTATION.space;
@@ -169,5 +170,72 @@ describe('tuplet brackets', () => {
         .filter(c => c.x1 === c.x2)
         .every(hook => Math.min(hook.y1, hook.y2) < line.y1),
     ).toBe(true);
+  });
+});
+
+describe('tuplets inside tuplets', () => {
+  const FIVE = String.fromCodePoint(0xe885);
+  const quintuplet = (value: Duration['value']): Duration => ({
+    ...QUARTER,
+    value,
+    tuplet: { enters: 5, times: 4 },
+  });
+  const nested = (value: Duration['value']): Duration => ({
+    ...quintuplet(value),
+    innerTuplet: { enters: 3, times: 2 },
+  });
+  /** A quintuplet whose second, third and fourth notes are a triplet inside it. */
+  const group = (value: Duration['value']) => [
+    quintuplet(value),
+    nested(value),
+    nested(value),
+    nested(value),
+    quintuplet(value),
+    quintuplet(value),
+  ];
+  /** Beats one after the other from the measure start, at exact positions. */
+  const exactRun = (durations: readonly Duration[]): Beat[] =>
+    durations.reduce<{ beats: Beat[]; start: number }>(
+      ({ beats, start }, duration, i) => ({
+        beats: [...beats, beat(start, [note(3, i % 3)], duration)],
+        start: start + toTux(durationTicks(duration)),
+      }),
+      { beats: [], start: 960 },
+    ).beats;
+  const textsOf = (commands: readonly DrawCommand[], digit: string) =>
+    commands.filter(
+      (c): c is TextCommand => c.kind === 'text' && c.text === digit,
+    );
+
+  it('numbers a beamed triplet inside a quintuplet: the 3 next to the notes, the 5 beyond it', () => {
+    // Act
+    const commands = engrave(exactRun(group(16)));
+
+    // Assert
+    const [five] = textsOf(commands, FIVE);
+    const [three] = textsOf(commands, THREE);
+    expect(textsOf(commands, FIVE)).toHaveLength(1);
+    expect(textsOf(commands, THREE)).toHaveLength(1);
+    expect(five!.y).toBeLessThan(three!.y - TUPLET.height);
+    expect(bracketLines(commands)).toHaveLength(0);
+  });
+
+  it('brackets an unbeamed triplet inside a quintuplet inside the quintuplet’s bracket', () => {
+    // Act
+    const commands = engrave(exactRun(group(4)));
+
+    // Assert
+    const lines = bracketLines(commands).filter(c => c.y1 === c.y2);
+    const [five] = textsOf(commands, FIVE);
+    const [three] = textsOf(commands, THREE);
+    expect(lines).toHaveLength(4);
+    const outer = lines.filter(c => Math.abs(c.y1 - lines[0]!.y1) < 0.01);
+    const inner = lines.filter(c => c.y1 > lines[0]!.y1 + 0.01);
+    expect(outer).toHaveLength(2);
+    expect(inner).toHaveLength(2);
+    expect(five!.y).toBeLessThan(three!.y);
+    expect(Math.min(...inner.map(c => c.x1))).toBeGreaterThan(
+      Math.min(...outer.map(c => c.x1)),
+    );
   });
 });
