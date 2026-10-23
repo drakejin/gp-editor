@@ -28,6 +28,7 @@ The format is detected from the file content, not the extension.
 `gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
 Pro 7 and 8 open). What each format cannot hold is listed in `packages/gp-core/test/helpers/write-expected.ts` (GP3–GP5)
 and `write-expected-gpif.ts` (`.gp`).
+Guitar Pro itself has not opened these files in our tests; alphaTab is the independent check (see Test).
 
 ## Download
 
@@ -94,6 +95,15 @@ npm run typecheck                           # tsc for both packages
 ```
 
 The Hermes smoke test, the `open -a` E2E check and the QA driver are described in `apps/desktop/README.md`.
+
+Compatibility of the files we write: Guitar Pro itself is not run by the tests, so nothing has proven that Guitar Pro
+opens them. `npm test` (and `npm run coverage`, so every release) runs an independent check instead,
+`packages/gp-core/test/cross-check-alphatab.test.ts`: every fixture (GP1–GP8, Power Tab, TablEdit, MIDI, MusicXML) is
+written as `.gp`, GP5, GP4 and GP3 and read by [alphaTab](https://github.com/CoderLine/alphaTab) (a widely used reader of
+Guitar Pro files; MPL-2.0, a test-only devDependency, not bundled into the app), which must read it as gp-core does —
+tracks, tunings, bars, signatures, repeats, beats, durations, notes and effects. The few places where alphaTab reads
+Guitar Pro's own files differently are listed, with that evidence, in
+`packages/gp-core/test/helpers/alphatab-known-differences.ts`.
 
 ## Using the app
 
@@ -340,6 +350,21 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   macOS, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the
   copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
   bar being played, once, shortly after the last click.
+- **Effects** (basic built-in effects — macOS's own audio units and a few of ours, not Guitar Pro's RSE sound): each
+  track can play through a chain of up to 8 effects — EQ, compressor, drive (overdrive / distortion / fuzz), chorus,
+  delay, reverb and a speaker cabinet (convolution with impulse responses the app generates: 1x12 open back, 2x12
+  combo, 4x12 closed back, 4x10 bass) —, each on or off, with a few parameters and presets, and whole-chain presets
+  (Clean, Crunch, Lead, Metal, Bass DI, Bass amp, Acoustic, Ambient). Edit them in the Track inspector's *EFFECTS* or in
+  View ▸ Mixer (a strip per track and a *Master* strip — EQ, compressor, reverb, limiter and output gain — at the
+  bottom); values are heard while a slider is dragged, and one release is one undo step. A track's first effect (or
+  its last removed) restarts playback at the bar being played. Effects are saved in Guitar Pro 7/8 (`.gp`) files
+  (our own entry in the zip, which Guitar Pro ignores); GP5, GP4 and GP3 cannot keep them, and saving one says so.
+  Tracks without effects sound exactly as before.
+- **Line in** (Tools ▸ Line In…): play a real guitar (an audio interface or the Mac's microphone) through a track's
+  effects — the selected track's, or, with *Lock*, the same track while you select others ("sound lock") — with an input
+  gain, a level meter and *Monitor* on/off. With the Mac's own microphone and speakers monitoring starts off and the
+  card warns about feedback (use headphones). macOS asks for microphone access the first time; closing the card turns
+  the line in off.
 - **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar — or, with beats
   selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
@@ -368,6 +393,8 @@ GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2
 `fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
 powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
 The MIDI test file is in the public domain (Mutopia Project).
+The tests also read the written files with alphaTab itself (`@coderline/alphatab`, MPL-2.0), a devDependency of
+`packages/gp-core` used only by its tests; it is not part of the library or the app.
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

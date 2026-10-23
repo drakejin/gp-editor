@@ -4,7 +4,7 @@ import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
 import { DEFAULT_RASGUEADO } from '../../src/formats/common/rasgueado';
 import { velocityFromGp } from '../../src/formats/common/velocity';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
-import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration } from '../../src/model/defaults';
+import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
 import type {
   Beat,
   Channel,
@@ -39,7 +39,8 @@ import type {
  * - measure headers: eight alternate endings at most; each musical direction on its first bar only;
  * - marks: no hairpins, fade outs, volume swells or sustain pedals; a rasgueado without its pattern (read back as the
  *   first pattern, DEFAULT_RASGUEADO);
- * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
+ * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
+ * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts).
  */
 
 const MAX_STRINGS = 7;
@@ -266,7 +267,7 @@ function expectedTrack(track: Track, song: Song, lyricTrack: number | undefined)
   const clef: Clef = track.measures[0]?.clef === 'bass' ? 'bass' : 'treble';
   const measureStarts = song.measureHeaders.map((header) => header.start);
   const rules: MeasureRules = { stringCount: strings.length, clef, keySignatures, measureStarts };
-  const { lyrics, ...rest } = track;
+  const { lyrics, effects: _effects, ...rest } = track;
   return {
     ...rest,
     ...(lyrics !== undefined && track.number === lyricTrack ? { lyrics } : {}),
@@ -304,17 +305,31 @@ function withDroppedTies(expected: Song, actual: Song): Song {
   return { ...expected, tracks };
 }
 
+/** A measure without beats is written as Guitar Pro's empty quarter beat, which the GP3/GP4 readers take as a rest. */
+function withEmptyMeasureRest(measure: Measure, start: number): Measure {
+  if (measure.beats.length > 0) {
+    return measure;
+  }
+  const rest: Beat = { start, voices: [{ duration: QUARTER, notes: [], isEmpty: false, direction: 'none' }, EMPTY_VOICE], stroke: NO_STROKE, pickStroke: 'none' };
+  return { ...measure, beats: [rest] };
+}
+
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
- * effects): channels as for GP5, and the clef the GP3/GP4 readers derive from the tuning.
+ * effects): channels as for GP5, the clef the GP3/GP4 readers derive from the tuning, and a quarter rest in a measure
+ * without beats.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
-    tracks: song.tracks.map((track) => {
+    tracks: song.tracks.map(({ effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
-      return { ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) };
+      return {
+        ...track,
+        measures: track.measures.map((measure) => withEmptyMeasureRest({ ...measure, clef }, song.measureHeaders[measure.headerIndex]?.start ?? 0)),
+      };
     }),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);
@@ -323,8 +338,9 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
     measureHeaders: expectedDirections(song.measureHeaders).map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
     tracks: song.tracks.map((track) => expectedTrack(track, song, lyricTrack)),

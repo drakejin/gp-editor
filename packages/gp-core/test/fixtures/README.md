@@ -3,6 +3,9 @@
 `guitarpro3` … `guitarpro8` are copied unchanged from the alphaTab test suite
 (https://github.com/CoderLine/alphaTab, `packages/alphatab/test-data/`, commit in `ALPHATAB_COMMIT`).
 alphaTab is licensed under the Mozilla Public License 2.0; these files are used here only as test input.
+alphaTab itself (`@coderline/alphatab`, the version pinned in `packages/gp-core/package.json`, MPL-2.0) is a
+devDependency used only by `test/cross-check-alphatab.test.ts`, which reads every file the writers make from these
+fixtures; it is not part of the library and never bundled into the app.
 
 | folder | Guitar Pro version | extension |
 | --- | --- | --- |

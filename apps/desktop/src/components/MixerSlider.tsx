@@ -1,6 +1,7 @@
-import { memo, useRef, useState } from 'react';
-import { type AccessibilityActionEvent, type GestureResponderEvent, Pressable, StyleSheet, View } from 'react-native';
+import { memo } from 'react';
+import { type AccessibilityActionEvent, Pressable, StyleSheet, View } from 'react-native';
 import type { Palette } from '../theme';
+import { DRAG_RETENTION, useSliderDrag } from './slider-drag';
 
 /** A mixer value is a MIDI controller value, 0–127; pan's centre is 64. */
 export const MIXER = {
@@ -55,49 +56,10 @@ export function formatMixerValue(value: number, isCentred: boolean): string {
   return offset === 0 ? 'centre' : `${offset < 0 ? 'L' : 'R'} ${Math.abs(offset)}`;
 }
 
-interface DragStart {
-  readonly x: number;
-  readonly pageX: number;
-}
-
-/** How far the pointer may leave the slider while dragging and still drive it. */
-const DRAG_RETENTION = { top: 400, bottom: 400, left: 2000, right: 2000 } as const;
-
-/**
- * The value while dragging (undefined otherwise) and the press handlers that drive it. A Pressable's press events,
- * not a plain view's responder: react-native-macos delivers mouse clicks to pressables.
- */
-function useSliderDrag(value: number, width: number, onChange: (value: number) => void) {
-  const [dragValue, setDragValue] = useState<number | undefined>(undefined);
-  const start = useRef<DragStart | undefined>(undefined);
-  // The pointer is followed from where it went down, so a drag beyond the slider keeps tracking.
-  const valueOf = (event: GestureResponderEvent): number => {
-    const origin = start.current;
-    const x = origin === undefined ? event.nativeEvent.locationX : origin.x + event.nativeEvent.pageX - origin.pageX;
-    return sliderValueAt(x, width);
-  };
-  const handlers = {
-    onPressIn: (event: GestureResponderEvent) => {
-      start.current = { x: event.nativeEvent.locationX, pageX: event.nativeEvent.pageX };
-      setDragValue(sliderValueAt(event.nativeEvent.locationX, width));
-    },
-    onPressMove: (event: GestureResponderEvent) => setDragValue(valueOf(event)),
-    onPressOut: (event: GestureResponderEvent) => {
-      const next = valueOf(event);
-      start.current = undefined;
-      setDragValue(undefined);
-      if (next !== value) {
-        onChange(next);
-      }
-    },
-  };
-  return { dragValue, handlers };
-}
-
 /** A thin horizontal mixer slider (volume, or pan with `isCentred`): click to jump, drag to slide. */
 function MixerSliderView(props: MixerSliderProps) {
   const { value, width, label, palette, isCentred = false, isEnabled = true, onChange } = props;
-  const { dragValue, handlers } = useSliderDrag(value, width, onChange);
+  const { dragValue, handlers } = useSliderDrag(value, (x) => sliderValueAt(x, width), { onChange });
   const shown = dragValue ?? value;
   const text = formatMixerValue(shown, isCentred);
   const thumbX = sliderThumbX(shown, width);

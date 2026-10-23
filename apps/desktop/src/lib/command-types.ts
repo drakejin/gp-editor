@@ -35,6 +35,8 @@ export interface CommandActions {
   readonly openTranspose: () => void;
   readonly openTuner: () => void;
   readonly openScales: () => void;
+  /** Tools ▸ Line In…: a real instrument through a track's effects. */
+  readonly openLineIn: () => void;
   readonly openLyrics: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;

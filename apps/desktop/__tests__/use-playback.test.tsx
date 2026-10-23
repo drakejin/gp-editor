@@ -1,4 +1,4 @@
-import type { Song } from '@gp-editor/core';
+import { type Song, buildEffect, setTrackEffects } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type Playback, usePlayback } from '../src/hooks/use-playback';
 import { beat, header, makeSong, note, toTux } from '../test-support/songs';
@@ -369,6 +369,44 @@ describe('usePlayback while the song is edited', () => {
 
     // Assert
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('restarts once when a track gets its first effect while playing (it moves to instruments of its own)', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withChannel, 0, [buildEffect('reverb')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('keeps playing when only an effect’s values change: the engine hears them live', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withEffect = setTrackEffects({ ...threeBars, channels: [GUITAR] }, 0, [buildEffect('reverb')]);
+    const hook = renderEditableHook(withEffect);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withEffect, 0, [buildEffect('reverb', false), buildEffect('delay')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
     hook.unmount();
   });
 

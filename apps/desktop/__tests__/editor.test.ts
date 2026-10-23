@@ -1,4 +1,4 @@
-import { QUARTER, findNote } from '@gp-editor/core';
+import { DEFAULT_MASTER, QUARTER, buildEffect, findNote } from '@gp-editor/core';
 import { type EditorAction, type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { beat, makeSong, note, toTux } from '../test-support/songs';
 
@@ -240,6 +240,7 @@ describe('editorReducer: track instrument', () => {
     ['sets the balance of', { type: 'setTrackBalance', trackIndex: 0, balance: 10 }, (state) => song(state).channels[0]?.balance, 10],
     ['puts a capo on', { type: 'setTrackCapo', trackIndex: 0, capo: 2 }, (state) => song(state).tracks[0]?.offset, 2],
     ['gives lyrics to', { type: 'setTrackLyrics', trackIndex: 0, lyrics: { from: 1, text: 'la la' } }, (state) => song(state).tracks[0]?.lyrics, { from: 1, text: 'la la' }],
+    ['gives effects to', { type: 'setTrackEffects', trackIndex: 0, effects: [buildEffect('drive')] }, (state) => song(state).tracks[0]?.effects, [buildEffect('drive')]],
   ])('%s a track as one undo step', (_name, action, read, expected) => {
     // Arrange
     const start = withChannel();
@@ -254,6 +255,18 @@ describe('editorReducer: track instrument', () => {
     expect(song(undone)).toBe(song(start));
   });
 
+  it('sets the master strip as one undo step', () => {
+    // Arrange
+    const start = withChannel();
+
+    // Act
+    const changed = editorReducer(start, { type: 'setMasterMix', master: { ...DEFAULT_MASTER, gainDb: -6 } });
+
+    // Assert
+    expect(song(changed).master?.gainDb).toBe(-6);
+    expect(song(editorReducer(changed, { type: 'undo' }))).toBe(song(start));
+  });
+
   it.each<EditorAction>([
     { type: 'setTrackName', trackIndex: 0, name: 'Guitar' },
     { type: 'setTrackName', trackIndex: 0, name: '  ' },
@@ -265,6 +278,8 @@ describe('editorReducer: track instrument', () => {
     { type: 'setTrackCapo', trackIndex: 4, capo: 3 },
     { type: 'setTrackLyrics', trackIndex: 0, lyrics: { from: 1, text: ' ' } },
     { type: 'setSongInfo', info: { title: 'Test' } },
+    { type: 'setTrackEffects', trackIndex: 0, effects: [] },
+    { type: 'setMasterMix', master: DEFAULT_MASTER },
   ])('adds no undo step for a track or song edit that changes nothing: %o', (action) => {
     const start = withChannel();
     expect(editorReducer(start, action)).toBe(start);
