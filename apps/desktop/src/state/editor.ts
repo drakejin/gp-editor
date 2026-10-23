@@ -4,6 +4,8 @@ import {
   type Song,
   type SongInfo,
   type StringAddress,
+  type TranspositionOptions,
+  type TranspositionScope,
   buildNewSong,
   deleteNote,
   findNote,
@@ -18,6 +20,7 @@ import {
   setTrackSolo,
   setTrackTuning,
   setTrackVolume,
+  transpose,
 } from '@gp-editor/core';
 import {
   adjacentBeat,
@@ -29,6 +32,7 @@ import { retuneNotice } from '../lib/tuning-hint';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { refusalHint } from './edit-hints';
+import { transpositionHint } from './transposition';
 import {
   type ClipboardEdit,
   cutSelectionAt,
@@ -141,6 +145,8 @@ export type EditorAction =
   /** The system clipboard could not be read or written. */
   | { readonly type: 'clipboardFailed'; readonly message: string }
   | { readonly type: 'edit'; readonly edit: SongEdit }
+  /** Tools ▸ Transpose…: one undo step; the hint strip tells what moved and what could not. */
+  | { readonly type: 'transpose'; readonly scope: TranspositionScope; readonly options: TranspositionOptions }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
 
@@ -269,6 +275,8 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
       return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
     case 'pasteBeats':
       return pasteBeats(state, action.fragment);
+    case 'transpose':
+      return transposeSong(state, action.scope, action.options);
     case 'undo':
       return undo(state);
     case 'redo':
@@ -486,6 +494,16 @@ function recordSong(
     past: [...state.past, document.song].slice(-HISTORY_LIMIT),
     future: [],
   };
+}
+
+/** Transposes (one undo step); the hint strip says what moved, also when nothing could. */
+function transposeSong(state: EditorState, scope: TranspositionScope, options: TranspositionOptions): EditorState {
+  const { document } = state;
+  if (document === undefined) {
+    return state;
+  }
+  const result = transpose(document.song, scope, options);
+  return { ...recordSong(state, document, result.song), hint: transpositionHint(result, options) };
 }
 
 /** Retunes a track (one undo step); the cursor stays on the track's strings and the notice tells what moved. */

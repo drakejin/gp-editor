@@ -94,6 +94,17 @@ struct GPEditorApp: App {
           }
         }
       }
+      // Tools: Transpose… (notes and chords by semitones or scale steps) and the command palette, which finds any command.
+      CommandMenu("Tools") {
+        Button("Transpose…") {
+          NotificationCenter.default.post(name: .GPEditorTransposeCommand, object: nil)
+        }
+        Divider()
+        Button("Command Palette…") {
+          NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)
+        }
+        .keyboardShortcut("p", modifiers: [.command, .shift])
+      }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
       CommandGroup(replacing: .appVisibility) {
         Button("Hide GP Editor") { NSApp.hide(nil) }

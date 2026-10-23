@@ -3,7 +3,7 @@
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
-// writeFile / writeTextFile.
+// writeFile / writeTextFile. So do Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P).
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -30,6 +30,8 @@ static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
 static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
 static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
 static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
+static NSString *const kTransposeRequestedEvent = @"transposeRequested";
+static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -181,6 +183,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportMidiCommand:) name:GPEditorExportMidiCommandNotification object:nil];
     [center addObserver:self selector:@selector(onExportAsciiTabCommand:) name:GPEditorExportAsciiTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onTransposeCommand:) name:GPEditorTransposeCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onCommandPaletteCommand:) name:GPEditorCommandPaletteCommandNotification object:nil];
   }
   return self;
 }
@@ -195,7 +199,8 @@ RCT_EXPORT_MODULE();
   return @[
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent
+    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
+    kTransposeRequestedEvent, kCommandPaletteRequestedEvent
   ];
 }
 
@@ -315,6 +320,22 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportAsciiTabRequestedEvent body:@{}];
+  }
+}
+
+/** Tools ▸ Transpose…. */
+- (void)onTransposeCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kTransposeRequestedEvent body:@{}];
+  }
+}
+
+/** Tools ▸ Command Palette… (⇧⌘P). */
+- (void)onCommandPaletteCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kCommandPaletteRequestedEvent body:@{}];
   }
 }
 

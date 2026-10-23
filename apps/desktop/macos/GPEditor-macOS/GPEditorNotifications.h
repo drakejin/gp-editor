@@ -33,6 +33,12 @@ FOUNDATION_EXPORT NSString *const GPEditorHelpCommandNotification;
 /** Edit ▸ AI Wizard ▸ Song Writer… was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
+/** Tools ▸ Transpose… was chosen (JS event "transposeRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorTransposeCommandNotification;
+
+/** Tools ▸ Command Palette… (⇧⌘P) was chosen (JS event "commandPaletteRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorCommandPaletteCommandNotification;
+
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;
 
