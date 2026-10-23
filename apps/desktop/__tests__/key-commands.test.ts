@@ -1,5 +1,5 @@
 import { DIGIT_WINDOW_MS } from '../src/lib/fret-input';
-import { keyCommand } from '../src/lib/key-commands';
+import { HANDLED_KEYS, keyCommand } from '../src/lib/key-commands';
 
 const press = (key: string, modifiers: Partial<{ metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) => ({
   key,
@@ -93,6 +93,12 @@ describe('keyCommand', () => {
     expect(edit('/')).toEqual({ type: 'edit', edit: { type: 'toggleTriplet' } });
     expect(edit('i')).toEqual({ type: 'edit', edit: { type: 'insertBeat' } });
     expect(edit('s', { metaKey: true })).toBeUndefined();
+  });
+
+  it('puts a triplet inside the beat’s tuplet with ⌥/ (and claims the key)', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('/', { altKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'toggleInnerTriplet' } });
+    expect(HANDLED_KEYS).toContainEqual({ key: '/', altKey: true });
   });
 
   it('copies, cuts and pastes with ⌘C, ⌘X and ⌘V', () => {

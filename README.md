@@ -150,8 +150,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     ends with a rest again)
   - voices: the palette's 1 / 2 (Guitar Pro 5 files hold two); typing a fret on voice 2 starts that voice there
   - duration: ⌥`[` longer, ⌥`]` shorter, `.` dot, `/` triplet, or the palette's Rhythm: whole to 64th, dot, tuplets
-    (3, 5, 6, 10, 12 — 7, 9 and 11 are read and played but cannot be made: their notes are not whole ticks), rest,
-    tie
+    (3, 5, 6, 7, 9, 10, 11, 12), rest, tie
+  - a tuplet inside a tuplet (as Guitar Pro 7 and 8 write them): ⌥`/` puts a triplet inside the beat's tuplet, or the
+    palette's *Inner* sets any size. Every tuplet is exact: a bar of 7, 9, 11 or 13-tuplets fills exactly. Notation
+    draws the inner bracket and number next to the notes and the outer one beyond it; the tab rhythm shows `5(3)`.
+    GP3–GP5 files cannot hold one: Save writes a same-length tuplet when there is one (a triplet in a triplet = 9:8),
+    else only the outer tuplet
   - beats: `I` insert a rest after the cursor, ⇧⌫ delete the beat. As in Guitar Pro, inserting or lengthening never
     drops notes: when the bar runs out of rests it becomes over-full and its bar number turns red.
   - techniques: `R` let ring, `S` slide, `H` / `P` hammer-on / pull-off (one Guitar Pro effect: the tab shows H or P
