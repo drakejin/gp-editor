@@ -77,3 +77,6 @@ scripts/hermes-smoke/fixtures.generated.js
 
 # GeneralUser GS SoundFont: fetched by scripts/soundfont/fetch.sh (32 MB, pinned + checksummed)
 macos/GPEditor-macOS/SoundFonts/*.sf2
+
+# Windows build: Vite output (npm run web:build)
+web-dist/

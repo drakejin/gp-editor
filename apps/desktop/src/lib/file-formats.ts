@@ -1,5 +1,5 @@
 import type { WritableFormat } from '@gp-editor/core';
-import { withoutExtension } from './file-name';
+import { baseName, withoutExtension } from './file-name';
 
 /** A kind of file a save panel offers: the popup's label and the extension the file gets. */
 export interface FileFormat {
@@ -64,7 +64,7 @@ export const ASCII_TAB_FILE: FileFormat = {
 
 /** The format of a file the app writes back as it is (by its extension, any case); undefined for any other file. */
 export function saveFormatOf(path: string): SaveFormat | undefined {
-  const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+  const name = baseName(path).toLowerCase();
   const dot = name.lastIndexOf('.');
   return dot <= 0 ? undefined : SAVE_FORMATS.find((format) => format.extension === name.slice(dot + 1));
 }

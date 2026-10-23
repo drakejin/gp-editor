@@ -3,6 +3,7 @@ import type { DragEvent, KeyEvent, View } from 'react-native';
 import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
 import { focusView } from '../native/focus-view';
+import { claimKey, keyPressOf } from '../native/key-event';
 import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
@@ -143,12 +144,13 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   const isOverlayOpen = sources.isOverlayOpen === true;
   const onKeyDown = useCallback(
     (event: KeyEvent) => {
-      const { key, metaKey, shiftKey, altKey } = event.nativeEvent;
-      if (isOverlayOpen && key !== 'Escape') {
+      const press = keyPressOf(event);
+      if (press === undefined || (isOverlayOpen && press.key !== 'Escape')) {
         return;
       }
-      const command = keyCommand({ key, metaKey, shiftKey, altKey }, lastDigit, Date.now());
+      const command = keyCommand(press, lastDigit, Date.now());
       if (command !== undefined) {
+        claimKey(event);
         runCommand(command);
       }
     },
