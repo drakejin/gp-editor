@@ -51,6 +51,10 @@ describe('buildPlanRequest', () => {
     expect(text).toContain('Bar 1: q:E4@1/0');
   });
 
+  it('sings Korean one character per note', () => {
+    expect(buildPlanRequest('m', IDEA).system).toContain('In Korean or Japanese every character is one syllable');
+  });
+
   it('asks for original lyrics when none are given', () => {
     expect(userText(buildPlanRequest('m', { ...IDEA, lyrics: '  ' }))).toContain('Write original lyrics');
   });

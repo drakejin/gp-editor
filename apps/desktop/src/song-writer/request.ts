@@ -28,7 +28,7 @@ Arrangement:
 Notation (write_section):
 - Every note as string and fret (string 1 = the highest string), never as a pitch.
 - Every measure has one part per track (track index), and each part's durations fill the measure exactly: rests where a track is silent.
-- The lyrics track: give each measure's lyrics — one syllable per beat that has notes, in order; "" for a note not sung; a word over several notes split with hyphens ("beau-", "ti-", "ful"). Sing the given lyrics as written, in order.
+- The lyrics track: give each measure's lyrics — one syllable per beat that has notes, in order; "" for a note not sung; a word over several notes split with hyphens ("beau-", "ti-", "ful"). Sing the given lyrics as written, in order, in their language. In Korean or Japanese every character is one syllable: one character per note, no hyphens.
 - Use effects only where they suit the style (hammer, slide, bend, vibrato, palmMute, letRing, deadNote, ghostNote, accent, harmonic), and dots and triplets (tuplet 3) where the rhythm needs them.
 
 Write original music; do not copy existing songs' melodies or lyrics.`;
