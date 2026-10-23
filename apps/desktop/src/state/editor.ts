@@ -181,7 +181,7 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return {
         ...state,
         isLoading: false,
-        error: `Could not open the file: ${action.message}`,
+        error: openFailedMessage(action.message),
       };
     case 'dismissError':
       return { ...state, error: undefined };
@@ -537,6 +537,11 @@ function redo(state: EditorState): EditorState {
       state.cursor === undefined ? undefined : clampCursor(next, state.cursor),
     notice: undefined,
   };
+}
+
+/** The error banner's text for a file that could not be opened. */
+export function openFailedMessage(message: string): string {
+  return `Could not open the file: ${message}`;
 }
 
 /** True when the open song differs from the one last opened or saved. */
