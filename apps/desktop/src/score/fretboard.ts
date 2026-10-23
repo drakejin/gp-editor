@@ -2,6 +2,7 @@ import { NECK_FRETS, type Note, type Track } from '@gp-editor/core';
 import { pitchClassName } from '../lib/pitch';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
+import { SCALE_COLORS, type ScaleHighlight, scaleMarkColor } from './scale-marks';
 
 /** Fretboard geometry, in points. */
 export const FRETBOARD = {
@@ -29,6 +30,8 @@ export interface FretboardInput {
   readonly notes: readonly Note[];
   /** String of the editor cursor, outlined at the nut. */
   readonly cursorString?: number;
+  /** The Scales panel's scale: its positions are coloured, the roots apart, under the current notes. */
+  readonly scale?: ScaleHighlight;
 }
 
 export function fretboardHeight(stringCount: number): number {
@@ -51,7 +54,7 @@ export function engraveFretboard(input: FretboardInput): DrawCommand[] {
     ...inlays(geometry, palette),
     ...fretLines(geometry, palette),
     ...stringLines(geometry, track, palette),
-    ...noteNames(geometry, track, palette),
+    ...noteNames(geometry, track, palette, input.scale),
     ...capo(geometry, track, palette),
     ...currentNotes(geometry, input),
     ...cursorString(geometry, input),
@@ -109,13 +112,23 @@ function stringLines(geometry: NeckGeometry, track: Track, palette: Palette): Dr
   });
 }
 
-/** Each position's note name sits on its string, on a small pill in the neck's background colour. */
-function noteNames(geometry: NeckGeometry, track: Track, palette: Palette): DrawCommand[] {
+/**
+ * Each position's note name sits on its string, on a small pill in the neck's background colour; a position of the
+ * chosen scale on a disc of the scale's colour instead.
+ */
+function noteNames(geometry: NeckGeometry, track: Track, palette: Palette, scale: ScaleHighlight | undefined): DrawCommand[] {
   return track.strings.flatMap((guitarString) => {
     const y = stringY(guitarString.number);
     return Array.from({ length: FRETBOARD.frets + 1 }, (_, fret): DrawCommand[] => {
       const x = fretX(geometry, fret);
       const isOpen = fret === 0;
+      const scaleColor = scaleMarkColor(guitarString.tuning + fret, scale);
+      if (scaleColor !== undefined) {
+        return [
+          { kind: 'circle', x, y, radius: FRETBOARD.noteRadius - 1, color: scaleColor },
+          { kind: 'text', x, y, text: pitchClassName(guitarString.tuning + fret), size: 7.5, color: SCALE_COLORS.text, font: 'ui', align: 'center', bold: true },
+        ];
+      }
       return [
         { kind: 'rect', x: x - NAME_PILL.width / 2, y: y - NAME_PILL.height / 2, width: NAME_PILL.width, height: NAME_PILL.height, color: palette.sidebar, radius: NAME_PILL.height / 2 },
         { kind: 'text', x, y, text: pitchClassName(guitarString.tuning + fret), size: 7.5, color: isOpen ? palette.text : palette.muted, font: 'ui', align: 'center', bold: isOpen },

@@ -24,6 +24,12 @@ FOUNDATION_EXPORT NSString *const GPEditorHelpCommandNotification;
 /** Edit ▸ AI Wizard ▸ Song Writer… was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
+/** Edit ▸ Lyrics… was chosen ("lyricsRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorLyricsCommandNotification;
+
+/** Tools ▸ Scales… was chosen ("scalesRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorScalesCommandNotification;
+
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;
 

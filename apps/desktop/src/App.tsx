@@ -23,9 +23,13 @@ import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
+import { LyricsPanel } from './components/lyrics/LyricsPanel';
+import { ScalesPanel } from './components/scales/ScalesPanel';
 import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
 import { useEditorCommands } from './hooks/use-editor-commands';
+import { useLyricsEditor } from './hooks/use-lyrics-editor';
+import { useScales } from './hooks/use-scales';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
@@ -38,7 +42,7 @@ import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { focusView } from './native/focus-view';
-import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
+import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeLyricsRequests, subscribeScalesRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
 import { type EditorAction, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
@@ -91,6 +95,16 @@ export default function App() {
     dispatch({ type: 'showHint', hint: writtenSummary(written, warnings) });
   }, []);
   const songWriter = useSongWriter(onSongWritten);
+  // Tools ▸ Scales… (beside the score, in the inspector's place) and Edit ▸ Lyrics… (above it).
+  const scales = useScales();
+  const lyricsEditor = useLyricsEditor(song, trackIndex, workspace.activeTabId, dispatch);
+  const { isOpen: isScalesOpen, close: closeScales } = scales;
+  const { isOpen: isLyricsOpen, close: closeLyrics } = lyricsEditor;
+  // The keyboard goes back to the score when the lyrics field goes away.
+  const closeLyricsPanel = useCallback(() => {
+    closeLyrics();
+    focusView(keyboardView.current);
+  }, [closeLyrics]);
   const { openNotePanel: showNotePanel, closeOverlay: closeChromeOverlay } = chrome;
   const { cancelClose } = tabs;
   const { isOpen: isSongWriterOpen, close: closeSongWriter } = songWriter;
@@ -101,17 +115,19 @@ export default function App() {
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
       [isExportPanelOpen, closeExportPanel],
+      [isLyricsOpen, closeLyricsPanel],
+      [isScalesOpen, closeScales],
     ];
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
     return open !== undefined;
-  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel]);
+  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || chrome.notePanel !== undefined ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isLyricsOpen || isScalesOpen;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -175,6 +191,12 @@ export default function App() {
 
   const { open: openSongWriter } = songWriter;
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
+  const { open: openScales } = scales;
+  useEffect(() => subscribeScalesRequests(openScales), [openScales]);
+  // The lyrics editor opens on the shown song, so its `open` changes with every edit: the menu calls the latest.
+  const openLyrics = useRef(lyricsEditor.open);
+  openLyrics.current = lyricsEditor.open;
+  useEffect(() => subscribeLyricsRequests(() => openLyrics.current()), []);
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, trackIndex)), [song, trackIndex]);
 
   // Another tab: playback stops (the player plays the shown song) and the keyboard goes to its score.
@@ -274,6 +296,17 @@ export default function App() {
           onClose={pdfExport.close}
         />
       ) : null}
+      {lyricsEditor.draft !== undefined && document !== undefined ? (
+        <LyricsPanel
+          palette={palette}
+          song={document.song}
+          draft={lyricsEditor.draft}
+          onChooseTrack={lyricsEditor.chooseTrack}
+          onChangeFrom={lyricsEditor.changeFrom}
+          onChangeText={lyricsEditor.changeText}
+          onClose={closeLyricsPanel}
+        />
+      ) : null}
       <ImportBanner palette={chromePalette} pdfImport={pdfImport} onOpenSettings={openImportPanel} />
       {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
       {document !== undefined ? (
@@ -297,7 +330,19 @@ export default function App() {
             />
           }
           right={
-            chrome.panels.inspector ? (
+            isScalesOpen ? (
+              <ScalesPanel
+                palette={palette}
+                song={document.song}
+                trackIndex={trackIndex}
+                selection={selection}
+                cursorMeasureIndex={cursor?.measureIndex ?? 0}
+                choice={scales.choice}
+                onChoose={scales.choose}
+                onClear={scales.clear}
+                onClose={closeScales}
+              />
+            ) : chrome.panels.inspector ? (
               <Inspector
                 palette={palette}
                 song={document.song}
@@ -328,6 +373,7 @@ export default function App() {
                 palette={palette}
                 showsKeyboard={chrome.panels.keyboard}
                 showsFretboard={chrome.panels.neck}
+                scale={scales.highlight}
               />
               {chrome.panels.tracks ? (
                 <TracksPanel

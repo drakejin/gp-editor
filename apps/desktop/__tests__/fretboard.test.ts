@@ -1,4 +1,6 @@
+import type { CircleCommand } from '../src/score/draw';
 import { engraveFretboard, FRETBOARD, fretboardHeight, fretX, neckFret } from '../src/score/fretboard';
+import { SCALE_COLORS } from '../src/score/scale-marks';
 import { makeSong, note } from '../test-support/songs';
 import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
 
@@ -34,6 +36,32 @@ describe('engraveFretboard', () => {
     expect(fretboardHeight(4)).toBeLessThan(fretboardHeight(6));
     expect(fretX({ nutX: 30, fretWidth: 20 }, 0)).toBe(15);
     expect(fretX({ nutX: 30, fretWidth: 20 }, 12)).toBe(260);
+  });
+
+  it('colours the chosen scale’s positions on all 24 frets, the roots apart, under the current notes', () => {
+    // Arrange: A minor pentatonic (A C D E G)
+    const scale = { pitchClasses: [9, 0, 2, 4, 7], root: 9 };
+
+    // Act
+    const commands = engraveFretboard({ track: guitar, width: 1000, palette: PALETTE, notes: [note(1, 5)], scale });
+
+    // Assert: A on E 5/17, A 0/12/24, D 7/19, G 2/14, B 10/22, e 5/17
+    const circles = commands.filter((command): command is CircleCommand => command.kind === 'circle');
+    expect(circles.filter((circle) => circle.color === SCALE_COLORS.root)).toHaveLength(13);
+    expect(circles.filter((circle) => circle.color === SCALE_COLORS.note).length).toBeGreaterThan(40);
+    const circleColors = commands.map((command) => (command.kind === 'circle' ? command.color : ''));
+    expect(circleColors.indexOf(PALETTE.accent)).toBeGreaterThan(circleColors.lastIndexOf(SCALE_COLORS.root));
+    expect(texts(commands).filter((text) => text.size === 7.5 && text.color === SCALE_COLORS.text && text.text === 'A')).toHaveLength(13);
+  });
+
+  it('draws necks of 3 to 10 strings, every string named on all 24 frets', () => {
+    for (const count of [3, 4, 5, 6, 7, 8, 9, 10]) {
+      const track = { ...guitar, strings: Array.from({ length: count }, (_, i) => ({ number: i + 1, tuning: 64 - i * 5 })) };
+      const commands = engraveFretboard({ track, width: 1000, palette: PALETTE, notes: [] });
+      expect(texts(commands).filter((text) => text.size === 7.5)).toHaveLength(count * 25);
+      expect(fretboardHeight(count)).toBe(FRETBOARD.top + (count - 1) * FRETBOARD.stringGap + FRETBOARD.bottom);
+      expect(allFinite(commands)).toBe(true);
+    }
   });
 
   it('outlines the cursor string at the nut', () => {

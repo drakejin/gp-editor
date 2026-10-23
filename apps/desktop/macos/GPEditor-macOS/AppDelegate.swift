@@ -73,10 +73,20 @@ struct GPEditorApp: App {
       // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
       CommandGroup(after: .pasteboard) {
         Divider()
+        // The lyrics of a track, above the score (Guitar Pro's lyrics editor).
+        Button("Lyrics…") {
+          NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
+        }
         Menu("AI Wizard") {
           Button("Song Writer…") {
             NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
           }
+        }
+      }
+      // Tools: the scale panel (scale finder, boxes; the scale is marked on the keyboard and the fretboard).
+      CommandMenu("Tools") {
+        Button("Scales…") {
+          NotificationCenter.default.post(name: .GPEditorScalesCommand, object: nil)
         }
       }
       // ⌘H shows the keyboard shortcuts (the user's choice), so Hide moves off it.
