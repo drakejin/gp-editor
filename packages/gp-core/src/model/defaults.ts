@@ -5,6 +5,7 @@ import {
   type MeasureHeader,
   type NoteEffect,
   type NoteValue,
+  type PedalMark,
   QUARTER_TIME,
   type Rgb,
   type SongInfo,
@@ -220,4 +221,12 @@ export function durationFromTicks(ticks: number): Duration {
     }
   }
   return SHORTEST_DURATION;
+}
+
+/** Sustain pedal marks by offset; at the same offset a release comes before a press (a pedal change). */
+export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
+  if (a.offset !== b.offset) {
+    return a.offset - b.offset;
+  }
+  return a.action === b.action ? 0 : a.action === 'up' ? -1 : 1;
 }

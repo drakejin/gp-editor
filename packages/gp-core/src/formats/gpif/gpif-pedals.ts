@@ -1,6 +1,6 @@
 // GPIF sustain pedal automations (no TuxGuitar counterpart: TuxGuitar reads no pedal): a track's `<Automation>` of type
 // SustainPedal, at a bar and a position in it (0–1), its value "0 1" pressing and "0 3" releasing the pedal.
-import { measureTicks } from '../../model/defaults';
+import { comparePedalMarks, measureTicks } from '../../model/defaults';
 import type { MeasureHeader, PedalAction, PedalMark } from '../../model/song';
 import type { GpifAutomation } from './gpif-document';
 
@@ -25,11 +25,6 @@ export function pedalAutomationsByBar(automations: readonly GpifAutomation[]): R
     }
   }
   return byBar;
-}
-
-/** Pedal marks before, at the same offset a release before a press (a pedal change). */
-export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
-  return a.offset - b.offset || (a.action === b.action ? 0 : a.action === 'up' ? -1 : 1);
 }
 
 /** A bar's pedal marks: positions kept inside the bar, sorted; undefined when it has none. */

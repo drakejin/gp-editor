@@ -212,3 +212,50 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     expect(parsed?.items[0]?.stroke).toEqual(NO_STROKE);
   });
 });
+
+describe('fragment marks', () => {
+  const marked = (extra: Partial<BeatFragmentItem>, effect: Partial<NoteEffect> = {}): BeatFragment => ({
+    isPercussion: false,
+    items: [{ duration: dur(4), notes: [{ ...n(1, 5), effect: { ...EMPTY_NOTE_EFFECT, ...effect } }], stroke: NO_STROKE, pickStroke: 'none', ...extra }],
+  });
+  const reparse = (fragment: BeatFragment) => parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)));
+  const rawOf = (fragment: BeatFragment) => JSON.parse(serializeBeatFragment(fragment)) as { items: { notes: { effect: Record<string, unknown> }[] }[] };
+
+  it('keeps a beat’s hairpin and rasgueado and a note’s fade out or volume swell', () => {
+    // Arrange
+    const fadeOut = marked({ hairpin: 'decrescendo', rasgueado: 'peiAnapaest' }, { fadeOut: true });
+    const swell = marked({}, { volumeSwell: true });
+
+    // Act / Assert
+    expect(reparse(fadeOut)).toEqual(fadeOut);
+    expect(reparse(swell)).toEqual(swell);
+  });
+
+  it.each([
+    ['an unknown hairpin', { hairpin: 'swell' }],
+    ['an unknown rasgueado', { rasgueado: 'ii_1' }],
+  ])('rejects %s', (_label, extra) => {
+    const raw = rawOf(marked({}));
+    expect(parseBeatFragment({ ...raw, items: [{ ...raw.items[0], ...extra }] })).toBeUndefined();
+  });
+
+  it('rejects a fade flag that is no boolean, and keeps one fade (fade in first)', () => {
+    // Arrange
+    const several = rawOf(marked({}, { fadeIn: true }));
+    const wrong = rawOf(marked({}));
+    const severalNote = several.items[0]?.notes[0];
+    const wrongNote = wrong.items[0]?.notes[0];
+    if (severalNote === undefined || wrongNote === undefined) {
+      throw new Error('no note');
+    }
+    severalNote.effect = { ...severalNote.effect, fadeOut: true, volumeSwell: true };
+    wrongNote.effect = { ...wrongNote.effect, volumeSwell: 'yes' };
+
+    // Act
+    const parsed = parseBeatFragment(several);
+
+    // Assert
+    expect(parsed?.items[0]?.notes[0]?.effect).toEqual({ ...EMPTY_NOTE_EFFECT, fadeIn: true });
+    expect(parseBeatFragment(wrong)).toBeUndefined();
+  });
+});
