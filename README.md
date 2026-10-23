@@ -28,6 +28,7 @@ The format is detected from the file content, not the extension.
 `gp-core` also writes Guitar Pro files (`writeSong`): GP3, GP4, GP5 and Guitar Pro 7 `.gp` (zip → GPIF XML, which Guitar
 Pro 7 and 8 open). What each format cannot hold is listed in `packages/gp-core/test/helpers/write-expected.ts` (GP3–GP5)
 and `write-expected-gpif.ts` (`.gp`).
+Guitar Pro itself has not opened these files in our tests; alphaTab is the independent check (see Test).
 
 ## Download
 
@@ -94,6 +95,15 @@ npm run typecheck                           # tsc for both packages
 ```
 
 The Hermes smoke test, the `open -a` E2E check and the QA driver are described in `apps/desktop/README.md`.
+
+Compatibility of the files we write: Guitar Pro itself is not run by the tests, so nothing has proven that Guitar Pro
+opens them. `npm test` (and `npm run coverage`, so every release) runs an independent check instead,
+`packages/gp-core/test/cross-check-alphatab.test.ts`: every fixture (GP1–GP8, Power Tab, TablEdit, MIDI, MusicXML) is
+written as `.gp`, GP5, GP4 and GP3 and read by [alphaTab](https://github.com/CoderLine/alphaTab) (a widely used reader of
+Guitar Pro files; MPL-2.0, a test-only devDependency, not bundled into the app), which must read it as gp-core does —
+tracks, tunings, bars, signatures, repeats, beats, durations, notes and effects. The few places where alphaTab reads
+Guitar Pro's own files differently are listed, with that evidence, in
+`packages/gp-core/test/helpers/alphatab-known-differences.ts`.
 
 ## Using the app
 
@@ -223,7 +233,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
     paste are one undo step each; drum beats paste only into drum tracks.
 - **Keys everywhere**: Space play / stop; `]` / `[` the playback tempo 5 BPM up / down (the speed menu follows; the
   song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
-  tab; ⌘P print; ⌘H (Help ▸
+  tab; ⌘P print; ⇧⌘P the command palette; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
 - **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp`,
   `.gp4`, `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel:
@@ -263,6 +273,21 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   notes only, from a low bass B (31 Hz) to B6 (1976 Hz); a quiet room or noise reads nothing. macOS asks for microphone access the first time; if it was
   refused, the panel says where to allow it (System Settings ▸ Privacy & Security ▸ Microphone). The microphone runs
   only while the panel is open (Esc closes it) and nothing is recorded.
+- **Transpose** (Tools ▸ Transpose…): a panel under the top bar moves notes by *Semitones* or by *Scale steps* (along
+  each bar's key signature: a raised or lowered note stays raised or lowered — the key signature names no mode, so A
+  minor walks C major's notes and its G♯ is a raised 7th), plus whole *Octaves*, on the *Selection* (the selected beats
+  in the cursor's voice), the shown *Track* or the *Whole song*. A note keeps its string while the new fret is on the
+  24-fret neck above the capo, else it moves to the nearest free string; a note no string can hold stays as it was, and
+  the hint strip counts them. Tied notes follow the note they continue (past the selection too); drum tracks never move;
+  transposing a track or the song by semitones moves its key signatures too (spelled with fewer accidentals: D♭, not C♯).
+  Chord names (root and bass, e.g. *Am7/G* → *Bm7/A*) and diagrams move with the notes — a diagram keeps its strings, an
+  octave the other way when the shift would leave the neck —, or alone with *Chords only*. One undo step; the selection
+  stays. (Guitar Pro's *keep the frets* has no counterpart: here a note's pitch is its string and fret — the capo does
+  that.)
+- **Command palette** (Tools ▸ Command Palette…, ⇧⌘P): type parts of a command's name or keywords (*exp pdf*,
+  *transpose*, *let ring*) to find it among every menu command, panel, editor key and edition-palette tool; each row
+  shows its group and key. ↑ / ↓ choose, ↩ runs, Esc closes; the commands run this session come first, and the ones that
+  cannot run now (no document, no note at the cursor) are dimmed at the end.
 - **Chords**: a beat's chord shows over the staves — its name, and its diagram (the strings, the nut or the first fret's
   number, a dot per fretted string, a barre, o / x over open and unplayed strings). The Track inspector's *Chords*
   toggles show names, diagrams or both (per score; Export PDF and Print follow). `K` (or the palette's *Chord*, in the
@@ -355,6 +380,8 @@ GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2
 `fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
 powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
 The MIDI test file is in the public domain (Mutopia Project).
+The tests also read the written files with alphaTab itself (`@coderline/alphatab`, MPL-2.0), a devDependency of
+`packages/gp-core` used only by its tests; it is not part of the library or the app.
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

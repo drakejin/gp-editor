@@ -29,6 +29,7 @@ export interface Gp34MeasureContext {
 }
 
 const REST_STATUS = 0x02;
+const EMPTY_STATUS = 0x00;
 
 function hasOtherVoices(measure: Measure): boolean {
   return measure.beats.some((beat) => beat.voices.slice(1).some((voice) => !voice.isEmpty));
@@ -52,7 +53,21 @@ export function placementsGp34(beats: readonly Beat[]): readonly VoicePlacement[
   });
 }
 
+/**
+ * A measure without beats as Guitar Pro writes one: a single empty quarter beat (no measure of a Guitar Pro file has no
+ * beat, and readers such as alphaTab fail on one). The GP3/GP4 readers read it back as a quarter rest, as TuxGuitar does.
+ */
+function writeEmptyMeasureGp34(writer: ByteWriter): void {
+  writer.writeInt(1); // beat count
+  writer.writeUnsignedByte(0x40).writeUnsignedByte(EMPTY_STATUS); // flags: status follows; the status
+  writer.writeByte(durationValueToGp(4)).writeUnsignedByte(0); // a quarter; no string played
+}
+
 export function writeMeasureGp34(writer: ByteWriter, beats: readonly Beat[], context: Gp34MeasureContext): void {
+  if (beats.length === 0) {
+    writeEmptyMeasureGp34(writer);
+    return;
+  }
   writer.writeInt(beats.length);
   beats.forEach((beat, index) => {
     writeBeatGp34(writer, beat, index === 0 ? context : { ...context, tempoChange: undefined });

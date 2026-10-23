@@ -2,7 +2,7 @@ import { createChannelName } from '../../src/formats/common/channels';
 import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
 import { velocityFromGp } from '../../src/formats/common/velocity';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
-import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration } from '../../src/model/defaults';
+import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
 import type {
   Beat,
   Channel,
@@ -286,9 +286,19 @@ function withDroppedTies(expected: Song, actual: Song): Song {
   return { ...expected, tracks };
 }
 
+/** A measure without beats is written as Guitar Pro's empty quarter beat, which the GP3/GP4 readers take as a rest. */
+function withEmptyMeasureRest(measure: Measure, start: number): Measure {
+  if (measure.beats.length > 0) {
+    return measure;
+  }
+  const rest: Beat = { start, voices: [{ duration: QUARTER, notes: [], isEmpty: false, direction: 'none' }, EMPTY_VOICE], stroke: NO_STROKE, pickStroke: 'none' };
+  return { ...measure, beats: [rest] };
+}
+
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
- * effects): channels as for GP5, and the clef the GP3/GP4 readers derive from the tuning.
+ * effects): channels as for GP5, the clef the GP3/GP4 readers derive from the tuning, and a quarter rest in a measure
+ * without beats.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
   const { master: _master, ...rest } = song;
@@ -297,7 +307,10 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
     channels: expectedChannels(song.channels),
     tracks: song.tracks.map(({ effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
-      return { ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) };
+      return {
+        ...track,
+        measures: track.measures.map((measure) => withEmptyMeasureRest({ ...measure, clef }, song.measureHeaders[measure.headerIndex]?.start ?? 0)),
+      };
     }),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);
