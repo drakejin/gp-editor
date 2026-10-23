@@ -13,6 +13,7 @@ The goal is to open every Guitar Pro file:
 | 5 | `.gp5` | binary | `gtp/gp5.ts` |
 | 6 | `.gpx` | BCFZ / BCFS → GPIF XML | `gpif/gpx.ts` |
 | 7, 8 | `.gp` | zip → GPIF XML | `gpif/gp7.ts` |
+| MIDI (Standard MIDI File 0, 1) | `.mid`, `.midi` | MThd / MTrk chunks | `midi/midi-song-reader.ts` |
 
 It also imports two other tablature programs' files (saved as `.gp5`):
 
@@ -108,7 +109,12 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab or the start screen —
   a blank sheet with one guitar track in standard tuning and four empty 4/4 bars at ♩ = 120, saved as `.gp5`.
 - **Open**: File ▸ Open… (⌘O), dropping a file on the window, or Finder ▸ Open With ▸ GP Editor
-  (Guitar Pro, Power Tab and TablEdit files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+  (Guitar Pro, Power Tab, TablEdit and MIDI files). A PDF dropped on the window (or handed over with `open -a`) is imported as below instead.
+- **MIDI files** (`.mid`, `.midi`) open like Guitar Pro files, as TuxGuitar imports them: one track per MIDI track (a
+  format 0 file's channels each get one), drums on channel 10 as a drum track, tempo, time and key signature changes as
+  bars, note lengths rounded to sixteenths (no tuplets) and tied across bar lines, notes on a standard guitar — or a
+  4-string bass for a bass program — when they fit it, else on TuxGuitar's next tuning. Save asks where to save it
+  as a Guitar Pro file.
 - **Recent files**: File ▸ Open Recent lists the last 20 files opened or saved, newest first, and *Clear Menu* empties it;
   File ▸ Recent Files… (and the start screen, for the first five) shows the same list with *Open*, *Pin* / *Unpin* and
   *Remove* for each file. Pinned files stay on top, in the order they were pinned, and new files never push them out
@@ -278,6 +284,7 @@ GNU Lesser General Public License v2.1 or later (`LGPL-2.1-or-later`) for the wh
 GP3–GP8 test fixtures come from the alphaTab test suite (MPL-2.0); the GP1/GP2 files are not committed (fetched by
 `fetch-gtp.sh`) — see `packages/gp-core/test/fixtures/README.md`. The Power Tab and TablEdit fixtures come from the
 powertabeditor and MuseScore test suites (GPL-3.0, test input only, not part of the library).
+The MIDI test file is in the public domain (Mutopia Project).
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).

@@ -129,6 +129,17 @@ describe('Inspector SONG tab', () => {
     expect(inspector.texts()).toContain('Guitar Pro 5 · 1 track · 1 bar · 00:02');
   });
 
+  it('names a song opened from a MIDI file', () => {
+    // Arrange
+    const inspector = render({ song: { ...SONG, source: { format: 'midi', version: 'SMF 1' } } });
+
+    // Act
+    inspector.openTab('SONG');
+
+    // Assert
+    expect(inspector.texts()).toContain('MIDI file · 1 track · 1 bar · 00:02');
+  });
+
   it('lists the sound banks: select one, remove one the user added, add a SoundFont', () => {
     // Arrange
     const inspector = render();

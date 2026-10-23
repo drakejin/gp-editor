@@ -1,5 +1,6 @@
 import { decodeWindows1252 } from '../io/text';
 import type { FileFormat } from '../model/song';
+import { MIDI_HEADER_MAGIC } from './midi/midi-file-reader';
 import { readTefVersion } from './tef/tef-header';
 
 export interface DetectedFormat {
@@ -44,10 +45,14 @@ const PTAB_HEADER_SIZE = 6;
  * - `.gtp/.gp3/.gp4/.gp5` (Guitar Pro 1–5): a length-prefixed version string
  * - `.ptb` (Power Tab): "ptab" and a version number
  * - `.tef` (TablEdit 3 and later): a 256-byte header TuxGuitar's TEFileFormatDetector checks
+ * - `.mid/.midi` (Standard MIDI File): an MThd chunk
  */
 export function detectFormat(bytes: Uint8Array): DetectedFormat | undefined {
   if (startsWith(bytes, ZIP_MAGIC)) {
     return { format: 'gp7', version: '' };
+  }
+  if (startsWith(bytes, MIDI_HEADER_MAGIC)) {
+    return { format: 'midi', version: '' };
   }
   const magic = decodeWindows1252(bytes.subarray(0, 4));
   if (magic === BCFZ || magic === BCFS) {

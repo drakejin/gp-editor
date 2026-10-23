@@ -29,6 +29,7 @@ if [[ ${#files[@]} -eq 0 ]]; then
         "${FIXTURES}/guitarpro8/directions.gp"
         "${FIXTURES}/powertab/guitar_ins.ptb"
         "${FIXTURES}/tabledit/guitar_bass.tef"
+        "${FIXTURES}/midi/anna-magdalena-04-guitar.mid"
     )
 fi
 

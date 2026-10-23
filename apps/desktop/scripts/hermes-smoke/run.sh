@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Hermes smoke test: bundle gp-core with Metro, then read every fixture (Guitar Pro, Power Tab, TablEdit; not the invalid_
-# ones) and save it as GP5 in the Hermes VM from the macOS pods.
+# Hermes smoke test: bundle gp-core with Metro, then read every fixture (Guitar Pro, Power Tab, TablEdit, MIDI; not the
+# invalid_ ones) and save it as GP5 in the Hermes VM from the macOS pods.
 # Usage: scripts/hermes-smoke/run.sh   (from apps/desktop; needs `npm run pods` first)
 set -euo pipefail
 
@@ -19,7 +19,7 @@ mkdir -p "$OUT"
 node -e '
 const fs = require("fs"), path = require("path");
 const root = process.argv[1];
-const entries = fs.readdirSync(root).filter((d) => /^(guitarpro|powertab|tabledit)/.test(d)).sort().flatMap((dir) =>
+const entries = fs.readdirSync(root).filter((d) => /^(guitarpro|powertab|tabledit|midi)/.test(d)).sort().flatMap((dir) =>
   fs.readdirSync(path.join(root, dir)).filter((f) => !f.startsWith(".") && !f.startsWith("invalid_")).sort().map((f) => ({
     name: `${dir}/${f}`, base64: fs.readFileSync(path.join(root, dir, f)).toString("base64") })));
 fs.writeFileSync(process.argv[2], "export default " + JSON.stringify(entries) + ";\n");

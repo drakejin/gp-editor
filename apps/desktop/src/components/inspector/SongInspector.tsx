@@ -29,6 +29,7 @@ const FORMAT_NAMES: Readonly<Record<Song['source']['format'], string>> = {
   gp7: 'Guitar Pro 7+',
   ptb: 'Power Tab',
   tef: 'TablEdit',
+  midi: 'MIDI file',
 };
 
 export interface SongInspectorProps {

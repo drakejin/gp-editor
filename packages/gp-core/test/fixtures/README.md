@@ -32,3 +32,10 @@ library); the license text is in `GPL-3.0.txt`:
 The `invalid_*.tef` files are broken on purpose (MuseScore's error tests); the sweep leaves them out and
 `tef.test.ts` checks how each is handled. `test/helpers/ptb-builder.ts` and `tef-builder.ts` write synthetic files that
 cover the reader branches these files do not reach.
+
+`midi/anna-magdalena-04-guitar.mid` (Standard MIDI File) is J. S. Bach's Menuet in G, BWV Anh. 114, for guitar, from
+the Mutopia Project (Mutopia-2013/01/06-102, maintainer Emre Akbas, typeset with LilyPond 2.16.1), copied unchanged
+from https://www.mutopiaproject.org/ftp/BachJS/BWVAnh114/anna-magdalena-04-guitar/anna-magdalena-04-guitar.mid
+(MD5 `a8e3d67c24348fb35c8a03ed02a354aa`). Its licence is **Public Domain**
+(https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=102). Synthetic MIDI files are built in the tests by
+`test/helpers/smf-builder.ts`.

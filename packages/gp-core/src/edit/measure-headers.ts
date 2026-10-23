@@ -8,12 +8,12 @@ import { replaceAt, hasSameItems } from './song-paths';
 import { type VoiceEvents, eventsTicks, restEvents, hasSameEvents, toBeats, toMeasureVoices } from './timeline';
 import { fitLimits, settleVoice } from './voice-fit';
 
-const MIN_TEMPO = 1;
-const MAX_TEMPO = 999;
+export const MIN_TEMPO = 1;
+export const MAX_TEMPO = 999;
 const MIN_NUMERATOR = 1;
-const MAX_NUMERATOR = 32;
+export const MAX_NUMERATOR = 32;
 /** Seven flats … seven sharps. */
-const MAX_KEY_ACCIDENTALS = 7;
+export const MAX_KEY_ACCIDENTALS = 7;
 /** Largest repeat count every Guitar Pro format can store (GP3 keeps it in a signed byte). */
 const MAX_REPEAT_CLOSE = 127;
 /** Alternate endings 1–8, one bit each. */
