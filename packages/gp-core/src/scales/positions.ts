@@ -1,4 +1,5 @@
 // A scale's places on a neck, after TuxGuitar's TGFretBoard#paintScale (LGPL-2.1); the five-fret boxes are not in TuxGuitar.
+import { stringStartFret } from '../edit/banjo';
 import { NECK_FRETS } from '../edit/edit-song';
 import type { GuitarString } from '../model/song';
 import { type ScaleChoice, SCALE_ROOTS, scalePitchClasses, toPitchClass } from './notes';
@@ -34,8 +35,9 @@ function lastFretOf(frets: number): number {
 }
 
 /**
- * Every place of the scale on the neck, string by string from string 1, frets 0 to `frets` (at most NECK_FRETS); none
- * for a neck of fewer than 3 or more than 10 strings, or no scale.
+ * Every place of the scale on the neck, string by string from string 1, frets 0 to `frets` (at most NECK_FRETS); a
+ * 5-string banjo's short 5th string from its peg (BANJO_DRONE_FRET), its open note there. None for a neck of fewer than
+ * 3 or more than 10 strings, or no scale.
  */
 export function scaleFretPositions(choice: ScaleChoice, strings: readonly GuitarString[], frets: number = NECK_FRETS): readonly ScalePosition[] {
   const pitchClasses = scalePitchClasses(choice);
@@ -45,15 +47,17 @@ export function scaleFretPositions(choice: ScaleChoice, strings: readonly Guitar
   }
   const last = lastFretOf(frets);
   const sorted = [...strings].sort((a, b) => a.number - b.number);
-  return sorted.flatMap((string) =>
-    Array.from({ length: last + 1 }, (_, fret): ScalePosition[] => {
-      const pitch = string.tuning + fret;
-      return pitchClasses.includes(toPitchClass(pitch)) ? [{ string: string.number, fret, pitch, isRoot: toPitchClass(pitch) === root }] : [];
-    }).flat(),
-  );
+  const tuning = sorted.map((string) => string.tuning);
+  return sorted.flatMap((string) => {
+    const start = stringStartFret(tuning, string.number);
+    return Array.from({ length: Math.max(0, last + 1 - start) }, (_, i): ScalePosition[] => {
+      const pitch = string.tuning + i;
+      return pitchClasses.includes(toPitchClass(pitch)) ? [{ string: string.number, fret: start + i, pitch, isRoot: toPitchClass(pitch) === root }] : [];
+    }).flat();
+  });
 }
 
-/** Where each box begins: one per scale note on the lowest string, from the root's first place up an octave. */
+/** Where each box begins: one per scale note on the lowest-sounding string, from the root's first place up an octave. */
 function boxStarts(choice: ScaleChoice, lowest: GuitarString, last: number): readonly number[] {
   const pitchClasses = scalePitchClasses(choice);
   const rootFret = toPitchClass((pitchClasses[0] ?? 0) - lowest.tuning);
@@ -66,13 +70,17 @@ function boxStarts(choice: ScaleChoice, lowest: GuitarString, last: number): rea
 }
 
 /**
- * The scale cut into boxes of SCALE_BOX_FRETS frets, one per scale note on the lowest string, in scale order from
+ * The scale cut into boxes of SCALE_BOX_FRETS frets, one per scale note on the lowest-sounding string, in scale order from
  * the root: each begins a fret before that note and holds every place of the scale in its frets, on every string.
  * Boxes that would begin on the same fret are given once. None where scaleFretPositions has none.
  */
 export function scaleBoxes(choice: ScaleChoice, strings: readonly GuitarString[], frets: number = NECK_FRETS): readonly ScaleBox[] {
   const positions = scaleFretPositions(choice, strings, frets);
-  const lowest = strings.reduce<GuitarString | undefined>((low, string) => (low === undefined || string.number > low.number ? string : low), undefined);
+  // The lowest-sounding string that starts at the nut (not a banjo's short drone).
+  const tuning = [...strings].sort((a, b) => a.number - b.number).map((string) => string.tuning);
+  const lowest = strings
+    .filter((string) => stringStartFret(tuning, string.number) === 0)
+    .reduce<GuitarString | undefined>((low, string) => (low === undefined || string.tuning < low.tuning ? string : low), undefined);
   if (positions.length === 0 || lowest === undefined) {
     return [];
   }

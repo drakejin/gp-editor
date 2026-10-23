@@ -48,6 +48,19 @@ describe('scaleFretPositions', () => {
     expect(Math.max(...scaleFretPositions(A_MINOR_PENTATONIC, GUITAR, 30).map((position) => position.fret))).toBe(24);
   });
 
+  it('starts a 5-string banjo’s short 5th string at its peg, the 5th fret', () => {
+    // Arrange: open G (g D G B D), G major
+    const banjo = strings(62, 59, 55, 50, 67);
+
+    // Act
+    const positions = scaleFretPositions(choice('G', 'Major Scale'), banjo);
+
+    // Assert
+    expect(onString(positions, 5).slice(0, 3)).toEqual(['5R', '7', '9']);
+    expect(positions.find((position) => position.string === 5 && position.fret === 5)?.pitch).toBe(67);
+    expect(scaleBoxes(choice('G', 'Major Scale'), banjo)[0]).toMatchObject({ firstFret: 4, lastFret: 8 });
+  });
+
   it('has no positions for no scale', () => {
     expect(scaleFretPositions({ rootIndex: 0, scaleIndex: -1 }, GUITAR)).toEqual([]);
   });
