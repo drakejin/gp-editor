@@ -195,6 +195,13 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
 - **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
+- **Tuner** (Tools ▸ Tuner…): play one string at a time into the Mac's microphone; the panel shows the nearest note
+  and octave in large letters, how many cents it is off (green within ±5) on a -50 … +50 cent strip, its frequency,
+  the shown track's open strings with the one being tuned lit (the nearest, within 1.5 semitones; standard guitar
+  tuning without a score), and the input level. The reference A4 steps from 415 to 466 Hz (440 by default). Single
+  notes only, from a low bass B (31 Hz) to B6 (1976 Hz); a quiet room or noise reads nothing. macOS asks for microphone access the first time; if it was
+  refused, the panel says where to allow it (System Settings ▸ Privacy & Security ▸ Microphone). The microphone runs
+  only while the panel is open (Esc closes it) and nothing is recorded.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
   *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
   pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
