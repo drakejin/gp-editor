@@ -31,6 +31,7 @@
 		C47933D74B8552138650CC52 /* GPMidiEngine.m in Sources */ = {isa = PBXBuildFile; fileRef = 50AAF0ECF0640C92238D8E43 /* GPMidiEngine.m */; };
 		CED0DE4CD987FE0C92AFECF2 /* Bravura.otf in Resources */ = {isa = PBXBuildFile; fileRef = 09C3316ED24DFB499B80F563 /* Bravura.otf */; };
 		EA42B13E8E85795BA2F6DD24 /* GPScoreCanvasComponentView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0990F1FF3E8966EC7807BD01 /* GPScoreCanvasComponentView.mm */; };
+		EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */ = {isa = PBXBuildFile; fileRef = B6DF701D448D1420D076617F /* GPAudioInput.m */; };
 		F41FBBE684D18DCACBAE8FDE /* GPSoundBanks.h in Headers */ = {isa = PBXBuildFile; fileRef = D7A8F2C42D535BFD55500166 /* GPSoundBanks.h */; };
 /* End PBXBuildFile section */
 
@@ -59,6 +60,8 @@
 		AF194A0272A26BB1C7AB399B /* GPEditor-macOS-Bridging-Header.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "GPEditor-macOS-Bridging-Header.h"; sourceTree = "<group>"; };
 		B296AF2AE229D8927C732C47 /* Pods-GPEditor-macOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.release.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.release.xcconfig"; sourceTree = "<group>"; };
 		B2F750C1303D40546281013A /* GPProjects.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPProjects.m; sourceTree = "<group>"; };
+		B39CBDE046D9E199137C4BF8 /* GPAudioInput.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioInput.h; sourceTree = "<group>"; };
+		B6DF701D448D1420D076617F /* GPAudioInput.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioInput.m; sourceTree = "<group>"; };
 		BB8B0ADDC0790FF74FF7D211 /* Pods-GPEditor-macOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GPEditor-macOS.debug.xcconfig"; path = "Target Support Files/Pods-GPEditor-macOS/Pods-GPEditor-macOS.debug.xcconfig"; sourceTree = "<group>"; };
 		CD13C4D4A2339F978671239A /* GPAnthropic.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAnthropic.m; sourceTree = "<group>"; };
 		CF0C11CC956B7AFDCE28DA7B /* libPods-GPEditor-macOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GPEditor-macOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -133,6 +136,8 @@
 				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
 				6E162BDD027D425378732E47 /* GPCommandPainter.m */,
 				ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */,
+				B39CBDE046D9E199137C4BF8 /* GPAudioInput.h */,
+				B6DF701D448D1420D076617F /* GPAudioInput.m */,
 				62594748D8802E81D9954180 /* GPSandbox.h */,
 				2FF206889FFAD422198373AE /* GPSandbox.m */,
 				9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */,
@@ -421,6 +426,7 @@
 				C47933D74B8552138650CC52 /* GPMidiEngine.m in Sources */,
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
+				EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */,
 				94B025C4435659814E45E541 /* GPSandbox.m in Sources */,
 				50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */,
 			);

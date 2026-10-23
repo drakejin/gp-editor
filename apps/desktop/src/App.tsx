@@ -22,6 +22,7 @@ import { ShortcutSheet } from './components/ShortcutSheet';
 import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
+import { TunerPanel } from './components/tuner/TunerPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
 import { useClipboard } from './hooks/use-clipboard';
 import { useDocument } from './hooks/use-document';
@@ -32,11 +33,14 @@ import { usePdfImport } from './hooks/use-pdf-import';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
+import { useTuner } from './hooks/use-tuner';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import { trackInstrument } from './lib/instruments';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
+import { tunerStrings } from './lib/tuner-display';
+import { subscribeTunerRequests } from './native/audio-input';
 import { focusView } from './native/focus-view';
 import { subscribeHelpRequests, subscribeImportPdfRequests, subscribeSongWriterRequests } from './native/gp-files';
 import { noNoteHint } from './state/edit-hints';
@@ -95,9 +99,14 @@ export default function App() {
   const { cancelClose } = tabs;
   const { isOpen: isSongWriterOpen, close: closeSongWriter } = songWriter;
   const { isOpen: isExportPanelOpen, close: closeExportPanel } = pdfExport;
+  // Tools ▸ Tuner…: the microphone runs while its panel is open.
+  const tuner = useTuner();
+  const { isOpen: isTunerOpen, open: openTuner, close: closeTuner } = tuner;
+  useEffect(() => subscribeTunerRequests(openTuner), [openTuner]);
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
+      [isTunerOpen, closeTuner],
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
       [isExportPanelOpen, closeExportPanel],
@@ -105,13 +114,13 @@ export default function App() {
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
     return open !== undefined;
-  }, [isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || chrome.notePanel !== undefined ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen;
   // B / C and the palette's bend and vibrato open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -384,6 +393,15 @@ export default function App() {
           onWrite={() => songWriter.write(pdfImport.model, reference)}
           onCancel={songWriter.cancel}
           onClose={songWriter.close}
+        />
+      ) : null}
+      {isTunerOpen ? (
+        <TunerPanel
+          palette={palette}
+          referenceA4={tuner.referenceA4}
+          strings={tunerStrings(track)}
+          onShiftReferenceA4={tuner.shiftReferenceA4}
+          onClose={closeTuner}
         />
       ) : null}
       {chrome.notePanel !== undefined && cursorNote !== undefined ? (
