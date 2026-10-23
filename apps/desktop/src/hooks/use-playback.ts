@@ -24,8 +24,8 @@ export interface Playback {
   readonly error?: string;
   /** Playback tempo, loop and speed trainer of this session (never saved to the file). */
   readonly practice: PracticeSettings;
-  /** Plays from a bar; when looping, plays the loop from its first bar until stopped. */
-  readonly start: (fromMeasureIndex: number) => void;
+  /** Plays from a bar (from `fromTick` inside it, when given); when looping, plays the loop from its first bar until stopped. */
+  readonly start: (fromMeasureIndex: number, fromTick?: number) => void;
   readonly stop: () => void;
   readonly dismissError: () => void;
   /** Changes the practice settings; while playing, playback restarts at the current bar with them. */
@@ -75,8 +75,8 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     stopPlayer(session);
   }, [session]);
   const start = useCallback(
-    (fromMeasureIndex: number) =>
-      launchPlayer(session, follow.current.practice.isLooping ? {} : { measureIndex: fromMeasureIndex }),
+    (fromMeasureIndex: number, fromTick?: number) =>
+      launchPlayer(session, follow.current.practice.isLooping ? {} : { measureIndex: fromMeasureIndex, tick: fromTick }),
     [session],
   );
   const { isPlaying } = state;

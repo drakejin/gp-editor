@@ -41,6 +41,12 @@ describe('planPlayback without loop', () => {
     expect(plan.loop).toBeUndefined();
   });
 
+  it('starts from a beat inside the bar when asked (a selection’s first beat)', () => {
+    const plan = planPlayback(song, INITIAL_PRACTICE, { measureIndex: 2, tick: header(3).start + 960 });
+    expect(plan.startMeasureIndex).toBe(2);
+    expect(plan.startTick).toBe(header(3).start + 960);
+  });
+
   it('clamps the start bar to the song', () => {
     // Act / Assert
     expect(planPlayback(song, INITIAL_PRACTICE, { measureIndex: 9 }).options.fromHeaderIndex).toBe(BARS - 1);
@@ -111,6 +117,16 @@ describe('startSeconds and loopPassAt', () => {
     // Act / Assert: bar 2 at 80 BPM lasts 3 s.
     expect(startSeconds(timeline, 2)).toBeCloseTo(3, 6);
     expect(startSeconds(timeline, 3)).toBe(0);
+  });
+
+  it('finds when a beat inside a bar plays: the bar’s start plus its offset at the bar’s tempo', () => {
+    // Arrange: the song at 120 BPM, bar 2 written at 100 — bar 1 lasts 2 s
+    const { timeline: songTimeline } = renderMidi(song, planPlayback(song, INITIAL_PRACTICE, {}).options);
+
+    // Act / Assert: two quarters into bar 2 at 100 BPM is 1.2 s after its start
+    expect(startSeconds(songTimeline, 1, header(2).start + 2 * 960)).toBeCloseTo(2 + 1.2, 6);
+    expect(startSeconds(songTimeline, 1, header(2).start)).toBeCloseTo(2, 6);
+    expect(startSeconds(songTimeline, 1, header(1).start)).toBeCloseTo(2, 6);
   });
 
   it('tells which pass is playing and its tempo', () => {

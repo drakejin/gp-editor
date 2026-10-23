@@ -1,4 +1,4 @@
-import { type MidiOptions, type Song, type TimelineEntry, timelineIndexAt } from '@gp-editor/core';
+import { type MidiOptions, QUARTER_TIME, type Song, type TimelineEntry, timelineIndexAt } from '@gp-editor/core';
 import { type LoopRange, type PracticeSettings, resolveLoopRange } from '../state/practice';
 import { resolveTrainerMaxTempo, trainerPassTempo } from './practice-tempo';
 
@@ -11,6 +11,8 @@ export const LOOP_BATCH_MEASURES = 256;
 export interface PlayRequest {
   /** Default: bar 1, or the loop's first bar. A bar outside the loop starts the loop at its first bar. */
   readonly measureIndex?: number;
+  /** Song tick inside that bar to start from (a selection's first beat); default: the bar's start. */
+  readonly tick?: number;
   /** 0-based pass of the loop the render starts with (later batches of an endless loop). Default 0. */
   readonly firstPassIndex?: number;
 }
@@ -26,6 +28,8 @@ export interface LoopBatch {
 export interface PlaybackPlan {
   readonly options: MidiOptions;
   readonly startMeasureIndex: number;
+  /** Where in the start bar the player starts (song ticks); undefined: at the bar's start. */
+  readonly startTick?: number;
   readonly loop?: LoopBatch;
 }
 
@@ -64,6 +68,7 @@ function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest):
       passTempoScales: passTempos.map((tempo) => tempo / writtenTempo),
     },
     startMeasureIndex: isInside ? measureIndex : range.fromMeasureIndex,
+    startTick: isInside ? request.tick : undefined,
     loop: { range, firstPassIndex, passTempos },
   };
 }
@@ -72,7 +77,8 @@ function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest):
 function planSong(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan {
   const lastIndex = Math.max(0, song.measureHeaders.length - 1);
   const fromHeaderIndex = Math.min(lastIndex, Math.max(0, request.measureIndex ?? 0));
-  return { options: { fromHeaderIndex, passTempoScales: [practice.tempoScale] }, startMeasureIndex: fromHeaderIndex };
+  const startTick = fromHeaderIndex === request.measureIndex ? request.tick : undefined;
+  return { options: { fromHeaderIndex, passTempoScales: [practice.tempoScale] }, startMeasureIndex: fromHeaderIndex, startTick };
 }
 
 /** What to render: the song from a bar at the playback tempo, or a batch of loop passes (speed trainer applied). */
@@ -86,9 +92,17 @@ export function nextLoopBatch(plan: PlaybackPlan): PlayRequest {
   return { firstPassIndex: (plan.loop?.firstPassIndex ?? 0) + (plan.loop?.passTempos.length ?? 0) };
 }
 
-/** Seconds into the render where a bar first plays; 0 when it does not play. */
-export function startSeconds(timeline: readonly TimelineEntry[], measureIndex: number): number {
-  return timeline.find((entry) => entry.headerIndex === measureIndex)?.seconds ?? 0;
+/**
+ * Seconds into the render where a bar first plays — or, with `tick`, where that point of the bar plays (its offset at
+ * the bar's tempo); 0 when the bar does not play.
+ */
+export function startSeconds(timeline: readonly TimelineEntry[], measureIndex: number, tick?: number): number {
+  const entry = timeline.find((candidate) => candidate.headerIndex === measureIndex);
+  if (entry === undefined) {
+    return 0;
+  }
+  const offsetTicks = tick === undefined ? 0 : Math.max(0, Math.min(tick, entry.endTick ?? tick) - entry.tick);
+  return entry.seconds + (offsetTicks / QUARTER_TIME) * (60 / entry.tempo);
 }
 
 /** The loop pass playing at `seconds` of a loop render; undefined when not looping or outside the render. */

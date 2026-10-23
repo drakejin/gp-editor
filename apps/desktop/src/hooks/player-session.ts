@@ -61,7 +61,7 @@ interface PreparedPlayback {
 function preparePlayback(song: Song, practice: PracticeSettings, request: PlayRequest): PreparedPlayback {
   const plan = planPlayback(song, practice, request);
   const render = renderMidi(song, plan.options);
-  const fromSeconds = startSeconds(render.timeline, plan.startMeasureIndex);
+  const fromSeconds = startSeconds(render.timeline, plan.startMeasureIndex, plan.startTick);
   return {
     plan,
     timeline: render.timeline,

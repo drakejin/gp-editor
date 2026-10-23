@@ -1,4 +1,4 @@
-import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
+import { type Dispatch, type RefObject, useCallback, useMemo, useRef } from 'react';
 import type { DragEvent, KeyEvent, View } from 'react-native';
 import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
@@ -7,6 +7,7 @@ import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
 import { playbackStartTempo } from '../state/practice';
+import { selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
 
@@ -77,6 +78,9 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     [song, practice, changePractice, cursor?.measureIndex],
   );
 
+  const { document, selectionAnchor } = sources.state;
+  const playFrom = useMemo(() => selectionStart({ document, cursor, selectionAnchor }), [document, cursor, selectionAnchor]);
+
   const runCommand = useCallback(
     (command: AppCommand | KeyCommand) => {
       if (command.type === 'newFile') {
@@ -103,7 +107,12 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         if (isPlaying) {
           stop();
         } else {
-          start(cursor?.measureIndex ?? 0);
+          // A selection plays from its first beat (wherever the drag ended); else from the cursor's bar.
+          if (playFrom === undefined) {
+            start(cursor?.measureIndex ?? 0);
+          } else {
+            start(playFrom.measureIndex, playFrom.tick);
+          }
         }
       } else if (command.type === 'stopPlayback') {
         if (!closeOverlay()) {
@@ -113,7 +122,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, onNotePanel, closeOverlay, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, closeOverlay, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
   );
 
   const onPressBeat = useCallback(

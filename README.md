@@ -215,7 +215,8 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   macOS, or your own SoundFont (`.sf2`) or DLS bank via *Add SoundFont…* (copied into the app; *Remove* deletes the
   copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
   bar being played, once, shortly after the last click.
-- **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar with the selected
+- **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar — or, with beats
+  selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
   speed menu and ⟲ Loop set up practice playback for the session — none of it is saved in the file:
   - *Speed*: 25%–100% of the written tempo, a tempo in BPM (60, 90, 120, 150 and the written one), or *Custom* −/+ in

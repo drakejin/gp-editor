@@ -207,3 +207,23 @@ describe('useEditorCommands: keys while a popup is open', () => {
     expect(sources.dispatch).toHaveBeenCalledWith({ type: 'moveCursorBeat', step: 1 });
   });
 });
+
+describe('useEditorCommands: playing a selection', () => {
+  it('plays from the selection’s first beat, wherever the drag ended', () => {
+    // Arrange: the cursor in bar 3, beats selected back to bar 2 (anchor) — the drag went backwards
+    const selected = { ...openSong(), selectionAnchor: { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 3 } };
+    const { commands, sources } = renderCommands(selected);
+
+    // Act
+    commands.runCommand({ type: 'togglePlayback' });
+
+    // Assert: bar 2's first beat starts at tick 4800
+    expect(sources.start).toHaveBeenCalledWith(1, 4800);
+  });
+
+  it('plays from the cursor’s bar without a selection', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.runCommand({ type: 'togglePlayback' });
+    expect(sources.start).toHaveBeenCalledWith(2);
+  });
+});

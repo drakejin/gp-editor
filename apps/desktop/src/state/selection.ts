@@ -28,6 +28,15 @@ export function selectionRange(state: SelectionState): BeatRange | undefined {
   return { first: { measureIndex: first.measureIndex, beatIndex: first.beatIndex }, last: { measureIndex: last.measureIndex, beatIndex: last.beatIndex } };
 }
 
+/** Where playing a selection starts: its first beat's bar and song tick; undefined without a selection. */
+export function selectionStart(state: SelectionState): { readonly measureIndex: number; readonly tick: number } | undefined {
+  const range = selectionRange(state);
+  const cursor = state.cursor;
+  const first = range?.first;
+  const tick = first === undefined || cursor === undefined ? undefined : state.document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex]?.beats[first.beatIndex]?.start;
+  return first === undefined || tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
+}
+
 /** The selected beats in the cursor's voice — the cursor's beat when nothing is selected; undefined when there are none. */
 export function selectedFragment(state: SelectionState): BeatFragment | undefined {
   const { document, cursor } = state;
