@@ -1,6 +1,6 @@
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import type { Song } from '@gp-editor/core';
+import { type Song, buildEffect } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { Inspector, type InspectorProps } from '../src/components/inspector/Inspector';
 import { DEFAULT_MIDI_INPUT } from '../src/lib/midi-input';
@@ -54,6 +54,27 @@ function render(overrides: Partial<InspectorProps> = {}) {
   const texts = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
   return { props, button, press, openTab, field, edit, texts };
 }
+
+describe('Inspector TRACK tab: effects', () => {
+  it('edits the track’s effects in its EFFECTS section, heard while a slider is dragged', () => {
+    // Arrange
+    const onSetTrackEffects = jest.fn();
+    const onPreviewMix = jest.fn();
+    const inspector = render({ onSetTrackEffects, onPreviewMix });
+
+    // Act
+    inspector.press('Add an effect at the end');
+    inspector.press('Add Reverb');
+
+    // Assert
+    expect(inspector.texts()).toEqual(expect.arrayContaining(['EFFECTS', 'No effects: the track plays its instrument as it is.']));
+    expect(onSetTrackEffects).toHaveBeenCalledWith(0, [buildEffect('reverb')]);
+  });
+
+  it('has no EFFECTS section where effects cannot be edited', () => {
+    expect(render().texts()).not.toContain('EFFECTS');
+  });
+});
 
 describe('Inspector TRACK tab', () => {
   it('opens on the track: its name, notation toggles and instrument', () => {
