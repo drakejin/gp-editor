@@ -74,7 +74,8 @@ RCT_EXPORT_MODULE();
 
 RCT_EXPORT_METHOD(hasApiKey : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
-  resolve(@([GPAnthropic apiKey] != nil));
+  // A comparison is an int in Objective-C: box a BOOL so JS gets true / false, not 1 / 0.
+  resolve([GPAnthropic apiKey] != nil ? @YES : @NO);
 }
 
 RCT_EXPORT_METHOD(setApiKey : (NSString *)key resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)

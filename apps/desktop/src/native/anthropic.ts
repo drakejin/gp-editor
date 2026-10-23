@@ -28,8 +28,9 @@ function requireNative(): GPAnthropicModule {
   return native;
 }
 
+/** Whether a key is saved; a truthy answer of any kind counts (older builds answered 1 rather than true). */
 export function hasApiKey(): Promise<boolean> {
-  return native === undefined ? Promise.resolve(false) : native.hasApiKey();
+  return native === undefined ? Promise.resolve(false) : native.hasApiKey().then(Boolean);
 }
 
 export function setApiKey(key: string): Promise<void> {
