@@ -1,0 +1,54 @@
+/* The window of the Windows build: the app fills it, like the macOS window's root view. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  /* The chrome is dark; this shows only while the bundle loads. */
+  background: #2b2d31;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  /* A desktop app: no text selection by dragging across buttons and the score. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* The focusable root view takes the keys; it draws no focus ring (enableFocusRing={false} on the Mac). */
+[tabindex]:focus,
+[tabindex]:focus-visible {
+  outline: none;
+}
+
+/* Thin scroll bars, as on the Mac. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
