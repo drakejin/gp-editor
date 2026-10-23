@@ -4,8 +4,11 @@ import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
 import { type DigitEntry, nextFretEntry } from './fret-input';
 
-/** A panel for the note at the cursor that takes more than a toggle: vibrato width, bend shape and amount. */
-export type NotePanel = 'vibrato' | 'bend';
+/**
+ * A panel for the note at the cursor that takes more than a toggle: vibrato width, the bend's curve, the tremolo bar's
+ * curve (the palette's W.bar: Guitar Pro has no key for it).
+ */
+export type NotePanel = 'vibrato' | 'bend' | 'tremoloBar';
 
 /**
  * What a key press does: an editor action, a playback control (play, the playback tempo), a jump to another bar, a

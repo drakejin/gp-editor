@@ -1,4 +1,4 @@
-import { QUARTER, TREMOLO_BAR_PRESETS, bendShapeOf, buildBend, findNote, vibratoOf } from '@gp-editor/core';
+import { QUARTER, TREMOLO_BAR_PRESETS, buildBend, findNote, vibratoOf } from '@gp-editor/core';
 import type { Note } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
@@ -36,17 +36,17 @@ describe('note edits at the cursor', () => {
     expect(legatoOnly.past).toHaveLength(3);
   });
 
-  it('sets a bend of any shape and amount, and removes it', () => {
+  it('sets a bend curve (the bend panel’s Apply) and removes it, each one undo step', () => {
     // Act
-    const release = edit(loaded(), { type: 'setBendShape', shape: 'release', amount: 6 });
-    const highest = edit(release, { type: 'setBendShape', shape: 'bendRelease', amount: 20 });
-    const none = edit(highest, { type: 'setBendShape', shape: 'none', amount: 4 });
+    const release = edit(loaded(), { type: 'setBend', bend: buildBend('release', 6) });
+    const drawn = edit(release, { type: 'setBend', bend: { points: [{ position: 0, value: 0 }, { position: 4, value: 3 }, { position: 9, value: 20 }] } });
+    const none = edit(drawn, { type: 'setBend', bend: undefined });
 
     // Assert
     expect(noteAt(release).effect.bend).toEqual(buildBend('release', 6));
-    expect(bendShapeOf(noteAt(highest).effect.bend!)).toEqual({ shape: 'bendRelease', amount: 12 });
+    expect(noteAt(drawn).effect.bend?.points).toEqual([{ position: 0, value: 0 }, { position: 4, value: 3 }, { position: 9, value: 12 }]);
     expect(noteAt(none).effect.bend).toBeUndefined();
-    expect(edit(release, { type: 'setBendShape', shape: 'release', amount: 6 })).toBe(release);
+    expect(edit(release, { type: 'setBend', bend: buildBend('release', 6) })).toBe(release);
     expect(none.past).toHaveLength(3);
   });
 
@@ -65,10 +65,17 @@ describe('note edits at the cursor', () => {
     expect(edit(wide, { type: 'setVibrato', vibrato: 'wide' })).toBe(wide);
   });
 
-  it('sets a tremolo bar preset and removes it', () => {
-    const dived = edit(loaded(), { type: 'setTremoloBar', preset: 'dive' });
+  it('sets a tremolo bar curve (the tremolo bar panel’s Apply) and removes it', () => {
+    // Act
+    const dived = edit(loaded(), { type: 'setTremoloBar', tremoloBar: TREMOLO_BAR_PRESETS.dive });
+    const drawn = edit(dived, { type: 'setTremoloBar', tremoloBar: { points: [{ position: 0, value: 0 }, { position: 3, value: -30 }, { position: 7, value: 3 }] } });
+    const none = edit(drawn, { type: 'setTremoloBar', tremoloBar: undefined });
+
+    // Assert
     expect(noteAt(dived).effect.tremoloBar).toEqual(TREMOLO_BAR_PRESETS.dive);
-    expect(noteAt(edit(dived, { type: 'setTremoloBar', preset: 'none' })).effect.tremoloBar).toBeUndefined();
+    expect(noteAt(drawn).effect.tremoloBar?.points).toEqual([{ position: 0, value: 0 }, { position: 3, value: -24 }, { position: 7, value: 3 }]);
+    expect(noteAt(none).effect.tremoloBar).toBeUndefined();
+    expect(none.past).toHaveLength(3);
   });
 
   it('sets a harmonic with TuxGuitar’s default data: artificial +12, tapped 12 frets up (at most fret 29)', () => {
@@ -137,9 +144,9 @@ describe('note edits at the cursor', () => {
 
   it.each<SongEdit>([
     { type: 'toggleSlideType', slide: 'shift' },
-    { type: 'setBendShape', shape: 'preBend', amount: 3 },
+    { type: 'setBend', bend: buildBend('preBend', 3) },
     { type: 'setVibrato', vibrato: 'wide' },
-    { type: 'setTremoloBar', preset: 'dip' },
+    { type: 'setTremoloBar', tremoloBar: TREMOLO_BAR_PRESETS.dip },
     { type: 'setHarmonic', harmonic: 'tapped' },
     { type: 'setDynamic', dynamic: 'ff' },
     { type: 'setGrace', grace: 'beforeBeat' },

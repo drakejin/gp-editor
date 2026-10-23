@@ -1,5 +1,5 @@
 import type { GlyphKind } from './MusicIcon';
-import { type Beat, type Bend, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
+import { type Beat, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
@@ -48,7 +48,7 @@ export type PaletteRun =
   | { readonly kind: 'options'; readonly options: readonly PaletteOption[] }
   /** Opens a text field under the group (section name, beat text). */
   | { readonly kind: 'text'; readonly placeholder: string; readonly value: (context: PaletteContext) => string; readonly edit: (text: string) => SongEdit }
-  /** Opens the vibrato or bend panel for the note, as B and C do. */
+  /** Opens the vibrato, bend or tremolo bar panel for the note (B and C open the first two). */
   | { readonly kind: 'panel'; readonly panel: NotePanel }
   /** Opens the chord diagram panel for the beat, as K does. */
   | { readonly kind: 'chordPanel' };
@@ -95,13 +95,4 @@ export function isToolEnabled(tool: Pick<PaletteTool, 'scope'>, context: Palette
     case 'bar':
       return context.header !== undefined;
   }
-}
-
-export function isSameBend(a: Bend | undefined, b: Bend | undefined): boolean {
-  return (
-    a !== undefined &&
-    b !== undefined &&
-    a.points.length === b.points.length &&
-    a.points.every((point, i) => point.position === b.points[i]?.position && point.value === b.points[i]?.value)
-  );
 }

@@ -7,15 +7,18 @@ interface NotePanelFrameProps {
   readonly palette: Palette;
   readonly title: string;
   readonly subtitle: string;
+  /** What Done says on hover; "Close" by default. */
+  readonly closeTooltip?: string;
   readonly onClose: () => void;
   readonly children: ReactNode;
 }
 
-/** A dark panel over the window for one note's setting (vibrato, bend); Done or a click outside closes it. */
+/** A dark panel over the window for one note's setting (vibrato, bend, tremolo bar); Done or a click outside closes it. */
 export function NotePanelFrame({
   palette,
   title,
   subtitle,
+  closeTooltip = 'Close',
   onClose,
   children,
 }: NotePanelFrameProps) {
@@ -48,7 +51,7 @@ export function NotePanelFrame({
           <ChromeButton
             palette={palette}
             label="Done"
-            tooltip="Close"
+            tooltip={closeTooltip}
             onPress={onClose}
           />
         </View>

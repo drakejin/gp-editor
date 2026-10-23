@@ -112,7 +112,8 @@ describe('command registry', () => {
 
   it('turns the edition palette’s tools, options and steppers into commands; text tools stay in the palette', () => {
     expect(find('palette.value8')).toMatchObject({ title: 'Eighth note', group: 'Rhythm', command: { type: 'edit', edit: { type: 'setNoteValue', value: 8 } } });
-    expect(COMMANDS.map((command) => command.title)).toEqual(expect.arrayContaining(['Tuplet: 3-tuplet', 'Whammy bar: Dip', 'Trill: Off', 'Dynamic mf', 'Repeat start']));
+    expect(COMMANDS.map((command) => command.title)).toEqual(expect.arrayContaining(['Tuplet: 3-tuplet', 'Trill: Off', 'Dynamic mf', 'Repeat start']));
+    expect(find('palette.whammy')).toMatchObject({ title: 'Whammy bar: presets and your own curve', command: { type: 'openNotePanel', panel: 'tremoloBar' } });
     expect(find('palette.tempo.plus')).toMatchObject({ title: 'Written tempo from this bar (+)', command: { type: 'edit', edit: { type: 'shiftTempo', delta: 5 } } });
     expect(COMMANDS.some((command) => command.id.startsWith('palette.section'))).toBe(false);
   });
