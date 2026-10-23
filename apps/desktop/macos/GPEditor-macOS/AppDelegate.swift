@@ -65,6 +65,14 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorExportCommand, object: nil)
         }
         .keyboardShortcut("e", modifiers: [.command, .shift])
+        // The song as playback plays it (repeats unfolded, its own tempo, mute and solo as set), and its fretted tracks as text.
+        Button("Export MIDI…") {
+          NotificationCenter.default.post(name: .GPEditorExportMidiCommand, object: nil)
+        }
+        Button("Export ASCII Tab…") {
+          NotificationCenter.default.post(name: .GPEditorExportAsciiTabCommand, object: nil)
+        }
+        Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
         }

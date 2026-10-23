@@ -33,6 +33,11 @@ describe('editorReducer: loading and modes', () => {
     expect(failed.document).toBe(loaded.document);
   });
 
+  it('names what could not be exported when it is not the PDF', () => {
+    const failed = editorReducer(loadedState(), { type: 'exportFailed', what: 'the MIDI file', message: 'disk full' });
+    expect(failed.error).toBe('Could not export the MIDI file: disk full');
+  });
+
   it('starts a fresh history with the cursor on the first beat, keeping the score mode', () => {
     const tabMode = editorReducer(INITIAL_EDITOR_STATE, { type: 'setMode', mode: 'tab' });
     const state = editorReducer(tabMode, { type: 'loaded', document: loadedState().document! });

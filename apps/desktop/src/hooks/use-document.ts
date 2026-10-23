@@ -1,13 +1,13 @@
 import { type Dispatch, useCallback, useEffect, useRef } from 'react';
 import { readSong, writeSong } from '@gp-editor/core';
 import { base64ToBytes, bytesToBase64 } from '../lib/base64';
-import { withoutExtension } from '../lib/file-name';
+import { SAVE_FORMATS, type SaveFormat, defaultSaveFormat, fileNameIn, saveFormatOf } from '../lib/file-formats';
 import {
   type OpenedFile,
   readFile,
   setDocumentTitle,
   showOpenDialog,
-  showSaveDialog,
+  showSavePanel,
   subscribeFileEvents,
   writeFile,
 } from '../native/gp-files';
@@ -29,20 +29,13 @@ export interface DocumentCommands {
    * edited until saved, so closing it asks first.
    */
   readonly openDocument: (document: OpenDocument) => void;
-  /** The shown tab: ⌘S overwrites a .gp5 document; anything else, and ⇧⌘S, asks where to save a .gp5 file. */
+  /**
+   * The shown tab: ⌘S overwrites a file in its own format when the app writes it (`SAVE_FORMATS`: .gp5, .gp4, .gp3);
+   * anything else, and ⇧⌘S, asks where and in which format to save.
+   */
   readonly save: (saveAs: boolean) => void;
   /** Saves one tab as `save` does; true once it is saved, false when the save panel was cancelled or it failed. */
   readonly saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>;
-}
-
-/** "Song.gpx" → "Song.gp5". */
-export function gp5Name(fileName: string): string {
-  return `${withoutExtension(fileName)}.gp5`;
-}
-
-/** Plain Save may overwrite only a file that is already GP5; other formats are saved as a new .gp5. */
-export function canOverwrite(path: string): boolean {
-  return path.toLowerCase().endsWith('.gp5');
 }
 
 /** The default for `onOpenPdf`: one function, so the File-menu listeners are not re-added on every render. */
@@ -139,7 +132,24 @@ function useOpenFile(dispatch: Dispatch<WorkspaceAction>): (load: () => Promise<
   );
 }
 
-/** Saving one tab: GP5 bytes to its file or through the save panel; the result goes to that tab (`inTab`). */
+/** Where to write: the document's own file in its format (plain Save), else the save panel's choice; null when cancelled. */
+async function chooseDestination(document: OpenDocument, saveAs: boolean): Promise<{ readonly path: string; readonly format: SaveFormat } | null> {
+  const ownFormat = saveAs ? undefined : saveFormatOf(document.path);
+  if (ownFormat !== undefined) {
+    return { path: document.path, format: ownFormat };
+  }
+  const preselected = defaultSaveFormat(document.path);
+  const chosen = await showSavePanel({ suggestedName: fileNameIn(document.fileName, preselected), formats: SAVE_FORMATS, formatId: preselected.id });
+  if (chosen === null) {
+    return null;
+  }
+  return { path: chosen.path, format: SAVE_FORMATS.find((format) => format.id === chosen.formatId) ?? SAVE_FORMATS[0] };
+}
+
+/**
+ * Saving one tab: its song in the chosen Guitar Pro format, to its file or through the save panel; what the format
+ * cannot hold goes to the hint bar before it is written, and the result to that tab (`inTab`).
+ */
 function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>): DocumentCommands['saveTab'] {
   // Reads the latest tabs through a ref, so the File-menu listener does not need re-subscribing per edit.
   const latest = useRef(workspace);
@@ -153,14 +163,15 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
       const toTab = (action: EditorAction) => dispatch({ type: 'inTab', tabId, action });
       const { song } = document;
       try {
-        const base64 = bytesToBase64(writeSong(song, 'gp5'));
-        const saved =
-          !saveAs && canOverwrite(document.path)
-            ? await writeFile(document.path, base64)
-            : await showSaveDialog(base64, gp5Name(document.fileName));
-        if (saved === null) {
+        const destination = await chooseDestination(document, saveAs);
+        if (destination === null) {
           return false;
         }
+        const { path, format } = destination;
+        if (format.note !== undefined) {
+          toTab({ type: 'showHint', hint: format.note });
+        }
+        const saved = await writeFile(path, bytesToBase64(writeSong(song, format.id)));
         toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
         return true;
       } catch (error: unknown) {

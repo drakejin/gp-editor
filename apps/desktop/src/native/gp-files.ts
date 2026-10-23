@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import type { FileFormat } from '../lib/file-formats';
 import { type ScoreMode, toScoreMode } from '../score/geometry';
 
 /** A file read by the native side; `base64` holds its bytes. */
@@ -14,11 +15,25 @@ export interface SavedFile {
   readonly path: string;
 }
 
+/** The save panel: a "Format" popup when it offers more than one format (choosing one changes the extension). */
+export interface SavePanelOptions {
+  readonly suggestedName: string;
+  readonly formats: readonly FileFormat[];
+  /** The format chosen when the panel opens. */
+  readonly formatId: string;
+}
+
+/** Where to save, and in which of the offered formats; the file is not written yet. */
+export interface ChosenFile extends SavedFile {
+  readonly formatId: string;
+}
+
 interface GPFilesModule {
   showOpenDialog(): Promise<OpenedFile | null>;
   readFile(pathOrUrl: string): Promise<OpenedFile>;
-  showSaveDialog(base64: string, suggestedName: string): Promise<SavedFile | null>;
+  showSavePanel(options: SavePanelOptions): Promise<ChosenFile | null>;
   writeFile(path: string, base64: string): Promise<SavedFile>;
+  writeTextFile(path: string, text: string): Promise<SavedFile>;
   setDocumentTitle(title: string): void;
 }
 
@@ -39,14 +54,19 @@ export function readFile(pathOrUrl: string): Promise<OpenedFile> {
   return requireNative().readFile(pathOrUrl);
 }
 
-/** Save panel for a .gp5 file; null when cancelled. */
-export function showSaveDialog(base64: string, suggestedName: string): Promise<SavedFile | null> {
-  return requireNative().showSaveDialog(base64, suggestedName);
+/** Asks where to save (and in which format); null when cancelled. Write the file with writeFile / writeTextFile. */
+export function showSavePanel(options: SavePanelOptions): Promise<ChosenFile | null> {
+  return requireNative().showSavePanel(options);
 }
 
-/** Overwrite a file the user opened or saved in this session. */
+/** Write (or overwrite) a file the user opened or chose in a save panel in this session. */
 export function writeFile(path: string, base64: string): Promise<SavedFile> {
   return requireNative().writeFile(path, base64);
+}
+
+/** writeFile for text, saved as UTF-8. */
+export function writeTextFile(path: string, text: string): Promise<SavedFile> {
+  return requireNative().writeTextFile(path, text);
 }
 
 /** Window title; ignored where the native module is missing (tests). */
@@ -96,6 +116,26 @@ export function subscribeExportRequests(onExportRequested: () => void): () => vo
   }
   const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('exportRequested', onExportRequested);
   return () => subscription.remove();
+}
+
+export interface SongExportHandlers {
+  /** File ▸ Export MIDI…. */
+  readonly onExportMidiRequested: () => void;
+  /** File ▸ Export ASCII Tab…. */
+  readonly onExportAsciiTabRequested: () => void;
+}
+
+/** File ▸ Export MIDI… and Export ASCII Tab…; returns the unsubscribe function. */
+export function subscribeSongExportRequests(handlers: SongExportHandlers): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const emitter = new NativeEventEmitter(NativeModules.GPFiles);
+  const subscriptions = [
+    emitter.addListener('exportMidiRequested', handlers.onExportMidiRequested),
+    emitter.addListener('exportAsciiTabRequested', handlers.onExportAsciiTabRequested),
+  ];
+  return () => subscriptions.forEach((subscription) => subscription.remove());
 }
 
 /** File ▸ Print… (⌘P). */
