@@ -1,6 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type PlayedNote, type Song, findNote } from '@gp-editor/core';
+import { type Effect, type MasterMix, type PlayedNote, type Song, findNote } from '@gp-editor/core';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
 import { DocumentLayout } from './components/DocumentLayout';
@@ -27,6 +27,8 @@ import { TabStrip } from './components/TabStrip';
 import { TransposePanel } from './components/TransposePanel';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { TunerPanel } from './components/tuner/TunerPanel';
+import { LineInPanel } from './components/effects/LineInPanel';
+import { MixerPanel } from './components/effects/MixerPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
 import { ChordPanel } from './components/chords/ChordPanel';
 import { LyricsPanel } from './components/lyrics/LyricsPanel';
@@ -47,6 +49,7 @@ import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
 import { useTuner } from './hooks/use-tuner';
+import { useAudioTools } from './hooks/use-audio-tools';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import type { CommandActions } from './lib/command-types';
 import { COMMANDS } from './lib/commands';
@@ -143,6 +146,9 @@ export default function App() {
   const commandPalette = useCommandPalette(focusScore);
   const { isOpen: isTransposeOpen, close: closeTranspose } = transposePanel;
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = commandPalette;
+  // Effects (View ▸ Mixer, the Track inspector) heard live, and Tools ▸ Line In… (a card beside the score).
+  const audio = useAudioTools(song, trackIndex, chrome.togglePanel);
+  const { isOpen: isLineInOpen, close: closeLineIn } = audio.lineIn;
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
@@ -155,6 +161,7 @@ export default function App() {
       [isScalesOpen, closeScales],
       [isTransposeOpen, closeTranspose],
       [isCommandPaletteOpen, closeCommandPalette],
+      [isLineInOpen, closeLineIn],
     ];
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
@@ -162,7 +169,7 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
@@ -260,6 +267,13 @@ export default function App() {
     }),
     [cursorString],
   );
+  const effectCommands = useMemo(
+    () => ({
+      onSetTrackEffects: (index: number, effects: readonly Effect[]) => dispatch({ type: 'setTrackEffects', trackIndex: index, effects }),
+      onSetMasterMix: (master: MasterMix) => dispatch({ type: 'setMasterMix', master }),
+    }),
+    [],
+  );
 
   const { openShortcutSheet } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
@@ -332,6 +346,7 @@ export default function App() {
     openTranspose: transposePanel.open,
     openTuner,
     openScales,
+    openLineIn: audio.lineIn.open,
     openLyrics: () => openLyrics.current(),
     pickInstrument: () => chrome.pickInstrument(trackIndex),
     togglePanel: chrome.togglePanel,
@@ -505,6 +520,8 @@ export default function App() {
                 onSelectSoundBank={sound.select}
                 onAddSoundBank={sound.add}
                 onRemoveSoundBank={sound.remove}
+                onSetTrackEffects={effectCommands.onSetTrackEffects}
+                onPreviewMix={audio.previewMix}
                 midiInput={midiInput}
               />
             ) : null
@@ -531,6 +548,17 @@ export default function App() {
                   palette={palette}
                   onEditInstrument={chrome.pickInstrument}
                   {...trackCommands}
+                />
+              ) : null}
+              {chrome.panels.mixer ? (
+                <MixerPanel
+                  palette={palette}
+                  song={document.song}
+                  selectedTrackIndex={trackIndex}
+                  onSelectTrack={trackCommands.onSelectTrack}
+                  {...effectCommands}
+                  onPreview={audio.previewMix}
+                  onClose={() => chrome.togglePanel('mixer')}
                 />
               ) : null}
             </>
@@ -605,6 +633,9 @@ export default function App() {
           onCancel={songWriter.cancel}
           onClose={songWriter.close}
         />
+      ) : null}
+      {audio.lineIn.isOpen && song !== undefined ? (
+        <LineInPanel palette={palette} lineIn={audio.lineIn} trackLabel={`${audio.lineIn.trackIndex + 1}. ${song.tracks[audio.lineIn.trackIndex]?.name ?? ''}`} />
       ) : null}
       {isTunerOpen ? (
         <TunerPanel

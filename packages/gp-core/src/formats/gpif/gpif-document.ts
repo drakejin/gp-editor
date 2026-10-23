@@ -68,6 +68,8 @@ export interface GpifTrack {
   readonly staffCount: number;
   readonly lyrics: readonly GpifLyricsLine[];
   readonly chords: ReadonlyMap<number, GpifChord>;
+  /** The track's own `<Automations>` (GP7: the sound, the sustain pedal). */
+  readonly automations: readonly GpifAutomation[];
 }
 
 export interface GpifMasterBar {
@@ -82,6 +84,9 @@ export interface GpifMasterBar {
   readonly tripletFeel: string | undefined;
   readonly alternateEndings: readonly number[] | undefined;
   readonly markerText: string | undefined;
+  /** `<Directions>`: the `<Target>` and `<Jump>` names, as written. */
+  readonly directionTargets: readonly string[];
+  readonly directionJumps: readonly string[];
 }
 
 export interface GpifBar {
@@ -122,6 +127,10 @@ export interface GpifBeat {
   readonly pickStroke: string;
   readonly tremolo: readonly number[] | undefined;
   readonly fadding: string | undefined;
+  /** `<Hairpin>`: Crescendo or Decrescendo. */
+  readonly hairpin: string | undefined;
+  /** The Rasgueado property's pattern id (ii_1 … peami_1). */
+  readonly rasgueado: string | undefined;
   readonly text: string;
   readonly chordId: number | undefined;
   readonly graceNotes: string | undefined;

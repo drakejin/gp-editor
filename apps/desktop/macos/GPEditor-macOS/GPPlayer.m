@@ -1,22 +1,31 @@
 // MIDI playback for the JS side: plays a Standard MIDI File (built by gp-core's renderMidi) on GPMidiEngine with the
 // selected sound bank (GPSoundBanks: GeneralUser GS, the macOS GS bank, or a SoundFont the user added). JS polls
 // -position to follow the playing beat, and changes a channel's program live when a track's instrument changes.
+// The song's effects (setMix) and the line in (Tools ▸ Line In) live on the same engine. View ▸ Mixer and
+// Tools ▸ Line In… (GPEditorNotifications.h) are forwarded to JS as "mixerRequested" / "lineInRequested".
 // Methods run on a serial queue of their own, so loading a bank never blocks the window; only the open panel of
 // -addSoundBank goes to the main queue.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+#import "GPEditorNotifications.h"
+#import "GPLineIn.h"
 #import "GPMidiEngine.h"
 #import "GPSoundBanks.h"
 
-@interface GPPlayer : NSObject <RCTBridgeModule>
+static NSString *const kMixerRequestedEvent = @"mixerRequested";
+static NSString *const kLineInRequestedEvent = @"lineInRequested";
+
+@interface GPPlayer : RCTEventEmitter <RCTBridgeModule>
 @end
 
 @implementation GPPlayer {
   dispatch_queue_t _queue;
   GPMidiEngine *_engine;
+  BOOL _hasListeners;
 }
 
 RCT_EXPORT_MODULE();
@@ -30,8 +39,45 @@ RCT_EXPORT_MODULE();
 {
   if ((self = [super init])) {
     _queue = dispatch_queue_create("com.drakejin.gpeditor.player", DISPATCH_QUEUE_SERIAL);
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self selector:@selector(onMixerCommand:) name:GPEditorMixerCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onLineInCommand:) name:GPEditorLineInCommandNotification object:nil];
   }
   return self;
+}
+
+- (void)dealloc
+{
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (NSArray<NSString *> *)supportedEvents
+{
+  return @[ kMixerRequestedEvent, kLineInRequestedEvent ];
+}
+
+- (void)startObserving
+{
+  _hasListeners = YES;
+}
+
+- (void)stopObserving
+{
+  _hasListeners = NO;
+}
+
+- (void)onMixerCommand:(NSNotification *)note
+{
+  if (_hasListeners) {
+    [self sendEventWithName:kMixerRequestedEvent body:@{}];
+  }
+}
+
+- (void)onLineInCommand:(NSNotification *)note
+{
+  if (_hasListeners) {
+    [self sendEventWithName:kLineInRequestedEvent body:@{}];
+  }
 }
 
 - (dispatch_queue_t)methodQueue
@@ -145,6 +191,59 @@ RCT_EXPORT_METHOD(removeSoundBank : (NSString *)bankId resolve : (RCTPromiseReso
 RCT_EXPORT_METHOD(position : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   resolve(@{@"seconds" : @(_engine.positionSeconds), @"isPlaying" : @(_engine.isPlaying)});
+}
+
+/** The song's effects, `{ tracks: [effects | null], master }` (gp-core's model): heard now, kept for later plays. */
+RCT_EXPORT_METHOD(setMix : (NSDictionary *)mix resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [self.engine setMix:[mix isKindOfClass:[NSDictionary class]] ? mix : @{}];
+  resolve(nil);
+}
+
+/** `{ devices: [{ id, name, isBuiltIn }], defaultId, isOutputBuiltIn }`. */
+RCT_EXPORT_METHOD(lineInDevices : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  resolve([GPLineIn devicesState]);
+}
+
+/** Starts the line in: `{ deviceId, trackIndex, gainDb, isMonitoring }`, asking for microphone access first. */
+RCT_EXPORT_METHOD(startLineIn : (NSDictionary *)settings resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [GPLineIn requestAccess:^(BOOL isGranted) {
+    dispatch_async(self->_queue, ^{
+      if (!isGranted) {
+        reject(@"no_access", @"GP Editor may not use the audio input: allow it in System Settings ▸ Privacy & Security ▸ Microphone", nil);
+        return;
+      }
+      NSError *error = nil;
+      NSString *deviceId = [settings[@"deviceId"] isKindOfClass:[NSString class]] && [settings[@"deviceId"] length] > 0 ? settings[@"deviceId"] : nil;
+      if (![self.engine startLineInWithDevice:deviceId trackIndex:[settings[@"trackIndex"] integerValue] gainDb:[settings[@"gainDb"] doubleValue]
+                                 isMonitoring:[settings[@"isMonitoring"] boolValue] error:&error]) {
+        reject(@"line_in_failed", error.localizedDescription ?: @"The audio input could not be started", error);
+        return;
+      }
+      resolve(nil);
+    });
+  }];
+}
+
+/** Another track, input gain or monitoring for the running line in: `{ trackIndex, gainDb, isMonitoring }`. */
+RCT_EXPORT_METHOD(updateLineIn : (NSDictionary *)settings resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [_engine updateLineInTrack:[settings[@"trackIndex"] integerValue] gainDb:[settings[@"gainDb"] doubleValue] isMonitoring:[settings[@"isMonitoring"] boolValue]];
+  resolve(nil);
+}
+
+RCT_EXPORT_METHOD(stopLineIn : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [_engine stopLineIn];
+  resolve(nil);
+}
+
+/** The line in's peak since the last call, in dBFS (−120 when off or silent). */
+RCT_EXPORT_METHOD(lineInLevel : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  resolve(@(_engine == nil ? -120 : [_engine takeLineInLevel]));
 }
 
 @end

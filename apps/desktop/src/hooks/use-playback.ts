@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
 import { type LiveChange, hasSameMuteAndSolo, liveChannelChanges } from '../lib/live-channels';
+import { hasSameEffectRouting } from '../lib/mix';
 import type { LoopPass } from '../lib/practice-plan';
 import { setMidiController, setMidiProgram } from '../native/player';
 import type { PlayingBeat } from '../score/row';
@@ -106,13 +107,18 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
   }, [session]);
 
   // A track's instrument, volume or pan changed (same bars): sent live on its MIDI channels, heard at once; a restart
-  // only when the MIDI channels themselves changed (e.g. the track got a channel of its own) or a track was muted or
-  // soloed.
+  // only when the MIDI channels themselves changed (e.g. the track got a channel of its own), a track was muted or
+  // soloed, or a track got its first effect or lost its last. Effect values are sent live by useMixSync.
   const followedSong = useRef(song);
   useEffect(() => {
     const previous = followedSong.current;
     followedSong.current = song;
     if (!isPlaying || previous === undefined || song === undefined || previous.measureHeaders !== song.measureHeaders) {
+      return;
+    }
+    // A track's first effect (or its last removed) moves it onto instruments of its own: only a restart routes it.
+    if (!hasSameEffectRouting(previous, song)) {
+      restart();
       return;
     }
     if (previous.channels === song.channels && hasSameMuteAndSolo(previous, song)) {

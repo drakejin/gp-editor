@@ -95,6 +95,8 @@ export function readBeat(node: XmlElement): GpifBeat {
     pickStroke: direction(props.get('PickStroke')),
     tremolo: parseIntList(childText(node, 'Tremolo'), '/'),
     fadding: childText(node, 'Fadding'),
+    hairpin: childText(node, 'Hairpin'),
+    rasgueado: childText(props.get('Rasgueado'), 'Rasgueado'),
     text: childText(node, 'FreeText') ?? '',
     chordId: chord === undefined ? undefined : parseJavaInt(chord, -1),
     graceNotes: childText(node, 'GraceNotes'),

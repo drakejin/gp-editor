@@ -3,10 +3,12 @@ import { withoutExtension } from '../lib/file-name';
 import { type RowLayout, layoutMeasure, layoutRows, squeezeRow } from '../lib/layout';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY, chordBands, chordBeatWidth } from '../score/chords';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
+import { hasDirections } from '../score/directions';
 import { hasDynamicChanges } from '../score/dynamics';
 import { type RowGeometry, SCORE_MODE_LABELS, type ScoreMode, rowGeometry } from '../score/geometry';
 import { engraveRow, rowHeaderWidth } from '../score/row';
 import { hasLyrics } from '../score/lyrics';
+import { hasPedals } from '../score/pedals';
 import { hasBends } from '../score/symbols/bends';
 import { type TabMarkKind, tabMarkLanes } from '../score/tab';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE, type PaperId, type PaperSize } from './paper';
@@ -108,6 +110,8 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
     hasBends: hasBends(trackMeasures),
     hasLyrics: hasLyrics(track),
     ...chordBands(trackMeasures, chordDisplay),
+    hasDirections: hasDirections(song),
+    hasPedals: hasPedals(trackMeasures),
   });
   const headerWidth = track === undefined ? 0 : rowHeaderWidth(mode, track);
   // Rows are laid out at screen size across the printable width, then printed at PRINT_SCALE; a measure too wide for

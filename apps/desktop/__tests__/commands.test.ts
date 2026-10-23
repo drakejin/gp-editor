@@ -40,6 +40,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     openTranspose: jest.fn(),
     openTuner: jest.fn(),
     openScales: jest.fn(),
+    openLineIn: jest.fn(),
     openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
     togglePanel: jest.fn(),
@@ -87,6 +88,8 @@ describe('command registry', () => {
         'edit.lyrics',
         'tools.transpose',
         'tools.instrument',
+        'tools.lineIn',
+        'view.panel.mixer',
         'beat.chord',
         'help.shortcuts',
         'play.toggle',
@@ -169,7 +172,7 @@ describe('command registry: running', () => {
     const actions = mockActions();
 
     // Act
-    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument']) {
+    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer']) {
       find(id).run(actions);
     }
 
@@ -193,6 +196,8 @@ describe('command registry: running', () => {
     expect(actions.openSongWriter).toHaveBeenCalled();
     expect(actions.openRecentFiles).toHaveBeenCalled();
     expect(actions.pickInstrument).toHaveBeenCalled();
+    expect(actions.openLineIn).toHaveBeenCalled();
+    expect(actions.togglePanel).toHaveBeenCalledWith('mixer');
   });
 
   it('hands editor commands to the editor’s own path', () => {

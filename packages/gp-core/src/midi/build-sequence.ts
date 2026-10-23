@@ -12,6 +12,7 @@ import {
 } from './midi-events';
 import { buildNoteEvents } from './note-events';
 import type { TrackContext } from './note-search';
+import { pedalEvents } from './pedals';
 import { type PlayedMeasure, playedTempo } from './playback-order';
 import { usqFromTempo } from './timeline';
 
@@ -130,5 +131,5 @@ export function buildTrackEvents(
   if (!isPlayed) {
     return setup;
   }
-  return [...setup, ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
+  return [...setup, ...pedalEvents(full), ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
 }

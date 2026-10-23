@@ -25,7 +25,19 @@ export type ToggleableEffect =
   | 'tapping'
   | 'slapping'
   | 'popping'
-  | 'fadeIn';
+  | 'fadeIn'
+  | 'fadeOut'
+  | 'volumeSwell';
+
+/** Guitar Pro keeps one fade per beat: fade in, fade out or volume swell. */
+type FadeEffect = 'fadeIn' | 'fadeOut' | 'volumeSwell';
+const FADE_EFFECTS: readonly ToggleableEffect[] = ['fadeIn', 'fadeOut', 'volumeSwell'];
+
+/** The effect with one fade (or none): fade out and volume swell are left out when off. */
+function withFade(effect: NoteEffect, fade: FadeEffect | undefined): NoteEffect {
+  const { fadeOut: _fadeOut, volumeSwell: _volumeSwell, ...rest } = effect;
+  return { ...rest, fadeIn: fade === 'fadeIn', ...(fade === 'fadeOut' ? { fadeOut: true } : {}), ...(fade === 'volumeSwell' ? { volumeSwell: true } : {}) };
+}
 
 /** GP3–GP5 store tapping, slapping and popping as one beat value, so a note has at most one of them. */
 const SLAP_EFFECTS: readonly ToggleableEffect[] = ['tapping', 'slapping', 'popping'];
@@ -126,12 +138,15 @@ function clearedBy(effect: ToggleableEffect): Partial<NoteEffect> {
 
 /**
  * New song with one on/off effect of the addressed note switched. A dead note is never tied (changeDeadNote),
- * tapping, slapping and popping exclude each other, and slight vibrato replaces wide vibrato. Same song when there is
- * no note there.
+ * tapping, slapping and popping exclude each other, slight vibrato replaces wide vibrato, and a note has one fade (fade
+ * in, fade out or volume swell). Same song when there is no note there.
  */
 export function toggleNoteEffect(song: Song, at: StringAddress, effect: ToggleableEffect): Song {
   return updateNote(song, at, (note) => {
-    const isOn = !note.effect[effect];
+    const isOn = note.effect[effect] !== true;
+    if (FADE_EFFECTS.includes(effect)) {
+      return { ...note, effect: withFade(note.effect, isOn ? (effect as FadeEffect) : undefined) };
+    }
     const cleared = isOn ? clearedBy(effect) : {};
     const next: Note = { ...note, effect: { ...note.effect, ...cleared, [effect]: isOn } };
     return effect === 'deadNote' && isOn ? { ...next, isTied: false } : next;

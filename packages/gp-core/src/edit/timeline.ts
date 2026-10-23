@@ -1,5 +1,5 @@
 import { type DurationTuplets, NO_STROKE, NO_TUPLETS, QUARTER, durationTicks, hasSameTuplets } from '../model/defaults';
-import type { Beat, Chord, Duration, Measure, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Beat, Chord, Duration, Hairpin, Measure, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import { restDurations } from './rests';
 
 /** The beat-level attributes an event keeps when it is the event that owns its beat. */
@@ -8,6 +8,8 @@ export interface BeatAttributes {
   readonly pickStroke: StrokeDirection;
   readonly chord?: Chord;
   readonly text?: string;
+  readonly hairpin?: Hairpin;
+  readonly rasgueado?: RasgueadoPattern;
 }
 
 /** One event of a voice — notes or a rest — laid out after the previous event of the same voice. */
@@ -42,7 +44,12 @@ export function eventsTicks(events: VoiceEvents): number {
 function hasBeatMarks(attributes: BeatAttributes | undefined): boolean {
   return (
     attributes !== undefined &&
-    (attributes.text !== undefined || attributes.chord !== undefined || attributes.stroke.direction !== 'none' || attributes.pickStroke !== 'none')
+    (attributes.text !== undefined ||
+      attributes.chord !== undefined ||
+      attributes.stroke.direction !== 'none' ||
+      attributes.pickStroke !== 'none' ||
+      attributes.hairpin !== undefined ||
+      attributes.rasgueado !== undefined)
   );
 }
 
@@ -72,6 +79,8 @@ function attributesOf(beat: Beat): BeatAttributes {
     pickStroke: beat.pickStroke,
     ...(beat.chord === undefined ? {} : { chord: beat.chord }),
     ...(beat.text === undefined ? {} : { text: beat.text }),
+    ...(beat.hairpin === undefined ? {} : { hairpin: beat.hairpin }),
+    ...(beat.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
   };
 }
 
@@ -169,7 +178,16 @@ function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttri
   const pickStroke = all.find((attributes) => attributes.pickStroke !== 'none')?.pickStroke ?? 'none';
   const chord = all.find((attributes) => attributes.chord !== undefined)?.chord;
   const text = all.find((attributes) => attributes.text !== undefined)?.text;
-  return { stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...(text === undefined ? {} : { text }) };
+  const hairpin = all.find((attributes) => attributes.hairpin !== undefined)?.hairpin;
+  const rasgueado = all.find((attributes) => attributes.rasgueado !== undefined)?.rasgueado;
+  return {
+    stroke,
+    pickStroke,
+    ...(chord === undefined ? {} : { chord }),
+    ...(text === undefined ? {} : { text }),
+    ...(hairpin === undefined ? {} : { hairpin }),
+    ...(rasgueado === undefined ? {} : { rasgueado }),
+  };
 }
 
 function isSameBeat(beat: Beat, voices: readonly Voice[], attributes: BeatAttributes): boolean {
@@ -180,7 +198,9 @@ function isSameBeat(beat: Beat, voices: readonly Voice[], attributes: BeatAttrib
     beat.stroke.value === attributes.stroke.value &&
     beat.pickStroke === attributes.pickStroke &&
     beat.chord === attributes.chord &&
-    beat.text === attributes.text
+    beat.text === attributes.text &&
+    beat.hairpin === attributes.hairpin &&
+    beat.rasgueado === attributes.rasgueado
   );
 }
 

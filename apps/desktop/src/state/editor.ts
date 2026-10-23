@@ -1,7 +1,9 @@
 import {
   type Beat,
   type BeatFragment,
+  type Effect,
   type Lyrics,
+  type MasterMix,
   type PlayedNote,
   type Song,
   type SongInfo,
@@ -15,9 +17,11 @@ import {
   insertMeasure,
   setNoteFret,
   setNoteString,
+  setMasterMix,
   setSongInfo,
   setTrackBalance,
   setTrackCapo,
+  setTrackEffects,
   setTrackLyrics,
   setTrackMute,
   setTrackName,
@@ -38,6 +42,7 @@ import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type SongEdit, applySongEdit } from './song-edits';
+import { withSelectionStart } from './mark-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
 import { transpositionHint } from './transposition';
@@ -102,6 +107,10 @@ type SongAction =
   | { readonly type: 'setTrackBalance'; readonly trackIndex: number; readonly balance: number }
   /** Capo fret 0–24; the frets stay as written. */
   | { readonly type: 'setTrackCapo'; readonly trackIndex: number; readonly capo: number }
+  /** The track's playback effects in order (saved in .gp files); an empty chain removes them. */
+  | { readonly type: 'setTrackEffects'; readonly trackIndex: number; readonly effects: readonly Effect[] }
+  /** The master strip on the whole mix. */
+  | { readonly type: 'setMasterMix'; readonly master: MasterMix }
   /** The track's lyrics (Edit ▸ Lyrics…); a blank text takes them away. */
   | { readonly type: 'setTrackLyrics'; readonly trackIndex: number; readonly lyrics: Lyrics }
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
@@ -284,6 +293,8 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'setTrackBalance':
     case 'setTrackCapo':
     case 'setTrackLyrics':
+    case 'setTrackEffects':
+    case 'setMasterMix':
     case 'setSongInfo':
       return state.document === undefined
         ? state
@@ -293,7 +304,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
             applySongAction(state.document.song, action),
           );
     case 'edit':
-      return applyCursorEdit(state, action.edit);
+      return applyCursorEdit(state, withSelectionStart(action.edit, state.selectionAnchor));
     case 'cutSelection':
       return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
     case 'pasteBeats':
@@ -327,6 +338,10 @@ function applySongAction(song: Song, action: SongAction): Song {
       return setTrackCapo(song, action.trackIndex, action.capo);
     case 'setTrackLyrics':
       return setTrackLyrics(song, action.trackIndex, action.lyrics);
+    case 'setTrackEffects':
+      return setTrackEffects(song, action.trackIndex, action.effects);
+    case 'setMasterMix':
+      return setMasterMix(song, action.master);
     case 'setSongInfo':
       return setSongInfo(song, action.info);
   }

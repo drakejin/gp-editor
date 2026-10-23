@@ -1,5 +1,7 @@
 import { createChannelName } from '../../src/formats/common/channels';
 import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
+import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
+import { DEFAULT_RASGUEADO } from '../../src/formats/common/rasgueado';
 import { velocityFromGp } from '../../src/formats/common/velocity';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
 import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
@@ -9,6 +11,7 @@ import type {
   Clef,
   Duration,
   Measure,
+  MeasureHeader,
   Note,
   NoteEffect,
   NoteValue,
@@ -33,8 +36,11 @@ import type {
  *   one (else dropped, which moves the beats after them); a tuplet inside a tuplet (GP7/GP8) likewise: an equal length
  *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
- * - measure headers: eight alternate endings at most;
- * - ties: a tie that would change the note's fret is dropped (see withDroppedTies).
+ * - measure headers: eight alternate endings at most; each musical direction on its first bar only;
+ * - marks: no hairpins, fade outs, volume swells or sustain pedals; a rasgueado without its pattern (read back as the
+ *   first pattern, DEFAULT_RASGUEADO);
+ * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
+ * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts).
  */
 
 const MAX_STRINGS = 7;
@@ -99,7 +105,7 @@ function withVoiceEffects(notes: readonly Note[]): Note[] {
   const slapping = !tapping && notes.some((note) => note.effect.slapping);
   const popping = !tapping && !slapping && notes.some((note) => note.effect.popping);
   return notes.map((note) => {
-    const { tremoloBar: _ignored, ...rest } = note.effect;
+    const { tremoloBar: _ignored, fadeOut: _fadeOut, volumeSwell: _volumeSwell, ...rest } = note.effect;
     const effect = { ...rest, fadeIn, tapping, slapping, popping, wideVibrato, vibrato: rest.vibrato && !wideVibrato };
     return { ...note, effect: tremoloBar === undefined ? effect : { ...effect, tremoloBar } };
   });
@@ -170,7 +176,8 @@ function expectedStroke(stroke: Stroke): Stroke {
 
 function expectedBeat(beat: Beat, stringCount: number): Beat {
   const voices = Array.from({ length: MAX_VOICES }, (_, index) => expectedVoice(beat.voices[index], stringCount));
-  return { ...beat, voices, stroke: expectedStroke(beat.stroke) };
+  const { hairpin: _hairpin, rasgueado, ...rest } = beat;
+  return { ...rest, voices, stroke: expectedStroke(beat.stroke), ...(rasgueado === undefined ? {} : { rasgueado: DEFAULT_RASGUEADO }) };
 }
 
 function hasVoice(beat: Beat): boolean {
@@ -218,6 +225,7 @@ function retimed(beats: readonly Beat[], measureStart: number): Beat[] {
         pickStroke: beat.pickStroke === 'none' ? base.pickStroke : beat.pickStroke,
         ...(isCarrier && beat.chord !== undefined ? { chord: beat.chord } : {}),
         ...(isCarrier && beat.text !== undefined ? { text: beat.text } : {}),
+        ...(beat.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
       };
       placed.splice(index >= 0 ? index : placed.length, index >= 0 ? 1 : 0, next);
       cursor += durationTicks(voice.duration);
@@ -230,7 +238,19 @@ function expectedMeasure(measure: Measure, context: MeasureRules): Measure {
   const measureStart = context.measureStarts[measure.headerIndex] ?? 0;
   const projected = measure.beats.map((beat) => expectedBeat(beat, context.stringCount)).filter(hasVoice);
   const beats = needsRetiming(projected, measureStart) ? retimed(projected, measureStart) : projected;
-  return { ...measure, clef: context.clef, keySignature: context.keySignatures[measure.headerIndex] ?? 0, beats };
+  const { pedals: _pedals, ...rest } = measure;
+  return { ...rest, clef: context.clef, keySignature: context.keySignatures[measure.headerIndex] ?? 0, beats };
+}
+
+/** GP5 places each direction on one bar: the first that has it. */
+function expectedDirections(headers: readonly MeasureHeader[]): MeasureHeader[] {
+  return headers.map((header, index) => {
+    const { directions, ...rest } = header;
+    const kept = MUSICAL_DIRECTIONS.filter(
+      (direction) => directions?.includes(direction) === true && headers.findIndex((other) => other.directions?.includes(direction) === true) === index,
+    );
+    return kept.length === 0 ? rest : { ...rest, directions: kept };
+  });
 }
 
 interface MeasureRules {
@@ -247,7 +267,7 @@ function expectedTrack(track: Track, song: Song, lyricTrack: number | undefined)
   const clef: Clef = track.measures[0]?.clef === 'bass' ? 'bass' : 'treble';
   const measureStarts = song.measureHeaders.map((header) => header.start);
   const rules: MeasureRules = { stringCount: strings.length, clef, keySignatures, measureStarts };
-  const { lyrics, ...rest } = track;
+  const { lyrics, effects: _effects, ...rest } = track;
   return {
     ...rest,
     ...(lyrics !== undefined && track.number === lyricTrack ? { lyrics } : {}),
@@ -300,10 +320,11 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
  * without beats.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
-    tracks: song.tracks.map((track) => {
+    tracks: song.tracks.map(({ effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
       return {
         ...track,
@@ -317,10 +338,11 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
+  const { master: _master, ...rest } = song;
   const expected: Song = {
-    ...song,
+    ...rest,
     channels: expectedChannels(song.channels),
-    measureHeaders: song.measureHeaders.map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
+    measureHeaders: expectedDirections(song.measureHeaders).map((header) => ({ ...header, repeatAlternative: header.repeatAlternative & 0xff })),
     tracks: song.tracks.map((track) => expectedTrack(track, song, lyricTrack)),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);

@@ -10,6 +10,7 @@ import type { MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawAlign, DrawCommand, LineCommand, TextCommand } from '../draw';
 import { hasPickStroke, tabPickStrokes } from './pick-strokes';
+import { rasgueadoLabel } from './rasgueado-label';
 import { dashedSpan, textWidth, wavyLine } from './shapes';
 import {
   type MusicGlyph,
@@ -88,6 +89,8 @@ const HAS: Readonly<Record<NoteMarkKind, (effect: NoteEffect) => boolean>> = {
     e.slapping ||
     e.popping ||
     e.fadeIn ||
+    e.fadeOut === true ||
+    e.volumeSwell === true ||
     e.staccato ||
     e.accentuatedNote ||
     e.heavyAccentuatedNote ||
@@ -106,6 +109,9 @@ function beatNotes(beat: Beat | undefined): readonly Note[] {
 }
 
 function beatHas(beat: Beat | undefined, kind: TabMarkKind): boolean {
+  if (kind === 'labels' && beat?.rasgueado !== undefined) {
+    return true;
+  }
   return kind === 'pickStroke'
     ? hasPickStroke(beat)
     : beatNotes(beat).some(note => HAS[kind](note.effect));
@@ -443,34 +449,62 @@ function textItem(effects: readonly NoteEffect[]): LabelItem[] {
   ];
 }
 
+/** A small wedge: opening to the right (fade in, `opens`) or closing (fade out). */
+function wedge(x: number, y: number, color: string, opens: boolean): DrawCommand[] {
+  return [-1, 1].map(side => ({
+    kind: 'line',
+    x1: x,
+    y1: y + (opens ? 0 : side * MARK.hairpinOpening),
+    x2: x + MARK.hairpinLength,
+    y2: y + (opens ? side * MARK.hairpinOpening : 0),
+    width: MARK.lineWidth,
+    color,
+  }));
+}
+
+/** Fade in (<), fade out (>) or volume swell (<>), as Guitar Pro marks them over the tab. */
 function hairpinItem(effects: readonly NoteEffect[]): LabelItem[] {
-  if (!effects.some(e => e.fadeIn)) {
+  if (effects.some(e => e.fadeIn)) {
+    return [{ width: MARK.hairpinLength, draw: (x, y, color) => wedge(x, y, color, true) }];
+  }
+  if (effects.some(e => e.fadeOut === true)) {
+    return [{ width: MARK.hairpinLength, draw: (x, y, color) => wedge(x, y, color, false) }];
+  }
+  if (!effects.some(e => e.volumeSwell === true)) {
     return [];
   }
-  const draw = (x: number, y: number, color: string): DrawCommand[] =>
-    [-1, 1].map(side => ({
-      kind: 'line',
-      x1: x,
-      y1: y,
-      x2: x + MARK.hairpinLength,
-      y2: y + side * MARK.hairpinOpening,
-      width: MARK.lineWidth,
-      color,
-    }));
-  return [{ width: MARK.hairpinLength, draw }];
+  const draw = (x: number, y: number, color: string): DrawCommand[] => [
+    ...wedge(x, y, color, true),
+    ...wedge(x + MARK.hairpinLength, y, color, false),
+  ];
+  return [{ width: MARK.hairpinLength * 2, draw }];
+}
+
+/** "rasg." and the pattern's fingers (³ for a triplet, an. for an anapaest), over a rasgueado beat. */
+function rasgueadoItem(beat: Beat | undefined): LabelItem[] {
+  if (beat?.rasgueado === undefined) {
+    return [];
+  }
+  const text = rasgueadoLabel(beat.rasgueado);
+  return [
+    {
+      width: textWidth(text, TAB_MARKS.fontSize),
+      draw: (x, y, color) => [label(text, x, y, color)],
+    },
+  ];
 }
 
 function beatLabels(context: TabMarksContext, y: number): DrawCommand[] {
   const color = context.palette.muted;
   return context.layout.beats.flatMap(beatLayout => {
-    const effects = beatNotes(context.measure.beats[beatLayout.beatIndex]).map(
-      note => note.effect,
-    );
+    const beat = context.measure.beats[beatLayout.beatIndex];
+    const effects = beatNotes(beat).map(note => note.effect);
     const items = [
       ...articulationItem(effects),
       ...tremoloItem(effects),
       ...textItem(effects),
       ...hairpinItem(effects),
+      ...rasgueadoItem(beat),
     ];
     const start = {
       commands: [] as readonly DrawCommand[],

@@ -1,7 +1,8 @@
 import { MAX_VELOCITY } from '../formats/common/velocity';
 import { NO_STROKE, STROKE_VALUES } from '../model/defaults';
-import type { Note, Stroke, StrokeDirection } from '../model/song';
-import { isRawObject } from '../transcription/parse-values';
+import { isRasgueadoPattern } from '../formats/common/rasgueado';
+import type { Hairpin, Note, Stroke, StrokeDirection } from '../model/song';
+import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
@@ -71,27 +72,40 @@ function parseText(value: unknown): { readonly text?: string } | null {
   return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_TEXT_LENGTH ? { text: value } : null;
 }
 
+const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
+
+/** No mark, or a known one; `null` stands for invalid. */
+function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado'> | null {
+  const hairpin = HAIRPINS.find((known) => known === value.hairpin);
+  const rasgueado = isRasgueadoPattern(value.rasgueado) ? value.rasgueado : undefined;
+  if ((value.hairpin !== undefined && hairpin === undefined) || (value.rasgueado !== undefined && rasgueado === undefined)) {
+    return null;
+  }
+  return { ...(hairpin === undefined ? {} : { hairpin }), ...(rasgueado === undefined ? {} : { rasgueado }) };
+}
+
 function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefined {
   if (!isRawObject(value)) {
     return undefined;
   }
+  const marks = parseMarks(value);
   const duration = parseDuration(value.duration);
   const notes = parseNotes(value.notes, maxFret);
   const stroke = parseStroke(value.stroke);
   const pickStroke = parseDirection(value.pickStroke);
   const text = parseText(value.text);
   const chord = value.chord === undefined ? undefined : parseChord(value.chord);
-  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null || (value.chord !== undefined && chord === undefined)) {
+  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null || marks === null || (value.chord !== undefined && chord === undefined)) {
     return undefined;
   }
-  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text };
+  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text, ...marks };
 }
 
 /**
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
  * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
  * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
- * diagrams and texts up to 1024 characters. Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * diagrams, texts up to 1024 characters, hairpins and rasgueado patterns. Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {

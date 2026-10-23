@@ -1,121 +1,72 @@
 #import "GPMidiEngine.h"
 
 #import <AVFoundation/AVFoundation.h>
-#import <AudioToolbox/AudioToolbox.h>
 
-/**
- * Below 1.0 so several loud tracks leave the limiter some room: GeneralUser GS peaks at 1.7 on a dense mix (measured
- * on nightwish.gp5), which clipped under AVMIDIPlayer.
- */
-static const float kOutputVolume = 0.8f;
+#import "GPLineIn.h"
+#import "GPMixGraph.h"
+#import "GPTrackInstruments.h"
+
 /** How long a stopped engine keeps its bank in memory before it is released (the next play loads it again). */
 static const NSTimeInterval kIdleReleaseSeconds = 60;
 
 @implementation GPMidiEngine {
   dispatch_queue_t _queue;
   AVAudioEngine *_engine;
-  AVAudioUnitMIDIInstrument *_synth;
-  /** The bank loaded into _synth; NSNull for the synth's own. */
-  id _bank;
+  GPMixGraph *_graph;
+  GPTrackInstruments *_instruments;
+  GPLineIn *_lineIn;
+  /** The latest mix, applied to every engine built. */
+  NSDictionary *_mix;
   AVAudioSequencer *_sequencer;
   NSTimeInterval _length;
   /** Bumped by every play and stop, so only the latest stop's idle release runs. */
   NSUInteger _generation;
+  /** The engine opened an audio input: release it as soon as neither playback nor the line in needs it. */
+  BOOL _hasOpenedInput;
 }
 
 - (instancetype)initWithQueue:(dispatch_queue_t)queue
 {
   if ((self = [super init])) {
     _queue = queue;
+    _mix = @{};
   }
   return self;
 }
 
-static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
+- (void)buildEngine
 {
-  AudioComponentDescription description = {type, subType, kAudioUnitManufacturer_Apple, 0, 0};
-  return description;
+  _engine = [AVAudioEngine new];
+  _graph = [[GPMixGraph alloc] initWithEngine:_engine];
+  _instruments = [[GPTrackInstruments alloc] initWithEngine:_engine graph:_graph];
+  _lineIn = [[GPLineIn alloc] initWithEngine:_engine graph:_graph];
+  [_graph applyMix:_mix];
 }
 
-/** A new engine whose synth has `bankURL` loaded (set before the synth is initialized, as MIDISynth requires). */
-- (BOOL)buildEngineWithBank:(nullable NSURL *)bankURL error:(NSError **)error
+- (BOOL)startEngine:(NSError **)error
 {
-  [self stopSequencer];
-  [_engine stop];
-  AVAudioEngine *engine = [AVAudioEngine new];
-  AVAudioUnitMIDIInstrument *synth = [[AVAudioUnitMIDIInstrument alloc] initWithAudioComponentDescription:AppleAudioUnit(kAudioUnitType_MusicDevice, kAudioUnitSubType_MIDISynth)];
-  if (bankURL != nil) {
-    CFURLRef url = (__bridge CFURLRef)bankURL;
-    OSStatus status = AudioUnitSetProperty(synth.audioUnit, kMusicDeviceProperty_SoundBankURL, kAudioUnitScope_Global, 0, &url, sizeof(url));
-    if (status != noErr) {
-      if (error != NULL) {
-        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:@{NSLocalizedDescriptionKey : @"The sound bank could not be loaded"}];
-      }
-      return NO;
-    }
-  }
-  AVAudioUnitEffect *limiter = [[AVAudioUnitEffect alloc] initWithAudioComponentDescription:AppleAudioUnit(kAudioUnitType_Effect, kAudioUnitSubType_PeakLimiter)];
-  [engine attachNode:synth];
-  [engine attachNode:limiter];
-  [engine connect:synth to:limiter format:nil];
-  [engine connect:limiter to:engine.mainMixerNode format:nil];
-  engine.mainMixerNode.outputVolume = kOutputVolume;
-  _engine = engine;
-  _synth = synth;
-  _bank = bankURL ?: [NSNull null];
-  return YES;
-}
-
-- (BOOL)prepareEngineWithBank:(nullable NSURL *)bankURL error:(NSError **)error
-{
-  id wanted = bankURL ?: [NSNull null];
-  if ((_engine == nil || ![_bank isEqual:wanted]) && ![self buildEngineWithBank:bankURL error:error]) {
-    return NO;
-  }
   return _engine.isRunning || [_engine startAndReturnError:error];
-}
-
-/**
- * Loads every program the song starts with while the synth's preload mode is on, so their samples are in memory
- * before the first note (MIDISynth would otherwise load them on the audio thread, mid-song).
- */
-- (void)preloadProgramsOf:(AVAudioSequencer *)sequencer
-{
-  NSMutableArray<AVMIDIProgramChangeEvent *> *changes = [NSMutableArray array];
-  for (AVMusicTrack *track in sequencer.tracks) {
-    [track enumerateEventsInRange:AVMakeBeatRange(0, track.lengthInBeats + 1)
-                       usingBlock:^(AVMusicEvent *event, AVMusicTimeStamp *timeStamp, BOOL *removeEvent) {
-                         if ([event isKindOfClass:[AVMIDIProgramChangeEvent class]]) {
-                           [changes addObject:(AVMIDIProgramChangeEvent *)event];
-                         }
-                       }];
-  }
-  UInt32 enable = 1;
-  AudioUnitSetProperty(_synth.audioUnit, kAUMIDISynthProperty_EnablePreload, kAudioUnitScope_Global, 0, &enable, sizeof(enable));
-  for (AVMIDIProgramChangeEvent *change in changes) {
-    [_synth sendProgramChange:(uint8_t)change.programNumber onChannel:(uint8_t)change.channel];
-  }
-  enable = 0;
-  AudioUnitSetProperty(_synth.audioUnit, kAUMIDISynthProperty_EnablePreload, kAudioUnitScope_Global, 0, &enable, sizeof(enable));
 }
 
 - (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
 {
   [self stopSequencer];
   _generation += 1;
-  if (![self prepareEngineWithBank:bankURL error:error]) {
+  if (_engine == nil) {
+    [self buildEngine];
+  }
+  if (![_instruments prepareBank:bankURL error:error] || ![self startEngine:error]) {
     return NO;
   }
   AVAudioSequencer *sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:_engine];
   if (![sequencer loadFromData:midi options:AVMusicSequenceLoadSMF_PreserveTracks error:error]) {
     return NO;
   }
+  [_instruments routeSequencer:sequencer];
   NSTimeInterval length = 0;
   for (AVMusicTrack *track in sequencer.tracks) {
-    track.destinationAudioUnit = _synth;
     length = MAX(length, track.lengthInSeconds);
   }
-  [self preloadProgramsOf:sequencer];
   sequencer.currentPositionInSeconds = MAX(0, seconds);
   [sequencer prepareToPlay];
   if (![sequencer startAndReturnError:error]) {
@@ -130,16 +81,18 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
 {
   [_sequencer stop];
   _sequencer = nil;
-  // Notes still ringing when the song stops would otherwise sound on: all notes off, every channel.
-  for (uint8_t channel = 0; channel < 16; channel++) {
-    [_synth sendController:123 withValue:0 onChannel:channel];
-  }
+  // Notes still ringing when the song stops would otherwise sound on: all notes off, every instrument.
+  [_instruments silence];
 }
 
 - (void)stop
 {
   [self stopSequencer];
   _generation += 1;
+  if (_hasOpenedInput && !_lineIn.isConnected) {
+    [self releaseEngine];
+    return;
+  }
   NSUInteger stoppedGeneration = _generation;
   __weak GPMidiEngine *weakSelf = self;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kIdleReleaseSeconds * NSEC_PER_SEC)), _queue, ^{
@@ -147,16 +100,35 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
   });
 }
 
-/** Frees the engine and its bank when nothing played since the stop that scheduled this. */
+/** Frees the engine and its bank when nothing played since the stop that scheduled this, and the line in is off. */
 - (void)releaseEngineIfStillStopped:(NSUInteger)stoppedGeneration
 {
-  if (_generation != stoppedGeneration || _sequencer != nil) {
-    return;
+  if (_generation == stoppedGeneration && _sequencer == nil && !_lineIn.isConnected) {
+    [self releaseEngine];
   }
+}
+
+- (void)releaseEngine
+{
   [_engine stop];
   _engine = nil;
-  _synth = nil;
-  _bank = nil;
+  _graph = nil;
+  _instruments = nil;
+  _lineIn = nil;
+  _hasOpenedInput = NO;
+}
+
+/** After a graph change (which stops a playing sequencer): the engine running, the song going on where it was. */
+- (void)resumeAfterRewire
+{
+  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  [_sequencer stop];
+  if (![self startEngine:nil] || _sequencer == nil) {
+    return;
+  }
+  _sequencer.currentPositionInSeconds = position;
+  [_sequencer prepareToPlay];
+  [_sequencer startAndReturnError:nil];
 }
 
 - (NSTimeInterval)positionSeconds
@@ -171,23 +143,96 @@ static AudioComponentDescription AppleAudioUnit(OSType type, OSType subType)
 
 - (void)setProgram:(UInt8)program onChannel:(UInt8)channel
 {
-  if (_synth == nil || program > 127 || channel > 15) {
-    return;
+  if (program <= 127 && channel <= 15) {
+    [_instruments setProgram:program onChannel:channel];
   }
-  UInt32 enable = 1;
-  AudioUnitSetProperty(_synth.audioUnit, kAUMIDISynthProperty_EnablePreload, kAudioUnitScope_Global, 0, &enable, sizeof(enable));
-  [_synth sendProgramChange:program onChannel:channel];
-  enable = 0;
-  AudioUnitSetProperty(_synth.audioUnit, kAUMIDISynthProperty_EnablePreload, kAudioUnitScope_Global, 0, &enable, sizeof(enable));
-  [_synth sendProgramChange:program onChannel:channel];
 }
 
 - (void)setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel
 {
-  if (_synth == nil || controller > 127 || value > 127 || channel > 15) {
+  if (controller <= 127 && value <= 127 && channel <= 15) {
+    [_instruments setController:controller value:value onChannel:channel];
+  }
+}
+
+- (void)setMix:(NSDictionary *)mix
+{
+  _mix = [mix copy];
+  if (_engine != nil && [_graph applyMix:_mix]) {
+    if (_lineIn.isConnected) {
+      [_lineIn routeToTrack:_lineIn.trackIndex];
+    }
+    [self resumeAfterRewire];
+  }
+}
+
+// MARK: - Line in
+
+- (BOOL)startLineInWithDevice:(nullable NSString *)deviceId
+                   trackIndex:(NSInteger)trackIndex
+                       gainDb:(double)gainDb
+                 isMonitoring:(BOOL)isMonitoring
+                        error:(NSError **)error
+{
+  if (_engine == nil) {
+    [self buildEngine];
+  }
+  // The input device is set on a stopped engine; a playing song goes on where it was.
+  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  [_sequencer stop];
+  [_engine stop];
+  _hasOpenedInput = YES;
+  BOOL isConnected = [_lineIn connectDevice:deviceId error:error];
+  if (isConnected) {
+    [_lineIn routeToTrack:trackIndex];
+    [_lineIn setGainDb:gainDb isMonitoring:isMonitoring];
+  }
+  BOOL isRunning = [self startEngine:isConnected ? error : nil];
+  if (_sequencer != nil && isRunning) {
+    _sequencer.currentPositionInSeconds = position;
+    [_sequencer prepareToPlay];
+    [_sequencer startAndReturnError:nil];
+  }
+  if (isConnected && !isRunning) {
+    [_lineIn disconnect];
+  }
+  return isConnected && isRunning;
+}
+
+- (void)updateLineInTrack:(NSInteger)trackIndex gainDb:(double)gainDb isMonitoring:(BOOL)isMonitoring
+{
+  if (!_lineIn.isConnected) {
     return;
   }
-  [_synth sendController:controller withValue:value onChannel:channel];
+  if (trackIndex != _lineIn.trackIndex) {
+    [_lineIn routeToTrack:trackIndex];
+    [self resumeAfterRewire];
+  }
+  [_lineIn setGainDb:gainDb isMonitoring:isMonitoring];
+}
+
+- (void)stopLineIn
+{
+  if (!_lineIn.isConnected) {
+    return;
+  }
+  [_lineIn disconnect];
+  if (_sequencer == nil) {
+    // Releasing the engine lets go of the input device (the menu bar's microphone light goes off).
+    [self releaseEngine];
+  } else {
+    [self resumeAfterRewire];
+  }
+}
+
+- (BOOL)isLineInOn
+{
+  return _lineIn.isConnected;
+}
+
+- (double)takeLineInLevel
+{
+  return _lineIn.isConnected ? [_lineIn takePeakLevel] : -120;
 }
 
 @end
