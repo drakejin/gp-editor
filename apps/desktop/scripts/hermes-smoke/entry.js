@@ -1,7 +1,7 @@
 // Reads every gp-core fixture inside the Hermes engine the app ships with, saves it as GP5 the way ⌘S does
 // (writeSong → base64) and reads the saved bytes back.
 // Run through ./run.sh, which generates fixtures.generated.js and bundles this file with Metro.
-import { readSong, writeSong } from '@gp-editor/core';
+import { buildChordVoicings, parseChordName, readSong, recognizeChord, writeSong } from '@gp-editor/core';
 import { base64ToBytes, bytesToBase64 } from '../../src/lib/base64';
 import FIXTURES from './fixtures.generated';
 
@@ -51,6 +51,17 @@ for (const fixture of FIXTURES) {
   } catch (error) {
     failures.push(`${fixture.name}: save: ${errorText(error)}`);
   }
+}
+// The chord tools in Hermes: C's best voicing is the open shape, and x32010 reads as C.
+const STANDARD = [64, 59, 55, 50, 45, 40];
+try {
+  const voicing = buildChordVoicings(parseChordName('C'), STANDARD)[0];
+  const name = recognizeChord([0, 1, 0, 2, 3, -1], STANDARD)[0]?.name;
+  if (voicing?.frets.join(',') !== '0,1,0,2,3,-1' || name !== 'C') {
+    failures.push(`chords: voicing ${voicing?.frets.join(',')}, name ${name}`);
+  }
+} catch (error) {
+  failures.push(`chords: ${errorText(error)}`);
 }
 // eslint-disable-next-line no-undef
 print(
