@@ -1,10 +1,13 @@
 import { expect } from 'vitest';
 import { EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NORMAL_TUPLET, NO_STROKE, RED, durationTicks, measureTicks } from '../../src/model/defaults';
-import type { Beat, Duration, Measure, MeasureHeader, Note, NoteValue, Song, TimeSignature, Track, Tuplet, Voice } from '../../src/model/song';
+import { type Beat, type Duration, type Measure, type MeasureHeader, type Note, type NoteValue, QUARTER_TIME, type Song, type TimeSignature, type Track, type Tuplet, type Voice } from '../../src/model/song';
 import { assertSongInvariants } from './invariants';
 
 /** First measure start used by every built song (TuxGuitar starts songs at one quarter). */
-export const SONG_START = 960;
+export const SONG_START = QUARTER_TIME;
+
+/** voiceLayout's offsets are in 960ths of a quarter (TuxGuitar's ticks), whatever QUARTER_TIME is. */
+const LAYOUT_TICKS_PER_QUARTER = 960;
 
 /** One event of a voice: a rest when it has no notes. */
 export interface EventSpec {
@@ -12,8 +15,9 @@ export interface EventSpec {
   readonly notes: readonly Note[];
 }
 
-export function dur(value: NoteValue, extra: { readonly dotted?: boolean; readonly tuplet?: Tuplet } = {}): Duration {
-  return { value, dotted: extra.dotted ?? false, doubleDotted: false, tuplet: extra.tuplet ?? NORMAL_TUPLET };
+export function dur(value: NoteValue, extra: { readonly dotted?: boolean; readonly tuplet?: Tuplet; readonly innerTuplet?: Tuplet } = {}): Duration {
+  const duration: Duration = { value, dotted: extra.dotted ?? false, doubleDotted: false, tuplet: extra.tuplet ?? NORMAL_TUPLET };
+  return extra.innerTuplet === undefined ? duration : { ...duration, innerTuplet: extra.innerTuplet };
 }
 
 export function n(string: number, fret: number): Note {
@@ -101,12 +105,13 @@ export function buildSong(spec: SongSpec): Song {
 function durationName(duration: Duration): string {
   const dots = duration.dotted ? '.' : duration.doubleDotted ? '..' : '';
   const tuplet = duration.tuplet.enters === 1 ? '' : `/${duration.tuplet.enters}:${duration.tuplet.times}`;
-  return `${duration.value}${dots}${tuplet}`;
+  const inner = duration.innerTuplet === undefined ? '' : `/${duration.innerTuplet.enters}:${duration.innerTuplet.times}`;
+  return `${duration.value}${dots}${tuplet}${inner}`;
 }
 
 /**
- * Compact view of one voice of a measure: `offset:duration:content`, offset from the measure start,
- * content `r` for a rest or `string/fret` pairs. E.g. `['0:4:1/5', '960:2.:r']`.
+ * Compact view of one voice of a measure: `offset:duration:content`, offset from the measure start in 960ths of a
+ * quarter, content `r` for a rest or `string/fret` pairs. E.g. `['0:4:1/5', '960:2.:r']`.
  */
 export function voiceLayout(song: Song, trackIndex: number, measureIndex: number, voiceIndex: number): string[] {
   const header = song.measureHeaders[measureIndex];
@@ -120,7 +125,8 @@ export function voiceLayout(song: Song, trackIndex: number, measureIndex: number
       return [];
     }
     const content = voice.notes.length === 0 ? 'r' : voice.notes.map((note) => `${note.string}/${note.fret}`).join(',');
-    return [`${beat.start - header.start}:${durationName(voice.duration)}:${content}`];
+    const offset = ((beat.start - header.start) * LAYOUT_TICKS_PER_QUARTER) / QUARTER_TIME;
+    return [`${offset}:${durationName(voice.duration)}:${content}`];
   });
 }
 

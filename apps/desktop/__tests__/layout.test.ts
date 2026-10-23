@@ -1,6 +1,6 @@
 import { QUARTER } from '@gp-editor/core';
 import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, squeezeRow, staffHeight, stringY } from '../src/lib/layout';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note } from '../test-support/songs';
 
 const EIGHTH = { ...QUARTER, value: 8 as const };
 
@@ -76,7 +76,7 @@ describe('layoutMeasure with a minimum beat width', () => {
     const plain = layoutMeasure(song, 0, 0);
 
     // Act
-    const widened = layoutMeasure(song, 0, 0, (target) => (target.start === 1440 ? 80 : 0));
+    const widened = layoutMeasure(song, 0, 0, (target) => (target.start === fromTux(1440) ? 80 : 0));
 
     // Assert
     const eighthWidth = plain.beats[1]!.x - plain.beats[0]!.x;

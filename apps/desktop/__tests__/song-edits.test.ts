@@ -1,7 +1,7 @@
 import { QUARTER, findNote } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { cursorVoice, isTriplet } from '../src/state/song-edits';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note } from '../test-support/songs';
 
 /** One 4/4 bar: beat 0 = quarter on string 1 (fret 3), beat 1 = quarter on string 2 (fret 5). */
 function loaded(): EditorState {
@@ -39,7 +39,7 @@ describe('cursor edits in the reducer', () => {
     const deleted = edit(inserted, { type: 'edit', edit: { type: 'deleteBeat' } });
     const beats = song(deleted).tracks[0]!.measures[0]!.beats;
     expect(beats[1]!.voices[0]!.notes[0]).toMatchObject({ string: 2, fret: 5 });
-    expect(beats[1]!.start).toBe(1920);
+    expect(beats[1]!.start).toBe(fromTux(1920));
     expect(beats[beats.length - 1]!.voices[0]!.notes).toEqual([]);
   });
 
@@ -177,5 +177,68 @@ describe('cursor edits in the reducer', () => {
 
     // Assert
     expect(song(shifted).tracks[1]!.measures[0]!.keySignature).toBe(3);
+  });
+});
+
+describe('tuplets inside tuplets', () => {
+  /** loaded() with its first beat a quintuplet sixteenth. */
+  function quintuplet(): EditorState {
+    const sixteenth = edit(loaded(), { type: 'edit', edit: { type: 'setNoteValue', value: 16 } });
+    return edit(sixteenth, { type: 'edit', edit: { type: 'setTuplet', enters: 5 } });
+  }
+
+  it('puts a tuplet inside the beat’s tuplet and takes it out again, one undo step each', () => {
+    // Act
+    const nested = edit(quintuplet(), { type: 'edit', edit: { type: 'setInnerTuplet', enters: 3 } });
+    const single = edit(nested, { type: 'edit', edit: { type: 'setInnerTuplet', enters: 1 } });
+
+    // Assert
+    expect(voice(nested).duration).toEqual({ value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 5, times: 4 }, innerTuplet: { enters: 3, times: 2 } });
+    expect(voice(single).duration).toEqual({ value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 5, times: 4 } });
+    expect(single.past).toHaveLength(4);
+  });
+
+  it('toggles a triplet inside the beat’s tuplet (⌥/)', () => {
+    // Act
+    const on = edit(quintuplet(), { type: 'edit', edit: { type: 'toggleInnerTriplet' } });
+    const off = edit(on, { type: 'edit', edit: { type: 'toggleInnerTriplet' } });
+
+    // Assert
+    expect(voice(on).duration.innerTuplet).toEqual({ enters: 3, times: 2 });
+    expect(voice(off).duration.innerTuplet).toBeUndefined();
+  });
+
+  it('keeps the inner tuplet when the outer one changes, and drops it with the outer one', () => {
+    // Arrange: a bar of one sextuplet sixteenth with a triplet inside (6:4 and 3:2 last alike)
+    const nested = { ...QUARTER, value: 16 as const, tuplet: { enters: 6, times: 4 }, innerTuplet: { enters: 3, times: 2 } };
+    const oneBeat = makeSong([[beat(960, [note(1, 3)], nested)]], [header(1)]);
+    const start = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: oneBeat } });
+
+    // Act
+    const triplet = edit(start, { type: 'edit', edit: { type: 'toggleTriplet' } });
+    const plain = edit(triplet, { type: 'edit', edit: { type: 'setTuplet', enters: 1 } });
+
+    // Assert
+    expect(voice(triplet).duration).toEqual({ value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 3, times: 2 }, innerTuplet: { enters: 3, times: 2 } });
+    expect(voice(plain).duration).toEqual({ value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } });
+  });
+
+  it('refuses an inner tuplet on a beat in no tuplet, and says why', () => {
+    // Arrange
+    const start = loaded();
+
+    // Act
+    const set = edit(start, { type: 'edit', edit: { type: 'setInnerTuplet', enters: 3 } });
+    const toggled = edit(start, { type: 'edit', edit: { type: 'toggleInnerTriplet' } });
+
+    // Assert
+    expect(set.document).toBe(start.document);
+    expect(toggled.document).toBe(start.document);
+    expect(set.hint).toBe('An inner tuplet goes inside a tuplet: make the beat a tuplet first.');
+  });
+
+  it.each([4, 13, 0])('ignores an inner tuplet of %i', (enters) => {
+    const start = quintuplet();
+    expect(edit(start, { type: 'edit', edit: { type: 'setInnerTuplet', enters } }).document).toBe(start.document);
   });
 });

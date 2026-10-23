@@ -3,7 +3,7 @@ import { type EditorCommands, useEditorCommands } from '../src/hooks/use-editor-
 import type { Playback } from '../src/hooks/use-playback';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { INITIAL_PRACTICE } from '../src/state/practice';
-import { beat, makeSong } from '../test-support/songs';
+import { beat, fromTux, makeSong } from '../test-support/songs';
 
 jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
 
@@ -227,7 +227,7 @@ describe('useEditorCommands: playing a selection', () => {
     commands.runCommand({ type: 'togglePlayback' });
 
     // Assert: bar 2's first beat starts at tick 4800
-    expect(sources.start).toHaveBeenCalledWith(1, 4800);
+    expect(sources.start).toHaveBeenCalledWith(1, fromTux(4800));
   });
 
   it('plays from the cursor’s bar without a selection', () => {

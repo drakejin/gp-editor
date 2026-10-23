@@ -58,18 +58,25 @@ interface PdfPlan {
 const UNTITLED = 'Untitled';
 /** Characters a file name cannot hold on macOS (the save panel would take "/" for a folder). */
 const FILE_NAME_SEPARATORS = /[/:]/g;
+/** Leading dots, which would hide the exported file. */
+const HIDDEN_PREFIX = /^\.+/;
 
 /** The song's title, else the file name without its extension, else "Untitled". */
 export function pdfTitle(song: Song, fileName = ''): string {
   return song.info.title || withoutExtension(fileName) || UNTITLED;
 }
 
-/** Name the save panel suggests: "Song (Tab).pdf", with the track for a song of several tracks ("Song - Bass (Tab).pdf"). */
-export function pdfFileName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string): string {
+/** An export's name without extension: "Song (Tab)", with the track for a song of several tracks ("Song - Bass (Tab)"). */
+export function exportBaseName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string): string {
   const base = withoutExtension(fileName) || pdfTitle(song);
   const trackName = song.tracks.length > 1 ? song.tracks[trackIndex]?.name ?? '' : '';
   const name = trackName === '' ? base : `${base} - ${trackName}`;
-  return `${name.replace(FILE_NAME_SEPARATORS, '-')} (${SCORE_MODE_LABELS[mode]}).pdf`;
+  return `${name.replace(FILE_NAME_SEPARATORS, '-').replace(HIDDEN_PREFIX, '')} (${SCORE_MODE_LABELS[mode]})`;
+}
+
+/** Name the save panel suggests: "Song (Tab).pdf", with the track for a song of several tracks ("Song - Bass (Tab).pdf"). */
+export function pdfFileName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string): string {
+  return `${exportBaseName(song, trackIndex, mode, fileName)}.pdf`;
 }
 
 /**

@@ -1,7 +1,7 @@
 // Reads every gp-core fixture inside the Hermes engine the app ships with, saves it as GP5 the way ⌘S does
-// (writeSong → base64) and reads the saved bytes back.
+// (writeSong → base64) and reads the saved bytes back; then writes it as ASCII tab (File ▸ Export ASCII Tab…).
 // Run through ./run.sh, which generates fixtures.generated.js and bundles this file with Metro.
-import { buildChordVoicings, parseChordName, readSong, recognizeChord, writeSong } from '@gp-editor/core';
+import { buildChordVoicings, parseChordName, readSong, recognizeChord, writeAsciiTab, writeSong } from '@gp-editor/core';
 import { base64ToBytes, bytesToBase64 } from '../../src/lib/base64';
 import FIXTURES from './fixtures.generated';
 
@@ -26,6 +26,7 @@ function errorText(error) {
 const failures = [];
 let notes = 0;
 let saved = 0;
+let asciiTabs = 0;
 for (const fixture of FIXTURES) {
   let song;
   try {
@@ -51,6 +52,14 @@ for (const fixture of FIXTURES) {
   } catch (error) {
     failures.push(`${fixture.name}: save: ${errorText(error)}`);
   }
+  try {
+    if (!writeAsciiTab(song).startsWith('Title:')) {
+      throw new Error('no song heading');
+    }
+    asciiTabs += 1;
+  } catch (error) {
+    failures.push(`${fixture.name}: ASCII tab: ${errorText(error)}`);
+  }
 }
 // The chord tools in Hermes: C's best voicing is the open shape, and x32010 reads as C.
 const STANDARD = [64, 59, 55, 50, 45, 40];
@@ -66,7 +75,7 @@ try {
 // eslint-disable-next-line no-undef
 print(
   JSON.stringify(
-    { files: FIXTURES.length, failed: failures.length, notes, saved, failures },
+    { files: FIXTURES.length, failed: failures.length, notes, saved, asciiTabs, failures },
     null,
     2,
   ),

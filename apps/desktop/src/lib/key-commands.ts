@@ -60,6 +60,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: '=', metaKey: true },
   { key: '[', altKey: true },
   { key: ']', altKey: true },
+  { key: '/', altKey: true },
   ...['c', 'x', 'v'].map((key) => ({ key, metaKey: true })),
   { key: ' ' },
   { key: 'Escape' },
@@ -116,7 +117,8 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
  * The editor's keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
- * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration, I inserts a beat, Space plays,
+ * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's
+ * tuplet), I inserts a beat, Space plays,
  * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
@@ -133,6 +135,9 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   }
   if (press.altKey && (press.key === '[' || press.key === ']')) {
     return { type: 'edit', edit: { type: 'shiftNoteValue', step: press.key === '[' ? -1 : 1 } };
+  }
+  if (press.altKey && press.key === '/') {
+    return { type: 'edit', edit: { type: 'toggleInnerTriplet' } };
   }
   if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
     return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };

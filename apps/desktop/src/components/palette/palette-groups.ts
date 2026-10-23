@@ -5,6 +5,7 @@ import {
   type SlideType,
   type StrokeDirection,
   TREMOLO_BAR_PRESETS,
+  TUPLET_SIZES,
   type ToggleableEffect,
   type TremoloBarPresetName,
   type TripletFeel,
@@ -60,12 +61,6 @@ const NOTE_VALUES: readonly (readonly [NoteValue, string, string])[] = [
 ];
 
 const DYNAMIC_ORDER: readonly DynamicName[] = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'];
-
-/**
- * Tuplets an edit can make: those whose notes are a whole number of ticks (960 per quarter). 7, 9 and 11 are not,
- * so files that have them are read and played, but the palette does not offer them.
- */
-const TUPLETS: readonly number[] = [3, 5, 6, 10, 12];
 
 const SLIDES: readonly (readonly [SlideType, string, string])[] = [
   ['shift', 'Shift', 'Shift slide to the next note'],
@@ -164,7 +159,11 @@ function rhythmGroup(): PaletteGroup {
   }));
   const tuplets: readonly PaletteOption[] = [
     { label: 'None', tooltip: 'No tuplet', edit: { type: 'setTuplet', enters: 1 }, isActive: (c) => c.voice?.duration.tuplet.enters === c.voice?.duration.tuplet.times },
-    ...TUPLETS.map((enters) => ({ label: String(enters), tooltip: `${enters}-tuplet`, edit: { type: 'setTuplet', enters } as const, isActive: (c: PaletteContext) => c.voice?.duration.tuplet.enters === enters })),
+    ...TUPLET_SIZES.map((enters) => ({ label: String(enters), tooltip: `${enters}-tuplet`, edit: { type: 'setTuplet', enters } as const, isActive: (c: PaletteContext) => c.voice?.duration.tuplet.enters === enters })),
+  ];
+  const innerTuplets: readonly PaletteOption[] = [
+    { label: 'None', tooltip: 'No tuplet inside the beat’s tuplet', edit: { type: 'setInnerTuplet', enters: 1 }, isActive: (c) => c.voice !== undefined && c.voice.duration.innerTuplet === undefined },
+    ...TUPLET_SIZES.map((enters) => ({ label: String(enters), tooltip: `${enters}-tuplet inside the beat’s tuplet`, edit: { type: 'setInnerTuplet', enters } as const, isActive: (c: PaletteContext) => c.voice?.duration.innerTuplet?.enters === enters })),
   ];
   return {
     title: 'Rhythm',
@@ -172,6 +171,7 @@ function rhythmGroup(): PaletteGroup {
       ...values,
       { id: 'dot', face: GLYPH.dot, glyph: 'mark', tooltip: 'Dotted (.)', scope: 'beat', run: edit({ type: 'toggleDot' }), isActive: (c) => c.voice?.duration.dotted === true },
       { id: 'tuplet', face: GLYPH.tuplet, glyph: 'mark', tooltip: 'Tuplet (/ makes a triplet)', scope: 'beat', run: { kind: 'options', options: tuplets }, isActive: (c) => c.voice !== undefined && c.voice.duration.tuplet.enters !== c.voice.duration.tuplet.times },
+      { id: 'innerTuplet', face: 'Inner', tooltip: 'Inner tuplet: a tuplet inside the beat’s tuplet (⌥/ makes a triplet)', scope: 'beat', run: { kind: 'options', options: innerTuplets }, isActive: (c) => c.voice?.duration.innerTuplet !== undefined },
       { id: 'rest', face: GLYPH.rest, glyph: 'mark', tooltip: 'Rest: clear the beat’s notes', scope: 'beat', run: edit({ type: 'makeRest' }), isActive: (c) => c.voice !== undefined && !c.voice.isEmpty && c.voice.notes.length === 0 },
       { id: 'tie', face: 'tie', tooltip: 'Tie to the previous note (T)', scope: 'note', run: edit({ type: 'toggleTie' }), isActive: (c) => c.note?.isTied === true },
       { id: 'insertBeat', face: '+ Beat', tooltip: 'Insert a beat after the cursor (I)', scope: 'beat', run: edit({ type: 'insertBeat' }) },

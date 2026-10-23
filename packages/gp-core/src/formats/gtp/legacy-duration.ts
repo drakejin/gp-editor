@@ -25,8 +25,8 @@ function gcd(a: number, b: number): number {
 /** TGDuration.WHOLE_PRECISE_DURATION: lcm of 64 and every tuplet's enters, times 4 (= 11531520). */
 const WHOLE_PRECISE = DIVISION_TYPES.reduce((whole, { enters }) => (whole * enters) / gcd(whole, enters), SHORTEST) * 4;
 
-/** Precise units per tick (3003). */
-export const PRECISE_PER_TICK = WHOLE_PRECISE / (QUARTER_TIME * 4);
+/** Ticks per precise unit (45): QUARTER_TIME is a multiple of the precise quarter, so both convert exactly. */
+export const TICKS_PER_PRECISE = (QUARTER_TIME * 4) / WHOLE_PRECISE;
 
 /** Tuplets with coprime enters/times, most enters first (TGDuration.divisionTypes). */
 const SPLIT_DIVISIONS: readonly Tuplet[] = DIVISION_TYPES.filter(({ enters, times }) => gcd(enters, times) === 1)

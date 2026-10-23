@@ -53,6 +53,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '⌥[ / ⌥]', action: 'Longer / shorter note value', press: key('[', { altKey: true }) },
       { keys: '.', action: 'Dotted', press: key('.') },
       { keys: '/', action: 'Triplet', press: key('/') },
+      { keys: '⌥/', action: 'Triplet inside the beat’s tuplet (nested tuplet)', press: key('/', { altKey: true }) },
     ],
   },
   {
