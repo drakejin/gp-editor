@@ -1,11 +1,11 @@
 import { renderMidi } from '@gp-editor/core';
 import { loopPassAt, nextLoopBatch, passesPerBatch, planPlayback, startSeconds } from '../src/lib/practice-plan';
 import { INITIAL_PRACTICE, type PracticeSettings } from '../src/state/practice';
-import { beat, header, makeSong, note } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note, toTux } from '../test-support/songs';
 
 const BARS = 4;
 const song = makeSong(
-  Array.from({ length: BARS }, (_, index) => [beat(header(index + 1).start, [note(1, 0)])]),
+  Array.from({ length: BARS }, (_, index) => [beat(toTux(header(index + 1).start), [note(1, 0)])]),
   Array.from({ length: BARS }, (_, index) => header(index + 1, { tempo: index === 1 ? 100 : 120 })),
 );
 
@@ -42,9 +42,9 @@ describe('planPlayback without loop', () => {
   });
 
   it('starts from a beat inside the bar when asked (a selection’s first beat)', () => {
-    const plan = planPlayback(song, INITIAL_PRACTICE, { measureIndex: 2, tick: header(3).start + 960 });
+    const plan = planPlayback(song, INITIAL_PRACTICE, { measureIndex: 2, tick: header(3).start + fromTux(960) });
     expect(plan.startMeasureIndex).toBe(2);
-    expect(plan.startTick).toBe(header(3).start + 960);
+    expect(plan.startTick).toBe(header(3).start + fromTux(960));
   });
 
   it('clamps the start bar to the song', () => {
@@ -124,7 +124,7 @@ describe('startSeconds and loopPassAt', () => {
     const { timeline: songTimeline } = renderMidi(song, planPlayback(song, INITIAL_PRACTICE, {}).options);
 
     // Act / Assert: two quarters into bar 2 at 100 BPM is 1.2 s after its start
-    expect(startSeconds(songTimeline, 1, header(2).start + 2 * 960)).toBeCloseTo(2 + 1.2, 6);
+    expect(startSeconds(songTimeline, 1, header(2).start + fromTux(2 * 960))).toBeCloseTo(2 + 1.2, 6);
     expect(startSeconds(songTimeline, 1, header(2).start)).toBeCloseTo(2, 6);
     expect(startSeconds(songTimeline, 1, header(1).start)).toBeCloseTo(2, 6);
   });

@@ -15,6 +15,7 @@ import type {
   Trill,
   VibratoKind,
 } from '../../model/song';
+import { QUARTER_TIME } from '../../model/song';
 import { artificialHarmonicOffsetAtFret } from '../common/harmonics';
 import {
   BEND_MAX_POSITION,
@@ -32,8 +33,8 @@ const GP_CURVE_POSITION = 100;
 const DEFAULT_MIDDLE_OFFSET = 50;
 /** Middle offsets equal to 12 are skipped, as TuxGuitar does. */
 const SKIPPED_MIDDLE_OFFSET = 12;
-/** Trill speeds are stored with 480 ticks per quarter; the model uses 960. */
-export const TRILL_TICKS_FACTOR = 2;
+/** Trill speeds are stored with 480 ticks per quarter; the model uses QUARTER_TIME. */
+export const TRILL_TICKS_FACTOR = QUARTER_TIME / 480;
 
 /** A grace beat (GPIF stores grace notes on their own beat, before the note they decorate). */
 export interface GraceSource {

@@ -31,6 +31,7 @@ import {
   type SongInfo,
   type Stroke,
   type Track,
+  type Tuplet,
   type Voice,
 } from '../../src/model/song';
 import { expectedCurve } from './write-expected-curves';
@@ -72,6 +73,8 @@ export function sanitized(text: string): string {
   });
 }
 
+/** Trill speeds are written in Guitar Pro's 480 ticks per quarter note and read back as plain durations. */
+const TRILL_TICK = QUARTER_TIME / 480;
 const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 const MAX_VOICES = 4;
 const MAX_KEY = 7;
@@ -234,7 +237,7 @@ function expectedEffect(note: Note, shared: VoiceShared, tuning: number, capo: n
     ...(grace === undefined || shared.grace === undefined ? {} : { grace: expectedGrace(grace, shared.grace) }),
     ...(trill === undefined || trillPitch <= 0
       ? {}
-      : { trill: { fret: Math.max(0, trill.fret), duration: durationFromTicks(2 * Math.round(durationTicks(trill.duration) / 2)) } }),
+      : { trill: { fret: Math.max(0, trill.fret), duration: durationFromTicks(TRILL_TICK * Math.round(durationTicks(trill.duration) / TRILL_TICK)) } }),
     ...(shared.tremoloPicking === undefined ? {} : { tremoloPicking: { duration: shared.tremoloPicking } }),
     slides: SLIDE_ORDER.filter((slide) => rest.slides.includes(slide)),
     vibrato: rest.vibrato && !rest.wideVibrato,
@@ -255,8 +258,18 @@ function expectedNote(note: Note, shared: VoiceShared, rules: TrackRules): Note 
   return { ...note, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
 }
 
+function isNormal(tuplet: Tuplet): boolean {
+  return tuplet.enters <= 0 || tuplet.times <= 0 || (tuplet.enters === 1 && tuplet.times === 1);
+}
+
+/** One dot when both are set; a 1:1 inner tuplet is none; an inner tuplet in no outer one is the tuplet. */
 function expectedDuration(duration: Duration): Duration {
-  return duration.dotted && duration.doubleDotted ? { ...duration, doubleDotted: false } : duration;
+  const { innerTuplet, ...rest } = duration;
+  const plain: Duration = rest.dotted && rest.doubleDotted ? { ...rest, doubleDotted: false } : rest;
+  if (innerTuplet === undefined || isNormal(innerTuplet)) {
+    return plain;
+  }
+  return isNormal(plain.tuplet) ? { ...plain, tuplet: innerTuplet } : { ...plain, innerTuplet };
 }
 
 function expectedVoice(voice: Voice | undefined, rules: TrackRules): Voice {

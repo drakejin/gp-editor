@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Beat, GpFormatError, type Song, readSong } from '../src/index';
 import { assertSongInvariants } from './helpers/invariants';
 import { listFixtures, loadFixture } from './helpers/fixtures';
+import { toTux } from './helpers/ticks';
 
 function at<T>(items: readonly T[], index: number): T {
   const item = items[index];
@@ -87,7 +88,7 @@ describe('Guitar Pro 6 (.gpx) values', () => {
     expect(song.tracks.map((t) => t.channelId)).toEqual([1, 2]);
     expect(at(song.tracks, 0).lyrics).toEqual({ from: 1, text: 'Line1' });
     expect(at(song.tracks, 1).lyrics).toBeUndefined();
-    expect(at(song.measureHeaders, 0).start).toBe(960);
+    expect(toTux(at(song.measureHeaders, 0).start)).toBe(960);
     expect(at(song.measureHeaders, 0).tempo).toBe(120);
   });
 

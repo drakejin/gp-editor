@@ -1,12 +1,13 @@
 // GPIF's id-referenced pools <Bars>, <Voices>, <Beats>, <Notes> and <Rhythms> (no TuxGuitar counterpart).
 import { MAX_VOICES } from '../../formats/gpif/gpif-measure';
-import type { Duration, Grace, Measure, MeasureHeader, NoteValue, Song, Track, Voice } from '../../model/song';
+import { NORMAL_TUPLET, isSameTuplet } from '../../model/defaults';
+import type { Duration, Grace, Measure, MeasureHeader, NoteValue, Song, Track, Tuplet, Voice } from '../../model/song';
 import { type BeatCarrier, beatNode, beatNodeKey, graceBeatNode, graceBeatNodeKey, restBeatNode, voiceGraceOf } from './gpif-beats';
 import { chordKeyOf } from './gpif-chords';
 import { type NoteLinks, type VoiceItem, type WrittenBeat, noteKey, voiceItems } from './gpif-layout';
 import { type NoteContext, type NoteTrackContext, graceNoteNode, graceNoteNodeKey, noteNode, noteNodeKey } from './gpif-notes';
 import { clefNameOf, noteValueNameOf } from './gpif-units';
-import { type XmlNode, xmlElement, xmlText } from './xml-writer';
+import { type XmlChild, type XmlNode, xmlElement, xmlText } from './xml-writer';
 
 /** What the pools need to know about a track. */
 export interface TrackPlan {
@@ -34,7 +35,7 @@ const SHORTEST_GRACE: NoteValue = 64;
 
 function graceDurationOf(grace: Grace): Duration {
   const value = GRACE_NOTE_VALUES[grace.duration] ?? SHORTEST_GRACE;
-  return { value, dotted: false, doubleDotted: false, tuplet: { enters: 1, times: 1 } };
+  return { value, dotted: false, doubleDotted: false, tuplet: NORMAL_TUPLET };
 }
 
 function dotCountOf(duration: Duration): number {
@@ -44,19 +45,30 @@ function dotCountOf(duration: Duration): number {
   return duration.doubleDotted ? 2 : 0;
 }
 
+/** `<PrimaryTuplet>` / `<SecondaryTuplet>` of a real tuplet; nothing for none or 1:1. */
+function tupletNode(name: string, tuplet: Tuplet | undefined): XmlChild {
+  const isTuplet = tuplet !== undefined && tuplet.enters > 0 && tuplet.times > 0 && !isSameTuplet(tuplet, NORMAL_TUPLET);
+  return isTuplet && xmlElement(name, [], { num: tuplet.enters, den: tuplet.times });
+}
+
+/** A rhythm: note value, dots, the tuplet and the tuplet inside it (GP7+'s secondary tuplet). */
 function rhythmNode(id: number, duration: Duration): XmlNode {
   const count = dotCountOf(duration);
-  const { enters, times } = duration.tuplet;
-  const isTuplet = enters > 0 && times > 0 && !(enters === 1 && times === 1);
   return xmlElement(
     'Rhythm',
     [
       xmlText('NoteValue', noteValueNameOf(duration.value)),
       count > 0 && xmlElement('AugmentationDot', [], { count }),
-      isTuplet && xmlElement('PrimaryTuplet', [], { num: enters, den: times }),
+      tupletNode('PrimaryTuplet', duration.tuplet),
+      tupletNode('SecondaryTuplet', duration.innerTuplet),
     ],
     { id },
   );
+}
+
+function rhythmKeyOf(duration: Duration): string {
+  const inner = duration.innerTuplet ?? NORMAL_TUPLET;
+  return `${duration.value}/${dotCountOf(duration)}/${duration.tuplet.enters}:${duration.tuplet.times}/${inner.enters}:${inner.times}`;
 }
 
 /** One pool: its elements in id order, and the id of every element written under a key (equal keys, equal elements). */
@@ -98,8 +110,7 @@ class PoolBuilder {
   }
 
   rhythm(duration: Duration): number {
-    const key = `${duration.value}/${dotCountOf(duration)}/${duration.tuplet.enters}:${duration.tuplet.times}`;
-    return this.addShared(this.rhythms, key, (id) => rhythmNode(id, duration));
+    return this.addShared(this.rhythms, rhythmKeyOf(duration), (id) => rhythmNode(id, duration));
   }
 }
 

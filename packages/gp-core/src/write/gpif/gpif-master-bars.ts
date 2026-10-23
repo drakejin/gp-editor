@@ -59,6 +59,7 @@ function masterBarNode(header: MeasureHeader, keySignature: number, barIds: read
   const endings = alternateEndingsOf(header.repeatAlternative);
   const feel = TRIPLET_FEELS[header.tripletFeel];
   return xmlElement('MasterBar', [
+    // The model has no major / minor mode; TransposeAs is how Guitar Pro spells transposed notes.
     xmlElement('Key', [
       xmlText('AccidentalCount', keySignature),
       xmlText('Mode', 'Major'),

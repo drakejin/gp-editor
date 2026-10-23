@@ -5,22 +5,23 @@ import type { VoiceEvent } from '../src/edit/timeline';
 import { EMPTY_NOTE_EFFECT, durationTicks } from '../src/model/defaults';
 import type { Duration, Note } from '../src/model/song';
 import { dur, n } from './helpers/edit-songs';
+import { fromTux, toTux } from './helpers/ticks';
 
 function event(duration: Duration, ...notes: Note[]): VoiceEvent {
   return { voice: { duration, notes, isEmpty: false, direction: 'none' }, attributes: { stroke: { direction: 'down', value: 8 }, pickStroke: 'none' } };
 }
 
 function summary(bars: readonly (readonly VoiceEvent[])[]): string[][] {
-  return bars.map((bar) => bar.map((piece) => `${durationTicks(piece.voice.duration)}:${piece.voice.notes.map((note) => `${note.fret}${note.isTied ? '~' : ''}`).join(',') || 'r'}`));
+  return bars.map((bar) => bar.map((piece) => `${toTux(durationTicks(piece.voice.duration))}:${piece.voice.notes.map((note) => `${note.fret}${note.isTied ? '~' : ''}`).join(',') || 'r'}`));
 }
 
-const WHOLE_BAR = 3840;
+const WHOLE_BAR = fromTux(3840);
 
 describe('layoutBars', () => {
   it('cuts a note held over two bar lines into tied pieces, one share per bar', () => {
     // Arrange: a dotted whole note from beat 3 of a 4/4 bar, then 2/4 bars
     const events = [event(dur(2)), event(dur(1, { dotted: true }), n(1, 5))];
-    const lengths = [WHOLE_BAR, 1920, 1920, 1920];
+    const lengths = [WHOLE_BAR, fromTux(1920), fromTux(1920), fromTux(1920)];
 
     // Act
     const bars = layoutBars(events, (index) => lengths[index] ?? WHOLE_BAR);
@@ -36,7 +37,7 @@ describe('layoutBars', () => {
     const events = [event(dur(4), n(1, 1)), event(dur(4), n(1, 2))];
 
     // Act
-    const bars = layoutBars(events, () => 100);
+    const bars = layoutBars(events, () => fromTux(100));
 
     // Assert
     expect(summary(bars)).toEqual([['960:1'], ['960:2']]);
@@ -53,7 +54,7 @@ describe('splitAtBarLines', () => {
     const note: Note = { ...n(2, 7), effect: { ...EMPTY_NOTE_EFFECT, letRing: true, ghostNote: true, harmonic: { type: 'natural', data: 0 }, slides: ['outDownwards'] } };
 
     // Act
-    const pieces = splitAtBarLines(event(dur(1), note), [960, 1920, 960]);
+    const pieces = splitAtBarLines(event(dur(1), note), [960, 1920, 960].map(fromTux));
 
     // Assert
     const middle = pieces?.[1]?.[0]?.voice.notes[0];
@@ -63,6 +64,6 @@ describe('splitAtBarLines', () => {
   });
 
   it('is undefined when a share cannot be written', () => {
-    expect(splitAtBarLines(event(dur(4)), [100, 860])).toBeUndefined();
+    expect(splitAtBarLines(event(dur(4)), [100, 860].map(fromTux))).toBeUndefined();
   });
 });

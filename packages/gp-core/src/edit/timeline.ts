@@ -1,5 +1,5 @@
-import { NORMAL_TUPLET, NO_STROKE, QUARTER, durationTicks } from '../model/defaults';
-import type { Beat, Chord, Duration, Measure, Stroke, StrokeDirection, Tuplet, Voice } from '../model/song';
+import { type DurationTuplets, NO_STROKE, NO_TUPLETS, QUARTER, durationTicks, hasSameTuplets } from '../model/defaults';
+import type { Beat, Chord, Duration, Measure, Stroke, StrokeDirection, Voice } from '../model/song';
 import { restDurations } from './rests';
 
 /** The beat-level attributes an event keeps when it is the event that owns its beat. */
@@ -56,8 +56,8 @@ export function restEvent(duration: Duration): VoiceEvent {
 }
 
 /** Rest events filling exactly `ticks` (see restDurations); undefined when that is impossible. */
-export function restEvents(ticks: number, preferred?: Duration, tuplet?: Tuplet): VoiceEvents | undefined {
-  return restDurations(ticks, preferred, tuplet)?.map(restEvent);
+export function restEvents(ticks: number, preferred?: Duration, tuplets?: DurationTuplets): VoiceEvents | undefined {
+  return restDurations(ticks, preferred, tuplets)?.map(restEvent);
 }
 
 /** Of the voices playing in a beat, the one whose event carries the beat attributes: preferably one that stays put. */
@@ -75,20 +75,24 @@ function attributesOf(beat: Beat): BeatAttributes {
   };
 }
 
-/** The tuplets a measure's events use: time another voice leaves unused is made of these. */
-function measureTuplets(measure: Measure): readonly Tuplet[] {
-  const tuplets: Tuplet[] = [NORMAL_TUPLET];
-  for (const voice of measure.beats.flatMap((beat) => beat.voices)) {
-    const { tuplet } = voice.duration;
-    if (!voice.isEmpty && !tuplets.some((known) => known.enters === tuplet.enters && known.times === tuplet.times)) {
-      tuplets.push(tuplet);
+/** The tuplets (and tuplets inside them) of `durations`, each once, after no tuplet. */
+export function distinctTuplets(durations: readonly DurationTuplets[]): readonly DurationTuplets[] {
+  const tuplets: DurationTuplets[] = [NO_TUPLETS];
+  for (const duration of durations) {
+    if (!tuplets.some((known) => hasSameTuplets(known, duration))) {
+      tuplets.push(duration);
     }
   }
   return tuplets;
 }
 
+/** The tuplets a measure's events use: time another voice leaves unused is made of these. */
+function measureTuplets(measure: Measure): readonly DurationTuplets[] {
+  return distinctTuplets(measure.beats.flatMap((beat) => beat.voices.filter((voice) => !voice.isEmpty).map((voice) => voice.duration)));
+}
+
 /** Rests for `ticks` of unused time, plain or in one of `tuplets`; undefined when none can write it. */
-export function gapRests(ticks: number, tuplets: readonly Tuplet[]): VoiceEvents | undefined {
+export function gapRests(ticks: number, tuplets: readonly DurationTuplets[]): VoiceEvents | undefined {
   if (ticks <= 0) {
     return [];
   }
@@ -110,7 +114,7 @@ export function measureGapRests(measure: Measure, ticks: number): VoiceEvents | 
 interface Split {
   readonly voices: VoiceEvent[][];
   readonly ends: number[];
-  readonly tuplets: readonly Tuplet[];
+  readonly tuplets: readonly DurationTuplets[];
 }
 
 /** Appends an event read at `beatStart` to its voice, after rests for time the voice left unused; false when they cannot be written. */
@@ -226,11 +230,5 @@ function isSameRest(a: Voice, b: Voice): boolean {
 }
 
 export function isSameDuration(a: Duration, b: Duration): boolean {
-  return (
-    a.value === b.value &&
-    a.dotted === b.dotted &&
-    a.doubleDotted === b.doubleDotted &&
-    a.tuplet.enters === b.tuplet.enters &&
-    a.tuplet.times === b.tuplet.times
-  );
+  return a.value === b.value && a.dotted === b.dotted && a.doubleDotted === b.doubleDotted && hasSameTuplets(a, b);
 }

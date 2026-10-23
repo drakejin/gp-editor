@@ -7,6 +7,7 @@ import type { Duration, Note, NoteEffect, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write/index';
 import { assertSongInvariants } from './helpers/invariants';
+import { fromTux } from './helpers/ticks';
 import { songDifference } from './helpers/write-compare';
 import { expectedAfterGp } from './helpers/write-expected-gpif';
 import { buildNote, buildSong, buildVoice, restVoice, songWithNotes } from './helpers/write-song-builder';
@@ -203,7 +204,7 @@ describe('writeSong gp: beats and voices', () => {
       measureHeaders: base.measureHeaders.map((header) => ({ ...header, timeSignature: { numerator: 6, denominator: 4 } })),
       tracks: base.tracks.map((track) => ({
         ...track,
-        measures: track.measures.map((measure) => ({ ...measure, beats: [{ start: 960, voices, stroke: { direction: 'none', value: 0 }, pickStroke: 'none' }] })),
+        measures: track.measures.map((measure) => ({ ...measure, beats: [{ start: fromTux(960), voices, stroke: { direction: 'none', value: 0 }, pickStroke: 'none' }] })),
       })),
     };
 
@@ -212,6 +213,39 @@ describe('writeSong gp: beats and voices', () => {
 
     // Assert
     expect(again.tracks[0]?.measures[0]?.beats[0]?.voices.map((voice) => voice.duration)).toEqual(voices.map((voice) => voice.duration));
+  });
+
+  it('keeps a tuplet inside a tuplet as the primary and secondary tuplet of its rhythm', () => {
+    // Arrange: a triplet inside a quintuplet, and a septuplet
+    const nested: Duration = { value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 5, times: 4 }, innerTuplet: { enters: 3, times: 2 } };
+    const septuplet: Duration = { value: 16, dotted: false, doubleDotted: false, tuplet: { enters: 7, times: 4 } };
+    const song = songWithNotes([buildNote(1, 0)], [buildNote(1, 2)]);
+    const withDurations: Song = {
+      ...song,
+      tracks: song.tracks.map((track) => ({
+        ...track,
+        measures: track.measures.map((measure) => ({
+          ...measure,
+          beats: measure.beats.map((beat, index) => ({
+            ...beat,
+            voices: beat.voices.map((voice, v) => (v === 0 ? { ...voice, duration: index === 0 ? nested : septuplet } : voice)),
+          })),
+        })),
+      })),
+    };
+
+    // Act
+    const again = roundTrip(withDurations);
+    const rhythm = childList(scoreXml(withDurations), 'Rhythms', 'Rhythm')[0];
+
+    // Assert
+    const played = again.tracks[0]?.measures[0]?.beats.filter((beat) => (beat.voices[0]?.notes.length ?? 0) > 0) ?? [];
+    expect(played.map((beat) => beat.voices[0]?.duration)).toEqual([nested, septuplet]);
+    expect(rhythm?.children.map((c) => [c.name, c.attributes.get('num'), c.attributes.get('den')])).toEqual([
+      ['NoteValue', undefined, undefined],
+      ['PrimaryTuplet', '5', '4'],
+      ['SecondaryTuplet', '3', '2'],
+    ]);
   });
 
   it('fills a gap in a voice with rests so that the beats keep their places', () => {
@@ -226,7 +260,7 @@ describe('writeSong gp: beats and voices', () => {
         ...track,
         measures: track.measures.map((measure) => ({
           ...measure,
-          beats: measure.beats.map((beat, index) => (index === 1 ? { ...beat, start: beat.start + 1440 } : beat)),
+          beats: measure.beats.map((beat, index) => (index === 1 ? { ...beat, start: beat.start + fromTux(1440) } : beat)),
         })),
       })),
     };
@@ -237,9 +271,9 @@ describe('writeSong gp: beats and voices', () => {
     // Assert
     const beats = again.tracks[0]?.measures[0]?.beats ?? [];
     expect(beats.map((beat) => [beat.start, beat.voices[0]?.notes.length, beat.voices[0]?.duration])).toEqual([
-      [960, 1, plainDuration(4)],
-      [1920, 0, dottedQuarter],
-      [3360, 1, dottedQuarter],
+      [fromTux(960), 1, plainDuration(4)],
+      [fromTux(1920), 0, dottedQuarter],
+      [fromTux(3360), 1, dottedQuarter],
     ]);
   });
 
@@ -252,7 +286,7 @@ describe('writeSong gp: beats and voices', () => {
 
     // Assert
     expect(child(child(scoreXml(song), 'MasterTrack'), 'Anacrusis')).toBeDefined();
-    expect(again.tracks[0]?.measures[0]?.beats[0]?.start).toBe(960 + 3 * 960);
+    expect(again.tracks[0]?.measures[0]?.beats[0]?.start).toBe(fromTux(960 + 3 * 960));
   });
 
   it('drops voice directions, which the reader does not read, but writes them for Guitar Pro', () => {
@@ -385,6 +419,33 @@ describe('writeSong gp: tracks, channels and measure headers', () => {
     const primaries = tracks.map((track) => child(child(track, 'MidiConnection'), 'PrimaryChannel')?.text);
     expect(primaries).toEqual(['0', '1', '2', '3', '4', '5', '6', '7']);
     expect(again.channels).toHaveLength(8);
+  });
+
+  it('wraps pitched channels past fifteen round to the first MIDI channels, which the reader merges', () => {
+    // Arrange
+    const song = buildSong({
+      tracks: Array.from({ length: 17 }, (_, i) => ({ channel: { program: i }, measures: [[{ voice: buildVoice([buildNote(1, 0)]) }]] })),
+    });
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(again.channels).toHaveLength(15);
+    expect(again.tracks.map((track) => track.channelId).slice(14)).toEqual([15, 1, 2]);
+    expect(songDifference(expectedAfterGp(song), again)).toBeUndefined();
+  });
+
+  it('writes an empty bar for a track that has fewer measures than the song', () => {
+    // Arrange
+    const base = buildSong({ headers: [{}, {}], tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 0)], plainDuration(1)) }]] }] });
+    const song: Song = { ...base, tracks: base.tracks.map((track) => ({ ...track, measures: track.measures.slice(0, 1) })) };
+
+    // Act
+    const again = readSong(writeSong(song, 'gp'));
+
+    // Assert
+    expect(again.tracks[0]?.measures.map((measure) => measure.beats.length)).toEqual([1, 0]);
   });
 
   it('keeps the song information, dropping what XML cannot hold', () => {

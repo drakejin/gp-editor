@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { harmonicFretAtOffset } from '../src/formats/common/harmonics';
 import { STROKE_VALUES, durationFromTicks, plainDuration } from '../src/model/defaults';
 import { strokeValueFromTicks, tremoloPickingDuration } from '../src/formats/gpif/gpif-duration';
+import { TRILL_TICKS_FACTOR } from '../src/formats/gpif/gpif-note';
 import { EMPTY_NOTE_EFFECT } from '../src/model/defaults';
 import type { Duration, Harmonic } from '../src/model/song';
 import {
@@ -69,8 +70,8 @@ describe('trillTicksOf', () => {
     // Act
     const ticks = trillTicksOf(duration);
 
-    // Assert: the reader doubles the 480-per-quarter ticks
-    expect(durationFromTicks(ticks * 2)).toEqual(duration);
+    // Assert: the reader scales Guitar Pro's 480 ticks per quarter note to the song's
+    expect(durationFromTicks(ticks * TRILL_TICKS_FACTOR)).toEqual(duration);
   });
 });
 
