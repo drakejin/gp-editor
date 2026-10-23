@@ -1,4 +1,5 @@
 import { type Measure, type MeasureHeader, type Song, type StringAddress, type Track, isMeasureOverfull } from '@gp-editor/core';
+import { isKeyboardTrack } from '../lib/fingering';
 import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
@@ -146,7 +147,8 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   const { track, header, measure, layout, previousMeasure, nextMeasure } = scope;
   // Pick strokes go over the tab when it is shown, else over the notation.
   const showsPickStrokes = !showsTab(context.mode);
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight, showsPickStrokes });
+  const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */

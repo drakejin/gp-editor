@@ -2,7 +2,7 @@ import type { MeasureHeader } from '@gp-editor/core';
 import {
   type Beam,
   type RhythmBeat,
-  beamGroupTicks,
+  beamGroupBoundsOf,
   flagCount,
   layoutBeams,
 } from '../../lib/beams';
@@ -54,15 +54,12 @@ function mergeBeams(beams: readonly Beam[]): Beam[] {
   }, []);
 }
 
-/** Beam groups of every voice, grouped by the time signature like the tab staff's rhythm. */
+/** Beam groups of every voice, grouped by the bar's beam grouping and the beats' own beams, like the tab staff's rhythm. */
 export function beamGroups(
   events: readonly VoiceEvent[],
   header: MeasureHeader,
 ): BeamGroup[] {
-  const groupTicks = beamGroupTicks(
-    header.timeSignature.numerator,
-    header.timeSignature.denominator,
-  );
+  const groupBounds = beamGroupBoundsOf(header);
   const voices = [...new Set(events.map(event => event.voiceIndex))];
   return voices.flatMap(voiceIndex => {
     const voice = events.flatMap((event, index) =>
@@ -73,8 +70,11 @@ export function beamGroups(
       start: event.start,
       value: event.duration.value,
       isRest: event.notes.length === 0,
+      ...(event.beamToNext === undefined
+        ? {}
+        : { beamToNext: event.beamToNext }),
     }));
-    const layout = layoutBeams(rhythm, header.start, groupTicks);
+    const layout = layoutBeams(rhythm, header.start, groupBounds);
     return layout.beams
       .filter(beam => beam.level === 1)
       .map(primary => ({

@@ -23,6 +23,8 @@ export const TAB = {
 /** Natural width of a beat by its shortest note value. */
 const BEAT_WIDTH: Readonly<Record<number, number>> = { 1: 64, 2: 48, 4: 36, 8: 30, 16: 26, 32: 24, 64: 22 };
 const DOT_EXTRA = 6;
+/** Room a left-hand finger takes left of its notehead. */
+const FINGERING_EXTRA = 8;
 /** Room each rise or fall of a bend takes on the tab, so its arrows and amounts do not overlap. */
 export const BEND_MOVE_WIDTH = 16;
 /** Fret number and margins around a bend's arrows. */
@@ -78,7 +80,8 @@ function beatWidth(beat: Beat): number {
   const dotted = voices.some((voice) => voice.duration.dotted || voice.duration.doubleDotted);
   const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => bendMoves(note.effect.bend?.points ?? []))));
   const bendWidth = moves === 0 ? 0 : BEND_PADDING + moves * BEND_MOVE_WIDTH;
-  return Math.max((BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0), bendWidth);
+  const fingered = voices.some((voice) => voice.notes.some((note) => note.leftFinger !== undefined));
+  return Math.max((BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0) + (fingered ? FINGERING_EXTRA : 0), bendWidth);
 }
 
 /** How many times a bend rises or falls. */
