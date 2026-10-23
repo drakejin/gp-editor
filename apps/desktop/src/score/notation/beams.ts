@@ -104,7 +104,7 @@ function directionOf(notes: readonly StaffNote[]): StemDirection {
 
 /**
  * Stem direction per event: with a second voice, voice 1 up and the others down; otherwise the voice's own
- * direction or the average position of the beam group (or the chord) against the middle line.
+ * direction, up for rhythm slashes, or the average position of the beam group (or the chord) against the middle line.
  */
 export function stemDirections(
   events: readonly VoiceEvent[],
@@ -122,8 +122,12 @@ export function stemDirections(
     }
     const members = groupOf.get(index)?.members ?? [index];
     const lead = events[members[0] ?? index] ?? event;
-    return lead.direction !== 'none'
-      ? lead.direction
+    if (lead.direction !== 'none') {
+      return lead.direction;
+    }
+    // Rhythm slashes sit on the middle line and are stemmed up, as slash notation is written.
+    return lead.isSlashed === true
+      ? 'up'
       : directionOf(members.flatMap(member => events[member]?.notes ?? []));
   });
 }

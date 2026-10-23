@@ -127,6 +127,18 @@ describe('rhythm slashes in standard notation', () => {
     expect(texts(commands, SMUFL.accidentalSharp)).toHaveLength(0);
   });
 
+  it('stems a slash up from its right end, as slash notation is written', () => {
+    // Act: notes high on the staff, whose stems would go down
+    const commands = engrave([marked(960, [note(1, 12)], { isSlashed: true })]);
+
+    // Assert
+    const [slash] = texts(commands, SLASH_GLYPHS.black.text);
+    const stems = commands.filter((c) => c.kind === 'line' && c.x1 === c.x2 && Math.abs(c.x1 - (slash!.x + SLASH_GLYPHS.black.advance * SPACE)) < 1);
+    expect(stems).toHaveLength(1);
+    const stem = stems[0] as { readonly y1: number; readonly y2: number };
+    expect(Math.min(stem.y1, stem.y2)).toBeLessThan(yOf(8));
+  });
+
   it('uses the white slash for a half note and slashes every beat of a track in slash notation', () => {
     // Act
     const commands = engrave([beat(960, [note(2, 1)], HALF), beat(2880, [note(2, 3)])], { track: { hasSlashNotation: true } });

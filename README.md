@@ -218,9 +218,9 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   - notation marks, as Guitar Pro 8 writes them (each a lit palette button, one undo step, also in the command palette):
     fingering — the Note group's *L.H.* (T 1 2 3 4, written left of the notehead), *R.H.* (p i m a c, over or under the
     note) and *Piano* (1–5 over or under the notes; a piano or organ track writes every finger that way); *Accidental*
-    — cautionary (in parentheses) or forced (always written); the Beat group's *Slash* (the beat as a rhythm slash on
-    the middle line, its frets left out of the tab) and *Break* / *Join* / *Break 2* (the beam to the next beat broken,
-    joined across the beat, or with only its eighth beam); the Bar group's *Beams* (by beat, by two beats, the whole
+    — cautionary (in parentheses) or forced (always written); the Beat group's */* (slash: the beat as a rhythm slash
+    on the middle line, its frets left out of the tab) and *Break* / *Join* / *2nd* (the beam to the next beat broken,
+    joined across the beat, or with only its eighth beam: the secondary beams break); the Bar group's *Beams* (by beat, by two beats, the whole
     bar — from this bar on while the time signature lasts). The Track inspector's *Slash* writes the whole track in
     slashes. GPIF (`.gp`, `.gpx`) and GP5 files keep fingering and beaming (GP5: four groups of eighths), GP3/GP4
     fingering only; slashes stay in `.gp` files; no Guitar Pro file holds a cautionary or forced accidental

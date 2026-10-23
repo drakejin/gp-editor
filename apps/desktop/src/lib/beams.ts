@@ -125,7 +125,8 @@ function levelBeams(group: readonly number[], beats: readonly RhythmBeat[], leve
     if (isJoined(position)) {
       beams.push({ level, fromX: xAt(position), toX: xAt(position + 1) });
     } else if (!(position > 0 && isJoined(position - 1))) {
-      const towardsNext = position + 1 < group.length && !isBroken(position);
+      // A stub points into the group: on from its first beat, back from its last or from a secondary break.
+      const towardsNext = position + 1 < group.length && (position === 0 || !isBroken(position));
       const x = xAt(position);
       beams.push({ level, fromX: towardsNext ? x : x - BEAM_STUB, toX: towardsNext ? x + BEAM_STUB : x });
     }

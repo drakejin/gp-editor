@@ -63,13 +63,21 @@ function beamTool(id: string, face: string, tooltip: string, link: BeamLink): Pa
   return { id, face, tooltip, scope: 'beat', run: { kind: 'edit', edit: { type: 'toggleBeamLink', link } }, isActive: (c) => c.voice?.beamToNext === link };
 }
 
-/** The beat's rhythm slash and its beam to the next beat. */
+/** The beat's rhythm slash and its beam to the next beat; short faces keep the four on one row of the Beat group. */
 export function beatMarkTools(): readonly PaletteTool[] {
+  const slash: PaletteTool = {
+    id: 'slash',
+    face: '/',
+    tooltip: 'Slash: write the beat as a rhythm slash',
+    scope: 'beat',
+    run: { kind: 'edit', edit: { type: 'toggleSlash' } },
+    isActive: (c) => c.voice?.isSlashed === true,
+  };
   return [
-    { id: 'slash', face: 'Slash', tooltip: 'Slash: write the beat as a rhythm slash', scope: 'beat', run: { kind: 'edit', edit: { type: 'toggleSlash' } }, isActive: (c) => c.voice?.isSlashed === true },
+    slash,
     beamTool('breakBeam', 'Break', 'Break beam: no beam from this beat to the next', 'break'),
     beamTool('joinBeam', 'Join', 'Join beam: beam this beat to the next across the beat', 'join'),
-    beamTool('breakSecondaryBeam', 'Break 2', 'Break secondary beams: only the eighth beam goes on to the next beat', 'breakSecondary'),
+    beamTool('breakSecondaryBeam', '2nd', 'Break secondary beams (2nd): only the eighth beam goes on to the next beat', 'breakSecondary'),
   ];
 }
 

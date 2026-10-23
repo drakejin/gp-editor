@@ -88,6 +88,18 @@ describe('layoutBeams', () => {
     expect(layout.beams).toContainEqual({ level: 2, fromX: 50 - BEAM_STUB, toX: 50 });
   });
 
+  it('points the stub of a group’s first sixteenth on, into the group, across a secondary break', () => {
+    // Act
+    const layout = layoutBeams(linked(16, 'breakSecondary', undefined, undefined), 0, QUARTERS);
+
+    // Assert
+    expect(layout.beams).toEqual([
+      { level: 1, fromX: 10, toX: 50 },
+      { level: 2, fromX: 10, toX: 10 + BEAM_STUB },
+      { level: 2, fromX: 30, toX: 50 },
+    ]);
+  });
+
   it('measures groups from the measure start', () => {
     const layout = layoutBeams(beats([960 + 0, 8], [960 + EIGHTH, 8]), 960, QUARTERS);
     expect(layout.beamed.size).toBe(2);
