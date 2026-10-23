@@ -36,6 +36,20 @@ struct GPEditorApp: App {
         .keyboardShortcut("i", modifiers: [.command, .shift])
       }
       CommandGroup(replacing: .saveItem) {
+        // Each document is a tab of the window: ⌘W closes the shown one (asking first when it is edited).
+        Button("Close Tab") {
+          NotificationCenter.default.post(name: .GPEditorCloseTabCommand, object: nil)
+        }
+        .keyboardShortcut("w")
+        Button("Next Tab") {
+          NotificationCenter.default.post(name: .GPEditorNextTabCommand, object: nil)
+        }
+        .keyboardShortcut(.tab, modifiers: [.control])
+        Button("Previous Tab") {
+          NotificationCenter.default.post(name: .GPEditorPreviousTabCommand, object: nil)
+        }
+        .keyboardShortcut(.tab, modifiers: [.control, .shift])
+        Divider()
         Button("Save") {
           NotificationCenter.default.post(name: .GPEditorSaveCommand, object: nil)
         }

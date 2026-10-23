@@ -115,3 +115,26 @@ export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
   const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('helpRequested', onHelpRequested);
   return () => subscription.remove();
 }
+
+export interface TabEventHandlers {
+  /** File ▸ Close Tab (⌘W). */
+  readonly onCloseTabRequested: () => void;
+  /** File ▸ Next Tab (⌃Tab). */
+  readonly onNextTabRequested: () => void;
+  /** File ▸ Previous Tab (⌃⇧Tab). */
+  readonly onPreviousTabRequested: () => void;
+}
+
+/** File ▸ Close Tab, Next Tab and Previous Tab; returns the unsubscribe function. */
+export function subscribeTabRequests(handlers: TabEventHandlers): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const emitter = new NativeEventEmitter(NativeModules.GPFiles);
+  const subscriptions = [
+    emitter.addListener('closeTabRequested', handlers.onCloseTabRequested),
+    emitter.addListener('nextTabRequested', handlers.onNextTabRequested),
+    emitter.addListener('previousTabRequested', handlers.onPreviousTabRequested),
+  ];
+  return () => subscriptions.forEach((subscription) => subscription.remove());
+}

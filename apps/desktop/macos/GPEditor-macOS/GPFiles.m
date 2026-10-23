@@ -1,6 +1,6 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
-// As…) and Help ▸ Keyboard Shortcuts.
+// As…, Close Tab, Next Tab, Previous Tab) and Help ▸ Keyboard Shortcuts.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 
 #import <AppKit/AppKit.h>
@@ -19,6 +19,9 @@ static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
 static NSString *const kSaveRequestedEvent = @"saveRequested";
+static NSString *const kCloseTabRequestedEvent = @"closeTabRequested";
+static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
+static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -66,6 +69,9 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
     [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onCloseTabCommand:) name:GPEditorCloseTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onNextTabCommand:) name:GPEditorNextTabCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
   }
   return self;
 }
@@ -77,7 +83,10 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[ kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent ];
+  return @[
+    kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kOpenRequestedEvent,
+    kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent
+  ];
 }
 
 - (void)startObserving
@@ -146,6 +155,27 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kSaveRequestedEvent body:@{@"saveAs" : @YES}];
+  }
+}
+
+- (void)onCloseTabCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kCloseTabRequestedEvent body:@{}];
+  }
+}
+
+- (void)onNextTabCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kNextTabRequestedEvent body:@{}];
+  }
+}
+
+- (void)onPreviousTabCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kPreviousTabRequestedEvent body:@{}];
   }
 }
 

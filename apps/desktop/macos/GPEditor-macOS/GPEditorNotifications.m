@@ -9,3 +9,6 @@ NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";
 NSString *const GPEditorOpenURLsNotification = @"GPEditorOpenURLs";
 NSString *const GPEditorSaveCommandNotification = @"GPEditorSaveCommand";
 NSString *const GPEditorSaveAsCommandNotification = @"GPEditorSaveAsCommand";
+NSString *const GPEditorCloseTabCommandNotification = @"GPEditorCloseTabCommand";
+NSString *const GPEditorNextTabCommandNotification = @"GPEditorNextTabCommand";
+NSString *const GPEditorPreviousTabCommandNotification = @"GPEditorPreviousTabCommand";

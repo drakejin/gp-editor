@@ -181,6 +181,7 @@ __attribute__((constructor)) static void GPQADriverStart(void)
       @"Delete" : @[ [NSString stringWithFormat:@"%C", (unichar)NSDeleteFunctionKey], @117 ],
       @"Escape" : @[ [NSString stringWithFormat:@"%C", (unichar)0x1B], @53 ],
       @"Enter" : @[ @"\r", @36 ],
+      @"Tab" : @[ @"\t", @48 ],
     };
   });
   NSArray *mapped = special[key];
@@ -190,6 +191,7 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   flags |= [modifiers containsObject:@"cmd"] ? NSEventModifierFlagCommand : 0;
   flags |= [modifiers containsObject:@"shift"] ? NSEventModifierFlagShift : 0;
   flags |= [modifiers containsObject:@"alt"] ? NSEventModifierFlagOption : 0;
+  flags |= [modifiers containsObject:@"ctrl"] ? NSEventModifierFlagControl : 0;
   flags |= mapped != nil && keyCode >= 123 && keyCode <= 126 ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : 0;
   for (NSNumber *type in @[ @(NSEventTypeKeyDown), @(NSEventTypeKeyUp) ]) {
     NSEvent *event = [NSEvent keyEventWithType:(NSEventType)type.unsignedIntegerValue
