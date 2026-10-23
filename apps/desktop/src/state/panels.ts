@@ -6,13 +6,15 @@ export interface PanelVisibility {
   readonly inspector: boolean;
   /** Tracks and bar map, bottom. */
   readonly tracks: boolean;
+  /** Piano keyboard with the sounding notes' keys lit, above the fretboard (pitched tracks). */
+  readonly keyboard: boolean;
   /** Fretboard (instrument view), above the tracks. */
   readonly neck: boolean;
 }
 
 export type PanelId = keyof PanelVisibility;
 
-export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, neck: true };
+export const INITIAL_PANELS: PanelVisibility = { palette: true, inspector: true, tracks: true, keyboard: true, neck: true };
 
 export function togglePanel(panels: PanelVisibility, panel: PanelId): PanelVisibility {
   return { ...panels, [panel]: !panels[panel] };

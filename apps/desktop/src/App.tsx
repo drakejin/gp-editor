@@ -272,7 +272,15 @@ export default function App() {
           }
           bottom={
             <>
-              {chrome.panels.neck ? <InstrumentView song={document.song} trackIndex={trackIndex} cursor={cursor} playing={playback.playing} palette={palette} /> : null}
+              <InstrumentView
+                song={document.song}
+                trackIndex={trackIndex}
+                cursor={cursor}
+                playing={playback.playing}
+                palette={palette}
+                showsKeyboard={chrome.panels.keyboard}
+                showsFretboard={chrome.panels.neck}
+              />
               {chrome.panels.tracks ? (
                 <TracksPanel
                   song={document.song}

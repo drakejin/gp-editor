@@ -38,7 +38,7 @@ export interface TopBarProps {
 
 /**
  * Guitar Pro 8's top bar: panel toggles, zoom and undo on the left; the transport and the LCD in the middle; loop,
- * playback speed, the fretboard toggle and the shortcut sheet on the right. Files (New, Open, Save, Import PDF,
+ * playback speed, the piano keyboard and fretboard toggles and the shortcut sheet on the right. Files (New, Open, Save, Import PDF,
  * Export PDF, Print) live in the macOS menu bar's File menu.
  */
 function TopBarView(props: TopBarProps) {
@@ -88,6 +88,13 @@ function TopBarView(props: TopBarProps) {
           minWidth={72}
         />
         <Divider palette={palette} />
+        <ChromeButton
+          palette={palette}
+          label=""
+          icon={<PanelIcon side="keyboard" color={panels.keyboard ? palette.chromeAccent : palette.chromeMuted} />}
+          tooltip="Show or hide the piano keyboard"
+          onPress={() => props.onTogglePanel('keyboard')}
+        />
         <ChromeButton
           palette={palette}
           label=""

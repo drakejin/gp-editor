@@ -87,9 +87,10 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
 - **Window** (Guitar Pro 8's layout): the **top bar** — the panel toggles (palette, tracks, inspector); zoom (50–200%, ⌘- / ⌘=); undo and redo; the transport (first, previous, play/stop,
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
-  fretboard toggle and **?** (the keyboard shortcut sheet). File commands — New, Open, Save, Import PDF, Export PDF,
+  piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Save, Import PDF, Export PDF,
   Print — are in the macOS menu bar's **File** menu. Under it the document tab, then: the **edition palette** on the left, the **score** as a page on a
-  grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **fretboard** and the
+  grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
+  **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
   per bar and track, in the track's colour where it has notes, grey where it only rests, a dark square on the cursor's
   bar, lettered sections underneath. Clicking a cell shows that track at that bar.
@@ -113,7 +114,9 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   refused. Results depend on how clear the PDF is: read the warnings and check the song against the PDF.
 - **View**: the Track inspector's *Notation* toggles show standard notation, tab or both (at least one stays on). The
   24-fret fretboard at the bottom (not for drum tracks) shows every position's note name and the notes of the current
-  beat. Pick a track in the tracks panel (or its bar map).
+  beat; right above it an 88-key **piano keyboard** (A0–C8, every C named) lights the keys those notes sound, capo
+  included, named (e.g. *A#4*) — the playing beat while playing. Each has its own toggle at the right of the top bar
+  (piano and neck icons). Pick a track in the tracks panel (or its bar map).
 - **Neck & tuning**: the neck shows the track's own strings and capo. Its tuning presets come from its instrument:
   4-string bass presets for basses (a General MIDI bass program — so picking a bass instrument switches them — or
   strings tuned like a bass), 6-string guitar presets for every other pitched track (guitars, strings, choirs, keys…). The Track
@@ -188,7 +191,7 @@ The Hermes smoke test, the `open -a` E2E check and the QA driver are described i
   copy). The bank is a playback setting, kept by the app, not saved in the file; a new bank restarts playback at the
   bar being played, once, shortly after the last click.
 - **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar with the selected
-  sound bank; the score, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
+  sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
   speed menu and ⟲ Loop set up practice playback for the session — none of it is saved in the file:
   - *Speed*: 25%–100% of the written tempo, a tempo in BPM (60, 90, 120, 150 and the written one), or *Custom* −/+ in
     5 BPM steps — also `]` / `[` on the keyboard — (25%–300% of the written tempo, never under 20 BPM). Every tempo of the song is scaled alike, so tempo

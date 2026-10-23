@@ -99,7 +99,7 @@ describe('TopBar transport', () => {
 });
 
 describe('TopBar panels and history', () => {
-  it('toggles the palette, tracks, inspector and fretboard panels', () => {
+  it('toggles the palette, tracks, inspector, piano keyboard and fretboard panels', () => {
     // Arrange
     const bar = render();
 
@@ -107,10 +107,11 @@ describe('TopBar panels and history', () => {
     bar.press('Show or hide the edition palette');
     bar.press('Show or hide the tracks');
     bar.press('Show or hide the Song / Track inspector');
+    bar.press('Show or hide the piano keyboard');
     bar.press('Show or hide the fretboard');
 
     // Assert
-    expect((bar.props.onTogglePanel as jest.Mock).mock.calls).toEqual([['palette'], ['tracks'], ['inspector'], ['neck']]);
+    expect((bar.props.onTogglePanel as jest.Mock).mock.calls).toEqual([['palette'], ['tracks'], ['inspector'], ['keyboard'], ['neck']]);
   });
 
   it('enables undo and redo only when there is something to undo or redo', () => {

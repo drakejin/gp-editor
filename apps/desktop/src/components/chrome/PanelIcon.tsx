@@ -1,15 +1,27 @@
 import { StyleSheet, View } from 'react-native';
 
 /** Which side of the window a panel toggle shows or hides. */
-export type PanelSide = 'left' | 'right' | 'bottom' | 'neck';
+export type PanelSide = 'left' | 'right' | 'bottom' | 'neck' | 'keyboard';
 
 interface PanelIconProps {
   readonly side: PanelSide;
   readonly color: string;
 }
 
-/** A window outline with the panel's side filled in (Guitar Pro's panel toggles); the neck shows frets and strings. */
+/**
+ * A window outline with the panel's side filled in (Guitar Pro's panel toggles); the neck shows frets and strings, the
+ * keyboard three black keys over the white ones.
+ */
 export function PanelIcon({ side, color }: PanelIconProps) {
+  if (side === 'keyboard') {
+    return (
+      <View style={[styles.frame, { borderColor: color }]}>
+        {[0, 1, 2].map((key) => (
+          <View key={`k${key}`} style={[styles.blackKey, { left: 2.5 + key * 4.5, backgroundColor: color }]} />
+        ))}
+      </View>
+    );
+  }
   if (side === 'neck') {
     return (
       <View style={[styles.frame, { borderColor: color }]}>
@@ -40,4 +52,5 @@ const styles = StyleSheet.create({
   fill: { position: 'absolute' },
   string: { position: 'absolute', left: 0, right: 0, height: 1 },
   fret: { position: 'absolute', top: 0, bottom: 0, width: 1 },
+  blackKey: { position: 'absolute', top: 0, height: 6, width: 2.5 },
 });
