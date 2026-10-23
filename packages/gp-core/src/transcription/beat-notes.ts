@@ -101,7 +101,7 @@ function toEntry(note: TranscribedNote, voice: VoiceAtBeat, voiceIndex: number, 
  * The string a written note would rather go on: the one whose open pitch is the highest at or below the note, so it
  * gets its lowest fret (a note below every string is first raised by octaves). 1 when there is no string.
  */
-function preferredString(pitch: number, tuning: readonly number[]): number {
+export function preferredString(pitch: number, tuning: readonly number[]): number {
   const lowest = Math.min(...tuning);
   const raised = pitch < lowest ? pitch + Math.ceil((lowest - pitch) / SEMITONES_PER_OCTAVE) * SEMITONES_PER_OCTAVE : pitch;
   const best = tuning.reduce<number | undefined>((found, open, index) => {

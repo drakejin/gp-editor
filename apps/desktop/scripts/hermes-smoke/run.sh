@@ -19,7 +19,7 @@ mkdir -p "$OUT"
 node -e '
 const fs = require("fs"), path = require("path");
 const root = process.argv[1];
-const entries = fs.readdirSync(root).filter((d) => /^(guitarpro|powertab|tabledit|midi)/.test(d)).sort().flatMap((dir) =>
+const entries = fs.readdirSync(root).filter((d) => /^(guitarpro|powertab|tabledit|midi|musicxml)/.test(d)).sort().flatMap((dir) =>
   fs.readdirSync(path.join(root, dir)).filter((f) => !f.startsWith(".") && !f.startsWith("invalid_")).sort().map((f) => ({
     name: `${dir}/${f}`, base64: fs.readFileSync(path.join(root, dir, f)).toString("base64") })));
 fs.writeFileSync(process.argv[2], "export default " + JSON.stringify(entries) + ";\n");

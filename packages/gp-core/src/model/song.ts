@@ -11,7 +11,7 @@
 /** Ticks per quarter note: 960 × 135135, so every duration Guitar Pro writes is a whole number of ticks (see defaults.ts). */
 export const QUARTER_TIME = 129_729_600;
 
-export type FileFormat = 'gp1' | 'gp2' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'ptb' | 'tef' | 'midi';
+export type FileFormat = 'gp1' | 'gp2' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'ptb' | 'tef' | 'midi' | 'musicxml';
 
 export interface SourceInfo {
   readonly format: FileFormat;

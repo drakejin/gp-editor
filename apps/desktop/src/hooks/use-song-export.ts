@@ -1,8 +1,8 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useRef } from 'react';
-import { type Song, renderMidi, writeAsciiTab } from '@gp-editor/core';
+import { type Song, renderMidi, writeAsciiTab, writeMusicXml, writeMusicXmlArchive } from '@gp-editor/core';
 import { bytesToBase64 } from '../lib/base64';
 import { errorMessage } from '../lib/errors';
-import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, fileNameIn } from '../lib/file-formats';
+import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn } from '../lib/file-formats';
 import { type SavedFile, showSavePanel, subscribeSongExportRequests, writeFile, writeTextFile } from '../native/gp-files';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -14,6 +14,10 @@ export interface SongExport {
   readonly exportMidi: () => void;
   /** File ▸ Export ASCII Tab…: the song's fretted tracks as ASCII tab in a .txt file. */
   readonly exportAsciiTab: () => void;
+  /** File ▸ Export MusicXML…: the song as MusicXML 4.0 text (.musicxml). */
+  readonly exportMusicXml: () => void;
+  /** File ▸ Export Compressed MusicXML…: the same score zipped (.mxl). */
+  readonly exportCompressedMusicXml: () => void;
 }
 
 /** One export: the file it makes, what the error banner calls it, and how its content is written. */
@@ -42,7 +46,22 @@ const ASCII_TAB_EXPORT: ExportKind = {
   write: (song, path) => writeTextFile(path, writeAsciiTab(song, { trackIndexes: asciiTabTrackIndexes(song) })),
 };
 
-/** File ▸ Export MIDI… and Export ASCII Tab… for the shown tab; a failure goes to the error banner (`exportFailed`). */
+const MUSICXML_EXPORT: ExportKind = {
+  file: MUSICXML_FILE,
+  what: 'the MusicXML file',
+  write: (song, path) => writeTextFile(path, writeMusicXml(song)),
+};
+
+const MXL_EXPORT: ExportKind = {
+  file: MXL_FILE,
+  what: 'the MusicXML file',
+  write: (song, path) => writeFile(path, bytesToBase64(writeMusicXmlArchive(song))),
+};
+
+/**
+ * File ▸ Export MIDI…, Export ASCII Tab…, Export MusicXML… and Export Compressed MusicXML… for the shown tab; a failure
+ * goes to the error banner (`exportFailed`).
+ */
 export function useSongExport(document: OpenDocument | undefined, dispatch: Dispatch<EditorAction>): SongExport {
   // The shown document is read through a ref, so the File-menu listener is not re-added on every edit.
   const latest = useRef(document);
@@ -78,11 +97,23 @@ export function useSongExport(document: OpenDocument | undefined, dispatch: Disp
       exportAsciiTab: () => {
         void run(ASCII_TAB_EXPORT);
       },
+      exportMusicXml: () => {
+        void run(MUSICXML_EXPORT);
+      },
+      exportCompressedMusicXml: () => {
+        void run(MXL_EXPORT);
+      },
     }),
     [run],
   );
   useEffect(
-    () => subscribeSongExportRequests({ onExportMidiRequested: commands.exportMidi, onExportAsciiTabRequested: commands.exportAsciiTab }),
+    () =>
+      subscribeSongExportRequests({
+        onExportMidiRequested: commands.exportMidi,
+        onExportAsciiTabRequested: commands.exportAsciiTab,
+        onExportMusicXmlRequested: commands.exportMusicXml,
+        onExportCompressedMusicXmlRequested: commands.exportCompressedMusicXml,
+      }),
     [commands],
   );
   return commands;
