@@ -49,6 +49,8 @@ export const ROW = {
   rhythm: 34,
   /** Under the tab staff otherwise. */
   tabBottom: 10,
+  /** The lyrics line under the notation staff, or under the tab staff when notation is hidden. */
+  lyrics: 18,
   /** Dynamics (p, mf, ff …) under the notation staff, or under the tab staff when notation is hidden. */
   dynamics: 22,
   /** Baseline of the dynamics, from the top of their band. */
@@ -61,6 +63,8 @@ export const ROW = {
 export interface RowGeometry {
   /** Top line of the notation staff. */
   readonly notationTop?: number;
+  /** Centre of the lyrics line; only when the track has lyrics (`hasLyrics`). */
+  readonly lyricsY?: number;
   /** Baseline of the dynamics; only when the track changes dynamic (`hasDynamicChanges`). */
   readonly dynamicsY?: number;
   /** Centre of the lowest effect-mark lane. */
@@ -91,34 +95,45 @@ export interface RowBands {
   readonly hasDynamics: boolean;
   /** A note of the track bends (`hasBends`): the bend band above the tab staff. */
   readonly hasBends: boolean;
+  /** The track has lyrics (`hasLyrics`): their line under the notation staff, else under the tab. */
+  readonly hasLyrics: boolean;
 }
 
-const PLAIN_ROW: RowBands = { markLaneCount: 1, hasDynamics: false, hasBends: false };
+const PLAIN_ROW: RowBands = { markLaneCount: 1, hasDynamics: false, hasBends: false, hasLyrics: false };
 
 export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial<RowBands> = {}): RowGeometry {
-  const { markLaneCount, hasDynamics, hasBends } = { ...PLAIN_ROW, ...bands };
+  const { markLaneCount, hasDynamics, hasBends, hasLyrics } = { ...PLAIN_ROW, ...bands };
   let y = ROW.heading;
   let notationTop: number | undefined;
+  let lyricsY: number | undefined;
   let dynamicsY: number | undefined;
   if (showsNotation(mode)) {
     notationTop = y + NOTATION.above;
     y += notationBandHeight();
+    if (hasLyrics) {
+      lyricsY = y + ROW.lyrics / 2;
+      y += ROW.lyrics;
+    }
     if (hasDynamics) {
       dynamicsY = y + ROW.dynamicsBaseline;
       y += ROW.dynamics;
     }
   }
   if (!showsTab(mode)) {
-    return { notationTop, dynamicsY, height: y + ROW.gap };
+    return { notationTop, lyricsY, dynamicsY, height: y + ROW.gap };
   }
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
   const marksY = y + marksBand - ROW.marks / 2;
   const tabTop = y + marksBand + (hasBends ? ROW.bends : 0);
   y = tabTop + Math.max(0, stringCount - 1) * TAB.stringGap + (mode === 'tab' ? ROW.rhythm : ROW.tabBottom);
+  if (hasLyrics && lyricsY === undefined) {
+    lyricsY = y + ROW.lyrics / 2;
+    y += ROW.lyrics;
+  }
   if (hasDynamics && dynamicsY === undefined) {
     dynamicsY = y + ROW.dynamicsBaseline;
     y += ROW.dynamics;
   }
-  return { notationTop, dynamicsY, marksY, tabTop, height: y + ROW.gap };
+  return { notationTop, lyricsY, dynamicsY, marksY, tabTop, height: y + ROW.gap };
 }

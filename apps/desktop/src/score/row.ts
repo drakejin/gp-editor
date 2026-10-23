@@ -5,6 +5,7 @@ import { type DrawCommand, translateCommands } from './draw';
 import { engraveDynamics } from './dynamics';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { engraveHeading } from './heading';
+import { engraveLyrics } from './lyrics';
 import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
 import { type BeatRange, engraveSelection } from './selection-tint';
 import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader, stringY } from './tab';
@@ -124,6 +125,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     ...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header)),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),
+    ...(context.geometry.lyricsY === undefined ? [] : engraveLyrics({ track, layout, y: context.geometry.lyricsY, palette: context.palette })),
     ...engraveTab(context, scope),
     ...engraveSelection(context.selection, layout, context.geometry, track.strings.length, context.palette),
   ];

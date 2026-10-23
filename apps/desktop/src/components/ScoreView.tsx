@@ -6,6 +6,7 @@ import { hasDynamicChanges } from '../score/dynamics';
 import { ROW, type ScoreMode, rowGeometry } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type PlayingBeat, rowHeaderWidth } from '../score/row';
+import { hasLyrics } from '../score/lyrics';
 import { hasBends } from '../score/symbols/bends';
 import { type BeatRange, clipRange } from '../score/selection-tint';
 import { tabMarkLanes } from '../score/tab';
@@ -48,13 +49,14 @@ export function ScoreView({ song, trackIndex, mode, cursor, playing, selection, 
   const track = song.tracks[trackIndex];
   const stringCount = track?.strings.length ?? 6;
   const headerWidth = useMemo(() => (track === undefined ? 0 : rowHeaderWidth(mode, track)), [mode, track]);
-  // Lanes, the dynamics band and the bend band for the whole track, so all rows keep one height (the list uses fixed row heights).
+  // Lanes and the dynamics, bend and lyrics bands for the whole track, so all rows keep one height (the list uses fixed row heights).
   const markLanes = useMemo(() => tabMarkLanes(track?.measures ?? []), [track?.measures]);
   const hasDynamics = useMemo(() => hasDynamicChanges(track?.measures ?? []), [track?.measures]);
   const isBent = useMemo(() => hasBends(track?.measures ?? []), [track?.measures]);
+  const isSung = hasLyrics(track);
   const geometry = useMemo(
-    () => rowGeometry(mode, stringCount, { markLaneCount: markLanes.length, hasDynamics, hasBends: isBent }),
-    [mode, stringCount, markLanes.length, hasDynamics, isBent],
+    () => rowGeometry(mode, stringCount, { markLaneCount: markLanes.length, hasDynamics, hasBends: isBent, hasLyrics: isSung }),
+    [mode, stringCount, markLanes.length, hasDynamics, isBent, isSung],
   );
   const measures = useMemo(() => song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i)), [song, trackIndex]);
   const pageWidth = Math.max(0, width - DESK_MARGIN * 2);

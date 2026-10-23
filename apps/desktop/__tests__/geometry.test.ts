@@ -115,3 +115,26 @@ describe('the bend band', () => {
     expect(rowGeometry('notation', 6, { hasBends: true })).toEqual(rowGeometry('notation', 6));
   });
 });
+
+describe('the lyrics band', () => {
+  it('goes right under the notation staff, above the dynamics', () => {
+    // Act
+    const plain = rowGeometry('notationAndTab', 6, { hasDynamics: true });
+    const sung = rowGeometry('notationAndTab', 6, { hasDynamics: true, hasLyrics: true });
+
+    // Assert
+    expect(sung.height).toBe(plain.height + ROW.lyrics);
+    expect(sung.lyricsY).toBeGreaterThan(sung.notationTop! + notationBandHeight() - NOTATION.above);
+    expect(sung.lyricsY).toBeLessThan(sung.dynamicsY!);
+  });
+
+  it('goes under the tab staff when notation is hidden', () => {
+    const sung = rowGeometry('tab', 6, { hasLyrics: true });
+    expect(sung.lyricsY).toBeGreaterThan(sung.tabTop! + 5 * TAB.stringGap);
+    expect(sung.lyricsY).toBeLessThan(sung.height - ROW.gap);
+  });
+
+  it('is left out without lyrics', () => {
+    expect(rowGeometry('notation', 6).lyricsY).toBeUndefined();
+  });
+});
