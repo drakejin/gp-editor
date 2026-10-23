@@ -2,6 +2,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <os/log.h>
 
 /**
  * Below 1.0 so several loud tracks leave the limiter some room: GeneralUser GS peaks at 1.7 on a dense mix (measured
@@ -113,13 +114,32 @@ static NSUInteger SmfTrackCount(NSData *midi)
   return ((NSUInteger)bytes[10] << 8) | bytes[11];
 }
 
+/** Logs a track being muted with its first note (key and MIDI channel), so QA can tell which track went silent. */
+static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
+{
+  __block int key = -1;
+  __block int channel = -1;
+  [track enumerateEventsInRange:AVMakeBeatRange(0, track.lengthInBeats + 1)
+                     usingBlock:^(AVMusicEvent *event, AVMusicTimeStamp *timeStamp, BOOL *removeEvent) {
+                       if (key < 0 && [event isKindOfClass:[AVMIDINoteEvent class]]) {
+                         key = (int)((AVMIDINoteEvent *)event).key;
+                         channel = (int)((AVMIDINoteEvent *)event).channel;
+                       }
+                     }];
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: muted sequencer track %lu (first note %d on channel %d)", (unsigned long)index, key, channel);
+}
+
 /** Mutes the sequencer's tracks that are muted in _mutedTracks (by their MIDI file index), unmutes the others. */
 - (void)applyMutedTracksTo:(AVAudioSequencer *)sequencer
 {
   NSIndexSet *muted = _mutedTracks;
   NSUInteger offset = _trackOffset;
   [sequencer.tracks enumerateObjectsUsingBlock:^(AVMusicTrack *track, NSUInteger index, BOOL *stop) {
-    track.muted = [muted containsIndex:index + offset];
+    BOOL isMuted = [muted containsIndex:index + offset];
+    if (isMuted && !track.muted) {
+      LogFirstNote(track, index);
+    }
+    track.muted = isMuted;
   }];
 }
 
@@ -152,6 +172,7 @@ static NSUInteger SmfTrackCount(NSData *midi)
   // track, the indexes shift by one.
   NSUInteger fileTracks = SmfTrackCount(midi);
   _trackOffset = fileTracks > sequencer.tracks.count ? fileTracks - sequencer.tracks.count : 0;
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: %lu file tracks, %lu sequencer tracks, %lu muted", (unsigned long)fileTracks, (unsigned long)sequencer.tracks.count, (unsigned long)_mutedTracks.count);
   [self applyMutedTracksTo:sequencer];
   sequencer.currentPositionInSeconds = MAX(0, seconds);
   [sequencer prepareToPlay];

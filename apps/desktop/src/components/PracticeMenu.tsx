@@ -36,7 +36,7 @@ export function PracticeMenu({ palette, practice, writtenTempo, onChangePractice
       <MenuHeading palette={palette} label="Tempo" />
       <MenuItem
         palette={palette}
-        label="Tempo lock: one tempo for the whole song (⌥L)"
+        label="Tempo lock: one tempo (⌥L)"
         isChecked={lockedTempo !== undefined}
         onPress={() => onChangePractice({ type: 'toggleTempoLock', writtenTempo })}
       />
@@ -51,7 +51,7 @@ export function PracticeMenu({ palette, practice, writtenTempo, onChangePractice
       <MenuSeparator palette={palette} />
       <MenuItem
         palette={palette}
-        label="Preview notes on hover (piano, fretboard)"
+        label="Preview notes on hover"
         isChecked={practice.isPreviewOnHover}
         onPress={() => onChangePractice({ type: 'togglePreviewOnHover' })}
       />

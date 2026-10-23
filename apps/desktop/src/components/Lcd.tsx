@@ -58,12 +58,12 @@ export function Lcd({ palette, info, trackColor, beat, onSetTempo }: LcdProps) {
 function LcdTempo({ info, palette, onSetTempo }: { readonly info: LcdInfo; readonly palette: Palette; readonly onSetTempo?: (tempo: number) => void }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   if (onSetTempo === undefined) {
-    return <Text style={styles.digits}>{info.tempo}</Text>;
+    return <Text numberOfLines={1} style={[styles.digits, styles.tempo]}>{info.tempo}</Text>;
   }
   if (draft === undefined) {
     return (
-      <Pressable testID="lcd-tempo" tooltip="Click to type the tempo (decimals allowed, e.g. 92.5)" onPress={() => setDraft(String(info.tempoBpm))}>
-        <Text style={styles.digits}>{info.tempo}</Text>
+      <Pressable testID="lcd-tempo" tooltip="Click to type the tempo (decimals allowed, e.g. 92.5)" onPress={() => setDraft(String(info.tempoBpm))} style={styles.tempo}>
+        <Text numberOfLines={1} style={styles.digits}>{info.tempo}</Text>
       </Pressable>
     );
   }
@@ -110,7 +110,10 @@ function BeatDots({ beat }: { readonly beat: MetronomeBeat }) {
 
 const styles = StyleSheet.create({
   lcd: {
-    width: 400,
+    width: 380,
+    // A narrow window takes the room from the LCD first.
+    flexShrink: 1,
+    minWidth: 250,
     height: 36,
     borderRadius: 5,
     borderWidth: 1,
@@ -123,11 +126,12 @@ const styles = StyleSheet.create({
   swatch: { width: 8, height: 8, borderRadius: 2, marginRight: 6 },
   track: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
   position: { fontSize: 11, marginLeft: 'auto', paddingLeft: 8 },
-  digits: { fontFamily: MONO_FONT, fontSize: 11, color: LCD_DIGITS, marginRight: 14 },
+  digits: { fontFamily: MONO_FONT, fontSize: 11, color: LCD_DIGITS, marginRight: 11 },
   tempoField: { fontFamily: MONO_FONT, fontSize: 11, width: 64, height: 16, paddingHorizontal: 3, paddingVertical: 0, borderWidth: 1, borderRadius: 3, marginRight: 14 },
   idle: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
-  beats: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' },
+  beats: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', paddingLeft: 4, flexShrink: 0 },
+  tempo: { flexShrink: 1 },
   countIn: { fontSize: 10, fontWeight: '700', marginRight: 6 },
-  dot: { width: 7, height: 7, borderRadius: 3.5, marginLeft: 4 },
+  dot: { width: 7, height: 7, borderRadius: 3.5, marginLeft: 3 },
   accentDot: { width: 9, height: 9, borderRadius: 4.5 },
 });

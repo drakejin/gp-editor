@@ -184,8 +184,10 @@ export const TopBar = memo(TopBarView);
 
 const styles = StyleSheet.create({
   bar: { height: TOP_BAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, borderBottomWidth: 1 },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', flexBasis: 0 },
+  // Each side as wide as its buttons at least, the space left shared: the transport stays between them, centred when
+  // the window is wide enough.
+  side: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto', flexDirection: 'row', alignItems: 'center' },
   right: { justifyContent: 'flex-end' },
-  transport: { flexDirection: 'row', alignItems: 'center' },
+  transport: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   divider: { width: 1, height: 20, marginHorizontal: 6 },
 });

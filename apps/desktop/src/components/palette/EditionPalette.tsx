@@ -178,5 +178,5 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   stepperLabel: { width: 62, fontSize: 11 },
   stepperValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
-  stepperPress: { flex: 1 },
+  stepperPress: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
 });

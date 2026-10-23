@@ -109,8 +109,8 @@ describe('PracticeMenu', () => {
     // Act
     menu.pressItem('Metronome (⌥M)');
     menu.pressItem('Count-in before playback (⌥C)');
-    menu.pressItem('Tempo lock: one tempo for the whole song (⌥L)');
-    menu.pressItem('Preview notes on hover (piano, fretboard)');
+    menu.pressItem('Tempo lock: one tempo (⌥L)');
+    menu.pressItem('Preview notes on hover');
 
     // Assert
     expect(menu.item('Count-in before playback (⌥C)')?.props.isChecked).toBe(true);
