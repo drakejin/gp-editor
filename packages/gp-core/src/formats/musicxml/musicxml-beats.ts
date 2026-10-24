@@ -1,7 +1,7 @@
 // A MusicXML part's measure as the model's beats (no TuxGuitar reader exists): one beat per position any voice starts at.
 import { restDurations } from '../../edit/rests';
 import { NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
-import type { Beat, MeasureHeader, Stroke, StrokeDirection, Voice } from '../../model/song';
+import type { Beat, MeasureHeader, Ottava, Stroke, StrokeDirection, Voice } from '../../model/song';
 import type { Timed } from './musicxml-measures';
 import type { RawNote } from './musicxml-note';
 import { type Neck, type PlacedNote, placeBeat } from './musicxml-placement';
@@ -15,6 +15,8 @@ export interface MeasureSource {
   readonly voices: readonly (readonly VoiceEventDraft[])[];
   readonly texts: readonly Timed<string>[];
   readonly previous: readonly (readonly PlacedNote[])[];
+  /** The octave sign over a position of the measure (musicxml-octave-shifts.ts). */
+  readonly ottavaAt?: (tick: number) => Ottava | undefined;
 }
 
 export interface BuiltBeats {
@@ -70,7 +72,9 @@ export function buildBeats(source: MeasureSource, neck: Neck): BuiltBeats {
       event === undefined ? EMPTY_VOICE : { duration: event.duration, notes: placed.notes[voiceIndex] ?? [], isEmpty: false, direction: 'none' },
     );
     const text = textAt(source.texts, index === 0 ? -1 : (ticks[index - 1] ?? -1), tick);
-    const beat: Beat = { start: header.start + tick, voices: beatVoices, stroke: strokeOf(events), pickStroke: pickStrokeOf(events), ...(text === undefined ? {} : { text }) };
+    const ottava = source.ottavaAt?.(tick);
+    const marks = { ...(text === undefined ? {} : { text }), ...(ottava === undefined ? {} : { ottava }) };
+    const beat: Beat = { start: header.start + tick, voices: beatVoices, stroke: strokeOf(events), pickStroke: pickStrokeOf(events), ...marks };
     return beat;
   });
   return { beats, previous };

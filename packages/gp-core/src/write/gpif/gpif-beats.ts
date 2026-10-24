@@ -1,7 +1,7 @@
 // GPIF `<Beat>` elements (no TuxGuitar counterpart): the inverse of the reader's readBeat and beat-level effects.
 import { XPROPERTY_BEAM_MODE, XPROPERTY_BRUSH_DURATION, XPROPERTY_SECONDARY_BEAM_BREAK } from '../../formats/gpif/gpif-read-beat';
 import { DEFAULT_VELOCITY } from '../../formats/common/velocity';
-import type { BeamLink, Beat, Bend, Duration, Grace, Note, StrokeDirection, Voice, VoiceDirection } from '../../model/song';
+import type { BeamLink, Beat, Bend, Duration, Grace, Note, Ottava, StrokeDirection, Voice, VoiceDirection } from '../../model/song';
 import { whammyCurveOf } from './gpif-curves';
 import { faddingOf, hairpinNode, rasgueadoProperty } from './gpif-marks';
 import { flagProperty, intXProperty, property } from './gpif-properties';
@@ -100,15 +100,18 @@ function group(name: string, children: readonly XmlChild[]): XmlChild {
 }
 
 /** What `beatNode` builds a beat element from: equal keys give equal elements. */
-export function beatNodeKey(voice: Voice, rhythmId: number, noteIds: readonly number[], carrier: BeatCarrier | undefined): string {
+export function beatNodeKey(voice: Voice, rhythmId: number, noteIds: readonly number[], carrier: BeatCarrier | undefined, ottava?: Ottava): string {
   const beat = carrier?.beat;
   const carried = beat === undefined ? undefined : [beat.stroke, beat.pickStroke, beat.text, carrier?.chordId, beat.hairpin, beat.rasgueado];
-  const marks = [voice.isSlashed === true, voice.beamToNext];
+  const marks = [voice.isSlashed === true, voice.beamToNext, ottava];
   return JSON.stringify([rhythmId, noteIds, voice.direction, voice.notes.length === 0, voiceEffectsOf(voice.notes), carried, marks]);
 }
 
-/** A beat of a voice: its rhythm, notes and the effects GPIF keeps per beat. */
-export function beatNode(id: number, voice: Voice, rhythmId: number, noteIds: readonly number[], carrier: BeatCarrier | undefined): XmlNode {
+/**
+ * A beat of a voice: its rhythm, notes and the effects GPIF keeps per beat. The beat's octave sign (`ottava`) goes on
+ * every voice's beat, as Guitar Pro writes it: each voice is written under the sign.
+ */
+export function beatNode(id: number, voice: Voice, rhythmId: number, noteIds: readonly number[], carrier: BeatCarrier | undefined, ottava?: Ottava): XmlNode {
   const effects = voiceEffectsOf(voice.notes);
   const text = carrier?.beat.text;
   return xmlElement(
@@ -119,6 +122,7 @@ export function beatNode(id: number, voice: Voice, rhythmId: number, noteIds: re
       ...stemNodes(voice.direction),
       xmlText('ConcertPitchStemOrientation', 'Undefined'),
       voice.isSlashed === true && xmlElement('Slashed'),
+      ottava !== undefined && xmlText('Ottavia', ottava),
       carrier?.chordId !== undefined && xmlText('Chord', carrier.chordId),
       effects.tremoloPicking !== undefined && xmlText('Tremolo', tremoloPickingOf(effects.tremoloPicking)),
       effects.fadding !== undefined && xmlText('Fadding', effects.fadding),

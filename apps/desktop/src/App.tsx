@@ -157,7 +157,8 @@ export default function App() {
   const transposePanel = useTransposePanel(document !== undefined);
   const commandPalette = useCommandPalette(focusScore);
   const { isOpen: isTransposeOpen, close: closeTranspose } = transposePanel;
-  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = commandPalette;
+  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette, open: openCommandPalette } = commandPalette;
+  const openExpressionText = useCallback(() => openCommandPalette('expression'), [openCommandPalette]);
   // Effects (View ▸ Mixer, the Track inspector) heard live, and Tools ▸ Line In… (a card beside the score).
   const audio = useAudioTools(song, trackIndex, chrome.togglePanel);
   const { isOpen: isLineInOpen, close: closeLineIn } = audio.lineIn;
@@ -368,6 +369,7 @@ export default function App() {
     openTuner,
     openScales,
     openLineIn: audio.lineIn.open,
+    openExpressionText,
     openLyrics: () => openLyrics.current(),
     pickInstrument: () => chrome.pickInstrument(trackIndex),
     addAudioTrack: audioLane.addAudioTrack,
@@ -510,7 +512,8 @@ export default function App() {
         <DocumentLayout
           left={
             chrome.panels.palette ? (
-              <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel} />
+              <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel}
+                onOpenExpressionText={openExpressionText} isExpressionTextOpen={isCommandPaletteOpen && commandPalette.session.initialQuery !== ''} />
             ) : null
           }
           center={
@@ -671,6 +674,9 @@ export default function App() {
       {chrome.isShortcutSheetOpen ? <ShortcutSheet palette={palette} onClose={chrome.closeShortcutSheet} /> : null}
       {isCommandPaletteOpen ? (
         <CommandPalette
+          // A fresh field each time it opens: empty, or “>” from Tools ▸ Expression Text….
+          key={commandPalette.session.id}
+          initialQuery={commandPalette.session.initialQuery}
           palette={palette}
           commands={COMMANDS}
           state={commandStateOf(workspace)}

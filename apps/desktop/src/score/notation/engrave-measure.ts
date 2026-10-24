@@ -5,9 +5,10 @@ import type { DrawCommand } from '../draw';
 import { type Highlight, engraveVoices } from './engrave-voices';
 import { buildVoiceEvents } from './events';
 import { keyChange } from './key-signature';
+import { CLEF_CHANGE_SCALE, MUSIC_FONT_SIZE, positionY } from './metrics';
 import { type ClefKind, clefKind } from './pitch';
 import { measureRest } from './rests';
-import { barLines, staffLines, timeSignature } from './staff';
+import { CLEF_GLYPHS, barLines, staffLines, timeSignature } from './staff';
 
 export interface NotationContext {
   readonly track: Track;
@@ -27,6 +28,33 @@ export interface NotationContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
   readonly isKeyboard?: boolean;
+  /** The measure starts its row: the row header shows its clef, and an octave sign running into it is named again. */
+  readonly isRowStart?: boolean;
+}
+
+/** The clef where it changes inside a row, cue size; none at a row start, whose header draws it. */
+function clefChangeCommands(
+  context: NotationContext,
+  clef: ClefKind,
+): DrawCommand[] {
+  const x = context.layout.clefChangeX;
+  if (x === undefined || context.isRowStart === true) {
+    return [];
+  }
+  const glyph = CLEF_GLYPHS[clef];
+  const y = positionY(context.top, glyph.position);
+  return [
+    {
+      kind: 'text',
+      x,
+      y,
+      text: glyph.text,
+      size: MUSIC_FONT_SIZE * CLEF_CHANGE_SCALE,
+      color: context.palette.text,
+      font: 'music',
+      align: 'left',
+    },
+  ];
 }
 
 function keyChangeCommands(
@@ -63,10 +91,15 @@ function beatAreaStart(context: NotationContext): number {
     layout.timeSignatureX === undefined
       ? 0
       : layout.timeSignatureX + TAB.timeSignatureWidth;
+  const clefEnd =
+    layout.clefChangeX === undefined
+      ? 0
+      : layout.clefChangeX + TAB.clefChangeWidth;
   return Math.max(
     TAB.padLeft + (header.repeatOpen ? TAB.repeatWidth : 0),
     keyEnd,
     timeEnd,
+    clefEnd,
   );
 }
 
@@ -93,6 +126,7 @@ export function engraveNotationMeasure(
   return [
     ...staffLines(0, layout.width, top, palette.line),
     ...barLines(header, layout.width, top, palette.text),
+    ...clefChangeCommands(context, clef),
     ...keyChangeCommands(context, clef),
     ...(timeSignatureX === undefined
       ? []

@@ -46,7 +46,7 @@ import type {
  * - marks: no hairpins, fade outs, volume swells or sustain pedals; a rasgueado without its pattern (read back as the
  *   first pattern, DEFAULT_RASGUEADO);
  * - notation marks: no slashes (a beat's or a track's) and no cautionary or forced accidentals; the beam from a voice's
- *   last beat in the measure is dropped (GP5 keeps a beam on the beat after it);
+ *   last beat in the measure is dropped (GP5 keeps a beam on the beat after it); octave signs kept (GP3/GP4: dropped);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
  * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts);
  * - the audio track (Guitar Pro 7/8's): GP3/GP4/GP5 have no place for it.
@@ -276,6 +276,7 @@ function retimed(beats: readonly Beat[], measureStart: number): Beat[] {
         ...(isCarrier && beat.chord !== undefined ? { chord: beat.chord } : {}),
         ...(isCarrier && beat.text !== undefined ? { text: beat.text } : {}),
         ...(beat.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
+        ...(base.ottava === undefined && beat.ottava !== undefined ? { ottava: beat.ottava } : {}),
       };
       placed.splice(index >= 0 ? index : placed.length, index >= 0 ? 1 : 0, next);
       cursor += durationTicks(voice.duration);
@@ -371,9 +372,9 @@ function expectedHeaderGp5(header: MeasureHeader): MeasureHeader {
   return { ...rest, tempo: Math.round(header.tempo), repeatAlternative: header.repeatAlternative & 0xff, ...(beamGrouping === undefined ? {} : { beamGrouping }) };
 }
 
-/** GP3/GP4 hold no beam, slash or accidental display. */
+/** GP3/GP4 hold no beam, slash, accidental display or octave sign. */
 function withoutGp5Marks(measure: Measure): Measure {
-  const beats = measure.beats.map((beat) => ({
+  const beats = measure.beats.map(({ ottava: _ottava, ...beat }) => ({
     ...beat,
     voices: beat.voices.map((voice) => ({ ...withoutBeam(withoutSlash(voice)), notes: voice.notes.map(withoutAccidentalDisplay) })),
   }));

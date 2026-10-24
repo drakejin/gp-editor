@@ -2,7 +2,7 @@ import type { Clef, Note, Track } from '@gp-editor/core';
 import { STAFF } from './metrics';
 
 /** The staff a measure is written on. Guitar and bass staves sound an octave below the written notes. */
-export type ClefKind = 'treble' | 'bass' | 'percussion';
+export type ClefKind = 'treble' | 'bass' | 'alto' | 'tenor' | 'percussion';
 export type PitchedClef = Exclude<ClefKind, 'percussion'>;
 
 export type Alter = -1 | 0 | 1;
@@ -34,10 +34,12 @@ const FLAT_ORDER: readonly number[] = [6, 2, 5, 1, 4, 0, 3];
 /** Guitar and bass music is written an octave above where it sounds. */
 const WRITTEN_OCTAVE = 12;
 const FALLBACK_TUNING = 60;
-/** Diatonic step of the bottom line: E4 on the treble staff, G2 on the bass staff. */
+/** Diatonic step of the bottom line: E4 on the treble staff, G2 on the bass staff, F3 (alto) and D3 (tenor) under a C clef. */
 const BOTTOM_LINE_STEP: Readonly<Record<PitchedClef, number>> = {
   treble: 30,
   bass: 18,
+  alto: 24,
+  tenor: 22,
 };
 
 const ACCIDENTAL_OF: Readonly<Record<Alter, Accidental>> = {
@@ -143,12 +145,9 @@ export function writtenMidi(track: Track, note: Note): number {
   return tuning + track.offset + note.fret + WRITTEN_OCTAVE;
 }
 
-/** Tenor and alto clefs are written on the treble staff; neutral clefs and drum tracks use the percussion staff. */
+/** The staff of a clef; neutral clefs and drum tracks use the percussion staff. */
 export function clefKind(track: Track, clef: Clef): ClefKind {
-  if (track.isPercussion || clef === 'neutral') {
-    return 'percussion';
-  }
-  return clef === 'bass' ? 'bass' : 'treble';
+  return track.isPercussion || clef === 'neutral' ? 'percussion' : clef;
 }
 
 /** Staff position and notehead of a General MIDI drum note; unknown drums sit on the middle line. */

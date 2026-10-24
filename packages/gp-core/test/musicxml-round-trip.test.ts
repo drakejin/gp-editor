@@ -24,8 +24,13 @@ function trackNotes(track: Track): readonly (readonly string[])[] {
   );
 }
 
+/** The octave sign of every beat with notes, measure by measure: position and sign. */
+function trackOttavas(track: Track): readonly (readonly string[])[] {
+  return track.measures.map((measure) => measure.beats.filter((beat) => beat.voices.some((voice) => voice.notes.length > 0)).map((beat) => `${beat.start}|${beat.ottava ?? ''}`));
+}
+
 /**
- * What a MusicXML round trip keeps: measures, meters, tempos, repeats, tunings, and every note's place and length. Drum
+ * What a MusicXML round trip keeps: measures, meters, tempos, repeats, tunings, every note's place and length, octave signs. Drum
  * tracks have no tab staff: their notes keep their keys (frets) but not their strings, and their strings no tuning.
  */
 function roundTripSummary(song: Song) {
@@ -45,6 +50,7 @@ function roundTripSummary(song: Song) {
       isPercussion: track.isPercussion,
       keys: track.isPercussion ? [] : track.measures.map((measure) => measure.keySignature),
       notes: trackNotes(track),
+      ottavas: trackOttavas(track),
     })),
   };
 }

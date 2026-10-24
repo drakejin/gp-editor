@@ -55,6 +55,9 @@ function toolCommands(group: PaletteGroup, tool: PaletteTool): readonly Command[
     case 'text':
       // A text tool needs the field under its group; the palette has none.
       return [];
+    case 'expressionText':
+      // Tools ▸ Expression Text… is the registry's own row.
+      return [];
   }
 }
 

@@ -27,6 +27,9 @@ export interface EditionPaletteProps {
   readonly onOpenPanel: (panel: NotePanel) => void;
   /** The chord tool opens the chord diagram panel, as K does. */
   readonly onOpenChordPanel?: () => void;
+  /** The > tool opens the command palette's Expression Text (lit while it is open). */
+  readonly onOpenExpressionText?: () => void;
+  readonly isExpressionTextOpen?: boolean;
 }
 
 /**
@@ -35,7 +38,7 @@ export interface EditionPaletteProps {
  * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
  * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel, onOpenChordPanel }: EditionPaletteProps) {
+function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel, onOpenChordPanel, onOpenExpressionText, isExpressionTextOpen = false }: EditionPaletteProps) {
   const context = paletteContext(song, cursor);
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
@@ -49,6 +52,8 @@ function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPan
       onOpenPanel(run.panel);
     } else if (run.kind === 'chordPanel') {
       onOpenChordPanel?.();
+    } else if (run.kind === 'expressionText') {
+      onOpenExpressionText?.();
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }
@@ -60,7 +65,8 @@ function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPan
   return (
     <ScrollView style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
       {PALETTE_GROUPS.map((group) => (
-        <GroupView key={group.title} palette={palette} group={group} context={context} openToolId={openToolId} onPress={press} onChoose={choose} onEdit={onEdit} />
+        // The > tool is lit while Expression Text is open.
+        <GroupView key={group.title} palette={palette} group={group} context={context} openToolId={isExpressionTextOpen ? 'expressionText' : openToolId} onPress={press} onChoose={choose} onEdit={onEdit} />
       ))}
     </ScrollView>
   );
@@ -94,7 +100,7 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
               tooltip={tool.tooltip}
               fontSize={11}
               minWidth={30}
-              width={group.toolWidth}
+              width={tool.width ?? group.toolWidth}
               height={PALETTE_ROW_HEIGHT}
               isEnabled={isToolEnabled(tool, context)}
               isActive={isActive}

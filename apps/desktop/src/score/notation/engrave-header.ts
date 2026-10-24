@@ -15,11 +15,22 @@ const HEADER = {
   padRight: 2,
 } as const;
 
-/** Pitched tracks reserve the wider of the treble and bass clefs, so a clef change does not move the key signature. */
+/**
+ * Pitched tracks reserve the wider of the treble and bass clefs (and of a C clef when the track has one), so a clef
+ * change does not move the key signature.
+ */
 function clefColumnWidth(track: Track): number {
-  return track.isPercussion
-    ? CLEF_GLYPHS.percussion.width
-    : Math.max(CLEF_GLYPHS.treble.width, CLEF_GLYPHS.bass.width);
+  if (track.isPercussion) {
+    return CLEF_GLYPHS.percussion.width;
+  }
+  const hasCClef = track.measures.some(
+    measure => measure.clef === 'alto' || measure.clef === 'tenor',
+  );
+  return Math.max(
+    CLEF_GLYPHS.treble.width,
+    CLEF_GLYPHS.bass.width,
+    hasCClef ? CLEF_GLYPHS.alto.width : 0,
+  );
 }
 
 function headerClef(track: Track): ClefKind {

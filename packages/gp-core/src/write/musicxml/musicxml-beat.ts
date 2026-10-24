@@ -2,8 +2,8 @@
 import { DEFAULT_VELOCITY } from '../../formats/common/velocity';
 import { artificialHarmonicOffsetAtFret } from '../../formats/common/harmonics';
 import { durationTicks } from '../../model/defaults';
-import type { Grace, Note, Stroke, Track } from '../../model/song';
-import { type TrackFlow, type VoiceEvent, eventKey, noteKey } from './musicxml-flow';
+import type { Grace, Note, Ottava, Stroke, Track } from '../../model/song';
+import { type TrackFlow, type VoiceEvent, beatKey, eventKey, noteKey } from './musicxml-flow';
 import type { NoteLyric, TrackLyrics } from './musicxml-lyrics';
 import { noteElement, pitchElement, restElement, unpitchedElement } from './musicxml-note';
 import { articulationsElement, ornamentsElement, technicalElement } from './musicxml-technical';
@@ -76,11 +76,26 @@ function words(text: string, placement: 'above' | 'below', voice: number): XmlNo
   return element('direction', { placement }, [element('direction-type', {}, [textElement('words', text)]), textElement('voice', voice), textElement('staff', 1)]);
 }
 
-/** Directions written before the event's notes on the notation staff: beat text, dynamics change, palm mute. */
+/** An 8va or 15ma writes the notes lower (MusicXML's "down"), an 8vb or 15mb higher; the size counts the octave's notes. */
+const OCTAVE_SHIFTS: Readonly<Record<Ottava, readonly [type: 'down' | 'up', size: number]>> = { '8va': ['down', 8], '8vb': ['up', 8], '15ma': ['down', 15], '15mb': ['up', 15] };
+
+function octaveShift(ottava: Ottava, isStop: boolean): XmlNode {
+  const [type, size] = OCTAVE_SHIFTS[ottava];
+  return element('direction', {}, [element('direction-type', {}, [element('octave-shift', { type: isStop ? 'stop' : type, size })]), textElement('staff', 1)]);
+}
+
+/** The octave sign starting at the event's beat (before its notes) or ending with it (after them): its first voice carries it. */
+function octaveShifts(context: PartContext, event: VoiceEvent, marks: EventMarks, isStop: boolean): XmlNode[] {
+  const ottava = (isStop ? context.flow.ottavaStops : context.flow.ottavaStarts).get(beatKey(event.measureIndex, event.beatIndex));
+  return marks.isFirstVoice && ottava !== undefined ? [octaveShift(ottava, isStop)] : [];
+}
+
+/** Directions written before the event's notes on the notation staff: beat text, octave sign, dynamics change, palm mute. */
 function eventDirections(context: PartContext, event: VoiceEvent, marks: EventMarks, voice: number): XmlNode[] {
   const key = eventKey(event.measureIndex, event.beatIndex, event.voiceIndex);
   const dynamic = context.flow.dynamics.get(key);
   return [
+    ...octaveShifts(context, event, marks, false),
     ...(marks.isFirstVoice && event.beat.text !== undefined && event.beat.text !== '' ? [words(event.beat.text, 'above', voice)] : []),
     ...(dynamic === undefined
       ? []
@@ -210,16 +225,17 @@ function mainNote(input: MainNoteInput, note: Note, index: number): XmlNode {
   });
 }
 
-/** One voice of one beat on one staff: its directions (notation staff), grace notes and notes, or a rest. */
+/** One voice of one beat on one staff: its directions (notation staff), grace notes and notes, or a rest; an octave sign's end after them. */
 export function eventElements(context: PartContext, event: VoiceEvent, staff: StaffSpec, marks: EventMarks, keySignature: number): XmlNode[] {
   const voice = voiceNumber(event.voiceIndex, staff);
   const directions = staff.isTab ? [] : eventDirections(context, event, marks, voice);
+  const after = staff.isTab ? [] : octaveShifts(context, event, marks, true);
   if (event.voice.notes.length === 0) {
     const notations = marks.tuplet === undefined ? undefined : element('notations', {}, [element('tuplet', { type: marks.tuplet })]);
-    return [...directions, restElement(durationTicks(event.voice.duration) / context.unit, event.voice.duration, voice, staff.staff, notations)];
+    return [...directions, restElement(durationTicks(event.voice.duration) / context.unit, event.voice.duration, voice, staff.staff, notations), ...after];
   }
   const lyric = !staff.isTab && marks.isLyricVoice ? context.lyrics.get(event.measureIndex)?.get(event.beatIndex) : undefined;
   const input: MainNoteInput = { context, event, staff, marks, keySignature, lyric };
-  return [...directions, ...graceElements(context, event, staff, keySignature), ...event.voice.notes.map((note, index) => mainNote(input, note, index))];
+  return [...directions, ...graceElements(context, event, staff, keySignature), ...event.voice.notes.map((note, index) => mainNote(input, note, index)), ...after];
 }
 

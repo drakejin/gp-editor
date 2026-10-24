@@ -101,6 +101,7 @@ export function readBeat(node: XmlElement): GpifBeat {
     fadding: childText(node, 'Fadding'),
     hairpin: childText(node, 'Hairpin'),
     rasgueado: childText(props.get('Rasgueado'), 'Rasgueado'),
+    ottava: childText(node, 'Ottavia'),
     text: childText(node, 'FreeText') ?? '',
     chordId: chord === undefined ? undefined : parseJavaInt(chord, -1),
     graceNotes: childText(node, 'GraceNotes'),

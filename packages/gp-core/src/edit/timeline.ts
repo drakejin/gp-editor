@@ -1,5 +1,5 @@
 import { type DurationTuplets, NO_STROKE, NO_TUPLETS, QUARTER, durationTicks, hasSameTuplets } from '../model/defaults';
-import type { Beat, Chord, Duration, Hairpin, Measure, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Beat, Chord, Duration, Hairpin, Measure, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import { restDurations } from './rests';
 
 /** The beat-level attributes an event keeps when it is the event that owns its beat. */
@@ -10,6 +10,8 @@ export interface BeatAttributes {
   readonly text?: string;
   readonly hairpin?: Hairpin;
   readonly rasgueado?: RasgueadoPattern;
+  /** Kept with the beat, but no mark of its own: a rest under an octave sign is still free time. */
+  readonly ottava?: Ottava;
 }
 
 /** One event of a voice — notes or a rest — laid out after the previous event of the same voice. */
@@ -62,6 +64,15 @@ export function restEvent(duration: Duration): VoiceEvent {
   return { voice: { duration, notes: [], isEmpty: false, direction: 'none' } };
 }
 
+/**
+ * Rests an edit adds after `before` (or in its place), under its octave sign when it has one: the sign's line runs on
+ * over them instead of breaking at the rest.
+ */
+export function signedRests(rests: VoiceEvents, before: VoiceEvent | undefined): VoiceEvents {
+  const ottava = before?.attributes?.ottava;
+  return ottava === undefined ? rests : rests.map((rest) => ({ ...rest, attributes: { stroke: NO_STROKE, pickStroke: 'none', ottava } }));
+}
+
 /** Rest events filling exactly `ticks` (see restDurations); undefined when that is impossible. */
 export function restEvents(ticks: number, preferred?: Duration, tuplets?: DurationTuplets): VoiceEvents | undefined {
   return restDurations(ticks, preferred, tuplets)?.map(restEvent);
@@ -81,6 +92,7 @@ function attributesOf(beat: Beat): BeatAttributes {
     ...(beat.text === undefined ? {} : { text: beat.text }),
     ...(beat.hairpin === undefined ? {} : { hairpin: beat.hairpin }),
     ...(beat.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
+    ...(beat.ottava === undefined ? {} : { ottava: beat.ottava }),
   };
 }
 
@@ -180,6 +192,7 @@ function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttri
   const text = all.find((attributes) => attributes.text !== undefined)?.text;
   const hairpin = all.find((attributes) => attributes.hairpin !== undefined)?.hairpin;
   const rasgueado = all.find((attributes) => attributes.rasgueado !== undefined)?.rasgueado;
+  const ottava = all.find((attributes) => attributes.ottava !== undefined)?.ottava;
   return {
     stroke,
     pickStroke,
@@ -187,6 +200,7 @@ function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttri
     ...(text === undefined ? {} : { text }),
     ...(hairpin === undefined ? {} : { hairpin }),
     ...(rasgueado === undefined ? {} : { rasgueado }),
+    ...(ottava === undefined ? {} : { ottava }),
   };
 }
 
@@ -200,7 +214,8 @@ function isSameBeat(beat: Beat, voices: readonly Voice[], attributes: BeatAttrib
     beat.chord === attributes.chord &&
     beat.text === attributes.text &&
     beat.hairpin === attributes.hairpin &&
-    beat.rasgueado === attributes.rasgueado
+    beat.rasgueado === attributes.rasgueado &&
+    beat.ottava === attributes.ottava
   );
 }
 

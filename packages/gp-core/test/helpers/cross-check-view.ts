@@ -11,7 +11,8 @@ import type { Beat, Duration, Measure, MeasureHeader, Note, NoteEffect, Song, Tr
  *   notes are their key and tie (alphaTab's drum grace notes keep a string their main note no longer has);
  * - track names without outer spaces (gp-core's GPIF reader trims them);
  * - effects are sorted tags, e.g. `slide-out:shift`, `harmonic:natural`, `grace:5`, so a difference names them;
- * - a beat's chord name and text belong to the first voice playing in it (GP3–GP5 keep them on one voice's beat);
+ * - a beat's chord name and text belong to the first voice playing in it (GP3–GP5 keep them on one voice's beat); its
+ *   octave sign to every voice playing in it (GP5 and GPIF keep it on each voice's beat);
  * - a closing repeat is its play count (alphaTab's `repeatCount`; gp-core's `repeatClose` counts the repeats, one less);
  * - a bar's tempo is the one in effect at its end;
  * - lyrics are the letters and digits of the text (alphaTab splits it into syllables over the beats).
@@ -154,6 +155,7 @@ function beatTags(beat: Beat, voice: Voice, isCarrier: boolean): string[] {
     ...flags.filter(([isSet]) => isSet).map(([, tag]) => tag),
     ...(isCarrier && beat.chord !== undefined && beat.chord.name.trim() !== '' ? [`chord:${beat.chord.name.trim()}`] : []),
     ...(isCarrier && beat.text !== undefined && beat.text.trim() !== '' ? [`text:${beat.text.trim()}`] : []),
+    ...(beat.ottava === undefined ? [] : [`ottava:${beat.ottava}`]),
   ].sort();
 }
 

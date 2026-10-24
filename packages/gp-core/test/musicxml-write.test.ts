@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEND_PRESETS, TREMOLO_BAR_PRESETS } from '../src/edit/effects';
 import { buildBend } from '../src/edit/bend-shapes';
-import { NORMAL_TUPLET } from '../src/model/defaults';
+import { NORMAL_TUPLET, plainDuration } from '../src/model/defaults';
 import type { Duration } from '../src/model/song';
 import { writeMusicXml } from '../src/write/musicxml/musicxml-writer';
 import {
@@ -420,6 +420,46 @@ describe('writeMusicXml notes', () => {
       ['single', 'world'],
     ]);
     expect(child(technicalOf(notesOn(written1, 1)[0]), 'down-bow')).toBeDefined();
+  });
+});
+
+describe('writeMusicXml octave signs', () => {
+  /** Four quarters: an 8va over the second and third (the second in the next bar's run too), then a 15mb into bar 2. */
+  function signedSong() {
+    const quarterNote = (fret: number) => buildVoice([buildNote(1, fret)]);
+    return buildSong({
+      tracks: [
+        {
+          measures: [
+            [{ voice: quarterNote(0) }, { voice: quarterNote(1), ottava: '8va' }, { voice: quarterNote(2), ottava: '8va' }, { voice: quarterNote(3), ottava: '15mb' }],
+            [{ voice: quarterNote(4), ottava: '15mb' }, { voice: restVoice(plainDuration(2)) }, { voice: quarterNote(5) }],
+          ],
+        },
+      ],
+    });
+  }
+
+  /** Each octave-shift of a measure as type/size, in document order. */
+  const shifts = (measure: ReturnType<typeof measuresOf>[number] | undefined) =>
+    descendants(measure, 'octave-shift').map((shift) => `${attribute(shift, 'type')}/${attribute(shift, 'size')}`);
+
+  it('starts an octave shift before a run’s first note and stops it after its last, across the bar line', () => {
+    // Act
+    const [first, second] = measuresOf(written(signedSong()));
+
+    // Assert
+    expect(shifts(first)).toEqual(['down/8', 'stop/8', 'up/15']);
+    expect(shifts(second)).toEqual(['stop/15']);
+  });
+
+  it('writes the shifts on the notation staff only, before and after the notes they belong to', () => {
+    // Act
+    const [first] = measuresOf(written(signedSong()));
+    const names = (first?.children ?? []).filter((node) => node.name === 'note' || descendants(node, 'octave-shift').length > 0);
+    const order = names.map((node) => (node.name === 'note' ? `note:${childText(node, 'staff')}` : `shift:${childText(node, 'staff')}`));
+
+    // Assert
+    expect(order.slice(0, 8)).toEqual(['note:1', 'shift:1', 'note:1', 'note:1', 'shift:1', 'shift:1', 'note:1', 'note:2']);
   });
 });
 

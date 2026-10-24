@@ -110,6 +110,17 @@ describe('MusicXML test suite values', () => {
     expect(beat?.voices.map((voice) => voice.notes.length)).toEqual([1, 1]);
   });
 
+  it('33a-Spanners: an 8va over bar 8 and a 15mb over bar 9, each ending at its stop', () => {
+    // Act
+    const song = read('33a-Spanners.xml');
+
+    // Assert
+    const signs = (measureIndex: number) => beatsOf(song, measureIndex).map((beat) => beat.ottava);
+    expect(signs(7).every((sign) => sign === '8va')).toBe(true);
+    expect(signs(8).every((sign) => sign === '15mb')).toBe(true);
+    expect([6, 9].flatMap(signs).every((sign) => sign === undefined)).toBe(true);
+  });
+
   it('90a-Compressed-MusicXML: reads the score named by container.xml', () => {
     // Arrange / Act
     const song = read('90a-Compressed-MusicXML.mxl');

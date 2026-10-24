@@ -135,6 +135,32 @@ describe('GP5 beaming', () => {
   });
 });
 
+describe('GP5 octave signs', () => {
+  const signs = (song: Song, measureIndex = 0) => (song.tracks[0]?.measures[measureIndex]?.beats ?? []).map((beat) => beat.ottava);
+
+  it('ottavia.gp5: the octave flags of the beats’ display short', () => {
+    // Act
+    const song = read('guitarpro5', 'ottavia.gp5');
+
+    // Assert
+    expect(signs(song, 0)).toEqual(['8va', '8vb', '15ma', '15mb']);
+  });
+
+  it('round-trips every octave sign, on both voices and on a rest', () => {
+    // Arrange
+    const beats = (['8vb', '15ma'] as const).map((ottava, index) => ({ voice: buildVoice([buildNote(1, index)]), ottava }));
+    const both = { voice: buildVoice([buildNote(1, 7)]), voice2: buildVoice([buildNote(4, 1)]), ottava: '8va' as const };
+    const song = buildSong({ tracks: [{ measures: [[both, ...beats, { voice: restVoice(), ottava: '15mb' }]] }] });
+
+    // Act
+    const again = roundTrip(song, 'gp5');
+
+    // Assert
+    expect(signs(again)).toEqual(['8va', '8vb', '15ma', '15mb']);
+    expect(songDifference(expectedAfterGp5(song, again), again)).toBeUndefined();
+  });
+});
+
 describe('GP3–GP5 losses', () => {
   it.each(['gp3', 'gp4', 'gp5'] as const)('%s drops slashes, the track’s slash notation and shown accidentals', (format) => {
     // Arrange
@@ -150,6 +176,18 @@ describe('GP3–GP5 losses', () => {
     expect(firstVoices(again)[0]?.notes[0]).not.toHaveProperty('accidentalDisplay');
     const expected = format === 'gp5' ? expectedAfterGp5(song, again) : expectedAfterGp34(song, again);
     expect(songDifference(expected, again)).toBeUndefined();
+  });
+
+  it.each(['gp3', 'gp4'] as const)('%s drops octave signs (GP3 and GP4 have none)', (format) => {
+    // Arrange
+    const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 5)]), ottava: '8va' }]] }] });
+
+    // Act
+    const again = roundTrip(song, format);
+
+    // Assert
+    expect(again.tracks[0]?.measures[0]?.beats[0]).not.toHaveProperty('ottava');
+    expect(songDifference(expectedAfterGp34(song, again), again)).toBeUndefined();
   });
 
   it.each(['gp3', 'gp4'] as const)('%s drops beams and beam groups (GP3 and GP4 have none)', (format) => {

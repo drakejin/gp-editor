@@ -120,6 +120,8 @@ export function applySongEdit(
     case 'shiftTempo':
     case 'setTempo':
     case 'shiftKeySignature':
+    case 'setKeySignature':
+    case 'setClef':
     case 'toggleRepeatOpen':
     case 'toggleRepeatClose':
     case 'toggleAlternateEnding':
@@ -138,6 +140,7 @@ export function applySongEdit(
     case 'toggleHairpin':
     case 'setRasgueado':
     case 'togglePedal':
+    case 'setOttava':
       return applyMarkEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);

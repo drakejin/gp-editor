@@ -230,6 +230,12 @@ export interface Track {
 
 export type Clef = 'treble' | 'bass' | 'tenor' | 'alto' | 'neutral';
 
+/**
+ * An octave sign over (8va, 15ma) or under (8vb, 15mb) the notation staff: the notes sound one or two octaves above or
+ * below where they are written (GPIF's beat `<Ottavia>`). Only the notation changes: a note's pitch stays its fret's.
+ */
+export type Ottava = '8va' | '8vb' | '15ma' | '15mb';
+
 /** The sustain pedal pressed (Ped.) or released (✱). */
 export type PedalAction = 'down' | 'up';
 
@@ -306,6 +312,8 @@ export interface Beat {
   readonly hairpin?: Hairpin;
   /** The beat is strummed as a rasgueado of this pattern; absent when not. */
   readonly rasgueado?: RasgueadoPattern;
+  /** The octave sign the beat is written under; absent when none. */
+  readonly ottava?: Ottava;
 }
 
 export interface Tuplet {

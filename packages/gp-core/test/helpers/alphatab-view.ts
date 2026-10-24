@@ -135,6 +135,7 @@ function beatTags(beat: Beat): string[] {
     ...flags.filter(([isSet]) => isSet).map(([, tag]) => tag),
     ...(chordName === '' ? [] : [`chord:${chordName}`]),
     ...(text === '' ? [] : [`text:${text}`]),
+    ...(beat.ottava === model.Ottavia.Regular ? [] : [`ottava:${model.Ottavia[beat.ottava].slice(1)}`]),
   ].sort();
 }
 

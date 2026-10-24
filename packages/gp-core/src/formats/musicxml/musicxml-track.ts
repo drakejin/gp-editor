@@ -1,12 +1,13 @@
 // A MusicXML part as a track and its channel (no TuxGuitar reader exists; mirrors MusicXMLWriter#writeTrack / #writePartList).
 import { neckFrets } from '../../edit/string-placement';
 import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, RED, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
-import type { Channel, Lyrics, Measure, MeasureHeader, Track } from '../../model/song';
+import type { Channel, Lyrics, Measure, MeasureHeader, Ottava, Track } from '../../model/song';
 import { createChannelName, isGmBassProgram } from '../common/channels';
 import { DEFAULT_VELOCITY } from '../common/velocity';
 import { buildBeats } from './musicxml-beats';
 import type { PartMeasure } from './musicxml-measures';
 import type { RawNote } from './musicxml-note';
+import { measureOttavas } from './musicxml-octave-shifts';
 import type { PartInfo, PartInstrument } from './musicxml-part-list';
 import type { Neck, PlacedNote } from './musicxml-placement';
 import { type PartLayout, readStaffNotes, resolveLayout, toModelClef } from './musicxml-staves';
@@ -103,13 +104,16 @@ function buildMeasures(source: PartSource, layout: PartLayout, headers: readonly
   let previous: readonly (readonly PlacedNote[])[] = Array.from({ length: voiceCount }, () => []);
   let key = 0;
   let clef = toModelClef(layout.clef);
+  let ottava: Ottava | undefined;
   const measures = headers.map((header, index): Measure => {
     const read = source.measures[index];
     key = read?.key ?? key;
     const staffClef = read === undefined ? undefined : [...layout.staves].map((staff) => read.clefs.get(staff)).find((value) => value !== undefined);
     clef = staffClef === undefined ? clef : toModelClef(staffClef);
     const voices = measureVoices(notes[index] ?? [], indexes, voiceCount);
-    const built = buildBeats({ header, voices, texts: read?.texts ?? [], previous }, { ...neck, velocityOf: velocityOf(index) });
+    const ottavas = measureOttavas(read?.octaveShifts ?? [], layout.staves, ottava);
+    ottava = ottavas.atEnd;
+    const built = buildBeats({ header, voices, texts: read?.texts ?? [], previous, ottavaAt: ottavas.at }, { ...neck, velocityOf: velocityOf(index) });
     previous = built.previous;
     return { headerIndex: index, clef, keySignature: neck.isPercussion ? 0 : key, beats: built.beats };
   });

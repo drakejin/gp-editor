@@ -96,6 +96,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '⌘W', action: 'Close the tab (asks to save an edited one)' },
       { keys: '⌃⇥ / ⌃⇧⇥', action: 'Next / previous tab' },
       { keys: '⇧⌘P', action: 'Command palette: find and run any command (Tools ▸ Transpose… too)' },
+      { keys: '⌥⌘E', action: 'Expression Text: type a chord, dynamic, key, octave sign, clef or direction (or “>” in the palette)' },
       { keys: '⌘H', action: 'This sheet' },
     ],
   },

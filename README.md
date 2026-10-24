@@ -253,6 +253,17 @@ Guitar Pro's own files differently are listed, with that evidence, in
     bar — from this bar on while the time signature lasts). The Track inspector's *Slash* writes the whole track in
     slashes. GPIF (`.gp`, `.gpx`) and GP5 files keep fingering and beaming (GP5: four groups of eighths), GP3/GP4
     fingering only; slashes stay in `.gp` files; no Guitar Pro file holds a cautionary or forced accidental
+  - **Expression Text** (Guitar Pro 8's, a part of its command palette): Tools ▸ Expression Text… (⌥⌘E — Guitar Pro's
+    ⇧⌘E is Export PDF here), the Beat group's *>* or `>` typed in the command palette, then a name: a chord (`G maj`,
+    `Cm7`, `Bb/D`), a dynamic (`ff`, `mezzo piano`), a key signature (`E minor`, `3 flats`), an octave sign (`8va`,
+    `15mb`, `loco`), a clef (`bass clef`, `c clef`) or a direction (`D.S. al Coda`, `to coda`). ↩ puts the chosen one
+    at the cursor, one undo step: the chord with its first diagram on the track's strings, the dynamic on the note, the
+    key and clef from the bar on, the octave sign over the selected beats, the direction on or off. Words such as
+    *dolce* are the beat's *Text* (Guitar Pro's free text), kept in every format and in MusicXML as `<words>`
+  - octave signs (the Beat group's *8va*: 8va, 8vb, 15ma, 15mb or none, over the selected beats): the notation writes
+    their notes an octave or two away under one mark, across bar lines; the tab and playback stay. `.gp`, `.gp5` and
+    MusicXML keep them, GP3/GP4 do not. Clefs (the Bar group's *Clef*: treble, bass, alto, tenor) from the bar to the
+    next clef change, drawn small where they change inside a row; `.gp` and MusicXML keep them, GP3–GP5 one per track
   - ⌘Z / ⇧⌘Z undo and redo
   - copy and paste: drag across the score — into other rows too — or ⇧← / ⇧→ or ⇧-click select beats from the
     cursor (tinted on both staves; any other move clears the selection); ⌘C copies them — or the cursor's beat when nothing is selected — to the clipboard, ⌘X cuts them, rests

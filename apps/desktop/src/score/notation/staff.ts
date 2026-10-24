@@ -13,13 +13,15 @@ import type { ClefKind } from './pitch';
 interface ClefGlyph {
   readonly text: string;
   readonly width: number;
-  /** Staff position of the glyph's baseline: the G line, F line or middle line. */
+  /** Staff position of the glyph's baseline: the G line, F line, C line (alto: the middle line, tenor: the fourth). */
   readonly position: number;
 }
 
 export const CLEF_GLYPHS: Readonly<Record<ClefKind, ClefGlyph>> = {
   treble: { text: SMUFL.gClef8vb, width: GLYPH_WIDTH.gClef8vb, position: 2 },
   bass: { text: SMUFL.fClef8vb, width: GLYPH_WIDTH.fClef8vb, position: 6 },
+  alto: { text: SMUFL.cClef8vb, width: GLYPH_WIDTH.cClef8vb, position: 4 },
+  tenor: { text: SMUFL.cClef8vb, width: GLYPH_WIDTH.cClef8vb, position: 6 },
   percussion: {
     text: SMUFL.unpitchedPercussionClef,
     width: GLYPH_WIDTH.percussionClef,

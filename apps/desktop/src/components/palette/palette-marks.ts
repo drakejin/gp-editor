@@ -36,8 +36,13 @@ function jumpName(jump: DirectionJump): readonly [string, string] {
   return [DIRECTION_TEXTS[jump], `${DIRECTION_TEXTS[jump]}: ${from}${end}`];
 }
 
+/** A direction's label and what it does, as the palette and Expression Text name it ("D.S. al Coda", "Segno"). */
+export function directionName(direction: MusicalDirection): readonly [string, string] {
+  return NAMED[direction] ?? jumpName(direction as DirectionJump);
+}
+
 function directionOption(direction: MusicalDirection): PaletteOption {
-  const [label, tooltip] = NAMED[direction] ?? jumpName(direction as DirectionJump);
+  const [label, tooltip] = directionName(direction);
   return { label, tooltip, edit: { type: 'toggleDirection', direction }, isActive: (c) => c.header?.directions?.includes(direction) === true };
 }
 

@@ -108,3 +108,37 @@ export function transposeKeySignature(keySignature: number, semitones: number): 
   const isFlatSide = keySignature === 0 ? semitones < 0 : keySignature < 0;
   return isFlatSide ? -TRITONE_KEY : TRITONE_KEY;
 }
+
+/** A key's mode: the major key of a key signature or its relative minor. */
+export type KeyMode = 'major' | 'minor';
+
+/** A key's tonic: its letter (C = 0 … B = 6) and alteration (-1 flat, 1 sharp). */
+export interface KeyTonic {
+  readonly letter: number;
+  readonly alter: number;
+}
+
+/** Key signatures of the major keys on the natural letters, C … B. */
+const LETTER_MAJOR_KEYS: readonly number[] = [0, 2, 4, -1, 1, 3, 5];
+/** A minor key has three sharps fewer (flats more) than the major key on its tonic (A major, A minor). */
+const MINOR_SHIFT = 3;
+/** Letters from the tonic of a major key to its relative minor's (C → A). */
+const MINOR_LETTER_STEP = 5;
+/** A fifth is four letter steps (C → G): one sharp more steps the major tonic four letters on. */
+const FIFTH_LETTERS = 4;
+
+/** The key signature of the key on a tonic (letter and alteration) in a mode; undefined beyond seven accidentals. */
+export function keySignatureOf(letter: number, alter: number, mode: KeyMode): number | undefined {
+  const major = LETTER_MAJOR_KEYS[letter];
+  if (major === undefined || !Number.isInteger(alter)) {
+    return undefined;
+  }
+  const keySignature = major + FIFTH * alter - (mode === 'minor' ? MINOR_SHIFT : 0);
+  return isKeySignature(keySignature) ? keySignature : undefined;
+}
+
+/** The tonic of a key signature's major key or relative minor (6 sharps: F# major, D# minor); keySignatureOf's inverse. */
+export function keyTonic(keySignature: number, mode: KeyMode): KeyTonic {
+  const letter = mod(keySignature * FIFTH_LETTERS + (mode === 'minor' ? MINOR_LETTER_STEP : 0), LETTERS);
+  return { letter, alter: keyAlteration(letter, keySignature) };
+}

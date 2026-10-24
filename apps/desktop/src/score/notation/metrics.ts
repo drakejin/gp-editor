@@ -37,8 +37,12 @@ export const GLYPH_WIDTH = {
   rest: 1.13 * SPACE,
   gClef8vb: 2.684 * SPACE,
   fClef8vb: 2.736 * SPACE,
+  cClef8vb: 2.796 * SPACE,
   percussionClef: 1.528 * SPACE,
 } as const;
+
+/** A clef where the clef changes inside a row is drawn smaller (a cue-size clef), at this share of the full size. */
+export const CLEF_CHANGE_SCALE = 0.75;
 
 export const STEM = {
   width: 1,

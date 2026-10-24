@@ -137,6 +137,8 @@ export interface GpifBeat {
   readonly hairpin: string | undefined;
   /** The Rasgueado property's pattern id (ii_1 … peami_1). */
   readonly rasgueado: string | undefined;
+  /** `<Ottavia>`: the beat's octave sign (8va, 8vb, 15ma, 15mb). */
+  readonly ottava: string | undefined;
   readonly text: string;
   readonly chordId: number | undefined;
   readonly graceNotes: string | undefined;

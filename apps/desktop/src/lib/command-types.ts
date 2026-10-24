@@ -14,6 +14,8 @@ export interface CommandState {
   readonly isPercussion: boolean;
   /** The cursor's note, voice, beat and bar, as the edition palette sees them. */
   readonly palette: PaletteContext;
+  /** Open strings of the shown track, string 1 first (Expression Text's chord diagrams). */
+  readonly tuning?: readonly number[];
 }
 
 /** The handlers commands call: the same ones the menus, keys and buttons reach. */
@@ -39,6 +41,8 @@ export interface CommandActions {
   readonly openScales: () => void;
   /** Tools ▸ Line In…: a real instrument through a track's effects. */
   readonly openLineIn: () => void;
+  /** Tools ▸ Expression Text…: the palette with “>” typed (a chord, dynamic, key, octave sign, clef or direction). */
+  readonly openExpressionText: () => void;
   readonly openLyrics: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;

@@ -1,3 +1,4 @@
+import { ottavaOctaves as signOctaves } from '@gp-editor/core';
 import type {
   AccidentalDisplay,
   BeamLink,
@@ -76,6 +77,8 @@ export interface VoiceEvent {
   readonly notes: readonly StaffNote[];
   /** Octaves the notes are drawn below (8va, positive) or above (8vb, negative) their written place. */
   readonly ottava: number;
+  /** The shift is the beat's octave sign (`Beat.ottava`), not one the engraver chose for notes far off the staff. */
+  readonly isWrittenOttava?: boolean;
   /** The beam to the voice's next beat, set by hand. */
   readonly beamToNext?: BeamLink;
   /** Written as a rhythm slash (the beat's, or its track's slash notation). */
@@ -101,6 +104,7 @@ export function buildVoiceEvents(
   const sorted = placed.map(notes =>
     [...notes].sort((a, b) => a.position - b.position),
   );
+  const written = writtenOttavas(raw, sorted, measure, clef);
   const voiceOttavas = new Map(
     [...new Set(raw.map(event => event.voiceIndex))].map(voiceIndex => [
       voiceIndex,
@@ -109,7 +113,9 @@ export function buildVoiceEvents(
         sorted
           .filter(
             (_, i) =>
-              raw[i]?.voiceIndex === voiceIndex && raw[i]?.isSlashed !== true,
+              raw[i]?.voiceIndex === voiceIndex &&
+              raw[i]?.isSlashed !== true &&
+              written[i] === 0,
           )
           .flat(),
       ),
@@ -117,14 +123,45 @@ export function buildVoiceEvents(
   );
   return raw.map((event, index) => {
     const notes = sorted[index] ?? [];
-    const ottava = voiceOttavas.get(event.voiceIndex) ?? chordOttava(notes);
+    const sign = written[index] ?? 0;
+    const ottava =
+      sign !== 0
+        ? sign
+        : voiceOttavas.get(event.voiceIndex) ?? chordOttava(notes);
     const shift = ottava * STEPS_PER_OCTAVE;
     const shifted = {
       ...event,
       notes: shift === 0 ? notes : notes.map(note => shiftNote(note, shift)),
       ottava,
+      ...(sign !== 0 ? { isWrittenOttava: true } : {}),
     };
     return event.isSlashed === true ? asSlash(shifted) : shifted;
+  });
+}
+
+/**
+ * The octave shift the beat's own sign writes each event at (0: none), deciding it before the engraver picks one for
+ * notes far off the staff. A sign that would move the notes out of the staff's room (an 8va over low notes) is drawn as
+ * no sign: the row has no room for them.
+ */
+function writtenOttavas(
+  raw: readonly RawEvent[],
+  sorted: readonly (readonly StaffNote[])[],
+  measure: Measure,
+  clef: ClefKind,
+): readonly number[] {
+  return raw.map((event, index) => {
+    const octaves =
+      clef === 'percussion'
+        ? 0
+        : signOctaves(measure.beats[event.beatIndex]?.ottava);
+    const shift = octaves * STEPS_PER_OCTAVE;
+    const fits = (sorted[index] ?? []).every(
+      note =>
+        note.position - shift <= OTTAVA.highest &&
+        note.position - shift >= OTTAVA.lowest,
+    );
+    return fits ? octaves : 0;
   });
 }
 
@@ -143,7 +180,8 @@ function asSlash(event: VoiceEvent): VoiceEvent {
     effect: first.effect,
     isSlash: true,
   };
-  return { ...event, notes: [slash], ottava: 0 };
+  // A written sign stays the event's, so the sign's mark runs on over the slash; the engraver's own shift does not.
+  return { ...event, notes: [slash], ottava: event.isWrittenOttava === true ? event.ottava : 0 };
 }
 
 function shiftNote(note: StaffNote, shift: number): StaffNote {

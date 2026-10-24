@@ -16,6 +16,7 @@ import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
 import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
+import { clefTool, expressionTextTool, ottavaTool } from './palette-expression';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
@@ -130,6 +131,7 @@ function barGroup(): PaletteGroup {
       },
       directionsTool(),
       beamGroupingTool(),
+      clefTool(),
     ],
     steppers: [
       { id: 'numerator', label: 'Time', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
@@ -316,7 +318,9 @@ function strokeGroup(): PaletteGroup {
       { id: 'chord', face: 'Chord', key: 'K', tooltip: withKey('Chord diagram: grid, name and chord library', 'K'), scope: 'beat', run: { kind: 'chordPanel' }, isActive: (c) => c.beat?.chord !== undefined },
       rasgueadoTool(),
       ...pedalTools(),
+      expressionTextTool(),
       ...beatMarkTools(),
+      ottavaTool(),
     ],
   };
 }

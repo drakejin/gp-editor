@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP5OutputStream#writeMeasure / #writeBeat (LGPL-2.1).
-import { GP5_BREAK_SECONDARY_BEAMS, GP5_SECONDARY_BEAMS_KEPT, gp5BeamFlags } from '../formats/gtp/gp5-beams';
+import { GP5_BREAK_SECONDARY_BEAMS, GP5_SECONDARY_BEAMS_KEPT, gp5BeamFlags, gp5OttavaFlag } from '../formats/gtp/gp5-beams';
 import { durationTicks, plainDuration } from '../model/defaults';
 import type { Beat, Chord, Duration, Measure, Note, Voice } from '../model/song';
 import type { ByteWriter } from './byte-writer';
@@ -26,7 +26,7 @@ interface BeatContext extends MeasureContext {
 const QUARTER_DURATION_BYTE = 0;
 const REST_STATUS = 0x02;
 const EMPTY_STATUS = 0x00;
-/** Display flags (high byte of the beat's last short): first and last beat of a tuplet bracket. */
+/** Display flags (high byte of the beat's last short): first and last beat of a tuplet bracket (the octave signs: gp5-beams.ts). */
 const TUPLET_BRACKET_START = 0x0200;
 const TUPLET_BRACKET_END = 0x0400;
 
@@ -43,7 +43,8 @@ export function writeMeasureGp5(writer: ByteWriter, measure: Measure, context: M
     const brackets = tupletBrackets(beats.map((beat) => writtenDuration(voiceAt(beat, voiceIndex))));
     writer.writeInt(beats.length);
     beats.forEach((beat, index) => {
-      const displayFlags = (brackets[index] ?? 0) | beamFlagsFrom(beats[index - 1], beat, voiceIndex);
+      const ottava = voiceAt(beat, voiceIndex).isEmpty ? 0 : gp5OttavaFlag(beat.ottava);
+      const displayFlags = (brackets[index] ?? 0) | beamFlagsFrom(beats[index - 1], beat, voiceIndex) | ottava;
       writeBeatGp5(writer, beat, voiceIndex, { ...context, tempoChange: index === 0 ? tempo : undefined, displayFlags });
     });
   }
