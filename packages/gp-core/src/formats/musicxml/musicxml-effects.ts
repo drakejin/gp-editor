@@ -178,7 +178,7 @@ function afterStep(value: number, step: BendStep, range: CurveRange): number {
  * to reach it (a pre-bend is held for one such span), so the steps of buildBend's shapes read back as those shapes; with
  * more steps than the 12 positions hold that way, the values are not held, and steps past 12 are left out.
  */
-export function bendFromSteps(steps: readonly BendStep[], range: CurveRange = BEND_RANGE): Bend | undefined {
+function bendFromSteps(steps: readonly BendStep[], range: CurveRange = BEND_RANGE): Bend | undefined {
   const [first, ...rest] = steps;
   if (first === undefined) {
     return undefined;

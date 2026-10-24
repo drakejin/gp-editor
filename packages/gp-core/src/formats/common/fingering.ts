@@ -6,7 +6,7 @@ import { lookupName } from '../gpif/xml';
 export const FINGERS: readonly Finger[] = ['thumb', 'index', 'middle', 'annular', 'little'];
 
 /** "No finger" in a GP3–GP5 fingering byte. */
-export const NO_GP_FINGER = -1;
+const NO_GP_FINGER = -1;
 
 /** GPIF's letters (`<LeftFingering>` / `<RightFingering>`): pulgar, índice, medio, anular, chico. */
 const GPIF_LETTERS: Readonly<Record<Finger, string>> = { thumb: 'P', index: 'I', middle: 'M', annular: 'A', little: 'C' };

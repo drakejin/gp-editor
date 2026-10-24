@@ -128,7 +128,7 @@ export interface TeEnding {
 export type TeComponent = TeNote | TeRest | TeChord | TeGraceNoteMetadata | TeTextEvent | TeTempoChange | TeEnding;
 
 /** TEComponentBase.getSortOrder of each kind kept: components at one position are handled in this order. */
-export const TE_SORT_ORDER: Readonly<Record<TeComponent['kind'], number>> = {
+const TE_SORT_ORDER: Readonly<Record<TeComponent['kind'], number>> = {
   note: 0,
   chord: 10,
   rest: 20,

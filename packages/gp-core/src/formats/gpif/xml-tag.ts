@@ -61,7 +61,7 @@ interface Attribute {
 }
 
 /** XMLValidator's white space: space, tab, line feed, carriage return. */
-export function isSpace(code: number): boolean {
+function isSpace(code: number): boolean {
   return code === CODE.space || code === CODE.lineFeed || code === CODE.tab || code === CODE.carriageReturn;
 }
 

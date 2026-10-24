@@ -164,7 +164,7 @@ const NO_CHANNEL = -1;
  * Tracks on the same GM channel share one song channel (TuxGuitar's readChannel).
  * The port number is ignored, as in TuxGuitar: channel N of any port uses slot N.
  */
-export function assignChannel(
+function assignChannel(
   registry: ChannelRegistry,
   slots: readonly ChannelSlot[],
   gmChannel: number,

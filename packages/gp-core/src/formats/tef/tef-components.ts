@@ -61,7 +61,7 @@ function buildLayout(measures: readonly TeMeasure[], tracks: readonly TeTrack[])
 }
 
 /** Sixty-fourth notes in a measure. */
-export function gridLength(measure: TeMeasure): number {
+function gridLength(measure: TeMeasure): number {
   return (GRID_PER_WHOLE * measure.timeSignature.numerator) / measure.timeSignature.denominator;
 }
 

@@ -33,7 +33,7 @@ const LONGEST_SPACING = 6;
 const BAR_OPENING = '|-';
 
 /** getDurationScaping: 1 column for a 32nd or shorter, then one more per doubling, up to 6 past a half note. */
-export function durationSpacing(ticks: number): number {
+function durationSpacing(ticks: number): number {
   return SPACINGS.find(([limit]) => ticks <= limit)?.[1] ?? LONGEST_SPACING;
 }
 

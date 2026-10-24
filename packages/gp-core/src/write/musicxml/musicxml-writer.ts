@@ -8,8 +8,8 @@ import { buildTrackLyrics } from './musicxml-lyrics';
 import { buildMeasure } from './musicxml-measure';
 import { type XmlChild, type XmlNode, element, serializeXml, textElement } from './xml-text';
 
-export const MUSICXML_VERSION = '4.0';
-export const MUSICXML_DOCTYPE =
+const MUSICXML_VERSION = '4.0';
+const MUSICXML_DOCTYPE =
   '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">';
 const SOFTWARE = 'GP Editor';
 

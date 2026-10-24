@@ -9,7 +9,7 @@ const NO_MEASURE = -1;
 const MAX_MEASURE_NUMBER = 0x7fff;
 
 /** The 1-based measure of each direction in GP5's order: the first bar that has it (GP5 places each once), else -1. */
-export function directionMeasureNumbers(headers: readonly MeasureHeader[]): readonly number[] {
+function directionMeasureNumbers(headers: readonly MeasureHeader[]): readonly number[] {
   return MUSICAL_DIRECTIONS.map((direction) => {
     const header = headers.find((candidate) => candidate.directions?.includes(direction) === true);
     return header === undefined || header.number > MAX_MEASURE_NUMBER ? NO_MEASURE : header.number;
