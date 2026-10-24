@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactElement, type RefObject, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
 import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
 import { useDesignDrag } from '../hooks/use-design-drag';
@@ -10,14 +10,15 @@ import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { ROW } from '../score/geometry';
 import type { DesignHandle } from '../score/design-handles';
 import type { RowHit } from '../score/hit-test';
+import type { RowLayout } from '../lib/layout';
 import type { PlayingBeat } from '../score/row';
-import type { StaffSpec } from '../score/score-layout';
+import type { ScoreLayout, ScoreStaff, StaffSpec } from '../score/score-layout';
 import { type BeatRange, clipRange } from '../score/selection-tint';
 import { staffDecor } from '../score/system-staff';
 import { editedVoiceOf } from '../score/voices';
 import type { LayoutAction } from '../state/layout-edits';
 import type { Palette } from '../theme';
-import { type RowDesign, ScoreRow } from './ScoreRow';
+import { type RowDesign, ScoreRow, type ScoreRowProps } from './ScoreRow';
 import { SystemDesignButtons } from './SystemDesignButtons';
 
 interface ScoreViewProps {
@@ -65,101 +66,132 @@ const WINDOW_SIZE = 5;
 const DESK_MARGIN = 22;
 const PAGE_FOOT = 48;
 
+/** What every line of the page is drawn with: the layout, the cursor, playback, the selection, Design Mode and the handlers. */
+interface LineView extends Pick<ScoreViewProps, 'trackIndex' | 'cursor' | 'isMultivoice' | 'playing' | 'playingTracks' | 'selection' | 'palette'> {
+  readonly song: Song;
+  readonly layout: ScoreLayout;
+  readonly rowWidth: number;
+  readonly zoom: number;
+  readonly onPressRow: ScoreRowProps['onPress'];
+  readonly onDragRow: ScoreRowProps['onDrag'];
+  readonly isDesignMode: boolean;
+  readonly guide?: DesignGuide;
+  readonly onDesignEdit: (action: LayoutAction) => void;
+  readonly onDesignPress: NonNullable<ScoreRowProps['onDesignPress']>;
+  readonly onDesignMove: NonNullable<ScoreRowProps['onDesignMove']>;
+  readonly onDesignRelease: NonNullable<ScoreRowProps['onDesignRelease']>;
+}
+
+/** The canvas of one staff of one system: what it draws of the cursor, playback and selection, and its Design Mode place. */
+function lineRowProps(item: ScoreLine, staff: ScoreStaff, row: RowLayout, view: LineView): ScoreRowProps {
+  const { song, layout, cursor } = view;
+  const inRow = (measureIndex: number | undefined) => row.measures.some((m) => m.measureIndex === measureIndex);
+  const isSelectedTrack = staff.trackIndex === view.trackIndex;
+  const playingBeat = isSelectedTrack ? view.playing : view.playingTracks?.[staff.trackIndex];
+  const firstBar = row.measures[0]?.measureIndex ?? 0;
+  const lastBar = row.measures[row.measures.length - 1]?.measureIndex ?? 0;
+  return {
+    song, trackIndex: staff.trackIndex, row, width: view.rowWidth, headerWidth: layout.clefWidth, mode: staff.mode, geometry: staff.geometry,
+    height: staff.height, palette: view.palette,
+    cursor: cursor?.trackIndex === staff.trackIndex && inRow(cursor.measureIndex) ? cursor : undefined,
+    playing: inRow(playingBeat?.measureIndex) ? playingBeat : undefined,
+    selection: isSelectedTrack ? clipRange(view.selection, firstBar, lastBar) : undefined,
+    markLanes: staff.markLanes, hasHeading: staff.hasHeading, decor: staffDecor(song, layout, item.systemIndex, item.staffIndex),
+    editedVoiceIndex: editedVoiceOf(cursor, staff.trackIndex, view.isMultivoice), zoom: view.zoom, rowIndex: item.systemIndex,
+    onPress: view.onPressRow, onDrag: view.onDragRow,
+    design: view.isDesignMode ? rowDesign(item, layout.staves.length, view.guide) : undefined,
+    onDesignPress: view.onDesignPress, onDesignMove: view.onDesignMove, onDesignRelease: view.onDesignRelease,
+  };
+}
+
+/** One line of the page: a staff of a system on the paper, with the system's + − × over its top staff in Design Mode. */
+function renderScoreLine(item: ScoreLine, view: LineView): ReactElement | null {
+  const staff = view.layout.staves[item.staffIndex];
+  const row = view.layout.systems[item.systemIndex]?.rows[item.staffIndex];
+  if (staff === undefined || row === undefined) {
+    return null;
+  }
+  const props = lineRowProps(item, staff, row, view);
+  const { palette, song } = view;
+  return (
+    <View style={[styles.pageRow, { backgroundColor: palette.paper }]}>
+      {props.design?.isTop === true ? (
+        <SystemDesignButtons palette={palette} song={song} firstMeasureIndex={row.measures[0]?.measureIndex ?? 0} barCount={row.measures.length} onEdit={view.onDesignEdit} />
+      ) : null}
+      <ScoreRow {...props} />
+    </View>
+  );
+}
+
+/** A line's key: its system's first bar, and its track in a multitrack score (a moved track keeps its canvases). */
+function lineKey(layout: ScoreLayout, line: ScoreLine): string {
+  const firstBar = String(layout.systems[line.systemIndex]?.rows[0]?.measures[0]?.measureIndex ?? 0);
+  return layout.staves.length === 1 ? firstBar : `${firstBar}:${layout.staves[line.staffIndex]?.trackIndex ?? 0}`;
+}
+
+/** The page's size and the score's layout across it, zoomed by the stylesheet's scale too. */
+function usePageLayout(props: ScoreViewProps, song: Song) {
+  // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
+  const zoom = props.zoom * stylesheetOf(song).scale;
+  const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
+  const pageWidth = Math.max(0, width - DESK_MARGIN * 2);
+  // Rows are laid out in unzoomed points: a zoomed page holds fewer bars per line, as in Guitar Pro.
+  const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);
+  const layout = useScoreLayout(song, props.staves, props.chordDisplay ?? DEFAULT_CHORD_DISPLAY, rowWidth);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    setWidth(event.nativeEvent.layout.width);
+    setHeight(event.nativeEvent.layout.height);
+  }, []);
+  return { zoom, rowWidth, layout, viewportHeight: height, onLayout };
+}
+
+/** The page's lines, how each is drawn, and what follows the cursor and playback into view. */
+function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLine> | null>, headerHeight: number) {
+  const { trackIndex, cursor, isMultivoice, playing, playingTracks, selection, palette, isDesignMode = false, onLayoutEdit } = props;
+  // A Design Mode drag shows its edit on the score before it becomes one.
+  const designDrag = useDesignDrag(props.song, onLayoutEdit);
+  const { song, guide } = designDrag;
+  const { zoom, rowWidth, layout, viewportHeight, onLayout } = usePageLayout(props, song);
+  const lines = useMemo(
+    () => layout.systems.flatMap((_, systemIndex) => layout.staves.map((__, staffIndex): ScoreLine => ({ systemIndex, staffIndex }))),
+    [layout],
+  );
+  const { onPressRow, onDragRow } = useDragSelection({ song, layout, onPressBeat: props.onPressBeat, onDragBeat: props.onDragBeat });
+  const onViewableItemsChanged = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight, topMargin: DESK_MARGIN, cursor, playing });
+  const { onPress: pressDesign, onMove: onDesignMove, onRelease: onDesignRelease } = designDrag;
+  const onDesignPress = useCallback(
+    (systemIndex: number, handle: DesignHandle, x: number, y: number) => pressDesign({ handle, systemIndex, pointerX: x, pointerY: y, song, layout, rowWidth }),
+    [pressDesign, song, layout, rowWidth],
+  );
+  const onDesignEdit = useCallback((action: LayoutAction) => onLayoutEdit?.(action), [onLayoutEdit]);
+  const renderLine = useCallback(
+    ({ item }: ListRenderItemInfo<ScoreLine>) => renderScoreLine(item, {
+      song, layout, rowWidth, zoom, palette, trackIndex, cursor, isMultivoice, playing, playingTracks, selection, onPressRow, onDragRow,
+      isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease,
+    }),
+    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
+  );
+  return { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged };
+}
+
 /**
  * The score as one page on Guitar Pro's grey desk: the title block, then the systems — a staff group per shown track,
  * each its own canvas, virtualised —, zoomed. The playing system, and the cursor's line when it leaves the view (a bar
  * picked in the bar map), are scrolled into view.
  */
 export function ScoreView(props: ScoreViewProps) {
-  const { trackIndex, staves, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, playingTracks, selection, palette, header, isDesignMode = false, onLayoutEdit } = props;
-  // A Design Mode drag shows its edit on the score before it becomes one.
-  const designDrag = useDesignDrag(props.song, onLayoutEdit);
-  const { song, guide } = designDrag;
-  // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
-  const zoom = props.zoom * stylesheetOf(song).scale;
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const { palette, header } = props;
   const listRef = useRef<FlatList<ScoreLine>>(null);
-  const pageWidth = Math.max(0, width - DESK_MARGIN * 2);
-  // Rows are laid out in unzoomed points: a zoomed page holds fewer bars per line, as in Guitar Pro.
-  const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);
-  const layout = useScoreLayout(song, staves, chordDisplay, rowWidth);
-  const lines = useMemo(
-    () => layout.systems.flatMap((_, systemIndex) => layout.staves.map((__, staffIndex): ScoreLine => ({ systemIndex, staffIndex }))),
-    [layout],
-  );
-  const { onPressRow, onDragRow } = useDragSelection({ song, layout, onPressBeat: props.onPressBeat, onDragBeat: props.onDragBeat });
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    setWidth(event.nativeEvent.layout.width);
-    setHeight(event.nativeEvent.layout.height);
-  }, []);
-  const onViewableItemsChanged = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight: height, topMargin: DESK_MARGIN, cursor, playing });
-  const { onPress: pressDesign } = designDrag;
-  const onDesignPress = useCallback(
-    (systemIndex: number, handle: DesignHandle, x: number, y: number) => pressDesign({ handle, systemIndex, pointerX: x, pointerY: y, song, layout, rowWidth }),
-    [pressDesign, song, layout, rowWidth],
-  );
-  const designEdit = useCallback((action: LayoutAction) => onLayoutEdit?.(action), [onLayoutEdit]);
-
-  const renderLine = useCallback(
-    ({ item }: ListRenderItemInfo<ScoreLine>) => {
-      const staff = layout.staves[item.staffIndex];
-      const row = layout.systems[item.systemIndex]?.rows[item.staffIndex];
-      if (staff === undefined || row === undefined) {
-        return null;
-      }
-      const inRow = (measureIndex: number | undefined) => row.measures.some((m) => m.measureIndex === measureIndex);
-      const isSelectedTrack = staff.trackIndex === trackIndex;
-      const playingBeat = isSelectedTrack ? playing : playingTracks?.[staff.trackIndex];
-      const firstBar = row.measures[0]?.measureIndex ?? 0;
-      const lastBar = row.measures[row.measures.length - 1]?.measureIndex ?? 0;
-      const design = isDesignMode ? rowDesign(item, layout.staves.length, guide) : undefined;
-      return (
-        <View style={[styles.pageRow, { backgroundColor: palette.paper }]}>
-          {design?.isTop === true ? <SystemDesignButtons palette={palette} song={song} firstMeasureIndex={firstBar} barCount={row.measures.length} onEdit={designEdit} /> : null}
-          <ScoreRow
-            song={song}
-            trackIndex={staff.trackIndex}
-            row={row}
-            width={rowWidth}
-            headerWidth={layout.clefWidth}
-            mode={staff.mode}
-            geometry={staff.geometry}
-            height={staff.height}
-            palette={palette}
-            cursor={cursor?.trackIndex === staff.trackIndex && inRow(cursor.measureIndex) ? cursor : undefined}
-            playing={inRow(playingBeat?.measureIndex) ? playingBeat : undefined}
-            selection={isSelectedTrack ? clipRange(selection, firstBar, lastBar) : undefined}
-            markLanes={staff.markLanes}
-            hasHeading={staff.hasHeading}
-            decor={staffDecor(song, layout, item.systemIndex, item.staffIndex)}
-            editedVoiceIndex={editedVoiceOf(cursor, staff.trackIndex, isMultivoice)}
-            zoom={zoom}
-            rowIndex={item.systemIndex}
-            onPress={onPressRow}
-            onDrag={onDragRow}
-            design={design}
-            onDesignPress={onDesignPress}
-            onDesignMove={designDrag.onMove}
-            onDesignRelease={designDrag.onRelease}
-          />
-        </View>
-      );
-    },
-    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, isDesignMode, guide, designEdit, onDesignPress, designDrag.onMove, designDrag.onRelease],
-  );
-
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged } = useScorePage(props, listRef, headerHeight);
   return (
     <View style={[styles.desk, { backgroundColor: palette.desk }]} onLayout={onLayout}>
       <FlatList
         ref={listRef}
         data={lines}
         renderItem={renderLine}
-        keyExtractor={(line) => {
-          const firstBar = String(layout.systems[line.systemIndex]?.rows[0]?.measures[0]?.measureIndex ?? 0);
-          return layout.staves.length === 1 ? firstBar : `${firstBar}:${layout.staves[line.staffIndex]?.trackIndex ?? 0}`;
-        }}
+        keyExtractor={(line) => lineKey(layout, line)}
         getItemLayout={(_, index) => {
           const place = linePlace(layout, lineAt(layout, index));
           return { length: place.height * zoom, offset: headerHeight + place.top * zoom, index };
