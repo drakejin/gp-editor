@@ -193,6 +193,15 @@ Guitar Pro's own files differently are listed, with that evidence, in
   order across the strings; *MIDI guitar* puts channel *n* on string *n* (one channel per string); on a drum track the
   key is the drum. *Velocity* gives the notes the velocity they were played with. A note the track cannot play is left
   out with a hint. The settings are kept on this Mac.
+- **Multitrack** (Guitar Pro 8's View ▸ Multitrack, F3, or *Multitrack* over the tracks table): the score shows every
+  track in one score — each system a staff group per track in track order, joined by a bracket, the bars as wide as the
+  widest track needs and beats played together under one another, bar lines through the system, the full names on the
+  first system and short names after. The tracks panel's eyes choose the tracks shown (the selected track always is; an
+  eye clicked without Multitrack turns it on with that track). In Multitrack the Track inspector's *Notation* sets the
+  selected track's own staves. Click a staff to work on its track; ↑ / ↓ past the first or last string go on into the
+  track above / below, ⌘↑ / ⌘↓ (View ▸ Previous / Next Track) go to the previous / next track; playback lights every
+  shown track's beat; a drag selects on the track it began on. Export PDF / PNG and Print follow the shown tracks (*As
+  Shown*, or all in one mode); a system taller than a page is printed smaller.
 - **Cursor** (Guitar Pro style): click the score, ←/→ previous/next beat (across bars), ↑/↓ neighbouring string —
   also empty strings. Keys reach the score only from the score: what is typed in a text field (the Song Writer, the
   inspector, the palette's texts) stays in it, and while a panel, sheet or menu is open over the score every key but
