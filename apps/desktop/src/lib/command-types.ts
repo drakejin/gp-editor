@@ -42,6 +42,8 @@ export interface CommandActions {
   readonly openLyrics: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;
+  /** Track ▸ Add Audio Track…: a recording played in sync with the score. */
+  readonly addAudioTrack: () => void;
   readonly togglePanel: (panel: PanelId) => void;
   readonly toggleLoop: () => void;
   /** View ▸ Focus / Unfocus. */

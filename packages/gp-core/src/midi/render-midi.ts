@@ -1,6 +1,8 @@
 // Song → Standard MIDI File + timeline: TuxGuitar's MidiSongWriter flow (LGPL-2.1) with playback options.
+import { type SyncMap, buildSyncMap } from '../audio-track/sync-map';
 import { measureTicks } from '../model/defaults';
 import { QUARTER_TIME, type Song } from '../model/song';
+import { type AudioRun, audioRunsOf, syncToAudio } from './audio-sync';
 import { buildConductorEvents, buildTrackEvents } from './build-sequence';
 import { buildChannelRoutes } from './channel-routes';
 import type { SequenceEvent } from './midi-events';
@@ -30,14 +32,19 @@ export interface MidiRender {
   readonly countInTrackIndex?: number;
   /** Seconds the count-in lasts before the first played measure (0 without one); the timeline starts after it. */
   readonly countInSeconds: number;
+  /** With `syncToAudioTrack` and an audio track: the stretches of the audio to play under the render, in order. */
+  readonly audioRuns?: readonly AudioRun[];
 }
 
-/** MidiSequenceParser.parse: muted tracks are silent; when any track is solo only solo tracks play. */
-function resolvePlayedTracks(song: Song, trackIndexes: readonly number[] | undefined): ReadonlySet<number> {
+/**
+ * MidiSequenceParser.parse: muted tracks are silent; when any track is solo only solo tracks play. A solo audio track
+ * counts when playback follows it.
+ */
+function resolvePlayedTracks(song: Song, trackIndexes: readonly number[] | undefined, isAudioSynced: boolean): ReadonlySet<number> {
   if (trackIndexes !== undefined) {
     return new Set(trackIndexes);
   }
-  const hasSolo = song.tracks.some((track) => track.solo);
+  const hasSolo = song.tracks.some((track) => track.solo) || (isAudioSynced && song.audioTrack?.solo === true);
   return new Set(song.tracks.flatMap((track, index) => (!track.mute && (!hasSolo || track.solo) ? [index] : [])));
 }
 
@@ -89,9 +96,11 @@ export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender
   validateOptions(written, options);
   const song = withFixedTempo(written, options.fixedTempo);
   const fromHeaderIndex = options.fromHeaderIndex ?? 0;
-  const playedTracks = resolvePlayedTracks(song, options.trackIndexes);
+  const syncMap = options.syncToAudioTrack === true && song.audioTrack !== undefined ? buildSyncMap(song) : undefined;
+  const playedTracks = resolvePlayedTracks(song, options.trackIndexes, syncMap !== undefined);
   const order = resolvePlaybackOrder(song, fromHeaderIndex, options.toHeaderIndex);
-  const played = buildPasses(song.measureHeaders, order, options.passTempoScales ?? SINGLE_PASS);
+  const synced = followAudio(song, buildPasses(song.measureHeaders, order, options.passTempoScales ?? SINGLE_PASS), syncMap);
+  const { played } = synced;
   const countIn = options.countIn === undefined ? undefined : resolveCountIn(song.measureHeaders, played);
   const origin = playbackOrigin(song, played, fromHeaderIndex) - (countIn?.ticks ?? 0);
   const routes = buildChannelRoutes(song.channels);
@@ -118,7 +127,13 @@ export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender
     durationSeconds: timeline.endSeconds + secondsFromTicks(tail, timeline.lastTempo),
     ...clickTrackIndexes(song.tracks.length, options, countIn),
     countInSeconds,
+    ...(syncMap === undefined ? {} : { audioRuns: audioRunsOf(synced, timeline.entries, syncMap) }),
   };
+}
+
+/** The played measures at the audio track's pace when following it, else as they are. */
+function followAudio(song: Song, played: readonly PlayedMeasure[], syncMap: SyncMap | undefined): ReturnType<typeof syncToAudio> {
+  return syncMap === undefined ? { played, bars: [] } : syncToAudio(song.measureHeaders, played, syncMap);
 }
 
 /** Sequence tick (from the origin) where the last played measure ends. */

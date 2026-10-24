@@ -3,6 +3,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <os/log.h>
 
+#import "GPAudioTrackPlayer.h"
 #import "GPLineIn.h"
 #import "GPMixGraph.h"
 #import "GPTrackInstruments.h"
@@ -16,6 +17,9 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   GPMixGraph *_graph;
   GPTrackInstruments *_instruments;
   GPLineIn *_lineIn;
+  /** The audio track (Guitar Pro's backing track) and what the playing song plays of it; nil without one. */
+  GPAudioTrackPlayer *_audioTrack;
+  NSDictionary *_audioPlayback;
   /** The latest mix, applied to every engine built. */
   NSDictionary *_mix;
   AVAudioSequencer *_sequencer;
@@ -50,6 +54,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   _graph = [[GPMixGraph alloc] initWithEngine:_engine];
   _instruments = [[GPTrackInstruments alloc] initWithEngine:_engine graph:_graph];
   _lineIn = [[GPLineIn alloc] initWithEngine:_engine graph:_graph];
+  _audioTrack = [[GPAudioTrackPlayer alloc] initWithEngine:_engine graph:_graph queue:_queue];
   [_graph applyMix:_mix];
 }
 
@@ -69,21 +74,32 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
  *   the render thread reading what the chase had just reallocated);
  * - its start and stop add and remove a render notify on the output unit, and the render thread could still call
  *   the removed (freed) block (crashes in AUHALOutputUnit_RenderNotifyCallback → _Block_copy).
- * Events scheduled meanwhile are delivered once it renders again, before the song's first notes.
+ * Events scheduled meanwhile are delivered once it renders again, before the song's first notes. The audio track's
+ * player is prepared (connected, its runs scheduled) meanwhile too, and started once the engine runs again, at the host
+ * time the sequencer reaches `seconds`.
  */
-- (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
+- (BOOL)playData:(NSData *)midi
+     fromSeconds:(NSTimeInterval)seconds
+         bankURL:(nullable NSURL *)bankURL
+           audio:(nullable NSDictionary *)audio
+           error:(NSError **)error
 {
   [_engine pause];
-  BOOL isStarted = [self startSequencerWithData:midi fromSeconds:seconds bankURL:bankURL error:error];
+  BOOL isStarted = [self startSequencerWithData:midi fromSeconds:seconds bankURL:bankURL audio:audio error:error];
   if ([self startEngine:isStarted ? error : NULL]) {
+    [self startAudioAt:seconds];
     return isStarted;
   }
   [self stopSequencer];
   return NO;
 }
 
-/** The old song stopped, the new one loaded, routed, prerolled and started: it plays once the engine runs. */
-- (BOOL)startSequencerWithData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
+/** The old song stopped, the new one loaded, routed, prerolled and started (its audio prepared): it plays once the engine runs. */
+- (BOOL)startSequencerWithData:(NSData *)midi
+                   fromSeconds:(NSTimeInterval)seconds
+                       bankURL:(nullable NSURL *)bankURL
+                         audio:(nullable NSDictionary *)audio
+                         error:(NSError **)error
 {
   [self stopSequencer];
   _generation += 1;
@@ -93,21 +109,15 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   if (![_instruments prepareBank:bankURL error:error]) {
     return NO;
   }
+  // The audio track's nodes are connected before the sequencer starts (a new connection would stop it).
+  if (audio != nil && ![_audioTrack prepare:audio fromSeconds:seconds error:error]) {
+    return NO;
+  }
   AVAudioSequencer *sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:_engine];
   if (![sequencer loadFromData:midi options:AVMusicSequenceLoadSMF_PreserveTracks error:error]) {
     return NO;
   }
-  // With PreserveTracks every file track is a sequencer track; should the first (tempo) one be folded into the tempo
-  // track, the indexes shift by one. Routing may append tracks (a strip's channels): those come after the file's.
-  NSUInteger fileTracks = SmfTrackCount(midi);
-  _fileTrackCount = sequencer.tracks.count;
-  _trackOffset = fileTracks > _fileTrackCount ? fileTracks - _fileTrackCount : 0;
-  NSIndexSet *clickTracks = [self sequencerIndexes:_clickTracks];
-  [_instruments routeSequencer:sequencer clickTracks:clickTracks];
-  os_log(OS_LOG_DEFAULT, "GPMidiEngine: %lu file tracks, %lu sequencer tracks, %lu muted, %lu clicks", (unsigned long)fileTracks,
-         (unsigned long)_fileTrackCount, (unsigned long)_mutedTracks.count, (unsigned long)_clickTracks.count);
-  LogDestinations(sequencer, clickTracks);
-  [self applyMutedTracksTo:sequencer];
+  [self routeSequencer:sequencer midi:midi];
   NSTimeInterval length = 0;
   for (AVMusicTrack *track in sequencer.tracks) {
     length = MAX(length, track.lengthInSeconds);
@@ -119,7 +129,24 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   }
   _sequencer = sequencer;
   _length = length;
+  _audioPlayback = audio;
   return YES;
+}
+
+/** The new song's tracks on their instruments (the click tracks on the shared synth), the silent ones muted. */
+- (void)routeSequencer:(AVAudioSequencer *)sequencer midi:(NSData *)midi
+{
+  // With PreserveTracks every file track is a sequencer track; should the first (tempo) one be folded into the tempo
+  // track, the indexes shift by one. Routing may append tracks (a strip's channels): those come after the file's.
+  NSUInteger fileTracks = SmfTrackCount(midi);
+  _fileTrackCount = sequencer.tracks.count;
+  _trackOffset = fileTracks > _fileTrackCount ? fileTracks - _fileTrackCount : 0;
+  NSIndexSet *clickTracks = [self sequencerIndexes:_clickTracks];
+  [_instruments routeSequencer:sequencer clickTracks:clickTracks];
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: %lu file tracks, %lu sequencer tracks, %lu muted, %lu clicks", (unsigned long)fileTracks,
+         (unsigned long)_fileTrackCount, (unsigned long)_mutedTracks.count, (unsigned long)_clickTracks.count);
+  LogDestinations(sequencer, clickTracks);
+  [self applyMutedTracksTo:sequencer];
 }
 
 /** Track count in a Standard MIDI File's header (MThd: bytes 10–11, big-endian); 0 when it has none. */
@@ -228,6 +255,34 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   return YES;
 }
 
+/** The host time the playing sequencer is at `seconds` of the song (now, when it cannot say). */
+- (uint64_t)hostTimeAtSeconds:(NSTimeInterval)seconds
+{
+  uint64_t hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds)] error:nil];
+  return hostTime == 0 ? mach_absolute_time() : hostTime;
+}
+
+/** Before the sequencer starts again at `seconds` (a rewire, the line in): the audio track's runs from there too. */
+- (void)prepareAudioAt:(NSTimeInterval)seconds
+{
+  if (_audioPlayback != nil && ![_audioTrack prepare:_audioPlayback fromSeconds:seconds error:nil]) {
+    _audioPlayback = nil;
+  }
+}
+
+/** Once the engine runs: the prepared audio track starts when the sequencer, started at `seconds`, is there. */
+- (void)startAudioAt:(NSTimeInterval)seconds
+{
+  if (_audioPlayback != nil && _sequencer != nil) {
+    [_audioTrack startAtHostTime:[self hostTimeAtSeconds:seconds]];
+  }
+}
+
+- (void)setAudioTrackGain:(double)gain detuneCents:(double)detuneCents
+{
+  [_audioTrack setGain:gain detuneCents:detuneCents];
+}
+
 - (void)stopSequencer
 {
   // Stopped while the engine does not render (see -playData:…); then it renders on, so the notes still ringing fade.
@@ -237,6 +292,8 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   }
   [_sequencer stop];
   _sequencer = nil;
+  [_audioTrack stop];
+  _audioPlayback = nil;
   // Notes still ringing when the song stops would otherwise sound on: all notes off, every instrument.
   [_instruments silence];
   if (isPaused) {
@@ -280,6 +337,7 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   _graph = nil;
   _instruments = nil;
   _lineIn = nil;
+  _audioTrack = nil;
   _hasOpenedInput = NO;
 }
 
@@ -295,10 +353,12 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
 /** Starts the stopped engine, the sequencer (if any) prerolled and started at `position` first (see -playData:…). */
 - (BOOL)restartEngineWithSequencerAt:(NSTimeInterval)position error:(NSError **)error
 {
+  [self prepareAudioAt:position];
   _sequencer.currentPositionInSeconds = position;
   [_sequencer prepareToPlay];
   [_sequencer startAndReturnError:nil];
   if ([self startEngine:error]) {
+    [self startAudioAt:position];
     return YES;
   }
   [_sequencer stop];

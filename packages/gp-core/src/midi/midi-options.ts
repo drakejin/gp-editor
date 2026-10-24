@@ -28,6 +28,12 @@ export interface MidiOptions {
   readonly metronome?: ClickOptions;
   /** One bar of clicks before the first played measure, in its meter and tempo, on a track of its own (the last). */
   readonly countIn?: ClickOptions;
+  /**
+   * When the song has an audio track: the score plays at the pace of its sync points (so the recording plays untouched
+   * at full speed, as in Guitar Pro), `audioRuns` says what of the audio to play under the render, and a solo audio
+   * track silences the tracks that are not solo. Default false: the written tempos (e.g. a MIDI file export).
+   */
+  readonly syncToAudioTrack?: boolean;
 }
 
 /** Bounds of a pass's tempo scale: a tenth to ten times the written speed. */

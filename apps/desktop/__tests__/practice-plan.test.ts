@@ -1,4 +1,4 @@
-import { renderMidi } from '@gp-editor/core';
+import { buildAudioTrack, renderMidi } from '@gp-editor/core';
 import { loopPassAt, nextLoopBatch, passesPerBatch, planPlayback, playerStartSeconds, startSeconds } from '../src/lib/practice-plan';
 import { INITIAL_PRACTICE, type PracticeSettings } from '../src/state/practice';
 import { beat, fromTux, header, makeSong, note, toTux } from '../test-support/songs';
@@ -67,6 +67,20 @@ describe('planPlayback with loop', () => {
       expect(scale).toBeCloseTo((plan.loop?.passTempos[index] ?? 0) / 100, 10);
     });
     expect(plan.startMeasureIndex).toBe(1);
+  });
+
+  it('renders a pass at a time while the trainer raises the tempo of a song with an audio track', () => {
+    // Arrange: the time-pitch unit changes its rate only roughly in time, so a render keeps one rate
+    const withAudio = { ...song, audioTrack: buildAudioTrack({ assetId: 'take' }) };
+
+    // Act
+    const rising = planPlayback(withAudio, TRAINER, {});
+    const steady = planPlayback(withAudio, { ...TRAINER, trainerStep: 0 }, {});
+
+    // Assert
+    expect(rising.loop?.passTempos).toEqual([80]);
+    expect(planPlayback(withAudio, TRAINER, nextLoopBatch(rising)).loop?.passTempos).toEqual([90]);
+    expect(steady.loop?.passTempos).toHaveLength(8);
   });
 
   it('starts at a bar inside the loop, or at the loop start for a bar outside it', () => {

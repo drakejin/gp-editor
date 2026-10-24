@@ -1,7 +1,8 @@
 // The audio check (run.sh): nobody listens here, so each effect is checked by rendering offline (GPMixRenderer) and
 // measuring what it must change — drive adds harmonics, delay and reverb leave energy after the note, chorus makes the
 // sides differ, the cabinet takes the top end away, EQ and compressor reshape the sound, the master gain scales the
-// level — and the mix without effects is compared with the graph playback had before effects existed. Prints PASS /
+// level — and the mix without effects is compared with the graph playback had before effects existed; the audio track's
+// checks are in audio-track-check.m (time-pitch, detune, gain, sync of the runs). Prints PASS /
 // FAIL lines and how fast the many-track songs render with and without effects; exits 1 when a check fails.
 // Usage: audio-check <bank.sf2> <song.mid> <12-track.mid> <bends.mid>
 
@@ -11,6 +12,7 @@
 #import "GPDSPKernels.h"
 #import "GPMixRenderer.h"
 #import "audio-measures.h"
+#import "audio-track-check.h"
 
 static int failures = 0;
 static NSURL *bankURL;
@@ -274,6 +276,7 @@ int main(int argc, const char *argv[])
     CheckEffects(ChordMidi(27, @[ @45, @52, @57 ]));
     CheckBends([NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[4]]]);
     CheckSameAsBefore(song);
+    failures += CheckAudioTrack(bankURL);
     MeasureSpeed(@"song", song);
     MeasureSpeed(@"12-track song", twelve);
     printf("%s: %d failed\n", failures == 0 ? "OK" : "FAILED", failures);

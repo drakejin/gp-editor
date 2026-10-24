@@ -38,6 +38,8 @@ interface EditorCommandSources {
   readonly onNotePanel: (panel: NotePanel) => void;
   /** K: the chord diagram panel for the beat at the cursor. */
   readonly onChordPanel?: () => void;
+  /** Y: while the audio track plays, the cursor's bar starts at the moment heard now. */
+  readonly onMarkSyncPoint?: () => void;
   /** A popup or menu is over the score: keys do nothing to the score then, except Esc, which closes it. */
   readonly isOverlayOpen?: boolean;
   /** Esc closes an open panel or menu first (true when one was open); with none open it stops playback. */
@@ -67,7 +69,7 @@ function practiceAction(command: PracticeKeyCommand, writtenTempo: number): Prac
 
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
-  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, onChordPanel, closeOverlay, clipboard, keyboardView } = sources;
+  const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, onChordPanel, onMarkSyncPoint, closeOverlay, clipboard, keyboardView } = sources;
   const { cursor, trackIndex, mode } = sources.state;
   const lastDigit = useRef<DigitEntry | undefined>(undefined);
   const { isPlaying, start, stop } = playback;
@@ -113,6 +115,8 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         onNotePanel(command.panel);
       } else if (command.type === 'openChordPanel') {
         onChordPanel?.();
+      } else if (command.type === 'markSyncPoint') {
+        onMarkSyncPoint?.();
       } else if (command.type === 'shiftPlaybackTempo' || command.type === 'shiftPlaybackSpeed' || command.type === 'togglePractice') {
         runPractice(command);
       } else if (command.type === 'copy' || command.type === 'cut' || command.type === 'paste') {
@@ -144,7 +148,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, closeOverlay, runPractice, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, onMarkSyncPoint, closeOverlay, runPractice, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
   );
 
   const onPressBeat = useCallback(

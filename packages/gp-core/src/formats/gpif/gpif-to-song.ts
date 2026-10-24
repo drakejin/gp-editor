@@ -13,6 +13,7 @@ import {
 } from '../../model/song';
 import { directionFromGpif, sortDirections } from '../common/directions';
 import type { GpifAutomation, GpifDocument, GpifMasterBar, GpifScore } from './gpif-document';
+import { buildGpifAudioTrack } from './gpif-audio-track';
 import { buildMeasure } from './gpif-measure';
 import { buildTracks } from './gpif-song-tracks';
 import type { TrackView } from './part-configuration';
@@ -28,7 +29,8 @@ export function gpifToSong(doc: GpifDocument, source: SourceInfo, trackViews: re
     headers.map((header, index) => buildMeasure(doc, header, index, layout)),
   );
   const tracks = built.tracks.map((track, index) => (trackViews[index]?.hasSlash === true ? { ...track, hasSlashNotation: true } : track));
-  return { source, info: buildInfo(doc.score), channels: built.channels, measureHeaders: headers, tracks };
+  const audioTrack = buildGpifAudioTrack(doc.audioTrack);
+  return { source, info: buildInfo(doc.score), channels: built.channels, measureHeaders: headers, tracks, ...(audioTrack === undefined ? {} : { audioTrack }) };
 }
 
 /**

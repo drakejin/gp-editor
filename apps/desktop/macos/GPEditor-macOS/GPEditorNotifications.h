@@ -98,4 +98,7 @@ FOUNDATION_EXPORT NSString *const GPEditorMixerCommandNotification;
 /** Tools ▸ Line In… was chosen; GPPlayer.m forwards it to JS as "lineInRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorLineInCommandNotification;
 
+/** Track ▸ Add Audio Track… was chosen; GPAudioTrack.m forwards it to JS as "addAudioTrackRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorAddAudioTrackCommandNotification;
+
 NS_ASSUME_NONNULL_END

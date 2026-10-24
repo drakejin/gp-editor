@@ -52,6 +52,9 @@
 		27C5A817218360E23C279E5B /* GPTrackInstruments.m in Sources */ = {isa = PBXBuildFile; fileRef = F9A30530F25408A9498452F0 /* GPTrackInstruments.m */; };
 		88BD909AAD9FABBAE600E7C3 /* GPMixRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */; };
 		D0C5E5540A6C613B5AE6EC94 /* GPLineIn.m in Sources */ = {isa = PBXBuildFile; fileRef = B6CC810933EFF540A98D06B5 /* GPLineIn.m */; };
+		981053B97A38CF147FFE4049 /* GPAudioAssets.m in Sources */ = {isa = PBXBuildFile; fileRef = 8FD2DB36CBC090317CE79469 /* GPAudioAssets.m */; };
+		E20E680FC4F0B82F38F601E2 /* GPAudioTrackPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 33A89FD7F3A03D187768DF13 /* GPAudioTrackPlayer.m */; };
+		C1AC50F80F6A29D14702912E /* GPAudioTrack.m in Sources */ = {isa = PBXBuildFile; fileRef = 69F5D9D7A3C262A116234FBC /* GPAudioTrack.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -123,6 +126,11 @@
 		3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMixRenderer.m; sourceTree = "<group>"; };
 		D2C8D19AD746FFA978781BE5 /* GPLineIn.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPLineIn.h; sourceTree = "<group>"; };
 		B6CC810933EFF540A98D06B5 /* GPLineIn.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPLineIn.m; sourceTree = "<group>"; };
+		A6CB147E6336A71E23035EFB /* GPAudioAssets.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioAssets.h; sourceTree = "<group>"; };
+		8FD2DB36CBC090317CE79469 /* GPAudioAssets.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioAssets.m; sourceTree = "<group>"; };
+		2615B0E1381C06FACF97DCD6 /* GPAudioTrackPlayer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioTrackPlayer.h; sourceTree = "<group>"; };
+		33A89FD7F3A03D187768DF13 /* GPAudioTrackPlayer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioTrackPlayer.m; sourceTree = "<group>"; };
+		69F5D9D7A3C262A116234FBC /* GPAudioTrack.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioTrack.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,6 +221,11 @@
 				9EA105F3DD3227D285186EA8 /* Licenses */,
 				D2C8D19AD746FFA978781BE5 /* GPLineIn.h */,
 				B6CC810933EFF540A98D06B5 /* GPLineIn.m */,
+				A6CB147E6336A71E23035EFB /* GPAudioAssets.h */,
+				8FD2DB36CBC090317CE79469 /* GPAudioAssets.m */,
+				2615B0E1381C06FACF97DCD6 /* GPAudioTrackPlayer.h */,
+				33A89FD7F3A03D187768DF13 /* GPAudioTrackPlayer.m */,
+				69F5D9D7A3C262A116234FBC /* GPAudioTrack.m */,
 				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
 				6E162BDD027D425378732E47 /* GPCommandPainter.m */,
 				ADC4B4B332924B5173D76BB7 /* GPPdfExport.m */,
@@ -524,6 +537,9 @@
 				0BBBFFA1D5758BC595A92ED0 /* GPMp3Writer.m in Sources */,
 				E7817357F592ED671E90E24A /* GPVorbisWriter.m in Sources */,
 				D0C5E5540A6C613B5AE6EC94 /* GPLineIn.m in Sources */,
+				981053B97A38CF147FFE4049 /* GPAudioAssets.m in Sources */,
+				E20E680FC4F0B82F38F601E2 /* GPAudioTrackPlayer.m in Sources */,
+				C1AC50F80F6A29D14702912E /* GPAudioTrack.m in Sources */,
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
 				EB43CE12B38F7E19E3C07365 /* GPAudioInput.m in Sources */,

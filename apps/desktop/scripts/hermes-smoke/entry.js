@@ -1,14 +1,16 @@
 // Reads every gp-core fixture inside the Hermes engine the app ships with, saves it as GP5 the way ⌘S does
-// (writeSong → base64) and as Guitar Pro 7 ('gp'), and reads the saved bytes back; then writes it as ASCII tab
-// (File ▸ Export ASCII Tab…), and as MusicXML text and .mxl (File ▸ Export MusicXML… / Export Compressed MusicXML…)
-// read back — for files up to MUSICXML_SMOKE_BYTES: the largest write megabytes of XML, slow to parse in Hermes, and
-// gp-core's tests cover them. MusicXML fixtures (test/fixtures/musicxml) are read like the Guitar Pro files.
+// (writeSong → base64) and as Guitar Pro 7 ('gp'), and reads the saved bytes back; opens and saves a .gp file's audio
+// track as the app does; then writes it as ASCII tab (File ▸ Export ASCII Tab…), and as MusicXML text and .mxl
+// (File ▸ Export MusicXML… / Export Compressed MusicXML…) read back — for files up to MUSICXML_SMOKE_BYTES: the largest
+// write megabytes of XML, slow to parse in Hermes, and gp-core's tests cover them. MusicXML fixtures
+// (test/fixtures/musicxml) are read like the Guitar Pro files.
 // Run through ./run.sh, which generates fixtures.generated.js and bundles this file with Metro.
 import {
   buildChordVoicings,
   encodeMusicXml,
   parseChordName,
   readSong,
+  readSongFile,
   recognizeChord,
   writeAsciiTab,
   writeMusicXml,
@@ -52,12 +54,29 @@ function saveAndReread(song, format) {
   }
 }
 
+// A .gp file's audio track as the app opens and saves it: readSongFile, its file through base64 both ways (the bridge),
+// writeSong 'gp' with it, read back with the same file and sync points. False when the file has no audio track.
+function saveAudioTrackAndReread(bytes) {
+  const file = readSongFile(bytes);
+  if (file.audioTrackData === undefined) {
+    return false;
+  }
+  const audio = base64ToBytes(bytesToBase64(file.audioTrackData));
+  const reread = readSongFile(base64ToBytes(bytesToBase64(writeSong(file.song, 'gp', { audioTrackData: audio }))));
+  const points = file.song.audioTrack.syncPoints.length;
+  if (reread.audioTrackData?.length !== audio.length || reread.song.audioTrack?.syncPoints.length !== points) {
+    throw new Error(`audio ${reread.audioTrackData?.length} bytes, ${reread.song.audioTrack?.syncPoints.length} sync points`);
+  }
+  return true;
+}
+
 const failures = [];
 let notes = 0;
 let saved = 0;
 let savedGp = 0;
 let asciiTabs = 0;
 let musicXmls = 0;
+let audioTracks = 0;
 for (const fixture of FIXTURES) {
   let song;
   try {
@@ -78,6 +97,13 @@ for (const fixture of FIXTURES) {
     savedGp += 1;
   } catch (error) {
     failures.push(`${fixture.name}: save as gp: ${errorText(error)}`);
+  }
+  try {
+    if (fixture.name.endsWith('.gp') && saveAudioTrackAndReread(base64ToBytes(fixture.base64))) {
+      audioTracks += 1;
+    }
+  } catch (error) {
+    failures.push(`${fixture.name}: audio track: ${errorText(error)}`);
   }
   try {
     if (!writeAsciiTab(song).startsWith('Title:')) {
@@ -124,6 +150,7 @@ print(
       savedGp,
       asciiTabs,
       musicXmls,
+      audioTracks,
       failures,
     },
     null,

@@ -42,6 +42,7 @@ import {
 import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
+import { type AudioTrackAction, applyAudioTrackAction } from './audio-track-edits';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { withSelectionStart } from './mark-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
@@ -120,6 +121,7 @@ type SongAction =
 
 export type EditorAction =
   | SongAction
+  | AudioTrackAction
   | { readonly type: 'loadStarted' }
   | { readonly type: 'loadCancelled' }
   | { readonly type: 'loaded'; readonly document: OpenDocument }
@@ -307,6 +309,13 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
             state.document,
             applySongAction(state.document.song, action),
           );
+    case 'setAudioTrack':
+    case 'setAudioTrackMix':
+    case 'setAudioSyncPoint':
+    case 'deleteAudioSyncPoint':
+    case 'moveAudioSyncPoint':
+    case 'setTempoFromAudio':
+      return applyAudioAction(state, action);
     case 'edit':
       return applyCursorEdit(state, withSelectionStart(action.edit, state.selectionAnchor));
     case 'cutSelection':
@@ -559,6 +568,17 @@ function applyEdit(
 }
 
 /** The document with `next` as its song, the previous one kept for undo; the same state when nothing changed. */
+/** An audio track edit (one undo step), and its hint when it says why nothing changed or what did. */
+function applyAudioAction(state: EditorState, action: AudioTrackAction): EditorState {
+  const { document } = state;
+  if (document === undefined) {
+    return state;
+  }
+  const result = applyAudioTrackAction(document.song, action);
+  const recorded = recordSong(state, document, result.song);
+  return result.hint === undefined ? recorded : { ...recorded, hint: result.hint };
+}
+
 function recordSong(
   state: EditorState,
   document: OpenDocument,

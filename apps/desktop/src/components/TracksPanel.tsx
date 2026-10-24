@@ -30,6 +30,8 @@ export interface TracksPanelProps {
   readonly onSetTrackBalance: (trackIndex: number, balance: number) => void;
   /** The track's instrument icon was clicked (opens the instrument picker). */
   readonly onEditInstrument: (trackIndex: number) => void;
+  /** Guitar Pro's "Audio track" button, while the song has none (Track ▸ Add Audio Track…). */
+  readonly onAddAudioTrack?: () => void;
 }
 
 /**
@@ -72,7 +74,7 @@ function TracksPanelView(props: TracksPanelProps) {
                 onEditInstrument={props.onEditInstrument}
               />
             ))}
-            <TrackTableFooter palette={palette} />
+            <TrackTableFooter palette={palette} onAddAudioTrack={props.onAddAudioTrack} />
           </View>
           <BarMap {...props} />
         </View>

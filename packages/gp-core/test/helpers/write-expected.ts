@@ -48,7 +48,8 @@ import type {
  * - notation marks: no slashes (a beat's or a track's) and no cautionary or forced accidentals; the beam from a voice's
  *   last beat in the measure is dropped (GP5 keeps a beam on the beat after it);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
- * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts).
+ * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts);
+ * - the audio track (Guitar Pro 7/8's): GP3/GP4/GP5 have no place for it.
  */
 
 const MAX_STRINGS = 7;
@@ -394,7 +395,7 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
  * the tuning, a quarter rest in a measure without beats, and no notation marks but fingering.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
-  const { master: _master, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),
@@ -413,7 +414,7 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
-  const { master: _master, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),

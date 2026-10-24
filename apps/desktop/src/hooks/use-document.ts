@@ -1,5 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useRef } from 'react';
-import { readSong, writeSong } from '@gp-editor/core';
+import { readSongFile } from '@gp-editor/core';
+import { songBytesFor, withLoadedAudio } from '../lib/audio-track-files';
 import { base64ToBytes, bytesToBase64 } from '../lib/base64';
 import { SAVE_FORMATS, type SaveFormat, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../lib/file-formats';
 import {
@@ -151,8 +152,11 @@ function useOpenFile(
           dispatch({ type: 'loadCancelled' });
           return;
         }
-        const song = readSong(base64ToBytes(file.base64));
+        const { song, hint } = await withLoadedAudio(readSongFile(base64ToBytes(file.base64)));
         dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
+        if (hint !== undefined) {
+          dispatch({ type: 'showHint', hint });
+        }
         remember({ path: file.path, name: file.name }, recentPath !== undefined && recentPath !== file.path ? recentPath : undefined);
       } catch (error: unknown) {
         if (recentPath !== undefined && isMissingFileError(error)) {
@@ -202,11 +206,12 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
           return false;
         }
         const { path, format } = destination;
-        const hint = saveHint(format, song);
-        if (hint !== undefined) {
+        const written = await songBytesFor(song, format.id);
+        const hint = [saveHint(format, song), written.hint].filter((part) => part !== undefined).join(' ');
+        if (hint !== '') {
           toTab({ type: 'showHint', hint });
         }
-        const saved = await writeFile(path, bytesToBase64(writeSong(song, format.id)));
+        const saved = await writeFile(path, bytesToBase64(written.bytes));
         toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
         remember({ path: saved.path, name: saved.name });
         return true;

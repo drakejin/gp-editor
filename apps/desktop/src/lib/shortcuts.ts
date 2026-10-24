@@ -51,6 +51,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '⇧⌫', action: 'Delete the beat', press: key('Backspace', { shiftKey: true }) },
       { keys: 'I', action: 'Insert a beat after the cursor', press: key('i') },
       { keys: 'K', action: 'Chord diagram… (grid, name, chord library)', press: key('k') },
+      { keys: 'Y', action: 'While the audio track plays: the cursor’s bar starts now (a sync point)', press: key('y') },
       { keys: '⌥[ / ⌥]', action: 'Longer / shorter note value', press: key('[', { altKey: true }) },
       { keys: '.', action: 'Dotted', press: key('.') },
       { keys: '/', action: 'Triplet', press: key('/') },

@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import type { AudioPlayback } from '../lib/audio-track';
 
 export interface PlayerPosition {
   readonly seconds: number;
@@ -20,7 +21,8 @@ export interface SoundBanks {
 }
 
 interface GPPlayerModule {
-  play(base64Midi: string, fromSeconds: number): Promise<void>;
+  play(base64Midi: string, fromSeconds: number, audio: AudioPlayback | null): Promise<void>;
+  setAudioTrackMix(mix: { readonly gain: number; readonly detuneCents: number }): Promise<void>;
   stop(): Promise<void>;
   position(): Promise<PlayerPosition>;
   setProgram(channel: number, program: number): Promise<void>;
@@ -44,8 +46,14 @@ function requireNative(): GPPlayerModule {
   return native;
 }
 
-export function playMidi(base64Midi: string, fromSeconds = 0): Promise<void> {
-  return requireNative().play(base64Midi, fromSeconds);
+/** Plays a MIDI file from `fromSeconds`, with the audio track's stretches under it (`audio`; null: none). */
+export function playMidi(base64Midi: string, fromSeconds = 0, audio: AudioPlayback | null = null): Promise<void> {
+  return requireNative().play(base64Midi, fromSeconds, audio);
+}
+
+/** The playing audio track's gain (0–1) and detune, heard at once. */
+export function setAudioTrackMix(gain: number, detuneCents: number): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setAudioTrackMix({ gain, detuneCents });
 }
 
 export function stopMidi(): Promise<void> {

@@ -13,7 +13,7 @@ import {
 import { buildNoteEvents } from './note-events';
 import type { TrackContext } from './note-search';
 import { pedalEvents } from './pedals';
-import { type PlayedMeasure, playedTempo } from './playback-order';
+import { type PlayedMeasure, playedTempo, playedTempoPieces } from './playback-order';
 import { usqFromTempo } from './timeline';
 
 /** ADD_DEFAULT_CONTROLS: pitch-bend range of 12 semitones (RPN 0) on every channel. */
@@ -34,10 +34,21 @@ function headerOf(headers: readonly MeasureHeader[], played: PlayedMeasure | und
   return played === undefined ? undefined : headers[played.headerIndex];
 }
 
-/** Microseconds per quarter note a played measure sounds at (its pass's tempo scale applied). */
+/** Microseconds per quarter note a played measure ends at (its pass's tempo scale applied). */
 function playedUsq(headers: readonly MeasureHeader[], measure: PlayedMeasure | undefined): number | undefined {
   const header = headerOf(headers, measure);
-  return header === undefined || measure === undefined ? undefined : usqFromTempo(playedTempo(header, measure));
+  const last = header === undefined || measure === undefined ? undefined : playedTempoPieces(header, measure).at(-1);
+  return last === undefined ? undefined : usqFromTempo(last.tempo);
+}
+
+/** A tempo event where a measure following the audio track changes tempo inside (midi/audio-sync.ts). */
+function innerTempoEvents(header: MeasureHeader, measure: PlayedMeasure, tick: number): SequenceEvent[] {
+  const pieces = playedTempoPieces(header, measure);
+  return pieces.flatMap((piece, index): SequenceEvent[] => {
+    const previous = pieces[index - 1];
+    const usq = usqFromTempo(piece.tempo);
+    return previous === undefined || usqFromTempo(previous.tempo) === usq ? [] : [{ type: 'tempo', tick: tick + piece.offset, usq }];
+  });
 }
 
 /**
@@ -60,6 +71,7 @@ function measureChanges(headers: readonly MeasureHeader[], played: readonly Play
     return [
       ...(isNewSignature ? [{ type: 'timeSignature' as const, tick, numerator, denominator }] : []),
       ...(isNewTempo ? [{ type: 'tempo' as const, tick, usq }] : []),
+      ...innerTempoEvents(header, measure, header.start + measure.move),
     ];
   });
 }

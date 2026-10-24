@@ -1,5 +1,6 @@
 // Measure insertion and removal after TuxGuitar's TGSongManager.addNewMeasure / removeMeasureHeader (LGPL-2.1).
 import type { Measure, MeasureHeader, Song, Track } from '../model/song';
+import { withMeasureDeleted, withMeasureInserted } from './audio-track';
 import { headerTicks, relayoutMeasures } from './relayout';
 import { restEvents, toBeats } from './timeline';
 
@@ -55,7 +56,8 @@ export function insertMeasure(song: Song, measureIndex: number, position: 'befor
   const start = position === 'before' ? neighbour.start : neighbour.start + headerTicks(neighbour);
   const header = newHeader(neighbour, start);
   const measuresByTrack = song.tracks.map((track) => insertAt(track.measures, insertIndex, restMeasure(track, measureIndex, header, insertIndex)));
-  return relayoutMeasures(song, insertAt(song.measureHeaders, insertIndex, header), measuresByTrack);
+  const inserted = relayoutMeasures(song, insertAt(song.measureHeaders, insertIndex, header), measuresByTrack);
+  return inserted.audioTrack === undefined ? inserted : { ...inserted, audioTrack: withMeasureInserted(inserted.audioTrack, insertIndex) };
 }
 
 /**
@@ -67,9 +69,10 @@ export function deleteMeasure(song: Song, measureIndex: number): Song {
     return song;
   }
   const keep = <T>(_item: T, index: number): boolean => index !== measureIndex;
-  return relayoutMeasures(
+  const deleted = relayoutMeasures(
     song,
     song.measureHeaders.filter(keep),
     song.tracks.map((track) => track.measures.filter(keep)),
   );
+  return deleted.audioTrack === undefined ? deleted : { ...deleted, audioTrack: withMeasureDeleted(deleted.audioTrack, measureIndex) };
 }

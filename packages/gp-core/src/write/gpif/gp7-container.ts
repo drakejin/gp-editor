@@ -1,6 +1,6 @@
 // The Guitar Pro 7/8 container (no TuxGuitar counterpart: it only reads it, GPXFileSystem): a zip of the GPIF document
 // and the binary view settings Guitar Pro keeps next to it.
-import { zipSync } from 'fflate';
+import { type Zippable, zipSync } from 'fflate';
 import { GP7_EFFECTS_ENTRY, GP7_SCORE_ENTRY, GP7_VERSION_ENTRY } from '../../formats/gpif/container-gp7';
 import { encodeUtf8 } from '../../io/text';
 
@@ -73,8 +73,31 @@ export function binaryStylesheet(): Uint8Array {
   return Uint8Array.from([...int32(entries.length), ...bytes]);
 }
 
-/** The .gp file: the entries a Guitar Pro 7 file has, in its order, and the app's effects JSON when there is one. */
-export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], effectsJson?: string, slashTracks: readonly boolean[] = []): Uint8Array {
+/** Guitar Pro 8's meta.json of a file with an audio track. */
+const AUDIO_META_JSON = '{\n    "hasAudio": true,\n    "version": "1.0.0"\n}\n';
+
+/** The audio track's file inside the archive. */
+export interface Gp7Asset {
+  readonly path: string;
+  readonly data: Uint8Array;
+}
+
+/** Guitar Pro 8's entries of the audio track: its file (stored as it is: audio does not deflate) and meta.json. */
+function audioEntries(asset: Gp7Asset | undefined): Zippable {
+  return asset === undefined ? {} : { [asset.path]: [asset.data, { level: 0 }], 'meta.json': encodeUtf8(AUDIO_META_JSON) };
+}
+
+/**
+ * The .gp file: the entries a Guitar Pro 7 file has, in its order, the app's effects JSON when there is one, and the
+ * audio track's file with Guitar Pro 8's meta.json.
+ */
+export function zipGp7(
+  score: Uint8Array,
+  percussionTracks: readonly boolean[],
+  effectsJson?: string,
+  slashTracks: readonly boolean[] = [],
+  asset?: Gp7Asset,
+): Uint8Array {
   return zipSync(
     {
       'Content/': new Uint8Array(0),
@@ -85,6 +108,7 @@ export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[], 
       [GP7_SCORE_ENTRY]: score,
       [GP7_VERSION_ENTRY]: encodeUtf8(CONTAINER_VERSION),
       ...(effectsJson === undefined ? {} : { [GP7_EFFECTS_ENTRY]: encodeUtf8(effectsJson) }),
+      ...audioEntries(asset),
     },
     { level: DEFLATE_LEVEL, mtime: ENTRY_TIME },
   );

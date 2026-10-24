@@ -64,6 +64,13 @@ const TOOLS_ROWS: readonly Command[] = [
   row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
 ];
 
+const TRACK_ROWS: readonly Command[] = [
+  row('track.addAudioTrack', 'Track', 'Add Audio Track…', (a) => a.addAudioTrack(), { keywords: ['backing track', 'recording', 'audio', 'mp3', 'wav', 'sync'] }),
+  editorRow('track.removeAudioTrack', 'Track', 'Remove the Audio Track', { type: 'setAudioTrack', audioTrack: undefined }, { keywords: ['backing track', 'recording', 'audio'] }),
+  keyRow('track.syncBar', 'Track', 'Sync the Cursor’s Bar to the Recording Now', press('y'), { keywords: ['audio', 'sync point', 'tap', 'backing track'] }),
+  editorRow('track.tempoFromAudio', 'Track', 'Tempo From the Audio Track’s Sync Points', { type: 'setTempoFromAudio' }, { keywords: ['audio', 'bpm', 'sync point', 'recording'] }),
+];
+
 const NOTE_ROWS: readonly Command[] = [
   keyRow('note.letRing', 'Note', 'Let Ring', press('r'), { when: 'note' }),
   keyRow('note.slide', 'Note', 'Slide', press('s'), { when: 'note' }),
@@ -128,6 +135,7 @@ export const APP_COMMANDS: readonly Command[] = [
   ...EDIT_ROWS,
   ...VIEW_ROWS,
   ...TOOLS_ROWS,
+  ...TRACK_ROWS,
   ...NOTE_ROWS,
   ...BEAT_ROWS,
   ...GO_ROWS,

@@ -13,6 +13,7 @@ import {
   roundTempo,
 } from '../../src/model/defaults';
 import {
+  type AudioTrack,
   type Beat,
   type Bend,
   type BendPoint,
@@ -37,6 +38,7 @@ import {
   type Voice,
 } from '../../src/model/song';
 import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
+import { AUDIO_TRACK_NAME, normalizeSyncPoints } from '../../src/audio-track/audio-track';
 import { normalizeBeamGrouping } from '../../src/model/beaming';
 import { expectedCurve } from './write-expected-curves';
 
@@ -66,6 +68,8 @@ import { expectedCurve } from './write-expected-curves';
  * - effects: bend and whammy curves as the reader can read them back (write-expected-curves.ts); tremolo picking at
  *   8/16/32; trill speeds as plain durations; slides in flag order; artificial harmonics on the harmonic table's frets,
  *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot;
+ * - the audio track (written only with its audio file, writeSong's `audioTrackData`; a song read from GP8 keeps it all):
+ *   the volume to six decimals, solo wins over mute, the start and the sync points on Guitar Pro's 44.1 kHz frames;
  * - notes: no audio settings (play duration, start offset, velocity change: GPIF has no property for them).
  * - notation marks: no cautionary or forced accidental (accidentalDisplay); a bar's beam grouping only when it is not
  *   the time signature's own; a track's slash notation only when on.
@@ -413,12 +417,31 @@ function keySignatures(song: Song): readonly number[] {
 }
 
 /** The song a 'gp' round trip of `song` should read back. */
+/** Seconds on Guitar Pro's frames of 44.1 kHz. */
+function onFrames(seconds: number): number {
+  return Math.round(seconds * 44100) / 44100 || 0;
+}
+
+function expectedAudioTrack(track: AudioTrack): AudioTrack {
+  const name = sanitized(track.name).trim();
+  return {
+    ...track,
+    name: name === '' ? AUDIO_TRACK_NAME : name,
+    originalFilePath: sanitized(track.originalFilePath),
+    volume: Number(track.volume.toFixed(6)),
+    mute: track.mute && !track.solo,
+    startSeconds: onFrames(track.startSeconds),
+    syncPoints: normalizeSyncPoints(track.syncPoints.map((point) => ({ ...point, seconds: onFrames(point.seconds) }))),
+  };
+}
+
 export function expectedAfterGp(song: Song): Song {
   const plan = expectedChannels(song);
   const headers = expectedHeaders(song);
   const keys = keySignatures(song);
   return {
     ...song,
+    ...(song.audioTrack === undefined ? {} : { audioTrack: expectedAudioTrack(song.audioTrack) }),
     info: expectedInfo(song.info),
     channels: plan.channels,
     measureHeaders: headers,

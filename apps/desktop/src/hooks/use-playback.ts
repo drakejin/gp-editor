@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
+import { audioGain, audioTrackChange } from '../lib/audio-track';
 import { type LiveChange, hasSameMuteAndSolo, liveChannelChanges } from '../lib/live-channels';
 import type { MetronomeBeat } from '../lib/metronome-beat';
 import { hasSameEffectRouting } from '../lib/mix';
 import type { LoopPass } from '../lib/practice-plan';
-import { setMidiController, setMidiProgram } from '../native/player';
+import { setAudioTrackMix, setMidiController, setMidiProgram } from '../native/player';
 import type { PlayingBeat } from '../score/row';
 import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, needsNewRender, practiceReducer } from '../state/practice';
 import {
@@ -12,6 +13,7 @@ import {
   type PlaybackState,
   type PlayerSession,
   applyMetronome,
+  audioSecondsNow,
   launchPlayer,
   releasePlayer,
   resumePlayer,
@@ -26,6 +28,8 @@ export interface Playback {
   readonly loopPass?: LoopPass;
   /** The metronome's beat now, the count-in's too (the visual metronome). */
   readonly beat?: MetronomeBeat;
+  /** The moment of the audio track heard with the playing beat (while its audio plays). */
+  readonly audioSeconds?: number;
   readonly error?: string;
   /** Playback tempo, loop, speed trainer, metronome, count-in and tempo lock of this session (never saved to the file). */
   readonly practice: PracticeSettings;
@@ -43,6 +47,8 @@ export interface Playback {
   readonly changePractice: (action: PracticeAction) => void;
   /** While playing, starts again at the current bar (after a new sound bank); does nothing when stopped. */
   readonly restart: () => void;
+  /** The moment of the audio track heard now; undefined when stopped or no audio plays. */
+  readonly audioSecondsNow: () => Promise<number | undefined>;
 }
 
 /** Quiet time after the last click before a coalesced restart. */
@@ -152,6 +158,22 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     changes.forEach(sendLiveChange);
   }, [song, isPlaying, restart]);
 
+  // The audio track: another file, mute or solo restart playback; its volume and detune are heard at once.
+  const followedAudio = useRef(song);
+  useEffect(() => {
+    const previous = followedAudio.current;
+    followedAudio.current = song;
+    if (!isPlaying || previous === undefined || song === undefined) {
+      return;
+    }
+    const change = audioTrackChange(previous, song);
+    if (change === 'restart') {
+      restart();
+    } else if (change === 'live' && song.audioTrack !== undefined) {
+      setAudioTrackMix(audioGain(song.audioTrack.volume), song.audioTrack.detuneCents).catch(() => undefined);
+    }
+  }, [song, isPlaying, restart]);
+
   // Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow
   // (and later loop) the wrong bars.
   const measureCount = song?.measureHeaders.length ?? 0;
@@ -173,5 +195,6 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     [session],
   );
 
-  return { ...state, practice, start, stop, dismissError, changePractice, restart };
+  const audioNow = useCallback(() => audioSecondsNow(session), [session]);
+  return { ...state, practice, start, stop, dismissError, changePractice, restart, audioSecondsNow: audioNow };
 }

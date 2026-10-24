@@ -1,5 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { type Song, type TimelineEntry, positionAt, renderMidi } from '@gp-editor/core';
+import { type AudioRun, type Song, type TimelineEntry, positionAt, renderMidi } from '@gp-editor/core';
+import { type AudioPlayback, audioPlaybackOf, audioSecondsAtRender } from '../lib/audio-track';
+import { isAudioLoaded } from '../native/audio-track';
 import { bytesToBase64 } from '../lib/base64';
 import { type MetronomeBeat, isSameBeat, metronomeBeatAt } from '../lib/metronome-beat';
 import { playingBeatAt, samePlayingBeat } from '../lib/playing-beat';
@@ -28,6 +30,8 @@ export interface PlaybackState {
   readonly loopPass?: LoopPass;
   /** The metronome's beat now (the visual metronome), the count-in's too. */
   readonly beat?: MetronomeBeat;
+  /** The moment of the audio track heard with the playing beat (when its audio plays). */
+  readonly audioSeconds?: number;
   readonly error?: string;
 }
 
@@ -38,6 +42,8 @@ export interface Follow {
   readonly practice: PracticeSettings;
   readonly timeline: readonly TimelineEntry[];
   readonly plan?: PlaybackPlan;
+  /** The stretches of the audio track playing under the render (playback follows the audio track). */
+  readonly audioRuns?: readonly AudioRun[];
   /** Bar and loop pass last seen playing: where a restart resumes. */
   readonly measureIndex: number;
   readonly passIndex?: number;
@@ -70,11 +76,15 @@ interface PreparedPlayback {
   readonly metronomeTrackIndex?: number;
   readonly clickTracks: readonly number[];
   readonly countInSeconds: number;
+  readonly audioRuns?: readonly AudioRun[];
+  /** The audio track under the render; null when it is silent or there is none. */
+  readonly audio: AudioPlayback | null;
 }
 
+/** A song with an audio track plays at the pace of its sync points (gp-core renderMidi's syncToAudioTrack). */
 function preparePlayback(song: Song, practice: PracticeSettings, request: PlayRequest): PreparedPlayback {
   const plan = planPlayback(song, practice, request);
-  const render = renderMidi(song, plan.options);
+  const render = renderMidi(song, song.audioTrack === undefined ? plan.options : { ...plan.options, syncToAudioTrack: true });
   const fromSeconds = playerStartSeconds(plan, render.timeline);
   return {
     plan,
@@ -85,6 +95,8 @@ function preparePlayback(song: Song, practice: PracticeSettings, request: PlayRe
     metronomeTrackIndex: render.metronomeTrackIndex,
     clickTracks: clickTracksOf(render),
     countInSeconds: render.countInSeconds,
+    audioRuns: render.audioRuns,
+    audio: song.audioTrack !== undefined && isAudioLoaded(song.audioTrack.assetId) ? audioPlaybackOf(song, render.audioRuns) : null,
   };
 }
 
@@ -141,14 +153,23 @@ export function launchPlayer(session: PlayerSession, request: PlayRequest): void
   const startedGeneration = session.generation.current;
   clearTimer(session);
   try {
-    const { plan, timeline, base64Midi, fromSeconds, loopPass, metronomeTrackIndex, clickTracks, countInSeconds } = preparePlayback(song, practice, request);
+    const { plan, timeline, base64Midi, fromSeconds, loopPass, metronomeTrackIndex, clickTracks, countInSeconds, audioRuns, audio } = preparePlayback(song, practice, request);
     const measureIndex = plan.startMeasureIndex;
-    session.follow.current = { ...session.follow.current, timeline, plan, measureIndex, passIndex: loopPass?.passIndex, metronomeTrackIndex, countInSeconds };
+    session.follow.current = {
+      ...session.follow.current,
+      timeline,
+      plan,
+      audioRuns,
+      measureIndex,
+      passIndex: loopPass?.passIndex,
+      metronomeTrackIndex,
+      countInSeconds,
+    };
     // Shown as playing at once, so a second Space press stops it even before the player has started.
     session.setState((previous) => ({ isPlaying: true, playing: previous.playing, loopPass }));
     applyMetronome(session);
     setClickTracks(clickTracks).catch(() => undefined);
-    playMidi(base64Midi, fromSeconds)
+    playMidi(base64Midi, fromSeconds, audio)
       .then(() => startPolling(session, startedGeneration))
       .catch((error: unknown) => {
         if (session.generation.current === startedGeneration) {
@@ -209,9 +230,16 @@ function followPosition(session: PlayerSession, song: Song, seconds: number): vo
   };
   const playing = at === undefined ? undefined : playingBeatAt(song, trackIndex, at);
   const beat = metronomeBeatAt(song, timeline, follow.countInSeconds ?? 0, seconds);
+  const audioSeconds = audioSecondsAtRender(follow.audioRuns, seconds);
   session.setState((previous) =>
     previous.isPlaying && samePlayingBeat(previous.playing, playing) && isSameLoopPass(previous.loopPass, loopPass) && isSameBeat(previous.beat, beat)
       ? previous
-      : { isPlaying: true, playing, loopPass, beat },
+      : { isPlaying: true, playing, loopPass, beat, audioSeconds },
   );
+}
+
+/** The moment of the audio track heard now (asks the player where it is); undefined when no audio plays. */
+export async function audioSecondsNow(session: PlayerSession): Promise<number | undefined> {
+  const position = await playerPosition();
+  return position.isPlaying ? audioSecondsAtRender(session.follow.current.audioRuns, position.seconds) : undefined;
 }

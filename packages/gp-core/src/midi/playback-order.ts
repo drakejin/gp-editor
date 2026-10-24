@@ -12,11 +12,28 @@ export interface PlayedMeasure {
   readonly passIndex?: number;
   /** Multiplies the measure's tempo during playback (the pass's practice speed). Default 1. */
   readonly tempoScale?: number;
+  /**
+   * The tempos the measure plays at in place of its header's, from its start on (playback following the audio track,
+   * midi/audio-sync.ts): the pass's tempo scale already applied. Absent: its header's tempo times `tempoScale`.
+   */
+  readonly tempos?: readonly TempoPiece[];
 }
 
-/** Quarter notes per minute a played measure sounds at: its header's tempo times its pass's tempo scale. */
+/** A tempo from `offset` ticks into a played measure on (the first piece at offset 0). */
+export interface TempoPiece {
+  readonly offset: number;
+  /** Quarter notes per minute. */
+  readonly tempo: number;
+}
+
+/** Quarter notes per minute a played measure starts at: its header's tempo times its pass's tempo scale. */
 export function playedTempo(header: MeasureHeader, measure: PlayedMeasure): number {
-  return header.tempo * (measure.tempoScale ?? 1);
+  return measure.tempos?.[0]?.tempo ?? header.tempo * (measure.tempoScale ?? 1);
+}
+
+/** The tempos a played measure sounds at, from its start: one piece unless it follows the audio track. */
+export function playedTempoPieces(header: MeasureHeader, measure: PlayedMeasure): readonly TempoPiece[] {
+  return measure.tempos ?? [{ offset: 0, tempo: playedTempo(header, measure) }];
 }
 
 /**

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Audio check: renders songs offline through the playback engine's effects (GPMixRenderer, manual rendering mode) and
 # measures what each effect changes; also checks that a mix without effects renders as playback did before effects,
-# and prints how fast many-track songs render. The songs' MIDI comes from gp-core's renderMidi, run in Hermes.
+# the audio track (time-pitch at half speed, detune, gain, the runs' sync), and prints how fast many-track songs render.
+# The songs' MIDI comes from gp-core's renderMidi, run in Hermes.
 # Then the audio export (export-check.m): a fixture written by GPAudioExporter as WAV, AIFF, FLAC, MP3 and Ogg Vorbis
 # and read back (scripts/audio-codecs/fetch.sh builds the MP3 and Vorbis encoders first; cached).
 # Usage: scripts/audio-check/run.sh [effects|export]   (from apps/desktop; needs npm run pods and npm run soundfont first;
@@ -48,10 +49,12 @@ for (const [name, { base64, seconds }] of Object.entries(JSON.parse(fs.readFileS
 ' "${OUT}/midi.json" "$OUT"
 
 RENDER_SOURCES=("${SRC}/GPConvolver.m" "${SRC}/GPCabinetImpulses.m" "${SRC}/GPDSPKernels.m" "${SRC}/GPDSPUnit.m"
-    "${SRC}/GPEffectNodes.m" "${SRC}/GPMixGraph.m" "${SRC}/GPTrackInstruments.m" "${SRC}/GPMixRenderer.m" "${HERE}/audio-measures.m")
+    "${SRC}/GPEffectNodes.m" "${SRC}/GPMixGraph.m" "${SRC}/GPTrackInstruments.m" "${SRC}/GPMixRenderer.m"
+    "${SRC}/GPAudioAssets.m" "${SRC}/GPAudioTrackPlayer.m" "${HERE}/audio-measures.m")
 
 if [[ "$WHICH" == "all" || "$WHICH" == "effects" ]]; then
-    clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${HERE}/audio-check.m" -o "${OUT}/audio-check"
+    clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${HERE}/audio-track-check.m" "${HERE}/audio-check.m" \
+        -o "${OUT}/audio-check"
     "${OUT}/audio-check" "$BANK" "${OUT}/song.mid" "${OUT}/twelve.mid" "${OUT}/bends.mid"
 fi
 

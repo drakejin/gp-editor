@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSong } from '../src/read-song';
+import { readSong, readSongFile } from '../src/read-song';
 import { writeSong } from '../src/write/index';
 import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
 import { assertSongInvariants } from './helpers/invariants';
@@ -10,12 +10,13 @@ import { expectedAfterGp } from './helpers/write-expected-gpif';
 const GP_FOLDERS: readonly FixtureFolder[] = ['guitarpro7', 'guitarpro8'];
 /** Every other format: everything GPIF can hold survives (write-expected-gpif.ts lists what it cannot). */
 const OTHER_FOLDERS: readonly FixtureFolder[] = ['guitarpro1', 'guitarpro2', 'guitarpro3', 'guitarpro4', 'guitarpro5', 'guitarpro6'];
-/** The largest fixtures take a second or two to write and read back twice. */
-const SLOW_TEST_TIMEOUT = 30000;
+/** The largest fixtures (canon's 224 bars of nine tracks, with its audio file) take seconds to write and read back twice. */
+const SLOW_TEST_TIMEOUT = 60000;
 
+/** The audio track's file goes along, as the app saves it (canon-audio-track.gp). */
 function roundTrip(folder: FixtureFolder, name: string) {
-  const song = readSong(loadFixture(folder, name));
-  return { song, again: readSong(writeSong(song, 'gp')) };
+  const { song, audioTrackData } = readSongFile(loadFixture(folder, name));
+  return { song, again: readSong(writeSong(song, 'gp', { audioTrackData })) };
 }
 
 describe.each(GP_FOLDERS)('gp round trip of %s fixtures', (folder) => {
