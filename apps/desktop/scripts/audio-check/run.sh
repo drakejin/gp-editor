@@ -50,7 +50,8 @@ for (const [name, { base64, seconds }] of Object.entries(JSON.parse(fs.readFileS
 
 RENDER_SOURCES=("${SRC}/GPConvolver.m" "${SRC}/GPCabinetImpulses.m" "${SRC}/GPDSPKernels.m" "${SRC}/GPDSPUnit.m"
     "${SRC}/GPEffectNodes.m" "${SRC}/GPMixGraph.m" "${SRC}/GPTrackInstruments.m" "${SRC}/GPMixRenderer.m"
-    "${SRC}/GPAudioAssets.m" "${SRC}/GPAudioTrackPlayer.m" "${HERE}/audio-measures.m")
+    "${SRC}/GPAudioAssets.m" "${SRC}/GPAudioTrackPlayer.m" "${HERE}/audio-measures.m"
+    "${SRC}/GPAppStrings.m")  # GPLocalizedString of the errors (English here: no .lproj in the tool)
 
 if [[ "$WHICH" == "all" || "$WHICH" == "effects" ]]; then
     clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${HERE}/audio-track-check.m" "${HERE}/audio-check.m" \
