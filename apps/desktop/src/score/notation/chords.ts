@@ -6,6 +6,7 @@ import {
   SLASH_GLYPHS,
   TECHNIQUE_GLYPHS,
 } from '../symbols/smufl';
+import { drumHeadGlyph } from './drum-notes';
 import type { StaffNote, VoiceEvent } from './events';
 import { horizontal, musicGlyph } from './glyphs';
 import {
@@ -114,6 +115,9 @@ function noteheadGlyph(
   if (note.isCross) {
     return { glyph: SMUFL.noteheadXBlack, width: GLYPH_WIDTH.noteheadX };
   }
+  if (note.drumNoteheads !== undefined) {
+    return drumHeadGlyph(note.drumNoteheads, value);
+  }
   if (note.effect.harmonic !== undefined) {
     return diamondGlyph(value);
   }
@@ -150,6 +154,16 @@ function secondShifts(
   );
 }
 
+/** The width the stem sits beside: a black notehead's, or the widest drum notehead's when wider. */
+function stemHeadWidth(heads: readonly NoteHead[]): number {
+  return Math.max(
+    GLYPH_WIDTH.noteheadBlack,
+    ...heads.flatMap(head =>
+      head.note.drumNoteheads === undefined ? [] : [head.width],
+    ),
+  );
+}
+
 export function layoutChord(
   event: VoiceEvent,
   eventIndex: number,
@@ -182,9 +196,10 @@ export function layoutChord(
   const extra = Math.max(0, flagCount(value) - 2) * BEAM.spacing;
   const isUp = direction === 'up';
   const slash = heads[0]?.note.isSlash === true ? heads[0] : undefined;
-  // A slash's stem leaves its upper right end going up, its lower left end going down.
+  // A slash's stem leaves its upper right end going up, its lower left end going down; a drum notehead wider than a
+  // black one (a crash's heavy x) takes the stem at its edge.
   const stemOffset =
-    (slash?.width ?? GLYPH_WIDTH.noteheadBlack) / 2 - STEM.width / 2;
+    (slash?.width ?? stemHeadWidth(heads)) / 2 - STEM.width / 2;
   const attach = slash === undefined ? STEM.attach : NOTATION.space;
   return {
     eventIndex,

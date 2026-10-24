@@ -21,6 +21,7 @@ import {
   noteheads,
 } from './chords';
 import { separateVoices } from './collisions';
+import { drumTechniques } from './drum-techniques';
 import type { StaffNote, VoiceEvent } from './events';
 import { fingerings } from './fingering';
 import { graceNotes } from './grace';
@@ -125,10 +126,11 @@ function engraveRests(
   );
 }
 
-/** Playing techniques: articulations, ornaments, grace notes, slurs, slides and strum arrows. */
+/** Playing techniques: articulations, drum technique symbols, ornaments, grace notes, slurs, slides and strum arrows. */
 function techniques(layout: VoiceLayout): DrawCommand[] {
   return [
     ...articulations(layout),
+    ...drumTechniques(layout),
     ...tremoloStrokes(layout),
     ...trills(layout),
     ...vibratos(layout),

@@ -1,5 +1,4 @@
 import type { Clef, Note, Track } from '@gp-editor/core';
-import { STAFF } from './metrics';
 
 /** The staff a measure is written on. Guitar and bass staves sound an octave below the written notes. */
 export type ClefKind = 'treble' | 'bass' | 'alto' | 'tenor' | 'percussion';
@@ -16,11 +15,6 @@ export interface SpelledPitch {
 
 export interface StaffPitch extends SpelledPitch {
   readonly isTied: boolean;
-}
-
-export interface DrumPlacement {
-  readonly position: number;
-  readonly isCross: boolean;
 }
 
 const OCTAVE = 12;
@@ -46,41 +40,6 @@ const ACCIDENTAL_OF: Readonly<Record<Alter, Accidental>> = {
   [-1]: 'flat',
   0: 'natural',
   1: 'sharp',
-};
-
-const CROSS = true;
-/** General MIDI drums on a five-line percussion staff (positions as on a treble staff). */
-const DRUM_PLACEMENTS: ReadonlyMap<number, DrumPlacement> = new Map(
-  (
-    [
-      [35, 0, !CROSS], // acoustic bass drum
-      [36, 1, !CROSS], // bass drum
-      [37, 5, CROSS], // side stick
-      [38, 5, !CROSS], // snare
-      [39, 5, CROSS], // hand clap
-      [40, 5, !CROSS], // electric snare
-      [41, 2, !CROSS], // low floor tom
-      [42, 9, CROSS], // closed hi-hat
-      [43, 3, !CROSS], // high floor tom
-      [44, -1, CROSS], // pedal hi-hat
-      [45, 4, !CROSS], // low tom
-      [46, 9, CROSS], // open hi-hat
-      [47, 6, !CROSS], // low-mid tom
-      [48, 6, !CROSS], // hi-mid tom
-      [49, 10, CROSS], // crash 1
-      [50, 7, !CROSS], // high tom
-      [51, 8, CROSS], // ride
-      [52, 10, CROSS], // china
-      [53, 8, CROSS], // ride bell
-      [55, 10, CROSS], // splash
-      [57, 10, CROSS], // crash 2
-      [59, 8, CROSS], // ride 2
-    ] as const
-  ).map(([drum, position, isCross]) => [drum, { position, isCross }]),
-);
-const UNKNOWN_DRUM: DrumPlacement = {
-  position: STAFF.middleLine,
-  isCross: false,
 };
 
 function mod(value: number, divisor: number): number {
@@ -148,11 +107,6 @@ export function writtenMidi(track: Track, note: Note): number {
 /** The staff of a clef; neutral clefs and drum tracks use the percussion staff. */
 export function clefKind(track: Track, clef: Clef): ClefKind {
   return track.isPercussion || clef === 'neutral' ? 'percussion' : clef;
-}
-
-/** Staff position and notehead of a General MIDI drum note; unknown drums sit on the middle line. */
-export function drumPlacement(drumNote: number): DrumPlacement {
-  return DRUM_PLACEMENTS.get(drumNote) ?? UNKNOWN_DRUM;
 }
 
 /**
