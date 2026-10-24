@@ -6,7 +6,7 @@ import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
 import { SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import { type RowContext, engraveRow } from '../score/row';
-import { type ScoreLayout, type StaffSpec, layoutScore } from '../score/score-layout';
+import { type ScoreLayout, type ScoreStaff, type StaffSpec, layoutStaves, scoreStaves, systemHeightOf } from '../score/score-layout';
 import { engraveSystemStaff, staffDecor } from '../score/system-staff';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE, type PaperId, type PaperSize } from './paper';
 import { type TitleBlock, engraveTitleBlock, fitFontSize } from './title-block';
@@ -128,8 +128,8 @@ function printedStaves(trackIndex: number, mode: ScoreMode, options: PdfOptions)
  * The score as the screen lays it out, at screen size across the printable width, to print at PRINT_SCALE; a single
  * track's measure too wide for a line is squeezed instead of running off the page.
  */
-function printedLayout(song: Song, staves: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
-  const layout = layoutScore(song, staves, chordDisplay, rowWidth);
+function printedLayout(song: Song, staves: readonly ScoreStaff[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
+  const layout = layoutStaves(song, staves, chordDisplay, rowWidth);
   if (layout.staves.length !== 1) {
     return layout;
   }
@@ -165,12 +165,13 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   // The stylesheet's overall proportions scale the printed staves as they scale the screen's.
   const printScale = PRINT_SCALE * sheet.scale;
   // A system taller than the room under the title block (many tracks) is printed smaller, and laid out across a wider
-  // row so that it still fills the printable width.
-  const natural = printedLayout(song, staves, chordDisplay, printWidth / printScale);
-  const fit = natural.systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (natural.systemHeight * printScale)) : 1;
+  // row so that it still fills the printable width. The staves' height does not depend on the width: one layout.
+  const stacked = scoreStaves(song, staves, chordDisplay);
+  const systemHeight = systemHeightOf(stacked);
+  const fit = systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (systemHeight * printScale)) : 1;
   const scale = printScale * fit;
   const rowWidth = printWidth / scale;
-  const layout = fit === 1 ? natural : printedLayout(song, staves, chordDisplay, rowWidth);
+  const layout = printedLayout(song, stacked, chordDisplay, rowWidth);
   const rowHeight = layout.systemHeight * scale;
   const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, firstTop, margins.top, bottom);
   return { song, title, paper, margins, hasFooter, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
