@@ -302,8 +302,8 @@ describe('editorReducer: song information', () => {
 describe('editorReducer: multivoice and moving notes between voices', () => {
   /** Bar 1: voice 1 a chord (strings 1 and 6) then three quarters. */
   function chordState(): EditorState {
-    const song = makeSong([[beat(960, [note(1, 3), note(6, 0)]), beat(1920, [note(2, 5)]), beat(2880, [note(3, 2)]), beat(3840, [note(4, 7)])]]);
-    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } });
+    const chordSong = makeSong([[beat(960, [note(1, 3), note(6, 0)]), beat(1920, [note(2, 5)]), beat(2880, [note(3, 2)]), beat(3840, [note(4, 7)])]]);
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: chordSong } });
   }
 
   it('moves the note at the cursor to voice 2 in one undo step, the cursor staying in voice 1', () => {
