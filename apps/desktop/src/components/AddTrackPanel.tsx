@@ -21,6 +21,9 @@ import type { Palette } from '../theme';
 import { ChromeButton } from './chrome/ChromeButton';
 import { TextField } from './TextField';
 
+/** Tall enough for every instrument's rows, so the panel and its buttons stay put when another instrument is chosen. */
+const PANEL_MIN_HEIGHT = 440;
+
 interface AddTrackPanelProps {
   readonly palette: Palette;
   readonly onAdd: (track: NewTrack) => void;
@@ -145,6 +148,7 @@ export function AddTrackPanel({ palette, onAdd, onCancel }: AddTrackPanelProps) 
             style={[styles.field, { color: palette.chromeText, borderColor: palette.chromeBorder }]}
           />
         </ChoiceRow>
+        <View style={styles.spacer} />
         <View style={styles.buttons}>
           <Text style={[styles.note, styles.grow, { color: palette.chromeMuted }]}>Added after the last track; ⌘Z takes it away.</Text>
           <ChromeButton palette={palette} label="Cancel" tooltip="Add nothing (Esc)" minWidth={72} onPress={onCancel} />
@@ -158,7 +162,8 @@ export function AddTrackPanel({ palette, onAdd, onCancel }: AddTrackPanelProps) 
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   backdrop: { backgroundColor: 'rgba(0, 0, 0, 0.3)' },
-  panel: { width: 640, borderRadius: 10, borderWidth: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12 },
+  panel: { width: 640, minHeight: PANEL_MIN_HEIGHT, borderRadius: 10, borderWidth: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12 },
+  spacer: { flex: 1 },
   title: { fontSize: 14, fontWeight: '800', marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
   label: { width: 76, fontSize: 11, fontWeight: '700', paddingTop: 5 },
