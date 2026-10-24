@@ -256,11 +256,11 @@ Guitar Pro's own files differently are listed, with that evidence, in
   `.gp4`, `.gp3`); other files — and ⇧⌘S (Save As…) — ask where to save, with a *Format* popup under the save panel:
   Guitar Pro 5 (`.gp5`, chosen first unless the file is one of the others), Guitar Pro 7/8 (`.gp`), Guitar Pro 4
   (`.gp4`) or Guitar Pro 3 (`.gp3`); the extension follows the choice. A `.gp` keeps everything the editor edits
-  (voices 1–4, nested tuplets …) but not Guitar Pro's own sound settings (RSE), stylesheet or audio tracks. GP4 and GP3
+  (voices 1–4, nested tuplets …) and the audio track, but not Guitar Pro's own sound settings (RSE) or stylesheet. GP4 and GP3
   keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
   save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
   cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings, hairpins, fade outs, volume swells, the
-  sustain pedal, a rasgueado's pattern; a direction stays on its first bar only).
+  sustain pedal, a rasgueado's pattern, the audio track; a direction stays on its first bar only).
 - **Song Writer** (Edit ▸ AI Wizard ▸ Song Writer…): Claude writes a new song for guitar and bass. Give it a title,
   a genre (type one or pick Pop, Rock, Ballad, Blues, Folk, Metal, Jazz, Funk), a length (0:20–5:00 in 15-second
   steps), the lyrics (sung as written, in order; left empty, Claude writes them), what the song is about — and, with
@@ -374,6 +374,16 @@ Guitar Pro's own files differently are listed, with that evidence, in
   gain, a level meter and *Monitor* on/off. With the Mac's own microphone and speakers monitoring starts off and the
   card warns about feedback (use headphones). macOS asks for microphone access the first time; closing the card turns
   the line in off.
+- **Audio track** (Guitar Pro 8's backing track): Track ▸ Add Audio Track… (or *+ Audio Track* under the tracks) picks a
+  recording — WAV, AIFF, MP3, AAC / M4A, FLAC, Ogg, CAF (whatever macOS reads) — that plays with the score; a second one
+  replaces it after asking. Its lane under the tracks shows the waveform with the bars placed over it, the cursor's bar
+  and the playing moment; mute, solo, volume and detune (±24 semitones, in cents; also a strip in View ▸ Mixer). Sync
+  points tie a bar to a moment of the recording: while it plays, *Sync bar n* (Y) marks the cursor's bar at the moment
+  heard and moves on to the next bar; drag a marker to adjust it, *Delete point* removes the selected one, *Tempo* sets
+  the song's tempo from the first two. Between points the score follows the recording, so playback from any bar, loops
+  and the practice speed stay in sync — at 50% the recording plays at half speed without changing pitch. Kept in
+  Guitar Pro 7/8 (`.gp`) files as Guitar Pro 8 keeps it (a GP8 file's audio track survives a save); GP5, GP4 and GP3
+  cannot hold one, and saving one says so.
 - **Play**: Space or ▶ plays all tracks (honouring each track's mute and solo) from the cursor's bar — or, with beats
   selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
