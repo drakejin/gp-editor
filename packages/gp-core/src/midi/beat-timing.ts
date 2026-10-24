@@ -111,7 +111,7 @@ function strokeIncrement(beat: Beat): number {
  * string. Strings without a struck note keep 0; TuxGuitar keeps stale values there, which no note reads.
  */
 export function strokeOffsets(beat: Beat, stringCount: number): readonly number[] {
-  const offsets = Array.from({ length: stringCount }, () => 0);
+  const offsets = new Array<number>(stringCount).fill(0);
   if (beat.stroke.direction === 'none') {
     return offsets;
   }

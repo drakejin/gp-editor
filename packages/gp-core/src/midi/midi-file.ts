@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiFileWriter (LGPL-2.1): a format 1 Standard MIDI File.
-import { variableLength } from './midi-bytes';
+import { pushVariableLength } from './midi-bytes';
 
 /** One encoded MIDI message (status byte first, or 0xFF type length data for a meta event) at a tick. */
 export interface MidiMessage {
@@ -44,11 +44,11 @@ function trackEvents(messages: readonly MidiMessage[], endTick: number): number[
   let previousTick = 0;
   const sorted = sortMessages(messages);
   for (const message of sorted) {
-    appendAll(events, variableLength(message.tick - previousTick));
+    pushVariableLength(events, message.tick - previousTick);
     appendAll(events, message.data);
     previousTick = message.tick;
   }
-  appendAll(events, variableLength(Math.max(endTick, previousTick) - previousTick));
+  pushVariableLength(events, Math.max(endTick, previousTick) - previousTick);
   appendAll(events, END_OF_TRACK);
   return events;
 }

@@ -86,8 +86,12 @@ export function toMidiMessages(
   routes: ReadonlyMap<number, ChannelRoute>,
   origin: number,
 ): MidiMessage[] {
-  return events.flatMap((event) => {
+  const messages: MidiMessage[] = [];
+  for (const event of events) {
     const tick = Math.max(0, toMidiTick(event.tick - origin));
-    return encode(event, routes).map((data) => ({ tick, data }));
-  });
+    for (const data of encode(event, routes)) {
+      messages.push({ tick, data });
+    }
+  }
+  return messages;
 }

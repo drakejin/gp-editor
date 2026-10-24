@@ -109,15 +109,18 @@ export function noteEvents(
   if (duration <= 0) {
     return [];
   }
-  const fields = { ...output, key: toDataValue(key), velocity: toDataValue(velocity) };
-  return [
-    { type: 'noteOn', tick: start, ...fields },
-    { type: 'noteOff', tick: start + duration, ...fields },
-  ];
+  const noteKey = toDataValue(key);
+  const noteVelocity = toDataValue(velocity);
+  return [noteEvent('noteOn', start, output, noteKey, noteVelocity), noteEvent('noteOff', start + duration, output, noteKey, noteVelocity)];
+}
+
+/** Fields written out rather than spread: renderMidi makes one per note-on and note-off. */
+function noteEvent(type: NoteEvent['type'], tick: number, output: NoteOutput, key: number, velocity: number): NoteEvent {
+  return { type, tick, channelId: output.channelId, bendMode: output.bendMode, key, velocity };
 }
 
 export function pitchBendEvent(output: NoteOutput, tick: number, value: number): PitchBendEvent {
-  return { type: 'pitchBend', tick, ...output, value: toDataValue(value) };
+  return { type: 'pitchBend', tick, channelId: output.channelId, bendMode: output.bendMode, value: toDataValue(value) };
 }
 
 export function controlChangeEvent(
