@@ -82,6 +82,16 @@ export function voiceAt(beat: Beat, voiceIndex: number): Voice | undefined {
   return voice === undefined || voice.isEmpty ? undefined : voice;
 }
 
+/** The first of `notes` on `string` (a loop: the searches run it for every note). */
+export function noteOnString(notes: readonly Note[], string: number): Note | undefined {
+  for (const note of notes) {
+    if (note.string === string) {
+      return note;
+    }
+  }
+  return undefined;
+}
+
 export interface FoundNote {
   readonly note: Note;
   readonly beat: Beat;
@@ -95,7 +105,7 @@ export function findNextNote(context: TrackContext, placed: PlacedNote): FoundNo
     const next = beats[position];
     const voice = next === undefined ? undefined : voiceAt(next.beat, placed.voiceIndex);
     if (next !== undefined && voice !== undefined) {
-      const note = voice.notes.find((candidate) => candidate.string === placed.note.string);
+      const note = noteOnString(voice.notes, placed.note.string);
       return note === undefined ? undefined : { note, beat: next.beat, move: next.move };
     }
   }
@@ -107,7 +117,8 @@ export function findPreviousNote(context: TrackContext, placed: PlacedNote): Not
   const { beats } = context.playback;
   for (let position = previousBeatPosition(context, placed.playedIndex, placed.beatIndex); position >= 0; position--) {
     const previous = beats[position];
-    const note = previous === undefined ? undefined : voiceAt(previous.beat, placed.voiceIndex)?.notes.find((candidate) => candidate.string === placed.note.string);
+    const voice = previous === undefined ? undefined : voiceAt(previous.beat, placed.voiceIndex);
+    const note = voice === undefined ? undefined : noteOnString(voice.notes, placed.note.string);
     if (note !== undefined) {
       return note;
     }

@@ -85,6 +85,11 @@ function repeatedEvents(sound: Sound, length: number, keys: readonly number[]): 
   return events;
 }
 
+/** No grace note, trill, tremolo picking, harmonic or pitch effect. */
+function isPlain(effect: NoteEffect): boolean {
+  return effect.grace === undefined && effect.trill === undefined && effect.tremoloPicking === undefined && effect.harmonic === undefined && !hasPitchEffect(effect);
+}
+
 function hasPitchEffect(effect: NoteEffect): boolean {
   return effect.bend !== undefined || effect.tremoloBar !== undefined || effect.slides.length > 0 || effect.vibrato || effect.wideVibrato;
 }
@@ -213,6 +218,10 @@ function rasgueadoEvents(context: TrackContext, placed: PlacedNote, timing: Beat
 /** The note's effects in TuxGuitar's order (grace, then trill or tremolo picking, or pitch effect and harmonic), then the note. */
 function effectEvents(context: TrackContext, placed: PlacedNote, initial: Sound): SequenceEvent[] {
   const { effect } = placed.note;
+  if (isPlain(effect)) {
+    // Most notes: no effect shapes them, so nothing to build but the note.
+    return noteEvents(initial.output, initial.key, initial.start, initial.duration, initial.velocity);
+  }
   const graced = effect.grace === undefined ? { sound: initial, events: NO_EVENTS } : applyGrace(context, placed, initial, effect.grace);
   const sound = graced.sound;
   if (effect.trill !== undefined && !isPercussion(context)) {

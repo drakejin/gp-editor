@@ -13,6 +13,11 @@ export function variableLength(value: number): number[] {
 
 /** variableLength's bytes added to the end of `target`, without an array of their own (a MIDI track writes one per event). */
 export function pushVariableLength(target: number[], value: number): void {
+  if ((value & SEVEN_BITS) === value) {
+    // One byte: most delta times of a track.
+    target.push(value);
+    return;
+  }
   let groups = 1;
   for (let rest = Math.floor(value / 128); rest > 0; rest = Math.floor(rest / 128)) {
     groups++;
