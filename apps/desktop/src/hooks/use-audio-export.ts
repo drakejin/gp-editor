@@ -5,6 +5,7 @@ import { type AudioExportOptions, DEFAULT_AUDIO_EXPORT, audioFileSettings, audio
 import { errorMessage } from '../lib/errors';
 import { mixOf } from '../lib/mix';
 import { cancelAudioExport, chooseAudioFolder, exportAudio, subscribeAudioExportProgress } from '../native/audio-export';
+import { isAudioLoaded } from '../native/audio-track';
 import { showSavePanel, subscribeExportAudioRequests } from '../native/gp-files';
 import type { EditorAction, OpenDocument } from '../state/editor';
 import type { PracticeSettings } from '../state/practice';
@@ -55,10 +56,14 @@ async function chooseDestination(files: readonly AudioExportFile[], options: Aud
   return chosen === null ? null : { paths: [chosen.path], folderName: parentName(chosen.path) };
 }
 
-/** Renders the MIDI of each file and sends the job; resolves the hint to show, or undefined when cancelled. */
+/**
+ * Renders the MIDI of each file (the whole mix with the audio track under it when its file is loaded) and sends the
+ * job; resolves the hint to show, or undefined when cancelled.
+ */
 async function runExport(song: Song, files: readonly AudioExportFile[], options: AudioExportOptions, destination: Destination): Promise<string | undefined> {
+  const hasAudio = song.audioTrack !== undefined && isAudioLoaded(song.audioTrack.assetId);
   const job = {
-    files: files.map((file, index) => ({ ...renderAudioFile(song, file), path: destination.paths[index] ?? '' })),
+    files: files.map((file, index) => ({ ...renderAudioFile(song, file, hasAudio), path: destination.paths[index] ?? '' })),
     mix: mixOf(song),
     settings: audioFileSettings(options),
   };

@@ -356,12 +356,13 @@ Guitar Pro's own files differently are listed, with that evidence, in
   unfolded, at the written tempo (not the practice speed), muted tracks left out and, when a track is solo, only the
   solo tracks.
 - **Export audio**: File ▸ Export Audio… (or the command palette) renders the song as playback sounds — the sound bank,
-  each track's instrument, volume, pan, mute and solo, its effects and the master mix — faster than real time, repeats
-  unfolded, at the written tempo (never the practice speed, a metronome or a count-in), with a tail until reverbs and
-  delays have died away (at most 10 s). Formats: *WAV*, *AIFF* or *FLAC* (16 or 24-bit), *MP3* (128, 192, 256 or 320
-  kbps, or VBR V2, by LAME) or *Ogg Vorbis* (quality 4, 6, 8 or 10, by libvorbis), at 44.1 or 48 kHz. *Whole song* or
-  the *Loop bars* (as written), *One file* (a save panel) or *One file per track* (each playing track alone, into a
-  folder you choose). The panel shows the progress with *Cancel*; the hint strip says what was saved where.
+  each track's instrument, volume, pan, mute and solo, its effects, the audio track (in the whole mix, the score at its
+  pace) and the master mix — faster than real time, repeats unfolded, at the written tempo (never the practice speed, a
+  metronome or a count-in), with a tail until reverbs and delays have died away (at most 10 s). Formats: *WAV*, *AIFF*
+  or *FLAC* (16 or 24-bit), *MP3* (128, 192, 256 or 320 kbps, or VBR V2, by LAME) or *Ogg Vorbis* (quality 4, 6, 8 or
+  10, by libvorbis), at 44.1 or 48 kHz. *Whole song* or the *Loop bars* (as written), *One file* (a save panel) or *One
+  file per track* (each playing track alone, into a folder you choose). The panel shows the progress with *Cancel*; the
+  hint strip says what was saved where.
 - **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
   (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
   slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
