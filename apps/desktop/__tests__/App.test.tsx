@@ -1,5 +1,6 @@
 // First: the native modules every src/native wrapper keeps when it loads.
-import { answerNativeCalls, nativeCalls } from '../test-support/native-fakes';
+import { answerNativeCalls, nativeCallCount, nativeCalls } from '../test-support/native-fakes';
+import { createElement } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../src/App';
@@ -14,6 +15,17 @@ const FILE_PATH = '/songs/nightwish.gp5';
 
 /** Where the player says it is. */
 const mockPlayer = { seconds: 0 };
+/** Renders of the window's memoised parts (their props changed), by name. */
+const mockRenders = new Map<string, number>();
+
+/** The component, counting each time its props change (it renders when they do, as the real one does). */
+function mockCounted<Props extends object>(name: string, component: (props: Props) => unknown) {
+  const { memo } = jest.requireActual<typeof import('react')>('react');
+  return memo((props: Props) => {
+    mockRenders.set(name, (mockRenders.get(name) ?? 0) + 1);
+    return createElement(component as never, props);
+  });
+}
 
 jest.mock('../src/native/specs/GPScoreCanvasNativeComponent', () => 'GPScoreCanvas');
 jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
@@ -25,6 +37,22 @@ jest.mock('../src/native/player', () => ({
   setClickTracks: () => Promise.resolve(),
   playerPosition: () => Promise.resolve({ seconds: mockPlayer.seconds, isPlaying: true }),
 }));
+jest.mock('../src/components/inspector/Inspector', () => {
+  const actual = jest.requireActual('../src/components/inspector/Inspector');
+  return { ...actual, Inspector: mockCounted('Inspector', actual.Inspector) };
+});
+jest.mock('../src/components/palette/EditionPalette', () => {
+  const actual = jest.requireActual('../src/components/palette/EditionPalette');
+  return { ...actual, EditionPalette: mockCounted('EditionPalette', actual.EditionPalette) };
+});
+jest.mock('../src/components/TracksPanel', () => {
+  const actual = jest.requireActual('../src/components/TracksPanel');
+  return { ...actual, TracksPanel: mockCounted('TracksPanel', actual.TracksPanel) };
+});
+jest.mock('../src/components/TabStrip', () => {
+  const actual = jest.requireActual('../src/components/TabStrip');
+  return { ...actual, TabStrip: mockCounted('TabStrip', actual.TabStrip) };
+});
 
 beforeAll(() =>
   answerNativeCalls((moduleName, method) =>
@@ -37,6 +65,7 @@ beforeAll(() =>
 beforeEach(() => {
   jest.useFakeTimers();
   nativeCalls.clear();
+  mockRenders.clear();
   mockPlayer.seconds = 0;
 });
 
@@ -118,5 +147,45 @@ describe('App', () => {
     // Assert
     expect(isPlaying).toBe(true);
     expect(topBar(renderer).isPlaying).toBe(false);
+  });
+});
+
+describe('App: what an action re-renders', () => {
+  it('leaves the inspector, the edition palette, the tab strip and the native listeners alone while the playing beat moves', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    await press(renderer, ' ');
+    mockRenders.clear();
+    nativeCalls.clear();
+
+    // Act: ten beats of playback
+    for (let tick = 1; tick <= 10; tick += 1) {
+      mockPlayer.seconds = tick * 0.25;
+      await ReactTestRenderer.act(async () => {
+        jest.advanceTimersByTime(40);
+      });
+    }
+
+    // Assert
+    expect(topBar(renderer).beat).toBeDefined();
+    const renders = { inspector: mockRenders.get('Inspector') ?? 0, palette: mockRenders.get('EditionPalette') ?? 0, tabStrip: mockRenders.get('TabStrip') ?? 0 };
+    expect(renders).toEqual({ inspector: 0, palette: 0, tabStrip: 0 });
+    expect(nativeCallCount('GPFiles.addListener')).toBe(0);
+  });
+
+  it('leaves the tracks panel, the tab strip and the native listeners alone when the cursor moves between strings', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    mockRenders.clear();
+    nativeCalls.clear();
+
+    // Act
+    await press(renderer, 'ArrowDown');
+    await press(renderer, 'ArrowDown');
+    await press(renderer, 'ArrowUp');
+
+    // Assert
+    expect({ tracksPanel: mockRenders.get('TracksPanel') ?? 0, tabStrip: mockRenders.get('TabStrip') ?? 0 }).toEqual({ tracksPanel: 0, tabStrip: 0 });
+    expect(nativeCallCount('GPFiles.addListener')).toBe(0);
   });
 });

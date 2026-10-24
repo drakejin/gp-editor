@@ -1,7 +1,7 @@
 import { type Dispatch, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { subscribeTabRequests } from '../native/gp-files';
 import { isEdited } from '../state/editor';
-import { type WorkspaceAction, type WorkspaceState, tabTitle } from '../state/workspace';
+import { type TabLabel, type WorkspaceAction, type WorkspaceState, tabLabels, tabTitle } from '../state/workspace';
 
 /** An edited tab waiting for Save / Don't Save / Cancel before it closes. */
 export interface TabClosing {
@@ -86,4 +86,18 @@ function useTabMenu(latest: RefObject<WorkspaceState>, requestClose: (tabId: str
       }),
     [latest, requestClose, dispatch],
   );
+}
+
+function isSameTabLabel(label: TabLabel, other: TabLabel | undefined): boolean {
+  return other !== undefined && label.id === other.id && label.title === other.title && label.fileName === other.fileName && label.isEdited === other.isEdited;
+}
+
+/** The tab strip's labels: the same array while none of them changed, so a cursor move or an edit does not redraw it. */
+export function useTabLabels(workspace: WorkspaceState): readonly TabLabel[] {
+  const labels = tabLabels(workspace);
+  const kept = useRef(labels);
+  if (labels.length !== kept.current.length || !labels.every((label, index) => isSameTabLabel(label, kept.current[index]))) {
+    kept.current = labels;
+  }
+  return kept.current;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import { TAB_STRIP, scrollOffsetToShowTab, tabWidth } from '../lib/tab-strip';
@@ -18,7 +18,7 @@ interface TabStripProps {
  * The open documents as tabs under the top bar, as Guitar Pro 8 shows them: the song's title (else the file name), a •
  * while edited, a × to close; the shown tab is lit. Many tabs scroll sideways, the shown one kept in view.
  */
-export function TabStrip({ palette, tabs, activeTabId, onSelect, onClose }: TabStripProps) {
+function TabStripView({ palette, tabs, activeTabId, onSelect, onClose }: TabStripProps) {
   const [stripWidth, setStripWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(0);
@@ -114,6 +114,8 @@ function CloseButton({ palette, title, onPress, testID }: CloseButtonProps) {
     </Pressable>
   );
 }
+
+export const TabStrip = memo(TabStripView);
 
 const styles = StyleSheet.create({
   strip: { height: TAB_STRIP.height, borderBottomWidth: 1 },

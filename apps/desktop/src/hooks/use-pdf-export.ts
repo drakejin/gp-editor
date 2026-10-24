@@ -10,6 +10,7 @@ import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import type { StaffSpec } from '../score/score-layout';
 import type { EditorAction, OpenDocument } from '../state/editor';
+import { useStableCallback } from './use-stable-callback';
 
 /** What the export panel saves: a PDF (File ▸ Export PDF…, the Export button) or PNG images (File ▸ Export PNG…). */
 export type ExportFormat = 'pdf' | 'png';
@@ -124,14 +125,15 @@ export function usePdfExport(
     [document, trackIndex, mode, staves, run, dispatch, chordDisplay],
   );
 
-  const print = useCallback(() => {
+  // The same function after every edit, so File ▸ Print…'s listener is added once.
+  const print = useStableCallback(() => {
     if (document === undefined) {
       return;
     }
     const printed = exportStaves(staves, 'asShown');
     const pdf = buildPdfDocument(document.song, trackIndex, mode, { fileName: document.fileName, chordDisplay, staves: printed });
     printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
-  }, [document, trackIndex, mode, staves, dispatch, chordDisplay]);
+  });
   useEffect(() => subscribePrintRequests(print), [print]);
 
   return { isOpen: isOpen && hasDocument, format, isSaving, open, openPng, close, save, savePng, print };

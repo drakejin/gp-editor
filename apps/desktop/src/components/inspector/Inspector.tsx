@@ -10,11 +10,15 @@ export type InspectorTab = 'song' | 'track' | 'note';
 
 export type InspectorProps = SongInspectorProps & TrackInspectorProps & NoteInspectorProps;
 
-
 export const INSPECTOR_WIDTH = 268;
+
+// The SONG and TRACK tabs redraw only when their own props change (the note at the cursor is the NOTE tab's).
+const SongTab = memo(SongInspector);
+const TrackTab = memo(TrackInspector);
 
 /** The right panel: SONG, TRACK and NOTE tabs, as in Guitar Pro (opens on TRACK). */
 function InspectorView(props: InspectorProps) {
+  const { note, onEditNote, ...songAndTrack } = props;
   const { palette } = props;
   const [tab, setTab] = useState<InspectorTab>('track');
   const t = useT();
@@ -26,9 +30,9 @@ function InspectorView(props: InspectorProps) {
         ))}
       </View>
       <ScrollView style={styles.body}>
-        {tab === 'song' ? <SongInspector {...props} /> : null}
-        {tab === 'track' ? <TrackInspector {...props} /> : null}
-        {tab === 'note' ? <NoteInspector {...props} /> : null}
+        {tab === 'song' ? <SongTab {...songAndTrack} /> : null}
+        {tab === 'track' ? <TrackTab {...songAndTrack} /> : null}
+        {tab === 'note' ? <NoteInspector palette={palette} note={note} onEditNote={onEditNote} /> : null}
       </ScrollView>
     </View>
   );

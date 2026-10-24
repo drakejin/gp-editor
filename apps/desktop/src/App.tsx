@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import { type Effect, type MasterMix, type PlayedNote, type Song, type TrackIndexMap, findNote, stylesheetOf } from '@gp-editor/core';
+import { type Effect, type MasterMix, type PlayedNote, type Song, type SongInfo, type TrackIndexMap, findNote, stylesheetOf } from '@gp-editor/core';
 import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
@@ -60,18 +60,21 @@ import { useRecentFiles } from './hooks/use-recent-files';
 import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
-import { useTabs } from './hooks/use-tabs';
+import { useTabLabels, useTabs } from './hooks/use-tabs';
 import { useTrackDisplay } from './hooks/use-track-display';
 import { useTuner } from './hooks/use-tuner';
 import { useSettingsPanel } from './hooks/use-app-settings';
 import { useTrackManager } from './hooks/use-track-manager';
 import { useAudioExport } from './hooks/use-audio-export';
 import { useAudioTools } from './hooks/use-audio-tools';
+import { useStableCallback } from './hooks/use-stable-callback';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import { useT } from './hooks/use-i18n';
 import type { CommandActions } from './lib/command-types';
 import { allCommands } from './lib/commands';
-import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
+import type { ChordDisplay } from './score/chords';
+import type { ScoreMode } from './score/geometry';
+import { HANDLED_KEYS, type NotePanel, type PracticeToggle } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
 import { tunerStrings } from './lib/tuner-display';
@@ -86,7 +89,7 @@ import { playbackStartTempo, typedTempoAction } from './state/practice';
 import { selectedFragment, selectionBars, selectionRange, selectionSummary } from './state/selection';
 import type { SongEdit } from './state/song-edits';
 import { type TranspositionDraft, noSelectionHint, toTranspositionOptions, transpositionScope } from './state/transposition';
-import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
+import { INITIAL_WORKSPACE, activeEditor, workspaceReducer } from './state/workspace';
 import { onChrome, usePalette } from './theme';
 
 /** How many recent files the start screen lists (above the PDF import projects); the panel lists all of them. */
@@ -284,21 +287,38 @@ export default function App() {
   }, [closeChordPanel]);
 
   const cursorString = cursor?.string ?? 1;
+  // A cell of the bar map: that track, the cursor at the bar's first beat (on the cursor's string, read when clicked).
+  const selectBar = useStableCallback((index: number, measureIndex: number) => {
+    dispatch({ type: 'selectTrack', trackIndex: index });
+    dispatch({ type: 'placeCursor', cursor: { trackIndex: index, measureIndex, beatIndex: 0, voiceIndex: 0, string: cursorString } });
+  });
   const trackCommands = useMemo(
     () => ({
       onSelectTrack: (index: number) => dispatch({ type: 'selectTrack', trackIndex: index }),
-      // A cell of the bar map: that track, the cursor at the bar's first beat.
-      onSelectBar: (index: number, measureIndex: number) => {
-        dispatch({ type: 'selectTrack', trackIndex: index });
-        dispatch({ type: 'placeCursor', cursor: { trackIndex: index, measureIndex, beatIndex: 0, voiceIndex: 0, string: cursorString } });
-      },
+      onSelectBar: selectBar,
       onSetTrackMute: (index: number, isMute: boolean) => dispatch({ type: 'setTrackMute', trackIndex: index, isMute }),
       onSetTrackSolo: (index: number, isSolo: boolean) => dispatch({ type: 'setTrackSolo', trackIndex: index, isSolo }),
       onSetTrackVolume: (index: number, volume: number) => dispatch({ type: 'setTrackVolume', trackIndex: index, volume }),
       onSetTrackBalance: (index: number, balance: number) => dispatch({ type: 'setTrackBalance', trackIndex: index, balance }),
     }),
-    [cursorString],
+    [selectBar],
   );
+  // The inspector's edits (memoised: it is not redrawn by a cursor move or a playing beat).
+  const inspectorCommands = useMemo(
+    () => ({
+      onChangeMode: (mode: ScoreMode) => dispatch({ type: 'setMode', mode }),
+      onChangeChordDisplay: (display: ChordDisplay) => dispatch({ type: 'setChordDisplay', display }),
+      onSetSongInfo: (info: Partial<SongInfo>) => dispatch({ type: 'setSongInfo', info }),
+      onSetTrackName: (index: number, name: string) => dispatch({ type: 'setTrackName', trackIndex: index, name }),
+      onSetTrackCapo: (index: number, capo: number) => dispatch({ type: 'setTrackCapo', trackIndex: index, capo }),
+      onSetTrackSlashNotation: (index: number, hasSlashNotation: boolean) => dispatch({ type: 'setTrackSlashNotation', trackIndex: index, hasSlashNotation }),
+      onSetTrackTuning: (index: number, tuning: readonly number[]) => dispatch({ type: 'setTrackTuning', trackIndex: index, tuning }),
+      onDismissNotice: () => dispatch({ type: 'dismissNotice' }),
+    }),
+    [],
+  );
+  const dismissHint = useCallback(() => dispatch({ type: 'dismissHint' }), []);
+  const tabStripLabels = useTabLabels(workspace);
   const effectCommands = useMemo(
     () => ({
       onSetTrackEffects: (index: number, effects: readonly Effect[]) => dispatch({ type: 'setTrackEffects', trackIndex: index, effects }),
@@ -368,6 +388,11 @@ export default function App() {
   // The loop turned on loops the selected bars, or the whole song with nothing selected.
   const loopScope = { measureCount, selection: selectionBars({ cursor, selectionAnchor }) };
   const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, cursorMeasureIndex);
+  // The top bar's handlers keep their identity, so its buttons are not redrawn by a cursor move or a playing beat.
+  const toggleLoop = useStableCallback(() => playback.changePractice({ type: 'toggleLoop', ...loopScope }));
+  const setPlaybackTempo = useStableCallback((tempo: number) => playback.changePractice(typedTempoAction(playback.practice, tempo, writtenTempo)));
+  const togglePractice = useStableCallback((practice: PracticeToggle) => commands.runCommand({ type: 'togglePractice', practice }));
+  const shiftSpeed = useStableCallback((delta: number) => commands.runCommand({ type: 'shiftPlaybackSpeed', delta }));
   // What the command palette's commands call: the handlers of the menus, keys and buttons.
   const commandActions: CommandActions = {
     runCommand: commands.runCommand,
@@ -396,7 +421,7 @@ export default function App() {
     addAudioTrack: audioLane.addAudioTrack,
     runTrackCommand: trackManager.runTrackCommand,
     togglePanel: chrome.togglePanel,
-    toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
+    toggleLoop,
     toggleFocus: chrome.toggleFocus,
     togglePreviewOnHover: () => playback.changePractice({ type: 'togglePreviewOnHover' }),
   };
@@ -435,18 +460,18 @@ export default function App() {
         panels={chrome.panels}
         onTogglePanel={chrome.togglePanel}
         onOpenMenu={chrome.openMenu}
-        onToggleLoop={() => playback.changePractice({ type: 'toggleLoop', ...loopScope })}
+        onToggleLoop={toggleLoop}
         beat={playback.beat}
-        onSetTempo={(tempo) => playback.changePractice(typedTempoAction(playback.practice, tempo, writtenTempo))}
+        onSetTempo={setPlaybackTempo}
         isMetronomeOn={playback.practice.isMetronomeOn}
         isCountInOn={playback.practice.isCountInOn}
-        onTogglePractice={(practice) => commands.runCommand({ type: 'togglePractice', practice })}
-        onShiftSpeed={(delta) => commands.runCommand({ type: 'shiftPlaybackSpeed', delta })}
+        onTogglePractice={togglePractice}
+        onShiftSpeed={shiftSpeed}
         onShowShortcuts={chrome.openShortcutSheet}
         onCommand={commands.runCommand}
       />
-      {workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={tabLabels(workspace)} activeTabId={activeTabId} onSelect={tabs.switchTo} onClose={tabs.requestClose} /> : null}
-      {state.hint !== undefined ? <HintBar palette={palette} message={state.hint} onDismiss={() => dispatch({ type: 'dismissHint' })} /> : null}
+      {workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={tabStripLabels} activeTabId={activeTabId} onSelect={tabs.switchTo} onClose={tabs.requestClose} /> : null}
+      {state.hint !== undefined ? <HintBar palette={palette} message={state.hint} onDismiss={dismissHint} /> : null}
       {isImportPanelOpen ? (
         <ImportPanel
           palette={chromePalette}
@@ -587,15 +612,8 @@ export default function App() {
                 mode={trackView.selectedMode}
                 notice={state.notice}
                 soundBanks={sound.soundBanks}
-                onChangeMode={(mode) => dispatch({ type: 'setMode', mode })}
                 chordDisplay={state.chordDisplay}
-                onChangeChordDisplay={(display) => dispatch({ type: 'setChordDisplay', display })}
-                onSetSongInfo={(info) => dispatch({ type: 'setSongInfo', info })}
-                onSetTrackName={(index, name) => dispatch({ type: 'setTrackName', trackIndex: index, name })}
-                onSetTrackCapo={(index, capo) => dispatch({ type: 'setTrackCapo', trackIndex: index, capo })}
-                onSetTrackSlashNotation={(index, hasSlashNotation) => dispatch({ type: 'setTrackSlashNotation', trackIndex: index, hasSlashNotation })}
-                onSetTrackTuning={(index, tuning) => dispatch({ type: 'setTrackTuning', trackIndex: index, tuning })}
-                onDismissNotice={() => dispatch({ type: 'dismissNotice' })}
+                {...inspectorCommands}
                 onEditInstrument={chrome.pickInstrument}
                 onSelectSoundBank={sound.select}
                 onAddSoundBank={sound.add}

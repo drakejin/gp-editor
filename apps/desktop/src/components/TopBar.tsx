@@ -54,105 +54,104 @@ export interface TopBarProps {
  * Guitar Pro 8's top bar: panel toggles, zoom and undo on the left; the transport and the LCD in the middle; loop,
  * metronome, count-in, playback speed (−, menu, +), the piano keyboard and fretboard toggles and the shortcut sheet on
  * the right. Files (New, Open, Save, Import PDF, Export PDF, Print) live in the macOS menu bar's File menu.
+ * The buttons are drawn by memoised groups of their own: a cursor move or a playing beat redraws the LCD alone.
  */
 function TopBarView(props: TopBarProps) {
-  const { palette, panels } = props;
-  const t = useT();
+  const { palette, panels, hasDocument, onTogglePanel, onOpenMenu, onCommand } = props;
   return (
     <View style={[styles.bar, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}>
-      <View style={styles.side}>
-        {(['palette', 'tracks', 'inspector'] as const).map((panel) => (
-          <ChromeButton
-            key={panel}
-            palette={palette}
-            label=""
-            icon={<PanelIcon side={PANEL_SIDES[panel]} color={panels[panel] ? palette.chromeAccent : palette.chromeMuted} />}
-            tooltip={panelTooltip(panel, t)}
-            onPress={() => props.onTogglePanel(panel)}
-          />
-        ))}
-        <Divider palette={palette} />
-        <ChromeButton
-          palette={palette}
-          label={`${Math.round(props.zoom * 100)}% ▾`}
-          tooltip={t('window.topBar.zoom')}
-          isEnabled={props.hasDocument}
-          onPress={(event) => props.onOpenMenu('zoom', event.nativeEvent.pageX)}
-          minWidth={58}
-        />
-        <ChromeButton palette={palette} label="↶" fontSize={15} tooltip={t('window.topBar.undo')} isEnabled={props.canUndo} onPress={() => props.onCommand({ type: 'undo' })} />
-        <ChromeButton palette={palette} label="↷" fontSize={15} tooltip={t('window.topBar.redo')} isEnabled={props.canRedo} onPress={() => props.onCommand({ type: 'redo' })} />
+      <ViewButtons palette={palette} panels={panels} hasDocument={hasDocument} zoom={props.zoom} canUndo={props.canUndo} canRedo={props.canRedo} onTogglePanel={onTogglePanel} onOpenMenu={onOpenMenu} onCommand={onCommand} />
+      <View style={styles.transport}>
+        <TransportButtons palette={palette} hasDocument={hasDocument} isPlaying={props.isPlaying} onCommand={onCommand} />
+        <Lcd palette={palette} info={props.lcd} trackColor={props.trackColor} beat={props.beat} onSetTempo={props.onSetTempo} />
       </View>
-      <Transport {...props} />
       <View style={[styles.side, styles.right]}>
-        <PracticeButtons {...props} />
+        <PracticeButtons
+          palette={palette}
+          hasDocument={hasDocument}
+          isLooping={props.isLooping}
+          isMetronomeOn={props.isMetronomeOn}
+          isCountInOn={props.isCountInOn}
+          speedLabel={props.speedLabel}
+          onToggleLoop={props.onToggleLoop}
+          onTogglePractice={props.onTogglePractice}
+          onShiftSpeed={props.onShiftSpeed}
+          onOpenMenu={onOpenMenu}
+        />
         <Divider palette={palette} />
-        <ChromeButton
-          palette={palette}
-          label=""
-          icon={<PanelIcon side="keyboard" color={panels.keyboard ? palette.chromeAccent : palette.chromeMuted} />}
-          tooltip={t('window.topBar.keyboard')}
-          onPress={() => props.onTogglePanel('keyboard')}
-        />
-        <ChromeButton
-          palette={palette}
-          label=""
-          icon={<PanelIcon side="neck" color={panels.neck ? palette.chromeAccent : palette.chromeMuted} />}
-          tooltip={t('window.topBar.fretboard')}
-          onPress={() => props.onTogglePanel('neck')}
-        />
-        <ChromeButton palette={palette} label="?" fontSize={14} tooltip={t('window.topBar.shortcuts')} onPress={props.onShowShortcuts} />
+        <InstrumentButtons palette={palette} panels={panels} onTogglePanel={onTogglePanel} onShowShortcuts={props.onShowShortcuts} />
       </View>
     </View>
   );
 }
 
+type ViewButtonsProps = Pick<TopBarProps, 'palette' | 'panels' | 'hasDocument' | 'zoom' | 'canUndo' | 'canRedo' | 'onTogglePanel' | 'onOpenMenu' | 'onCommand'>;
+
+/** The palette, tracks and inspector toggles, zoom, undo and redo. */
+function ViewButtonsView({ palette, panels, hasDocument, zoom, canUndo, canRedo, onTogglePanel, onOpenMenu, onCommand }: ViewButtonsProps) {
+  const t = useT();
+  return (
+    <View style={styles.side}>
+      {(['palette', 'tracks', 'inspector'] as const).map((panel) => (
+        <ChromeButton
+          key={panel}
+          palette={palette}
+          label=""
+          icon={<PanelIcon side={PANEL_SIDES[panel]} color={panels[panel] ? palette.chromeAccent : palette.chromeMuted} />}
+          tooltip={panelTooltip(panel, t)}
+          onPress={() => onTogglePanel(panel)}
+        />
+      ))}
+      <Divider palette={palette} />
+      <ChromeButton palette={palette} label={`${Math.round(zoom * 100)}% ▾`} tooltip={t('window.topBar.zoom')} isEnabled={hasDocument} onPress={(event) => onOpenMenu('zoom', event.nativeEvent.pageX)} minWidth={58} />
+      <ChromeButton palette={palette} label="↶" fontSize={15} tooltip={t('window.topBar.undo')} isEnabled={canUndo} onPress={() => onCommand({ type: 'undo' })} />
+      <ChromeButton palette={palette} label="↷" fontSize={15} tooltip={t('window.topBar.redo')} isEnabled={canRedo} onPress={() => onCommand({ type: 'redo' })} />
+    </View>
+  );
+}
+
+const ViewButtons = memo(ViewButtonsView);
+
+type PracticeButtonsProps = Pick<
+  TopBarProps,
+  'palette' | 'hasDocument' | 'isLooping' | 'isMetronomeOn' | 'isCountInOn' | 'speedLabel' | 'onToggleLoop' | 'onTogglePractice' | 'onShiftSpeed' | 'onOpenMenu'
+>;
+
 /** Loop, metronome, count-in and the playback speed: −, the speed menu, +. */
-function PracticeButtons(props: TopBarProps) {
-  const { palette } = props;
+function PracticeButtonsView(props: PracticeButtonsProps) {
+  const { palette, hasDocument, onTogglePractice, onShiftSpeed, onOpenMenu } = props;
   const t = useT();
   return (
     <>
-      <ChromeButton
-        palette={palette}
-        label={t('window.topBar.loop')}
-        tooltip={t('window.topBar.loopTooltip')}
-        isActive={props.isLooping}
-        isEnabled={props.hasDocument}
-        onPress={props.onToggleLoop}
-      />
-      <ChromeButton palette={palette} label={t('common.metronome')} fontSize={11} tooltip={t('window.topBar.metronomeTooltip')} isActive={props.isMetronomeOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('metronome')} />
-      <ChromeButton palette={palette} label={t('window.countIn')} fontSize={11} tooltip={t('window.topBar.countInTooltip')} isActive={props.isCountInOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('countIn')} />
-      <ChromeButton
-        palette={palette}
-        label="▾"
-        fontSize={11}
-        minWidth={18}
-        tooltip={t('window.topBar.practiceMenu')}
-        isEnabled={props.hasDocument}
-        onPress={(event) => props.onOpenMenu('practice', event.nativeEvent.pageX)}
-      />
-      <ChromeButton palette={palette} label="−" fontSize={14} tooltip={t('window.topBar.slower')} isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(-SPEED_STEP_PERCENT)} />
+      <ChromeButton palette={palette} label={t('window.topBar.loop')} tooltip={t('window.topBar.loopTooltip')} isActive={props.isLooping} isEnabled={hasDocument} onPress={props.onToggleLoop} />
+      <ChromeButton palette={palette} label={t('common.metronome')} fontSize={11} tooltip={t('window.topBar.metronomeTooltip')} isActive={props.isMetronomeOn} isEnabled={hasDocument} onPress={() => onTogglePractice('metronome')} />
+      <ChromeButton palette={palette} label={t('window.countIn')} fontSize={11} tooltip={t('window.topBar.countInTooltip')} isActive={props.isCountInOn} isEnabled={hasDocument} onPress={() => onTogglePractice('countIn')} />
+      <ChromeButton palette={palette} label="▾" fontSize={11} minWidth={18} tooltip={t('window.topBar.practiceMenu')} isEnabled={hasDocument} onPress={(event) => onOpenMenu('practice', event.nativeEvent.pageX)} />
+      <ChromeButton palette={palette} label="−" fontSize={14} tooltip={t('window.topBar.slower')} isEnabled={hasDocument} onPress={() => onShiftSpeed(-SPEED_STEP_PERCENT)} />
       <ChromeButton
         palette={palette}
         label={`♩ ${props.speedLabel} ▾`}
         tooltip={t('window.topBar.speedMenu')}
-        isEnabled={props.hasDocument}
+        isEnabled={hasDocument}
         isActive={props.speedLabel !== '100%'}
-        onPress={(event) => props.onOpenMenu('speed', event.nativeEvent.pageX)}
+        onPress={(event) => onOpenMenu('speed', event.nativeEvent.pageX)}
         minWidth={72}
       />
-      <ChromeButton palette={palette} label="+" fontSize={14} tooltip={t('window.topBar.faster')} isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(SPEED_STEP_PERCENT)} />
+      <ChromeButton palette={palette} label="+" fontSize={14} tooltip={t('window.topBar.faster')} isEnabled={hasDocument} onPress={() => onShiftSpeed(SPEED_STEP_PERCENT)} />
     </>
   );
 }
 
-function Transport(props: TopBarProps) {
-  const { palette, hasDocument, isPlaying, onCommand } = props;
+const PracticeButtons = memo(PracticeButtonsView);
+
+type TransportButtonsProps = Pick<TopBarProps, 'palette' | 'hasDocument' | 'isPlaying' | 'onCommand'>;
+
+/** First, previous, play / stop, next, last (the LCD follows them). */
+function TransportButtonsView({ palette, hasDocument, isPlaying, onCommand }: TransportButtonsProps) {
   const t = useT();
   const jump = (jumpTo: 'first' | 'previous' | 'next' | 'last') => () => onCommand({ type: 'goToBar', jump: jumpTo });
   return (
-    <View style={styles.transport}>
+    <>
       <ChromeButton palette={palette} label="⏮︎" fontSize={14} tooltip={t('window.topBar.firstBar')} isEnabled={hasDocument} onPress={jump('first')} />
       <ChromeButton palette={palette} label="⏪︎" fontSize={14} tooltip={t('window.topBar.previousBar')} isEnabled={hasDocument} onPress={jump('previous')} />
       <ChromeButton
@@ -167,10 +166,39 @@ function Transport(props: TopBarProps) {
       />
       <ChromeButton palette={palette} label="⏩︎" fontSize={14} tooltip={t('window.topBar.nextBar')} isEnabled={hasDocument} onPress={jump('next')} />
       <ChromeButton palette={palette} label="⏭︎" fontSize={14} tooltip={t('window.topBar.lastBar')} isEnabled={hasDocument} onPress={jump('last')} />
-      <Lcd palette={palette} info={props.lcd} trackColor={props.trackColor} beat={props.beat} onSetTempo={props.onSetTempo} />
-    </View>
+    </>
   );
 }
+
+const TransportButtons = memo(TransportButtonsView);
+
+type InstrumentButtonsProps = Pick<TopBarProps, 'palette' | 'panels' | 'onTogglePanel' | 'onShowShortcuts'>;
+
+/** The piano keyboard and fretboard toggles and the shortcut sheet. */
+function InstrumentButtonsView({ palette, panels, onTogglePanel, onShowShortcuts }: InstrumentButtonsProps) {
+  const t = useT();
+  return (
+    <>
+      <ChromeButton
+        palette={palette}
+        label=""
+        icon={<PanelIcon side="keyboard" color={panels.keyboard ? palette.chromeAccent : palette.chromeMuted} />}
+        tooltip={t('window.topBar.keyboard')}
+        onPress={() => onTogglePanel('keyboard')}
+      />
+      <ChromeButton
+        palette={palette}
+        label=""
+        icon={<PanelIcon side="neck" color={panels.neck ? palette.chromeAccent : palette.chromeMuted} />}
+        tooltip={t('window.topBar.fretboard')}
+        onPress={() => onTogglePanel('neck')}
+      />
+      <ChromeButton palette={palette} label="?" fontSize={14} tooltip={t('window.topBar.shortcuts')} onPress={onShowShortcuts} />
+    </>
+  );
+}
+
+const InstrumentButtons = memo(InstrumentButtonsView);
 
 function Divider({ palette }: { readonly palette: Palette }) {
   return <View style={[styles.divider, { backgroundColor: palette.chromeRaised }]} />;
