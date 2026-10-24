@@ -150,6 +150,17 @@ function secondShifts(
   );
 }
 
+/** The event's noteheads at their staff positions, a second's note moved to the other side of the stem. */
+function placeHeads(event: VoiceEvent, direction: StemDirection, top: number): NoteHead[] {
+  const value = event.duration.value;
+  const column = value === WHOLE ? GLYPH_WIDTH.noteheadWhole : GLYPH_WIDTH.noteheadBlack;
+  const shifts = secondShifts(event.notes.map(note => note.position), direction, value !== WHOLE ? column - STEM.width : column);
+  return event.notes.map((note, i): NoteHead => {
+    const { glyph, width } = noteheadGlyph(note, value);
+    return { note, glyph, width, x: event.x - width / 2 + (shifts[i] ?? 0), y: positionY(top, note.position) };
+  });
+}
+
 export function layoutChord(
   event: VoiceEvent,
   eventIndex: number,
@@ -158,23 +169,7 @@ export function layoutChord(
 ): Chord {
   const value = event.duration.value;
   const hasStem = value !== WHOLE;
-  const column =
-    value === WHOLE ? GLYPH_WIDTH.noteheadWhole : GLYPH_WIDTH.noteheadBlack;
-  const shifts = secondShifts(
-    event.notes.map(note => note.position),
-    direction,
-    hasStem ? column - STEM.width : column,
-  );
-  const heads = event.notes.map((note, i): NoteHead => {
-    const { glyph, width } = noteheadGlyph(note, value);
-    return {
-      note,
-      glyph,
-      width,
-      x: event.x - width / 2 + (shifts[i] ?? 0),
-      y: positionY(top, note.position),
-    };
-  });
+  const heads = placeHeads(event, direction, top);
   const ys = heads.map(head => head.y);
   const lowest = Math.max(...ys);
   const highest = Math.min(...ys);
