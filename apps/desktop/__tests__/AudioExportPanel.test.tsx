@@ -1,6 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
-import type { Song } from '@gp-editor/core';
+import { type Song, buildAudioTrack } from '@gp-editor/core';
 import { AudioExportPanel } from '../src/components/AudioExportPanel';
 import { BarButton } from '../src/components/BarButton';
 import { type AudioExportOptions, DEFAULT_AUDIO_EXPORT } from '../src/export/audio-formats';
@@ -8,6 +8,13 @@ import type { AudioExportStatus } from '../src/hooks/use-audio-export';
 import type { LoopRange } from '../src/state/practice';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
+
+/** The audio track files the native side keeps (native/audio-track's isAudioLoaded). */
+const mockLoadedAudio = new Set<string>();
+
+jest.mock('../src/native/audio-track', () => ({
+  isAudioLoaded: (assetId: string) => mockLoadedAudio.has(assetId),
+}));
 
 const SONG: Song = makeSong([[beat(960, [note(1, 3)])], [beat(4800, [note(2, 5)])], [beat(8640, [note(3, 7)])]]);
 
@@ -196,5 +203,34 @@ describe('AudioExportPanel: exporting', () => {
 
     // Assert
     expect(rendered.onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AudioExportPanel: a song with an audio track', () => {
+  const WITH_AUDIO: Song = {
+    ...SONG,
+    audioTrack: buildAudioTrack({ assetId: 'take', syncPoints: [{ measureIndex: 1, occurrence: 0, position: 0, seconds: 4 }] }),
+  };
+
+  afterEach(() => mockLoadedAudio.clear());
+
+  it('says the song plays at the audio track’s pace, not at its own tempo, when its file is loaded', () => {
+    // Arrange
+    mockLoadedAudio.add('take');
+
+    // Act
+    const rendered = render({ song: WITH_AUDIO });
+
+    // Assert
+    expect(texts(rendered)).toContain('at the audio track’s pace with its recording under it.');
+    expect(texts(rendered)).not.toContain('at its own tempo');
+  });
+
+  it('says the song plays at its own tempo while the audio track’s file is not loaded', () => {
+    // Act
+    const rendered = render({ song: WITH_AUDIO });
+
+    // Assert
+    expect(texts(rendered)).toContain('repeats unfolded, at its own tempo.');
   });
 });

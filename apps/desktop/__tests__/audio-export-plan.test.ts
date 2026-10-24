@@ -1,6 +1,7 @@
 import { type Song, type Track, buildAudioTrack, renderMidi } from '@gp-editor/core';
 import { DEFAULT_AUDIO_EXPORT, type AudioExportOptions } from '../src/export/audio-formats';
 import {
+  audioExportDescription,
   audioExportSeconds,
   audioExportSummary,
   audioSavedHint,
@@ -193,6 +194,42 @@ describe('renderAudioFile: the audio track', () => {
   it('gives the length at the audio track’s pace when its file is loaded', () => {
     expect(audioExportSeconds(WITH_AUDIO, 'song', undefined, true)).toBe(renderMidi(WITH_AUDIO, { syncToAudioTrack: true }).durationSeconds);
     expect(audioExportSeconds(WITH_AUDIO, 'song', undefined, false)).toBe(renderMidi(WITH_AUDIO).durationSeconds);
+  });
+});
+
+describe('audioExportDescription', () => {
+  const MUTED_AUDIO: Song = { ...WITH_AUDIO, audioTrack: WITH_AUDIO.audioTrack === undefined ? undefined : { ...WITH_AUDIO.audioTrack, mute: true } };
+
+  it('says the song plays at its own tempo without an audio track, or when its file is not loaded', () => {
+    expect(audioExportDescription(ONE_TRACK, false, true)).toBe(
+      'The song as playback plays it: its sounds, volumes, effects and master mix, repeats unfolded, at its own tempo.',
+    );
+    expect(audioExportDescription(WITH_AUDIO, false, false)).toContain('at its own tempo.');
+  });
+
+  it('says the whole mix follows the audio track’s pace with the recording under it when its file is loaded', () => {
+    // Act
+    const description = audioExportDescription(WITH_AUDIO, false, true);
+
+    // Assert
+    expect(description).toBe(
+      'The song as playback plays it: its sounds, volumes, effects and master mix, repeats unfolded, at the audio track’s pace with its recording under it.',
+    );
+    expect(description).not.toContain('own tempo');
+  });
+
+  it('says a muted audio track still sets the pace but is not heard', () => {
+    expect(audioExportDescription(MUTED_AUDIO, false, true)).toContain('at the audio track’s pace; the audio track is muted, so it is not heard.');
+  });
+
+  it('says the files of one track each play at the written tempo, without the audio track', () => {
+    expect(audioExportDescription(WITH_AUDIO, true, true)).toContain('one file per track holds that track alone, at its own tempo, without the audio track.');
+  });
+});
+
+describe('audioExportSeconds: one file per track', () => {
+  it('gives the length at the written tempo, as the files of one track each are rendered', () => {
+    expect(audioExportSeconds(WITH_AUDIO, 'song', undefined, true, true)).toBe(renderMidi(WITH_AUDIO).durationSeconds);
   });
 });
 

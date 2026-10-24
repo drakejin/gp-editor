@@ -378,8 +378,9 @@ Guitar Pro's own files differently are listed, with that evidence, in
   metronome or a count-in), with a tail until reverbs and delays have died away (at most 10 s). Formats: *WAV*, *AIFF*
   or *FLAC* (16 or 24-bit), *MP3* (128, 192, 256 or 320 kbps, or VBR V2, by LAME) or *Ogg Vorbis* (quality 4, 6, 8 or
   10, by libvorbis), at 44.1 or 48 kHz. *Whole song* or the *Loop bars* (as written), *One file* (a save panel) or *One
-  file per track* (each playing track alone, into a folder you choose). The panel shows the progress with *Cancel*; the
-  hint strip says what was saved where.
+  file per track* (each playing track alone at the written tempo, into a folder you choose). The panel's first line says
+  at whose pace the song plays (its own tempo, or the audio track's); it shows the progress with *Cancel*; the hint
+  strip says what was saved where.
 - **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
   (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
   slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.

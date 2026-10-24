@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
-import { audioExportSeconds, audioExportSummary, planAudioExport } from '../export/audio-export-plan';
+import { audioExportDescription, audioExportSeconds, audioExportSummary, planAudioExport } from '../export/audio-export-plan';
 import {
   AUDIO_FORMATS,
   type AudioExportOptions,
@@ -111,9 +111,12 @@ function overallFraction(status: AudioExportStatus): number {
  */
 export function AudioExportPanel({ palette, song, fileName, loop, options, status, onChangeOptions, onExport, onCancel, onClose }: AudioExportPanelProps) {
   // A render of the song: again only for another song or range, not for another format.
-  // The length at the audio track's pace when it plays (its file loaded), as the export renders it.
+  // The length at the audio track's pace when it plays (its file loaded) under the whole mix, as the export renders it.
   const hasAudio = song.audioTrack !== undefined && isAudioLoaded(song.audioTrack.assetId);
-  const seconds = useMemo(() => audioExportSeconds(song, options.range, loop, hasAudio), [song, options.range, loop, hasAudio]);
+  const seconds = useMemo(
+    () => audioExportSeconds(song, options.range, loop, hasAudio, options.isPerTrack),
+    [song, options.range, loop, hasAudio, options.isPerTrack],
+  );
   const summary = audioExportSummary(song, fileName, options, loop, seconds);
   const hasFiles = useMemo(() => planAudioExport(song, fileName, options, loop).length > 0, [song, fileName, options, loop]);
   const isIdle = status.kind === 'idle';
@@ -122,9 +125,7 @@ export function AudioExportPanel({ palette, song, fileName, loop, options, statu
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>Export Audio</Text>
-        <Text style={[styles.hint, { color: palette.muted }]}>
-          The song as playback plays it: its sounds, volumes, effects and master mix, repeats unfolded, at its own tempo.
-        </Text>
+        <Text style={[styles.hint, { color: palette.muted }]}>{audioExportDescription(song, options.isPerTrack, hasAudio)}</Text>
       </View>
       <View style={styles.row}>
         <Text style={[styles.label, { color: palette.text }]}>Format</Text>

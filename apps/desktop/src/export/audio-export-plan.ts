@@ -1,5 +1,5 @@
 import { type MidiOptions, type Song, renderMidi } from '@gp-editor/core';
-import { type AudioPlayback, audioPlaybackOf } from '../lib/audio-track';
+import { type AudioPlayback, audioPlaybackOf, isAudioTrackAudible } from '../lib/audio-track';
 import { bytesToBase64 } from '../lib/base64';
 import { withoutExtension } from '../lib/file-name';
 import { formatClock } from '../lib/song-time';
@@ -106,9 +106,27 @@ export function renderAudioFile(song: Song, file: AudioExportFile, isAudioLoaded
   return { midi: bytesToBase64(render.bytes), seconds: render.durationSeconds, ...(audio === null ? {} : { audio }) };
 }
 
-/** The length of what is exported, before the tail (a render of the song: the panel keeps it while only the format changes). */
-export function audioExportSeconds(song: Song, range: AudioRange, loop: LoopRange | undefined, isAudioLoaded = false): number {
-  return renderMidi(song, audioOptions(song, rangeOptions(resolveAudioRange(range, loop)), isAudioLoaded)).durationSeconds;
+/**
+ * The length of what is exported, before the tail (a render of the song: the panel keeps it while only the format
+ * changes); at the audio track's pace for the whole mix, at the written tempo for the files of one track each.
+ */
+export function audioExportSeconds(song: Song, range: AudioRange, loop: LoopRange | undefined, isAudioLoaded = false, isPerTrack = false): number {
+  return renderMidi(song, audioOptions(song, rangeOptions(resolveAudioRange(range, loop)), isAudioLoaded && !isPerTrack)).durationSeconds;
+}
+
+const PLAYS_AS_PLAYBACK = 'The song as playback plays it: its sounds, volumes, effects and master mix, repeats unfolded';
+
+/** The panel's first line: what is rendered, and at whose pace (the audio track's when its file is loaded, as playback). */
+export function audioExportDescription(song: Song, isPerTrack: boolean, isAudioLoaded: boolean): string {
+  if (song.audioTrack === undefined || !isAudioLoaded) {
+    return `${PLAYS_AS_PLAYBACK}, at its own tempo.`;
+  }
+  if (isPerTrack) {
+    return `${PLAYS_AS_PLAYBACK}; one file per track holds that track alone, at its own tempo, without the audio track.`;
+  }
+  return isAudioTrackAudible(song)
+    ? `${PLAYS_AS_PLAYBACK}, at the audio track’s pace with its recording under it.`
+    : `${PLAYS_AS_PLAYBACK}, at the audio track’s pace; the audio track is muted, so it is not heard.`;
 }
 
 /** The panel's line: quality · length (`audioExportSeconds`) → the file (or the files, into a folder). */
