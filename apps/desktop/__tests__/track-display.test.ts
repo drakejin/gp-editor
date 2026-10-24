@@ -4,7 +4,7 @@ import {
   adjacentTrackIndex,
   isTrackShown,
   remapTrackDisplay,
-  setMultitrackMode,
+  setTrackMode,
   shownStaves,
   shownTrackIndexes,
   toggleMultitrack,
@@ -76,33 +76,34 @@ describe('toggling tracks and the multitrack view', () => {
 });
 
 describe('a track’s staves', () => {
-  it('follows the score’s mode outside the multitrack view and its own in it', () => {
+  it('keeps a track’s own staves in both views; a track without them follows the score’s mode', () => {
     // Arrange
-    const display = setMultitrackMode(MULTITRACK, 1, 'tab');
+    const display = setTrackMode(MULTITRACK, 1, 'tab');
 
     // Act + Assert
     expect(trackModeOf(display, 'notationAndTab', 1)).toBe('tab');
     expect(trackModeOf(display, 'notationAndTab', 0)).toBe('notationAndTab');
-    expect(trackModeOf({ ...display, isMultitrack: false }, 'notation', 1)).toBe('notation');
+    expect(trackModeOf({ ...display, isMultitrack: false }, 'notation', 1)).toBe('tab');
+    expect(trackModeOf({ ...display, isMultitrack: false }, 'notation', 0)).toBe('notation');
   });
 
   it('returns the same display when the mode is already set', () => {
-    const display = setMultitrackMode(MULTITRACK, 1, 'tab');
-    expect(setMultitrackMode(display, 1, 'tab')).toBe(display);
+    const display = setTrackMode(MULTITRACK, 1, 'tab');
+    expect(setTrackMode(display, 1, 'tab')).toBe(display);
   });
 });
 
 describe('remapTrackDisplay', () => {
   it('follows deleted and moved tracks', () => {
     // Arrange: track 1 deleted, tracks 2 and 3 move up
-    const display: TrackDisplay = { isMultitrack: true, hiddenTrackIndexes: [1, 3], multitrackModes: { 1: 'tab', 2: 'notation' } };
+    const display: TrackDisplay = { isMultitrack: true, hiddenTrackIndexes: [1, 3], trackModes: { 1: 'tab', 2: 'notation' } };
     const remap = (index: number) => (index === 1 ? undefined : index > 1 ? index - 1 : index);
 
     // Act
     const remapped = remapTrackDisplay(display, remap);
 
     // Assert
-    expect(remapped).toEqual({ isMultitrack: true, hiddenTrackIndexes: [2], multitrackModes: { 1: 'notation' } });
+    expect(remapped).toEqual({ isMultitrack: true, hiddenTrackIndexes: [2], trackModes: { 1: 'notation' } });
   });
 
   it('keeps the order of the hidden tracks after a move', () => {
@@ -111,7 +112,7 @@ describe('remapTrackDisplay', () => {
   });
 
   it('returns the same object when no index changes', () => {
-    const display: TrackDisplay = { ...MULTITRACK, hiddenTrackIndexes: [2], multitrackModes: { 0: 'tab' } };
+    const display: TrackDisplay = { ...MULTITRACK, hiddenTrackIndexes: [2], trackModes: { 0: 'tab' } };
     expect(remapTrackDisplay(display, (index) => index)).toBe(display);
   });
 });
@@ -136,7 +137,7 @@ describe('adjacentTrackIndex', () => {
 describe('shownStaves', () => {
   it('gives each shown track its staves', () => {
     // Arrange
-    const display = setMultitrackMode({ ...MULTITRACK, hiddenTrackIndexes: [1] }, 2, 'notation');
+    const display = setTrackMode({ ...MULTITRACK, hiddenTrackIndexes: [1] }, 2, 'notation');
 
     // Act
     const staves = shownStaves(display, 'tab', 3, 0);

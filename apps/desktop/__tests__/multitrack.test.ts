@@ -44,9 +44,23 @@ describe('the multitrack view in the editor', () => {
 
     // Assert
     expect(multitrack.mode).toBe('notationAndTab');
-    expect(multitrack.trackDisplay.multitrackModes).toEqual({ 0: 'tab' });
+    expect(multitrack.trackDisplay.trackModes).toEqual({ 0: 'tab' });
     expect(single.mode).toBe('tab');
-    expect(single.trackDisplay.multitrackModes).toEqual({});
+    expect(single.trackDisplay.trackModes).toEqual({});
+  });
+
+  it('changes a track’s own staves in the single-track view too, once it has them', () => {
+    // Act: track 1 gets tab-only staves in the multitrack view, then the single-track view shows track 1 alone
+    const own = run(threeTracks(), { type: 'toggleMultitrack' }, { type: 'selectTrack', trackIndex: 1 }, { type: 'setMode', mode: 'tab' }, { type: 'toggleMultitrack' });
+    const changed = run(own, { type: 'setMode', mode: 'notation' });
+    const other = run(changed, { type: 'selectTrack', trackIndex: 0 }, { type: 'setMode', mode: 'notation' });
+
+    // Assert
+    expect(own.trackDisplay.trackModes).toEqual({ 1: 'tab' });
+    expect(changed.trackDisplay.trackModes).toEqual({ 1: 'notation' });
+    expect(changed.mode).toBe('notationAndTab');
+    expect(other.mode).toBe('notation');
+    expect(other.trackDisplay.trackModes).toEqual({ 1: 'notation' });
   });
 });
 

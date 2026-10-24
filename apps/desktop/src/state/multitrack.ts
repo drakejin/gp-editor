@@ -5,7 +5,7 @@ import type { EditorState } from './editor';
 import {
   SELECTED_TRACK_SHOWN_HINT,
   adjacentTrackIndex,
-  setMultitrackMode,
+  setTrackMode,
   shownTrackIndexes,
   toggleMultitrack,
   toggleTrackShown,
@@ -88,10 +88,14 @@ export function placeCursor(state: EditorState, cursor: StringAddress): EditorSt
   return { ...state, trackIndex: isOtherTrack ? cursor.trackIndex : state.trackIndex, cursor: clampCursor(song, cursor) };
 }
 
-/** The Track inspector's notation (and View ▸ Show …): the selected track's own staves in the multitrack view, else the score's. */
+/**
+ * The Track inspector's notation (and View ▸ Show …): the selected track's own staves in the multitrack view or when it
+ * has some (a new drum track), else the score's.
+ */
 export function setScoreMode(state: EditorState, mode: ScoreMode): EditorState {
-  if (!state.trackDisplay.isMultitrack) {
+  const hasOwnStaves = state.trackDisplay.trackModes[state.trackIndex] !== undefined;
+  if (!state.trackDisplay.isMultitrack && !hasOwnStaves) {
     return { ...state, mode };
   }
-  return { ...state, trackDisplay: setMultitrackMode(state.trackDisplay, state.trackIndex, mode) };
+  return { ...state, trackDisplay: setTrackMode(state.trackDisplay, state.trackIndex, mode) };
 }

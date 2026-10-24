@@ -12,11 +12,14 @@ export interface TrackDisplay {
   readonly isMultitrack: boolean;
   /** Tracks the multitrack view leaves out (their eye is off); a track added later is shown. */
   readonly hiddenTrackIndexes: readonly number[];
-  /** A track's own staves in the multitrack view (the Track inspector's notation there); the score's mode otherwise. */
-  readonly multitrackModes: Readonly<Record<number, ScoreMode>>;
+  /**
+   * A track's own staves, in both views: set by the Track inspector's notation in the multitrack view, and a new drum
+   * track's (standard notation only, as Guitar Pro adds one); a track without them follows the score's mode.
+   */
+  readonly trackModes: Readonly<Record<number, ScoreMode>>;
 }
 
-export const INITIAL_TRACK_DISPLAY: TrackDisplay = { isMultitrack: false, hiddenTrackIndexes: [], multitrackModes: {} };
+export const INITIAL_TRACK_DISPLAY: TrackDisplay = { isMultitrack: false, hiddenTrackIndexes: [], trackModes: {} };
 
 /** The hint when the selected track's eye is clicked: it cannot be hidden. */
 export const SELECTED_TRACK_SHOWN_HINT = 'The selected track is always shown. Select another track to hide this one.';
@@ -40,9 +43,9 @@ export function isTrackShown(display: TrackDisplay, trackIndex: number, selected
   return trackIndex === selectedTrackIndex || (display.isMultitrack && !display.hiddenTrackIndexes.includes(trackIndex));
 }
 
-/** The staves a track is drawn with: its own in the multitrack view when it has them, else the score's mode. */
+/** The staves a track is drawn with: its own when it has them, else the score's mode. */
 export function trackModeOf(display: TrackDisplay, scoreMode: ScoreMode, trackIndex: number): ScoreMode {
-  return display.isMultitrack ? display.multitrackModes[trackIndex] ?? scoreMode : scoreMode;
+  return display.trackModes[trackIndex] ?? scoreMode;
 }
 
 /** View ▸ Multitrack on or off; the eyes are kept for the next time. */
@@ -67,9 +70,9 @@ export function toggleTrackShown(display: TrackDisplay, trackCount: number, sele
   return { ...display, hiddenTrackIndexes: hidden };
 }
 
-/** The track's staves in the multitrack view. */
-export function setMultitrackMode(display: TrackDisplay, trackIndex: number, mode: ScoreMode): TrackDisplay {
-  return display.multitrackModes[trackIndex] === mode ? display : { ...display, multitrackModes: { ...display.multitrackModes, [trackIndex]: mode } };
+/** The track's own staves. */
+export function setTrackMode(display: TrackDisplay, trackIndex: number, mode: ScoreMode): TrackDisplay {
+  return display.trackModes[trackIndex] === mode ? display : { ...display, trackModes: { ...display.trackModes, [trackIndex]: mode } };
 }
 
 /**
@@ -81,13 +84,13 @@ export function remapTrackDisplay(display: TrackDisplay, remap: (oldIndex: numbe
     const next = remap(index);
     return next === undefined ? [] : [next];
   });
-  const modes = Object.entries(display.multitrackModes).flatMap(([index, mode]): (readonly [number, ScoreMode])[] => {
+  const modes = Object.entries(display.trackModes).flatMap(([index, mode]): (readonly [number, ScoreMode])[] => {
     const next = remap(Number(index));
     return next === undefined ? [] : [[next, mode]];
   });
   const isSame = hidden.length === display.hiddenTrackIndexes.length && hidden.every((index, i) => index === display.hiddenTrackIndexes[i]) &&
-    modes.length === Object.keys(display.multitrackModes).length && modes.every(([index, mode]) => display.multitrackModes[index] === mode);
-  return isSame ? display : { ...display, hiddenTrackIndexes: [...hidden].sort((a, b) => a - b), multitrackModes: Object.fromEntries(modes) };
+    modes.length === Object.keys(display.trackModes).length && modes.every(([index, mode]) => display.trackModes[index] === mode);
+  return isSame ? display : { ...display, hiddenTrackIndexes: [...hidden].sort((a, b) => a - b), trackModes: Object.fromEntries(modes) };
 }
 
 /**

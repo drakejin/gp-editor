@@ -198,7 +198,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   widest track needs and beats played together under one another, bar lines through the system, the full names on the
   first system and short names after. The tracks panel's eyes choose the tracks shown (the selected track always is; an
   eye clicked without Multitrack turns it on with that track). In Multitrack the Track inspector's *Notation* sets the
-  selected track's own staves. Click a staff to work on its track; ↑ / ↓ past the first or last string go on into the
+  selected track's own staves (kept in the single-track view too). Click a staff to work on its track; ↑ / ↓ past the first or last string go on into the
   track above / below, ⌘↑ / ⌘↓ (View ▸ Previous / Next Track) go to the previous / next track; playback lights every
   shown track's beat; a drag selects on the track it began on. Export PDF / PNG and Print follow the shown tracks (*As
   Shown*, or all in one mode); a system taller than a page is printed smaller.
@@ -423,7 +423,8 @@ Guitar Pro's own files differently are listed, with that evidence, in
 - **Tracks**: Track ▸ Add Track… (⌥⌘N, or *+ Track* under the tracks) opens the Add Track panel — the instrument
   (guitar of 6, 7 or 8 strings, bass of 4, 5 or 6, banjo, ukulele, drums, piano, or any other General MIDI instrument),
   its sound, tuning (TuxGuitar's presets for each string count), capo and name; the track comes after the last one, on
-  a channel of its own (drums on MIDI channel 10), with a bar of rests under every bar. Track ▸ Duplicate Track puts a
+  a channel of its own (drums on MIDI channel 10, shown in standard notation only, as Guitar Pro adds them), with a bar
+  of rests under every bar. Track ▸ Duplicate Track puts a
   copy (notes, lyrics, effects, its own channel) right after the track; Delete Track (⌥⌘R) removes it — asking first
   when it has notes, never the last track; Move Track Up / Down, the ⧉ − ▲ ▼ buttons beside *+ Track*, or dragging a
   track's name up or down reorder the tracks. Each is one undo step, also in the command palette; the shown track, the

@@ -2,7 +2,7 @@ import { addTrack, buildNewSong } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { LAST_TRACK_HINT, trackStepAction } from '../src/state/track-edits';
 import { remapEditorTracks } from '../src/state/track-remap';
-import { shownTrackIndexes } from '../src/state/track-display';
+import { shownTrackIndexes, trackModeOf } from '../src/state/track-display';
 
 /** A new sheet with a bass and drums added (Track 1, Bass, Drums), the cursor on the bass's string 2 in bar 3. */
 function threeTrackState(): EditorState {
@@ -28,6 +28,23 @@ describe('editorReducer: adding tracks', () => {
     expect(added.trackIndex).toBe(3);
     expect(added.cursor).toMatchObject({ trackIndex: 3, measureIndex: 2, beatIndex: 0 });
     expect(added.past).toHaveLength(1);
+  });
+
+  it('shows a new drum track in standard notation only, in both views, and a new guitar in the score’s staves', () => {
+    // Arrange
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp', path: '/a.gp', song: buildNewSong() } });
+
+    // Act
+    const drums = run(loaded, { type: 'addTrack', track: { kind: 'drums' } });
+    const guitar = run(drums, { type: 'addTrack', track: { kind: 'guitar' } });
+    const multitrack = run(guitar, { type: 'toggleMultitrack' });
+
+    // Assert
+    expect(drums.trackIndex).toBe(1);
+    expect(trackModeOf(drums.trackDisplay, drums.mode, 1)).toBe('notation');
+    expect(trackModeOf(guitar.trackDisplay, guitar.mode, 2)).toBe('notationAndTab');
+    expect(trackModeOf(multitrack.trackDisplay, multitrack.mode, 1)).toBe('notation');
+    expect(trackModeOf(multitrack.trackDisplay, multitrack.mode, 0)).toBe('notationAndTab');
   });
 
   it('undoes an add (the last track left is shown) and redoes it', () => {
@@ -186,7 +203,7 @@ describe('editorReducer: tracks edited while the multitrack view shows some of t
     expect(shown(before)).toEqual(['Track 1', 'Drums', 'Piano']);
     expect(names(deleted)).toEqual(['Bass', 'Drums', 'Piano']);
     expect(shown(deleted)).toEqual(['Drums', 'Piano']);
-    expect(deleted.trackDisplay.multitrackModes).toEqual({ 1: 'tab' });
+    expect(deleted.trackDisplay.trackModes).toEqual({ 1: 'tab' });
   });
 
   it('moves a track’s eye and staves with the track', () => {
@@ -196,7 +213,7 @@ describe('editorReducer: tracks edited while the multitrack view shows some of t
     // Assert
     expect(names(moved)).toEqual(['Track 1', 'Drums', 'Piano', 'Bass']);
     expect(shown(moved)).toEqual(['Track 1', 'Drums', 'Piano']);
-    expect(moved.trackDisplay.multitrackModes).toEqual({ 1: 'tab' });
+    expect(moved.trackDisplay.trackModes).toEqual({ 1: 'tab' });
   });
 
   it('forgets a deleted track’s eye', () => {
