@@ -16,6 +16,8 @@ static const NSTimeInterval kAudioStartLead = 0.04;
 static const NSTimeInterval kAudioStartMargin = 0.01;
 /** Longest wait for the sequencer's first render before the audio track starts. */
 static const NSTimeInterval kFirstRenderTimeout = 0.5;
+/** How far the sequencer must be past its start to have rendered (its position, set before, reads back a hair off). */
+static const NSTimeInterval kRenderedStep = 0.001;
 
 @implementation GPMidiEngine {
   dispatch_queue_t _queue;
@@ -261,10 +263,19 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   return YES;
 }
 
-/** The host time the playing sequencer is at `seconds` of the song (now, when it cannot say). */
+/**
+ * The host time the playing sequencer is at `seconds` of the song (now, when it cannot say). -hostTimeForBeats:error:
+ * raises instead of answering an error when the sequencer cannot say (-startAudioAt: waits until it can): caught, so a
+ * case missed there costs the audio track's timing, not the app.
+ */
 - (uint64_t)hostTimeAtSeconds:(NSTimeInterval)seconds
 {
-  uint64_t hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds)] error:nil];
+  uint64_t hostTime = 0;
+  @try {
+    hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds)] error:nil];
+  } @catch (NSException *exception) {
+    os_log(OS_LOG_DEFAULT, "GPMidiEngine: no host time for %.3f s (%{public}@)", seconds, exception.reason);
+  }
   return hostTime == 0 ? mach_absolute_time() : hostTime;
 }
 
@@ -291,7 +302,7 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
     return;
   }
   CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + kFirstRenderTimeout;
-  while (_sequencer.currentPositionInSeconds <= seconds && CFAbsoluteTimeGetCurrent() < deadline) {
+  while (_sequencer.currentPositionInSeconds < seconds + kRenderedStep && CFAbsoluteTimeGetCurrent() < deadline) {
     usleep(1000);
   }
   NSTimeInterval position = _sequencer.currentPositionInSeconds;
@@ -300,7 +311,7 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   if (isLate) {
     at = position + kAudioStartLead;
   }
-  if (position <= seconds || (isLate && ![_audioTrack prepare:_audioPlayback fromSeconds:at error:nil])) {
+  if (position < seconds + kRenderedStep || (isLate && ![_audioTrack prepare:_audioPlayback fromSeconds:at error:nil])) {
     os_log(OS_LOG_DEFAULT, "GPMidiEngine: the audio track did not start (sequencer at %.3f s, started at %.3f s)", position, seconds);
     return;
   }
