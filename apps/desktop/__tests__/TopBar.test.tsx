@@ -82,7 +82,7 @@ describe('TopBar transport', () => {
   it('shows Stop while playing and marks the loop and a playback speed other than 100%', () => {
     const bar = render({ isPlaying: true, isLooping: true, speedLabel: '80%' });
     expect(bar.button('Stop').props.isActive).toBe(true);
-    expect(bar.button('Loop the bars').props.isActive).toBe(true);
+    expect(bar.button('Loop the selected bars').props.isActive).toBe(true);
     expect(bar.button('Playback speed').props.label).toBe('♩ 80% ▾');
     expect(bar.button('Playback speed').props.isActive).toBe(true);
   });
@@ -92,7 +92,7 @@ describe('TopBar transport', () => {
     const bar = render();
 
     // Act
-    bar.press('Loop the bars');
+    bar.press('Loop the selected bars');
     bar.press('Playback speed', 700);
     bar.press('Zoom', 300);
 

@@ -76,7 +76,7 @@ import { type EditorAction, isEdited } from './state/editor';
 import { stepZoom } from './state/panels';
 import { describeReference } from './song-writer/reference';
 import { playbackStartTempo, typedTempoAction } from './state/practice';
-import { selectedFragment, selectionRange, selectionSummary } from './state/selection';
+import { selectedFragment, selectionBars, selectionRange, selectionSummary } from './state/selection';
 import type { SongEdit } from './state/song-edits';
 import { NO_SELECTION_HINT, type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
@@ -362,8 +362,10 @@ export default function App() {
     recentFiles.dismissError();
   };
   const measureCount = song?.measureHeaders.length ?? 0;
-  const loopScope = { measureCount, cursorMeasureIndex: cursor?.measureIndex ?? 0 };
-  const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, loopScope.cursorMeasureIndex);
+  const cursorMeasureIndex = cursor?.measureIndex ?? 0;
+  // The loop turned on loops the selected bars, or the whole song with nothing selected.
+  const loopScope = { measureCount, selection: selectionBars({ cursor, selectionAnchor }) };
+  const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, cursorMeasureIndex);
   // What the command palette's commands call: the handlers of the menus, keys and buttons.
   const commandActions: CommandActions = {
     runCommand: commands.runCommand,
@@ -685,7 +687,7 @@ export default function App() {
               practice={playback.practice}
               writtenTempo={writtenTempo}
               measureCount={measureCount}
-              cursorMeasureIndex={loopScope.cursorMeasureIndex}
+              cursorMeasureIndex={cursorMeasureIndex}
               onChangePractice={playback.changePractice}
               onClose={chrome.closeMenu}
             />

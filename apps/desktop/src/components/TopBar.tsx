@@ -113,7 +113,7 @@ function PracticeButtons(props: TopBarProps) {
       <ChromeButton
         palette={palette}
         label="⟲ Loop"
-        tooltip="Loop the bars set in the speed menu"
+        tooltip="Loop the selected bars, or the whole song with nothing selected"
         isActive={props.isLooping}
         isEnabled={props.hasDocument}
         onPress={props.onToggleLoop}

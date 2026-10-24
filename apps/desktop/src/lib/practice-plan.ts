@@ -61,7 +61,7 @@ function sameTempoPasses(passTempos: readonly number[]): readonly number[] {
 
 /** A batch of loop passes; undefined when the loop's first bar is missing (a song without bars). */
 function planLoop(song: Song, practice: PracticeSettings, request: PlayRequest): PlaybackPlan | undefined {
-  const range = resolveLoopRange(practice.loop, song.measureHeaders.length, request.measureIndex);
+  const range = resolveLoopRange(practice.loop, song.measureHeaders.length);
   const barTempo = song.measureHeaders[range.fromMeasureIndex]?.tempo;
   if (barTempo === undefined) {
     return undefined;

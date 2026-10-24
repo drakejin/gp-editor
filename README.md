@@ -448,9 +448,12 @@ Guitar Pro's own files differently are listed, with that evidence, in
     5 BPM steps — also `]` / `[` on the keyboard — (25%–300% of the written tempo, never under 20 BPM). Every tempo of the song is scaled alike, so tempo
     changes keep their proportions; to change the written tempo use the palette's Tempo instead. The LCD shows the
     playing tempo and the percentage.
-  - *Loop*: ⟲ Loop turns it on (the first time, for the cursor's bar); the speed menu's *Loop bars* pick the first and
-    last bar with −/+, or *From cursor* / *To cursor* (the other end moves along so From ≤ To). While looping, Space / ▶
-    plays those bars until stopped, straight through as written — repeat signs inside the loop are not followed.
+  - *Loop*: as in Guitar Pro 8, ⟲ Loop loops the selected bars (drag across the score first), or the whole song with
+    nothing selected; beats selected and played while it is on become the loop. The speed menu's *Loop bars* pick the
+    first and last bar with −/+, or *From cursor* / *To cursor* (the other end moves along so From ≤ To); turning the
+    loop off forgets them. While looping, Space / ▶ plays those bars until stopped — from the selection's first beat or
+    the cursor's bar when inside the loop, else from its first bar — straight through as written: repeat signs inside
+    the loop are not followed.
   - *Speed trainer* (in the speed menu, while looping): `+n BPM` each pass (0 = off, up to 20), *Up to* ♩ M (default:
     the written tempo or 20 BPM above the playback tempo, whichever is higher). The LCD shows the pass and its tempo.
   - *Metronome* (top bar, ⌥M): a click on every beat — the first of the bar on the high wood block, the others on the

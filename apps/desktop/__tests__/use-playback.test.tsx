@@ -1,7 +1,7 @@
 import { type Song, buildEffect, setTrackEffects } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type Playback, usePlayback } from '../src/hooks/use-playback';
-import { beat, header, makeSong, note, toTux } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note, toTux } from '../test-support/songs';
 
 const mockPlayer = {
   play: jest.fn<Promise<void>, [string, number?]>(),
@@ -129,7 +129,7 @@ describe('usePlayback practice', () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderHook();
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1 }),
     );
     ReactTestRenderer.act(() => hook.current().start(0));
     await settle();
@@ -166,10 +166,10 @@ describe('usePlayback practice', () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderHook(threeBars);
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3 }),
     );
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'setLoopTo', measureIndex: 2, measureCount: 3, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'setLoopTo', measureIndex: 2, measureCount: 3 }),
     );
     ReactTestRenderer.act(() => hook.current().start(0));
     await settle();
@@ -185,6 +185,23 @@ describe('usePlayback practice', () => {
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
     expect(mockPlayer.play.mock.calls[0]?.[1]).toBe(0);
     expect(mockPlayer.play.mock.calls[1]?.[1]).toBeCloseTo(1.6, 6);
+    hook.unmount();
+  });
+
+  it('starts a loop at the bar and beat asked when they are inside it (a selection’s first beat)', async () => {
+    // Arrange: looping bars 2–3 of three bars at 120 BPM
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook(threeBars);
+    ReactTestRenderer.act(() =>
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3, selection: { fromMeasureIndex: 1, toMeasureIndex: 2 } }),
+    );
+
+    // Act: from bar 3's second beat
+    ReactTestRenderer.act(() => hook.current().start(2, fromTux(9600)));
+    await settle();
+
+    // Assert: bar 2 lasts 2 s and bar 3's second beat is 0.5 s into bar 3
+    expect(mockPlayer.play.mock.calls[0]?.[1]).toBeCloseTo(2.5, 6);
     hook.unmount();
   });
 
@@ -206,7 +223,7 @@ describe('usePlayback practice', () => {
     // Arrange: a loop on a bar written at 0 BPM cannot be scaled.
     const hook = renderHook(makeSong([[beat(960, [note(1, 0)])]], [header(1, { tempo: 0 })]));
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1 }),
     );
 
     // Act

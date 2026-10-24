@@ -1,6 +1,6 @@
 import type { Song } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { selectedFragment, selectionRange, selectionSummary } from '../src/state/selection';
+import { selectedFragment, selectionBars, selectionRange, selectionSummary } from '../src/state/selection';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const BAR = 3840;
@@ -42,6 +42,16 @@ describe('selection', () => {
     expect(twice.selectionAnchor).toEqual(state.cursor);
     expect(twice.cursor).toMatchObject({ measureIndex: 0, beatIndex: 2 });
     expect(selectionRange(twice)).toEqual({ first: { measureIndex: 0, beatIndex: 0 }, last: { measureIndex: 0, beatIndex: 2 } });
+  });
+
+  it('gives the bars a selection spans, first to last, for the loop; nothing without a selection', () => {
+    // Arrange: from bar 2's second beat back across the bar line into bar 1
+    const placed = reduce(loaded(), { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 1 } });
+    const backwards = reduce(placed, { type: 'extendSelection', step: -1 }, { type: 'extendSelection', step: -1 });
+
+    // Act / Assert
+    expect(selectionBars(backwards)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 1 });
+    expect(selectionBars(placed)).toBeUndefined();
   });
 
   it('orders the range when it grows backwards across a bar line', () => {

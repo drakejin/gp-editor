@@ -2,7 +2,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { type EditorCommands, useEditorCommands } from '../src/hooks/use-editor-commands';
 import type { Playback } from '../src/hooks/use-playback';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { INITIAL_PRACTICE } from '../src/state/practice';
+import { INITIAL_PRACTICE, type PracticeSettings } from '../src/state/practice';
 import { beat, fromTux, makeSong } from '../test-support/songs';
 
 jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
@@ -31,7 +31,12 @@ function openSong(): EditorState {
   return editorReducer(loaded, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 2, beatIndex: 0, voiceIndex: 0, string: 3 } });
 }
 
-function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = false, isOverlayOpen = false): { commands: EditorCommands; sources: Sources } {
+function renderCommands(
+  state: EditorState = INITIAL_EDITOR_STATE,
+  isPlaying = false,
+  isOverlayOpen = false,
+  practice: PracticeSettings = INITIAL_PRACTICE,
+): { commands: EditorCommands; sources: Sources } {
   const sources: Sources = {
     dispatch: jest.fn(),
     create: jest.fn(),
@@ -48,7 +53,7 @@ function renderCommands(state: EditorState = INITIAL_EDITOR_STATE, isPlaying = f
     changePractice: jest.fn(),
     clipboard: { copy: jest.fn(), cut: jest.fn(), paste: jest.fn() },
   };
-  const playback = { isPlaying, start: sources.start, stop: sources.stop, practice: INITIAL_PRACTICE, changePractice: sources.changePractice } as unknown as Playback;
+  const playback = { isPlaying, start: sources.start, stop: sources.stop, practice, changePractice: sources.changePractice } as unknown as Playback;
   let commands: EditorCommands | undefined;
   function Probe() {
     commands = useEditorCommands({ ...sources, state, playback, openPath: jest.fn(), keyboardView: { current: null }, isOverlayOpen });
@@ -265,5 +270,33 @@ describe('useEditorCommands: playing a selection', () => {
     const { commands, sources } = renderCommands(openSong());
     commands.runCommand({ type: 'togglePlayback' });
     expect(sources.start).toHaveBeenCalledWith(2);
+  });
+
+  it('loops the selected bars from the selection’s first beat while the loop is on', () => {
+    // Arrange: looping (the whole song), beats of bars 2–3 selected, the drag ending in bar 3
+    const selected = { ...openSong(), selectionAnchor: { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 3 } };
+    const { commands, sources } = renderCommands(selected, false, false, { ...INITIAL_PRACTICE, isLooping: true });
+
+    // Act
+    commands.runCommand({ type: 'togglePlayback' });
+
+    // Assert: the loop becomes bars 2–3 before playback starts at bar 2's first beat
+    expect(sources.changePractice).toHaveBeenCalledWith({ type: 'setLoop', range: { fromMeasureIndex: 1, toMeasureIndex: 2 }, measureCount: 4 });
+    expect(sources.start).toHaveBeenCalledWith(1, fromTux(4800));
+    expect(sources.changePractice.mock.invocationCallOrder[0]).toBeLessThan(sources.start.mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it('keeps the loop as it is when playback starts with nothing selected', () => {
+    const { commands, sources } = renderCommands(openSong(), false, false, { ...INITIAL_PRACTICE, isLooping: true });
+    commands.runCommand({ type: 'togglePlayback' });
+    expect(sources.changePractice).not.toHaveBeenCalled();
+    expect(sources.start).toHaveBeenCalledWith(2);
+  });
+
+  it('leaves the loop alone when it is off', () => {
+    const selected = { ...openSong(), selectionAnchor: { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 3 } };
+    const { commands, sources } = renderCommands(selected);
+    commands.runCommand({ type: 'togglePlayback' });
+    expect(sources.changePractice).not.toHaveBeenCalled();
   });
 });
