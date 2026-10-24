@@ -6,7 +6,7 @@
 // behaviour is checked; everyday QA uses the unsandboxed copy made by scripts/qa/run.sh.
 //
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
-//          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}},
+//          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}, {"rightClick": {"x": 300, "y": 200}}, {"controlClick": …},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
@@ -20,6 +20,8 @@
 
 static NSString *const kScriptVariable = @"GPEDITOR_QA_SCRIPT";
 static const int64_t kStartDelaySeconds = 3;
+/** How long a right click keeps the window moved: the queued mouse-up is handled well within it, the next step comes after. */
+static const double kRightClickHoldSeconds = 0.2;
 
 @interface GPQADriver : NSObject
 @property(nonatomic, copy) NSArray<NSDictionary *> *steps;
@@ -110,6 +112,14 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   }
   if (step[@"click"] != nil) {
     [self clickAt:[self windowPoint:step[@"click"] in:window] window:window];
+    return 0.4;
+  }
+  if (step[@"rightClick"] != nil) {
+    [self rightClickAt:[self windowPoint:step[@"rightClick"] in:window] window:window];
+    return 0.4;
+  }
+  if (step[@"controlClick"] != nil) {
+    [self controlClickAt:[self windowPoint:step[@"controlClick"] in:window] window:window];
     return 0.4;
   }
   if (step[@"drag"] != nil) {
@@ -206,9 +216,14 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 
 - (NSEvent *)mouseEvent:(NSEventType)type at:(NSPoint)location window:(NSWindow *)window
 {
+  return [self mouseEvent:type at:location flags:0 window:window];
+}
+
+- (NSEvent *)mouseEvent:(NSEventType)type at:(NSPoint)location flags:(NSEventModifierFlags)flags window:(NSWindow *)window
+{
   return [NSEvent mouseEventWithType:type
                             location:location
-                       modifierFlags:0
+                       modifierFlags:flags
                            timestamp:NSProcessInfo.processInfo.systemUptime
                         windowNumber:window.windowNumber
                              context:nil
@@ -225,6 +240,33 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 {
   [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location window:window] atStart:NO];
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location window:window]];
+}
+
+/**
+ * Right mouse down, then up (queued first, as for a click): a view with onAuxClick gets it, a Pressable is not pressed.
+ * react-native-macos takes that click's place from the real pointer (mouseLocationOutsideOfEventStream), not the event,
+ * so the window moves for a moment to put `location` under the pointer; the pointer itself is left where it is.
+ */
+- (void)rightClickAt:(NSPoint)location window:(NSWindow *)window
+{
+  NSPoint origin = window.frame.origin;
+  NSPoint pointer = NSEvent.mouseLocation;
+  [window setFrameOrigin:NSMakePoint(pointer.x - location.x, pointer.y - location.y)];
+  NSPoint seen = window.mouseLocationOutsideOfEventStream;
+  CGFloat height = window.contentView.bounds.size.height;
+  [self log:[NSString stringWithFormat:@"rightClick: the pointer is at %.1f, %.1f", seen.x, height - seen.y]];
+  [NSApp postEvent:[self mouseEvent:NSEventTypeRightMouseUp at:location window:window] atStart:NO];
+  [window sendEvent:[self mouseEvent:NSEventTypeRightMouseDown at:location window:window]];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRightClickHoldSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [window setFrameOrigin:origin];
+  });
+}
+
+/** A click with control held (macOS's other right click): a Pressable is pressed with ctrlKey. */
+- (void)controlClickAt:(NSPoint)location window:(NSWindow *)window
+{
+  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location flags:NSEventModifierFlagControl window:window] atStart:NO];
+  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location flags:NSEventModifierFlagControl window:window]];
 }
 
 /** Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. */

@@ -87,7 +87,7 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"open": "/abs/file"}` hands a file over as Finder does
 - `{"notify": "GPEditorExportCommand"}` posts a menu notification (`GPEditorNotifications.h`); `"object"` is passed
   along (e.g. the score mode of `GPEditorNewCommand`)
-- `{"wait": 1500}` · `{"click": {"x": 300, "y": 200}}` (the mouse-up is queued first, so a click into a text field works) · `{"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}` (do not send Escape into a focused text field: AppKit rejects the synthetic event and the app aborts) · `{"scroll": {"x": 600, "y": 400, "dy": -300}}`
+- `{"wait": 1500}` · `{"click": {"x": 300, "y": 200}}` (the mouse-up is queued first, so a click into a text field works) · `{"rightClick": {"x": 300, "y": 200}}` (a view's `onAuxClick`; react-native-macos takes its place from the real pointer, so the window moves for a moment to put the point under it, and the log says where the pointer was) · `{"controlClick": {"x": 300, "y": 200}}` (a ⌃-click: a Pressable's press with `ctrlKey`) · `{"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}` (do not send Escape into a focused text field: AppKit rejects the synthetic event and the app aborts) · `{"scroll": {"x": 600, "y": 400, "dy": -300}}`
 - `{"key": "z", "modifiers": ["cmd", "shift", "alt", "ctrl"]}` — ArrowUp/Down/Left/Right, Backspace, Delete, Escape,
   Enter, Tab, else the character
 - `{"resize": {"width": 1100, "height": 760}}` · `{"appearance": "dark"}` (anything else is light)

@@ -20,7 +20,7 @@ function render(panel: NotePanel, shown: Note) {
   const grid = () => renderer.root.findByProps({ testID: 'curve-grid' });
   const mouse = (x: number, y: number, extra: object = {}) => ({ nativeEvent: { locationX: x, locationY: y, pageX: x + 500, pageY: y + 300, ...extra } });
   const pressGrid = (x: number, y: number, extra: object = {}) => ReactTestRenderer.act(() => grid().props.onPressIn(mouse(x, y, extra)));
-  const moveTo = (x: number, y: number) => ReactTestRenderer.act(() => grid().props.onPressMove(mouse(x, y)));
+  const moveTo = (x: number, y: number, extra: object = {}) => ReactTestRenderer.act(() => grid().props.onPressMove(mouse(x, y, extra)));
   const release = () => ReactTestRenderer.act(() => grid().props.onPressOut());
   const readout = () => renderer.root.findByProps({ testID: 'curve-readout' }).props.children as string;
   const dots = () =>
@@ -90,6 +90,26 @@ describe('tremolo bar panel (the palette’s W.bar)', () => {
     });
   });
 
+  it('keeps a dragged point under the pointer, measured from the grid, when the grid moves or the pointer leaves it', () => {
+    // Arrange
+    const panel = render('tremoloBar', note(3, 7, { tremoloBar: TREMOLO_BAR_PRESETS.dip }));
+    const dip = whammyAt(6, -4);
+    const target = whammyAt(6, -8);
+    const gridShift = 30;
+
+    // Act
+    panel.pressGrid(dip.x + 2, dip.y - 3);
+    panel.moveTo(target.x + 2, target.y - 3, { pageY: target.y - 3 + 300 + gridShift });
+    const followed = panel.readout();
+    panel.moveTo(target.x + 2, CURVE_GRID.height + 200);
+    const below = panel.readout();
+    panel.release();
+
+    // Assert
+    expect(followed).toBe('Point 2 of 3: 6/12 of the note, −2 tones');
+    expect(below).toBe('Point 2 of 3: 6/12 of the note, −3 tones');
+  });
+
   it('selects a point, shows it, steps it and deletes it', () => {
     // Arrange
     const panel = render('tremoloBar', note(3, 7, { tremoloBar: TREMOLO_BAR_PRESETS.dip }));
@@ -138,10 +158,31 @@ describe('tremolo bar panel (the palette’s W.bar)', () => {
     expect(panel.onEdit).toHaveBeenCalledWith({ type: 'setTremoloBar', tremoloBar: undefined });
   });
 
-  it('says when a .gp file cannot keep the curve point for point', () => {
-    const panel = render('tremoloBar', note(3, 7, { tremoloBar: { points: [{ position: 0, value: 0 }, { position: 3, value: -4 }, { position: 6, value: 2 }, { position: 9, value: -2 }, { position: 12, value: 0 }] } }));
-    const texts = panel.renderer.root.findAll((node) => typeof node.props.children === 'string').map((node) => node.props.children as string);
-    expect(texts.some((text) => text.startsWith('A .gp file (Guitar Pro 7/8) keeps a simpler curve'))).toBe(true);
+  it('says when a .gp file cannot keep the curve point for point, in a line kept for it either way', () => {
+    // Arrange
+    const hint = (shown: Note) => render('tremoloBar', shown).renderer.root.findByProps({ testID: 'curve-gpif-hint' }).props.children as string;
+    const zigzag = { points: [{ position: 0, value: 0 }, { position: 3, value: -4 }, { position: 6, value: 2 }, { position: 9, value: -2 }, { position: 12, value: 0 }] };
+
+    // Act
+    const zigzagHint = hint(note(3, 7, { tremoloBar: zigzag }));
+    const dipHint = hint(note(3, 7, { tremoloBar: TREMOLO_BAR_PRESETS.dip }));
+
+    // Assert
+    expect(zigzagHint).toMatch(/^A \.gp file \(Guitar Pro 7\/8\) keeps a simpler curve/);
+    expect(dipHint).toBe('');
+  });
+
+  it('leaves the curve as it is when a right click or a ⌃-click misses every point', () => {
+    // Arrange
+    const panel = render('tremoloBar', note(3, 7, { tremoloBar: TREMOLO_BAR_PRESETS.dip }));
+    const empty = whammyAt(3, 8);
+
+    // Act
+    ReactTestRenderer.act(() => panel.grid().props.onAuxClick({ nativeEvent: { clientX: empty.x, clientY: empty.y, button: 2 } }));
+    panel.pressGrid(empty.x, empty.y, { ctrlKey: true });
+
+    // Assert
+    expect(panel.dots()).toHaveLength(3);
   });
 
   it('stops previewing when it closes', () => {
