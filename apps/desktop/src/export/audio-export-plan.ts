@@ -1,4 +1,5 @@
 import { type MidiOptions, type Song, renderMidi } from '@gp-editor/core';
+import { type AudioPlayback, audioPlaybackOf } from '../lib/audio-track';
 import { bytesToBase64 } from '../lib/base64';
 import { withoutExtension } from '../lib/file-name';
 import { formatClock } from '../lib/song-time';
@@ -10,7 +11,8 @@ import { pngFilesText } from './png-export';
 /**
  * What File ▸ Export Audio… renders: the song as playback plays it (gp-core's renderMidi — repeats unfolded, the
  * written tempo, mute and solo honoured; never the practice speed, a metronome or a count-in), or the loop's bars as
- * written; one file, or one per playing track with that track alone.
+ * written; one file, or one per playing track with that track alone. A song whose audio track's file is loaded plays
+ * at its pace, as playback does, and the whole mix has the audio under it (the files of one track each do not).
  */
 
 /** One file to render: its name, the track it holds alone (one file per track), and renderMidi's options. */
@@ -20,10 +22,12 @@ export interface AudioExportFile {
   readonly midiOptions: MidiOptions;
 }
 
-/** A rendered file: its MIDI (base64) and the song's length in seconds (the native side adds the tail). */
+/** A rendered file: its MIDI (base64), the song's length in seconds (the native side adds the tail), the audio under it. */
 export interface RenderedAudioFile {
   readonly midi: string;
   readonly seconds: number;
+  /** The audio track's runs under the whole mix (GPAudioTrackPlayer's playback); absent without one. */
+  readonly audio?: AudioPlayback;
 }
 
 /** A file the native side wrote. */
@@ -53,6 +57,11 @@ export function resolveAudioRange(range: AudioRange, loop: LoopRange | undefined
 
 function rangeOptions(loop: LoopRange | undefined): MidiOptions {
   return loop === undefined ? {} : { fromHeaderIndex: loop.fromMeasureIndex, toHeaderIndex: loop.toMeasureIndex };
+}
+
+/** renderMidi's options with the score following the audio track when it plays (its file loaded), as playback does. */
+function audioOptions(song: Song, options: MidiOptions, isAudioLoaded: boolean): MidiOptions {
+  return isAudioLoaded && song.audioTrack !== undefined ? { ...options, syncToAudioTrack: true } : options;
 }
 
 /** "Song", or "Song (bars 5–12)" / "Song (bar 5)" for the loop's bars; file-safe ("AC:DC" → "AC-DC"). */
@@ -89,14 +98,17 @@ export function planAudioExport(song: Song, fileName: string, options: AudioExpo
   }));
 }
 
-export function renderAudioFile(song: Song, file: AudioExportFile): RenderedAudioFile {
-  const render = renderMidi(song, file.midiOptions);
-  return { midi: bytesToBase64(render.bytes), seconds: render.durationSeconds };
+/** A file's MIDI and length; the whole mix with the audio track under it when its file is loaded (`isAudioLoaded`). */
+export function renderAudioFile(song: Song, file: AudioExportFile, isAudioLoaded = false): RenderedAudioFile {
+  const isWholeMix = file.trackIndex === undefined;
+  const render = renderMidi(song, isWholeMix ? audioOptions(song, file.midiOptions, isAudioLoaded) : file.midiOptions);
+  const audio = isWholeMix ? audioPlaybackOf(song, render.audioRuns) : null;
+  return { midi: bytesToBase64(render.bytes), seconds: render.durationSeconds, ...(audio === null ? {} : { audio }) };
 }
 
 /** The length of what is exported, before the tail (a render of the song: the panel keeps it while only the format changes). */
-export function audioExportSeconds(song: Song, range: AudioRange, loop: LoopRange | undefined): number {
-  return renderMidi(song, rangeOptions(resolveAudioRange(range, loop))).durationSeconds;
+export function audioExportSeconds(song: Song, range: AudioRange, loop: LoopRange | undefined, isAudioLoaded = false): number {
+  return renderMidi(song, audioOptions(song, rangeOptions(resolveAudioRange(range, loop)), isAudioLoaded)).durationSeconds;
 }
 
 /** The panel's line: quality · length (`audioExportSeconds`) → the file (or the files, into a folder). */

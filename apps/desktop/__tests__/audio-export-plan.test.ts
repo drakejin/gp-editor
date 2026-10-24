@@ -1,4 +1,4 @@
-import { type Song, type Track, renderMidi } from '@gp-editor/core';
+import { type Song, type Track, buildAudioTrack, renderMidi } from '@gp-editor/core';
 import { DEFAULT_AUDIO_EXPORT, type AudioExportOptions } from '../src/export/audio-formats';
 import {
   audioExportSeconds,
@@ -138,6 +138,61 @@ describe('renderAudioFile', () => {
     // Assert
     expect(base64ToBytes(rendered?.midi ?? '')).toEqual(expected.bytes);
     expect(rendered?.seconds).toBe(expected.durationSeconds);
+  });
+});
+
+/** ONE_TRACK with a recording under it: bar 2 starts 3 s into the audio, bar 4 at 6.5 s (the score follows it). */
+const WITH_AUDIO: Song = {
+  ...ONE_TRACK,
+  audioTrack: buildAudioTrack({
+    assetId: 'take',
+    volume: 0.5,
+    detuneCents: 20,
+    syncPoints: [
+      { measureIndex: 1, occurrence: 0, position: 0, seconds: 3 },
+      { measureIndex: 3, occurrence: 0, position: 0, seconds: 6.5 },
+    ],
+  }),
+};
+
+describe('renderAudioFile: the audio track', () => {
+  it('plays the song at its audio track’s pace with the audio under it, as playback does, when its file is loaded', () => {
+    // Arrange
+    const [file] = planAudioExport(WITH_AUDIO, 'Song.gp', WAV, undefined);
+    const expected = renderMidi(WITH_AUDIO, { syncToAudioTrack: true });
+
+    // Act
+    const rendered = file === undefined ? undefined : renderAudioFile(WITH_AUDIO, file, true);
+
+    // Assert
+    expect(base64ToBytes(rendered?.midi ?? '')).toEqual(expected.bytes);
+    expect(rendered?.seconds).toBe(expected.durationSeconds);
+    expect(rendered?.audio).toEqual({ assetId: 'take', runs: expected.audioRuns, gain: expect.any(Number), detuneCents: 20 });
+    expect(expected.audioRuns?.length).toBeGreaterThan(0);
+  });
+
+  it('leaves the audio out when its file is not loaded, when it is muted, and from the files of one track each', () => {
+    // Arrange
+    const [whole] = planAudioExport(WITH_AUDIO, 'Song.gp', WAV, undefined);
+    const [alone] = planAudioExport(WITH_AUDIO, 'Song.gp', { ...WAV, isPerTrack: true }, undefined);
+    const muted: Song = { ...WITH_AUDIO, audioTrack: WITH_AUDIO.audioTrack === undefined ? undefined : { ...WITH_AUDIO.audioTrack, mute: true } };
+
+    // Act
+    const notLoaded = whole === undefined ? undefined : renderAudioFile(WITH_AUDIO, whole, false);
+    const silent = whole === undefined ? undefined : renderAudioFile(muted, whole, true);
+    const oneTrack = alone === undefined ? undefined : renderAudioFile(WITH_AUDIO, alone, true);
+
+    // Assert
+    expect(notLoaded?.audio).toBeUndefined();
+    expect(base64ToBytes(notLoaded?.midi ?? '')).toEqual(renderMidi(WITH_AUDIO).bytes);
+    expect(silent?.audio).toBeUndefined();
+    expect(oneTrack?.audio).toBeUndefined();
+    expect(base64ToBytes(oneTrack?.midi ?? '')).toEqual(renderMidi(WITH_AUDIO, { trackIndexes: [0] }).bytes);
+  });
+
+  it('gives the length at the audio track’s pace when its file is loaded', () => {
+    expect(audioExportSeconds(WITH_AUDIO, 'song', undefined, true)).toBe(renderMidi(WITH_AUDIO, { syncToAudioTrack: true }).durationSeconds);
+    expect(audioExportSeconds(WITH_AUDIO, 'song', undefined, false)).toBe(renderMidi(WITH_AUDIO).durationSeconds);
   });
 });
 

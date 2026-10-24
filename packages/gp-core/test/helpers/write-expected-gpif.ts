@@ -416,7 +416,6 @@ function keySignatures(song: Song): readonly number[] {
   });
 }
 
-/** The song a 'gp' round trip of `song` should read back. */
 /** Seconds on Guitar Pro's frames of 44.1 kHz. */
 function onFrames(seconds: number): number {
   return Math.round(seconds * 44100) / 44100 || 0;
@@ -435,6 +434,7 @@ function expectedAudioTrack(track: AudioTrack): AudioTrack {
   };
 }
 
+/** The song a 'gp' round trip of `song` should read back. */
 export function expectedAfterGp(song: Song): Song {
   const plan = expectedChannels(song);
   const headers = expectedHeaders(song);
