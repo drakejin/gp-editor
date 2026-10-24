@@ -27,8 +27,6 @@ const DEFAULT_MAX_FRET = 15;
 /** Voicings graded at most, so an extended chord on an 8-string guitar stays quick; TuxGuitar grades them all. */
 const MAX_COMBINATIONS = 120_000;
 const ESSENTIAL_EXPANDING = 2;
-/** How many times the voicings asked for the ranking's sorted head holds (takeBest skips repeats of better ones). */
-const HEAD_FACTOR = 4;
 
 function voicingContext(spec: ChordSpec, strings: readonly number[], options: VoicingOptions): VoicingContext {
   const { required, expanding } = chordSpecDegrees(spec);
@@ -105,20 +103,6 @@ function isDuplicate(combination: readonly StringValue[], chosen: readonly (read
   return chosen.some((better) => better.every((value) => combination.every((other) => other.string !== value.string || other.fret === value.fret)));
 }
 
-/** takeBest: the best voicings, skipping those that only repeat a better one. */
-function takeBest(ranked: readonly (readonly StringValue[])[], maximum: number): readonly (readonly StringValue[])[] {
-  const best: (readonly StringValue[])[] = [];
-  for (const combination of ranked) {
-    if (best.length >= maximum) {
-      break;
-    }
-    if (!isDuplicate(combination, best)) {
-      best.push(combination);
-    }
-  }
-  return best;
-}
-
 /** A voicing with its place in the search and its rounded priority. */
 interface RankedVoicing {
   readonly combination: readonly StringValue[];
@@ -127,42 +111,45 @@ interface RankedVoicing {
 }
 
 /**
- * TuxGuitar's comparator rounds the difference: priorities within half a point tie. A tie goes to the fuller voicing
- * (320003 before 32000x, which then only repeats it), then to the order they were built in.
+ * TuxGuitar's comparator, within one rounded priority (priorities within half a point tie): the fuller voicing first
+ * (320003 before 32000x, which then only repeats it), then the order they were built in.
  */
-function byRank(a: RankedVoicing, b: RankedVoicing): number {
-  return b.priority - a.priority || b.combination.length - a.combination.length || a.order - b.order;
+function byFullness(a: RankedVoicing, b: RankedVoicing): number {
+  return b.combination.length - a.combination.length || a.order - b.order;
 }
 
-/** The priority the `count` best voicings reach: every voicing at or above it ranks before every other one. */
-function headPriority(voicings: readonly RankedVoicing[], count: number): number {
-  const counts = new Map<number, number>();
-  for (const { priority } of voicings) {
-    counts.set(priority, (counts.get(priority) ?? 0) + 1);
-  }
-  let total = 0;
-  for (const priority of [...counts.keys()].sort((a, b) => b - a)) {
-    total += counts.get(priority) ?? 0;
-    if (total >= count) {
-      return priority;
+/** The voicings grouped by priority, best first; each group in the order the search built them. */
+function priorityGroups(voicings: readonly RankedVoicing[]): readonly (readonly RankedVoicing[])[] {
+  const groups = new Map<number, RankedVoicing[]>();
+  for (const voicing of voicings) {
+    const group = groups.get(voicing.priority);
+    if (group === undefined) {
+      groups.set(voicing.priority, [voicing]);
+    } else {
+      group.push(voicing);
     }
   }
-  return Number.NEGATIVE_INFINITY;
+  return [...groups.keys()].sort((a, b) => b - a).map((priority) => groups.get(priority) ?? []);
 }
 
 /**
- * takeBest over the full ranking without sorting all of it (a search finds up to MAX_COMBINATIONS voicings): the head
- * of the ranking — the best priorities, a few times as many voicings as asked for — is sorted first; the rest only
- * when the head holds too few that do not repeat a better one. Either way the result is the full ranking's.
+ * takeBest: the best voicings in TuxGuitar's ranking, skipping those that only repeat a better one. The ranking is
+ * walked one priority at a time, each group sorted only when reached: a search finds up to MAX_COMBINATIONS voicings
+ * and the walk usually stops within the first few groups.
  */
-function bestVoicings(voicings: readonly RankedVoicing[], maximum: number): readonly (readonly StringValue[])[] {
-  const threshold = headPriority(voicings, maximum * HEAD_FACTOR);
-  const head = voicings.filter((voicing) => voicing.priority >= threshold);
-  const best = takeBest(head.sort(byRank).map((voicing) => voicing.combination), maximum);
-  if (best.length >= maximum || head.length === voicings.length) {
-    return best;
+function takeBest(voicings: readonly RankedVoicing[], maximum: number): readonly (readonly StringValue[])[] {
+  const best: (readonly StringValue[])[] = [];
+  for (const group of priorityGroups(voicings)) {
+    for (const { combination } of [...group].sort(byFullness)) {
+      if (best.length >= maximum) {
+        return best;
+      }
+      if (!isDuplicate(combination, best)) {
+        best.push(combination);
+      }
+    }
   }
-  return takeBest([...voicings].sort(byRank).map((voicing) => voicing.combination), maximum);
+  return best;
 }
 
 function toChord(combination: readonly StringValue[], stringCount: number, name: string): Chord {
@@ -182,5 +169,5 @@ export function buildChordVoicings(spec: ChordSpec, tuning: readonly number[], o
   const combinations = combineStrings(potentialNotes(context, Math.max(0, options.minFret ?? 0)), context);
   const voicings = combinations.map((combination, order) => ({ combination, order, priority: Math.round(voicingPriority(combination, context)) }));
   const name = chordName(normalized, options.spelling);
-  return bestVoicings(voicings, options.maxVoicings ?? DEFAULT_MAX_VOICINGS).map((combination) => toChord(combination, strings.length, name));
+  return takeBest(voicings, options.maxVoicings ?? DEFAULT_MAX_VOICINGS).map((combination) => toChord(combination, strings.length, name));
 }
