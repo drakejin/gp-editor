@@ -115,6 +115,77 @@ describe('StylesheetPanel', () => {
     expect(lastChange(rendered).notation.showsCommonTime).toBe(true);
   });
 
+  it('sets a custom page size, the margins and the rhythm spacing on Page & Score Format', () => {
+    // Arrange
+    const custom = { ...DEFAULT_STYLESHEET, page: { ...DEFAULT_STYLESHEET.page, format: 'custom' as const } };
+    const rendered = render(custom);
+
+    // Act: width +, height −, top margin −, rhythm spacing +
+    press(rendered, '+', 0);
+    const wider = lastChange(rendered);
+    press(rendered, '−', 1);
+    const shorter = lastChange(rendered);
+    press(rendered, '−', 2);
+    const margin = lastChange(rendered);
+    press(rendered, '+', 7);
+    const spacing = lastChange(rendered);
+
+    // Assert
+    expect(wider.page.customWidth).toBe(215);
+    expect(shorter.page.customHeight).toBe(292);
+    expect(margin.page.margins.top).toBe(11.7);
+    expect(spacing.noteSpacing).toBe(1.1);
+  });
+
+  it('shows or hides the song information and the page numbers on Header & Footer', () => {
+    // Arrange
+    const rendered = render();
+    press(rendered, 'Header & Footer');
+
+    // Act
+    press(rendered, 'Copyright');
+    const copyright = lastChange(rendered);
+    press(rendered, 'Title and page numbers');
+
+    // Assert
+    expect(copyright.header.shown.copyright).toBe(true);
+    expect(lastChange(rendered).header.showsPageNumbers).toBe(false);
+  });
+
+  it('finds a font by its name, back to the system font, size and bold on Texts & Styles', () => {
+    // Arrange
+    const rendered = render({ ...DEFAULT_STYLESHEET, texts: { ...DEFAULT_STYLESHEET.texts, title: { ...DEFAULT_STYLESHEET.texts.title, family: 'Georgia' } } });
+    press(rendered, 'Texts & Styles');
+    const filter = rendered.renderer.root.findAllByType(TextInput).find((input) => input.props.testID === 'stylesheet-font-filter')!;
+
+    // Act
+    ReactTestRenderer.act(() => filter.props.onChangeText('menl'));
+    const shown = rendered.renderer.root.findAllByType(BarButton).map((button) => button.props.label as string);
+    press(rendered, 'System');
+    const system = lastChange(rendered);
+    press(rendered, '−');
+    const smaller = lastChange(rendered);
+    press(rendered, 'Bold');
+    press(rendered, 'Hidden', 1);
+
+    // Assert
+    expect(shown).toContain('Menlo');
+    expect(shown).not.toContain('Futura');
+    expect(system.texts.title.family).toBe('');
+    expect(smaller.texts.title.size).toBe(25);
+    expect(lastChange(rendered).barNumbers).toBe('hidden');
+  });
+
+  it('turns the multitrack system’s bar lines and first names on Systems & Staves', () => {
+    const rendered = render();
+    press(rendered, 'Systems & Staves');
+    press(rendered, 'Extend barlines across system');
+    const barlines = lastChange(rendered);
+    press(rendered, 'Short', 0);
+    expect(barlines.systems.showsBarlinesAcrossSystem).toBe(false);
+    expect(lastChange(rendered).systems.firstSystemNames).toBe('short');
+  });
+
   it('goes back to the default stylesheet, and closes', () => {
     // Arrange
     const rendered = render({ ...DEFAULT_STYLESHEET, scale: 1.5 });
