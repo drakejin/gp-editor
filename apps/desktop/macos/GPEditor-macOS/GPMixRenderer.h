@@ -1,7 +1,7 @@
 // Offline rendering of a song with its effects: the graph GPMidiEngine plays (GPMixGraph + GPTrackInstruments, an
 // AVAudioSequencer, the audio track's GPAudioTrackPlayer) on an AVAudioEngine in manual rendering mode, as fast as the
-// CPU allows. For an audio export, and
-// for scripts/audio-check (which checks the effects by rendering, since nobody listens there).
+// CPU allows. For an audio export, and for scripts/audio-check (which checks the effects by rendering, since nobody
+// listens there).
 
 #import <AVFoundation/AVFoundation.h>
 

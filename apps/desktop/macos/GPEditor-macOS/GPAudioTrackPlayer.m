@@ -245,7 +245,6 @@ static NSArray<GPAudioRun *> *RunsOf(NSDictionary *playback)
 
 - (void)applyRateAt:(NSTimeInterval)engineSeconds
 {
-
   _timePitch.rate = (float)[self rateAtRenderSeconds:_origin + engineSeconds];
 }
 

@@ -1,9 +1,9 @@
 // The audio tracks' files for this run of the app (Guitar Pro 7/8's audio track): each file the JS side hands over (a
 // .gp file's asset) or the user picks is kept once, as a file in the app's temporary folder named by its content's
-// SHA-1 (formatted as a UUID, like Guitar Pro's asset names), so the bytes cross the bridge once per document and JS
-// keeps only the id. AVAudioFile reads them (WAV, AIFF, CAF, MP3, AAC/M4A, FLAC, Ogg Vorbis …). The waveform is
-// computed once per file with Accelerate (min and max of every 1/200 s) and cached. The folder is emptied at launch.
-// Thread-safe.
+// SHA-256 (its first 16 bytes as a UUID, like Guitar Pro's asset names), so the bytes cross the bridge once per
+// document and JS keeps only the id. AVAudioFile reads them (WAV, AIFF, CAF, MP3, AAC/M4A, FLAC, Ogg Vorbis …). The
+// waveform is computed once per file with Accelerate (min and max of every 1/200 s) and cached. The folder is emptied
+// at launch. Thread-safe.
 
 #import <AVFoundation/AVFoundation.h>
 
