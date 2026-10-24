@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Song } from '../src/model/song';
 import type { BeatAddress } from '../src/edit/addresses';
-import { moveNotesToVoice } from '../src/edit/voice-moves';
+import { findNote } from '../src/edit/addresses';
+import { moveBeatsToVoice, moveNotesToVoice } from '../src/edit/voice-moves';
 import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
 
 /** Voice 1: four quarters on string 1, the second a chord with string 6. */
@@ -70,5 +71,74 @@ describe('moveNotesToVoice', () => {
     expect(moveNotesToVoice(song, { ...SECOND_BEAT, voiceIndex: 1 }, 2)).toBe(song);
     expect(moveNotesToVoice(song, { ...SECOND_BEAT, beatIndex: 9 }, 2)).toBe(song);
     expect(moveNotesToVoice(song, SECOND_BEAT, 2, [4])).toBe(song);
+  });
+});
+
+describe('moveNotesToVoice and ties', () => {
+  const tied = { ...n(1, 2), isTied: true };
+
+  it('unties a moved note whose tie has nothing to continue in its new voice, and the note tied to it that stays', () => {
+    // Arrange: voice 1 plays 1/2, then 1/2 tied, then 1/2 tied again
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 2)), play(4, tied), play(4, tied), play(4, n(1, 5))]]]] }));
+
+    // Act: the middle note moves to voice 2
+    const moved = moveNotesToVoice(song, SECOND_BEAT, 1);
+
+    // Assert
+    expect(findNote(moved, { ...SECOND_BEAT, voiceIndex: 1, string: 1 })?.isTied).toBe(false);
+    expect(findNote(moved, { ...SECOND_BEAT, beatIndex: 2, string: 1 })?.isTied).toBe(false);
+    assertEditInvariants(moved);
+  });
+
+  it('keeps the ties of a tied run moved together', () => {
+    // Arrange
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 2)), play(4, tied), play(4, tied), play(4, n(1, 5))]]]] }));
+
+    // Act
+    const moved = moveBeatsToVoice(song, { ...SECOND_BEAT, beatIndex: 0 }, { ...SECOND_BEAT, beatIndex: 2 }, 1);
+
+    // Assert
+    expect([1, 2].map((beatIndex) => findNote(moved, { ...SECOND_BEAT, beatIndex, voiceIndex: 1, string: 1 })?.isTied)).toEqual([true, true]);
+    expect(voiceLayout(moved, 0, 0, 1)).toEqual(['0:4:1/2', '960:4:1/2', '1920:4:1/2', '2880:4:r']);
+  });
+});
+
+describe('moveBeatsToVoice', () => {
+  it('moves every note of a run of beats across a bar line', () => {
+    // Arrange: two bars of quarters
+    const song = deepFreeze(buildSong({ tracks: [[[quarters()], [quarters()]]] }));
+
+    // Act: from bar 1's fourth beat to bar 2's first
+    const moved = moveBeatsToVoice(song, { ...SECOND_BEAT, beatIndex: 3 }, { ...SECOND_BEAT, measureIndex: 1, beatIndex: 0 }, 2);
+
+    // Assert
+    expect(voiceLayout(moved, 0, 0, 2)).toEqual(['0:2.:r', '2880:4:1/5']);
+    expect(voiceLayout(moved, 0, 1, 2)).toEqual(['0:4:1/0', '960:2.:r']);
+    assertEditInvariants(moved);
+  });
+
+  it('moves nothing when one beat of the run cannot move', () => {
+    // Arrange: voice 2 plays a half note under the second beat
+    const song = song1([rest(4), play(2, n(5, 7)), rest(4)]);
+
+    // Act / Assert
+    expect(moveBeatsToVoice(song, { ...SECOND_BEAT, beatIndex: 0 }, { ...SECOND_BEAT, beatIndex: 3 }, 1)).toBe(song);
+  });
+
+  it('keeps a slashed beat slashed in its new voice', () => {
+    // Arrange
+    const song = song1();
+    const track = song.tracks[0]!;
+    const measure = track.measures[0]!;
+    const slashed: Song = {
+      ...song,
+      tracks: [{ ...track, measures: [{ ...measure, beats: measure.beats.map((beat, i) => (i === 1 ? { ...beat, voices: beat.voices.map((voice, v) => (v === 0 ? { ...voice, isSlashed: true } : voice)) } : beat)) }] }],
+    };
+
+    // Act
+    const moved = moveNotesToVoice(slashed, SECOND_BEAT, 1);
+
+    // Assert
+    expect(moved.tracks[0]?.measures[0]?.beats[1]?.voices[1]?.isSlashed).toBe(true);
   });
 });

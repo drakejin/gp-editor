@@ -19,7 +19,7 @@ function lastEventBefore(beats: readonly Beat[], beforeIndex: number, voiceIndex
  * The note a tie at the address continues: the note on that string in the previous event of the same voice (in this
  * measure, else the last event of the previous measure). None when that event is a rest or has no note on the string.
  */
-function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
+export function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
   const measures = song.tracks[at.trackIndex]?.measures;
   const beats = measures?.[at.measureIndex]?.beats;
   if (measures === undefined || beats?.[at.beatIndex] === undefined) {

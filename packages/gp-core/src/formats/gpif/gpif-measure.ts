@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseBar / #fixFirstMeasureStartPositions (LGPL-2.1).
-import { MAX_VOICES, NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
+import { EMPTY_VOICE, MAX_VOICES, NO_STROKE, durationTicks, measureTicks } from '../../model/defaults';
 import type {
   Beat,
   Chord,
@@ -25,7 +25,6 @@ import { lookupName } from './xml';
 /** Guitar Pro 6+ bars have up to four voices; every beat keeps all four slots. */
 export { MAX_VOICES };
 
-const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 
 const SIMILE_STEPS: Readonly<Record<string, number>> = { Simple: 1, FirstOfDouble: 2, SecondOfDouble: 2 };
 

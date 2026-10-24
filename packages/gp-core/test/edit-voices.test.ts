@@ -153,6 +153,20 @@ describe('editing voices 3 and 4 of a two-voice bar', () => {
     expect(voiceLayout(entry.song, 0, 0, 2)).toEqual(['0:2:r', '1920:4:3/2', '2880:4:r']);
   });
 
+  it('enters a played chord on one beat of an empty voice, also where the rests before it add beats', () => {
+    // Arrange: voice 1 = half, dotted quarter, eighth; the cursor on the eighth (at 3360), voice 4
+    const song = deepFreeze(buildSong({ tracks: [[[[play(2, n(1, 0)), play(dur(4, { dotted: true }), n(1, 2)), play(8, n(1, 3))]]]] }));
+
+    // Act: E4 and B3 played together
+    const entry = enterPlayedNotes(song, { ...VOICE_4, beatIndex: 2 }, [{ pitch: 64 }, { pitch: 59 }]);
+
+    // Assert: both notes on the eighth at 3360
+    const layout = voiceLayout(entry.song, 0, 0, 3);
+    expect(layout[layout.length - 1]).toMatch(/^3360:8:\d\/\d+,\d\/\d+$/);
+    expect(layout.filter((event) => !event.endsWith(':r'))).toHaveLength(1);
+    assertEditInvariants(entry.song);
+  });
+
   it('puts a drum hit in voice 4 of a drum track', () => {
     // Arrange
     const song = twoBars();

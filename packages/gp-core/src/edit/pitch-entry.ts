@@ -122,8 +122,11 @@ export function enterPlayedNotes(song: Song, at: BeatAddress, notes: readonly Pl
   if (placed.length === 0) {
     return { song, entered: 0, skipped };
   }
+  // Filling an empty voice may add rests before the beat: each note finds the beat again by where it starts.
+  const start = location.beat.start;
   const entered = placed.reduce((current, spot) => {
-    const address = { ...at, string: spot.string };
+    const beatIndex = current.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats.findIndex((beat) => beat.start === start) ?? -1;
+    const address = { ...at, beatIndex: beatIndex < 0 ? at.beatIndex : beatIndex, string: spot.string };
     const fretted = setNoteFret(current, address, spot.fret);
     return spot.velocity === undefined ? fretted : setNoteVelocity(fretted, address, spot.velocity);
   }, deleteBeatNotes(song, at));
