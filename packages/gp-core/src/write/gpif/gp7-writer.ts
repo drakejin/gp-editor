@@ -21,6 +21,7 @@ export function writeGp7(song: Song, audioTrackData?: Uint8Array): Uint8Array {
     score,
     song.tracks.map((track) => isPercussionTrack(song, track)),
     songEffectsToJson(song),
+    song.tracks.map((track) => track.hasSlashNotation === true),
     hasAudio ? { path: audioAssetPath(audioTrack), data: audioTrackData } : undefined,
   );
 }

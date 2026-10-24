@@ -7,6 +7,7 @@ import { type Gp7Container, readGp7Container } from './container-gp7';
 import { readGpifDocument } from './gpif-reader';
 import { gpifToSong } from './gpif-to-song';
 import { gpifVersionString } from './gpif-version';
+import { readPartConfiguration } from './part-configuration';
 
 /** A song read with the audio track's file (`readSongFile`). */
 export interface SongFile {
@@ -18,7 +19,8 @@ export interface SongFile {
 /** The song of a container; an audio track whose file the archive does not hold is left out. */
 function songOf(container: Gp7Container): { readonly song: Song; readonly assetPath?: string } {
   const doc = readGpifDocument(container.score, 7);
-  const read = gpifToSong(doc, { format: 'gp7', version: gpifVersionString(doc, container.version) });
+  const views = readPartConfiguration(container.partConfiguration);
+  const read = gpifToSong(doc, { format: 'gp7', version: gpifVersionString(doc, container.version) }, views);
   const withEffects = container.effects === undefined ? read : readSongEffects(read, container.effects);
   const assetPath = doc.audioTrack?.asset?.embeddedFilePath;
   if (withEffects.audioTrack === undefined || (assetPath !== undefined && container.entryNames.has(assetPath))) {

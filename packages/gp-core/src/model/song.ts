@@ -182,6 +182,16 @@ export interface MeasureHeader {
   readonly tripletFeel: TripletFeel;
   /** Targets and jumps on the bar, each once, in MUSICAL_DIRECTIONS order; absent when none. */
   readonly directions?: readonly MusicalDirection[];
+  /** How the bar's notes are beamed together, set by hand; the time signature's grouping when absent (model/beaming.ts). */
+  readonly beamGrouping?: BeamGrouping;
+}
+
+/** A bar's beam groups (GP5's "beam eighth notes by", GPIF's master bar beaming). */
+export interface BeamGrouping {
+  /** The note value the groups count: 8 = eighth notes (Guitar Pro 5 always counts eighths). */
+  readonly unit: NoteValue;
+  /** Notes of `unit` per beam group, in order, each at least 1. */
+  readonly groups: readonly number[];
 }
 
 export interface GuitarString {
@@ -210,6 +220,8 @@ export interface Track {
   readonly solo: boolean;
   readonly mute: boolean;
   readonly lyrics?: Lyrics;
+  /** The whole track is written in rhythm slashes (Guitar Pro 6–8's slash notation, the PartConfiguration's flag). */
+  readonly hasSlashNotation?: boolean;
   /** The app's effects on the track's sound, in playback order (at most MAX_TRACK_EFFECTS); absent when it has none. */
   readonly effects?: readonly Effect[];
   /** One measure per song measure header, in order. */
@@ -323,7 +335,14 @@ export interface Voice {
   /** No beat in this voice (as opposed to a rest, which is isEmpty=false with no notes). */
   readonly isEmpty: boolean;
   readonly direction: VoiceDirection;
+  /** The beat is written as a rhythm slash on the middle line (GPIF's `<Slashed/>`). */
+  readonly isSlashed?: boolean;
+  /** How the beam goes on to the voice's next beat, set by hand; by the bar's beam grouping when absent. */
+  readonly beamToNext?: BeamLink;
 }
+
+/** A beam to the next beat: broken, joined across a group boundary, or with only the eighth (primary) beam. */
+export type BeamLink = 'break' | 'join' | 'breakSecondary';
 
 export interface Note {
   /** Fret number (for percussion tracks: the MIDI percussion pitch). */
@@ -334,7 +353,19 @@ export interface Note {
   readonly string: number;
   readonly isTied: boolean;
   readonly effect: NoteEffect;
+  /** Left-hand (fretting) finger: T 1 2 3 4; on a keyboard track the piano fingering 1–5. */
+  readonly leftFinger?: Finger;
+  /** Right-hand (picking) finger: p i m a c. */
+  readonly rightFinger?: Finger;
+  /** An accidental shown although the key and the bar do not call for one; no Guitar Pro file holds it. */
+  readonly accidentalDisplay?: AccidentalDisplay;
 }
+
+/** A finger as Guitar Pro stores fingering (GPIF P I M A C, GP3–GP5 0–4), thumb first. */
+export type Finger = 'thumb' | 'index' | 'middle' | 'annular' | 'little';
+
+/** A reminder accidental in parentheses (cautionary), or the accidental always written (forced). */
+export type AccidentalDisplay = 'cautionary' | 'forced';
 
 export interface BendPoint {
   /** 0 … 12 across the note's duration. */

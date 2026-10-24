@@ -2,6 +2,7 @@
 import { unzipSync } from 'fflate';
 import { GpFormatError } from '../../errors';
 import { decodeUtf8Lenient } from '../../io/text';
+import { GP7_PART_CONFIGURATION_ENTRY } from './part-configuration';
 
 /** Guitar Pro 7/8 container: a zip archive holding `Content/score.gpif` and a `VERSION` entry. */
 export const GP7_SCORE_ENTRY = 'Content/score.gpif';
@@ -16,6 +17,8 @@ export interface Gp7Container {
   readonly score: Uint8Array;
   /** Text of the VERSION entry (e.g. "7.0"), if present. */
   readonly version: string | undefined;
+  /** The staves each score view shows (Content/PartConfiguration), if present. */
+  readonly partConfiguration?: Uint8Array;
   /** Text of the app's effects entry, if present. */
   readonly effects?: string;
   /** Every entry's name (assets are only inflated when asked for). */
@@ -29,22 +32,27 @@ export interface Gp7ContainerOptions {
   readonly withAssets?: boolean;
 }
 
+/** The entries read besides the assets. */
+const READ_ENTRIES: ReadonlySet<string> = new Set([GP7_SCORE_ENTRY, GP7_VERSION_ENTRY, GP7_PART_CONFIGURATION_ENTRY, GP7_EFFECTS_ENTRY]);
+
 export function readGp7Container(bytes: Uint8Array, options: Gp7ContainerOptions = {}): Gp7Container {
   const entryNames = new Set<string>();
   const entries = unzip(bytes, (name) => {
     entryNames.add(name);
-    return name === GP7_SCORE_ENTRY || name === GP7_VERSION_ENTRY || name === GP7_EFFECTS_ENTRY || (options.withAssets === true && name.startsWith(GP7_ASSETS_FOLDER));
+    return READ_ENTRIES.has(name) || (options.withAssets === true && name.startsWith(GP7_ASSETS_FOLDER));
   });
   const score = entries[GP7_SCORE_ENTRY];
   if (score === undefined) {
     throw new GpFormatError(`Not a Guitar Pro 7/8 file: the archive has no ${GP7_SCORE_ENTRY}`);
   }
   const version = entries[GP7_VERSION_ENTRY];
+  const partConfiguration = entries[GP7_PART_CONFIGURATION_ENTRY];
   const effects = entries[GP7_EFFECTS_ENTRY];
   const assets = options.withAssets === true ? Object.fromEntries(Object.entries(entries).filter(([name]) => name.startsWith(GP7_ASSETS_FOLDER))) : undefined;
   return {
     score,
     version: version === undefined ? undefined : decodeUtf8Lenient(version).trim(),
+    ...(partConfiguration === undefined ? {} : { partConfiguration }),
     ...(effects === undefined ? {} : { effects: decodeUtf8Lenient(effects) }),
     entryNames,
     ...(assets === undefined ? {} : { assets }),

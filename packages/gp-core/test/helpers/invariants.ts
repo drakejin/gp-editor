@@ -2,6 +2,7 @@ import { expect } from 'vitest';
 import { durationTicks, measureTicks } from '../../src/model/defaults';
 import { buildAudioTrack } from '../../src/audio-track/audio-track';
 import type { AudioTrack, Song } from '../../src/model/song';
+import { assertNotationMarks } from './invariants-marks';
 
 /**
  * Structural checks every reader's output must pass, whatever the format.
@@ -59,6 +60,7 @@ export function assertSongInvariants(song: Song): void {
       }
     });
   });
+  assertNotationMarks(song);
 }
 
 /** An audio track is within its bounds (buildAudioTrack leaves it as it is) and has an id for its data. */

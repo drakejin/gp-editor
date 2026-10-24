@@ -22,6 +22,7 @@ import {
 } from './chords';
 import { separateVoices } from './collisions';
 import type { StaffNote, VoiceEvent } from './events';
+import { fingerings } from './fingering';
 import { graceNotes } from './grace';
 import { strokes, tremoloStrokes, trills, vibratos } from './ornaments';
 import { ottavaMarks } from './ottava';
@@ -51,6 +52,8 @@ export interface VoicesContext {
   readonly highlight?: Highlight;
   /** Pick strokes above the staff (when no tab staff shows them). */
   readonly showsPickStrokes?: boolean;
+  /** A piano or organ track: fingers are written 1–5 (piano fingering). */
+  readonly isKeyboard?: boolean;
 }
 
 function isHighlighted(
@@ -71,8 +74,13 @@ function engraveChord(
   isFlagged: boolean,
 ): DrawCommand[] {
   const { top, palette, highlight } = context;
+  // A slash stands for every note of its beat: it lights whatever string the cursor is on.
+  const isLit = (note: StaffNote) =>
+    note.isSlash === true
+      ? highlight?.beatIndex === chord.event.beatIndex
+      : isHighlighted(highlight, chord.event, note);
   const colorOf = (note: StaffNote) =>
-    isHighlighted(highlight, chord.event, note) ? palette.accent : palette.text;
+    isLit(note) ? palette.accent : palette.text;
   return [
     ...ledgerLines(chord, top, palette.line),
     ...accidentals(chord, palette.text),
@@ -153,6 +161,7 @@ export function engraveVoices(
     ...ties(layout),
     ...ottavaMarks(events, chords, context.top, ink),
     ...techniques(layout),
+    ...fingerings(layout, context.isKeyboard === true),
     ...(context.showsPickStrokes === true ? pickStrokes(layout) : []),
   ];
 }

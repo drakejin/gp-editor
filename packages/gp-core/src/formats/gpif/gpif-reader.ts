@@ -13,11 +13,15 @@ import {
 } from './gpif-document';
 import { readAutomation } from './gpif-automation';
 import { readGpifAudioTrack } from './gpif-audio-track';
-import { readBeat, readNote } from './gpif-read-beat';
+import { readBeat, readNote, xPropertyInt } from './gpif-read-beat';
 import { readTracks } from './gpif-read-track';
 import { type XmlElement, attribute, child, childList, childText, children, parseIntList, parseJavaInt, parseXml } from './xml';
 
 const ROOT_ELEMENT = 'GPIF';
+/** Master bar beaming: the unit (a note value), then one XProperty per group from the first id on. */
+const XPROPERTY_BEAM_UNIT = '1124139010';
+const XPROPERTY_FIRST_BEAM_GROUP = 1124139264;
+const BEAM_GROUP_SLOTS = 32;
 
 /** Parse a GPIF document (UTF-8 bytes or text) into the intermediate document. */
 export function readGpifDocument(input: Uint8Array | string, version: GpifVersion): GpifDocument {
@@ -81,6 +85,8 @@ function readMasterBar(node: XmlElement): GpifMasterBar {
     tripletFeel: childText(node, 'TripletFeel'),
     alternateEndings: parseIntList(childText(node, 'AlternateEndings'), ' '),
     markerText: childText(section, 'Text')?.replaceAll('\n', '').trim(),
+    beamUnit: xPropertyInt(node, XPROPERTY_BEAM_UNIT),
+    beamGroups: Array.from({ length: BEAM_GROUP_SLOTS }, (_, k) => xPropertyInt(node, String(XPROPERTY_FIRST_BEAM_GROUP + k)) ?? 0),
     directionTargets: children(directions, 'Target').map((target) => target.text),
     directionJumps: children(directions, 'Jump').map((jump) => jump.text),
   };

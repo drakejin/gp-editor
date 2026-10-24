@@ -1,6 +1,8 @@
 // GPIF `<MasterTrack>` and `<MasterBars>` (no TuxGuitar counterpart): the inverse of the reader's readMasterBar / buildHeaders.
+import { normalizeBeamGrouping } from '../../model/beaming';
 import type { MeasureHeader, Song, TripletFeel } from '../../model/song';
 import { directionsNode } from './gpif-marks';
+import { intXProperty } from './gpif-properties';
 import { type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
 
 /** Alternate endings the reader takes: 1–31 (bits 0–30). */
@@ -56,6 +58,20 @@ function repeatNode(header: MeasureHeader): XmlNode | undefined {
   return xmlElement('Repeat', [], { start: String(header.repeatOpen), end: String(isEnd), count: isEnd ? header.repeatClose + 1 : 0 });
 }
 
+/** Master bar beaming: the unit, then one XProperty per group (the reader's XPROPERTY_BEAM_UNIT …). */
+const XPROPERTY_BEAM_UNIT = '1124139010';
+const XPROPERTY_FIRST_BEAM_GROUP = 1124139264;
+
+/** The bar's own beam groups; nothing for the time signature's (Guitar Pro 7 writes none either). */
+function beamingNode(header: MeasureHeader): XmlNode | undefined {
+  const grouping = normalizeBeamGrouping(header.beamGrouping, header.timeSignature);
+  if (grouping === undefined) {
+    return undefined;
+  }
+  const groups = grouping.groups.map((size, k) => intXProperty(String(XPROPERTY_FIRST_BEAM_GROUP + k), size));
+  return xmlElement('XProperties', [intXProperty(XPROPERTY_BEAM_UNIT, grouping.unit), ...groups]);
+}
+
 function masterBarNode(header: MeasureHeader, keySignature: number, barIds: readonly number[]): XmlNode {
   const endings = alternateEndingsOf(header.repeatAlternative);
   const feel = TRIPLET_FEELS[header.tripletFeel];
@@ -73,6 +89,7 @@ function masterBarNode(header: MeasureHeader, keySignature: number, barIds: read
     endings.length > 0 && xmlText('AlternateEndings', endings.join(' ')),
     feel !== undefined && xmlText('TripletFeel', feel),
     xmlText('Bars', barIds.join(' ')),
+    beamingNode(header),
   ]);
 }
 
