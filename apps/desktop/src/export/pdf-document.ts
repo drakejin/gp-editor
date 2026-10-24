@@ -43,8 +43,10 @@ interface PdfPlan {
   readonly paper: PaperSize;
   readonly titleBlock: TitleBlock;
   readonly layout: ScoreLayout;
-  /** Width of a row at screen size: the printable width divided by PRINT_SCALE. */
+  /** Width of a row at screen size: the printable width divided by `scale`. */
   readonly rowWidth: number;
+  /** Print size per screen point: PRINT_SCALE, smaller for a system taller than the room under the title block. */
+  readonly scale: number;
   /** Height of a printed system; every system has the same. */
   readonly rowHeight: number;
   /** Where the systems end on a page. */
@@ -129,12 +131,19 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   const staves = printedStaves(trackIndex, mode, options);
   // Several tracks are named on their staves, not under the title.
   const titleBlock = engraveTitleBlock(song, staves.length > 1 ? -1 : trackIndex, title, printWidth, PRINT_PALETTE);
-  const rowWidth = printWidth / PRINT_SCALE;
-  const layout = printedLayout(song, staves, options.chordDisplay ?? DEFAULT_CHORD_DISPLAY, rowWidth);
-  const rowHeight = layout.systemHeight * PRINT_SCALE;
+  const chordDisplay = options.chordDisplay ?? DEFAULT_CHORD_DISPLAY;
   const bottom = paper.height - PAGE.margin - PAGE.footerHeight;
-  const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, PAGE.margin + titleBlock.height, PAGE.margin, bottom);
-  return { song, title, paper, titleBlock, layout, rowWidth, rowHeight, bottom, pages };
+  const firstTop = PAGE.margin + titleBlock.height;
+  // A system taller than the room under the title block (many tracks) is printed smaller, and laid out across a wider
+  // row so that it still fills the printable width.
+  const natural = printedLayout(song, staves, chordDisplay, printWidth / PRINT_SCALE);
+  const fit = natural.systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (natural.systemHeight * PRINT_SCALE)) : 1;
+  const scale = PRINT_SCALE * fit;
+  const rowWidth = printWidth / scale;
+  const layout = fit === 1 ? natural : printedLayout(song, staves, chordDisplay, rowWidth);
+  const rowHeight = layout.systemHeight * scale;
+  const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, firstTop, PAGE.margin, bottom);
+  return { song, title, paper, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
 }
 
 /** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the system's top. */
@@ -155,7 +164,7 @@ function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: numbe
 
 /**
  * One system scaled and placed with its top at `y`. A system still too wide once squeezed (a bar denser than
- * squeezeRow can fit), or taller than the room under `y` (many tracks), is printed smaller to stay on the page.
+ * squeezeRow can fit), or taller than the room under `y`, is printed smaller to stay on the page.
  */
 function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): DrawCommand[] {
   const { layout } = plan;
@@ -163,7 +172,7 @@ function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): Dr
   const commands = layout.staves.flatMap((_, staffIndex) => engraveSystemPart(plan, systemIndex, staffIndex));
   const width = (system?.rows[0]?.measures ?? []).reduce((sum, measure) => sum + measure.width, system?.headerWidth ?? 0);
   const fit = Math.min(1, plan.rowWidth / width, (plan.bottom - y) / plan.rowHeight);
-  return translateCommands(scaleCommands(commands, PRINT_SCALE * fit), PAGE.margin, y);
+  return translateCommands(scaleCommands(commands, plan.scale * fit), PAGE.margin, y);
 }
 
 /** "<title> — <page> / <pages>", centred in the footer band. */

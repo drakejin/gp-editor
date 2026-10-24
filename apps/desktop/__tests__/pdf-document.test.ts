@@ -331,6 +331,22 @@ describe('buildPdfDocument with several tracks (the multitrack view)', () => {
     expect(pdfPageCount(twoTracks, 0, 'notation', { paper: 'a4', staves })).toBe(pdf.pages.length);
   });
 
+  it('prints a system taller than the page smaller, laid out wider so it still fills the printable width', () => {
+    // Arrange
+    const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: a bar line close to the right margin on every page but the last (its system is not stretched)
+    pdf.pages.slice(0, -1).forEach((page) => {
+      const right = Math.max(...page.commands.slice(1).filter((c) => c.kind === 'line').map((c) => bounds(c).maxX));
+      expect(right).toBeGreaterThan(page.width - PAGE.margin - 40);
+      expect(right).toBeLessThanOrEqual(page.width - PAGE.margin + 1);
+    });
+  });
+
   it('keeps a system taller than the page inside it', () => {
     // Arrange: eleven tracks in Score + Tab make a system taller than an A4 page
     const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
