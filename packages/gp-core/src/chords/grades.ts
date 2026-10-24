@@ -68,7 +68,24 @@ const pitchOf = (value: StringValue, context: VoicingContext): number => (contex
  * same on a guitar, but a re-entrant tuning (ukulele) has its lowest note on an inner string.
  */
 function byPitch(combination: readonly StringValue[], context: VoicingContext): readonly StringValue[] {
-  return [...combination].sort((a, b) => pitchOf(a, context) - pitchOf(b, context) || a.string - b.string);
+  // An insertion sort: a voicing has a few notes, and a search sorts up to 120 000 of them (Array#sort calls back per comparison).
+  const sorted = [...combination];
+  for (let i = 1; i < sorted.length; i++) {
+    const value = sorted[i] as StringValue;
+    let j = i - 1;
+    for (let other = sorted[j]; other !== undefined && isBelow(value, other, context); other = sorted[j]) {
+      sorted[j + 1] = other;
+      j--;
+    }
+    sorted[j + 1] = value;
+  }
+  return sorted;
+}
+
+/** True when `a` sounds lower than `b`, or as low on a lower string. */
+function isBelow(a: StringValue, b: StringValue, context: VoicingContext): boolean {
+  const difference = pitchOf(a, context) - pitchOf(b, context);
+  return difference < 0 || (difference === 0 && a.string < b.string);
 }
 
 /** How many of the chord's own notes (distinct roles 0, 1, …) the voicing holds. */
@@ -151,12 +168,21 @@ function manyStringsGrade(combination: readonly StringValue[], context: VoicingC
 function fingeringGrade(combination: readonly StringValue[], context: VoicingContext): number {
   const grade = context.grades.fingering;
   const positions = stringFrets(combination, context);
-  const fretted = positions.filter((fret) => fret > 0);
-  const min = fretted.length > 0 ? Math.min(...fretted) : context.maxFret + 2;
-  const max = Math.max(0, ...positions);
-  const maxCount = positions.filter((fret) => fret === max).length;
-  const hasOpenString = positions.includes(0);
-  const canBar = hasOpenString || positions.filter((fret) => fret === min).length >= 2;
+  // Loops rather than filters and spreads: a search grades up to 120 000 voicings.
+  let lowestFretted = Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (const fret of positions) {
+    lowestFretted = fret > 0 ? Math.min(lowestFretted, fret) : lowestFretted;
+    max = Math.max(max, fret);
+  }
+  const min = lowestFretted === Number.POSITIVE_INFINITY ? context.maxFret + 2 : lowestFretted;
+  let maxCount = 0;
+  let minCount = 0;
+  for (const fret of positions) {
+    maxCount += fret === max ? 1 : 0;
+    minCount += fret === min ? 1 : 0;
+  }
+  const canBar = positions.includes(0) || minCount >= 2;
   return (canBar ? grade / 8 : 0) + spreadGrade(Math.abs(max - min), min, maxCount, grade) + fingersGrade(positions, min, grade);
 }
 
@@ -194,15 +220,16 @@ function semanticsGrade(ordered: readonly StringValue[], context: VoicingContext
   const tonicIndex = ordered.findIndex((value) => value.role === 0);
   const tonic = tonicIndex < 0 ? undefined : pitchOf(ordered[tonicIndex] as StringValue, context);
   const upper = ordered.slice(1);
-  const placement = upper.reduce((sum, value, index) => {
-    const bassPenalty = value.role === BASS_ROLE ? -grade : 0;
+  let placement = 0;
+  upper.forEach((value, index) => {
     if (value.role >= 0) {
-      return sum;
+      return;
     }
+    const bassPenalty = value.role === BASS_ROLE ? -grade : 0;
     const isBeforeTonic = tonic === undefined || tonicIndex > index + 1;
     const isLow = !isBeforeTonic && (tonic ?? 0) + PERFECT_OCTAVE_LESS_ONE > pitchOf(value, context);
-    return sum + bassPenalty + (isBeforeTonic ? -grade / 2 : isLow ? -grade / 3 : 0);
-  }, 0);
+    placement = placement + bassPenalty + (isBeforeTonic ? -grade / 2 : isLow ? -grade / 3 : 0);
+  });
   return placement + (context.extensionLevel === 0 ? 0 : extensionsGrade(upper, context));
 }
 
