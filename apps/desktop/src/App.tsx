@@ -1,6 +1,6 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type Effect, type MasterMix, type PlayedNote, type Song, findNote } from '@gp-editor/core';
+import { type Effect, type MasterMix, type PlayedNote, type Song, type TrackIndexMap, findNote } from '@gp-editor/core';
 import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
@@ -21,6 +21,7 @@ import { ScoreView } from './components/ScoreView';
 import { SongHeader } from './components/SongHeader';
 import { TOP_BAR_HEIGHT, TopBar } from './components/TopBar';
 import { TracksPanel } from './components/TracksPanel';
+import { TrackManagerOverlays } from './components/TrackManagerOverlays';
 import { AudioTrackLane } from './components/audio-track/AudioTrackLane';
 import { useAudioTrack } from './hooks/use-audio-track';
 import { SpeedMenu, ZoomMenu } from './components/TopBarMenus';
@@ -55,6 +56,7 @@ import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
 import { useTuner } from './hooks/use-tuner';
+import { useTrackManager } from './hooks/use-track-manager';
 import { useAudioExport } from './hooks/use-audio-export';
 import { useAudioTools } from './hooks/use-audio-tools';
 import { useWindowChrome } from './hooks/use-window-chrome';
@@ -162,6 +164,13 @@ export default function App() {
   // Effects (View ▸ Mixer, the Track inspector) heard live, and Tools ▸ Line In… (a card beside the score).
   const audio = useAudioTools(song, trackIndex, chrome.togglePanel);
   const { isOpen: isLineInOpen, close: closeLineIn } = audio.lineIn;
+  // Track ▸ Add Track…, Duplicate, Delete, Move Up / Down; the line in's lock and the instrument picker follow track edits.
+  const followTracks = (map: TrackIndexMap) => {
+    audio.lineIn.remapTrack(map);
+    chrome.closePicker();
+  };
+  const trackManager = useTrackManager({ song, shownTrackIndex: trackIndex, tabId: workspace.activeTabId, dispatch, onClosed: focusScore, onTracksRemapped: followTracks });
+  const { isOpen: isTrackPanelOpen, close: closeTrackPanel } = trackManager;
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
@@ -176,6 +185,7 @@ export default function App() {
       [isTransposeOpen, closeTranspose],
       [isCommandPaletteOpen, closeCommandPalette],
       [isLineInOpen, closeLineIn],
+      [isTrackPanelOpen, closeTrackPanel],
     ];
     const open = closers.find(([isOpen]) => isOpen);
     open?.[1]();
@@ -183,13 +193,13 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn, isTrackPanelOpen, closeTrackPanel]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isAudioExportOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen;
   // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -373,6 +383,7 @@ export default function App() {
     openLyrics: () => openLyrics.current(),
     pickInstrument: () => chrome.pickInstrument(trackIndex),
     addAudioTrack: audioLane.addAudioTrack,
+    runTrackCommand: trackManager.runTrackCommand,
     togglePanel: chrome.togglePanel,
     toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
     toggleFocus: chrome.toggleFocus,
@@ -600,6 +611,7 @@ export default function App() {
                   palette={palette}
                   onEditInstrument={chrome.pickInstrument}
                   onAddAudioTrack={document.song.audioTrack === undefined ? audioLane.addAudioTrack : undefined}
+                  trackActions={trackManager.panelActions}
                   {...trackCommands}
                 />
               ) : null}
@@ -730,6 +742,7 @@ export default function App() {
       {chrome.notePanel !== undefined && cursorNote !== undefined ? (
         <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onPreview={draftPreview.show} onClose={chrome.closeNotePanel} />
       ) : null}
+      <TrackManagerOverlays manager={trackManager} palette={chromePalette} />
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
       {tabs.closing !== undefined ? (
         <SaveChangesPanel palette={palette} name={tabs.closing.name} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} />

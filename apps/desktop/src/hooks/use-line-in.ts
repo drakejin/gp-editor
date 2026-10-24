@@ -1,4 +1,5 @@
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type TrackIndexMap, remapTrackIndex } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
 import { LINE_IN_GAIN, type LineInDevices, NO_LINE_IN_DEVICES, hasFeedbackRisk, lineInTrackIndex, parseLineInDevices } from '../lib/line-in';
 import { type LineInSettings, lineInLevel, loadLineInDevices, startLineIn, stopLineIn, updateLineIn } from '../native/audio-effects';
@@ -24,6 +25,8 @@ export interface LineIn {
   /** The track the sound is locked to ("sound lock"); undefined: it follows the selected track. */
   readonly lockedTrackIndex?: number;
   readonly toggleLock: () => void;
+  /** The shown song's tracks were added, deleted or moved: the lock follows its track (and goes with a deleted one). */
+  readonly remapTrack: (map: TrackIndexMap) => void;
   /** The track whose effects the input plays through. */
   readonly trackIndex: number;
   readonly isOn: boolean;
@@ -152,7 +155,12 @@ export function useLineIn(selectedTrackIndex: number): LineIn {
     () => setSettings((previous) => ({ ...previous, lockedTrackIndex: previous.lockedTrackIndex === undefined ? current.current.trackIndex : undefined })),
     [setSettings],
   );
+  const remapTrack = useCallback(
+    (map: TrackIndexMap) =>
+      setSettings((previous) => (previous.lockedTrackIndex === undefined ? previous : { ...previous, lockedTrackIndex: remapTrackIndex(map, previous.lockedTrackIndex) })),
+    [setSettings],
+  );
   const turnOn = useCallback(() => start(), [start]);
   const levelDb = useLevel(isOn);
-  return { isOpen: panel.isOpen, open: panel.open, close, devices: panel.devices, deviceId, chooseDevice, gainDb, setGainDb, isMonitoring, toggleMonitoring, lockedTrackIndex, toggleLock, trackIndex, isOn, turnOn, turnOff, levelDb, error: power.error };
+  return { isOpen: panel.isOpen, open: panel.open, close, devices: panel.devices, deviceId, chooseDevice, gainDb, setGainDb, isMonitoring, toggleMonitoring, lockedTrackIndex, toggleLock, remapTrack, trackIndex, isOn, turnOn, turnOff, levelDb, error: power.error };
 }

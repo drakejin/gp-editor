@@ -1,7 +1,8 @@
 // The audio track's files for the JS side (GPAudioAssets): a .gp file's audio handed over once per document
 // (`loadData`), a file picked in an open panel (`chooseFile`, Track ▸ Add Audio Track…, asking first when it replaces
 // one), the bytes back for a save (`data`), the waveform (`peaks`). Track ▸ Add Audio Track… (GPEditorNotifications.h)
-// is forwarded to JS as "addAudioTrackRequested". Methods run on a serial queue of their own; the panels on the main
+// is forwarded to JS as "addAudioTrackRequested", the Track menu's track commands (Add Track…, Duplicate, Delete, Move Up /
+// Down) as "trackCommandRequested" with the command. Methods run on a serial queue of their own; the panels on the main
 // queue. QA: outside the App Sandbox, GPEDITOR_QA_AUDIO_PATH=<file> is picked without the panel or the question.
 
 #import <AppKit/AppKit.h>
@@ -14,6 +15,7 @@
 #import "GPSandbox.h"
 
 static NSString *const kAddAudioTrackRequestedEvent = @"addAudioTrackRequested";
+static NSString *const kTrackCommandRequestedEvent = @"trackCommandRequested";
 static NSString *const kQAAudioPathVariable = @"GPEDITOR_QA_AUDIO_PATH";
 
 @interface GPAudioTrack : RCTEventEmitter <RCTBridgeModule>
@@ -41,6 +43,7 @@ RCT_EXPORT_MODULE();
       [GPAudioAssets removeAll];
     });
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onAddAudioTrackCommand:) name:GPEditorAddAudioTrackCommandNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onTrackCommand:) name:GPEditorTrackCommandNotification object:nil];
   }
   return self;
 }
@@ -57,7 +60,7 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[ kAddAudioTrackRequestedEvent ];
+  return @[ kAddAudioTrackRequestedEvent, kTrackCommandRequestedEvent ];
 }
 
 - (void)startObserving
@@ -74,6 +77,14 @@ RCT_EXPORT_MODULE();
 {
   if (_hasListeners) {
     [self sendEventWithName:kAddAudioTrackRequestedEvent body:@{}];
+  }
+}
+
+- (void)onTrackCommand:(NSNotification *)note
+{
+  NSString *command = [note.object isKindOfClass:[NSString class]] ? note.object : nil;
+  if (_hasListeners && command != nil) {
+    [self sendEventWithName:kTrackCommandRequestedEvent body:@{ @"command" : command }];
   }
 }
 

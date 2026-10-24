@@ -148,6 +148,26 @@ struct GPEditorApp: App {
       }
       // Track ▸ Add Audio Track…: a recording played in sync with the score (GPAudioTrack.m forwards it).
       CommandMenu("Track") {
+        // Add, duplicate, delete and move the shown track (Guitar Pro 8's ⌥⌘N / ⌥⌘R); GPAudioTrack.m forwards them to JS.
+        Button("Add Track…") {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "add" as NSString)
+        }
+        .keyboardShortcut("n", modifiers: [.command, .option])
+        Button("Duplicate Track") {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "duplicate" as NSString)
+        }
+        Button("Delete Track") {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "delete" as NSString)
+        }
+        .keyboardShortcut("r", modifiers: [.command, .option])
+        Divider()
+        Button("Move Track Up") {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "moveUp" as NSString)
+        }
+        Button("Move Track Down") {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "moveDown" as NSString)
+        }
+        Divider()
         Button("Add Audio Track…") {
           NotificationCenter.default.post(name: .GPEditorAddAudioTrackCommand, object: nil)
         }

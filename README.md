@@ -411,6 +411,14 @@ Guitar Pro's own files differently are listed, with that evidence, in
   gain, a level meter and *Monitor* on/off. With the Mac's own microphone and speakers monitoring starts off and the
   card warns about feedback (use headphones). macOS asks for microphone access the first time; closing the card turns
   the line in off.
+- **Tracks**: Track ▸ Add Track… (⌥⌘N, or *+ Track* under the tracks) opens the Add Track panel — the instrument
+  (guitar of 6, 7 or 8 strings, bass of 4, 5 or 6, banjo, ukulele, drums, piano, or any other General MIDI instrument),
+  its sound, tuning (TuxGuitar's presets for each string count), capo and name; the track comes after the last one, on
+  a channel of its own (drums on MIDI channel 10), with a bar of rests under every bar. Track ▸ Duplicate Track puts a
+  copy (notes, lyrics, effects, its own channel) right after the track; Delete Track (⌥⌘R) removes it — asking first
+  when it has notes, never the last track; Move Track Up / Down, the ⧉ − ▲ ▼ buttons beside *+ Track*, or dragging a
+  track's name up or down reorder the tracks. Each is one undo step, also in the command palette; the shown track, the
+  cursor, the lyrics panel and the line in's sound lock follow the tracks. Saved in every format the app writes.
 - **Audio track** (Guitar Pro 8's backing track): Track ▸ Add Audio Track… (or *+ Audio Track* under the tracks) picks a
   recording — WAV, AIFF, MP3, AAC / M4A, FLAC, Ogg, CAF (whatever macOS reads) — that plays with the score; a second one
   replaces it after asking. Its lane under the tracks shows the waveform with the bars placed over it, the cursor's bar

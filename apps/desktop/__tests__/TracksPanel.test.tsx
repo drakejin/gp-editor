@@ -151,6 +151,88 @@ describe('TracksPanel table', () => {
   });
 });
 
+function trackActions() {
+  return { onAddTrack: jest.fn(), onDuplicateTrack: jest.fn(), onDeleteTrack: jest.fn(), onMoveTrack: jest.fn() };
+}
+
+describe('TracksPanel track buttons', () => {
+  it('adds a track, and duplicates, deletes and moves the selected one', () => {
+    // Arrange
+    const actions = trackActions();
+    const panel = render({ trackActions: actions, selectedTrackIndex: 1 });
+
+    // Act
+    panel.press('Add a track (Track ▸ Add Track…, ⌥⌘N)');
+    panel.press('Duplicate the selected track (Track ▸ Duplicate Track)');
+    panel.press('Delete the selected track (Track ▸ Delete Track, ⌥⌘R)');
+    panel.press('Move the selected track up (Track ▸ Move Track Up)');
+
+    // Assert
+    expect(actions.onAddTrack).toHaveBeenCalledTimes(1);
+    expect(actions.onDuplicateTrack).toHaveBeenCalledWith(1);
+    expect(actions.onDeleteTrack).toHaveBeenCalledWith(1);
+    expect(actions.onMoveTrack).toHaveBeenCalledWith(1, 0);
+  });
+
+  it('cannot move the first track up, the last one down, or delete the only track', () => {
+    const first = render({ trackActions: trackActions(), selectedTrackIndex: 0 });
+    expect(first.control('Move the selected track up (Track ▸ Move Track Up)').props.disabled).toBe(true);
+    expect(first.control('Move the selected track down (Track ▸ Move Track Down)').props.disabled).toBe(false);
+    const last = render({ trackActions: trackActions(), selectedTrackIndex: 1 });
+    expect(last.control('Move the selected track down (Track ▸ Move Track Down)').props.disabled).toBe(true);
+    const single = render({ trackActions: trackActions(), song: { ...SONG, tracks: [SONG.tracks[0]!] } });
+    expect(single.control('Delete the selected track (Track ▸ Delete Track, ⌥⌘R)').props.disabled).toBe(true);
+  });
+
+  it('shows no track buttons without track actions', () => {
+    const panel = render();
+    expect(panel.renderer.root.findAllByProps({ testID: 'tracks-panel-add-track' })).toEqual([]);
+  });
+});
+
+describe('TracksPanel dragging a track', () => {
+  const name = (panel: ReturnType<typeof render>, label: string) => panel.control(label);
+  const pressAt = (pageY: number) => ({ nativeEvent: { pageY, locationX: 0, locationY: 0, pageX: 0 } });
+
+  it('moves a track to the row its name is dropped on, marking where it goes meanwhile', () => {
+    // Arrange
+    const actions = trackActions();
+    const panel = render({ trackActions: actions });
+    const guitar = () => name(panel, 'Track 1: Guitar');
+
+    // Act
+    ReactTestRenderer.act(() => guitar().props.onPressIn(pressAt(100)));
+    ReactTestRenderer.act(() => guitar().props.onPressMove(pressAt(100 + BAR_MAP.rowHeight)));
+    const marker = panel.renderer.root.findAll((node) => node.props.pointerEvents === 'none' && typeof node.type === 'string');
+    ReactTestRenderer.act(() => guitar().props.onPressOut(pressAt(100 + BAR_MAP.rowHeight)));
+    ReactTestRenderer.act(() => guitar().props.onPress());
+
+    // Assert
+    expect(marker.length).toBeGreaterThan(0);
+    expect(actions.onMoveTrack).toHaveBeenCalledWith(0, 1);
+    expect(panel.props.onSelectTrack).not.toHaveBeenCalled();
+  });
+
+  it('selects the track on a click, and moves nothing for a drag back to its own row', () => {
+    // Arrange
+    const actions = trackActions();
+    const panel = render({ trackActions: actions });
+    const bass = () => name(panel, 'Track 2: Bass');
+
+    // Act
+    ReactTestRenderer.act(() => bass().props.onPressIn(pressAt(200)));
+    ReactTestRenderer.act(() => bass().props.onPressOut(pressAt(202)));
+    ReactTestRenderer.act(() => bass().props.onPress());
+    ReactTestRenderer.act(() => bass().props.onPressIn(pressAt(200)));
+    ReactTestRenderer.act(() => bass().props.onPressMove(pressAt(190)));
+    ReactTestRenderer.act(() => bass().props.onPressOut(pressAt(198)));
+
+    // Assert
+    expect(panel.props.onSelectTrack).toHaveBeenCalledWith(1);
+    expect(actions.onMoveTrack).not.toHaveBeenCalled();
+  });
+});
+
 describe('TracksPanel mixer', () => {
   it('shows each track’s channel volume and pan', () => {
     const panel = render();

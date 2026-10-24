@@ -50,6 +50,8 @@ import { withSelectionStart } from './mark-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
 import { transpositionHint } from './transposition';
+import { type TrackAction, applyTrackAction } from './track-edits';
+import { followTrackChanges } from './track-remap';
 import {
   type ClipboardEdit,
   cutSelectionAt,
@@ -124,6 +126,7 @@ type SongAction =
 export type EditorAction =
   | SongAction
   | AudioTrackAction
+  | TrackAction
   | { readonly type: 'loadStarted' }
   | { readonly type: 'loadCancelled' }
   | { readonly type: 'loaded'; readonly document: OpenDocument }
@@ -321,6 +324,11 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'moveAudioSyncPoint':
     case 'setTempoFromAudio':
       return applyAudioAction(state, action);
+    case 'addTrack':
+    case 'duplicateTrack':
+    case 'deleteTrack':
+    case 'moveTrack':
+      return applyTrackEdit(state, action);
     case 'edit':
       return applyCursorEdit(state, withSelectionStart(action.edit, state.selectionAnchor));
     case 'cutSelection':
@@ -584,6 +592,21 @@ function applyAudioAction(state: EditorState, action: AudioTrackAction): EditorS
   return result.hint === undefined ? recorded : { ...recorded, hint: result.hint };
 }
 
+/** A track added, copied, deleted or moved (one undo step): the shown track, cursor and selection follow their tracks. */
+function applyTrackEdit(state: EditorState, action: TrackAction): EditorState {
+  const { document } = state;
+  if (document === undefined) {
+    return state;
+  }
+  const result = applyTrackAction(document.song, action);
+  const recorded = recordSong(state, document, result.song);
+  if (recorded === state) {
+    return result.hint === undefined || result.hint === state.hint ? state : { ...state, hint: result.hint };
+  }
+  const followed = followTrackChanges({ ...recorded, hint: undefined }, document.song, result.song);
+  return result.shownTrackIndex === undefined ? followed : selectTrack(followed, result.shownTrackIndex);
+}
+
 function recordSong(
   state: EditorState,
   document: OpenDocument,
@@ -637,17 +660,12 @@ function undo(state: EditorState): EditorState {
   if (state.document === undefined || previous === undefined) {
     return state;
   }
-  return {
-    ...state,
-    document: { ...state.document, song: previous },
-    past: state.past.slice(0, -1),
-    future: [state.document.song, ...state.future],
-    cursor:
-      state.cursor === undefined
-        ? undefined
-        : clampCursor(previous, state.cursor),
-    notice: undefined,
-  };
+  const undone = followTrackChanges(
+    { ...state, document: { ...state.document, song: previous }, past: state.past.slice(0, -1), future: [state.document.song, ...state.future], notice: undefined },
+    state.document.song,
+    previous,
+  );
+  return { ...undone, cursor: undone.cursor === undefined ? undefined : clampCursor(previous, undone.cursor) };
 }
 
 function redo(state: EditorState): EditorState {
@@ -655,15 +673,12 @@ function redo(state: EditorState): EditorState {
   if (state.document === undefined || next === undefined) {
     return state;
   }
-  return {
-    ...state,
-    document: { ...state.document, song: next },
-    past: [...state.past, state.document.song].slice(-HISTORY_LIMIT),
-    future: rest,
-    cursor:
-      state.cursor === undefined ? undefined : clampCursor(next, state.cursor),
-    notice: undefined,
-  };
+  const redone = followTrackChanges(
+    { ...state, document: { ...state.document, song: next }, past: [...state.past, state.document.song].slice(-HISTORY_LIMIT), future: rest, notice: undefined },
+    state.document.song,
+    next,
+  );
+  return { ...redone, cursor: redone.cursor === undefined ? undefined : clampCursor(next, redone.cursor) };
 }
 
 /** The error banner's text for a file that could not be opened. */

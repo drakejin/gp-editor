@@ -72,6 +72,11 @@ const TOOLS_ROWS: readonly Command[] = [
 ];
 
 const TRACK_ROWS: readonly Command[] = [
+  row('track.add', 'Track', 'Add Track…', (a) => a.runTrackCommand('add'), { shortcut: '⌥⌘N', keywords: ['new track', 'instrument', 'guitar', 'bass', 'drums', 'piano', 'ukulele', 'banjo'] }),
+  row('track.duplicate', 'Track', 'Duplicate Track', (a) => a.runTrackCommand('duplicate'), { keywords: ['copy', 'clone'] }),
+  row('track.delete', 'Track', 'Delete Track', (a) => a.runTrackCommand('delete'), { shortcut: '⌥⌘R', keywords: ['remove'] }),
+  row('track.moveUp', 'Track', 'Move Track Up', (a) => a.runTrackCommand('moveUp'), { keywords: ['order', 'reorder'] }),
+  row('track.moveDown', 'Track', 'Move Track Down', (a) => a.runTrackCommand('moveDown'), { keywords: ['order', 'reorder'] }),
   row('track.addAudioTrack', 'Track', 'Add Audio Track…', (a) => a.addAudioTrack(), { keywords: ['backing track', 'recording', 'audio', 'mp3', 'wav', 'sync'] }),
   editorRow('track.removeAudioTrack', 'Track', 'Remove the Audio Track', { type: 'setAudioTrack', audioTrack: undefined }, { keywords: ['backing track', 'recording', 'audio'] }),
   keyRow('track.syncBar', 'Track', 'Sync the Cursor’s Bar to the Recording Now', press('y'), { keywords: ['audio', 'sync point', 'tap', 'backing track'] }),

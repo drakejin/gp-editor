@@ -1,5 +1,6 @@
 import { type PaletteContext, isToolEnabled } from '../components/palette/palette-tools';
 import type { AppCommand } from '../state/app-command';
+import type { TrackMenuCommand } from '../native/track-menu';
 import type { PanelId } from '../state/panels';
 import { type KeyCommand, type KeyPress, keyCommand } from './key-commands';
 
@@ -48,6 +49,8 @@ export interface CommandActions {
   readonly pickInstrument: () => void;
   /** Track ▸ Add Audio Track…: a recording played in sync with the score. */
   readonly addAudioTrack: () => void;
+  /** Track ▸ Add Track…, Duplicate Track, Delete Track, Move Track Up / Down, on the shown track. */
+  readonly runTrackCommand: (command: TrackMenuCommand) => void;
   readonly togglePanel: (panel: PanelId) => void;
   readonly toggleLoop: () => void;
   /** View ▸ Focus / Unfocus. */

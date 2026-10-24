@@ -20,6 +20,7 @@ function lineIn(overrides: Partial<LineIn> = {}): LineIn {
     isMonitoring: false,
     toggleMonitoring: jest.fn(),
     toggleLock: jest.fn(),
+    remapTrack: jest.fn(),
     trackIndex: 1,
     isOn: false,
     turnOn: jest.fn(),

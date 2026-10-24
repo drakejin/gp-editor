@@ -1,5 +1,5 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { type Song, setTrackLyrics } from '@gp-editor/core';
+import { type Song, addTrack, deleteTrack, moveTrack, setTrackLyrics } from '@gp-editor/core';
 import { LYRICS_APPLY_DELAY, type LyricsEditor, useLyricsEditor } from '../src/hooks/use-lyrics-editor';
 import type { WorkspaceAction } from '../src/state/workspace';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -116,5 +116,43 @@ describe('useLyricsEditor', () => {
     ReactTestRenderer.act(() => editor.current().changeText('two'));
     ReactTestRenderer.act(() => jest.advanceTimersByTime(LYRICS_APPLY_DELAY));
     expect(editor.dispatch.mock.calls).toEqual([[{ type: 'setTrackLyrics', trackIndex: 1, lyrics: { from: 1, text: 'two' } }]]);
+  });
+});
+
+describe('useLyricsEditor when the tracks change', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  /** SONG with a bass added after it: Guitar (lyrics) and Bass. */
+  const TWO_TRACKS = addTrack(SONG, { kind: 'bass' });
+
+  it('follows its track when another one moves before it, and sends what was typed there', () => {
+    // Arrange
+    const editor = renderEditor(TWO_TRACKS);
+    ReactTestRenderer.act(() => editor.current().open());
+    ReactTestRenderer.act(() => editor.current().changeText('moved words'));
+
+    // Act
+    editor.rerender(moveTrack(TWO_TRACKS, 1, 0));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(LYRICS_APPLY_DELAY));
+
+    // Assert
+    expect(editor.current().draft).toEqual({ trackIndex: 1, from: 2, text: 'moved words' });
+    expect(editor.dispatch.mock.calls).toEqual([[{ type: 'inTab', tabId: 'tab-1', action: { type: 'setTrackLyrics', trackIndex: 1, lyrics: { from: 2, text: 'moved words' } } }]]);
+  });
+
+  it('drops what was typed for a deleted track and shows the shown track’s lyrics', () => {
+    // Arrange
+    const editor = renderEditor(TWO_TRACKS);
+    ReactTestRenderer.act(() => editor.current().open());
+    ReactTestRenderer.act(() => editor.current().changeText('gone'));
+
+    // Act
+    editor.rerender(deleteTrack(TWO_TRACKS, 0));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(LYRICS_APPLY_DELAY));
+
+    // Assert
+    expect(editor.dispatch).not.toHaveBeenCalled();
+    expect(editor.current().draft).toMatchObject({ trackIndex: 0, text: '' });
   });
 });
