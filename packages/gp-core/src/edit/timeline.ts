@@ -77,8 +77,16 @@ export function restEvents(ticks: number, preferred?: Duration, tuplets?: Durati
 
 /** Of the voices playing in a beat, the one whose event carries the beat attributes: preferably one that stays put. */
 function attributeOwner(beat: Beat, movingVoiceIndex: number | undefined): number | undefined {
-  const played = beat.voices.flatMap((voice, index) => (voice.isEmpty ? [] : [index]));
-  return played.find((index) => index !== movingVoiceIndex) ?? played[0];
+  let firstPlayed: number | undefined;
+  for (let index = 0; index < beat.voices.length; index++) {
+    if (beat.voices[index]?.isEmpty === false) {
+      if (index !== movingVoiceIndex) {
+        return index;
+      }
+      firstPlayed ??= index;
+    }
+  }
+  return firstPlayed;
 }
 
 function attributesOf(beat: Beat): BeatAttributes {
@@ -106,7 +114,15 @@ export function distinctTuplets(durations: readonly DurationTuplets[]): readonly
 
 /** The tuplets a measure's events use: time another voice leaves unused is made of these. */
 function measureTuplets(measure: Measure): readonly DurationTuplets[] {
-  return distinctTuplets(measure.beats.flatMap((beat) => beat.voices.filter((voice) => !voice.isEmpty).map((voice) => voice.duration)));
+  const durations: Duration[] = [];
+  for (const beat of measure.beats) {
+    for (const voice of beat.voices) {
+      if (!voice.isEmpty) {
+        durations.push(voice.duration);
+      }
+    }
+  }
+  return distinctTuplets(durations);
 }
 
 /** Rests for `ticks` of unused time, plain or in one of `tuplets`; undefined when none can write it. */
@@ -158,15 +174,18 @@ function appendEvent(split: Split, voiceIndex: number, beatStart: number, event:
 export function toMeasureVoices(measure: Measure, start: number, movingVoiceIndex?: number): MeasureVoices | undefined {
   // A voice the beats have no slot for yet (voice 3 or 4 of a bar read from a GP3–GP5 file) gets one.
   const movingSlots = movingVoiceIndex === undefined || movingVoiceIndex >= MAX_VOICES ? 0 : movingVoiceIndex + 1;
-  const voiceCount = Math.max(1, movingSlots, ...measure.beats.map((beat) => beat.voices.length));
-  const split: Split = {
-    voices: Array.from({ length: voiceCount }, () => []),
-    ends: Array.from({ length: voiceCount }, () => start),
-    tuplets: measureTuplets(measure),
-  };
-  for (const [beatIndex, beat] of measure.beats.entries()) {
+  const voiceCount = measure.beats.reduce((count, beat) => Math.max(count, beat.voices.length), Math.max(1, movingSlots));
+  const split: Split = { voices: [], ends: [], tuplets: measureTuplets(measure) };
+  for (let voiceIndex = 0; voiceIndex < voiceCount; voiceIndex++) {
+    split.voices.push([]);
+    split.ends.push(start);
+  }
+  // Index loops, not entries(): every beat edit and every bar a cut or paste re-bars runs this.
+  for (let beatIndex = 0; beatIndex < measure.beats.length; beatIndex++) {
+    const beat = measure.beats[beatIndex] as Beat;
     const owner = attributeOwner(beat, movingVoiceIndex);
-    for (const [voiceIndex, voice] of beat.voices.entries()) {
+    for (let voiceIndex = 0; voiceIndex < beat.voices.length; voiceIndex++) {
+      const voice = beat.voices[voiceIndex] as Voice;
       const event: VoiceEvent = voiceIndex === owner ? { voice, beatIndex, attributes: attributesOf(beat) } : { voice, beatIndex };
       if (!voice.isEmpty && !appendEvent(split, voiceIndex, beat.start, event)) {
         return undefined;
@@ -268,10 +287,11 @@ export function toBeats(start: number, measureVoices: MeasureVoices, previous: r
       position += eventTicks(event);
     }
   });
-  const previousByStart = new Map(previous.map((beat) => [beat.start, beat]));
-  return [...slots.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([beatStart, events]) => buildBeat(beatStart, events, previousByStart.get(beatStart)));
+  const previousByStart = new Map<number, Beat>();
+  for (const beat of previous) {
+    previousByStart.set(beat.start, beat);
+  }
+  return [...slots.keys()].sort((a, b) => a - b).map((beatStart) => buildBeat(beatStart, slots.get(beatStart) ?? [], previousByStart.get(beatStart)));
 }
 
 /** True when two event lists hold the same events (free rests compare by duration). */

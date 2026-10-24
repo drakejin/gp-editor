@@ -4,7 +4,7 @@ import type { Beat, Measure, Track } from '../model/song';
 import type { BeatAddress } from './addresses';
 
 /** True when `a` comes before `b` in their track: an earlier bar, or an earlier beat of the same bar. */
-export function isBeatBefore(a: BeatAddress, b: BeatAddress): boolean {
+function isBeatBefore(a: BeatAddress, b: BeatAddress): boolean {
   return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beatIndex < b.beatIndex);
 }
 
