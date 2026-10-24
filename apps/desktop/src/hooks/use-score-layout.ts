@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import type { Song } from '@gp-editor/core';
+import { type Song, stylesheetOf } from '@gp-editor/core';
 import type { ChordDisplay } from '../score/chords';
 import { type MeasureCache, type PlanCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans } from '../score/score-layout';
 
@@ -26,8 +26,9 @@ export function useScoreLayout(song: Song, specs: readonly StaffSpec[], chordDis
     planCache.current = { song, chordDisplay, plans: made };
     return made;
   }, [song, shown, chordDisplay]);
-  const stacked = useMemo(() => stackStaves(plans), [plans]);
-  const staves = useStable(stacked, JSON.stringify(plans.map(({ trackIndex, mode, stringCount, bands, markLanes }) => [trackIndex, mode, stringCount, bands, markLanes])));
+  const { systemSpacing } = stylesheetOf(song).systems;
+  const stacked = useMemo(() => stackStaves(plans, systemSpacing), [plans, systemSpacing]);
+  const staves = useStable(stacked, JSON.stringify([systemSpacing, plans.map(({ trackIndex, mode, stringCount, bands, markLanes }) => [trackIndex, mode, stringCount, bands, markLanes])]));
   const cache = useRef<MeasureCache | undefined>(undefined);
   const measures = useMemo(() => {
     const trackIndexes = shown.map((spec) => spec.trackIndex);

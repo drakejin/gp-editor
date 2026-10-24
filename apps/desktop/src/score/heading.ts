@@ -1,9 +1,10 @@
-import type { MeasureHeader, Rgb } from '@gp-editor/core';
+import { type BarNumbers, DEFAULT_STYLESHEET, type MeasureHeader, type Rgb, type TextStyle } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
-import type { DrawCommand } from './draw';
+import type { DrawCommand, TextCommand } from './draw';
 import { ROW } from './geometry';
 import { textWidth } from './symbols/shapes';
+import { styleText } from './text-styles';
 import { engraveTripletFeel } from './triplet-feel';
 
 const HEADING_LEFT = 2;
@@ -21,28 +22,56 @@ export function rgbHex(color: Rgb): string {
   return `#${[color.r, color.g, color.b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** What the stylesheet says of the heading: where bar numbers go, the fonts of the numbers and the tempo, its decimals. */
+export interface HeadingStyle {
+  readonly barNumbers: BarNumbers;
+  /** The bar starts its system (bar numbers on the first bar of each system only). */
+  readonly isRowStart: boolean;
+  readonly barNumber: TextStyle;
+  readonly tempo: TextStyle;
+  readonly showsTempoDecimals: boolean;
+}
+
+const DEFAULT_HEADING: HeadingStyle = {
+  barNumbers: DEFAULT_STYLESHEET.barNumbers,
+  isRowStart: false,
+  barNumber: DEFAULT_STYLESHEET.texts.barNumber,
+  tempo: DEFAULT_STYLESHEET.texts.tempo,
+  showsTempoDecimals: DEFAULT_STYLESHEET.notation.showsTempoDecimals,
+};
+
+/** The bar's number, unless the stylesheet hides it here; an over-full bar's is always shown. */
+function barNumber(header: MeasureHeader, palette: Palette, isOverfull: boolean, style: HeadingStyle): DrawCommand[] {
+  const isShown = isOverfull || style.barNumbers === 'all' || (style.barNumbers === 'systemStart' && style.isRowStart);
+  if (!isShown) {
+    return [];
+  }
+  const command: TextCommand = {
+    kind: 'text', x: HEADING_LEFT, y: 8, text: String(header.number), size: 9,
+    color: isOverfull ? palette.danger : palette.muted, font: 'ui', align: 'left', bold: isOverfull,
+  };
+  return [styleText(command, style.barNumber, DEFAULT_STYLESHEET.texts.barNumber)];
+}
+
 /**
  * Measure number, marker, tempo, triplet feel, alternate endings and repeat count above the staves (measure-local,
  * y 0…ROW.heading). The number of an over-full measure is drawn bold in the danger colour.
  */
-export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, palette: Palette, isOverfull = false): DrawCommand[] {
-  const commands: DrawCommand[] = [
-    {
-      kind: 'text', x: HEADING_LEFT, y: 8, text: String(header.number), size: 9,
-      color: isOverfull ? palette.danger : palette.muted, font: 'ui', align: 'left', bold: isOverfull,
-    },
-  ];
+export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, palette: Palette, isOverfull = false, style: HeadingStyle = DEFAULT_HEADING): DrawCommand[] {
+  const commands: DrawCommand[] = barNumber(header, palette, isOverfull, style);
   if (header.marker !== undefined) {
     const maxChars = Math.max(1, Math.floor((layout.width - MARKER_LEFT - 4) / MARKER_CHAR_WIDTH));
     const title = header.marker.title.length > maxChars ? `${header.marker.title.slice(0, maxChars - 1)}…` : header.marker.title;
     commands.push({ kind: 'text', x: MARKER_LEFT, y: 8, text: title, size: 11, color: rgbHex(header.marker.color), font: 'ui', align: 'left', bold: true });
   }
-  const tempo = `♩ = ${header.tempo}`;
+  const tempo = `♩ = ${style.showsTempoDecimals ? header.tempo : Math.round(header.tempo)}`;
   if (layout.showTempo) {
-    commands.push({ kind: 'text', x: HEADING_LEFT, y: TEMPO_Y, text: tempo, size: TEMPO_SIZE, color: palette.text, font: 'ui', align: 'left', bold: true });
+    const command: TextCommand = { kind: 'text', x: HEADING_LEFT, y: TEMPO_Y, text: tempo, size: TEMPO_SIZE, color: palette.text, font: 'ui', align: 'left', bold: true };
+    commands.push(styleText(command, style.tempo, DEFAULT_STYLESHEET.texts.tempo));
   }
   if (layout.showTripletFeel) {
-    const x = layout.showTempo ? HEADING_LEFT + textWidth(tempo, TEMPO_SIZE) + TRIPLET_FEEL_GAP : HEADING_LEFT;
+    const tempoSize = (TEMPO_SIZE * style.tempo.size) / DEFAULT_STYLESHEET.texts.tempo.size;
+    const x = layout.showTempo ? HEADING_LEFT + textWidth(tempo, tempoSize) + TRIPLET_FEEL_GAP : HEADING_LEFT;
     commands.push(...engraveTripletFeel(header.tripletFeel, x, TEMPO_Y, palette.text));
   }
   commands.push(...endings(header.repeatAlternative, layout.width, palette));

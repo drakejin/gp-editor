@@ -1,4 +1,4 @@
-import { type Measure, type MeasureHeader, type Song, type StringAddress, type Track, isMeasureOverfull } from '@gp-editor/core';
+import { type Measure, type MeasureHeader, type Song, type StringAddress, type Stylesheet, type Track, isMeasureOverfull, stylesheetOf } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
 import { type MeasureLayout, type RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
@@ -9,8 +9,9 @@ import { engraveHairpins } from './hairpins';
 import { engraveNotationExpressions } from './notation-expressions';
 import { engravePedals } from './pedals';
 import { engraveChords } from './chords';
+import { engraveFreeTexts } from './free-text';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
-import { engraveHeading } from './heading';
+import { type HeadingStyle, engraveHeading } from './heading';
 import { engraveLyrics } from './lyrics';
 import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
 import { type BeatRange, engraveSelection } from './selection-tint';
@@ -114,6 +115,8 @@ interface MeasureScope {
   readonly cursor?: StringAddress;
   readonly playingBeatIndex?: number;
   readonly isRowStart: boolean;
+  /** The song's stylesheet (stylesheetOf): fonts, labels and the notation options the engravers honour. */
+  readonly sheet: Stylesheet;
 }
 
 function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure, isRowStart: boolean): DrawCommand[] {
@@ -131,20 +134,29 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     cursor: context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined,
     playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
     isRowStart,
+    sheet: stylesheetOf(context.song),
   };
   const notation = engraveNotation(context, scope);
-  const { chordNamesY, chordDiagramsTop } = context.geometry;
+  const { chordNamesY, chordDiagramsTop, freeTextY, lyricsY } = context.geometry;
+  const { palette } = context;
+  const { texts } = scope.sheet;
   const commands = [
-    ...(context.hasHeading === false ? [] : engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header))),
-    ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette: context.palette }),
+    ...(context.hasHeading === false ? [] : engraveHeading(header, layout, palette, isMeasureOverfull(measure, header), headingStyle(scope))),
+    ...(freeTextY === undefined ? [] : engraveFreeTexts({ measure, layout, y: freeTextY, palette, style: texts.freeText })),
+    ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette, style: texts.chordName }),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),
     ...engraveMeasureMarks(context, scope),
-    ...(context.geometry.lyricsY === undefined ? [] : engraveLyrics({ track, layout, y: context.geometry.lyricsY, palette: context.palette })),
+    ...(lyricsY === undefined ? [] : engraveLyrics({ track, layout, y: lyricsY, palette, style: texts.lyrics })),
     ...engraveTab(context, scope),
     ...engraveSelection(context.selection, layout, context.geometry, track.strings.length, context.palette),
   ];
   return translateCommands(commands, placed.x, 0);
+}
+
+/** The stylesheet's bar numbers and tempo for the heading of the scope's bar. */
+function headingStyle({ sheet, isRowStart }: MeasureScope): HeadingStyle {
+  return { barNumbers: sheet.barNumbers, isRowStart, barNumber: sheet.texts.barNumber, tempo: sheet.texts.tempo, showsTempoDecimals: sheet.notation.showsTempoDecimals };
 }
 
 function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[] | undefined {
@@ -164,7 +176,8 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   const showsPickStrokes = !showsTab(context.mode);
   const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
   const { editedVoiceIndex } = context;
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex });
+  const { showsCommonTime } = scope.sheet.notation;
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex, showsCommonTime });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */
@@ -188,7 +201,7 @@ function engraveMeasureMarks(context: RowContext, scope: MeasureScope): DrawComm
   const { measureIndex } = layout;
   const { palette } = context;
   // Without a tab staff, the fades and rasgueados go over the notation.
-  const expressions = notationTop !== undefined && tabTop === undefined ? engraveNotationExpressions(measure, layout, notationTop, palette) : [];
+  const expressions = notationTop !== undefined && tabTop === undefined ? engraveNotationExpressions(measure, layout, notationTop, palette, scope.sheet.notation) : [];
   return [
     ...expressions,
     ...(directionsY === undefined ? [] : engraveDirections(header, layout.width, directionsY, palette)),
@@ -208,6 +221,6 @@ function engraveTab(context: RowContext, scope: MeasureScope): DrawCommand[] {
   return engraveTabMeasure({
     track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
     top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
-    editedVoiceIndex: context.editedVoiceIndex,
+    editedVoiceIndex: context.editedVoiceIndex, notation: scope.sheet.notation,
   });
 }

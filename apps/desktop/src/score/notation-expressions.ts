@@ -1,4 +1,4 @@
-import { EMPTY_NOTE_EFFECT, type Measure, type NoteEffect } from '@gp-editor/core';
+import { EMPTY_NOTE_EFFECT, type Measure, type NotationStyle, type NoteEffect } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
@@ -30,7 +30,7 @@ function expressionsOf(measure: Measure): Measure {
 }
 
 /** The measure's fades and rasgueados above a notation staff whose top line is at `notationTop` (measure-local). */
-export function engraveNotationExpressions(measure: Measure, layout: MeasureLayout, notationTop: number, palette: Palette): DrawCommand[] {
+export function engraveNotationExpressions(measure: Measure, layout: MeasureLayout, notationTop: number, palette: Palette, notation?: NotationStyle): DrawCommand[] {
   const marksY = notationTop - NOTATION.above + LABELS_DROP;
-  return engraveTabMarks({ measure: expressionsOf(measure), layout, marksY, markLanes: ['labels'], palette });
+  return engraveTabMarks({ measure: expressionsOf(measure), layout, marksY, markLanes: ['labels'], palette, notation });
 }

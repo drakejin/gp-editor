@@ -5,13 +5,11 @@ import {
   type MeasureLayout,
   type RowLayout,
   beatWidths,
-  breakRows,
   closeMeasure,
-  justifyScale,
   layoutMeasure,
   measureFrame,
-  stretchMeasure,
 } from './layout';
+import { NO_SYSTEM_RULES, type SystemRules, breakSystems, fitSystem } from './system-design';
 
 /** The least distance between two moments of a multitrack bar, so beats starting apart never share an x. */
 const MIN_COLUMN_GAP = 6;
@@ -98,21 +96,22 @@ export function layoutAlignedMeasures(song: Song, trackIndexes: readonly number[
 
 /**
  * The rows of a multitrack score: the bars broken into rows once (they share their widths), every staff stretched
- * alike. `measures[i]` holds bar i's layout per staff; each row holds one RowLayout per staff.
+ * alike. `measures[i]` holds bar i's layout per staff; each row holds one RowLayout per staff. `rules` add the
+ * stylesheet's bars per system and Design Mode's system starts and bar widths (`breakSystems`, `fitSystem`).
  */
-export function layoutAlignedRows(measures: readonly (readonly MeasureLayout[])[], availableWidth: number, firstRowWidth = availableWidth): RowLayout[][] {
+export function layoutAlignedRows(measures: readonly (readonly MeasureLayout[])[], availableWidth: number, firstRowWidth = availableWidth, rules: SystemRules = NO_SYSTEM_RULES): RowLayout[][] {
   const staffCount = measures[0]?.length ?? 0;
   const reference = measures.flatMap((staves) => (staves[0] === undefined ? [] : [staves[0]]));
-  const rows = breakRows(reference, availableWidth, firstRowWidth);
+  const spans = breakSystems(reference.map((measure) => measure.width), rules, availableWidth, firstRowWidth);
   let next = 0;
-  return rows.map((row, rowIndex) => {
-    const scale = justifyScale(row, rowIndex === 0 ? firstRowWidth : availableWidth, rowIndex === rows.length - 1);
-    const bars = measures.slice(next, next + row.length);
-    next += row.length;
+  return spans.map((span, rowIndex) => {
+    const first = next;
+    next += span.count;
+    const bars = fitSystem(measures.slice(first, next), first, span, rowIndex === 0 ? firstRowWidth : availableWidth, rowIndex === spans.length - 1, rules);
     return Array.from({ length: staffCount }, (_, staff): RowLayout => ({
       measures: bars.flatMap((staves) => {
         const measure = staves[staff];
-        return measure === undefined ? [] : [scale === undefined ? measure : stretchMeasure(measure, scale)];
+        return measure === undefined ? [] : [measure];
       }),
     }));
   });

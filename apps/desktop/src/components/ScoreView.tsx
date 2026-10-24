@@ -1,6 +1,6 @@
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
-import type { Song, StringAddress } from '@gp-editor/core';
+import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
 import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';
@@ -33,7 +33,7 @@ interface ScoreViewProps {
   /** Selected beats of the selected track (selectionRange), tinted; keep it the same object while it does not change. */
   readonly selection?: BeatRange;
   readonly palette: Palette;
-  /** Screen points per layout point. */
+  /** Screen points per layout point (the stylesheet's scale multiplies it). */
   readonly zoom: number;
   /** The page's title block, above the first row. */
   readonly header?: ReactElement;
@@ -56,7 +56,9 @@ const PAGE_FOOT = 48;
  * picked in the bar map), are scrolled into view.
  */
 export function ScoreView(props: ScoreViewProps) {
-  const { song, trackIndex, staves, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, playingTracks, selection, palette, zoom, header } = props;
+  const { song, trackIndex, staves, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, playingTracks, selection, palette, header } = props;
+  // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
+  const zoom = props.zoom * stylesheetOf(song).scale;
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);

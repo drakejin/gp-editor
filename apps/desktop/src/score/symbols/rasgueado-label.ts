@@ -9,7 +9,7 @@ export function rasgueadoFingers(pattern: RasgueadoPattern): string {
   return pattern.endsWith('Triplet') ? `${fingers}³` : fingers;
 }
 
-/** The mark over a rasgueado beat: "rasg." and its fingers. */
-export function rasgueadoLabel(pattern: RasgueadoPattern): string {
-  return `rasg. ${rasgueadoFingers(pattern)}`;
+/** The mark over a rasgueado beat: "rasg." (or the stylesheet's label) and its fingers. */
+export function rasgueadoLabel(pattern: RasgueadoPattern, name = 'rasg.'): string {
+  return `${name} ${rasgueadoFingers(pattern)}`;
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_CHANNEL } from '@gp-editor/core';
+import { DEFAULT_CHANNEL, DEFAULT_STYLESHEET, setStylesheet } from '@gp-editor/core';
 import { isSameRow, type ScoreRowProps } from '../src/components/ScoreRow';
 import { layoutMeasure } from '../src/lib/layout';
 import { rowGeometry } from '../src/score/geometry';
@@ -30,6 +30,11 @@ describe('isSameRow', () => {
     const before = { ...rowProps(), editedVoiceIndex: 0 };
     expect(isSameRow(before, { ...before, editedVoiceIndex: 2 })).toBe(false);
     expect(isSameRow(before, { ...before, editedVoiceIndex: 0 })).toBe(true);
+  });
+
+  it('redraws a row when the song gets another stylesheet', () => {
+    const before = rowProps();
+    expect(isSameRow(before, { ...before, song: setStylesheet(before.song, { ...DEFAULT_STYLESHEET, barNumbers: 'hidden' }) })).toBe(false);
   });
 
   it('redraws a row when the zoom changes', () => {

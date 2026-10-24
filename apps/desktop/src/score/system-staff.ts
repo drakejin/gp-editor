@@ -1,11 +1,12 @@
-import type { Song } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Song, type TextStyle, stylesheetOf } from '@gp-editor/core';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
 import type { RowGeometry } from './geometry';
 import { type RowContext, engraveRow, placeRow } from './row';
-import { SYSTEM, type ScoreLayout, staffLabel } from './score-layout';
+import { SYSTEM, type ScoreLayout, staffLabel, systemNameFormat } from './score-layout';
 import { textWidth } from './symbols/shapes';
 import { stringY } from './tab';
+import { styleText } from './text-styles';
 
 /** Five notation lines, 8 points apart. */
 const NOTATION_HEIGHT = 32;
@@ -37,7 +38,7 @@ export function staffDecor(song: Song, layout: ScoreLayout, systemIndex: number,
   }
   return {
     namesWidth: system.namesWidth,
-    label: staffLabel(track, systemIndex === 0),
+    label: staffLabel(track, systemIndex === 0, systemNameFormat(song, systemIndex)),
     isFirstStaff: staffIndex === 0,
     isLastStaff: staffIndex === layout.staves.length - 1,
     height: staff.height,
@@ -62,10 +63,14 @@ function staffSpan(geometry: RowGeometry, stringCount: number): StaffSpan | unde
   return { top, bottom, inner: notationBottom === undefined || tabTop === undefined ? undefined : { from: notationBottom, to: tabTop } };
 }
 
-/** The system's start line and every bar line, continued over the canvas above and below the staff (and between its staves). */
+/**
+ * The system's start line and every bar line, continued over the canvas above and below the staff (and between its
+ * staves); only the start line when the stylesheet keeps each track's bar lines to its own staves.
+ */
 function systemLines(context: RowContext, decor: StaffDecor, span: StaffSpan): DrawCommand[] {
   const placed = placeRow(context.row, context.headerWidth);
-  const xs = [0.5, ...placed.map((measure) => measure.x + measure.layout.width)].map((x) => x + decor.namesWidth);
+  const barXs = stylesheetOf(context.song).systems.showsBarlinesAcrossSystem ? placed.map((measure) => measure.x + measure.layout.width) : [];
+  const xs = [0.5, ...barXs].map((x) => x + decor.namesWidth);
   const segments = [
     ...(decor.isFirstStaff ? [] : [[0, span.top] as const]),
     ...(span.inner === undefined ? [] : [[span.inner.from, span.inner.to] as const]),
@@ -91,18 +96,24 @@ function bracket(decor: StaffDecor, span: StaffSpan, color: string): DrawCommand
   ];
 }
 
-/** The label, cut with an ellipsis to the names column's longest. */
-function fittedLabel(label: string): string {
-  if (textWidth(label, SYSTEM.nameSize) <= SYSTEM.maxNameWidth) {
+/** The label, cut with an ellipsis to the names column's longest (at the label's font size). */
+function fittedLabel(label: string, size: number): string {
+  if (textWidth(label, size) <= SYSTEM.maxNameWidth) {
     return label;
   }
-  const chars = Math.max(1, Math.floor(SYSTEM.maxNameWidth / textWidth('M', SYSTEM.nameSize)) - 1);
+  const chars = Math.max(1, Math.floor(SYSTEM.maxNameWidth / textWidth('M', size)) - 1);
   return `${label.slice(0, chars)}…`;
 }
 
-function nameLabel(decor: StaffDecor, span: StaffSpan, palette: Palette): DrawCommand {
+/** The track's name right of the bracket, in the stylesheet's track name font; none when the stylesheet hides it. */
+function nameLabel(decor: StaffDecor, span: StaffSpan, palette: Palette, style: TextStyle): DrawCommand[] {
+  if (decor.label === '') {
+    return [];
+  }
+  const base = DEFAULT_STYLESHEET.texts.trackName;
   const x = decor.namesWidth - SYSTEM.bracketGap - SYSTEM.nameGap;
-  return { kind: 'text', x, y: (span.top + span.bottom) / 2, text: fittedLabel(decor.label), size: SYSTEM.nameSize, color: palette.text, font: 'ui', align: 'right' };
+  const text = fittedLabel(decor.label, (SYSTEM.nameSize * style.size) / base.size);
+  return [styleText({ kind: 'text', x, y: (span.top + span.bottom) / 2, text, size: SYSTEM.nameSize, color: palette.text, font: 'ui', align: 'right' }, style, base)];
 }
 
 /**
@@ -116,5 +127,6 @@ export function engraveSystemStaff(context: RowContext, decor: StaffDecor): Draw
   if (span === undefined) {
     return row;
   }
-  return [...row, ...systemLines(context, decor, span), ...bracket(decor, span, context.palette.text), nameLabel(decor, span, context.palette)];
+  const style = stylesheetOf(context.song).texts.trackName;
+  return [...row, ...systemLines(context, decor, span), ...bracket(decor, span, context.palette.text), ...nameLabel(decor, span, context.palette, style)];
 }

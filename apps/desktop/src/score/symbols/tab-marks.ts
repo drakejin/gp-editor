@@ -1,10 +1,13 @@
-import type {
-  Beat,
-  BendPoint,
-  HarmonicType,
-  Measure,
-  Note,
-  NoteEffect,
+import {
+  type Beat,
+  type BendPoint,
+  DEFAULT_STYLESHEET,
+  type HarmonicType,
+  type Measure,
+  type NotationStyle,
+  type Note,
+  type NoteEffect,
+  type SymbolLabel,
 } from '@gp-editor/core';
 import type { MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
@@ -54,17 +57,17 @@ const KIND_ORDER: readonly TabMarkKind[] = [
   'pickStroke',
 ];
 
-const SPAN_LABELS = { palmMute: 'P.M.', letRing: 'let ring' } as const;
 const HARMONIC_LABELS: Readonly<Partial<Record<HarmonicType, string>>> = {
   artificial: 'A.H.',
   pinch: 'P.H.',
   tapped: 'T.H.',
   semi: 'S.H.',
 };
-const TEXT_LABELS: ReadonlyArray<readonly [keyof NoteEffect, string]> = [
-  ['tapping', 'T'],
-  ['slapping', 'S'],
-  ['popping', 'P'],
+/** Effects written as words over the beat, by the stylesheet's labels (T, S, P by default). */
+const TEXT_LABELS: ReadonlyArray<readonly [keyof NoteEffect, SymbolLabel]> = [
+  ['tapping', 'tapping'],
+  ['slapping', 'slap'],
+  ['popping', 'pop'],
 ];
 
 const MARK = {
@@ -134,6 +137,12 @@ export interface TabMarksContext {
   readonly marksY: number;
   readonly markLanes?: readonly TabMarkKind[];
   readonly palette: Palette;
+  /** The stylesheet's labels and whether symbol lines go on over rests; the defaults when absent. */
+  readonly notation?: NotationStyle;
+}
+
+function labelsOf(context: Pick<TabMarksContext, 'notation'>): NotationStyle['labels'] {
+  return (context.notation ?? DEFAULT_STYLESHEET.notation).labels;
 }
 
 /** Consecutive beats (positions in layout order) with one kind of mark. */
@@ -144,8 +153,20 @@ interface Run {
   readonly goesOn: boolean;
 }
 
+/** No note in any voice of the beat. */
+function isRest(beat: Beat | undefined): boolean {
+  return beatNotes(beat).length === 0;
+}
+
+/** Whether every beat between two places of the layout (both left out) is a rest. */
+function restsBetween(context: TabMarksContext, from: number, to: number): boolean {
+  return context.layout.beats.slice(from + 1, Math.max(from + 1, to)).every((placed) => isRest(context.measure.beats[placed.beatIndex]));
+}
+
 function runs(context: TabMarksContext, kind: TabMarkKind): Run[] {
   const { layout, measure } = context;
+  // The stylesheet's "extend symbol lines over rests": a let ring or palm mute line bridges the rests between its notes.
+  const bridges = context.notation?.showsLinesOverRests === true && (kind === 'palmMute' || kind === 'letRing');
   const spans = layout.beats.reduce<
     ReadonlyArray<{ readonly first: number; readonly last: number }>
   >((found, beatLayout, position) => {
@@ -153,15 +174,17 @@ function runs(context: TabMarksContext, kind: TabMarkKind): Run[] {
       return found;
     }
     const previous = found[found.length - 1];
-    return previous !== undefined && previous.last === position - 1
+    const joins = previous !== undefined && (previous.last === position - 1 || (bridges && restsBetween(context, previous.last, position)));
+    return previous !== undefined && joins
       ? [...found.slice(0, -1), { ...previous, last: position }]
       : [...found, { first: position, last: position }];
   }, []);
+  const lastPosition = layout.beats.length - 1;
   return spans.map(span => ({
     ...span,
-    isContinued: span.first === 0 && beatHas(context.previousBeat, kind),
+    isContinued: (span.first === 0 || (bridges && restsBetween(context, -1, span.first))) && beatHas(context.previousBeat, kind),
     goesOn:
-      span.last === layout.beats.length - 1 &&
+      (span.last === lastPosition || (bridges && restsBetween(context, span.last, lastPosition + 1))) &&
       beatHas(context.nextMeasure?.beats[0], kind),
   }));
 }
@@ -224,7 +247,7 @@ function dashedSpans(
   y: number,
 ): DrawCommand[] {
   const color = context.palette.muted;
-  const text = SPAN_LABELS[kind];
+  const text = labelsOf(context)[kind];
   return runs(context, kind).flatMap(run => {
     const end = runEnd(context, run);
     const style = { hook: run.goesOn ? undefined : MARK.hook, color };
@@ -334,7 +357,7 @@ function whammy(context: TabMarksContext, y: number): DrawCommand[] {
     .filter(run => !run.isContinued)
     .map(run =>
       label(
-        'w/bar',
+        labelsOf(context).whammyBar,
         (layout.beats[run.first]?.x ?? 0) - MARK.whammyLabelGap,
         y,
         color,
@@ -424,10 +447,10 @@ function tremoloItem(effects: readonly NoteEffect[]): LabelItem[] {
       ];
 }
 
-function textItem(effects: readonly NoteEffect[]): LabelItem[] {
+function textItem(effects: readonly NoteEffect[], labels: NotationStyle['labels']): LabelItem[] {
   const words = [
     ...TEXT_LABELS.filter(([key]) => effects.some(e => e[key] === true)).map(
-      ([, word]) => word,
+      ([, name]) => labels[name],
     ),
     ...new Set(
       effects
@@ -481,11 +504,11 @@ function hairpinItem(effects: readonly NoteEffect[]): LabelItem[] {
 }
 
 /** "rasg." and the pattern's fingers (³ for a triplet, an. for an anapaest), over a rasgueado beat. */
-function rasgueadoItem(beat: Beat | undefined): LabelItem[] {
+function rasgueadoItem(beat: Beat | undefined, labels: NotationStyle['labels']): LabelItem[] {
   if (beat?.rasgueado === undefined) {
     return [];
   }
-  const text = rasgueadoLabel(beat.rasgueado);
+  const text = rasgueadoLabel(beat.rasgueado, labels.rasgueado);
   return [
     {
       width: textWidth(text, TAB_MARKS.fontSize),
@@ -502,9 +525,9 @@ function beatLabels(context: TabMarksContext, y: number): DrawCommand[] {
     const items = [
       ...articulationItem(effects),
       ...tremoloItem(effects),
-      ...textItem(effects),
+      ...textItem(effects, labelsOf(context)),
       ...hairpinItem(effects),
-      ...rasgueadoItem(beat),
+      ...rasgueadoItem(beat, labelsOf(context)),
     ];
     const start = {
       commands: [] as readonly DrawCommand[],

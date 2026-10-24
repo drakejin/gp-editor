@@ -58,6 +58,10 @@ export interface TextCommand {
   readonly font: DrawFont;
   readonly align: DrawAlign;
   readonly bold?: boolean;
+  /** Slanted (the stylesheet's italic texts). */
+  readonly italic?: boolean;
+  /** A font family installed on the Mac, in place of the system font (`ui` texts the stylesheet sets a font for). */
+  readonly family?: string;
 }
 
 /** Quadratic Bézier stroke (ties, slurs, bend arrows). */

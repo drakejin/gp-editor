@@ -98,7 +98,7 @@ function ScoreRowView(props: ScoreRowProps) {
 /**
  * A row re-renders only when something it draws changed: its measures or headers (edits keep untouched measures
  * identical), the measures on either side (ties, slurs, slides, spans across bar lines; key changes), the cursor,
- * playing beat or selected beats inside it, the voice being edited, mode, size, mark lanes or theme.
+ * playing beat or selected beats inside it, the voice being edited, mode, size, mark lanes, theme or the song's stylesheet.
  */
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
@@ -106,7 +106,7 @@ export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.rowIndex !== b.rowIndex ||
     !sameLanes(a.markLanes, b.markLanes) || a.editedVoiceIndex !== b.editedVoiceIndex || a.hasHeading !== b.hasHeading || !sameDecor(a.decor, b.decor) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
-    !isSameRange(a.selection, b.selection)
+    !isSameRange(a.selection, b.selection) || a.song.stylesheet !== b.song.stylesheet
   ) {
     return false;
   }

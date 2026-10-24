@@ -157,11 +157,40 @@ static NSString *const kMusicFontName = @"Bravura";
   return [NSFont systemFontOfSize:size weight:weight];
 }
 
+/**
+ * A text's font: the stylesheet's family (an installed family's name; the system font when it is not installed) and
+ * italic over the command's own font (src/score/draw.ts TextCommand.family / italic).
+ */
+- (NSFont *)fontFor:(NSDictionary *)c
+{
+  NSString *kind = c[@"font"];
+  CGFloat size = [c[@"size"] doubleValue];
+  BOOL bold = [c[@"bold"] boolValue];
+  NSFont *font = [self font:kind size:size bold:bold];
+  NSString *family = [c[@"family"] isKindOfClass:[NSString class]] ? c[@"family"] : nil;
+  BOOL italic = [c[@"italic"] boolValue];
+  if (family.length == 0 && !italic) {
+    return font;
+  }
+  NSFontManager *manager = NSFontManager.sharedFontManager;
+  NSFontTraitMask traits = (bold ? NSBoldFontMask : 0) | (italic ? NSItalicFontMask : 0);
+  if (family.length > 0) {
+    font = [manager fontWithFamily:family traits:traits weight:(bold ? 9 : 5) size:size]
+      ?: [manager fontWithFamily:family traits:0 weight:5 size:size] ?: font;
+  }
+  if (!italic) {
+    return font;
+  }
+  // The system font has its italic as a descriptor trait; other families answer the font manager.
+  NSFontDescriptor *slanted = [font.fontDescriptor fontDescriptorWithSymbolicTraits:font.fontDescriptor.symbolicTraits | NSFontDescriptorTraitItalic];
+  return [NSFont fontWithDescriptor:slanted size:size] ?: [manager convertFont:font toHaveTrait:NSItalicFontMask];
+}
+
 /** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. */
 - (void)drawText:(NSDictionary *)c
 {
   NSString *family = c[@"font"];
-  NSFont *font = [self font:family size:[c[@"size"] doubleValue] bold:[c[@"bold"] boolValue]];
+  NSFont *font = [self fontFor:c];
   NSDictionary *attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
   NSString *text = c[@"text"];
   CGFloat width = [text sizeWithAttributes:attributes].width;
