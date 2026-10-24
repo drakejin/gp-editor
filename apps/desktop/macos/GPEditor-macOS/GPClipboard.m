@@ -5,6 +5,8 @@
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
 
+#import "GPAppStrings.h"
+
 static NSPasteboardType const kBeatsType = @"com.drakejin.gpeditor.beats";
 
 @interface GPClipboard : NSObject <RCTBridgeModule>
@@ -45,4 +47,3 @@ RCT_EXPORT_METHOD(readBeats : (RCTPromiseResolveBlock)resolve reject : (RCTPromi
 }
 
 @end
-#import "GPAppStrings.h"

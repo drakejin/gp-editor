@@ -10,6 +10,8 @@
 #import <sys/resource.h>
 #import <unistd.h>
 
+#import "GPAppStrings.h"
+
 static NSString *const kProjectsFolder = @"Documents/GP Editor Projects";
 /** Every page is one paid request: a PDF longer than this is refused (split it). */
 static const NSUInteger kMaxImportPages = 60;
@@ -261,4 +263,3 @@ RCT_EXPORT_METHOD(revealProject : (NSString *)projectPath resolve : (RCTPromiseR
 }
 
 @end
-#import "GPAppStrings.h"

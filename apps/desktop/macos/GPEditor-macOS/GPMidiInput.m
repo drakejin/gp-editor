@@ -9,6 +9,8 @@
 #import <React/RCTEventEmitter.h>
 #import <os/log.h>
 
+#import "GPAppStrings.h"
+
 static NSString *const kNoteEvent = @"midiNote";
 static NSString *const kSourcesChangedEvent = @"midiSourcesChanged";
 static NSString *const kSettingsDefault = @"GPMidiInputSettings";
@@ -213,4 +215,3 @@ RCT_EXPORT_METHOD(saveSettings : (NSString *)json resolve : (RCTPromiseResolveBl
 }
 
 @end
-#import "GPAppStrings.h"
