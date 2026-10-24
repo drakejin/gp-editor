@@ -105,9 +105,9 @@ function decodeUtf8(bytes: Uint8Array, strict: boolean): string | undefined {
   return unitsToString(units, length);
 }
 
-/** Bytes of the sequence a lead byte (>= 0x80) starts; 0 when it cannot start one. F5–FF count as three-byte leads. */
+/** Bytes of the sequence a lead byte (>= 0x80) starts; 0 when it cannot start one (80–C1, F5–FF). */
 function utf8SequenceLength(first: number): number {
-  return first >= 0xf0 && first <= 0xf4 ? 4 : first >= 0xe0 ? 3 : first >= 0xc2 && first < 0xe0 ? 2 : 0;
+  return first >= 0xf0 && first <= 0xf4 ? 4 : first >= 0xe0 && first <= 0xef ? 3 : first >= 0xc2 && first < 0xe0 ? 2 : 0;
 }
 
 /** The code point of the multi-byte sequence at `at`, or MALFORMED (truncated, bad continuation, overlong, surrogate, too large). */

@@ -36,6 +36,12 @@ describe('UTF-8 decoding', () => {
     expect(decodeUtf8Strict(bytes(0xe2, 0x28, 0xa1))).toBeUndefined();
   });
 
+  it('rejects F5–FF, which never start a UTF-8 sequence', () => {
+    expect(decodeUtf8Strict(bytes(0xf8, 0x80, 0x80))).toBeUndefined();
+    expect(decodeUtf8Lenient(bytes(0xf5, 0x80, 0x80))).toBe('���');
+    expect(decodeText(bytes(0xf8, 0x80, 0x80))).toBe('ø€€');
+  });
+
   it('replaces malformed bytes in lenient mode', () => {
     expect(decodeUtf8Lenient(bytes(0x41, 0xff, 0x42))).toBe('A�B');
   });
