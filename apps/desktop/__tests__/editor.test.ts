@@ -1,5 +1,6 @@
 import { DEFAULT_MASTER, QUARTER, buildEffect, findNote } from '@gp-editor/core';
-import { type EditorAction, type EditorState, HISTORY_LIMIT, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
+import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
+import { HISTORY_LIMIT } from '../src/state/editor-history';
 import { beat, makeSong, note, toTux } from '../test-support/songs';
 
 /** Bar 1: beat 0 = strings 1 (fret 3) and 2 (fret 5); bar 2: beat 0 = string 6 (fret 0). */
