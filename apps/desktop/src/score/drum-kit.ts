@@ -8,7 +8,7 @@ import { type DrawCommand, scaleCommands, translateCommands } from './draw';
 export const DRUM_KIT = { width: 600, height: 172, labelSize: 9, smallLabelSize: 8 } as const;
 
 /** Drums and cymbals have their colours whatever the theme, as the piano's keys do. */
-export const DRUM_COLORS = { head: '#E4E1DA', rim: '#6E6E73', cymbal: '#C8A24A', cymbalEdge: '#8C6E22', label: '#2C2E33', pedal: '#9A9AA0' } as const;
+const DRUM_COLORS = { head: '#E4E1DA', rim: '#6E6E73', cymbal: '#C8A24A', cymbalEdge: '#8C6E22', label: '#2C2E33', pedal: '#9A9AA0' } as const;
 
 export type DrumPieceKind = 'drum' | 'cymbal' | 'pedal';
 

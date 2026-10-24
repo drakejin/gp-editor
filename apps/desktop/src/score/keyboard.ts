@@ -40,7 +40,7 @@ const PITCHES: readonly number[] = Array.from({ length: PIANO.highest - PIANO.lo
 /** White keys below each key: a white key's place in the row, or the white key a black key sits after (+1). */
 const WHITE_KEYS_BELOW: readonly number[] = PITCHES.map((pitch) => PITCHES.filter((other) => other < pitch && !isBlackKey(other)).length);
 
-export const WHITE_KEY_COUNT = PITCHES.filter((pitch) => !isBlackKey(pitch)).length;
+const WHITE_KEY_COUNT = PITCHES.filter((pitch) => !isBlackKey(pitch)).length;
 
 export interface PianoKey {
   readonly pitch: number;

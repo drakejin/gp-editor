@@ -11,7 +11,7 @@ import { DYNAMIC_GLYPHS, type MusicGlyph, staffSpace } from './symbols/smufl';
  */
 
 /** Every track starts at forte, Guitar Pro's default velocity: a first note at f gets no mark. */
-export const START_DYNAMIC: DynamicName = 'f';
+const START_DYNAMIC: DynamicName = 'f';
 
 /** Size of the marks (one em = four staff spaces), as the tab's marks. */
 export const DYNAMIC_MUSIC_SIZE = 24;

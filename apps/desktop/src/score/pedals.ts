@@ -10,7 +10,7 @@ import { MARK_GLYPHS, staffSpace } from './symbols/smufl';
  */
 
 /** Music size of the marks (one em = four staff spaces). */
-export const PEDAL_MUSIC_SIZE = 20;
+const PEDAL_MUSIC_SIZE = 20;
 /** The line held under the bar; "Ped." starts a little left of its beat. */
 const LINE = { width: 1, gap: 2, raise: 1, inset: 4 } as const;
 
