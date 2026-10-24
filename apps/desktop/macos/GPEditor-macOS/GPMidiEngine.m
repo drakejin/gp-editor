@@ -48,14 +48,39 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   return _engine.isRunning || [_engine startAndReturnError:error];
 }
 
+/**
+ * AVAudioSequencer stops, prerolls and starts on the calling queue, unsynchronised with the render thread, so it does
+ * all three only while the engine does not render (-pause returns once the render cycle in progress is over):
+ * - its preroll's chase sends the song's state so far (programs, controllers) straight to the instruments
+ *   (MusicDeviceMIDIEvent) while the render thread may be handing them MIDI too — every -send… of
+ *   AVAudioUnitMIDIInstrument (the preload, the silence on stop, live changes) is scheduled and delivered there —
+ *   and the MIDISynth / sampler's MIDI input, entered by both threads at once, corrupts its heap (SIGSEGV at 0x210,
+ *   "pointer being freed was not allocated" … under SequencePlayer::Preroll → MusicDeviceMIDIEvent; Guard Malloc:
+ *   the render thread reading what the chase had just reallocated);
+ * - its start and stop add and remove a render notify on the output unit, and the render thread could still call
+ *   the removed (freed) block (crashes in AUHALOutputUnit_RenderNotifyCallback → _Block_copy).
+ * Events scheduled meanwhile are delivered once it renders again, before the song's first notes.
+ */
 - (BOOL)playData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
+{
+  [_engine pause];
+  BOOL isStarted = [self startSequencerWithData:midi fromSeconds:seconds bankURL:bankURL error:error];
+  if ([self startEngine:isStarted ? error : NULL]) {
+    return isStarted;
+  }
+  [self stopSequencer];
+  return NO;
+}
+
+/** The old song stopped, the new one loaded, routed, prerolled and started: it plays once the engine runs. */
+- (BOOL)startSequencerWithData:(NSData *)midi fromSeconds:(NSTimeInterval)seconds bankURL:(nullable NSURL *)bankURL error:(NSError **)error
 {
   [self stopSequencer];
   _generation += 1;
   if (_engine == nil) {
     [self buildEngine];
   }
-  if (![_instruments prepareBank:bankURL error:error] || ![self startEngine:error]) {
+  if (![_instruments prepareBank:bankURL error:error]) {
     return NO;
   }
   AVAudioSequencer *sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:_engine];
@@ -79,10 +104,18 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
 
 - (void)stopSequencer
 {
+  // Stopped while the engine does not render (see -playData:…); then it renders on, so the notes still ringing fade.
+  BOOL isPaused = _sequencer != nil && _engine.isRunning;
+  if (isPaused) {
+    [_engine pause];
+  }
   [_sequencer stop];
   _sequencer = nil;
   // Notes still ringing when the song stops would otherwise sound on: all notes off, every instrument.
   [_instruments silence];
+  if (isPaused) {
+    [self startEngine:nil];
+  }
 }
 
 - (void)stop
@@ -122,13 +155,22 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
 - (void)resumeAfterRewire
 {
   NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  [_engine pause];
   [_sequencer stop];
-  if (![self startEngine:nil] || _sequencer == nil) {
-    return;
-  }
+  [self restartEngineWithSequencerAt:position error:nil];
+}
+
+/** Starts the stopped engine, the sequencer (if any) prerolled and started at `position` first (see -playData:…). */
+- (BOOL)restartEngineWithSequencerAt:(NSTimeInterval)position error:(NSError **)error
+{
   _sequencer.currentPositionInSeconds = position;
   [_sequencer prepareToPlay];
   [_sequencer startAndReturnError:nil];
+  if ([self startEngine:error]) {
+    return YES;
+  }
+  [_sequencer stop];
+  return NO;
 }
 
 - (NSTimeInterval)positionSeconds
@@ -179,20 +221,15 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   }
   // The input device is set on a stopped engine; a playing song goes on where it was.
   NSTimeInterval position = _sequencer.currentPositionInSeconds;
-  [_sequencer stop];
   [_engine stop];
+  [_sequencer stop];
   _hasOpenedInput = YES;
   BOOL isConnected = [_lineIn connectDevice:deviceId error:error];
   if (isConnected) {
     [_lineIn routeToTrack:trackIndex];
     [_lineIn setGainDb:gainDb isMonitoring:isMonitoring];
   }
-  BOOL isRunning = [self startEngine:isConnected ? error : nil];
-  if (_sequencer != nil && isRunning) {
-    _sequencer.currentPositionInSeconds = position;
-    [_sequencer prepareToPlay];
-    [_sequencer startAndReturnError:nil];
-  }
+  BOOL isRunning = [self restartEngineWithSequencerAt:position error:isConnected ? error : nil];
   if (isConnected && !isRunning) {
     [_lineIn disconnect];
   }
