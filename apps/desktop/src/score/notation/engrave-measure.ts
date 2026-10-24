@@ -25,6 +25,8 @@ export interface NotationContext {
   readonly highlight?: Highlight;
   /** Pick strokes above the staff; the row turns this on when no tab staff shows them. */
   readonly showsPickStrokes?: boolean;
+  /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
+  readonly isKeyboard?: boolean;
 }
 
 function keyChangeCommands(

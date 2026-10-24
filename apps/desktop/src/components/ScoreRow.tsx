@@ -1,6 +1,7 @@
 import { memo, useRef } from 'react';
 import { type GestureResponderEvent, Pressable } from 'react-native';
 import type { Song, StringAddress, Track } from '@gp-editor/core';
+import { isKeyboardTrack } from '../lib/fingering';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import type { RowGeometry, ScoreMode } from '../score/geometry';
@@ -105,6 +106,10 @@ export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   const trackB = b.song.tracks[b.trackIndex];
   if (trackA === undefined || trackB === undefined || trackA.strings !== trackB.strings || trackA.offset !== trackB.offset) {
     return trackA === trackB;
+  }
+  // Slash notation and a keyboard instrument (piano fingering) change how every bar of the track is drawn.
+  if (trackA.hasSlashNotation !== trackB.hasSlashNotation || isKeyboardTrack(a.song, a.trackIndex) !== isKeyboardTrack(b.song, b.trackIndex)) {
+    return false;
   }
   return a.row.measures.length === b.row.measures.length && sameDynamicBefore(a, trackA, trackB) && a.row.measures.every((layout, i) => {
     const other = b.row.measures[i];

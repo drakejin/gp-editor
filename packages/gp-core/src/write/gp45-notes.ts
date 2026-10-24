@@ -4,7 +4,7 @@ import type { ByteWriter } from './byte-writer';
 import { writeBendCurve } from './gp-bends';
 import { tremoloPickingSpeedToGp } from './gp-units';
 import { clampFret } from './gtp-song';
-import { hasOwnDynamic, noteType, writeDynamicAndFret, writeGraceGp34, writeGraceGp5, writeTrill } from './gtp-notes';
+import { fingeringFlag, hasOwnDynamic, noteType, writeDynamicAndFret, writeFingers, writeGraceGp34, writeGraceGp5, writeTrill } from './gtp-notes';
 
 export type Gp45Version = 'gp4' | 'gp5';
 
@@ -52,18 +52,20 @@ function noteFlags(note: Note, version: Gp45Version): number {
     (effect.ghostNote ? 0x04 : 0) |
     (version === 'gp5' && effect.heavyAccentuatedNote ? 0x02 : 0) |
     (version === 'gp5' && note.audio !== undefined && note.audio.durationPercent !== 100 ? 0x01 : 0) |
-    (effect.accentuatedNote ? 0x40 : 0)
+    (effect.accentuatedNote ? 0x40 : 0) |
+    fingeringFlag(note)
   );
 }
 
 /**
- * GP4/GP5 note: flags, type, dynamic (unless forte), fret, (GP5: duration percent — a note's play duration, the only
- * audio setting GP5 keeps —, accidental flags byte), effects.
+ * GP4/GP5 note: flags, type, dynamic (unless forte), fret, fingering, (GP5: duration percent — a note's play
+ * duration, the only audio setting GP5 keeps —, accidental flags byte), effects.
  */
 export function writeNoteGp45(writer: ByteWriter, note: Note, isTied: boolean, version: Gp45Version): void {
   const flags = noteFlags(note, version);
   writer.writeUnsignedByte(flags).writeUnsignedByte(noteType(note, isTied));
   writeDynamicAndFret(writer, note, flags);
+  writeFingers(writer, note, flags);
   if ((flags & 0x01) !== 0) {
     writer.writeDouble((note.audio?.durationPercent ?? 100) / 100);
   }

@@ -2,7 +2,7 @@ import type { MeasureHeader } from '@gp-editor/core';
 import {
   type Beam,
   type RhythmBeat,
-  beamGroupTicks,
+  beamGroupBoundsOf,
   flagCount,
   layoutBeams,
 } from '../../lib/beams';
@@ -54,15 +54,12 @@ function mergeBeams(beams: readonly Beam[]): Beam[] {
   }, []);
 }
 
-/** Beam groups of every voice, grouped by the time signature like the tab staff's rhythm. */
+/** Beam groups of every voice, grouped by the bar's beam grouping and the beats' own beams, like the tab staff's rhythm. */
 export function beamGroups(
   events: readonly VoiceEvent[],
   header: MeasureHeader,
 ): BeamGroup[] {
-  const groupTicks = beamGroupTicks(
-    header.timeSignature.numerator,
-    header.timeSignature.denominator,
-  );
+  const groupBounds = beamGroupBoundsOf(header);
   const voices = [...new Set(events.map(event => event.voiceIndex))];
   return voices.flatMap(voiceIndex => {
     const voice = events.flatMap((event, index) =>
@@ -73,8 +70,11 @@ export function beamGroups(
       start: event.start,
       value: event.duration.value,
       isRest: event.notes.length === 0,
+      ...(event.beamToNext === undefined
+        ? {}
+        : { beamToNext: event.beamToNext }),
     }));
-    const layout = layoutBeams(rhythm, header.start, groupTicks);
+    const layout = layoutBeams(rhythm, header.start, groupBounds);
     return layout.beams
       .filter(beam => beam.level === 1)
       .map(primary => ({
@@ -104,7 +104,7 @@ function directionOf(notes: readonly StaffNote[]): StemDirection {
 
 /**
  * Stem direction per event: with a second voice, voice 1 up and the others down; otherwise the voice's own
- * direction or the average position of the beam group (or the chord) against the middle line.
+ * direction, up for rhythm slashes, or the average position of the beam group (or the chord) against the middle line.
  */
 export function stemDirections(
   events: readonly VoiceEvent[],
@@ -122,8 +122,12 @@ export function stemDirections(
     }
     const members = groupOf.get(index)?.members ?? [index];
     const lead = events[members[0] ?? index] ?? event;
-    return lead.direction !== 'none'
-      ? lead.direction
+    if (lead.direction !== 'none') {
+      return lead.direction;
+    }
+    // Rhythm slashes sit on the middle line and are stemmed up, as slash notation is written.
+    return lead.isSlashed === true
+      ? 'up'
       : directionOf(members.flatMap(member => events[member]?.notes ?? []));
   });
 }

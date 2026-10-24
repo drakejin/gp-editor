@@ -236,3 +236,21 @@ describe('Inspector NOTE tab', () => {
     expect(without.texts()).toContain('Put the cursor on a note to set how it plays back.');
   });
 });
+
+describe('Inspector TRACK tab: slash notation', () => {
+  it('writes the whole track in rhythm slashes, lit while it is', () => {
+    // Arrange
+    const onSetTrackSlashNotation = jest.fn();
+    const plain = render({ onSetTrackSlashNotation });
+    const slashed = render({ song: { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, hasSlashNotation: true })) }, onSetTrackSlashNotation });
+
+    // Act
+    plain.press('Write the whole track in rhythm slashes');
+    slashed.press('Write the whole track in rhythm slashes');
+
+    // Assert
+    expect(plain.button('Write the whole track in rhythm slashes')?.props.isActive).toBe(false);
+    expect(slashed.button('Write the whole track in rhythm slashes')?.props.isActive).toBe(true);
+    expect(onSetTrackSlashNotation.mock.calls).toEqual([[0, true], [0, false]]);
+  });
+});

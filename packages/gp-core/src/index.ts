@@ -197,6 +197,27 @@ export {
 } from './edit/measure-headers';
 export { CLICK_KEYS, type ClickOptions, type MeterBeats, meterBeats } from './midi/index';
 export {
+  ACCIDENTAL_DISPLAYS,
+  BEAM_LINKS,
+  type Hand,
+  setBeamGrouping,
+  setNoteAccidentalDisplay,
+  setNoteFinger,
+  setTrackSlashNotation,
+  setVoiceBeamToNext,
+  setVoiceSlashed,
+} from './edit/notation-marks';
+export {
+  BEAM_GROUPING_PRESETS,
+  type BeamGroupingPreset,
+  beamGroupBounds,
+  defaultBeamGrouping,
+  effectiveBeamGrouping,
+  isSameBeamGrouping,
+  presetBeamGrouping,
+} from './model/beaming';
+export { FINGERS } from './formats/common/fingering';
+export {
   type ChannelRoute,
   type MidiOptions,
   type MidiRender,

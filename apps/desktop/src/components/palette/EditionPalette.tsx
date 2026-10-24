@@ -12,6 +12,10 @@ import { PaletteOptionStrip, PaletteTextField } from './PaletteStrips';
 import { type PaletteContext, type PaletteGroup, type PaletteStepper, type PaletteTool, isToolEnabled, paletteContext } from './palette-tools';
 
 export const EDITION_PALETTE_WIDTH = 214;
+/** Rows of tools and steppers are this tall (the chrome's buttons are 26), so every group shows at the default window. */
+export const PALETTE_ROW_HEIGHT = 24;
+/** A stepper's − and + are this narrow, so the time signature's two numbers share a row. */
+const STEPPER_BUTTON_WIDTH = 22;
 
 export interface EditionPaletteProps {
   readonly palette: Palette;
@@ -54,7 +58,7 @@ function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPan
     setOpenToolId(undefined);
   };
   return (
-    <ScrollView style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
       {PALETTE_GROUPS.map((group) => (
         <GroupView key={group.title} palette={palette} group={group} context={context} openToolId={openToolId} onPress={press} onChoose={choose} onEdit={onEdit} />
       ))}
@@ -91,6 +95,7 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
               fontSize={11}
               minWidth={30}
               width={group.toolWidth}
+              height={PALETTE_ROW_HEIGHT}
               isEnabled={isToolEnabled(tool, context)}
               isActive={isActive}
               onPress={() => onPress(tool)}
@@ -100,8 +105,8 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
       </View>
       {open?.run.kind === 'options' ? <PaletteOptionStrip palette={palette} options={open.run.options} context={context} onChoose={onChoose} /> : null}
       {open?.run.kind === 'text' ? <PaletteTextField palette={palette} key={open.id} run={open.run} context={context} onChoose={onChoose} /> : null}
-      {(group.steppers ?? []).map((stepper) => (
-        <StepperRow key={stepper.id} palette={palette} stepper={stepper} context={context} onEdit={onEdit} />
+      {stepperRows(group.steppers ?? []).map((row) => (
+        <StepperRow key={row[0]?.id} palette={palette} steppers={row} context={context} onEdit={onEdit} />
       ))}
     </View>
   );
@@ -126,37 +131,69 @@ function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
   );
 }
 
-/** "Label  [−] value [+]"; a stepper whose value can be typed (the tempo) opens a field under it on a click. */
-function StepperRow({ palette, stepper, context, onEdit }: { readonly palette: Palette; readonly stepper: PaletteStepper; readonly context: PaletteContext; readonly onEdit: (edit: SongEdit) => void }) {
-  const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
-  const [isTyping, setIsTyping] = useState(false);
-  const { typed } = stepper;
-  const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
+/** A group's steppers in rows: a stepper beside the previous one shares its row. */
+function stepperRows(steppers: readonly PaletteStepper[]): readonly (readonly PaletteStepper[])[] {
+  return steppers.reduce<readonly (readonly PaletteStepper[])[]>((rows, stepper) => {
+    const last = rows[rows.length - 1];
+    return stepper.isBesidePrevious === true && last !== undefined ? [...rows.slice(0, -1), [...last, stepper]] : [...rows, [stepper]];
+  }, []);
+}
+
+interface StepperProps {
+  readonly palette: Palette;
+  readonly context: PaletteContext;
+  readonly onEdit: (edit: SongEdit) => void;
+}
+
+/** One row: the first stepper's label, then each stepper's − value +; a value that can be typed (the tempo) opens a field under the row on a click. */
+function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { readonly steppers: readonly PaletteStepper[] }) {
+  const [typingId, setTypingId] = useState<string | undefined>(undefined);
+  const typed = steppers.find((stepper) => stepper.id === typingId)?.typed;
   return (
     <>
       <View style={styles.stepper}>
-        <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{stepper.label}</Text>
-        <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
-        {typed === undefined ? (
-          value
-        ) : (
-          <Pressable testID={`palette-value-${stepper.id}`} tooltip={`${typed.placeholder}: click to type`} disabled={!isEnabled} onPress={() => setIsTyping(!isTyping)} style={styles.stepperPress}>
-            {value}
-          </Pressable>
-        )}
-        <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
+        <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{steppers[0]?.label}</Text>
+        {steppers.map((stepper) => (
+          <StepperControl
+            key={stepper.id}
+            palette={palette}
+            stepper={stepper}
+            context={context}
+            onEdit={onEdit}
+            onType={() => setTypingId(typingId === stepper.id ? undefined : stepper.id)}
+          />
+        ))}
       </View>
-      {typed !== undefined && isTyping ? (
+      {typed === undefined ? null : (
         <PaletteTextField
           palette={palette}
           run={{ kind: 'text', ...typed }}
           context={context}
           onChoose={(edit) => {
-            setIsTyping(false);
+            setTypingId(undefined);
             onEdit(edit);
           }}
         />
-      ) : null}
+      )}
+    </>
+  );
+}
+
+function StepperControl({ palette, stepper, context, onEdit, onType }: StepperProps & { readonly stepper: PaletteStepper; readonly onType: () => void }) {
+  const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
+  const { typed } = stepper;
+  const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
+  return (
+    <>
+      <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
+      {typed === undefined ? (
+        value
+      ) : (
+        <Pressable testID={`palette-value-${stepper.id}`} tooltip={`${typed.placeholder}: click to type`} disabled={!isEnabled} onPress={onType} style={styles.stepperPress}>
+          {value}
+        </Pressable>
+      )}
+      <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
     </>
   );
 }
@@ -165,9 +202,8 @@ export const EditionPalette = memo(EditionPaletteView);
 
 const styles = StyleSheet.create({
   panel: { width: EDITION_PALETTE_WIDTH, borderRightWidth: 1, flexGrow: 0 },
-  content: { paddingBottom: 16 },
-  group: { paddingHorizontal: 8, paddingTop: 7, paddingBottom: 6, borderBottomWidth: 1 },
-  groupTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 4, marginLeft: 2 },
+  group: { paddingHorizontal: 8, paddingVertical: 2, borderBottomWidth: 1 },
+  groupTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginLeft: 2 },
   tools: { flexDirection: 'row', flexWrap: 'wrap' },
   keyedFace: { flexDirection: 'row', alignItems: 'center' },
   faceText: { fontSize: 10.5, fontWeight: '600' },
@@ -175,8 +211,8 @@ const styles = StyleSheet.create({
   keyBadge: { fontSize: 8, fontWeight: '700', marginLeft: 2, alignSelf: 'flex-start', marginTop: 1 },
   /** A glyph sits low in its 24-point box: the key goes level with its top. */
   keyBesideGlyph: { marginTop: 6 },
-  stepper: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  stepperLabel: { width: 62, fontSize: 11 },
+  stepper: { flexDirection: 'row', alignItems: 'center' },
+  stepperLabel: { width: 46, fontSize: 11 },
   stepperValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
   stepperPress: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
 });
