@@ -15,28 +15,19 @@ import {
   readNoteGp34,
   readTracksGp34,
 } from './gp3';
+import { type BeatEffects, buildChord, readPickStroke, readSimpleChord, readStroke } from './gtp-beats';
+import { readChannelSlots } from './gtp-channels';
 import {
-  type BeatEffects,
-  buildChord,
   readBendPoints,
-  readChannelSlots,
-  readInts,
-  readKeySignature,
-  readLyrics,
-  readPickStroke,
-  readSimpleChord,
-  readSongInfo,
-  readSongMeasures,
-  readStroke,
   readTremoloPicking,
   readTrill,
-  skipVersion,
   withBend,
   withHarmonic,
   withTremoloBar,
   withTremoloPicking,
   withTrill,
-} from './shared';
+} from './gtp-note-effects';
+import { readInts, readKeySignature, readLyrics, readSongInfo, readSongMeasures, skipVersion } from './shared';
 
 export function readGp4(bytes: Uint8Array, detected: DetectedFormat, options: ResolvedReadOptions): Song {
   const reader = new ByteReader(bytes, options.charset);

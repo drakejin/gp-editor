@@ -3,7 +3,7 @@
 import type { ByteReader } from '../../io/byte-reader';
 import type { MusicalDirection } from '../../model/song';
 import { MUSICAL_DIRECTIONS, sortDirections } from '../common/directions';
-import type { HeaderRead } from './shared';
+import type { HeaderRead } from './gtp-tracks';
 
 /** The directions of each measure, by 1-based measure number. */
 export type DirectionBars = ReadonlyMap<number, readonly MusicalDirection[]>;

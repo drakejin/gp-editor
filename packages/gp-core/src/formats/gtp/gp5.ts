@@ -29,43 +29,39 @@ import { GP5_BEAM_GROUPS, GP5_BREAK_SECONDARY_BEAMS, beamGroupingFromGp5, beamLi
 import { readDirectionsGp5, withDirections } from './gp5-directions';
 import {
   type BeatEffects,
-  type HeaderDraft,
   buildChord,
-  type ChannelSlot,
   findTiedFret,
-  GRACE_TRANSITIONS,
-  type HeaderRead,
-  type MeasureBeats,
-  type MeasureJob,
   type NoteContext,
-  readBendPoints,
-  readChannelSlots,
-  readColor,
   readDuration,
   readFingers,
-  readInts,
-  readKeySignature,
-  readLyrics,
-  readMarker,
-  readMeasureHeaders,
   readMixTableValues,
-  readSongInfo,
-  readSongMeasures,
   readStringNotes,
-  readStrings,
-  readTrackChannel,
-  readTrackList,
-  readTremoloPicking,
-  readTrill,
   resolveFret,
   skipMixTransitions,
-  skipVersion,
-  type TrackDraft,
-  type TrackStep,
+} from './gtp-beats';
+import { type ChannelSlot, readChannelSlots, readTrackChannel } from './gtp-channels';
+import {
+  GRACE_TRANSITIONS,
+  readBendPoints,
+  readTremoloPicking,
+  readTrill,
   withBend,
   withHarmonic,
   withTremoloPicking,
   withTrill,
+} from './gtp-note-effects';
+import { type HeaderDraft, type HeaderRead, readMeasureHeaders, readStrings, readTrackList, type TrackDraft, type TrackStep } from './gtp-tracks';
+import {
+  type MeasureBeats,
+  type MeasureJob,
+  readColor,
+  readInts,
+  readKeySignature,
+  readLyrics,
+  readMarker,
+  readSongInfo,
+  readSongMeasures,
+  skipVersion,
 } from './shared';
 
 /** TuxGuitar's version code 0; "v5.10" (code 1) adds RSE data in several places. */

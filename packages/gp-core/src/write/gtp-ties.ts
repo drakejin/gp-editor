@@ -1,5 +1,5 @@
 // The GP3–GP5 readers' tie resolution (TuxGuitar GTPInputStream#getTiedNoteValue, LGPL-2.1), replayed by the writers.
-import { findTiedFret, resolveFret } from '../formats/gtp/shared';
+import { findTiedFret, resolveFret } from '../formats/gtp/gtp-beats';
 import { durationTicks, EMPTY_VOICE, measureTicks, NO_STROKE } from '../model/defaults';
 import { type Beat, type Measure, type Note, QUARTER_TIME, type Song, type Track, type Voice } from '../model/song';
 import { clampFret, writableNotes, writableStrings } from './gtp-song';
