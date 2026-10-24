@@ -16,7 +16,11 @@ const CDATA_KEY = '#cdata';
 const ATTRIBUTES_KEY = ':@';
 const BYTE_ORDER_MARK = '\uFEFF';
 
-const PARSER = new XMLParser({
+/**
+ * fast-xml-parser's options for every document read (GPIF, MusicXML): elements in order with their attributes, values
+ * as text, nothing trimmed, the declaration, PIs and comments left out. xml-tree.ts reads plain documents the same way.
+ */
+export const XML_PARSER_OPTIONS = {
   preserveOrder: true,
   ignoreAttributes: false,
   attributeNamePrefix: '',
@@ -27,7 +31,9 @@ const PARSER = new XMLParser({
   ignoreDeclaration: true,
   ignorePiTags: true,
   commentPropName: false,
-});
+} as const;
+
+const PARSER = new XMLParser(XML_PARSER_OPTIONS);
 
 /**
  * Parse an XML document and return its root element. Malformed XML is rejected (TuxGuitar's DOM

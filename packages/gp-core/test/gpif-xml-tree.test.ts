@@ -1,20 +1,9 @@
 import { XMLParser } from 'fast-xml-parser';
 import { describe, expect, it } from 'vitest';
-import { type XmlElement, parseXmlDocument } from '../src/formats/gpif/xml';
+import { XML_PARSER_OPTIONS, type XmlElement, parseXmlDocument } from '../src/formats/gpif/xml';
 import { readXmlTree } from '../src/formats/gpif/xml-tree';
 
-const PARSER = new XMLParser({
-  preserveOrder: true,
-  ignoreAttributes: false,
-  attributeNamePrefix: '',
-  cdataPropName: '#cdata',
-  parseTagValue: false,
-  parseAttributeValue: false,
-  trimValues: false,
-  ignoreDeclaration: true,
-  ignorePiTags: true,
-  commentPropName: false,
-});
+const PARSER = new XMLParser(XML_PARSER_OPTIONS);
 
 interface PlainElement {
   readonly name: string;
