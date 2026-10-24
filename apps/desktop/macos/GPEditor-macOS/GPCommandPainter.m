@@ -3,9 +3,16 @@
 #import <CoreText/CoreText.h>
 
 static NSString *const kMusicFontName = @"Bravura";
+/** The most texts' attributes and widths kept; past it both caches start again empty (a width is kept by its attributes). */
+static const NSUInteger kMaxCachedTexts = 4096;
 
 @implementation GPCommandPainter {
   NSMutableDictionary<NSString *, NSColor *> *_colors;
+  /// A text's font and colour by what makes them: the same few come back for every glyph and fret number of a score.
+  NSMutableDictionary<NSString *, NSDictionary *> *_textAttributes;
+  /// A centred or right-aligned text's width by its attributes and characters: measuring lays the text out, as drawing it
+  /// does again, and the same noteheads and numbers are measured over and over.
+  NSMutableDictionary<NSString *, NSNumber *> *_textWidths;
 }
 
 + (void)initialize
@@ -186,17 +193,52 @@ static NSString *const kMusicFontName = @"Bravura";
   return [NSFont fontWithDescriptor:slanted size:size] ?: [manager convertFont:font toHaveTrait:NSItalicFontMask];
 }
 
-/** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. */
+/**
+ * The text's font and colour, kept by the command's font, size (to the bit: sizes a hair apart draw apart), bold,
+ * italic, family and colour.
+ */
+- (NSDictionary *)attributesFor:(NSDictionary *)c
+{
+  if (_textAttributes == nil || _textAttributes.count >= kMaxCachedTexts) {
+    _textAttributes = [NSMutableDictionary dictionary];
+    _textWidths = [NSMutableDictionary dictionary];
+  }
+  NSString *key = [NSString stringWithFormat:@"%@|%a|%@|%@|%@|%@", c[@"font"], [c[@"size"] doubleValue], c[@"bold"], c[@"italic"], c[@"family"], c[@"color"]];
+  NSDictionary *attributes = _textAttributes[key];
+  if (attributes == nil) {
+    attributes = @{NSFontAttributeName : [self fontFor:c], NSForegroundColorAttributeName : [self color:c[@"color"]]};
+    _textAttributes[key] = attributes;
+  }
+  return attributes;
+}
+
+/** The text's width in `attributes` (one of attributesFor:'s, kept as long as the widths measured in it). */
+- (CGFloat)widthOf:(NSString *)text attributes:(NSDictionary *)attributes
+{
+  if (_textWidths.count >= kMaxCachedTexts) {
+    [_textWidths removeAllObjects];
+  }
+  NSString *key = [NSString stringWithFormat:@"%p|%@", attributes, text];
+  NSNumber *width = _textWidths[key];
+  if (width == nil) {
+    width = @([text sizeWithAttributes:attributes].width);
+    _textWidths[key] = width;
+  }
+  return width.doubleValue;
+}
+
+/** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. A left-aligned text is not measured. */
 - (void)drawText:(NSDictionary *)c
 {
   NSString *family = c[@"font"];
-  NSFont *font = [self fontFor:c];
-  NSDictionary *attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
+  NSDictionary *attributes = [self attributesFor:c];
+  NSFont *font = attributes[NSFontAttributeName];
   NSString *text = c[@"text"];
-  CGFloat width = [text sizeWithAttributes:attributes].width;
   NSString *align = c[@"align"];
-  CGFloat x = [c[@"x"] doubleValue];
-  x -= [align isEqualToString:@"center"] ? width / 2 : [align isEqualToString:@"right"] ? width : 0;
+  BOOL isCentred = [align isEqualToString:@"center"];
+  BOOL isRight = [align isEqualToString:@"right"];
+  CGFloat width = isCentred || isRight ? [self widthOf:text attributes:attributes] : 0;
+  CGFloat x = [c[@"x"] doubleValue] - (isCentred ? width / 2 : isRight ? width : 0);
   CGFloat y = [c[@"y"] doubleValue];
   CGFloat top = [family isEqualToString:@"music"] ? y - font.ascender : y - (font.ascender - font.descender) / 2;
   [text drawAtPoint:NSMakePoint(x, top) withAttributes:attributes];
