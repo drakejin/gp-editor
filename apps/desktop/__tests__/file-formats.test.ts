@@ -1,4 +1,4 @@
-import { DEFAULT_MASTER, buildAudioTrack, buildEffect, readSong, setMasterMix, setTrackEffects, writeSong } from '@gp-editor/core';
+import { DEFAULT_MASTER, buildAudioTrack, buildEffect, readSong, setMasterMix, setNoteFret, setTrackEffects, writeSong } from '@gp-editor/core';
 import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
@@ -94,6 +94,19 @@ describe('saveHint', () => {
     expect(saveHint(format('gp'), withEffects)).toBe(format('gp').note);
     expect(saveHint(format('gp5'), withEffects)).toBe('Guitar Pro 5 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.');
     expect(saveHint(format('gp4'), withMaster)).toBe(`${format('gp4').note} Guitar Pro 4 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.`);
+  });
+
+  it('warns that GP5 leaves voices 3 and 4 out when the song plays them, GP4 and GP3 joining every voice into voice 1', () => {
+    // Arrange: voice 3 plays in bar 1
+    const inVoice3 = setNoteFret(song, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 2, string: 3 }, 5);
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), inVoice3)).toBe('Guitar Pro 5 keeps two voices: the notes of voices 3 and 4 are left out; save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp5'), song)).toBeUndefined();
+    expect(saveHint(format('gp'), inVoice3)).toBe(format('gp').note);
+    expect(saveHint(format('gp4'), inVoice3)).toBe(format('gp4').note);
+    expect(format('gp4').note).toContain('voices 2, 3 and 4 join voice 1');
+    expect(format('gp3').note).toContain('voices 2, 3 and 4 join voice 1');
   });
 
   it('says that GP5, GP4 and GP3 leave the audio track out', () => {

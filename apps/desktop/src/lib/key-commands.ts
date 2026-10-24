@@ -80,6 +80,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: '/', altKey: true },
   ...[...Object.keys(PRACTICE_KEYS), '-', '='].map((key) => ({ key, altKey: true })),
   ...['c', 'x', 'v'].map((key) => ({ key, metaKey: true })),
+  ...['1', '2', '3', '4'].flatMap((key) => [{ key, metaKey: true }, { key, altKey: true }]),
   { key: ' ' },
   { key: 'Escape' },
   { key: 'z', metaKey: true },
@@ -116,6 +117,14 @@ const CHORD_PANEL_KEY = 'k';
 const SYNC_POINT_KEY = 'y';
 
 const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
+/** ⌘1–⌘4: the cursor on voice 1–4 (Guitar Pro 8's Edit Voice keys). */
+const VOICE_KEYS: Readonly<Record<string, KeyCommand>> = Object.fromEntries(
+  ['1', '2', '3', '4'].map((key, voiceIndex): [string, KeyCommand] => [key, { type: 'selectVoice', voiceIndex }]),
+);
+/** ⌥1–⌥4: the note (or the selected beats) to voice 1–4 (Guitar Pro 8's Move Voice keys). */
+const MOVE_VOICE_KEYS: Readonly<Record<string, KeyCommand>> = Object.fromEntries(
+  ['1', '2', '3', '4'].map((key, voiceIndex): [string, KeyCommand] => [key, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex } }]),
+);
 
 const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
   ']': { type: 'shiftPlaybackTempo', delta: PLAYBACK_TEMPO_STEP },
@@ -148,7 +157,7 @@ function practiceKey(key: string): KeyCommand | undefined {
  * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's
  * tuplet), I inserts a beat, Space plays,
  * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
- * cut and paste.
+ * cut and paste, ⌘1–⌘4 put the cursor on voice 1–4 and ⌥1–⌥4 move the note there.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
@@ -159,7 +168,7 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
     return { type: 'zoom', direction: press.key === '=' ? 1 : -1 };
   }
   if (press.metaKey) {
-    return CLIPBOARD_KEYS[press.key.toLowerCase()];
+    return CLIPBOARD_KEYS[press.key.toLowerCase()] ?? VOICE_KEYS[press.key];
   }
   if (press.altKey && (press.key === '[' || press.key === ']')) {
     return { type: 'edit', edit: { type: 'shiftNoteValue', step: press.key === '[' ? -1 : 1 } };
@@ -168,7 +177,7 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
     return { type: 'edit', edit: { type: 'toggleInnerTriplet' } };
   }
   if (press.altKey) {
-    const command = practiceKey(press.key);
+    const command = practiceKey(press.key) ?? MOVE_VOICE_KEYS[press.key];
     if (command !== undefined) {
       return command;
     }

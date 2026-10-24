@@ -16,6 +16,7 @@ import {
   deleteMeasure,
   deleteNote,
   findNote,
+  findVoice,
   insertBeat,
   insertMeasure,
   isSameTuplet,
@@ -31,6 +32,7 @@ import { type BarEdit, applyBarEdit } from './bar-edits';
 import { type MarkEdit, applyMarkEdit } from './mark-edits';
 import { type NotationEdit, applyNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
+import { type VoiceEdit, applyVoiceEdit } from './voice-edits';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
 type DurationEdit =
@@ -64,6 +66,7 @@ export type SongEdit =
   | BarEdit
   | MarkEdit
   | NotationEdit
+  | VoiceEdit
   | { readonly type: 'insertMeasure' }
   | { readonly type: 'deleteMeasure' }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
@@ -78,13 +81,12 @@ export function beatAddress(cursor: StringAddress): BeatAddress {
   return { trackIndex, measureIndex, beatIndex, voiceIndex };
 }
 
+/** The cursor's voice; voices 3 and 4 of a beat read from a GP3–GP5 file are empty voices. */
 export function cursorVoice(
   song: Song,
   cursor: StringAddress,
 ): Voice | undefined {
-  return song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[
-    cursor.beatIndex
-  ]?.voices[cursor.voiceIndex];
+  return findVoice(song, cursor);
 }
 
 /** Applies one cursor edit to the song. */
@@ -142,6 +144,8 @@ export function applySongEdit(
     case 'togglePedal':
     case 'setOttava':
       return applyMarkEdit(song, cursor, edit);
+    case 'moveToVoice':
+      return applyVoiceEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);
   }

@@ -6,6 +6,8 @@ export {
   DEFAULT_PERCUSSION_CHANNEL,
   EMPTY_NOTE_EFFECT,
   EMPTY_SONG_INFO,
+  EMPTY_VOICE,
+  MAX_VOICES,
   NORMAL_TUPLET,
   NO_STROKE,
   QUARTER,
@@ -88,6 +90,8 @@ export {
 export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency } from './tuner/tuner-queue';
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
+export { findVoice, isVoiceIndex, voiceOf } from './edit/addresses';
+export { moveBeatsToVoice, moveNotesToVoice } from './edit/voice-moves';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
 export { setMeasureClef, setOttava } from './edit/staff-signs';

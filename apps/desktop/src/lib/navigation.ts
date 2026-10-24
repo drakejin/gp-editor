@@ -1,4 +1,4 @@
-import type { Song, StringAddress } from '@gp-editor/core';
+import { MAX_VOICES, type Song, type StringAddress, findNote } from '@gp-editor/core';
 
 /** Cursor on the first beat of the track (first measure that has beats), first string. */
 export function firstCursor(song: Song, trackIndex: number): StringAddress | undefined {
@@ -47,4 +47,13 @@ export function clampCursor(song: Song, cursor: StringAddress): StringAddress | 
     beatIndex: Math.min(cursor.beatIndex, beats.length - 1),
     string: Math.min(Math.max(1, cursor.string), Math.max(1, track.strings.length)),
   };
+}
+
+/** The address in the voice that has a note on its string there (its own voice first); unchanged when none has (multivoice clicks). */
+export function voiceWithNoteAt(song: Song, cursor: StringAddress): StringAddress {
+  if (findNote(song, cursor) !== undefined) {
+    return cursor;
+  }
+  const voiceIndex = Array.from({ length: MAX_VOICES }, (_, index) => index).find((index) => findNote(song, { ...cursor, voiceIndex: index }) !== undefined);
+  return voiceIndex === undefined ? cursor : { ...cursor, voiceIndex };
 }

@@ -8,6 +8,7 @@ import { SLASH_GLYPHS } from './symbols/smufl';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
 import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
 import { engraveTabTechniques } from './symbols/tab-notes';
+import { cursorFill } from './voices';
 
 export { type TabMarkKind, tabMarkLanes } from './symbols/tab-marks';
 
@@ -32,10 +33,18 @@ export interface TabContext {
   /** Rhythm stems, beams and rests under the staff (tab-only mode). */
   readonly showRhythm: boolean;
   readonly palette: Palette;
-  /** Editor cursor in this measure. */
-  readonly cursor?: { readonly beatIndex: number; readonly string: number };
+  /** Editor cursor in this measure (in voice 1 when no voice is given). */
+  readonly cursor?: TabCursor;
   /** Beat being played. */
   readonly playingBeatIndex?: number;
+  /** The voice being edited (the cursor's): the other voices' frets are drawn faded, as Guitar Pro 8 does. */
+  readonly editedVoiceIndex?: number;
+}
+
+export interface TabCursor {
+  readonly beatIndex: number;
+  readonly string: number;
+  readonly voiceIndex?: number;
 }
 
 const FRET_FONT_SIZE = 11;
@@ -158,19 +167,20 @@ function timeSignature(context: TabContext, x: number, top: number, bottom: numb
 }
 
 function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bottom: number, isBeamed: boolean): DrawCommand[] {
-  const { palette, top } = context;
+  const { palette, top, editedVoiceIndex } = context;
   const { x } = beatLayout;
   const commands: DrawCommand[] = [];
   beat.voices.forEach((voice, voiceIndex) => {
+    const color = voiceColor(voiceIndex, palette, editedVoiceIndex);
     if (isSlashedVoice(context.track, voice)) {
-      commands.push(...(voice.notes.length > 0 ? [slashGlyph(x, (top + bottom) / 2, voiceColor(voiceIndex, palette))] : []));
+      commands.push(...(voice.notes.length > 0 ? [slashGlyph(x, (top + bottom) / 2, color)] : []));
       return;
     }
     voice.notes.forEach((note) => {
       const y = stringY(top, note.string);
       commands.push(
         { kind: 'rect', x: x - FRET_BOX.width / 2, y: y - FRET_BOX.height / 2, width: FRET_BOX.width, height: FRET_BOX.height, color: palette.paper, radius: 3 },
-        { kind: 'text', x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color: voiceColor(voiceIndex, palette), font: 'mono', align: 'center', bold: true },
+        { kind: 'text', x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true },
       );
     });
   });
@@ -184,19 +194,26 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
   return commands;
 }
 
-/** The editor cursor: a box on the string at the beat, drawn over the staff whether or not a note is there. */
-function cursorBox(context: TabContext, cursor: { readonly beatIndex: number; readonly string: number }): DrawCommand[] {
+/**
+ * The editor cursor: a box on the string at the beat, washed in its voice's colour, drawn over the staff whether or not
+ * a note is there. The note of the cursor's voice shows on it in ink; else another voice's note there, as that voice is drawn.
+ */
+function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
   const beat = context.layout.beats.find((b) => b.beatIndex === cursor.beatIndex);
   if (beat === undefined) {
     return [];
   }
+  const voiceIndex = cursor.voiceIndex ?? 0;
   const y = stringY(context.top, cursor.string);
-  const voices = context.measure.beats[cursor.beatIndex]?.voices.filter((voice) => !isSlashedVoice(context.track, voice)) ?? [];
-  const note = voices.flatMap((voice) => voice.notes).find((n) => n.string === cursor.string);
+  const notes = (context.measure.beats[cursor.beatIndex]?.voices ?? []).flatMap((voice, index) =>
+    isSlashedVoice(context.track, voice) ? [] : voice.notes.filter((n) => n.string === cursor.string).map((note) => ({ note, index })),
+  );
+  const shown = notes.find((candidate) => candidate.index === voiceIndex) ?? notes[0];
   const box = { x: beat.x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
-  const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: context.palette.selection, radius: 4 }];
-  if (note !== undefined) {
-    commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color: context.palette.text, font: 'mono', align: 'center', bold: true });
+  const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: cursorFill(voiceIndex, context.palette), radius: 4 }];
+  if (shown !== undefined) {
+    const color = shown.index === voiceIndex ? context.palette.text : voiceColor(shown.index, context.palette, context.editedVoiceIndex);
+    commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(shown.note, tabFretOf(context.track, shown.note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true });
   }
   return commands;
 }

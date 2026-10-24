@@ -12,6 +12,7 @@ import {
 } from '@gp-editor/core';
 import { parseTempoText } from '../../lib/practice-tempo';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
+import { voiceTint } from '../../score/voices';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
@@ -81,16 +82,45 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
   ['semi', 'S.H.', 'Semi harmonic'],
 ];
 
+const VOICE_ORDINALS = ['first', 'second', 'third', 'fourth'] as const;
+/** Six tools on one row: the four voices, Move Voice and Multivoice. */
+const VOICE_TOOL_WIDTH = 30;
+
+/**
+ * Guitar Pro 8's voices: the four, each in its voice's colour (⌘1–⌘4), Move Voice (⌥1–⌥4) and Multivoice (every
+ * voice edited at once, none faded).
+ */
 function voiceGroup(): PaletteGroup {
-  const voiceTool = (voiceIndex: number): PaletteTool => ({
+  const voiceTool = (ordinal: string, voiceIndex: number): PaletteTool => ({
     id: `voice${voiceIndex + 1}`,
     face: String(voiceIndex + 1),
-    tooltip: `Voice ${voiceIndex + 1}: edit the ${voiceIndex === 0 ? 'first' : 'second'} voice of the bar`,
+    tooltip: `Voice ${voiceIndex + 1}: edit the ${ordinal} voice of the bar (⌘${voiceIndex + 1})`,
     scope: 'beat',
     run: { kind: 'action', action: { type: 'selectVoice', voiceIndex } },
     isActive: (context) => context.cursor?.voiceIndex === voiceIndex,
+    tint: (palette) => voiceTint(voiceIndex, palette),
   });
-  return { title: 'Voice', tools: [voiceTool(0), voiceTool(1)] };
+  const moves: readonly PaletteOption[] = VOICE_ORDINALS.map((_, voiceIndex) => ({
+    label: `→ ${voiceIndex + 1}`,
+    tooltip: `Move the note (or the selected beats) to voice ${voiceIndex + 1} (⌥${voiceIndex + 1})`,
+    edit: { type: 'moveToVoice', voiceIndex },
+  }));
+  return {
+    title: 'Voice',
+    toolWidth: VOICE_TOOL_WIDTH,
+    tools: [
+      ...VOICE_ORDINALS.map(voiceTool),
+      { id: 'moveVoice', face: '⇄', tooltip: 'Move Voice: the note at the cursor, or the selected beats, to another voice (⌥1–⌥4)', scope: 'beat', run: { kind: 'options', options: moves } },
+      {
+        id: 'multivoice',
+        face: '1–4',
+        tooltip: 'Multivoice: edit every voice at once — none faded, a click on a note picks its voice',
+        scope: 'beat',
+        run: { kind: 'action', action: { type: 'toggleMultivoice' } },
+        isActive: (context) => context.isMultivoice === true,
+      },
+    ],
+  };
 }
 
 function barGroup(): PaletteGroup {

@@ -15,6 +15,7 @@ import {
   enterPlayedNotes,
   findNote,
   insertMeasure,
+  voiceOf,
   setNoteFret,
   setNoteString,
   setMasterMix,
@@ -38,6 +39,7 @@ import {
   adjacentString,
   clampCursor,
   firstCursor,
+  voiceWithNoteAt,
 } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
@@ -60,8 +62,6 @@ import {
 
 /** Undo depth kept in memory. */
 export const HISTORY_LIMIT = 200;
-/** Voices the cursor can be on: Guitar Pro 5 files hold two per beat. */
-const SELECTABLE_VOICES = 2;
 /** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"). */
 export const NEW_DOCUMENT_NAME = 'Untitled';
 
@@ -94,6 +94,8 @@ export interface EditorState {
   readonly notice?: string;
   /** Why the last edit at the cursor changed nothing (e.g. a shorter time signature for a full bar). */
   readonly hint?: string;
+  /** Guitar Pro 8's multivoice edition: no voice faded, and a click on a note puts the cursor in that note's voice. */
+  readonly isMultivoice?: boolean;
 }
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
@@ -146,8 +148,9 @@ export type EditorAction =
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
-  /** The cursor on voice 1 (0) or 2 (1) of the same beat. */
+  /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
   | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
@@ -247,7 +250,7 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
 function cursorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'placeCursor':
-      return withCursor(state, () => action.cursor);
+      return withCursor(state, (song) => (state.isMultivoice === true ? voiceWithNoteAt(song, action.cursor) : action.cursor));
     case 'moveCursorBeat':
       return withCursor(state, (song, cursor) =>
         adjacentBeat(song, cursor, action.step),
@@ -258,6 +261,8 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       );
     case 'selectVoice':
       return selectVoice(state, action.voiceIndex);
+    case 'toggleMultivoice':
+      return { ...state, isMultivoice: state.isMultivoice !== true };
     case 'extendSelection':
       return extendSelection(state, action.step);
     case 'selectTo':
@@ -362,15 +367,11 @@ function applySongAction(song: Song, action: SongAction): Song {
   }
 }
 
-/** The cursor on another voice of the same beat; the same state where the beat has no such voice. */
+/** The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet; the same state past voice 4. */
 function selectVoice(state: EditorState, voiceIndex: number): EditorState {
   const { cursor } = state;
   const beat = cursor === undefined ? undefined : cursorBeat(state, cursor);
-  const isSelectable =
-    Number.isInteger(voiceIndex) &&
-    voiceIndex >= 0 &&
-    voiceIndex < SELECTABLE_VOICES &&
-    beat?.voices[voiceIndex] !== undefined;
+  const isSelectable = beat !== undefined && voiceOf(beat, voiceIndex) !== undefined;
   if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
     return state;
   }
@@ -507,9 +508,13 @@ function shiftNoteString(state: EditorState, delta: number): EditorState {
     : { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
 }
 
-/** A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions. */
+/**
+ * A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions, and stays on
+ * its beat where notes moved to another voice, or a chord into an empty voice, add rests before it.
+ */
 function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
-  const edited = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  const applied = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  const edited = edit.type === 'moveToVoice' || (edit.type === 'setBeatChord' && edit.withNotes === true) ? followBeatStart(state, applied) : applied;
   if (edited === state) {
     const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(state.document.song, state.cursor, edit);
     return hint === state.hint ? state : { ...state, hint };

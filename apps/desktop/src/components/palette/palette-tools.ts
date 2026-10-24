@@ -2,6 +2,7 @@ import type { GlyphKind } from './MusicIcon';
 import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
+import type { Palette } from '../../theme';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
 
 /** What the palette knows about the cursor: its note, voice, beat and bar. */
@@ -16,6 +17,8 @@ export interface PaletteContext {
   readonly measure?: Measure;
   /** The measure before it (where the clef changes). */
   readonly previousMeasure?: Measure;
+  /** Multivoice edition is on (the editor's, not the cursor's). */
+  readonly isMultivoice?: boolean;
 }
 
 export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {
@@ -75,6 +78,8 @@ export interface PaletteTool {
   readonly run: PaletteRun;
   /** A fixed width, for a one-character face that must fit the end of a full row (the Beat group's >). */
   readonly width?: number;
+  /** A colour strip under the face (each Voice button in its voice's colour). */
+  readonly tint?: (palette: Palette) => string;
 }
 
 /** "Label  [−] value [+]" for a bar setting. */

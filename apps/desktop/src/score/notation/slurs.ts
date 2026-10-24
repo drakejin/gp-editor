@@ -10,6 +10,7 @@ import { type Chord, type NoteHead, chordInkLeft } from './chords';
 import type { VoiceEvent } from './events';
 import { SLIDE, SLUR } from './metrics';
 import { type VoiceLayout, headOnString } from './voice-layout';
+import { isUpperVoice } from '../voices';
 
 /** Slurs of hammer-ons, pull-offs and legato slides, and slide lines, between noteheads on the notation staff. */
 
@@ -21,10 +22,10 @@ interface PlacedHead {
   readonly head: NoteHead;
 }
 
-/** Slurs go opposite the stem; with two voices, away from the other voice. */
+/** Slurs go opposite the stem; with more than one voice, away from the other voices (above voices 1 and 3). */
 function slurSide(chord: Chord, isMultiVoice: boolean): Side {
   if (isMultiVoice) {
-    return chord.event.voiceIndex === 0 ? -1 : 1;
+    return isUpperVoice(chord.event.voiceIndex) ? -1 : 1;
   }
   return chord.direction === 'up' ? 1 : -1;
 }

@@ -53,6 +53,26 @@ function mockActions(): jest.Mocked<CommandActions> {
   };
 }
 
+describe('command registry: voices', () => {
+  it('lists Edit Voice 1 to 4 with ⌘1 to ⌘4 once, the palette’s Voice buttons being the same commands', () => {
+    // Act
+    const voices = [1, 2, 3, 4].map((number) => find(`edit.voice${number}`));
+
+    // Assert
+    expect(voices.map((command) => [command.title, command.shortcut])).toEqual([1, 2, 3, 4].map((number) => [`Edit Voice ${number}`, `⌘${number}`]));
+    expect(voices.map((command) => command.command)).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'selectVoice', voiceIndex })));
+    expect(COMMANDS.some((command) => command.id === 'palette.voice3')).toBe(false);
+    expect(voices.every((command) => command.isEnabled(ON_NOTE))).toBe(true);
+  });
+
+  it('lists Move to Voice 1 to 4 with ⌥1 to ⌥4 and Multivoice, once each', () => {
+    const moves = [1, 2, 3, 4].map((number) => find(`edit.moveToVoice${number}`));
+    expect(moves.map((command) => [command.title, command.shortcut])).toEqual([1, 2, 3, 4].map((number) => [`Move to Voice ${number}`, `⌥${number}`]));
+    expect(COMMANDS.filter((command) => JSON.stringify(command.command) === JSON.stringify(moves[2]?.command))).toHaveLength(1);
+    expect(COMMANDS.filter((command) => JSON.stringify(command.command) === JSON.stringify({ type: 'toggleMultivoice' }))).toHaveLength(1);
+  });
+});
+
 describe('command registry', () => {
   it('gives every command its own id, a title and a group', () => {
     const ids = COMMANDS.map((command) => command.id);

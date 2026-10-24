@@ -55,5 +55,6 @@ export const PRINT_PALETTE: Palette = {
   danger: '#000000',
   border: '#BBBBBB',
   desk: '#FFFFFF',
+  voices: ['#555555', '#555555', '#555555', '#555555'],
   ...CHROME,
 };

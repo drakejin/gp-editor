@@ -94,7 +94,7 @@ export function buildSong(spec: SongSpec): Song {
         headerIndex: measureIndex,
         clef: 'treble',
         keySignature: 0,
-        beats: buildBeats(headers[measureIndex]?.start ?? 0, voices),
+        beats: buildBeats(headers[measureIndex]?.start ?? 0, voices, Math.max(2, voices.length)),
       }),
     ),
   }));

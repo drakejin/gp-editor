@@ -15,10 +15,10 @@ function onRealNote(): EditorState {
 const BASE = onRealNote();
 const CONTEXT: PaletteContext = paletteContext(BASE.document!.song, BASE.cursor);
 
-/** The press changed the song or the cursor, or said why it could not (a hint). */
+/** The press changed the song, the cursor or the editing mode (multivoice), or said why it could not (a hint). */
 function changesOrExplains(action: EditorAction): boolean {
   const next = editorReducer(BASE, action);
-  return next.document?.song !== BASE.document?.song || next.cursor !== BASE.cursor || next.hint !== undefined;
+  return next.document?.song !== BASE.document?.song || next.cursor !== BASE.cursor || next.isMultivoice !== BASE.isMultivoice || next.hint !== undefined;
 }
 
 /** Choosing what is already set (a duration, a dynamic, a stroke) rightly does nothing; a toggle always changes. */

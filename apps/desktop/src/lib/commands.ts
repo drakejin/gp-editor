@@ -33,6 +33,9 @@ const EDIT_ROWS: readonly Command[] = [
   keyRow('edit.copy', 'Edit', 'Copy the Selected Beats', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
   keyRow('edit.cut', 'Edit', 'Cut the Selected Beats', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
   keyRow('edit.paste', 'Edit', 'Paste Beats', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
+  ...[1, 2, 3, 4].map((number) => keyRow(`edit.voice${number}`, 'Edit', `Edit Voice ${number}`, press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
+  ...[1, 2, 3, 4].map((number) => keyRow(`edit.moveToVoice${number}`, 'Edit', `Move to Voice ${number}`, press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
+  editorRow('edit.multivoice', 'Edit', 'Multivoice On / Off', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all voices', 'polyphony', 'fade'] }),
   row('edit.lyrics', 'Edit', 'Lyrics…', (a) => a.openLyrics(), { keywords: ['words', 'syllables', 'sing'] }),
   row('edit.songWriter', 'Edit', 'Song Writer…', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
 ];

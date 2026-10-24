@@ -1,5 +1,5 @@
 import type { Beat, Measure, Song, Track } from '../model/song';
-import type { BeatAddress } from './addresses';
+import { type BeatAddress, voiceOf } from './addresses';
 import { type PlacedEvent, type VoiceFlow, liftVoice, reflowVoice } from './bar-flow';
 import { type BeatFragment, type BeatFragmentItem, fragmentItem, itemEvent, settleFragmentTies, untieFirst } from './beat-fragment';
 import { type VoiceEvents, eventTicks, isFreeRest, measureGapRests } from './timeline';
@@ -28,10 +28,10 @@ function beatPosition(song: Song, at: BeatAddress): VoicePosition | undefined {
   return header === undefined || beat === undefined ? undefined : { measureIndex: at.measureIndex, offset: beat.start - header.start };
 }
 
-/** True when the addressed beat has a slot for the addressed voice (it may be empty). */
+/** True when the addressed beat can hold the addressed voice (it may be empty; voices 3 and 4 always can). */
 function hasVoiceSlot(song: Song, at: BeatAddress): boolean {
   const beat = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex];
-  return Number.isInteger(at.voiceIndex) && at.voiceIndex >= 0 && beat?.voices[at.voiceIndex] !== undefined;
+  return beat !== undefined && voiceOf(beat, at.voiceIndex) !== undefined;
 }
 
 /** The run from `from` to `to` (either order) in `from`'s track and voice; undefined when a beat is missing. */

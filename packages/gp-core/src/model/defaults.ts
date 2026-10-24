@@ -14,6 +14,7 @@ import {
   type Stroke,
   type Tuplet,
   type VibratoKind,
+  type Voice,
 } from './song';
 
 export const NORMAL_TUPLET: Tuplet = { enters: 1, times: 1 };
@@ -71,6 +72,15 @@ export const QUARTER: Duration = {
   doubleDotted: false,
   tuplet: NORMAL_TUPLET,
 };
+
+/**
+ * Voices a beat can hold: Guitar Pro 6–8 write four, GP3–GP5 two. A beat read from a GP3–GP5 file has two voice slots;
+ * an edit of voice 3 or 4 gives the bar's beats the slots up to it (empty voices).
+ */
+export const MAX_VOICES = 4;
+
+/** A voice slot without an event (not a rest), as the readers fill the slots a beat does not use. */
+export const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 
 export const NO_STROKE: Stroke = { direction: 'none', value: 0 };
 

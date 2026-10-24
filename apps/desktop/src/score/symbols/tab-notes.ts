@@ -27,6 +27,8 @@ export interface TabNotesContext {
   /** Y of the first (highest) string. */
   readonly top: number;
   readonly palette: Palette;
+  /** The voice being edited: the other voices' techniques are drawn faded. */
+  readonly editedVoiceIndex?: number;
 }
 
 const LEGATO = {
@@ -83,7 +85,7 @@ function placedNotes(
       position,
       x: beatLayout.x,
       y: tabStringY(context.top, note.string),
-      color: voiceColor(voiceIndex, context.palette),
+      color: voiceColor(voiceIndex, context.palette, context.editedVoiceIndex),
     })),
   );
 }

@@ -29,6 +29,29 @@ describe('keyCommand practice keys', () => {
   });
 });
 
+describe('keyCommand voices', () => {
+  it('puts the cursor on voice 1 to 4 with ⌘1 to ⌘4, as Guitar Pro 8 does', () => {
+    const digit = { current: undefined };
+    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { metaKey: true }), digit, 0))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'selectVoice', voiceIndex })));
+    expect(keyCommand(press('5', { metaKey: true }), digit, 0)).toBeUndefined();
+    expect(digit.current).toBeUndefined();
+  });
+
+  it('moves the note (or the selected beats) to voice 1 to 4 with ⌥1 to ⌥4 (Guitar Pro 8’s Move Voice)', () => {
+    const digit = { current: undefined };
+    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { altKey: true }), digit, 0))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'edit', edit: { type: 'moveToVoice', voiceIndex } })));
+    expect(keyCommand(press('5', { altKey: true }), digit, 0)).toEqual({ type: 'setNoteFret', fret: 5 });
+  });
+
+  it('claims ⌘1 to ⌘4 and ⌥1 to ⌥4 from react-native-macos, the digits alone still typing frets', () => {
+    for (const key of ['1', '2', '3', '4']) {
+      expect(HANDLED_KEYS).toContainEqual({ key, metaKey: true });
+      expect(HANDLED_KEYS).toContainEqual({ key, altKey: true });
+    }
+    expect(keyCommand(press('3'), { current: undefined }, 0)).toEqual({ type: 'setNoteFret', fret: 3 });
+  });
+});
+
 describe('keyCommand', () => {
   it('maps arrows to cursor moves and ⌥↑/↓ to moving the note', () => {
     const digit = { current: undefined };

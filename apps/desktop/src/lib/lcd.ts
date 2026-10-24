@@ -19,7 +19,7 @@ export interface LcdInfo {
   readonly tempo: string;
   /** The tempo typing in the LCD starts from: the locked tempo with the tempo lock on, else the playback tempo. */
   readonly tempoBpm: number;
-  /** What the cursor is on: "Beat 3 · String 2 · Fret 5". */
+  /** What the cursor is on: "Voice 1 · Beat 3 · String 2 · Fret 5". */
   readonly position: string;
 }
 
@@ -40,7 +40,7 @@ function positionText(song: Song, cursor: StringAddress | undefined): string {
   const note = findNote(song, cursor);
   const track = song.tracks[cursor.trackIndex];
   const what = note === undefined || track === undefined ? 'empty' : `Fret ${tabFretOf(track, note)}`;
-  return `Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
+  return `Voice ${cursor.voiceIndex + 1} · Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
 }
 
 function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined, isLocked: boolean): string {

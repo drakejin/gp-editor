@@ -6,6 +6,7 @@ import {
   type Hand,
   type Song,
   type StringAddress,
+  findVoice,
   presetBeamGrouping,
   setBeamGrouping,
   setNoteAccidentalDisplay,
@@ -28,7 +29,7 @@ export type NotationEdit =
 
 /** Applies one notation edit at the cursor; the same song when it does not apply. */
 export function applyNotationEdit(song: Song, cursor: StringAddress, edit: NotationEdit): Song {
-  const voice = song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex]?.voices[cursor.voiceIndex];
+  const voice = findVoice(song, cursor);
   switch (edit.type) {
     case 'setFinger':
       return setNoteFinger(song, cursor, edit.hand, edit.finger === 'none' ? undefined : edit.finger);

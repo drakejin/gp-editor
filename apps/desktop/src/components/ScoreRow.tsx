@@ -29,6 +29,8 @@ export interface ScoreRowProps {
   /** The selected beats inside this row (clipRange), tinted. */
   readonly selection?: BeatRange;
   readonly markLanes?: readonly TabMarkKind[];
+  /** The cursor's voice, set on every row of its track: the other voices are drawn faded. */
+  readonly editedVoiceIndex?: number;
   /** Screen points per layout point (the score zoom); `width` and the geometry are in layout points. */
   readonly zoom: number;
   /** This row's place in the score, for drags that run into other rows. */
@@ -90,13 +92,13 @@ function ScoreRowView(props: ScoreRowProps) {
 /**
  * A row re-renders only when something it draws changed: its measures or headers (edits keep untouched measures
  * identical), the measures on either side (ties, slurs, slides, spans across bar lines; key changes), the cursor,
- * playing beat or selected beats inside it, mode, size, mark lanes or theme.
+ * playing beat or selected beats inside it, the voice being edited, mode, size, mark lanes or theme.
  */
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth ||
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.rowIndex !== b.rowIndex ||
-    !sameLanes(a.markLanes, b.markLanes) ||
+    !sameLanes(a.markLanes, b.markLanes) || a.editedVoiceIndex !== b.editedVoiceIndex ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
     !isSameRange(a.selection, b.selection)
   ) {

@@ -47,6 +47,8 @@ export interface RowContext {
   readonly selection?: BeatRange;
   /** Effect-mark lanes of the track (`tabMarkLanes`), so every row stacks marks the same way. */
   readonly markLanes?: readonly TabMarkKind[];
+  /** The voice being edited in the track (the cursor's, in every row): the other voices faded (Guitar Pro 8). */
+  readonly editedVoiceIndex?: number;
 }
 
 /** Clef (+ key signature) column at the start of every row, wide enough for the track's largest key signature. */
@@ -150,12 +152,17 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   }
   const { cursor, playingBeatIndex } = scope;
   const highlight =
-    playingBeatIndex !== undefined ? { beatIndex: playingBeatIndex } : cursor !== undefined ? { beatIndex: cursor.beatIndex, string: cursor.string } : undefined;
+    playingBeatIndex !== undefined
+      ? { beatIndex: playingBeatIndex }
+      : cursor !== undefined
+      ? { beatIndex: cursor.beatIndex, string: cursor.string, voiceIndex: cursor.voiceIndex }
+      : undefined;
   const { track, header, measure, layout, previousMeasure, nextMeasure, isRowStart } = scope;
   // Pick strokes go over the tab when it is shown, else over the notation.
   const showsPickStrokes = !showsTab(context.mode);
   const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard });
+  const { editedVoiceIndex } = context;
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */
@@ -195,9 +202,10 @@ function engraveTab(context: RowContext, scope: MeasureScope): DrawCommand[] {
   }
   const { track, header, measure, layout, previousMeasure, nextMeasure, cursor, playingBeatIndex } = scope;
   const previousBeat = previousMeasure?.beats[previousMeasure.beats.length - 1];
-  const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string };
+  const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string, voiceIndex: cursor.voiceIndex };
   return engraveTabMeasure({
     track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
     top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
+    editedVoiceIndex: context.editedVoiceIndex,
   });
 }
