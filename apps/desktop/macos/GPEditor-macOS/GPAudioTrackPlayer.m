@@ -201,6 +201,11 @@ static NSArray<GPAudioRun *> *RunsOf(NSDictionary *playback)
   [_player scheduleSegment:_file startingFrame:first frameCount:(AVAudioFrameCount)(last - first) atTime:when completionHandler:nil];
 }
 
+- (void)reset
+{
+  [_timePitch reset];
+}
+
 - (void)startAtHostTime:(uint64_t)hostTime
 {
   if (_runs.count == 0) {

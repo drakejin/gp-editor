@@ -10,6 +10,12 @@
 
 /** How long a stopped engine keeps its bank in memory before it is released (the next play loads it again). */
 static const NSTimeInterval kIdleReleaseSeconds = 60;
+/** The audio track starts this long after the sequencer's start (see -startAudioAt:)… */
+static const NSTimeInterval kAudioStartLead = 0.04;
+/** …and is prepared again further on when the sequencer, at its first render, is less than this before that. */
+static const NSTimeInterval kAudioStartMargin = 0.01;
+/** Longest wait for the sequencer's first render before the audio track starts. */
+static const NSTimeInterval kFirstRenderTimeout = 0.5;
 
 @implementation GPMidiEngine {
   dispatch_queue_t _queue;
@@ -75,8 +81,8 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
  * - its start and stop add and remove a render notify on the output unit, and the render thread could still call
  *   the removed (freed) block (crashes in AUHALOutputUnit_RenderNotifyCallback → _Block_copy).
  * Events scheduled meanwhile are delivered once it renders again, before the song's first notes. The audio track's
- * player is prepared (connected, its runs scheduled) meanwhile too, and started once the engine runs again, at the host
- * time the sequencer reaches `seconds`.
+ * nodes are connected meanwhile too (a new connection would stop the sequencer); it starts once the engine renders
+ * again (-startAudioAt:).
  */
 - (BOOL)playData:(NSData *)midi
      fromSeconds:(NSTimeInterval)seconds
@@ -110,7 +116,7 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
     return NO;
   }
   // The audio track's nodes are connected before the sequencer starts (a new connection would stop it).
-  if (audio != nil && ![_audioTrack prepare:audio fromSeconds:seconds error:error]) {
+  if (audio != nil && ![self prepareAudio:audio at:seconds error:error]) {
     return NO;
   }
   AVAudioSequencer *sequencer = [[AVAudioSequencer alloc] initWithAudioEngine:_engine];
@@ -262,20 +268,43 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   return hostTime == 0 ? mach_absolute_time() : hostTime;
 }
 
-/** Before the sequencer starts again at `seconds` (a rewire, the line in): the audio track's runs from there too. */
-- (void)prepareAudioAt:(NSTimeInterval)seconds
+/**
+ * While the engine does not render: the audio track ready to start kAudioStartLead after `seconds` (-startAudioAt:),
+ * its nodes connected, and the time-pitch unit cleared of the last play (else what it kept would delay this one).
+ */
+- (BOOL)prepareAudio:(NSDictionary *)audio at:(NSTimeInterval)seconds error:(NSError **)error
 {
-  if (_audioPlayback != nil && ![_audioTrack prepare:_audioPlayback fromSeconds:seconds error:nil]) {
-    _audioPlayback = nil;
-  }
+  [_audioTrack reset];
+  return [_audioTrack prepare:audio fromSeconds:seconds + kAudioStartLead error:error];
 }
 
-/** Once the engine runs: the prepared audio track starts when the sequencer, started at `seconds`, is there. */
+/**
+ * Once the engine runs, the prepared audio track (if the song has one) starts in step with the sequencer started at
+ * `seconds`. AVAudioSequencer knows its host times only once it has rendered: before, -hostTimeForBeats:error: raises
+ * (kAudioToolboxErr_InvalidPlayerState, -10852), here always, as the sequencer starts while the engine is paused. So
+ * this waits for its first render (some 20 ms), then starts the audio at the host time the sequencer reaches
+ * kAudioStartLead (the first 40 ms of the audio are not heard) — or, on a machine too busy for that, further on.
+ */
 - (void)startAudioAt:(NSTimeInterval)seconds
 {
-  if (_audioPlayback != nil && _sequencer != nil) {
-    [_audioTrack startAtHostTime:[self hostTimeAtSeconds:seconds]];
+  if (_audioPlayback == nil || _sequencer == nil) {
+    return;
   }
+  CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + kFirstRenderTimeout;
+  while (_sequencer.currentPositionInSeconds <= seconds && CFAbsoluteTimeGetCurrent() < deadline) {
+    usleep(1000);
+  }
+  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  NSTimeInterval at = seconds + kAudioStartLead;
+  BOOL isLate = position + kAudioStartMargin > at;
+  if (isLate) {
+    at = position + kAudioStartLead;
+  }
+  if (position <= seconds || (isLate && ![_audioTrack prepare:_audioPlayback fromSeconds:at error:nil])) {
+    os_log(OS_LOG_DEFAULT, "GPMidiEngine: the audio track did not start (sequencer at %.3f s, started at %.3f s)", position, seconds);
+    return;
+  }
+  [_audioTrack startAtHostTime:[self hostTimeAtSeconds:at]];
 }
 
 - (void)setAudioTrackGain:(double)gain detuneCents:(double)detuneCents
@@ -353,7 +382,9 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
 /** Starts the stopped engine, the sequencer (if any) prerolled and started at `position` first (see -playData:…). */
 - (BOOL)restartEngineWithSequencerAt:(NSTimeInterval)position error:(NSError **)error
 {
-  [self prepareAudioAt:position];
+  if (_audioPlayback != nil && ![self prepareAudio:_audioPlayback at:position error:nil]) {
+    _audioPlayback = nil;
+  }
   _sequencer.currentPositionInSeconds = position;
   [_sequencer prepareToPlay];
   [_sequencer startAndReturnError:nil];

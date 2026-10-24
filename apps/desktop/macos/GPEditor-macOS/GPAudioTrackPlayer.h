@@ -26,6 +26,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (BOOL)prepare:(nullable NSDictionary *)playback fromSeconds:(NSTimeInterval)fromSeconds error:(NSError **)error;
 
+/** Clears what the time-pitch unit kept of the last play (call while the engine does not render). */
+- (void)reset;
+
 /** Starts the prepared audio at a host time: when the sequencer is at the render's `fromSeconds`. */
 - (void)startAtHostTime:(uint64_t)hostTime;
 
