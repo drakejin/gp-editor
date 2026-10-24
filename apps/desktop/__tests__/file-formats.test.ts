@@ -105,4 +105,17 @@ describe('saveHint', () => {
     expect(saveHint(format('gp3'), withAudio)).toContain('Guitar Pro 3 keeps no audio track');
     expect(saveHint(format('gp'), withAudio)).toBe(format('gp').note);
   });
+
+  it('says that GP5, GP4 and GP3 keep one clef per track when the clef changes', () => {
+    // Arrange
+    const twoBars = makeSong([[beat(960, [note(1, 0)])], [beat(4800, [note(1, 0)])]]);
+    const track = twoBars.tracks[0]!;
+    const changed = { ...twoBars, tracks: [{ ...track, measures: track.measures.map((measure, index) => ({ ...measure, clef: index === 1 ? ('bass' as const) : measure.clef })) }] };
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), changed)).toBe('Guitar Pro 5 keeps one clef per track (from its tuning): save as Guitar Pro 7/8 (.gp) to keep the clef changes.');
+    expect(saveHint(format('gp4'), changed)).toContain('Guitar Pro 4 keeps one clef per track');
+    expect(saveHint(format('gp'), changed)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), twoBars)).toBeUndefined();
+  });
 });

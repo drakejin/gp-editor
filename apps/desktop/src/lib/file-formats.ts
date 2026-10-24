@@ -35,14 +35,14 @@ export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
     id: 'gp4',
     label: 'Guitar Pro 4 (.gp4)',
     extension: 'gp4',
-    note: 'Guitar Pro 4 keeps one voice per bar (voice 2 joins voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
+    note: 'Guitar Pro 4 keeps one voice per bar (voice 2 joins voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells, the sustain pedal, rhythm slashes, beaming, shown accidentals and octave signs are left out.',
   },
   {
     id: 'gp3',
     label: 'Guitar Pro 3 (.gp3)',
     extension: 'gp3',
     note:
-      'Guitar Pro 3 keeps one voice per bar (voice 2 joins voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
+      'Guitar Pro 3 keeps one voice per bar (voice 2 joins voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado, the sustain pedal, rhythm slashes, beaming, shown accidentals and octave signs are left out.',
   },
 ];
 
@@ -83,12 +83,18 @@ function hasEffects(song: Song): boolean {
   return song.tracks.some((track) => (track.effects?.length ?? 0) > 0) || (song.master !== undefined && !isDefaultMaster(song.master));
 }
 
-/** What the hint strip says when `song` is saved in `format`: its note, and the effects and audio track it leaves out. */
+/** A track whose clef changes somewhere (GP3–GP5 files hold one clef per track, from its tuning). */
+function hasClefChanges(song: Song): boolean {
+  return song.tracks.some((track) => track.measures.some((measure, index) => index > 0 && measure.clef !== track.measures[index - 1]?.clef));
+}
+
+/** What the hint strip says when `song` is saved in `format`: its note, and the effects, audio track and clefs it leaves out. */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const name = format.label.replace(/ \(.*\)$/, '');
   const effects = format.id !== 'gp' && hasEffects(song) ? `${name} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
   const audio = format.id !== 'gp' && song.audioTrack !== undefined ? `${name} keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.` : undefined;
-  const parts = [format.note, effects, audio].filter((part): part is string => part !== undefined);
+  const clefs = format.id !== 'gp' && hasClefChanges(song) ? `${name} keeps one clef per track (from its tuning): save as Guitar Pro 7/8 (.gp) to keep the clef changes.` : undefined;
+  const parts = [format.note, effects, audio, clefs].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 
