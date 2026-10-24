@@ -10,6 +10,15 @@ export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** JSON text parsed; undefined for text that is not JSON (a file's entry read as one that is not there). */
+export function parseJsonText(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 /** An own property of a JSON object (never one from its prototype). */
 export function ownValue(object: JsonObject, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(object, key) ? object[key] : undefined;

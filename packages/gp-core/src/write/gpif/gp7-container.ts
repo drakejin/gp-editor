@@ -89,7 +89,7 @@ function audioEntries(asset: Gp7Asset | undefined): Zippable {
 
 /**
  * The .gp file: the entries a Guitar Pro 7 file has, in its order, the app's effects JSON when there is one, and the
- * audio track's file with Guitar Pro 8's meta.json.
+ * audio track's file with Guitar Pro 8's meta.json; `appEntries` are more of the app's JSON (stylesheet, layout) by name.
  */
 export function zipGp7(
   score: Uint8Array,
@@ -97,6 +97,7 @@ export function zipGp7(
   effectsJson?: string,
   slashTracks: readonly boolean[] = [],
   asset?: Gp7Asset,
+  appEntries: Readonly<Record<string, string>> = {},
 ): Uint8Array {
   return zipSync(
     {
@@ -108,6 +109,7 @@ export function zipGp7(
       [GP7_SCORE_ENTRY]: score,
       [GP7_VERSION_ENTRY]: encodeUtf8(CONTAINER_VERSION),
       ...(effectsJson === undefined ? {} : { [GP7_EFFECTS_ENTRY]: encodeUtf8(effectsJson) }),
+      ...Object.fromEntries(Object.entries(appEntries).map(([name, json]) => [name, encodeUtf8(json)])),
       ...audioEntries(asset),
     },
     { level: DEFLATE_LEVEL, mtime: ENTRY_TIME },

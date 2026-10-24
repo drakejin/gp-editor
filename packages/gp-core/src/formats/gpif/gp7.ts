@@ -1,5 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.v7.GPXInputStream (LGPL-2.1).
 import { readSongEffects } from '../../effects/song-effects';
+import { readSongDesign, readSongStylesheet } from '../../stylesheet/song-stylesheet';
 import type { Song } from '../../model/song';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
@@ -16,12 +17,18 @@ export interface SongFile {
   readonly audioTrackData?: Uint8Array;
 }
 
+/** The song with the app's stylesheet and Design Mode layout, when the container keeps them. */
+function withAppEntries(container: Gp7Container, song: Song): Song {
+  const styled = container.stylesheet === undefined ? song : readSongStylesheet(song, container.stylesheet);
+  return container.design === undefined ? styled : readSongDesign(styled, container.design);
+}
+
 /** The song of a container; an audio track whose file the archive does not hold is left out. */
 function songOf(container: Gp7Container): { readonly song: Song; readonly assetPath?: string } {
   const doc = readGpifDocument(container.score, 7);
   const views = readPartConfiguration(container.partConfiguration);
   const read = gpifToSong(doc, { format: 'gp7', version: gpifVersionString(doc, container.version) }, views);
-  const withEffects = container.effects === undefined ? read : readSongEffects(read, container.effects);
+  const withEffects = withAppEntries(container, container.effects === undefined ? read : readSongEffects(read, container.effects));
   const assetPath = doc.audioTrack?.asset?.embeddedFilePath;
   if (withEffects.audioTrack === undefined || (assetPath !== undefined && container.entryNames.has(assetPath))) {
     return { song: withEffects, ...(assetPath === undefined ? {} : { assetPath }) };

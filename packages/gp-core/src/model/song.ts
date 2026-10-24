@@ -8,6 +8,8 @@
  * Strings are numbered from 1 = highest-pitched string, as in Guitar Pro.
  */
 
+import type { Stylesheet } from './stylesheet';
+
 /** Ticks per quarter note: 960 × 135135, so every duration Guitar Pro writes is a whole number of ticks (see defaults.ts). */
 export const QUARTER_TIME = 129_729_600;
 
@@ -29,6 +31,8 @@ export interface Song {
   readonly master?: MasterMix;
   /** A recording played with the score (Guitar Pro 7/8's audio track); its audio data lives outside the model. */
   readonly audioTrack?: AudioTrack;
+  /** The app's stylesheet (File ▸ Stylesheet…, model/stylesheet.ts); absent: DEFAULT_STYLESHEET. */
+  readonly stylesheet?: Stylesheet;
 }
 
 /**
@@ -184,6 +188,24 @@ export interface MeasureHeader {
   readonly directions?: readonly MusicalDirection[];
   /** How the bar's notes are beamed together, set by hand; the time signature's grouping when absent (model/beaming.ts). */
   readonly beamGrouping?: BeamGrouping;
+  /** The bar's layout set in Design Mode (the app's own, edit/bar-design.ts); absent while untouched. */
+  readonly design?: BarDesign;
+}
+
+/** A beat moved sideways in Design Mode: the beats starting `at` ticks after the bar's start, drawn `offset` points away. */
+export interface BeatOffset {
+  readonly at: number;
+  readonly offset: number;
+}
+
+/** Design Mode's layout of a bar (no TuxGuitar counterpart; Guitar Pro keeps its own in data nobody documents). */
+export interface BarDesign {
+  /** A system starts at this bar and holds this many bars (0: as many as fit). */
+  readonly systemBars?: number;
+  /** The bar's share of its system's width, against its natural width (1: as laid out). */
+  readonly widthScale?: number;
+  /** Beats moved sideways, in the order of `at`. */
+  readonly beatOffsets?: readonly BeatOffset[];
 }
 
 /** A bar's beam groups (GP5's "beam eighth notes by", GPIF's master bar beaming). */

@@ -202,6 +202,11 @@ export {
 } from './effects/effect-chain';
 export { parseEffectChain, parseMasterMix } from './effects/effects-json';
 export { readSongEffects, songEffectsToJson } from './effects/song-effects';
+export * from './model/stylesheet';
+export { isDefaultStylesheet, millimetresToPoints, pageSize, setStylesheet, stylesheetOf } from './edit/stylesheet';
+export { clearBarDesign, hasBarDesign, setBarWidthScale, setBeatOffset, setSystemBars } from './edit/bar-design';
+export { BAR_DESIGN_LIMITS, isSameJson, parseBarDesign, parseStylesheet } from './stylesheet/stylesheet-json';
+export { readSongDesign, readSongStylesheet, songDesignToJson, songStylesheetToJson } from './stylesheet/song-stylesheet';
 export {
   AUDIO_TRACK_NAME,
   type AudioTrackFields,
