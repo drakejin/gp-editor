@@ -68,6 +68,22 @@ export function articulationHeightAbove(
   );
 }
 
+/** Height the chord's articulations take on their side (articulationSide), from the notes or stem out. */
+export function articulationHeight(
+  chord: Chord,
+  isMultiVoice: boolean,
+): number {
+  const isAbove = articulationSide(chord, isMultiVoice) === 'above';
+  return chordArticulations(chord).reduce(
+    (sum, articulation) =>
+      sum +
+      ARTICULATION.gap +
+      (isAbove ? articulation.above.top : -articulation.below.bottom) *
+        NOTATION.space,
+    0,
+  );
+}
+
 /** Accents, heavy accents and staccato dots of every chord, stacked outwards from the notes. */
 export function articulations(layout: VoiceLayout): TextCommand[] {
   return layout.chords.flatMap((chord, index) => {

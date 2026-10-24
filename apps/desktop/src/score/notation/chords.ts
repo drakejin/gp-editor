@@ -1,7 +1,11 @@
 import type { Duration } from '@gp-editor/core';
 import { flagCount } from '../../lib/beams';
 import { type LineCommand, SMUFL, type TextCommand } from '../draw';
-import { TECHNIQUE_GLYPHS } from '../symbols/smufl';
+import {
+  ACCIDENTAL_PAREN_GLYPHS,
+  SLASH_GLYPHS,
+  TECHNIQUE_GLYPHS,
+} from '../symbols/smufl';
 import type { StaffNote, VoiceEvent } from './events';
 import { horizontal, musicGlyph } from './glyphs';
 import {
@@ -86,10 +90,27 @@ function diamondGlyph(value: number): {
   return { glyph: diamond.text, width: diamond.advance * NOTATION.space };
 }
 
+/** A rhythm slash: black, or white for halves and wholes. */
+function slashGlyph(value: number): {
+  readonly glyph: string;
+  readonly width: number;
+} {
+  const slash =
+    value === WHOLE
+      ? SLASH_GLYPHS.whole
+      : value === HALF
+      ? SLASH_GLYPHS.half
+      : SLASH_GLYPHS.black;
+  return { glyph: slash.text, width: slash.advance * NOTATION.space };
+}
+
 function noteheadGlyph(
   note: StaffNote,
   value: number,
 ): { readonly glyph: string; readonly width: number } {
+  if (note.isSlash === true) {
+    return slashGlyph(value);
+  }
   if (note.isCross) {
     return { glyph: SMUFL.noteheadXBlack, width: GLYPH_WIDTH.noteheadX };
   }
@@ -159,8 +180,12 @@ export function layoutChord(
   const highest = Math.min(...ys);
   const middle = positionY(top, STAFF.middleLine);
   const extra = Math.max(0, flagCount(value) - 2) * BEAM.spacing;
-  const stemOffset = GLYPH_WIDTH.noteheadBlack / 2 - STEM.width / 2;
   const isUp = direction === 'up';
+  const slash = heads[0]?.note.isSlash === true ? heads[0] : undefined;
+  // A slash's stem leaves its upper right end going up, its lower left end going down.
+  const stemOffset =
+    (slash?.width ?? GLYPH_WIDTH.noteheadBlack) / 2 - STEM.width / 2;
+  const attach = slash === undefined ? STEM.attach : NOTATION.space;
   return {
     eventIndex,
     event,
@@ -170,7 +195,7 @@ export function layoutChord(
     right: Math.max(...heads.map(head => head.x + head.width)),
     hasStem,
     stemX: isUp ? event.x + stemOffset : event.x - stemOffset,
-    stemBase: isUp ? lowest - STEM.attach : highest + STEM.attach,
+    stemBase: isUp ? lowest - attach : highest + attach,
     // Stems of notes far from the staff reach the middle line.
     stemTip: isUp
       ? Math.min(highest - STEM.length - extra, middle)
@@ -276,7 +301,39 @@ function accidentalColumns(positions: readonly number[]): readonly number[] {
   }, initial).indexes;
 }
 
-/** Accidentals left of the chord, placed from the top note down. */
+/** Width a reminder's parentheses add to its accidental. */
+const PARENS_WIDTH =
+  (ACCIDENTAL_PAREN_GLYPHS.left.advance +
+    ACCIDENTAL_PAREN_GLYPHS.right.advance) *
+  NOTATION.space;
+
+/** An accidental whose right edge is at `right`; a cautionary one in parentheses. */
+function accidentalGlyphs(
+  head: NoteHead,
+  accidental: Accidental,
+  right: number,
+  color: string,
+): TextCommand[] {
+  const glyph = ACCIDENTAL_GLYPHS[accidental];
+  if (head.note.isCautionary !== true) {
+    return [musicGlyph(right - glyph.width, head.y, glyph.text, color)];
+  }
+  const { left, right: close } = ACCIDENTAL_PAREN_GLYPHS;
+  const closeX = right - close.advance * NOTATION.space;
+  const glyphX = closeX - glyph.width;
+  return [
+    musicGlyph(
+      glyphX - left.advance * NOTATION.space,
+      head.y,
+      left.text,
+      color,
+    ),
+    musicGlyph(glyphX, head.y, glyph.text, color),
+    musicGlyph(closeX, head.y, close.text, color),
+  ];
+}
+
+/** Accidentals left of the chord, placed from the top note down; reminders in parentheses take a wider column. */
 export function accidentals(chord: Chord, color: string): TextCommand[] {
   const marked = chord.heads
     .flatMap(head =>
@@ -288,14 +345,18 @@ export function accidentals(chord: Chord, color: string): TextCommand[] {
   const columns = accidentalColumns(
     marked.map(({ head }) => head.note.position),
   );
-  return marked.map(({ head, accidental }, i) => {
-    const glyph = ACCIDENTAL_GLYPHS[accidental];
+  const column =
+    ACCIDENTAL.column +
+    (marked.some(({ head }) => head.note.isCautionary === true)
+      ? PARENS_WIDTH
+      : 0);
+  return marked.flatMap(({ head, accidental }, i) => {
     const right =
       chord.left -
       parenSpace(chord) -
       ACCIDENTAL.gap -
-      (columns[i] ?? 0) * ACCIDENTAL.column;
-    return musicGlyph(right - glyph.width, head.y, glyph.text, color);
+      (columns[i] ?? 0) * column;
+    return accidentalGlyphs(head, accidental, right, color);
   });
 }
 

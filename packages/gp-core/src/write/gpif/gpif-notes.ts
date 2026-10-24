@@ -1,5 +1,6 @@
 // GPIF `<Note>` elements (no TuxGuitar counterpart): the inverse of the reader's readNote / parseNote.
 import { XPROPERTY_TRILL_DURATION } from '../../formats/gpif/gpif-read-beat';
+import { gpifFingerLetter } from '../../formats/common/fingering';
 import { vibratoOf } from '../../model/defaults';
 import type { Grace, GuitarString, Note } from '../../model/song';
 import { bendCurveOf } from './gpif-curves';
@@ -140,6 +141,8 @@ export function noteNode(id: number, note: Note, context: NoteContext): XmlNode 
       vibrato !== 'none' && xmlText('Vibrato', vibrato === 'wide' ? 'Wide' : 'Slight'),
       tieOf(note, context),
       trill !== undefined && xmlText('Trill', trillPitch),
+      note.leftFinger !== undefined && xmlText('LeftFingering', gpifFingerLetter(note.leftFinger)),
+      note.rightFinger !== undefined && xmlText('RightFingering', gpifFingerLetter(note.rightFinger)),
       xmlText('InstrumentArticulation', articulationOf(note, context)),
       xmlElement('Properties', noteProperties(note, midi, context)),
       trill !== undefined && xmlElement('XProperties', [intXProperty(XPROPERTY_TRILL_DURATION, trillTicksOf(trill.duration))]),

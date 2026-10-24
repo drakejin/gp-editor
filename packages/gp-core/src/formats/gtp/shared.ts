@@ -40,6 +40,7 @@ import type {
 } from '../../model/song';
 import { bendPositionFromGp } from '../common/bend-units';
 import { createChannelName } from '../common/channels';
+import { fingerFromGp } from '../common/fingering';
 import { GTP_VERSION_BLOCK } from '../detect';
 import { normalizeSong } from './normalize';
 
@@ -395,6 +396,13 @@ function searchTiedFret(beats: readonly Beat[], string: number): number | undefi
     }
   }
   return undefined;
+}
+
+/** A note's fingering (note flag 0x80): the left-hand finger, then the right-hand one, each 0 thumb … 4 little, -1 none. */
+export function readFingers(reader: ByteReader): Pick<Note, 'leftFinger' | 'rightFinger'> {
+  const leftFinger = fingerFromGp(reader.readByte());
+  const rightFinger = fingerFromGp(reader.readByte());
+  return { ...(leftFinger === undefined ? {} : { leftFinger }), ...(rightFinger === undefined ? {} : { rightFinger }) };
 }
 
 /** Note fret: tied notes repeat the previous fret; anything outside 0…99 becomes 0. */

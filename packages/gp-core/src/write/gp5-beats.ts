@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP5OutputStream#writeMeasure / #writeBeat (LGPL-2.1).
+import { GP5_BREAK_SECONDARY_BEAMS, GP5_SECONDARY_BEAMS_KEPT, gp5BeamFlags } from '../formats/gtp/gp5-beams';
 import { durationTicks, plainDuration } from '../model/defaults';
 import type { Beat, Chord, Duration, Measure, Note, Voice } from '../model/song';
 import type { ByteWriter } from './byte-writer';
@@ -42,10 +43,15 @@ export function writeMeasureGp5(writer: ByteWriter, measure: Measure, context: M
     const brackets = tupletBrackets(beats.map((beat) => writtenDuration(voiceAt(beat, voiceIndex))));
     writer.writeInt(beats.length);
     beats.forEach((beat, index) => {
-      const displayFlags = brackets[index] ?? 0;
+      const displayFlags = (brackets[index] ?? 0) | beamFlagsFrom(beats[index - 1], beat, voiceIndex);
       writeBeatGp5(writer, beat, voiceIndex, { ...context, tempoChange: index === 0 ? tempo : undefined, displayFlags });
     });
   }
+}
+
+/** GP5 keeps the beam from the voice's previous beat on the later beat (an empty beat takes none). */
+function beamFlagsFrom(previous: Beat | undefined, beat: Beat, voiceIndex: number): number {
+  return previous === undefined || voiceAt(beat, voiceIndex).isEmpty ? 0 : gp5BeamFlags(voiceAt(previous, voiceIndex).beamToNext);
 }
 
 /** The duration written for a voice; undefined for an empty voice (it takes no time). */
@@ -151,6 +157,9 @@ function writeBeatGp5(writer: ByteWriter, beat: Beat, voiceIndex: number, contex
   }
   writeStringNotes(writer, notes, context.keptTies);
   writer.writeShort(context.displayFlags); // beam and display flags
+  if ((context.displayFlags & GP5_BREAK_SECONDARY_BEAMS) !== 0) {
+    writer.writeByte(GP5_SECONDARY_BEAMS_KEPT);
+  }
 }
 
 function writeBeatExtras(writer: ByteWriter, beat: Beat, parts: BeatParts, flags: number): void {

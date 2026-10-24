@@ -23,6 +23,7 @@ import {
   setTrackCapo,
   setTrackEffects,
   setTrackLyrics,
+  setTrackSlashNotation,
   setTrackMute,
   setTrackName,
   setTrackProgram,
@@ -107,6 +108,8 @@ type SongAction =
   | { readonly type: 'setTrackBalance'; readonly trackIndex: number; readonly balance: number }
   /** Capo fret 0–24; the frets stay as written. */
   | { readonly type: 'setTrackCapo'; readonly trackIndex: number; readonly capo: number }
+  /** The whole track written in rhythm slashes (the track inspector's Slash toggle). */
+  | { readonly type: 'setTrackSlashNotation'; readonly trackIndex: number; readonly hasSlashNotation: boolean }
   /** The track's playback effects in order (saved in .gp files); an empty chain removes them. */
   | { readonly type: 'setTrackEffects'; readonly trackIndex: number; readonly effects: readonly Effect[] }
   /** The master strip on the whole mix. */
@@ -292,6 +295,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'setTrackVolume':
     case 'setTrackBalance':
     case 'setTrackCapo':
+    case 'setTrackSlashNotation':
     case 'setTrackLyrics':
     case 'setTrackEffects':
     case 'setMasterMix':
@@ -336,6 +340,8 @@ function applySongAction(song: Song, action: SongAction): Song {
       return setTrackBalance(song, action.trackIndex, action.balance);
     case 'setTrackCapo':
       return setTrackCapo(song, action.trackIndex, action.capo);
+    case 'setTrackSlashNotation':
+      return setTrackSlashNotation(song, action.trackIndex, action.hasSlashNotation);
     case 'setTrackLyrics':
       return setTrackLyrics(song, action.trackIndex, action.lyrics);
     case 'setTrackEffects':
