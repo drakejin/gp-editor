@@ -139,6 +139,12 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)
         }
         .keyboardShortcut("p", modifiers: [.command, .shift])
+        // Guitar Pro 8's Expression Text: the palette with “>” typed — a chord, dynamic, key, octave sign, clef or
+        // direction by name. (Guitar Pro's ⇧⌘E is Export PDF… here.)
+        Button("Expression Text…") {
+          NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: "expression" as NSString)
+        }
+        .keyboardShortcut("e", modifiers: [.command, .option])
       }
       // Track ▸ Add Audio Track…: a recording played in sync with the score (GPAudioTrack.m forwards it).
       CommandMenu("Track") {

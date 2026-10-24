@@ -42,6 +42,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     openTuner: jest.fn(),
     openScales: jest.fn(),
     openLineIn: jest.fn(),
+    openExpressionText: jest.fn(),
     openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
     addAudioTrack: jest.fn(),
@@ -204,6 +205,19 @@ describe('command registry: running', () => {
     expect(actions.pickInstrument).toHaveBeenCalled();
     expect(actions.openLineIn).toHaveBeenCalled();
     expect(actions.togglePanel).toHaveBeenCalledWith('mixer');
+  });
+
+  it('opens Tools ▸ Expression Text… with its key, wherever a document is open', () => {
+    // Arrange
+    const actions = mockActions();
+    const row = find('tools.expressionText');
+
+    // Act
+    row.run(actions);
+
+    // Assert
+    expect(row).toMatchObject({ title: 'Expression Text…', group: 'Tools', shortcut: '⌥⌘E' });
+    expect(actions.openExpressionText).toHaveBeenCalled();
   });
 
   it('runs the practice keys, View ▸ Focus and the hover preview', () => {

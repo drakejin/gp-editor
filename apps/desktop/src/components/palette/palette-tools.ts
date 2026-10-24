@@ -14,6 +14,8 @@ export interface PaletteContext {
   readonly keySignature: number;
   /** The cursor's measure (its sustain pedal marks). */
   readonly measure?: Measure;
+  /** The measure before it (where the clef changes). */
+  readonly previousMeasure?: Measure;
 }
 
 export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {
@@ -29,6 +31,7 @@ export function paletteContext(song: Song, cursor: StringAddress | undefined): P
     header: song.measureHeaders[cursor.measureIndex],
     keySignature: measure?.keySignature ?? 0,
     measure,
+    previousMeasure: song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex - 1],
   };
 }
 
@@ -54,7 +57,9 @@ export type PaletteRun =
   /** Opens the vibrato, bend or tremolo bar panel for the note (B and C open the first two). */
   | { readonly kind: 'panel'; readonly panel: NotePanel }
   /** Opens the chord diagram panel for the beat, as K does. */
-  | { readonly kind: 'chordPanel' };
+  | { readonly kind: 'chordPanel' }
+  /** Opens the command palette's Expression Text (Tools ▸ Expression Text…). */
+  | { readonly kind: 'expressionText' };
 
 export interface PaletteTool {
   readonly id: string;

@@ -61,6 +61,10 @@ const TOOLS_ROWS: readonly Command[] = [
   row('tools.scales', 'Tools', 'Scales…', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
   row('tools.transpose', 'Tools', 'Transpose…', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
   row('tools.lineIn', 'Tools', 'Line In…', (a) => a.openLineIn(), { keywords: ['guitar', 'input', 'microphone', 'interface', 'sound lock', 'effects', 'amp'] }),
+  row('tools.expressionText', 'Tools', 'Expression Text…', (a) => a.openExpressionText(), {
+    shortcut: '⌥⌘E',
+    keywords: ['chord', 'dynamic', 'key signature', 'octave', '8va', 'clef', 'direction', 'coda', 'type', '>'],
+  }),
   row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
 ];
 

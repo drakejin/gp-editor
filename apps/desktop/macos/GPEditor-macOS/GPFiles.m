@@ -394,11 +394,12 @@ RCT_EXPORT_MODULE();
   }
 }
 
-/** Tools ▸ Command Palette… (⇧⌘P). */
+/** Tools ▸ Command Palette… (⇧⌘P), and Tools ▸ Expression Text… (⌥⌘E: the notification's object is @"expression"). */
 - (void)onCommandPaletteCommand:(NSNotification *)note
 {
   if (hasListeners) {
-    [self sendEventWithName:kCommandPaletteRequestedEvent body:@{}];
+    NSString *mode = [note.object isKindOfClass:[NSString class]] && [note.object isEqualToString:@"expression"] ? @"expression" : @"commands";
+    [self sendEventWithName:kCommandPaletteRequestedEvent body:@{@"mode": mode}];
   }
 }
 

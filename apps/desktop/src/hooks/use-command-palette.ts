@@ -2,13 +2,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { paletteContext } from '../components/palette/palette-tools';
 import { rememberCommand } from '../lib/command-search';
 import type { Command, CommandActions, CommandState } from '../lib/command-types';
-import { subscribeCommandPaletteRequests, subscribeTransposeRequests } from '../native/gp-files';
+import { EXPRESSION_PREFIX } from '../lib/expression-commands';
+import { type CommandPaletteMode, subscribeCommandPaletteRequests, subscribeTransposeRequests } from '../native/gp-files';
+
+/** One opening of the palette: a new id each time (a fresh field), and what the field starts with (“>”: Expression Text). */
+export interface CommandPaletteSession {
+  readonly id: number;
+  readonly initialQuery: string;
+}
 import { type WorkspaceState, activeEditor } from '../state/workspace';
 
-/** Tools ▸ Command Palette… (⇧⌘P): whether it is shown, and running a command from it. */
+/** Tools ▸ Command Palette… (⇧⌘P) and Tools ▸ Expression Text… (⌥⌘E): whether it is shown, and running a command from it. */
 export interface CommandPalette {
   readonly isOpen: boolean;
-  readonly open: () => void;
+  readonly session: CommandPaletteSession;
+  /** Opens the palette, on its commands or (`expression`) on Expression Text. */
+  readonly open: (mode?: CommandPaletteMode) => void;
   readonly close: () => void;
   /** Commands run from the palette this session, newest first: listed first. */
   readonly recentIds: readonly string[];
@@ -18,20 +27,27 @@ export interface CommandPalette {
 
 export function useCommandPalette(onRan: () => void): CommandPalette {
   const [isOpen, setIsOpen] = useState(false);
+  const [session, setSession] = useState<CommandPaletteSession>({ id: 0, initialQuery: '' });
   const [recentIds, setRecentIds] = useState<readonly string[]>([]);
-  const open = useCallback(() => setIsOpen(true), []);
+  const open = useCallback((mode: CommandPaletteMode = 'commands') => {
+    setSession((current) => ({ id: current.id + 1, initialQuery: mode === 'expression' ? EXPRESSION_PREFIX : '' }));
+    setIsOpen(true);
+  }, []);
   const close = useCallback(() => setIsOpen(false), []);
   useEffect(() => subscribeCommandPaletteRequests(open), [open]);
   const run = useCallback(
     (command: Command, actions: CommandActions) => {
       setIsOpen(false);
-      setRecentIds((ids) => rememberCommand(ids, command.id));
+      // An expression is what was typed, not a command to offer again first.
+      if (!command.id.startsWith('expression.')) {
+        setRecentIds((ids) => rememberCommand(ids, command.id));
+      }
       onRan();
       command.run(actions);
     },
     [onRan],
   );
-  return { isOpen, open, close, recentIds, run };
+  return { isOpen, session, open, close, recentIds, run };
 }
 
 /** What the commands' `isEnabled` read, from the open tabs and the shown one's editor. */
@@ -46,6 +62,7 @@ export function commandStateOf(workspace: WorkspaceState): CommandState {
     tabCount: workspace.tabs.length,
     isPercussion: song?.tracks[trackIndex]?.isPercussion === true,
     palette: song === undefined ? { keySignature: 0 } : paletteContext(song, cursor),
+    tuning: song?.tracks[trackIndex]?.strings.map((string) => string.tuning) ?? [],
   };
 }
 

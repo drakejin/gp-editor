@@ -1,11 +1,13 @@
 import {
   type Hairpin,
   type MusicalDirection,
+  type Ottava,
   type PedalAction,
   type RasgueadoPattern,
   type Song,
   type StringAddress,
   setBeatRasgueado,
+  setOttava,
   toggleBeatPedal,
   toggleDirection,
   toggleHairpin,
@@ -25,17 +27,21 @@ export type MarkEdit =
   | { readonly type: 'toggleHairpin'; readonly hairpin: Hairpin; readonly from?: BeatPlace }
   | { readonly type: 'setRasgueado'; readonly pattern: RasgueadoPattern | 'none' }
   /** Ped. where the cursor's beat starts, or ✱ where it ends; again takes it off. */
-  | { readonly type: 'togglePedal'; readonly action: PedalAction };
+  | { readonly type: 'togglePedal'; readonly action: PedalAction }
+  /** An octave sign (8va …) on the cursor's beat, or on every beat from `from` (the selection's start) to it; 'none' takes it off. */
+  | { readonly type: 'setOttava'; readonly ottava: Ottava | 'none'; readonly from?: BeatPlace };
 
-const MARK_EDIT_TYPES: Readonly<Record<MarkEdit['type'], true>> = { toggleDirection: true, toggleHairpin: true, setRasgueado: true, togglePedal: true };
+const MARK_EDIT_TYPES: Readonly<Record<MarkEdit['type'], true>> = { toggleDirection: true, toggleHairpin: true, setRasgueado: true, togglePedal: true, setOttava: true };
+/** Edits that go over the selected beats: they get where the selection starts. */
+const RANGE_EDIT_TYPES: ReadonlySet<string> = new Set(['toggleHairpin', 'setOttava']);
 
 export function isMarkEdit(edit: { readonly type: string }): edit is MarkEdit {
   return Object.prototype.hasOwnProperty.call(MARK_EDIT_TYPES, edit.type);
 }
 
-/** A hairpin goes over the selection: the edit gets where the selection starts (other edits are left as they are). */
+/** A hairpin or octave sign goes over the selection: the edit gets where the selection starts (others are left as they are). */
 export function withSelectionStart<T extends { readonly type: string }>(edit: T, anchor: StringAddress | undefined): T {
-  if (anchor === undefined || edit.type !== 'toggleHairpin') {
+  if (anchor === undefined || !RANGE_EDIT_TYPES.has(edit.type)) {
     return edit;
   }
   return { ...edit, from: { measureIndex: anchor.measureIndex, beatIndex: anchor.beatIndex } };
@@ -54,5 +60,7 @@ export function applyMarkEdit(song: Song, cursor: StringAddress, edit: MarkEdit)
       return setBeatRasgueado(song, at, edit.pattern === 'none' ? undefined : edit.pattern);
     case 'togglePedal':
       return toggleBeatPedal(song, at, edit.action);
+    case 'setOttava':
+      return setOttava(song, edit.from === undefined ? at : { ...at, ...edit.from }, at, edit.ottava === 'none' ? undefined : edit.ottava);
   }
 }

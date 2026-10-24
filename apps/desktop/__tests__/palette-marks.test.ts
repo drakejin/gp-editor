@@ -20,9 +20,10 @@ const options = (tool: PaletteTool) => (tool.run.kind === 'options' ? tool.run.o
 describe('palette: notation marks', () => {
   it('puts each mark at the end of its group', () => {
     expect([toolIn('Bar', 'directions'), toolIn('Dynamics', 'crescendo'), toolIn('Dynamics', 'decrescendo'), toolIn('Techniques', 'fadeOut'), toolIn('Techniques', 'volumeSwell')]).not.toContain(undefined);
-    // The Beat group ends with the rasgueado and pedal tools, then the slash and beam tools (palette-notation.ts).
+    // The Beat group ends with the rasgueado and pedal tools, then the slash and beam tools (palette-notation.ts) and
+    // the octave sign (palette-expression.ts).
     const beatTools = PALETTE_GROUPS.find((group) => group.title === 'Beat')?.tools.map((tool) => tool.id) ?? [];
-    expect(beatTools.slice(-7)).toEqual(['rasgueado', 'pedalDown', 'pedalUp', 'slash', 'breakBeam', 'joinBeam', 'breakSecondaryBeam']);
+    expect(beatTools.slice(-8, -1)).toEqual(['rasgueado', 'pedalDown', 'pedalUp', 'slash', 'breakBeam', 'joinBeam', 'breakSecondaryBeam']);
   });
 
   it('lights the marks the cursor’s note, beat and bar have', () => {

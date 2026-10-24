@@ -43,6 +43,24 @@ describe('mark edits at the cursor', () => {
     expect(many.selectionAnchor).toBeUndefined();
   });
 
+  it('puts an octave sign on the cursor’s beat, or over the selected beats as one undo step, and takes it off', () => {
+    // Arrange
+    const start = loaded();
+    const selected = editorReducer(editorReducer(start, { type: 'extendSelection', step: 1 }), { type: 'extendSelection', step: 1 });
+
+    // Act
+    const one = edit(start, { type: 'setOttava', ottava: '15mb' });
+    const many = edit(selected, { type: 'setOttava', ottava: '8va' });
+    const off = edit(many, { type: 'setOttava', ottava: 'none' });
+
+    // Assert
+    expect(beatsOf(one).map((b) => b.ottava)).toEqual(['15mb', undefined, undefined, undefined]);
+    expect(beatsOf(many).map((b) => b.ottava)).toEqual(['8va', '8va', '8va', undefined]);
+    expect(many.past).toHaveLength(1);
+    // The cursor stays where the selection ended (beat 3); the selection is gone.
+    expect(beatsOf(off).map((b) => b.ottava)).toEqual(['8va', '8va', undefined, undefined]);
+  });
+
   it('sets and clears the beat’s rasgueado', () => {
     const rasgueado = edit(loaded(), { type: 'setRasgueado', pattern: 'amiAnapaest' });
     expect(beatsOf(rasgueado)[0]!.rasgueado).toBe('amiAnapaest');
@@ -69,13 +87,14 @@ describe('mark edits at the cursor', () => {
     expect(beatsOf(swell)[0]!.voices[0]!.notes[0]!.effect).not.toHaveProperty('fadeOut');
   });
 
-  it('knows its edits, and gives only a hairpin the selection’s start', () => {
+  it('knows its edits, and gives only a hairpin and an octave sign the selection’s start', () => {
     // Arrange
     const anchor = { trackIndex: 0, measureIndex: 1, beatIndex: 2, voiceIndex: 0, string: 1 };
 
     // Act / Assert
-    expect([isMarkEdit({ type: 'togglePedal' }), isMarkEdit({ type: 'toggleDot' })]).toEqual([true, false]);
+    expect([isMarkEdit({ type: 'togglePedal' }), isMarkEdit({ type: 'setOttava' }), isMarkEdit({ type: 'toggleDot' })]).toEqual([true, true, false]);
     expect(withSelectionStart({ type: 'toggleHairpin', hairpin: 'crescendo' }, anchor)).toEqual({ type: 'toggleHairpin', hairpin: 'crescendo', from: { measureIndex: 1, beatIndex: 2 } });
+    expect(withSelectionStart({ type: 'setOttava', ottava: '8vb' }, anchor)).toEqual({ type: 'setOttava', ottava: '8vb', from: { measureIndex: 1, beatIndex: 2 } });
     expect(withSelectionStart({ type: 'toggleDot' }, anchor)).toEqual({ type: 'toggleDot' });
   });
 });

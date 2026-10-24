@@ -189,12 +189,18 @@ export function subscribeTransposeRequests(onTransposeRequested: () => void): ()
   return () => subscription.remove();
 }
 
-/** Tools ▸ Command Palette… (⇧⌘P). */
-export function subscribeCommandPaletteRequests(onCommandPaletteRequested: () => void): () => void {
+/** What the palette opens on: its commands, or Expression Text (the field starts with “>”). */
+export type CommandPaletteMode = 'commands' | 'expression';
+
+/** Tools ▸ Command Palette… (⇧⌘P) and Tools ▸ Expression Text… (⌥⌘E): `{ mode }` says which. */
+export function subscribeCommandPaletteRequests(onCommandPaletteRequested: (mode: CommandPaletteMode) => void): () => void {
   if (native === undefined) {
     return () => undefined;
   }
-  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('commandPaletteRequested', onCommandPaletteRequested);
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('commandPaletteRequested', (body: unknown) => {
+    const mode = typeof body === 'object' && body !== null && (body as { readonly mode?: unknown }).mode === 'expression' ? 'expression' : 'commands';
+    onCommandPaletteRequested(mode);
+  });
   return () => subscription.remove();
 }
 

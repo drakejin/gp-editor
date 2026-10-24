@@ -3,7 +3,9 @@ import { Text, TextInput } from 'react-native';
 import { CommandPalette } from '../src/components/CommandPalette';
 import type { Command, CommandState } from '../src/lib/command-types';
 import { COMMANDS } from '../src/lib/commands';
+import { paletteContext } from '../src/components/palette/palette-tools';
 import { PALETTE } from '../test-support/score-helpers';
+import { beat, makeSong, note } from '../test-support/songs';
 
 const STATE: CommandState = { hasDocument: true, hasSelection: false, canUndo: false, canRedo: false, tabCount: 1, isPercussion: false, palette: { keySignature: 0 } };
 
@@ -13,12 +15,14 @@ interface Rendered {
   readonly onClose: jest.Mock;
 }
 
-function render(recentIds: readonly string[] = [], state: CommandState = STATE): Rendered {
+function render(recentIds: readonly string[] = [], state: CommandState = STATE, initialQuery?: string): Rendered {
   const onRun = jest.fn<void, [Command]>();
   const onClose = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<CommandPalette palette={PALETTE} commands={COMMANDS} state={state} recentIds={recentIds} onRun={onRun} onClose={onClose} />);
+    renderer = ReactTestRenderer.create(
+      <CommandPalette palette={PALETTE} commands={COMMANDS} state={state} recentIds={recentIds} onRun={onRun} onClose={onClose} initialQuery={initialQuery} />,
+    );
   });
   return { renderer, onRun, onClose };
 }
@@ -109,6 +113,49 @@ describe('CommandPalette', () => {
     key(rendered, 'Enter');
     expect(rendered.onRun).not.toHaveBeenCalled();
     type(rendered, 'zzzz');
-    expect(rendered.renderer.root.findAllByType(Text).some((text) => text.props.children?.[0] === 'No command matches “')).toBe(true);
+    expect(rendered.renderer.root.findAllByType(Text).some((text) => text.props.children === 'No command matches “zzzz”.')).toBe(true);
+  });
+});
+
+describe('CommandPalette: Expression Text', () => {
+  const texts = ({ renderer }: Rendered): string[] => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
+
+  it('opens on “>” from Tools ▸ Expression Text…, naming what can be typed, and lists the expressions to choose from', () => {
+    // Act
+    const rendered = render([], STATE, '>');
+
+    // Assert
+    expect(field(rendered).props.value).toBe('>');
+    expect(texts(rendered)).toContain('Expression Text');
+    expect(rows(rendered)[0]).toBe('>ppp (pianississimo)');
+  });
+
+  it('turns “>ff” typed in the palette into the dynamic and runs it with ↩', () => {
+    // Arrange
+    const song = makeSong([[beat(960, [note(1, 3)])]]);
+    const onNote: CommandState = { ...STATE, palette: paletteContext(song, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 }) };
+    const rendered = render([], onNote);
+
+    // Act
+    type(rendered, '>ff');
+    key(rendered, 'Enter');
+
+    // Assert
+    expect(rows(rendered)[0]).toBe('>ff (fortissimo)');
+    expect(rendered.onRun).toHaveBeenCalledWith(expect.objectContaining({ id: 'expression.dynamic.ff', group: 'Dynamic' }));
+  });
+
+  it('greys an expression the cursor cannot take and says when nothing matches', () => {
+    // Arrange
+    const rendered = render([], { ...STATE, hasDocument: false }, '>');
+
+    // Act
+    type(rendered, '>8va');
+    key(rendered, 'Enter');
+    type(rendered, '>banana');
+
+    // Assert
+    expect(rendered.onRun).not.toHaveBeenCalled();
+    expect(texts(rendered).some((text) => text.startsWith('Nothing matches “banana”'))).toBe(true);
   });
 });

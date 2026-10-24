@@ -95,3 +95,28 @@ describe('bar edits at the cursor', () => {
     expect(edit(start, { type: 'setSection', title: '' })).toBe(start);
   });
 });
+
+describe('clef and key signature at the cursor', () => {
+  const measures = (state: EditorState) => state.document!.song.tracks[0]!.measures;
+
+  it('sets the clef of the cursor’s bar and the bars after it, one undo step', () => {
+    // Act
+    const bass = edit(loaded(), { type: 'setClef', clef: 'bass' });
+
+    // Assert
+    expect(measures(bass).map((measure) => measure.clef)).toEqual(['bass', 'bass']);
+    expect(bass.past).toHaveLength(1);
+  });
+
+  it('sets a typed key signature from the cursor’s bar, and keeps the song for one out of range', () => {
+    // Arrange
+    const state = loaded();
+
+    // Act
+    const eFlat = edit(state, { type: 'setKeySignature', keySignature: -3 });
+
+    // Assert
+    expect(measures(eFlat).map((measure) => measure.keySignature)).toEqual([-3, -3]);
+    expect(edit(state, { type: 'setKeySignature', keySignature: Number.NaN }).document).toBe(state.document);
+  });
+});

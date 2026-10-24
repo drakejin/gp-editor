@@ -5,12 +5,12 @@ import { INITIAL_WORKSPACE, type WorkspaceAction, type WorkspaceState, workspace
 import { beat, makeSong, note } from '../test-support/songs';
 
 const mockEvents = {
-  palette: jest.fn<() => void, [() => void]>(),
+  palette: jest.fn<() => void, [(mode: 'commands' | 'expression') => void]>(),
   transpose: jest.fn<() => void, [() => void]>(),
 };
 
 jest.mock('../src/native/gp-files', () => ({
-  subscribeCommandPaletteRequests: (handler: () => void) => mockEvents.palette(handler),
+  subscribeCommandPaletteRequests: (handler: (mode: 'commands' | 'expression') => void) => mockEvents.palette(handler),
   subscribeTransposeRequests: (handler: () => void) => mockEvents.transpose(handler),
 }));
 
@@ -54,7 +54,7 @@ describe('useCommandPalette', () => {
     const actions = {} as CommandActions;
 
     // Act
-    ReactTestRenderer.act(() => mockEvents.palette.mock.calls[0]?.[0]());
+    ReactTestRenderer.act(() => mockEvents.palette.mock.calls[0]?.[0]('commands'));
     const wasOpen = hook.current().isOpen;
     ReactTestRenderer.act(() => hook.current().run(command, actions));
 
@@ -64,6 +64,35 @@ describe('useCommandPalette', () => {
     expect(hook.current().recentIds).toEqual(['x']);
     expect(onRan).toHaveBeenCalled();
     expect(run).toHaveBeenCalledWith(actions);
+  });
+
+  it('opens Tools ▸ Expression Text… as the palette with “>” typed, a fresh field each time it opens', () => {
+    // Arrange
+    const hook = renderHook<CommandPalette>(() => useCommandPalette(() => undefined));
+    const before = hook.current().session;
+
+    // Act
+    ReactTestRenderer.act(() => mockEvents.palette.mock.calls[0]?.[0]('expression'));
+    const expression = hook.current().session;
+    ReactTestRenderer.act(() => hook.current().open());
+
+    // Assert
+    expect(expression).toMatchObject({ initialQuery: '>' });
+    expect(expression.id).not.toBe(before.id);
+    expect(hook.current().session).toMatchObject({ initialQuery: '' });
+    expect(hook.current().isOpen).toBe(true);
+  });
+
+  it('does not remember an expression it ran among the recent commands', () => {
+    // Arrange
+    const hook = renderHook<CommandPalette>(() => useCommandPalette(() => undefined));
+    const command: Command = { id: 'expression.dynamic.ff', title: 'ff', group: 'Dynamic', keywords: [], isEnabled: () => true, run: jest.fn() };
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().run(command, {} as CommandActions));
+
+    // Assert
+    expect(hook.current().recentIds).toEqual([]);
   });
 
   it('closes', () => {
@@ -98,6 +127,7 @@ describe('commandStateOf', () => {
       tabCount: 0,
       isPercussion: false,
       palette: { keySignature: 0 },
+      tuning: [],
     });
   });
 

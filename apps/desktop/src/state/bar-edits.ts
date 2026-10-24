@@ -1,4 +1,5 @@
 import {
+  type Clef,
   type MeasureHeader,
   NOTE_VALUES,
   RED,
@@ -6,6 +7,7 @@ import {
   type StringAddress,
   type TripletFeel,
   setKeySignature,
+  setMeasureClef,
   setMeasureMarker,
   setRepeat,
   setTempo,
@@ -25,6 +27,10 @@ export type BarEdit =
   /** A typed tempo (decimals kept to two places by setTempo). */
   | { readonly type: 'setTempo'; readonly tempo: number }
   | { readonly type: 'shiftKeySignature'; readonly delta: number }
+  /** A key signature typed or picked (-7 flats … 7 sharps), from the cursor's bar. */
+  | { readonly type: 'setKeySignature'; readonly keySignature: number }
+  /** The clef of the cursor's track from the cursor's bar to its next clef change (G, F or C clef). */
+  | { readonly type: 'setClef'; readonly clef: Clef }
   | { readonly type: 'toggleRepeatOpen' }
   | { readonly type: 'toggleRepeatClose' }
   /** Ending 1…8: plays this bar on that pass of the repeat. */
@@ -70,6 +76,10 @@ export function applyBarEdit(
         0;
       return setKeySignature(song, measureIndex, keySignature + edit.delta);
     }
+    case 'setKeySignature':
+      return setKeySignature(song, measureIndex, edit.keySignature);
+    case 'setClef':
+      return setMeasureClef(song, cursor.trackIndex, measureIndex, edit.clef);
     default:
       return applyRepeatOrMark(song, measureIndex, header, edit);
   }
