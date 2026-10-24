@@ -1,12 +1,5 @@
 import type { Song } from '../../src/model/song';
 
-/** Keys whose value is not undefined (an optional field set to undefined counts as absent, as in toEqual). */
-function definedKeys(value: object): string[] {
-  return Object.entries(value)
-    .filter(([, field]) => field !== undefined)
-    .map(([key]) => key);
-}
-
 function show(value: unknown): string {
   const text = JSON.stringify(value);
   if (text === undefined) {
@@ -19,29 +12,64 @@ function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null;
 }
 
-function arrayDifference(expected: readonly unknown[], actual: readonly unknown[], path: string): string | undefined {
-  for (let i = 0; i < Math.min(expected.length, actual.length); i++) {
-    const difference = firstDifference(expected[i], actual[i], `${path}[${i}]`);
-    if (difference !== undefined) {
-      return difference;
-    }
-  }
-  return expected.length === actual.length
-    ? undefined
-    : `${path}.length: expected ${expected.length}, got ${actual.length}`;
+/**
+ * A difference found under a value: the path's segments from the difference up (reversed), and what differs. The
+ * path is only built for a difference: building it for every value compared made the round-trip tests slow.
+ */
+interface Found {
+  readonly segments: string[];
+  readonly detail: string;
 }
 
-function objectDifference(expected: object, actual: object, path: string): string | undefined {
+function foundBelow(found: Found | undefined, segment: string): Found | undefined {
+  found?.segments.push(segment);
+  return found;
+}
+
+function arrayDifference(expected: readonly unknown[], actual: readonly unknown[]): Found | undefined {
+  for (let i = 0; i < Math.min(expected.length, actual.length); i++) {
+    const found = foundBelow(findDifference(expected[i], actual[i]), `[${i}]`);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return expected.length === actual.length ? undefined : { segments: [], detail: `.length: expected ${expected.length}, got ${actual.length}` };
+}
+
+/**
+ * Fields compared: those whose value is not undefined (an optional field set to undefined counts as absent, as in
+ * toEqual), the expected value's first, then the actual value's others.
+ */
+function objectDifference(expected: object, actual: object): Found | undefined {
   const expectedRecord = expected as Readonly<Record<string, unknown>>;
   const actualRecord = actual as Readonly<Record<string, unknown>>;
-  const keys = [...new Set([...definedKeys(expected), ...definedKeys(actual)])];
-  for (const key of keys) {
-    const difference = firstDifference(expectedRecord[key], actualRecord[key], `${path}.${key}`);
-    if (difference !== undefined) {
-      return difference;
+  for (const key of Object.keys(expectedRecord)) {
+    const found = expectedRecord[key] === undefined ? undefined : foundBelow(findDifference(expectedRecord[key], actualRecord[key]), `.${key}`);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  for (const key of Object.keys(actualRecord)) {
+    const isNew = actualRecord[key] !== undefined && expectedRecord[key] === undefined;
+    const found = isNew ? foundBelow(findDifference(undefined, actualRecord[key]), `.${key}`) : undefined;
+    if (found !== undefined) {
+      return found;
     }
   }
   return undefined;
+}
+
+function findDifference(expected: unknown, actual: unknown): Found | undefined {
+  if (expected === actual) {
+    return undefined;
+  }
+  if (!isObject(expected) || !isObject(actual) || Array.isArray(expected) !== Array.isArray(actual)) {
+    return { segments: [], detail: `: expected ${show(expected)}, got ${show(actual)}` };
+  }
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    return arrayDifference(expected, actual);
+  }
+  return objectDifference(expected, actual);
 }
 
 /**
@@ -50,16 +78,8 @@ function objectDifference(expected: object, actual: object, path: string): strin
  * failing round trip names the first field that changed instead of dumping two whole songs.
  */
 export function firstDifference(expected: unknown, actual: unknown, path = '$'): string | undefined {
-  if (expected === actual) {
-    return undefined;
-  }
-  if (!isObject(expected) || !isObject(actual) || Array.isArray(expected) !== Array.isArray(actual)) {
-    return `${path}: expected ${show(expected)}, got ${show(actual)}`;
-  }
-  if (Array.isArray(expected) && Array.isArray(actual)) {
-    return arrayDifference(expected, actual, path);
-  }
-  return objectDifference(expected, actual, path);
+  const found = findDifference(expected, actual);
+  return found === undefined ? undefined : `${path}${found.segments.reverse().join('')}${found.detail}`;
 }
 
 /** First difference between two songs, ignoring `source` (the format and version they were read from). */
