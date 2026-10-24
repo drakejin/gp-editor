@@ -31,7 +31,7 @@ export const DESIGN_HANDLE = {
   /** How far from a handle a press still takes it. */
   hitX: 7,
   hitY: 7,
-  /** The automatic guideline's colour: Guitar Pro 8's yellow. */
+  /** The automatic guideline's colour: Guitar Pro 8's yellow (a palette's `designGuide` in its place). */
   guideColor: '#E8B400',
   guideWidth: 1.5,
 } as const;
@@ -111,9 +111,12 @@ export function designHandles(input: DesignRowInput): DesignHandle[] {
   return [...(input.isTop ? barHandles(input) : []), ...spacingHandles(input)];
 }
 
-/** A handle drawn: a triangle over a bar line, a dot over a beat, a grip in a space; moved ones in the danger colour (Guitar Pro 8's red). */
+/**
+ * A handle drawn: a triangle over a bar line, a dot over a beat, a grip in a space; moved ones in the danger colour
+ * (Guitar Pro 8's red), the others in the palette's handle colour (a blue, apart from that red on every paper).
+ */
 function handleCommands(handle: DesignHandle, palette: Palette): DrawCommand[] {
-  const color = handle.isMoved ? palette.danger : palette.accent;
+  const color = handle.isMoved ? palette.danger : (palette.designHandle ?? palette.accent);
   const { x, y } = handle;
   switch (handle.kind) {
     case 'beat':
@@ -130,7 +133,7 @@ function handleCommands(handle: DesignHandle, palette: Palette): DrawCommand[] {
 /** The handles, and the automatic guideline through the canvas when a drag snaps to `guideX`. */
 export function engraveDesign(handles: readonly DesignHandle[], palette: Palette, height: number, guideX?: number): DrawCommand[] {
   const guide: DrawCommand[] =
-    guideX === undefined ? [] : [{ kind: 'line', x1: guideX, y1: 0, x2: guideX, y2: height, width: DESIGN_HANDLE.guideWidth, color: DESIGN_HANDLE.guideColor }];
+    guideX === undefined ? [] : [{ kind: 'line', x1: guideX, y1: 0, x2: guideX, y2: height, width: DESIGN_HANDLE.guideWidth, color: palette.designGuide ?? DESIGN_HANDLE.guideColor }];
   return [...guide, ...handles.flatMap((handle) => handleCommands(handle, palette))];
 }
 

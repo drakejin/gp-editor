@@ -69,6 +69,22 @@ describe('designHandles', () => {
     expect(commands.filter((command) => 'color' in command && command.color === PALETTE.danger)).toHaveLength(2);
   });
 
+  it('draws the handles and the guideline in the palette’s Design Mode colours when it has them', () => {
+    // Arrange
+    const song = setBeatOffset(songOfBars(8), 0, 0, 3);
+    const handles = handlesOf(song, layoutOf(song));
+    const palette = { ...PALETTE, designHandle: '#1F5FC8', designGuide: '#A67C00' };
+
+    // Act
+    const commands = engraveDesign(handles, palette, 200, 50);
+
+    // Assert
+    const colors = commands.map((command) => ('color' in command ? command.color : undefined));
+    expect(colors[0]).toBe('#A67C00');
+    expect(colors.filter((color) => color === PALETTE.danger)).toHaveLength(1);
+    expect(colors.filter((color) => color === '#1F5FC8')).toHaveLength(handles.length - 1);
+  });
+
   it('hit-tests the nearest handle near a press, and none far away', () => {
     // Arrange
     const song = songOfBars(4);

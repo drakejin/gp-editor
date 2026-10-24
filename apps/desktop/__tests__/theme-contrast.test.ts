@@ -1,4 +1,4 @@
-import { AA_TEXT_CONTRAST, contrastRatio } from '../src/lib/contrast';
+import { AA_TEXT_CONTRAST, DISTINCT_COLOR_DIFFERENCE, colorDifference, contrastRatio } from '../src/lib/contrast';
 import { LCD_COLORS, type Palette, STRIP_COLORS, allPalettes, onChrome, paletteFor } from '../src/theme';
 
 /** Text colour → the surfaces it is drawn on, by palette role. */
@@ -39,6 +39,19 @@ describe('contrastRatio', () => {
   });
 });
 
+describe('colorDifference', () => {
+  it('is 100 between black and white, 0 for a colour and itself, either way round', () => {
+    expect(colorDifference('#000000', '#FFFFFF')).toBeCloseTo(100, 1);
+    expect(colorDifference('#FFFFFF', '#000000')).toBeCloseTo(100, 1);
+    expect(colorDifference('#3C87F7', '#3C87F7')).toBe(0);
+  });
+
+  it('finds the old Design Mode pair (accent orange, danger red) alike on the dark paper, a blue and that red apart', () => {
+    expect(colorDifference('#F07A4A', '#FF6B6B')).toBeLessThan(DISTINCT_COLOR_DIFFERENCE);
+    expect(colorDifference('#6FA8FF', '#FF6B6B')).toBeGreaterThan(DISTINCT_COLOR_DIFFERENCE);
+  });
+});
+
 describe('palettes', () => {
   it('show every text colour at WCAG AA on its surfaces, in both contrasts and both papers', () => {
     const failing = allPalettes().flatMap(([name, palette]) => [...lowContrastPairs(name, palette), ...lowContrastPairs(`${name} on chrome`, onChrome(palette))]);
@@ -65,6 +78,21 @@ describe('palettes', () => {
     );
 
     // Voice colours mark notes and the cursor (graphics: WCAG's 3:1 for non-text contrast).
+    expect(failing).toEqual([]);
+  });
+
+  it('draw Design Mode’s handles, moved ones and the guideline in colours apart from each other, each 3:1 on the paper', () => {
+    const failing = allPalettes().flatMap(([name, palette]) => {
+      const handle = palette.designHandle ?? palette.accent;
+      const guide = palette.designGuide ?? '';
+      const graphics = [handle, palette.danger, guide].filter((color) => contrastRatio(color, palette.paper) < 3).map((color) => `${name}: ${color} on the paper`);
+      const pairs: readonly (readonly [string, string])[] = [[handle, palette.danger], [guide, handle], [guide, palette.danger]];
+      const alike = pairs.filter(([a, b]) => colorDifference(a, b) < DISTINCT_COLOR_DIFFERENCE).map(([a, b]) => `${name}: ${a} and ${b} look alike`);
+      // The + − × beside a system are text: AA on the paper.
+      const labels = [handle, palette.danger].filter((color) => contrastRatio(color, palette.paper) < AA_TEXT_CONTRAST).map((color) => `${name}: label ${color}`);
+      return [...graphics, ...alike, ...labels];
+    });
+
     expect(failing).toEqual([]);
   });
 

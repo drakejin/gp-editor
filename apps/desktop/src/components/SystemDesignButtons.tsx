@@ -30,9 +30,9 @@ function SmallButton({ palette, label, tooltip, isEnabled, isLit = false, onPres
       tooltip={tooltip}
       disabled={!isEnabled}
       onPress={onPress}
-      style={[styles.button, { borderColor: palette.border, backgroundColor: isLit ? palette.selection : palette.paper }, isEnabled ? null : styles.disabled]}
+      style={[styles.button, { borderColor: isLit ? palette.danger : palette.border, backgroundColor: palette.paper }, isEnabled ? null : styles.disabled]}
     >
-      <Text style={[styles.label, { color: isLit ? palette.danger : palette.accent }]}>{label}</Text>
+      <Text style={[styles.label, { color: isLit ? palette.danger : (palette.designHandle ?? palette.accent) }]}>{label}</Text>
     </Pressable>
   );
 }

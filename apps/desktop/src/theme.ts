@@ -38,6 +38,13 @@ export interface Palette {
    * the palette's Voice buttons and the tab's fret numbers of voices 2–4. The accent for all four when absent.
    */
   readonly voices?: readonly string[];
+  /**
+   * Design Mode's handles that can be dragged (a blue: moved ones are `danger`, Guitar Pro 8's red, and the accent's
+   * orange looked like it) and its automatic guideline (Guitar Pro 8's yellow, darker on light paper). The accent and
+   * `DESIGN_HANDLE.guideColor` when absent.
+   */
+  readonly designHandle?: string;
+  readonly designGuide?: string;
 }
 
 type ChromeColors = Pick<Palette, 'chrome' | 'chromeDeep' | 'chromeRaised' | 'chromeBorder' | 'chromeText' | 'chromeMuted' | 'chromeAccent' | 'chromeAccentText' | 'chromeHighlight' | 'chromeDanger'>;
@@ -88,6 +95,8 @@ const LIGHT: PaperColors = {
   border: '#D9D9DE',
   desk: '#D3D5D9',
   voices: ['#C04A1E', '#23964A', '#D2397F', '#8650D6'],
+  designHandle: '#1F5FC8',
+  designGuide: '#A67C00',
 };
 
 const DARK: PaperColors = {
@@ -104,6 +113,8 @@ const DARK: PaperColors = {
   border: '#3A3A3D',
   desk: '#141416',
   voices: ['#F07A4A', '#5CC97C', '#F06EAE', '#B28CFF'],
+  designHandle: '#6FA8FF',
+  designGuide: '#E8B400',
 };
 
 const LIGHT_HIGH: PaperColors = {
@@ -120,6 +131,8 @@ const LIGHT_HIGH: PaperColors = {
   border: '#8E8E93',
   desk: '#C4C6CB',
   voices: ['#A63F17', '#16703A', '#A8235F', '#6B36B8'],
+  designHandle: '#1A4FB0',
+  designGuide: '#8F6B00',
 };
 
 const DARK_HIGH: PaperColors = {
@@ -136,6 +149,8 @@ const DARK_HIGH: PaperColors = {
   border: '#5A5A5F',
   desk: '#0A0A0B',
   voices: ['#FF8A5C', '#6EDB8E', '#FF85BF', '#C4A3FF'],
+  designHandle: '#8DBBFF',
+  designGuide: '#FFD24A',
 };
 
 /** The LCD in the top bar (Guitar Pro's dark display): its glass, digits and the visual metronome's dots. */
