@@ -83,7 +83,7 @@ function beatWidth(beat: Beat): number {
   }
   const shortest = Math.max(...voices.map((voice) => voice.duration.value));
   const dotted = voices.some((voice) => voice.duration.dotted || voice.duration.doubleDotted);
-  const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => bendMoves(note.effect.bend?.points ?? []))));
+  const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => (note.effect.bend === undefined ? 0 : bendMoves(note.effect.bend.points)))));
   const bendWidth = moves === 0 ? 0 : BEND_PADDING + moves * BEND_MOVE_WIDTH;
   const fingered = voices.some((voice) => voice.notes.some((note) => note.leftFinger !== undefined));
   return Math.max((BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0) + (fingered ? FINGERING_EXTRA : 0), bendWidth);
@@ -104,7 +104,7 @@ function changed(headers: readonly MeasureHeader[], index: number, pick: (h: Mea
 /** Room a beat needs beyond its notes (a chord diagram over it, `chordBeatWidth`); 0 for none. */
 export type BeatRoom = (beat: Beat) => number;
 
-const NO_ROOM: BeatRoom = () => 0;
+export const NO_ROOM: BeatRoom = () => 0;
 
 export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): MeasureLayout {
   const frame = measureFrame(song, trackIndex, measureIndex);
