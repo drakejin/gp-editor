@@ -7,7 +7,7 @@ import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 import { errorMessage } from '../lib/errors';
 
-interface ImportPanelProps {
+export interface ImportPanelProps {
   readonly palette: Palette;
   readonly hasKey?: boolean;
   readonly model: string;
@@ -53,7 +53,8 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
         <TextField
           value={draft}
           onChangeText={setDraft}
-          secureTextEntry
+          autoCorrect={false}
+          spellCheck={false}
           // i18n-exempt: the start of an Anthropic key, as the key is written
           placeholder={hasKey === true ? t('window.import.replaceKey') : 'sk-ant-…'}
           placeholderTextColor={palette.muted}

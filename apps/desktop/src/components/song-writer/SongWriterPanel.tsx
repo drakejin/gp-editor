@@ -50,7 +50,8 @@ function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<So
             accessibilityLabel={t('tools.songWriter.keyLabel')}
             value={draftKey}
             onChangeText={setDraftKey}
-            secureTextEntry
+            autoCorrect={false}
+            spellCheck={false}
             placeholder={t('tools.songWriter.keyPlaceholder')}
             placeholderTextColor={palette.chromeMuted}
             style={[styles.key, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
