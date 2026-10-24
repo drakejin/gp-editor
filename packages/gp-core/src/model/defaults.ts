@@ -13,12 +13,16 @@ import {
   type Rgb,
   type SongInfo,
   type Stroke,
+  type TimeSignature,
   type Tuplet,
   type VibratoKind,
   type Voice,
 } from './song';
 
 export const NORMAL_TUPLET: Tuplet = { enters: 1, times: 1 };
+
+/** 4/4: a new song's meter, and a bar's when nothing says otherwise. */
+export const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 
 /** "n notes in the time of …" for every tuplet Guitar Pro stores (TGDivisionType.DIVISION_TYPES but GP5's 13:8), by n. */
 const TUPLET_TIMES: ReadonlyMap<number, number> = new Map([
