@@ -1,6 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
-import type { Song } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Song, setStylesheet } from '@gp-editor/core';
 import { BarButton } from '../src/components/BarButton';
 import { ExportPanel } from '../src/components/ExportPanel';
 import { pdfPageCount } from '../src/export/pdf-document';
@@ -17,6 +17,7 @@ interface Rendered {
   readonly onSave: jest.Mock;
   readonly onSavePng: jest.Mock;
   readonly onClose: jest.Mock;
+  readonly onOpenStylesheet: jest.Mock;
 }
 
 const song: Song = makeSong(Array.from({ length: 40 }, (_, i) => [beat(toTux(header(i + 1).start), [note(1, i % 5)])]));
@@ -25,6 +26,7 @@ function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: Ex
   const onSave = jest.fn();
   const onSavePng = jest.fn();
   const onClose = jest.fn();
+  const onOpenStylesheet = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
@@ -40,10 +42,11 @@ function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: Ex
         onSave={onSave}
         onSavePng={onSavePng}
         onClose={onClose}
+        onOpenStylesheet={onOpenStylesheet}
       />,
     );
   });
-  return { renderer, onSave, onSavePng, onClose };
+  return { renderer, onSave, onSavePng, onClose, onOpenStylesheet };
 }
 
 function button({ renderer }: Rendered, label: string): ReactTestRenderer.ReactTestInstance {
@@ -70,33 +73,35 @@ function allText({ renderer }: Rendered): string {
 }
 
 describe('ExportPanel', () => {
-  it('offers the three modes and two papers, starting from the view mode and A4', () => {
+  it('offers the three modes, starting from the view mode, on the stylesheet’s page', () => {
     const rendered = render('tab');
     const labels = rendered.renderer.root.findAllByType(BarButton).map((b) => b.props.label);
-    expect(labels).toEqual(['Score + Tab', 'Score', 'Tab', 'A4', 'US Letter', SAVE, 'Close']);
-    expect(activeLabels(rendered)).toEqual(['Tab', 'A4']);
+    expect(labels).toEqual(['Score + Tab', 'Score', 'Tab', 'Stylesheet…', SAVE, 'Close']);
+    expect(activeLabels(rendered)).toEqual(['Tab']);
+    expect(allText(rendered)).toContain('A4 · portrait · 210 × 297 mm');
   });
 
-  it('shows how many pages the PDF will have, following the chosen mode and paper', () => {
+  it('shows how many pages the PDF will have, following the chosen mode and the stylesheet’s page', () => {
     // Arrange
-    const rendered = render('notationAndTab');
-    const tabLetterPages = pdfPageCount(song, 0, 'tab', { paper: 'letter', fileName: 'Song.gp5' });
+    const onLetter = setStylesheet(song, { ...DEFAULT_STYLESHEET, page: { ...DEFAULT_STYLESHEET.page, format: 'letter', orientation: 'landscape' } });
+    const rendered = render('notationAndTab', false, 'pdf', onLetter);
+    const tabLetterPages = pdfPageCount(onLetter, 0, 'tab', { fileName: 'Song.gp5' });
 
     // Act
     press(rendered, 'Tab');
-    press(rendered, 'US Letter');
 
     // Assert
-    expect(activeLabels(rendered)).toEqual(['Tab', 'US Letter']);
+    expect(allText(rendered)).toContain('US Letter · landscape · 279 × 216 mm');
     expect(allText(rendered)).toContain(tabLetterPages === 1 ? '1 page' : `${tabLetterPages} pages`);
   });
 
-  it('saves with the chosen mode and paper', () => {
+  it('saves with the chosen mode, and opens the stylesheet for the page', () => {
     const rendered = render('notationAndTab');
     press(rendered, 'Score');
-    press(rendered, 'US Letter');
     press(rendered, SAVE);
-    expect(rendered.onSave).toHaveBeenCalledWith('notation', 'letter');
+    press(rendered, 'Stylesheet…');
+    expect(rendered.onSave).toHaveBeenCalledWith('notation');
+    expect(rendered.onOpenStylesheet).toHaveBeenCalled();
   });
 
   it('closes without saving', () => {
@@ -120,17 +125,17 @@ describe('ExportPanel in the multitrack view', () => {
   it('exports the shown tracks as shown, or all of them in one mode', () => {
     // Arrange
     const rendered = render('notationAndTab', false, 'pdf', duet, staves);
-    const asShownPages = pdfPageCount(duet, 0, 'notationAndTab', { paper: 'a4', fileName: 'Song.gp5', staves });
+    const asShownPages = pdfPageCount(duet, 0, 'notationAndTab', { fileName: 'Song.gp5', staves });
 
     // Act + Assert: As Shown first and chosen
     expect(rendered.renderer.root.findAllByType(BarButton).map((b) => b.props.label).slice(0, 4)).toEqual(['As Shown', 'Score + Tab', 'Score', 'Tab']);
-    expect(activeLabels(rendered)).toEqual(['As Shown', 'A4']);
+    expect(activeLabels(rendered)).toEqual(['As Shown']);
     expect(allText(rendered)).toContain('2 tracks as the score shows them');
     expect(allText(rendered)).toContain(asShownPages === 1 ? '1 page' : `${asShownPages} pages`);
     press(rendered, SAVE);
     press(rendered, 'Tab');
     press(rendered, SAVE);
-    expect(rendered.onSave.mock.calls).toEqual([['asShown', 'a4'], ['tab', 'a4']]);
+    expect(rendered.onSave.mock.calls).toEqual([['asShown'], ['tab']]);
   });
 });
 
@@ -140,31 +145,30 @@ describe('ExportPanel for PNG images', () => {
   it('adds the resolution and the background, starting at 150 dpi on a white page', () => {
     const rendered = render('tab', false, 'png');
     const labels = rendered.renderer.root.findAllByType(BarButton).map((b) => b.props.label);
-    expect(labels).toEqual(['Score + Tab', 'Score', 'Tab', 'A4', 'US Letter', '72 dpi', '150 dpi', '300 dpi', 'White', 'Transparent', SAVE_PNG, 'Close']);
-    expect(activeLabels(rendered)).toEqual(['Tab', 'A4', '150 dpi', 'White']);
+    expect(labels).toEqual(['Score + Tab', 'Score', 'Tab', 'Stylesheet…', '72 dpi', '150 dpi', '300 dpi', 'White', 'Transparent', SAVE_PNG, 'Close']);
+    expect(activeLabels(rendered)).toEqual(['Tab', '150 dpi', 'White']);
     expect(allText(rendered)).toContain('Export PNG');
   });
 
-  it('saves with the chosen mode, paper, resolution and background', () => {
+  it('saves with the chosen mode, resolution and background', () => {
     // Arrange
     const rendered = render('notationAndTab', false, 'png');
 
     // Act
     press(rendered, 'Score');
-    press(rendered, 'US Letter');
     press(rendered, '300 dpi');
     press(rendered, 'Transparent');
     press(rendered, SAVE_PNG);
 
     // Assert
-    expect(rendered.onSavePng).toHaveBeenCalledWith('notation', 'letter', { dpi: 300, isTransparent: true });
+    expect(rendered.onSavePng).toHaveBeenCalledWith('notation', { dpi: 300, isTransparent: true });
     expect(rendered.onSave).not.toHaveBeenCalled();
   });
 
   it('names the files it will write and their size in pixels', () => {
     // Arrange
     const rendered = render('tab', false, 'png');
-    const pages = pdfPageCount(song, 0, 'tab', { paper: 'a4', fileName: 'Song.gp5' });
+    const pages = pdfPageCount(song, 0, 'tab', { fileName: 'Song.gp5' });
 
     // Act
     press(rendered, '300 dpi');

@@ -1,4 +1,4 @@
-import type { Song } from '@gp-editor/core';
+import { type PageSetup, type Song, millimetresToPoints, pageSize, stylesheetOf } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
 import { squeezeRow } from '../lib/layout';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
@@ -27,7 +27,8 @@ export interface PdfPage {
 }
 
 export interface PdfOptions {
-  readonly paper: PaperId;
+  /** A paper size in place of the stylesheet's page format (its orientation and margins still apply). */
+  readonly paper?: PaperId;
   /** The open file's name, the title of a song without one. */
   readonly fileName?: string;
   /** What the score shows of its chords, as on screen; names and diagrams by default. */
@@ -36,11 +37,22 @@ export interface PdfOptions {
   readonly staves?: readonly StaffSpec[];
 }
 
+/** The page's margins in points. */
+export interface PageMarginPoints {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+
 /** Everything the pages are made from, before engraving the systems. */
 interface PdfPlan {
   readonly song: Song;
   readonly title: string;
   readonly paper: PaperSize;
+  readonly margins: PageMarginPoints;
+  /** The footer ("<title> — <page> / <pages>") is printed: the stylesheet's page numbers. */
+  readonly hasFooter: boolean;
   readonly titleBlock: TitleBlock;
   readonly layout: ScoreLayout;
   /** Width of a row at screen size: the printable width divided by `scale`. */
@@ -124,26 +136,44 @@ function printedLayout(song: Song, staves: readonly StaffSpec[], chordDisplay: C
   return { ...layout, systems: layout.systems.map((system) => ({ ...system, rows: system.rows.map((row) => squeezeRow(row, rowWidth - system.headerWidth)) })) };
 }
 
+/** The page the PDF is printed on: the stylesheet's format and orientation (or `paper`'s size in its orientation). */
+export function printedPage(page: PageSetup, paper?: PaperId): PaperSize {
+  const size = paper === undefined ? pageSize(page) : PAPER_SIZES[paper];
+  const isTurned = paper !== undefined && page.orientation === 'landscape';
+  return { name: paper === undefined ? '' : PAPER_SIZES[paper].name, width: isTurned ? size.height : size.width, height: isTurned ? size.width : size.height };
+}
+
+/** The stylesheet's margins (millimetres) in points. */
+export function pageMargins(page: PageSetup): PageMarginPoints {
+  const { top, right, bottom, left } = page.margins;
+  return { top: millimetresToPoints(top), right: millimetresToPoints(right), bottom: millimetresToPoints(bottom), left: millimetresToPoints(left) };
+}
+
 function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOptions): PdfPlan {
-  const paper = PAPER_SIZES[options.paper];
+  const sheet = stylesheetOf(song);
+  const paper = printedPage(sheet.page, options.paper);
+  const margins = pageMargins(sheet.page);
+  const hasFooter = sheet.header.showsPageNumbers;
   const title = pdfTitle(song, options.fileName);
-  const printWidth = paper.width - 2 * PAGE.margin;
+  const printWidth = paper.width - margins.left - margins.right;
   const staves = printedStaves(trackIndex, mode, options);
   // Several tracks are named on their staves, not under the title.
   const titleBlock = engraveTitleBlock(song, staves.length > 1 ? -1 : trackIndex, title, printWidth, PRINT_PALETTE);
   const chordDisplay = options.chordDisplay ?? DEFAULT_CHORD_DISPLAY;
-  const bottom = paper.height - PAGE.margin - PAGE.footerHeight;
-  const firstTop = PAGE.margin + titleBlock.height;
+  const bottom = paper.height - margins.bottom - (hasFooter ? PAGE.footerHeight : 0);
+  const firstTop = margins.top + titleBlock.height;
+  // The stylesheet's overall proportions scale the printed staves as they scale the screen's.
+  const printScale = PRINT_SCALE * sheet.scale;
   // A system taller than the room under the title block (many tracks) is printed smaller, and laid out across a wider
   // row so that it still fills the printable width.
-  const natural = printedLayout(song, staves, chordDisplay, printWidth / PRINT_SCALE);
-  const fit = natural.systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (natural.systemHeight * PRINT_SCALE)) : 1;
-  const scale = PRINT_SCALE * fit;
+  const natural = printedLayout(song, staves, chordDisplay, printWidth / printScale);
+  const fit = natural.systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (natural.systemHeight * printScale)) : 1;
+  const scale = printScale * fit;
   const rowWidth = printWidth / scale;
   const layout = fit === 1 ? natural : printedLayout(song, staves, chordDisplay, rowWidth);
   const rowHeight = layout.systemHeight * scale;
-  const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, firstTop, PAGE.margin, bottom);
-  return { song, title, paper, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
+  const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, firstTop, margins.top, bottom);
+  return { song, title, paper, margins, hasFooter, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
 }
 
 /** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the system's top. */
@@ -172,32 +202,36 @@ function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): Dr
   const commands = layout.staves.flatMap((_, staffIndex) => engraveSystemPart(plan, systemIndex, staffIndex));
   const width = (system?.rows[0]?.measures ?? []).reduce((sum, measure) => sum + measure.width, system?.headerWidth ?? 0);
   const fit = Math.min(1, plan.rowWidth / width, (plan.bottom - y) / plan.rowHeight);
-  return translateCommands(scaleCommands(commands, plan.scale * fit), PAGE.margin, y);
+  return translateCommands(scaleCommands(commands, plan.scale * fit), plan.margins.left, y);
 }
 
 /** "<title> — <page> / <pages>", centred in the footer band. */
-function engraveFooter(plan: PdfPlan, pageNumber: number): DrawCommand {
-  const { paper, title, pages } = plan;
+function engraveFooter(plan: PdfPlan, pageNumber: number): DrawCommand[] {
+  const { paper, title, pages, margins } = plan;
+  if (!plan.hasFooter) {
+    return [];
+  }
   const text = `${title} — ${pageNumber} / ${pages.length}`;
-  return {
-    kind: 'text', x: paper.width / 2, y: paper.height - PAGE.margin - PAGE.footerFontSize / 2, text,
-    size: fitFontSize(text, PAGE.footerFontSize, paper.width - 2 * PAGE.margin), color: PRINT_PALETTE.muted, font: 'ui', align: 'center',
-  };
+  const width = paper.width - margins.left - margins.right;
+  return [{
+    kind: 'text', x: margins.left + width / 2, y: paper.height - margins.bottom - PAGE.footerFontSize / 2, text,
+    size: fitFontSize(text, PAGE.footerFontSize, width), color: PRINT_PALETTE.muted, font: 'ui', align: 'center',
+  }];
 }
 
 function buildPage(plan: PdfPlan, systems: readonly number[], pageIndex: number): PdfPage {
-  const { paper, titleBlock, rowHeight } = plan;
+  const { paper, titleBlock, rowHeight, margins } = plan;
   const isFirst = pageIndex === 0;
-  const top = isFirst ? PAGE.margin + titleBlock.height : PAGE.margin;
+  const top = isFirst ? margins.top + titleBlock.height : margins.top;
   const background: DrawCommand = { kind: 'rect', x: 0, y: 0, width: paper.width, height: paper.height, color: PRINT_PALETTE.paper };
   return {
     width: paper.width,
     height: paper.height,
     commands: [
       background,
-      ...(isFirst ? translateCommands(titleBlock.commands, PAGE.margin, PAGE.margin) : []),
+      ...(isFirst ? translateCommands(titleBlock.commands, margins.left, margins.top) : []),
       ...systems.flatMap((systemIndex, i) => engravePrintedSystem(plan, systemIndex, top + i * rowHeight)),
-      engraveFooter(plan, pageIndex + 1),
+      ...engraveFooter(plan, pageIndex + 1),
     ],
   };
 }

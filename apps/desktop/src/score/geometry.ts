@@ -68,6 +68,8 @@ export const ROW = {
   pedalsBaseline: 13,
   /** Under the chord band, before the staff's own room. */
   chordsBottom: 6,
+  /** The beats' free texts (Guitar Pro's text above the beat), under the directions, when the track has any. */
+  freeText: 16,
   gap: 14,
   sidePadding: 24,
 } as const;
@@ -76,6 +78,8 @@ export const ROW = {
 export interface RowGeometry {
   /** Baseline of the direction signs; only when the song has directions (`hasDirections`). */
   readonly directionsY?: number;
+  /** Centre of the free texts line; only when a beat of the track has a text (`hasFreeTexts`). */
+  readonly freeTextY?: number;
   /** Baseline of the sustain pedal marks; only when the track has pedal marks (`hasPedals`). */
   readonly pedalsY?: number;
   /** Centre of the chord names line; only when the track has named chords and names are shown (`chordBands`). */
@@ -128,6 +132,16 @@ export interface RowBands {
   readonly hasPedals: boolean;
   /** The heading band's height: ROW.heading, or a staff's room under the one above it in a multitrack system. */
   readonly headingHeight: number;
+  /** A beat of the track has a free text (`hasFreeTexts`): its line under the directions. */
+  readonly hasFreeTexts: boolean;
+  /** The lyrics above the staves (the stylesheet's choice), not under them. */
+  readonly hasLyricsAbove: boolean;
+  /** Room added between the notation staff and the tab staff (the stylesheet's staff spacing). */
+  readonly staffSpacing: number;
+  /** The text lines' heights, for the stylesheet's font sizes: lyrics, chord names, free texts. */
+  readonly lyricsHeight: number;
+  readonly chordNamesHeight: number;
+  readonly freeTextHeight: number;
 }
 
 const PLAIN_ROW: RowBands = {
@@ -140,39 +154,60 @@ const PLAIN_ROW: RowBands = {
   hasDirections: false,
   hasPedals: false,
   headingHeight: ROW.heading,
+  hasFreeTexts: false,
+  hasLyricsAbove: false,
+  staffSpacing: 0,
+  lyricsHeight: ROW.lyrics,
+  chordNamesHeight: ROW.chordNames,
+  freeTextHeight: ROW.freeText,
 };
 
 type ChordBand = Pick<RowGeometry, 'chordNamesY' | 'chordDiagramsTop'> & { readonly bottom: number };
 
 /** The chord band from `top`: the names line, then the diagrams, then a little room; nothing without either. */
-function chordBand(top: number, hasNames: boolean, hasDiagrams: boolean): ChordBand {
+function chordBand(top: number, bands: RowBands): ChordBand {
+  const { hasChordNames: hasNames, hasChordDiagrams: hasDiagrams, chordNamesHeight } = bands;
   if (!hasNames && !hasDiagrams) {
     return { bottom: top };
   }
-  const diagramsTop = top + (hasNames ? ROW.chordNames : 0);
+  const diagramsTop = top + (hasNames ? chordNamesHeight : 0);
   return {
-    chordNamesY: hasNames ? top + ROW.chordNames / 2 : undefined,
+    chordNamesY: hasNames ? top + chordNamesHeight / 2 : undefined,
     chordDiagramsTop: hasDiagrams ? diagramsTop : undefined,
     bottom: diagramsTop + (hasDiagrams ? diagramHeight() : 0) + ROW.chordsBottom,
   };
 }
 
-export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial<RowBands> = {}): RowGeometry {
-  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams, hasDirections, hasPedals, headingHeight } = { ...PLAIN_ROW, ...bands };
+/** The bands over the staves: directions, free texts, chords and (above the staves) lyrics; `bottom` is where the staves' room starts. */
+function topBands(bands: RowBands): Pick<RowGeometry, 'directionsY' | 'freeTextY' | 'chordNamesY' | 'chordDiagramsTop' | 'lyricsY'> & { readonly bottom: number } {
+  const { hasDirections, headingHeight, hasFreeTexts, freeTextHeight, hasLyrics, hasLyricsAbove, lyricsHeight } = bands;
   const directionsY = hasDirections ? headingHeight + ROW.directionsBaseline : undefined;
-  const { bottom: chordsBottom, ...chords } = chordBand(headingHeight + (hasDirections ? ROW.directions : 0), hasChordNames, hasChordDiagrams);
-  const top = { ...chords, directionsY };
-  let y = chordsBottom;
+  const textTop = headingHeight + (hasDirections ? ROW.directions : 0);
+  const freeTextY = hasFreeTexts ? textTop + freeTextHeight / 2 : undefined;
+  const { bottom: chordsBottom, ...chords } = chordBand(textTop + (hasFreeTexts ? freeTextHeight : 0), bands);
+  const isAbove = hasLyrics && hasLyricsAbove;
+  return {
+    ...chords, directionsY, ...(freeTextY === undefined ? {} : { freeTextY }),
+    ...(isAbove ? { lyricsY: chordsBottom + lyricsHeight / 2 } : {}), bottom: chordsBottom + (isAbove ? lyricsHeight : 0),
+  };
+}
+
+export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Partial<RowBands> = {}): RowGeometry {
+  const bands: RowBands = { ...PLAIN_ROW, ...partial };
+  const { markLaneCount, hasDynamics, hasBends, hasPedals, lyricsHeight } = bands;
+  const { bottom, lyricsY: lyricsAboveY, ...top } = topBands(bands);
+  const hasLyricsBelow = bands.hasLyrics && !bands.hasLyricsAbove;
+  let y = bottom;
   let notationTop: number | undefined;
-  let lyricsY: number | undefined;
+  let lyricsY = lyricsAboveY;
   let dynamicsY: number | undefined;
   let pedalsY: number | undefined;
   if (showsNotation(mode)) {
     notationTop = y + NOTATION.above;
     y += notationBandHeight();
-    if (hasLyrics) {
-      lyricsY = y + ROW.lyrics / 2;
-      y += ROW.lyrics;
+    if (hasLyricsBelow) {
+      lyricsY = y + lyricsHeight / 2;
+      y += lyricsHeight;
     }
     if (hasDynamics) {
       dynamicsY = y + ROW.dynamicsBaseline;
@@ -186,14 +221,15 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial
   if (!showsTab(mode)) {
     return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, height: y + ROW.gap };
   }
+  y += notationTop === undefined ? 0 : bands.staffSpacing;
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
   const marksY = y + marksBand - ROW.marks / 2;
   const tabTop = y + marksBand + (hasBends ? ROW.bends : 0);
   y = tabTop + Math.max(0, stringCount - 1) * TAB.stringGap + (mode === 'tab' ? ROW.rhythm : ROW.tabBottom);
-  if (hasLyrics && lyricsY === undefined) {
-    lyricsY = y + ROW.lyrics / 2;
-    y += ROW.lyrics;
+  if (hasLyricsBelow && lyricsY === undefined) {
+    lyricsY = y + lyricsHeight / 2;
+    y += lyricsHeight;
   }
   if (hasDynamics && dynamicsY === undefined) {
     dynamicsY = y + ROW.dynamicsBaseline;

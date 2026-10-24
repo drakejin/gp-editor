@@ -33,6 +33,8 @@ export interface NotationContext {
   readonly isRowStart?: boolean;
   /** The voice being edited (the cursor's): the other voices faded, and its whole rest where it has nothing in the bar. */
   readonly editedVoiceIndex?: number;
+  /** 4/4 written C and 2/2 ¢ (the stylesheet's choice). */
+  readonly showsCommonTime?: boolean;
 }
 
 /** The clef where it changes inside a row, cue size; none at a row start, whose header draws it. */
@@ -150,7 +152,7 @@ export function engraveNotationMeasure(
     ...keyChangeCommands(context, clef),
     ...(timeSignatureX === undefined
       ? []
-      : timeSignature(header, timeSignatureX, top, palette.text)),
+      : timeSignature(header, timeSignatureX, top, palette.text, context.showsCommonTime)),
     ...voices,
     ...emptyVoiceMark(context, start),
   ];

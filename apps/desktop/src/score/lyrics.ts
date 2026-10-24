@@ -1,7 +1,8 @@
-import { type Measure, type Track, lyricsSyllables } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Measure, type TextStyle, type Track, lyricsSyllables } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { TextCommand } from './draw';
+import { styleText } from './text-styles';
 
 /** The lyrics line under the staff. */
 export const LYRICS = { size: 11 } as const;
@@ -44,12 +45,15 @@ export interface LyricsInput {
   /** Centre of the lyrics line. */
   readonly y: number;
   readonly palette: Palette;
+  /** The stylesheet's lyrics font. */
+  readonly style?: TextStyle;
 }
 
 /** The measure's syllables, each centred under its beat (measure-local coordinates). */
-export function engraveLyrics({ track, layout, y, palette }: LyricsInput): TextCommand[] {
+export function engraveLyrics({ track, layout, y, palette, style = DEFAULT_STYLESHEET.texts.lyrics }: LyricsInput): TextCommand[] {
   return measureSyllables(track, layout.measureIndex).flatMap((syllable): TextCommand[] => {
     const beat = layout.beats.find((candidate) => candidate.beatIndex === syllable.beatIndex);
-    return beat === undefined ? [] : [{ kind: 'text', x: beat.x, y, text: syllable.text, size: LYRICS.size, color: palette.text, font: 'ui', align: 'center' }];
+    const command: TextCommand | undefined = beat === undefined ? undefined : { kind: 'text', x: beat.x, y, text: syllable.text, size: LYRICS.size, color: palette.text, font: 'ui', align: 'center' };
+    return command === undefined ? [] : [styleText(command, style, DEFAULT_STYLESHEET.texts.lyrics)];
   });
 }

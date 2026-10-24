@@ -1,4 +1,4 @@
-import type { Beat, Duration, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
+import type { Beat, Duration, Measure, MeasureHeader, NotationStyle, Track, Voice } from '@gp-editor/core';
 import { type BeamLayout, beamGroupBoundsOf, flagCount, layoutBeams } from '../lib/beams';
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
 import { fretLabel, tabFretOf } from '../lib/notation';
@@ -39,6 +39,8 @@ export interface TabContext {
   readonly playingBeatIndex?: number;
   /** The voice being edited (the cursor's): the other voices' frets are drawn faded, as Guitar Pro 8 does. */
   readonly editedVoiceIndex?: number;
+  /** The stylesheet's labels, symbol lines over rests, H / P, "sl." and voice colours; the defaults when absent. */
+  readonly notation?: NotationStyle;
 }
 
 export interface TabCursor {
@@ -171,7 +173,7 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
   const { x } = beatLayout;
   const commands: DrawCommand[] = [];
   beat.voices.forEach((voice, voiceIndex) => {
-    const color = voiceColor(voiceIndex, palette, editedVoiceIndex);
+    const color = voiceColor(voiceIndex, palette, editedVoiceIndex, context.notation?.showsVoiceColors);
     if (isSlashedVoice(context.track, voice)) {
       commands.push(...(voice.notes.length > 0 ? [slashGlyph(x, (top + bottom) / 2, color)] : []));
       return;
@@ -212,7 +214,7 @@ function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
   const box = { x: beat.x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
   const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: cursorFill(voiceIndex, context.palette), radius: 4 }];
   if (shown !== undefined) {
-    const color = shown.index === voiceIndex ? context.palette.text : voiceColor(shown.index, context.palette, context.editedVoiceIndex);
+    const color = shown.index === voiceIndex ? context.palette.text : voiceColor(shown.index, context.palette, context.editedVoiceIndex, context.notation?.showsVoiceColors);
     commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(shown.note, tabFretOf(context.track, shown.note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true });
   }
   return commands;

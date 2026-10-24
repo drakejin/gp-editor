@@ -356,14 +356,14 @@ Guitar Pro's own files differently are listed, with that evidence, in
   frets can have, with how complete each is) and *In this track* (the chords the track already uses). Chords are saved
   in GP3, GP4 and GP5 files.
 - **Export**: File ▸ Export PDF… (⇧⌘E) opens the export panel: the shown track as a PDF in
-  *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on *A4* or *US Letter*; the panel says how many
-  pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
+  *Score + Tab*, *Score* or *Tab* (the view's mode is selected first) on the stylesheet's page (*Stylesheet…* beside
+  it changes it); the panel says how many pages it makes, and *Save PDF…* asks where to save it. The PDF is engraved like the screen, at print size (a 7.3 mm
   staff), in black and grey on white even in dark mode: the title, subtitle, artist, album and credits with the
   track's instrument and tuning on the first page, then the rows packed top to bottom (a row is never split across
   pages), and "*title* — *page* / *pages*" at the foot of every page. A bar too long for a line has its beats moved
   closer (and an extremely dense one is printed smaller) so nothing runs off the page. The PDF is vector graphics (lines,
   curves and the fonts' glyphs), sharp at any zoom or printer resolution, so it has no resolution setting.
-- **Export PNG**: File ▸ Export PNG… opens the same panel for images: the same pages (mode and paper as for the PDF) at
+- **Export PNG**: File ▸ Export PNG… opens the same panel for images: the same pages (mode and page as for the PDF) at
   *72*, *150* or *300 dpi* (an A4 page is 595 × 842, 1240 × 1754 or 2479 × 3508 pixels, the dpi recorded in the file),
   on a *White* or *Transparent* background (no paper: only the notation is drawn, and the tab lines still stop around
   the fret numbers). One page is saved through a save panel as *name*.png; several pages go into a folder you choose as
@@ -393,8 +393,28 @@ Guitar Pro's own files differently are listed, with that evidence, in
   a notation staff and a tab staff per track) for other notation programs. MusicXML has no place for chord diagrams,
   slapping, popping, fade-in, a stroke's speed, pinch / tapped / semi-harmonics (written as artificial or plain ones)
   or when in the note a bend moves (it reads back in even steps).
-- **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (A4, scaled to
-  the printer's paper), through the macOS print panel.
+- **Print**: File ▸ Print… (⌘P) prints the shown track in the view's mode, engraved as for the PDF export (the
+  stylesheet's page, scaled to the printer's paper), through the macOS print panel.
+- **Stylesheet** (File ▸ Stylesheet…, F7, as in Guitar Pro 8): a panel over the score with Guitar Pro 8's tabs —
+  *Page & Score Format* (A4, US Letter, A3, A5, B4, B5, Legal, Tabloid, Executive, Statement or a custom size, portrait or
+  landscape, the four margins; the score's scale and rhythm spacing), *Systems & Staves* (room between systems, tracks
+  and notation / tab, at most *n* bars per system, the multitrack names full / short / none on the first and the other
+  systems, bar lines across the system), *Header & Footer* (which song information the first page shows — the copyright
+  too — and the page numbers), *Texts & Styles* (a font — any family installed on the Mac, size, bold, italic — for the
+  title, subtitle, artist, album, words, music, tabber, copyright, tempo, track names, chords, lyrics, bar numbers and
+  the beats' free texts; lyrics below, above or hidden; bar numbers on every bar, the first of each system or none;
+  the tempo's decimals) and *Notation* (rename Let Ring, Palm Mute, H / P, sl., T, S, P, rasg. and w/bar; let ring and
+  palm mute lines over rests, H / P and sl. labels, voices 2–4 coloured in the tab, dynamics, C for 4/4). Every change
+  is one undo step and the score, the PDF, PNG and Print follow it at once; the default stylesheet draws exactly what
+  the app always drew. A `.gp` file keeps it (our own JSON entry, which Guitar Pro ignores); saving as GP5 / GP4 / GP3
+  or exporting MusicXML says it is left out. Beats' free texts (the palette's *Text above the beat*) now show above the
+  staves.
+- **Design Mode** (View ▸ Design Mode, or the palette's ↔ right of the voices): dots over the beats and triangles over
+  the bar lines to drag — a beat moves within its bar, a bar line widens its bar (the others share the rest), and a
+  yellow guideline snaps them to a beat or bar line of the system above or below; grips in the space under a system,
+  between tracks and between notation and tab drag it taller or shorter; + / − beside a system take a bar in or give one
+  away, × puts the system back; *New system at bar n* and *Reset Positions* (also View ▸ Reset Positions) on the strip
+  over the score. The score shows a drag as it moves; letting go is one undo step. A `.gp` file keeps the layout.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel
   over the score — step 1 on the left picks one of the 16 General MIDI families (Piano, Guitar, Bass, Strings, Brass,
   Synth Lead…), step 2 on the right one of its 8 instruments, which the track plays at once. The panel stays open to

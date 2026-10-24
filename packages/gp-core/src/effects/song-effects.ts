@@ -3,7 +3,7 @@
 import { setMasterMix, setTrackEffects } from '../edit/track-effects';
 import type { Song } from '../model/song';
 import { isDefaultMaster } from './effect-chain';
-import { isJsonObject, ownValue, parseEffectChain, parseMasterMix } from './effects-json';
+import { isJsonObject, ownValue, parseEffectChain, parseJsonText, parseMasterMix } from './effects-json';
 
 export const SONG_EFFECTS_VERSION = 1;
 
@@ -17,21 +17,13 @@ export function songEffectsToJson(song: Song): string | undefined {
   return JSON.stringify({ version: SONG_EFFECTS_VERSION, ...(master === undefined ? {} : { master }), tracks });
 }
 
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    // Not our JSON: the file is read without effects, as one that never had them.
-    return undefined;
-  }
-}
-
 /**
  * The song with the effects `text` (songEffectsToJson's output) holds, checked like any untrusted input. Text of
  * another version, or that is not such JSON, leaves the song as it is; entries for tracks it does not have are skipped.
  */
 export function readSongEffects(song: Song, text: string): Song {
-  const raw = parseJson(text);
+  // Not our JSON reads as undefined: the file is read without effects, as one that never had them.
+  const raw = parseJsonText(text);
   if (!isJsonObject(raw) || ownValue(raw, 'version') !== SONG_EFFECTS_VERSION) {
     return song;
   }

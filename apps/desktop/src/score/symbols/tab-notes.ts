@@ -1,4 +1,4 @@
-import type { Beat, Grace, Measure, Note, SlideType } from '@gp-editor/core';
+import { type Beat, DEFAULT_STYLESHEET, type Grace, type Measure, type NotationStyle, type Note, type SlideType } from '@gp-editor/core';
 import type { BeatLayout, MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawCommand, LineCommand } from '../draw';
@@ -29,6 +29,12 @@ export interface TabNotesContext {
   readonly palette: Palette;
   /** The voice being edited: the other voices' techniques are drawn faded. */
   readonly editedVoiceIndex?: number;
+  /** The stylesheet's H / P and "sl." labels and voice colours; the defaults when absent. */
+  readonly notation?: NotationStyle;
+}
+
+function notationOf(context: TabNotesContext): NotationStyle {
+  return context.notation ?? DEFAULT_STYLESHEET.notation;
 }
 
 const LEGATO = {
@@ -85,7 +91,7 @@ function placedNotes(
       position,
       x: beatLayout.x,
       y: tabStringY(context.top, note.string),
-      color: voiceColor(voiceIndex, context.palette, context.editedVoiceIndex),
+      color: voiceColor(voiceIndex, context.palette, context.editedVoiceIndex, notationOf(context).showsVoiceColors),
     })),
   );
 }
@@ -127,21 +133,26 @@ function legatoArc(
   if (!isLabelled) {
     return [arc];
   }
-  const text = link.note.fret >= placed.note.fret ? 'H' : 'P';
+  const { labels } = notationOf(context);
+  const text = link.note.fret >= placed.note.fret ? labels.hammerOn : labels.pullOff;
   const labelY = y - height - LEGATO.labelGap;
-  return [
-    arc,
-    {
-      kind: 'text',
-      x: (placed.x + toX) / 2,
-      y: labelY,
-      text,
-      size: LEGATO.labelSize,
-      color: placed.color,
-      font: 'ui',
-      align: 'center',
-    },
-  ];
+  return [arc, linkLabel(text, (placed.x + toX) / 2, labelY, placed.color)];
+}
+
+/** A small label over a link between two notes: H, P, sl. */
+function linkLabel(text: string, x: number, y: number, color: string): DrawCommand {
+  return { kind: 'text', x, y, text, size: LEGATO.labelSize, color, font: 'ui', align: 'center' };
+}
+
+/** "sl." over a slide to the next note, when the stylesheet asks for it (Guitar Pro's "Add sl. for slide effects"). */
+function slideLabel(context: TabNotesContext, placed: PlacedNote, link: LinkedNote): DrawCommand[] {
+  const toX = linkX(context, link, context.layout.width);
+  const notation = notationOf(context);
+  if (toX === undefined || !notation.showsSlideLabels) {
+    return [];
+  }
+  const y = placed.y - FRET_BOX.height / 2 - LEGATO.maxHeight - LEGATO.labelGap;
+  return [linkLabel(notation.labels.slide, (placed.x + toX) / 2, y, placed.color)];
 }
 
 function slideLine(
@@ -251,11 +262,11 @@ function noteLinks(
   const isLegatoSlide = note.effect.slides.includes('legato');
   return [
     ...(link !== undefined && (note.effect.hammer || isLegatoSlide)
-      ? legatoArc(context, placed, link, note.effect.hammer)
+      ? legatoArc(context, placed, link, note.effect.hammer && notationOf(context).showsHopoLabels)
       : []),
     ...(link !== undefined &&
     note.effect.slides.some(s => s === 'shift' || s === 'legato')
-      ? shiftSlide(context, placed, link)
+      ? [...shiftSlide(context, placed, link), ...slideLabel(context, placed, link)]
       : []),
     ...note.effect.slides.flatMap(slide => shortSlide(placed, slide)),
   ];

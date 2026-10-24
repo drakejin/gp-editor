@@ -1,8 +1,9 @@
-import { type Beat, type Chord, type Measure, chordLabel, hasChordDiagram } from '@gp-editor/core';
+import { type Beat, type Chord, DEFAULT_STYLESHEET, type Measure, type TextStyle, chordLabel, hasChordDiagram } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import { CHORD_DIAGRAM, diagramFirstFret, diagramWidth, engraveChordDiagram } from './chord-diagram';
 import type { DrawCommand } from './draw';
+import { styleText } from './text-styles';
 
 /** What the score shows of its chords (Guitar Pro shows both): a per-score setting of the track inspector. */
 export interface ChordDisplay {
@@ -55,10 +56,12 @@ export interface ChordsInput {
   /** Top of the diagrams (`RowGeometry.chordDiagramsTop`); no diagrams when undefined. */
   readonly diagramsTop?: number;
   readonly palette: Palette;
+  /** The stylesheet's chord name font. */
+  readonly style?: TextStyle;
 }
 
 /** The measure's chords, each centred over its beat (measure-local coordinates): the name, and the diagram under it. */
-export function engraveChords({ measure, layout, namesY, diagramsTop, palette }: ChordsInput): DrawCommand[] {
+export function engraveChords({ measure, layout, namesY, diagramsTop, palette, style = DEFAULT_STYLESHEET.texts.chordName }: ChordsInput): DrawCommand[] {
   return layout.beats.flatMap(({ beatIndex, x }): DrawCommand[] => {
     const chord = measure.beats[beatIndex]?.chord;
     if (chord === undefined) {
@@ -67,21 +70,21 @@ export function engraveChords({ measure, layout, namesY, diagramsTop, palette }:
     const label = chordLabel(chord);
     const name: DrawCommand[] =
       namesY !== undefined && label !== ''
-        ? [{ kind: 'text', x, y: namesY, text: label, size: CHORD_NAME.size, color: palette.text, font: 'ui', align: 'center', bold: true }]
+        ? [styleText({ kind: 'text', x, y: namesY, text: label, size: CHORD_NAME.size, color: palette.text, font: 'ui', align: 'center', bold: true }, style, DEFAULT_STYLESHEET.texts.chordName)]
         : [];
     const diagram = diagramsTop !== undefined && hasChordDiagram(chord) ? engraveChordDiagram(chord, x, diagramsTop, palette.text) : [];
     return [...name, ...diagram];
   });
 }
 
-/** Room a beat needs for its chord's name and diagram, so neighbours do not overlap (0 without a chord). */
-export function chordBeatWidth(beat: Beat, display: ChordDisplay): number {
+/** Room a beat needs for its chord's name (at the stylesheet's `nameSize`) and diagram, so neighbours do not overlap (0 without a chord). */
+export function chordBeatWidth(beat: Beat, display: ChordDisplay, nameSize: number = CHORD_NAME.size): number {
   const chord = beat.chord;
   if (chord === undefined) {
     return 0;
   }
   const label = chordLabel(chord);
-  const nameWidth = display.showsNames && label !== '' ? label.length * CHORD_NAME.size * CHORD_NAME.charWidth : 0;
+  const nameWidth = display.showsNames && label !== '' ? label.length * nameSize * CHORD_NAME.charWidth : 0;
   // Centred on the beat: a first-fret number on the left takes room on both sides.
   const labelWidth = diagramFirstFret(chord) > 1 ? 2 * CHORD_NAME.fretLabelWidth : 0;
   const diagram = display.showsDiagrams && hasChordDiagram(chord) ? diagramWidth(chord.frets.length) + 2 * CHORD_DIAGRAM.dotRadius + labelWidth : 0;

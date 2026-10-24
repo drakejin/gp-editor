@@ -44,6 +44,7 @@ import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type AudioTrackAction, applyAudioTrackAction } from './audio-track-edits';
+import { type LayoutAction, applyLayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
 import { INITIAL_TRACK_DISPLAY, type TrackDisplay, setTrackMode } from './track-display';
 import { type SongEdit, applySongEdit } from './song-edits';
@@ -103,6 +104,8 @@ export interface EditorState {
   readonly hint?: string;
   /** Guitar Pro 8's multivoice edition: no voice faded, and a click on a note puts the cursor in that note's voice. */
   readonly isMultivoice?: boolean;
+  /** Guitar Pro 8's Design Mode (View ▸ Design Mode): the score's handles to move beats, bar lines and systems. */
+  readonly isDesignMode?: boolean;
 }
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
@@ -130,6 +133,8 @@ type SongAction =
 
 export type EditorAction =
   | SongAction
+  | LayoutAction
+  | { readonly type: 'toggleDesignMode' }
   | AudioTrackAction
   | TrackAction
   | TrackDisplayAction
@@ -256,6 +261,8 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return reduceTrackDisplay(state, action);
     case 'setChordDisplay':
       return { ...state, chordDisplay: action.display };
+    case 'toggleDesignMode':
+      return { ...state, isDesignMode: state.isDesignMode !== true };
     default:
       return cursorReducer(state, action);
   }
@@ -351,7 +358,7 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
     case 'redo':
       return redo(state);
     default:
-      return state;
+      return isLayoutAction(action) && state.document !== undefined ? recordSong(state, state.document, applyLayoutAction(state.document.song, action)) : state;
   }
 }
 

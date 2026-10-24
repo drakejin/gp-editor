@@ -1,4 +1,4 @@
-import { type Song, type WritableFormat, isDefaultMaster } from '@gp-editor/core';
+import { type Song, type WritableFormat, hasBarDesign, isDefaultMaster, isDefaultStylesheet } from '@gp-editor/core';
 import { withoutExtension } from './file-name';
 
 /** A kind of file a save panel offers: the popup's label and the extension the file gets. */
@@ -29,7 +29,7 @@ export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
     id: 'gp',
     label: 'Guitar Pro 7/8 (.gp)',
     extension: 'gp',
-    note: 'Guitar Pro 7/8 keeps what the editor edits and the audio track; Guitar Pro’s own sound settings (RSE) and stylesheet are not kept, nor cautionary and forced accidentals.',
+    note: 'Guitar Pro 7/8 keeps what the editor edits, the audio track, and the stylesheet and Design Mode layout (for GP Editor: Guitar Pro reads its own); Guitar Pro’s sound settings (RSE) are not kept, nor cautionary and forced accidentals.',
   },
   {
     id: 'gp4',
@@ -83,6 +83,16 @@ function hasEffects(song: Song): boolean {
   return song.tracks.some((track) => (track.effects?.length ?? 0) > 0) || (song.master !== undefined && !isDefaultMaster(song.master));
 }
 
+/** The song's stylesheet differs from the default, or a bar was laid out in Design Mode: only .gp files keep them. */
+export function hasOwnLayout(song: Song): boolean {
+  return (song.stylesheet !== undefined && !isDefaultStylesheet(song.stylesheet)) || hasBarDesign(song);
+}
+
+/** What a file without the stylesheet leaves out ("Guitar Pro 5 keeps no stylesheet …"); undefined when nothing is lost. */
+export function layoutLeftOut(name: string, song: Song): string | undefined {
+  return hasOwnLayout(song) ? `${name} keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
+}
+
 /** A track whose clef changes somewhere (GP3–GP5 files hold one clef per track, from its tuning). */
 function hasClefChanges(song: Song): boolean {
   return song.tracks.some((track) => track.measures.some((measure, index) => index > 0 && measure.clef !== track.measures[index - 1]?.clef));
@@ -100,7 +110,8 @@ export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const effects = format.id !== 'gp' && hasEffects(song) ? `${name} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
   const audio = format.id !== 'gp' && song.audioTrack !== undefined ? `${name} keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.` : undefined;
   const clefs = format.id !== 'gp' && hasClefChanges(song) ? `${name} keeps one clef per track (from its tuning): save as Guitar Pro 7/8 (.gp) to keep the clef changes.` : undefined;
-  const parts = [format.note, voices, effects, audio, clefs].filter((part): part is string => part !== undefined);
+  const layout = format.id === 'gp' ? undefined : layoutLeftOut(name, song);
+  const parts = [format.note, voices, effects, audio, clefs, layout].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 

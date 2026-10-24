@@ -1,4 +1,4 @@
-import { EMPTY_SONG_INFO, type Song, type SongInfo } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, EMPTY_SONG_INFO, type Song, type SongInfo, setStylesheet } from '@gp-editor/core';
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { SongHeader } from '../src/components/SongHeader';
@@ -76,5 +76,25 @@ describe('SongHeader (the page title)', () => {
 
   it('falls back to the file name when the song has no title', () => {
     expect(renderTexts(song({}), 'untitled.gpx')[0]).toBe('untitled.gpx');
+  });
+
+  it('shows what the stylesheet’s header shows, in its fonts', () => {
+    // Arrange
+    const shown = { ...DEFAULT_STYLESHEET.header.shown, artist: false, copyright: true };
+    const title = { family: 'Georgia', size: 30, isBold: false, isItalic: true };
+    const styled = setStylesheet(song({ title: 'Nemo', artist: 'Nightwish', copyright: '© Nuclear Blast' }), {
+      ...DEFAULT_STYLESHEET, header: { ...DEFAULT_STYLESHEET.header, shown }, texts: { ...DEFAULT_STYLESHEET.texts, title },
+    });
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+
+    // Act
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<SongHeader song={styled} trackIndex={0} fileName="nemo.gp" palette={PALETTE} />);
+    });
+
+    // Assert
+    const lines = renderer.root.findAllByType(Text);
+    expect(lines.map((text) => [text.props.children].flat().join(''))).toEqual(['Nemo', '© Nuclear Blast', 'Guitar — Guitar · 6 strings · Standard (E A D G B E)']);
+    expect([lines[0]?.props.style].flat()).toContainEqual({ fontSize: 30, fontWeight: '400', fontStyle: 'italic', fontFamily: 'Georgia' });
   });
 });

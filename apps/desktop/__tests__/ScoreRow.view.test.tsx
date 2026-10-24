@@ -333,3 +333,40 @@ describe('ScoreRow as a staff of a multitrack system', () => {
     expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, false);
   });
 });
+
+describe('ScoreRow in Design Mode', () => {
+  it('is as tall as the staff’s room in its system when given one (the space under the system)', () => {
+    // Arrange
+    const row = render();
+
+    // Act
+    row.update({ ...row.props, height: row.props.geometry.height + 30 });
+
+    // Assert
+    expect(row.canvas().style).toMatchObject({ height: row.props.geometry.height + 30 });
+  });
+
+  it('draws its handles, and a press on one drags it instead of selecting', () => {
+    // Arrange
+    const row = render();
+    const onDesignPress = jest.fn();
+    const onDesignMove = jest.fn();
+    const onDesignRelease = jest.fn();
+    row.update({ ...row.props, design: { isTop: true, isLast: true }, onDesignPress, onDesignMove, onDesignRelease });
+    const [first] = placeRow(row.props.row, row.props.headerWidth);
+    const beatX = (first?.x ?? 0) + (first?.layout.beats[0]?.x ?? 0);
+    const pressable = pressableOf(row.canvasNode());
+
+    // Act
+    row.pressAt(beatX, 29);
+    ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { pageX: beatX + 10, pageY: 29 } }));
+    ReactTestRenderer.act(() => pressable.props.onPressOut());
+
+    // Assert
+    expect(row.canvas().commands.some((command: DrawCommand) => command.kind === 'circle' && command.y === 29)).toBe(true);
+    expect(onDesignPress).toHaveBeenCalledWith(0, expect.objectContaining({ kind: 'beat', measureIndex: 0, at: 0 }), beatX, 29);
+    expect(onDesignMove).toHaveBeenCalledWith(beatX + 10, 29);
+    expect(onDesignRelease).toHaveBeenCalledTimes(1);
+    expect(row.onPress).not.toHaveBeenCalled();
+  });
+});

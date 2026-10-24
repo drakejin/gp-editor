@@ -40,6 +40,8 @@ const BAR = {
 const TIME_SIGNATURE_CENTRE = TAB.timeSignatureWidth / 2 - 4;
 const NUMERATOR_POSITION = 6;
 const DENOMINATOR_POSITION = 2;
+/** SMuFL's common time (C, 4/4) and cut time (¢, 2/2) signs. */
+const COMMON_TIME = { 4: '\uE08A', 2: '\uE08B' } as const;
 
 export function staffLines(
   x1: number,
@@ -103,14 +105,24 @@ function repeatDots(x: number, top: number, color: string): DrawCommand[] {
   }));
 }
 
+/** The time signature's sign when the stylesheet writes 4/4 as C and 2/2 as ¢ ("Use C for 4/4 and 2/2"). */
+function commonTimeSign(numerator: number, denominator: number): string | undefined {
+  return numerator === denominator && (numerator === 4 || numerator === 2) ? COMMON_TIME[numerator] : undefined;
+}
+
 export function timeSignature(
   header: MeasureHeader,
   x: number,
   top: number,
   color: string,
+  showsCommonTime = false,
 ): TextCommand[] {
   const centre = x + TIME_SIGNATURE_CENTRE;
   const { numerator, denominator } = header.timeSignature;
+  const sign = showsCommonTime ? commonTimeSign(numerator, denominator) : undefined;
+  if (sign !== undefined) {
+    return [musicGlyph(centre, positionY(top, STAFF.middleLine), sign, color, 'center')];
+  }
   return [
     musicGlyph(
       centre,

@@ -23,6 +23,8 @@ static NSString *const kScriptVariable = @"GPEDITOR_QA_SCRIPT";
 static const int64_t kStartDelaySeconds = 3;
 /** How long a right click keeps the window moved: the queued mouse-up is handled well within it, the next step comes after. */
 static const double kRightClickHoldSeconds = 0.2;
+/** Between the moves of a paced drag: long enough for each to be handled before the next is sent. */
+static const double kPacedDragStepSeconds = 0.05;
 
 @interface GPQADriver : NSObject
 @property(nonatomic, copy) NSArray<NSDictionary *> *steps;
@@ -130,8 +132,18 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"drag"] != nil) {
     NSDictionary *drag = step[@"drag"];
     NSInteger steps = MAX(1, [drag[@"steps"] integerValue]);
-    [self dragFrom:[self windowPoint:drag[@"from"] in:window] to:[self windowPoint:drag[@"to"] in:window] steps:steps window:window];
+    NSPoint from = [self windowPoint:drag[@"from"] in:window];
+    NSPoint to = [self windowPoint:drag[@"to"] in:window];
+    if ([drag[@"paced"] boolValue]) {
+      [self pacedDragFrom:from to:to steps:steps hold:[drag[@"hold"] boolValue] window:window];
+      return (steps + 2) * kPacedDragStepSeconds + 0.6;
+    }
+    [self dragFrom:from to:to steps:steps hold:[drag[@"hold"] boolValue] window:window];
     return 0.8;
+  }
+  if (step[@"mouseUp"] != nil) {
+    [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:[self windowPoint:step[@"mouseUp"] in:window] window:window]];
+    return 0.4;
   }
   if (step[@"key"] != nil) {
     [self pressKey:step[@"key"] modifiers:step[@"modifiers"] window:window];
@@ -300,16 +312,39 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   [self log:[NSString stringWithFormat:@"hover %@: %lu views entered", NSStringFromPoint(location), (unsigned long)entered]];
 }
 
-/** Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. */
-- (void)dragFrom:(NSPoint)from to:(NSPoint)to steps:(NSInteger)steps window:(NSWindow *)window
+/**
+ * Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. With
+ * `hold` the mouse stays down (a snapshot shows the drag in progress) until a `mouseUp` step.
+ */
+- (void)dragFrom:(NSPoint)from to:(NSPoint)to steps:(NSInteger)steps hold:(BOOL)hold window:(NSWindow *)window
 {
   for (NSInteger i = 1; i <= steps; i++) {
     CGFloat t = (CGFloat)i / (CGFloat)steps;
     NSPoint point = NSMakePoint(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
     [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseDragged at:point window:window] atStart:NO];
   }
-  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:to window:window] atStart:NO];
+  if (!hold) {
+    [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:to window:window] atStart:NO];
+  }
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:from window:window]];
+}
+
+/**
+ * A drag as a hand makes it: the down now, then each move sent on its own a moment after the last (queued together,
+ * AppKit coalesces the moves into one, and posted ones reach React Native offset by the window's origin), then the up
+ * unless `hold` (a later `mouseUp` step). For views that follow every move (Design Mode).
+ */
+- (void)pacedDragFrom:(NSPoint)from to:(NSPoint)to steps:(NSInteger)steps hold:(BOOL)hold window:(NSWindow *)window
+{
+  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:from window:window]];
+  for (NSInteger i = 1; i <= steps + (hold ? 0 : 1); i++) {
+    CGFloat t = MIN(1.0, (CGFloat)i / (CGFloat)steps);
+    NSPoint point = NSMakePoint(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+    NSEventType type = i > steps ? NSEventTypeLeftMouseUp : NSEventTypeLeftMouseDragged;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(i * kPacedDragStepSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      [window sendEvent:[self mouseEvent:type at:point window:window]];
+    });
+  }
 }
 
 - (void)pressKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window

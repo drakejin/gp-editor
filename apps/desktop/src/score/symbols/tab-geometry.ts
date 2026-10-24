@@ -36,9 +36,10 @@ export function beatEndX(layout: MeasureLayout, position: number): number {
  * Fret numbers and the techniques on them: the first voice in ink, the others in their voice's colour (Guitar Pro 8's
  * coloured fret numbers for voices 2, 3 and 4); faded while another voice is being edited.
  */
-export function voiceColor(voiceIndex: number, palette: Palette, editedVoiceIndex?: number): string {
+export function voiceColor(voiceIndex: number, palette: Palette, editedVoiceIndex?: number, isTinted = true): string {
   if (editedVoiceIndex !== undefined && editedVoiceIndex !== voiceIndex) {
     return palette.muted;
   }
-  return voiceIndex > 0 ? voiceTint(voiceIndex, palette) : palette.text;
+  // The stylesheet can draw voices 2–4 in ink too ("Colorize fret numbers for voices 2, 3 and 4" off).
+  return voiceIndex > 0 && isTinted ? voiceTint(voiceIndex, palette) : palette.text;
 }

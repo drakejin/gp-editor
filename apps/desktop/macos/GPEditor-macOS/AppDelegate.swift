@@ -93,6 +93,11 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorExportAudioCommand, object: nil)
         }
         Divider()
+        // Guitar Pro 8's Stylesheet (F7): page, systems and staves, header, texts and notation of the score.
+        Button("Stylesheet…") {
+          NotificationCenter.default.post(name: .GPEditorLayoutCommand, object: "stylesheet" as NSString)
+        }
+        .keyboardShortcut(KeyEquivalent(Character(Unicode.Scalar(UInt32(NSF7FunctionKey))!)), modifiers: [])
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)
         }
@@ -135,6 +140,13 @@ struct GPEditorApp: App {
         }
         Button("Next Track") {
           NotificationCenter.default.post(name: .GPEditorNextTrackCommand, object: nil)
+        }
+        // Guitar Pro 8's Design Mode: drag beats, bar lines and spaces; Reset Positions (its Spacing Tools) undoes them all.
+        Button("Design Mode") {
+          NotificationCenter.default.post(name: .GPEditorLayoutCommand, object: "designMode" as NSString)
+        }
+        Button("Reset Positions") {
+          NotificationCenter.default.post(name: .GPEditorLayoutCommand, object: "resetPositions" as NSString)
         }
         Divider()
       }

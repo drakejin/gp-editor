@@ -1,5 +1,7 @@
 // Guitar Pro 7/8 (.gp) output (no TuxGuitar counterpart: TuxGuitar reads .gp files, GPXInputStream v7, but cannot write them).
 import { songEffectsToJson } from '../../effects/song-effects';
+import { GP7_DESIGN_ENTRY, GP7_STYLESHEET_ENTRY } from '../../formats/gpif/container-gp7';
+import { songDesignToJson, songStylesheetToJson } from '../../stylesheet/song-stylesheet';
 import { encodeUtf8 } from '../../io/text';
 import type { Song } from '../../model/song';
 import { assertWritable } from '../gtp-song';
@@ -7,6 +9,13 @@ import { zipGp7 } from './gp7-container';
 import { audioAssetPath } from './gpif-audio-track';
 import { buildGpifXml } from './gpif-writer';
 import { isPercussionTrack } from './gpif-sounds';
+
+/** The app's own JSON entries the song needs: its stylesheet and Design Mode layout, when it has them. */
+function appEntries(song: Song): Readonly<Record<string, string>> {
+  const stylesheet = songStylesheetToJson(song);
+  const design = songDesignToJson(song);
+  return { ...(stylesheet === undefined ? {} : { [GP7_STYLESHEET_ENTRY]: stylesheet }), ...(design === undefined ? {} : { [GP7_DESIGN_ENTRY]: design }) };
+}
 
 /**
  * Encode `song` as a Guitar Pro 7 file (a zip holding Content/score.gpif), which Guitar Pro 8 opens too; its audio
@@ -23,5 +32,6 @@ export function writeGp7(song: Song, audioTrackData?: Uint8Array): Uint8Array {
     songEffectsToJson(song),
     song.tracks.map((track) => track.hasSlashNotation === true),
     hasAudio ? { path: audioAssetPath(audioTrack), data: audioTrackData } : undefined,
+    appEntries(song),
   );
 }

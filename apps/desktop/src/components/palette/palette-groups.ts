@@ -83,8 +83,8 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
 ];
 
 const VOICE_ORDINALS = ['first', 'second', 'third', 'fourth'] as const;
-/** Six tools on one row: the four voices, Move Voice and Multivoice. */
-const VOICE_TOOL_WIDTH = 30;
+/** Seven tools on one row: the four voices, Move Voice, Multivoice and Design Mode. */
+const VOICE_TOOL_WIDTH = 26;
 
 /**
  * Guitar Pro 8's voices: the four, each in its voice's colour (⌘1–⌘4), Move Voice (⌥1–⌥4) and Multivoice (every
@@ -118,6 +118,15 @@ function voiceGroup(): PaletteGroup {
         scope: 'beat',
         run: { kind: 'action', action: { type: 'toggleMultivoice' } },
         isActive: (context) => context.isMultivoice === true,
+      },
+      // Guitar Pro 8 puts Design Mode right of the voices.
+      {
+        id: 'designMode',
+        face: '↔',
+        tooltip: 'Design Mode: drag beats, bar lines and the space between systems; + − × beside each system (View ▸ Design Mode)',
+        scope: 'bar',
+        run: { kind: 'action', action: { type: 'toggleDesignMode' } },
+        isActive: (context) => context.isDesignMode === true,
       },
     ],
   };

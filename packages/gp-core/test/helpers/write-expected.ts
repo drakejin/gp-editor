@@ -49,7 +49,8 @@ import type {
  *   last beat in the measure is dropped (GP5 keeps a beam on the beat after it); octave signs kept (GP3/GP4: dropped);
  * - ties: a tie that would change the note's fret is dropped (see withDroppedTies);
  * - the app's playback effects (track chains, the master mix): no place for them (only .gp keeps them, effects/song-effects.ts);
- * - the audio track (Guitar Pro 7/8's): GP3/GP4/GP5 have no place for it.
+ * - the audio track (Guitar Pro 7/8's): GP3/GP4/GP5 have no place for it;
+ * - the app's stylesheet and Design Mode layout (bars' `design`): only .gp keeps them (stylesheet/song-stylesheet.ts).
  */
 
 const MAX_STRINGS = 7;
@@ -367,7 +368,7 @@ function expectedBeamGrouping(header: MeasureHeader): BeamGrouping | undefined {
 }
 
 function expectedHeaderGp5(header: MeasureHeader): MeasureHeader {
-  const { beamGrouping: _replaced, ...rest } = header;
+  const { beamGrouping: _replaced, design: _design, ...rest } = header;
   const beamGrouping = expectedBeamGrouping(header);
   return { ...rest, tempo: Math.round(header.tempo), repeatAlternative: header.repeatAlternative & 0xff, ...(beamGrouping === undefined ? {} : { beamGrouping }) };
 }
@@ -396,11 +397,11 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
  * the tuning, a quarter rest in a measure without beats, and no notation marks but fingering.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
-  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, stylesheet: _stylesheet, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),
-    measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, ...header }) => ({ ...header, tempo: Math.round(header.tempo) })),
+    measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, design: _design, ...header }) => ({ ...header, tempo: Math.round(header.tempo) })),
     tracks: song.tracks.map(({ hasSlashNotation: _slash, effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
       return withoutAudio({
@@ -415,7 +416,7 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
 /** `actual` (the song read back) only decides which ties were dropped. */
 export function expectedAfterGp5(song: Song, actual?: Song): Song {
   const lyricTrack = lyricTrackNumber(song.tracks);
-  const { master: _master, audioTrack: _audioTrack, ...rest } = song;
+  const { master: _master, audioTrack: _audioTrack, stylesheet: _stylesheet, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),

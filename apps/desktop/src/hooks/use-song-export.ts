@@ -2,7 +2,7 @@ import { type Dispatch, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Song, renderMidi, writeAsciiTab, writeMusicXml, writeMusicXmlArchive } from '@gp-editor/core';
 import { bytesToBase64 } from '../lib/base64';
 import { errorMessage } from '../lib/errors';
-import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn } from '../lib/file-formats';
+import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn, layoutLeftOut } from '../lib/file-formats';
 import { type SavedFile, showSavePanel, subscribeSongExportRequests, writeFile, writeTextFile } from '../native/gp-files';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -25,6 +25,8 @@ interface ExportKind {
   readonly file: FileFormat;
   readonly what: string;
   readonly write: (song: Song, path: string) => Promise<SavedFile>;
+  /** What the file leaves out of the song, for the hint strip once it is written. */
+  readonly leftOut?: (song: Song) => string | undefined;
 }
 
 /** The tracks Export ASCII Tab… writes: the fretted ones (ASCII tab has no drum notation), every track for drums only. */
@@ -50,12 +52,14 @@ const MUSICXML_EXPORT: ExportKind = {
   file: MUSICXML_FILE,
   what: 'the MusicXML file',
   write: (song, path) => writeTextFile(path, writeMusicXml(song)),
+  leftOut: (song) => layoutLeftOut('MusicXML', song),
 };
 
 const MXL_EXPORT: ExportKind = {
   file: MXL_FILE,
   what: 'the MusicXML file',
   write: (song, path) => writeFile(path, bytesToBase64(writeMusicXmlArchive(song))),
+  leftOut: (song) => layoutLeftOut('MusicXML', song),
 };
 
 /**
@@ -80,6 +84,10 @@ export function useSongExport(document: OpenDocument | undefined, dispatch: Disp
         const chosen = await showSavePanel({ suggestedName: fileNameIn(current.fileName, file), formats: [file], formatId: file.id });
         if (chosen !== null) {
           await kind.write(current.song, chosen.path);
+          const hint = kind.leftOut?.(current.song);
+          if (hint !== undefined) {
+            dispatch({ type: 'showHint', hint });
+          }
         }
       } catch (error: unknown) {
         dispatch({ type: 'exportFailed', what: kind.what, message: errorMessage(error) });

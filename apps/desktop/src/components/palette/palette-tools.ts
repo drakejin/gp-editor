@@ -19,6 +19,8 @@ export interface PaletteContext {
   readonly previousMeasure?: Measure;
   /** Multivoice edition is on (the editor's, not the cursor's). */
   readonly isMultivoice?: boolean;
+  /** Design Mode is on (the editor's). */
+  readonly isDesignMode?: boolean;
 }
 
 export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {

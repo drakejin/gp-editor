@@ -1,4 +1,4 @@
-import type { Beat, BendPoint, MeasureHeader, Song, Voice } from '@gp-editor/core';
+import { type Beat, type BendPoint, type MeasureHeader, type Song, type Voice, stylesheetOf } from '@gp-editor/core';
 import { directionsWidth } from '../score/directions';
 
 /** Tab staff geometry, in points. */
@@ -142,10 +142,11 @@ export function measureFrame(song: Song, trackIndex: number, measureIndex: numbe
   return { beatsX: x, showTimeSignature, showTempo, showTripletFeel, ...(clefChangeX === undefined ? {} : { clefChangeX }), keySignatureX, timeSignatureX };
 }
 
-/** The room each beat of the track's measure takes: its notes', or `beatRoom`'s when wider. */
+/** The room each beat of the track's measure takes: its notes' (wider by the stylesheet's note spacing), or `beatRoom`'s when wider. */
 export function beatWidths(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): number[] {
   const beats = song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? [];
-  return beats.map((beat) => Math.max(beatWidth(beat), beatRoom(beat)));
+  const { noteSpacing } = stylesheetOf(song);
+  return beats.map((beat) => Math.max(beatWidth(beat) * noteSpacing, beatRoom(beat)));
 }
 
 /** The measure's layout once its beats are placed; `beatsEnd` is where the last beat's room ends (undefined: no beats). */
