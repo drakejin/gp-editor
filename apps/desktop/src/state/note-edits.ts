@@ -33,6 +33,7 @@ import {
   setNoteVibrato,
   toggleNoteEffect,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of the note at the cursor; each returns the same song when there is no note there. */
 export type NoteEdit =
@@ -67,8 +68,7 @@ export type NoteEdit =
   /** The note plays as written again. */
   | { readonly type: 'resetNoteAudio' };
 
-/** Every note edit; a Record, so the compiler keeps it in step with NoteEdit. */
-const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
+const isNoteEdit = isOfTypes<NoteEdit>({
   toggleEffect: true,
   toggleTie: true,
   toggleSlide: true,
@@ -84,11 +84,11 @@ const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
   setTremoloPicking: true,
   shiftNoteAudio: true,
   resetNoteAudio: true,
-};
+});
 
 /** Whether an edit sets something on the note at the cursor (a tie can also be typed on an empty string). */
 export function needsNote(edit: { readonly type: string }): boolean {
-  return edit.type !== 'toggleTie' && Object.prototype.hasOwnProperty.call(NOTE_EDIT_TYPES, edit.type);
+  return edit.type !== 'toggleTie' && isNoteEdit(edit);
 }
 
 /** A new grace note: two frets below the note, a 32nd (TuxGuitar's grace duration 2), hammered on. */

@@ -12,6 +12,7 @@ import {
   toggleDirection,
   toggleHairpin,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** A beat of the cursor's track, where a selection starts. */
 export interface BeatPlace {
@@ -31,13 +32,10 @@ export type MarkEdit =
   /** An octave sign (8va …) on the cursor's beat, or on every beat from `from` (the selection's start) to it; 'none' takes it off. */
   | { readonly type: 'setOttava'; readonly ottava: Ottava | 'none'; readonly from?: BeatPlace };
 
-const MARK_EDIT_TYPES: Readonly<Record<MarkEdit['type'], true>> = { toggleDirection: true, toggleHairpin: true, setRasgueado: true, togglePedal: true, setOttava: true };
+export const isMarkEdit = isOfTypes<MarkEdit>({ toggleDirection: true, toggleHairpin: true, setRasgueado: true, togglePedal: true, setOttava: true });
+
 /** Edits that go over the selected beats: they get where the selection starts. */
 const RANGE_EDIT_TYPES: ReadonlySet<string> = new Set(['toggleHairpin', 'setOttava', 'moveToVoice']);
-
-export function isMarkEdit(edit: { readonly type: string }): edit is MarkEdit {
-  return Object.prototype.hasOwnProperty.call(MARK_EDIT_TYPES, edit.type);
-}
 
 /**
  * A hairpin or octave sign goes over the selection, and Move Voice moves its beats: the edit gets where the selection

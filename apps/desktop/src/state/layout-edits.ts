@@ -1,4 +1,5 @@
 import { type Song, type Stylesheet, clearBarDesign, setBarWidthScale, setBeatOffset, setStylesheet, setSystemBars } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of the score's look (File ▸ Stylesheet…, Design Mode); each is one undo step. */
 export type LayoutAction =
@@ -41,9 +42,5 @@ export function applyLayoutAction(song: Song, action: LayoutAction): Song {
   }
 }
 
-/** The layout actions' types, to route them in the editor's reducer. */
-export const LAYOUT_ACTION_TYPES: ReadonlySet<string> = new Set(['setStylesheet', 'setBeatOffset', 'setBarWidthScale', 'setSystemSize', 'toggleSystemStart', 'resetPositions']);
-
-export function isLayoutAction(action: { readonly type: string }): action is LayoutAction {
-  return LAYOUT_ACTION_TYPES.has(action.type);
-}
+/** The layout actions, to route them in the editor's reducer. */
+export const isLayoutAction = isOfTypes<LayoutAction>({ setStylesheet: true, setBeatOffset: true, setBarWidthScale: true, setSystemSize: true, toggleSystemStart: true, resetPositions: true });

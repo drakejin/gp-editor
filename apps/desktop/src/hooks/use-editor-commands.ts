@@ -11,6 +11,7 @@ import { selectionBars, selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
 import { useStableCallback } from './use-stable-callback';
+import { isOfTypes } from '../lib/type-guards';
 
 export interface EditorCommands {
   readonly runCommand: (command: AppCommand | KeyCommand) => void;
@@ -113,16 +114,11 @@ function startPlayback(sources: EditorCommandSources): void {
 /** The commands that are not editor actions: files, panels, the clipboard, practice and playback. */
 type WindowCommand = Exclude<AppCommand | KeyCommand, EditorAction>;
 
-/** Every window command's type (a record, so that a new one cannot be left out). */
-const WINDOW_COMMAND_TYPES: Readonly<Record<WindowCommand['type'], true>> = {
+const isWindowCommand = isOfTypes<WindowCommand>({
   newFile: true, openFile: true, importPdf: true, saveFile: true, exportPdf: true, togglePlayback: true, stopPlayback: true, goToBar: true,
   shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, openNotePanel: true, openChordPanel: true,
   markSyncPoint: true, copy: true, cut: true, paste: true,
-};
-
-function isWindowCommand(command: AppCommand | KeyCommand): command is WindowCommand {
-  return Object.prototype.hasOwnProperty.call(WINDOW_COMMAND_TYPES, command.type);
-}
+});
 
 function runWindowCommand(sources: EditorCommandSources, command: WindowCommand): void {
   switch (command.type) {

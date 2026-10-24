@@ -17,6 +17,7 @@ import {
   setTrackSolo,
   setTrackVolume,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
 export type SongAction =
@@ -41,15 +42,10 @@ export type SongAction =
   | { readonly type: 'setTrackLyrics'; readonly trackIndex: number; readonly lyrics: Lyrics }
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
-/** Every song action's type (a record, so that a new one cannot be left out). */
-const SONG_ACTION_TYPES: Readonly<Record<SongAction['type'], true>> = {
+export const isSongAction = isOfTypes<SongAction>({
   setTrackProgram: true, setTrackName: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
   setTrackCapo: true, setTrackSlashNotation: true, setTrackEffects: true, setMasterMix: true, setTrackLyrics: true, setSongInfo: true,
-};
-
-export function isSongAction(action: { readonly type: string }): action is SongAction {
-  return Object.prototype.hasOwnProperty.call(SONG_ACTION_TYPES, action.type);
-}
+});
 
 export function applySongAction(song: Song, action: SongAction): Song {
   switch (action.type) {
