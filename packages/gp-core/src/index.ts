@@ -91,6 +91,7 @@ export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency 
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { findVoice, isVoiceIndex, voiceOf } from './edit/addresses';
+export { moveNotesToVoice } from './edit/voice-moves';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
 export { DIRECTION_JUMPS, DIRECTION_TARGETS, MUSICAL_DIRECTIONS, isDirectionTarget } from './formats/common/directions';
