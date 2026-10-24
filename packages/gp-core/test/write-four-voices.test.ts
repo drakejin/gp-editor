@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderMidi } from '../src/midi';
 import type { Song } from '../src/model/song';
+import { setNoteFret } from '../src/edit/edit-song';
 import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write';
 import { encodeMusicXml } from '../src/write/musicxml/musicxml-archive';
@@ -43,6 +44,20 @@ describe('a song in four voices', () => {
 
     // Assert
     expect(layouts(again)).toEqual(layouts(song));
+  });
+
+  it('keeps a voice 3 typed into a bar read from a GP5 file (three voice slots) in a Guitar Pro 7/8 file', () => {
+    // Arrange: a two-slot bar, then a note typed in voice 3
+    const read = readSong(writeSong(buildSong({ tracks: [[[[play(2, n(1, 5)), play(2, n(1, 7))]]]] }), 'gp5'));
+    const song = setNoteFret(read, { trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 2, string: 3 }, 4);
+
+    // Act
+    const again = readSong(writeSong(song, 'gp'));
+
+    // Assert
+    expect(song.tracks[0]?.measures[0]?.beats.map((beat) => beat.voices.length)).toEqual([3, 3]);
+    expect(layouts(again)).toEqual(layouts(song));
+    expect(layouts(again)[2]).toEqual(['0:2:r', '1920:2:3/4']);
   });
 
   it('keeps voices 1 and 2 in a GP5 file and leaves voices 3 and 4 out, as the expected list says', () => {
