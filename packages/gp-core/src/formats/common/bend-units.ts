@@ -1,7 +1,9 @@
 // Port of TuxGuitar TGEffectBend / TGEffectTremoloBar units (LGPL-2.1): GP bend and whammy curves for the gtp and gpif readers.
 
 /** GP stores bend and whammy values in 1/100 tones: 25 = a quarter tone. */
-const GP_QUARTER_TONE = 25;
+export const GP_QUARTER_TONE = 25;
+/** GP3–GP5 bend and tremolo bar positions run 0…60 (GPIF's 0…100). */
+export const GTP_BEND_POSITIONS = 60;
 /** Highest bend / tremolo bar position (TGEffectBend.MAX_POSITION_LENGTH). */
 export const BEND_MAX_POSITION = 12;
 /** Highest bend value, in quarter tones (TGEffectBend.MAX_VALUE_LENGTH: three tones). */

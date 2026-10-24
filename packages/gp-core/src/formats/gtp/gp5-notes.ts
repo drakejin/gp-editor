@@ -3,11 +3,11 @@ import type { ByteReader } from '../../io/byte-reader';
 import { DEFAULT_NOTE_AUDIO, toNoteAudio } from '../../model/defaults';
 import type { Grace, Harmonic, Note, NoteAudio, NoteEffect, SlideType } from '../../model/song';
 import { bendValueFromGp } from '../common/bend-units';
+import { GRACE_TRANSITIONS } from '../common/gtp-codes';
 import { artificialHarmonicOffset } from '../common/harmonics';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import { type NoteContext, readFingers, resolveFret } from './gtp-beats';
 import {
-  GRACE_TRANSITIONS,
   readBendPoints,
   readTremoloPicking,
   readTrill,

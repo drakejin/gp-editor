@@ -1,11 +1,9 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream/GP4InputStream/GP5InputStream shared parts (LGPL-2.1): note effects GP4/GP5 share (bends, tremolo bar, tremolo picking, trill, harmonic, grace transitions).
 import type { ByteReader } from '../../io/byte-reader';
 import { plainDuration } from '../../model/defaults';
-import type { BendPoint, Duration, NoteEffect, TremoloPicking, Trill } from '../../model/song';
-import { bendPositionFromGp } from '../common/bend-units';
-
-/** GP3–GP5 bend positions run 0…60. */
-const GP_BEND_POSITION = 60;
+import type { BendPoint, NoteEffect, TremoloPicking, Trill } from '../../model/song';
+import { GTP_BEND_POSITIONS, bendPositionFromGp } from '../common/bend-units';
+import { TREMOLO_PICKING_CODES, TRILL_PERIOD_CODES, noteValueOfCode } from '../common/gtp-codes';
 
 /** GP4/GP5 bend and tremolo bar: type and value (skipped), then the points. */
 export function readBendPoints(reader: ByteReader, toValue: (raw: number) => number): readonly BendPoint[] {
@@ -16,7 +14,7 @@ export function readBendPoints(reader: ByteReader, toValue: (raw: number) => num
     const position = reader.readInt();
     const value = reader.readInt();
     reader.readByte(); // vibrato
-    points.push({ position: bendPositionFromGp(position, GP_BEND_POSITION), value: toValue(value) });
+    points.push({ position: bendPositionFromGp(position, GTP_BEND_POSITIONS), value: toValue(value) });
   }
   return points;
 }
@@ -30,15 +28,13 @@ export function withTremoloBar(effect: NoteEffect, points: readonly BendPoint[])
 }
 
 export function readTremoloPicking(reader: ByteReader): TremoloPicking | undefined {
-  const values: Readonly<Record<number, Duration['value']>> = { 1: 8, 2: 16, 3: 32 };
-  const value = values[reader.readUnsignedByte()];
+  const value = noteValueOfCode(TREMOLO_PICKING_CODES, reader.readUnsignedByte());
   return value === undefined ? undefined : { duration: plainDuration(value) };
 }
 
 export function readTrill(reader: ByteReader): Trill | undefined {
   const fret = reader.readByte();
-  const values: Readonly<Record<number, Duration['value']>> = { 1: 16, 2: 32, 3: 64 };
-  const value = values[reader.readByte()];
+  const value = noteValueOfCode(TRILL_PERIOD_CODES, reader.readByte());
   return value === undefined ? undefined : { fret, duration: plainDuration(value) };
 }
 
@@ -54,9 +50,3 @@ export function withHarmonic(effect: NoteEffect, harmonic: NoteEffect['harmonic'
   return harmonic === undefined ? effect : { ...effect, harmonic };
 }
 
-export const GRACE_TRANSITIONS: readonly NonNullable<NoteEffect['grace']>['transition'][] = [
-  'none',
-  'slide',
-  'bend',
-  'hammer',
-];

@@ -1,13 +1,18 @@
 // Inverses of the GP3–GP5 readers' unit conversions (TuxGuitar GP5OutputStream helpers, LGPL-2.1), so that write → read is lossless.
-import { BEND_MAX_POSITION } from '../formats/common/bend-units';
+import { BEND_MAX_POSITION, GP_QUARTER_TONE, GTP_BEND_POSITIONS } from '../formats/common/bend-units';
+import {
+  GP5_ONLY_TUPLET,
+  GRACE_TRANSITIONS,
+  GTP_TUPLETS,
+  type NoteValueCode,
+  STROKE_SPEED_CODES,
+  TREMOLO_PICKING_CODES,
+  TRILL_PERIOD_CODES,
+  gtpTupletOf,
+} from '../formats/common/gtp-codes';
 import { MAX_VELOCITY } from '../formats/common/velocity';
 import { durationTicks, NORMAL_TUPLET, NOTE_VALUES } from '../model/defaults';
 import type { Duration, GraceTransition, NoteValue, Tuplet } from '../model/song';
-
-/** GP3–GP5 bend and tremolo bar positions run 0…60 (shared.ts GP_BEND_POSITION). */
-const GP_BEND_POSITION = 60;
-/** GP bend and whammy values are 1/100 tones: 25 = a quarter tone (bend-units.ts GP_QUARTER_TONE). */
-const GP_QUARTER_TONE = 25;
 /** One GP dynamic step in velocity, and one channel-byte step in MIDI value. */
 const DYNAMIC_STEP = 16;
 const CHANNEL_STEP = 8;
@@ -16,7 +21,7 @@ const MAX_DYNAMIC = 8;
 
 /** Model position 0…12 → GP 0…60 (the reader rounds raw × 12 / 60). */
 export function bendPositionToGp(position: number): number {
-  return Math.round((position * GP_BEND_POSITION) / BEND_MAX_POSITION);
+  return Math.round((position * GTP_BEND_POSITIONS) / BEND_MAX_POSITION);
 }
 
 /** Quarter tones → GP 1/100 tones, for bends and the tremolo bar (the readers divide by 25). */
@@ -46,31 +51,13 @@ export function durationValueToGp(value: NoteValue): number {
   return Math.round(Math.log2(value)) - 2;
 }
 
-/** The tuplets Guitar Pro 3–5 store, by their "enters" number (shared.ts TUPLETS). */
-const GP_TUPLET_TIMES: ReadonlyMap<number, number> = new Map([
-  [3, 2],
-  [5, 4],
-  [6, 4],
-  [7, 4],
-  [9, 8],
-  [10, 8],
-  [11, 8],
-  [12, 8],
-  [13, 8],
-]);
-const GP5_ONLY_TUPLET = 13;
-
 /** The tuplet division to write; undefined for a normal duration or a tuplet Guitar Pro cannot store. */
 export function tupletDivisionToGp(tuplet: Tuplet, allowThirteen: boolean): number | undefined {
-  const times = GP_TUPLET_TIMES.get(tuplet.enters);
-  const isAllowed = tuplet.enters !== GP5_ONLY_TUPLET || allowThirteen;
-  return times === tuplet.times && isAllowed ? tuplet.enters : undefined;
+  return gtpTupletOf(tuplet.enters, allowThirteen)?.times === tuplet.times ? tuplet.enters : undefined;
 }
 
 function gpTuplets(allowThirteen: boolean): readonly Tuplet[] {
-  return [...GP_TUPLET_TIMES]
-    .filter(([enters]) => enters !== GP5_ONLY_TUPLET || allowThirteen)
-    .map(([enters, times]) => ({ enters, times }));
+  return GTP_TUPLETS.filter(({ enters }) => enters !== GP5_ONLY_TUPLET || allowThirteen);
 }
 
 function isStorable(duration: Duration, allowThirteen: boolean): boolean {
@@ -113,9 +100,9 @@ export function writableDuration(duration: Duration, allowThirteen: boolean): Du
 }
 
 /** The byte of the option whose note value is closest to `value` (note values are powers of two). */
-function nearestCode(codes: readonly (readonly [number, number])[], value: number): number {
+function nearestCode(codes: readonly NoteValueCode[], value: number): number {
   const target = Math.log2(Math.max(value, 1));
-  let best = codes[0] ?? [0, 0];
+  let best: NoteValueCode = codes[0] ?? [1, 0];
   for (const code of codes) {
     if (Math.abs(Math.log2(code[0]) - target) < Math.abs(Math.log2(best[0]) - target)) {
       best = code;
@@ -126,21 +113,19 @@ function nearestCode(codes: readonly (readonly [number, number])[], value: numbe
 
 /** Stroke speed as a note value → TuxGuitar's stroke byte (GP5OutputStream.toStrokeValue). */
 export function strokeSpeedToGp(value: number): number {
-  return nearestCode([[64, 2], [32, 3], [16, 4], [8, 5], [4, 6]], value);
+  return nearestCode(STROKE_SPEED_CODES, value);
 }
 
 /** Trill period: 16th = 1, 32nd = 2, 64th = 3. */
 export function trillPeriodToGp(value: number): number {
-  return nearestCode([[16, 1], [32, 2], [64, 3]], value);
+  return nearestCode(TRILL_PERIOD_CODES, value);
 }
 
 /** Tremolo picking speed: 8th = 1, 16th = 2, 32nd = 3. */
 export function tremoloPickingSpeedToGp(value: number): number {
-  return nearestCode([[8, 1], [16, 2], [32, 3]], value);
+  return nearestCode(TREMOLO_PICKING_CODES, value);
 }
 
-const GRACE_TRANSITION_CODES: Readonly<Record<GraceTransition, number>> = { none: 0, slide: 1, bend: 2, hammer: 3 };
-
 export function graceTransitionToGp(transition: GraceTransition): number {
-  return GRACE_TRANSITION_CODES[transition];
+  return GRACE_TRANSITIONS.indexOf(transition);
 }

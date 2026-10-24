@@ -1,35 +1,19 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream/GP4InputStream/GP5InputStream shared parts (LGPL-2.1): a beat's duration, notes by string, tied frets, fingering, chords, strokes and mix-table values.
 import type { ByteReader } from '../../io/byte-reader';
 import { NORMAL_TUPLET, toNoteValue } from '../../model/defaults';
-import type { Beat, Chord, Duration, Measure, Note, NoteEffect, Stroke, StrokeDirection, Tuplet } from '../../model/song';
+import type { Beat, Chord, Duration, Measure, Note, NoteEffect, Stroke, StrokeDirection } from '../../model/song';
 import { fingerFromGp } from '../common/fingering';
+import { STROKE_SPEED_CODES, gtpTupletOf, noteValueOfCode } from '../common/gtp-codes';
 import { readInts } from './shared';
 
 /** Frets read for tied notes must be below this, else TuxGuitar uses 0. */
 const MAX_TIED_FRET = 100;
 
-const TUPLETS: ReadonlyMap<number, Tuplet> = new Map<number, Tuplet>([
-  [3, { enters: 3, times: 2 }],
-  [5, { enters: 5, times: 4 }],
-  [6, { enters: 6, times: 4 }],
-  [7, { enters: 7, times: 4 }],
-  [9, { enters: 9, times: 8 }],
-  [10, { enters: 10, times: 8 }],
-  [11, { enters: 11, times: 8 }],
-  [12, { enters: 12, times: 8 }],
-  [13, { enters: 13, times: 8 }],
-]);
-const GP5_ONLY_TUPLET = 13;
 
 /** Beat duration: a signed exponent (-2 = whole … 4 = 64th) and, with flag 0x20, a tuplet. */
 export function readDuration(reader: ByteReader, flags: number, allowThirteen: boolean): Duration {
   const value = toNoteValue(Math.trunc(2 ** (reader.readByte() + 4) / 4));
-  let tuplet = NORMAL_TUPLET;
-  if ((flags & 0x20) !== 0) {
-    const division = reader.readInt();
-    const allowed = division !== GP5_ONLY_TUPLET || allowThirteen;
-    tuplet = allowed ? (TUPLETS.get(division) ?? NORMAL_TUPLET) : NORMAL_TUPLET;
-  }
+  const tuplet = (flags & 0x20) !== 0 ? (gtpTupletOf(reader.readInt(), allowThirteen) ?? NORMAL_TUPLET) : NORMAL_TUPLET;
   return { value, dotted: (flags & 0x01) !== 0, doubleDotted: false, tuplet };
 }
 
@@ -126,8 +110,7 @@ export function readSimpleChord(reader: ByteReader, stringCount: number): Chord 
 
 /** Stroke speed byte to a note value (TuxGuitar's toStrokeValue). */
 function strokeValue(value: number): number {
-  const values: Readonly<Record<number, number>> = { 3: 32, 4: 16, 5: 8, 6: 4 };
-  return values[value] ?? 64;
+  return noteValueOfCode(STROKE_SPEED_CODES, value) ?? 64;
 }
 
 /** Two stroke bytes; GP3/GP4 store "down" first, GP5 "up" first. The first one set wins. */
