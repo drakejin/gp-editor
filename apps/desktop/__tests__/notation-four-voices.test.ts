@@ -73,21 +73,41 @@ describe('four voices on the staff', () => {
   });
 
   it('stacks a voice 3 rest above voice 1’s rest where that rest moved up over voice 2’s notes', () => {
-    // Act: voice 2 plays D5 (position 6), voices 1 and 3 rest
-    const commands = engrave([voicesBeat(voice([]), voice([note(2, 3)]), voice([]))]);
+    // Act: voice 2 plays B4 (position 4), voices 1 and 3 rest
+    const commands = engrave([voicesBeat(voice([]), voice([note(3, 4)]), voice([]))]);
 
     // Assert
     const [first, third] = glyphs(commands, SMUFL.restQuarter).map((rest) => rest.y);
     expect(third).toBeLessThanOrEqual(first! - 3 * SPACE);
   });
 
-  it('keeps a voice 3 rest clear of voice 1’s notes above it', () => {
+  it('puts a voice 3 rest beside voice 1’s note, clear of its stem, both stemmed up', () => {
     // Act: voice 1 plays G5 (position 9) where voice 3 rests
     const commands = engrave([voicesBeat(voice([note(1, 3)]), undefined, voice([]))]);
 
+    // Assert: at its usual place, right of the notehead and its stem
+    const [rest] = glyphs(commands, SMUFL.restQuarter);
+    expect(rest!.y).toBe(yOf(8));
+    expect(rest!.x).toBeGreaterThanOrEqual(headAt(commands, 9)!.x + 1.18 * SPACE + (1.13 * SPACE) / 2);
+  });
+
+  it('puts a voice 4 rest beside voice 2’s low note and clear of voice 1’s notes above', () => {
+    // Act: voice 1 E5 (7), voice 2 E3 (-7), voice 4 rests
+    const commands = engrave([voicesBeat(voice([note(1, 0)]), voice([note(6, 0)]), undefined, voice([]))]);
+
     // Assert
     const [rest] = glyphs(commands, SMUFL.restQuarter);
-    expect(rest!.y).toBeLessThanOrEqual(yOf(13));
+    expect(rest!.x).toBeGreaterThan(headAt(commands, -7)!.x + 1.18 * SPACE);
+    expect(rest!.y).toBeGreaterThanOrEqual(yOf(2));
+  });
+
+  it('keeps a lower voice’s rest a half space clear of the note above it', () => {
+    // Act: voice 3 plays B4 (position 4) where voice 2 rests
+    const commands = engrave([voicesBeat(undefined, voice([]), voice([note(3, 4)]))]);
+
+    // Assert: a quarter rest reaches three positions up from its centre
+    const [rest] = glyphs(commands, SMUFL.restQuarter);
+    expect(rest!.y).toBeGreaterThanOrEqual(yOf(-1));
   });
 
   it('moves voice 3 beside voice 1 when their notes are a second apart, both stems up', () => {

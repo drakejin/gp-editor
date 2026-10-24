@@ -6,12 +6,14 @@ import { isUpperVoice } from '../voices';
 /**
  * Several voices on one beat. Where the notes of an upper voice (1 or 3, stems up) come within a second of a lower
  * voice's (2 or 4), the upper voice moves a notehead to the right; voice 3 (4) moves a further notehead right of
- * voice 1 (2) when their notes come within a second; a unison of the same notehead is shared. Rests move clear of the
- * other voices' notes, and the rest of voice 3 (4) clear of voice 1's (2's) on the same beat.
+ * voice 1 (2) when their notes come within a second; a unison of the same notehead is shared. A rest moves beside the
+ * notes of a voice stemmed its way, above or below the others' notes, and the rest of voice 3 (4) beyond voice 1's (2's).
  */
 
-/** From a rest's staff position to the nearest note of the other voice it must clear. */
-const REST_CLEARANCE = 4;
+/** From a rest's staff position to the nearest note of another voice it must clear (a quarter rest reaches three up and down). */
+const REST_CLEARANCE = 5;
+/** A rest beside the notes of a voice stemmed its way: right of the notehead and its stem. */
+const REST_BESIDE = 1.25 * GLYPH_WIDTH.noteheadBlack;
 /** Between two rests on the same side of the staff (a quarter rest is three spaces tall). */
 const REST_STACK = 6;
 /** Rests stay within the notation band. */
@@ -77,17 +79,34 @@ function headShift(event: VoiceEvent, others: readonly VoiceEvent[]): number {
   return pastLower + (touchesSameSide(event, others) ? 1 : 0);
 }
 
-/** Rest positions already moved, by event: a later voice's rest stacks beyond where an earlier one went. */
-type MovedRests = ReadonlyMap<VoiceEvent, number>;
+/** Rests already placed, by event: a later voice's rest stacks beyond where an earlier one went. */
+type PlacedRests = ReadonlyMap<VoiceEvent, VoiceEvent>;
 
-/** The staff positions a rest must clear: other voices' notes, and the rests of same-side voices before it (stacked). */
+/** Notes of the other voices stemmed the same way as `rest`'s voice: the rest goes beside them, clear of their stems. */
+function sameSideNotes(
+  rest: VoiceEvent,
+  others: readonly VoiceEvent[],
+): VoiceEvent[] {
+  return others.filter(
+    other =>
+      other.notes.length > 0 &&
+      isUpperVoice(other.voiceIndex) === isUpperVoice(rest.voiceIndex),
+  );
+}
+
+/**
+ * The staff positions a rest must clear: the notes of the voices stemmed the other way (it stands beside those stemmed
+ * its way), and the rests of same-side voices before it (stacked).
+ */
 function restObstacles(
   rest: VoiceEvent,
   others: readonly VoiceEvent[],
-  moved: MovedRests,
+  placed: PlacedRests,
 ): number[] {
   const isUp = isUpperVoice(rest.voiceIndex);
-  const notes = others.flatMap(positions);
+  const notes = others
+    .filter(other => isUpperVoice(other.voiceIndex) !== isUp)
+    .flatMap(positions);
   const rests = others
     .filter(
       other =>
@@ -97,7 +116,7 @@ function restObstacles(
     )
     .map(
       other =>
-        (moved.get(other) ?? restPosition(other, true)) +
+        restPosition(placed.get(other) ?? other, true) +
         (isUp ? REST_STACK - REST_CLEARANCE : REST_CLEARANCE - REST_STACK),
     );
   return [...notes, ...rests];
@@ -106,9 +125,9 @@ function restObstacles(
 function clearRest(
   rest: VoiceEvent,
   others: readonly VoiceEvent[],
-  moved: MovedRests,
+  placed: PlacedRests,
 ): number | undefined {
-  const obstacles = restObstacles(rest, others, moved);
+  const obstacles = restObstacles(rest, others, placed);
   if (obstacles.length === 0) {
     return undefined;
   }
@@ -132,33 +151,45 @@ function othersOnBeat(
   );
 }
 
-/** Where each rest moves, placed in voice order (voice 3's beyond voice 1's as moved). */
-function movedRests(events: readonly VoiceEvent[]): MovedRests {
+/** A rest moved clear of the other voices on its beat: beside the notes stemmed its way, above or below the others. */
+function placeRest(
+  rest: VoiceEvent,
+  others: readonly VoiceEvent[],
+  placed: PlacedRests,
+): VoiceEvent {
+  const beside = sameSideNotes(rest, others);
+  const position = clearRest(rest, others, placed);
+  const x =
+    beside.length === 0
+      ? rest.x
+      : Math.max(...beside.map(other => other.x)) + REST_BESIDE;
+  return position === undefined && x === rest.x
+    ? rest
+    : { ...rest, x, ...(position === undefined ? {} : { restPosition: position }) };
+}
+
+/** Every rest placed, in voice order (voice 3's beyond voice 1's as placed). */
+function placeRests(events: readonly VoiceEvent[]): PlacedRests {
   const rests = events
     .filter(event => event.notes.length === 0)
     .sort((a, b) => a.voiceIndex - b.voiceIndex);
-  return rests.reduce<Map<VoiceEvent, number>>((moved, rest) => {
-    const position = clearRest(rest, othersOnBeat(events, rest), moved);
-    return position === undefined ? moved : new Map([...moved, [rest, position]]);
+  return rests.reduce<ReadonlyMap<VoiceEvent, VoiceEvent>>((placed, rest) => {
+    const others = othersOnBeat(events, rest);
+    return others.length === 0
+      ? placed
+      : new Map([...placed, [rest, placeRest(rest, others, placed)]]);
   }, new Map());
 }
 
 export function separateVoices(events: readonly VoiceEvent[]): VoiceEvent[] {
-  const rests = movedRests(events);
-  return events.map(event => {
+  // Noteheads first: a rest beside them goes right of where they moved.
+  const heads = events.map(event => {
     const others = othersOnBeat(events, event);
-    if (others.length === 0) {
-      return event;
-    }
-    if (event.notes.length === 0) {
-      const position = rests.get(event);
-      return position === undefined
-        ? event
-        : { ...event, restPosition: position };
-    }
-    const shift = headShift(event, others);
+    const shift = event.notes.length === 0 ? 0 : headShift(event, others);
     return shift === 0
       ? event
       : { ...event, x: event.x + shift * GLYPH_WIDTH.noteheadBlack };
   });
+  const rests = placeRests(heads);
+  return heads.map(event => rests.get(event) ?? event);
 }
