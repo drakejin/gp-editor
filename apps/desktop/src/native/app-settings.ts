@@ -1,6 +1,7 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import type { Language } from '../lib/i18n/messages';
 import type { LanguageSetting } from '../lib/i18n/language-setting';
+import { subscribeNativeEvents } from './native-events';
 
 interface GPAppSettingsModule {
   load(): Promise<unknown>;
@@ -38,9 +39,5 @@ export async function applyNativeLanguage(language: Language, setting: LanguageS
 
 /** GP Editor ▸ Settings… (⌘,); returns the unsubscribe function. */
 export function subscribeSettingsRequests(onRequest: () => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAppSettings).addListener('settingsRequested', onRequest);
-  return () => subscription.remove();
+  return subscribeNativeEvents(native, { settingsRequested: onRequest });
 }

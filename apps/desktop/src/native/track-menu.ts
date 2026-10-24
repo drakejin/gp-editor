@@ -1,4 +1,5 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
+import { subscribeNativeEvents } from './native-events';
 
 /** The Track menu's commands on the shown track (AppDelegate.swift, forwarded by GPAudioTrack.m with the audio track's). */
 export type TrackMenuCommand = 'add' | 'duplicate' | 'delete' | 'moveUp' | 'moveDown';
@@ -13,14 +14,12 @@ export function parseTrackMenuCommand(body: unknown): TrackMenuCommand | undefin
 
 /** Track ▸ Add Track… (⌥⌘N), Duplicate Track, Delete Track (⌥⌘R), Move Track Up / Down; returns the unsubscribe function. */
 export function subscribeTrackMenuCommands(listener: (command: TrackMenuCommand) => void): () => void {
-  if (NativeModules.GPAudioTrack === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAudioTrack).addListener('trackCommandRequested', (body: unknown) => {
-    const command = parseTrackMenuCommand(body);
-    if (command !== undefined) {
-      listener(command);
-    }
+  return subscribeNativeEvents(NativeModules.GPAudioTrack, {
+    trackCommandRequested: (body: unknown) => {
+      const command = parseTrackMenuCommand(body);
+      if (command !== undefined) {
+        listener(command);
+      }
+    },
   });
-  return () => subscription.remove();
 }

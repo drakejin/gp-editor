@@ -1,5 +1,6 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import { type MidiNoteMessage, type MidiSource, parseMidiNote, parseMidiSources } from '../lib/midi-input';
+import { subscribeNativeEvents } from './native-events';
 
 interface GPMidiInputModule {
   sources(): Promise<unknown>;
@@ -43,18 +44,13 @@ export interface MidiInputHandlers {
 
 /** Subscribes to the native MIDI events; returns the unsubscribe function. */
 export function subscribeMidiInput(handlers: MidiInputHandlers): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const emitter = new NativeEventEmitter(NativeModules.GPMidiInput);
-  const subscriptions = [
-    emitter.addListener('midiNote', (body: unknown) => {
+  return subscribeNativeEvents(native, {
+    midiNote: (body: unknown) => {
       const note = parseMidiNote(body);
       if (note !== undefined) {
         handlers.onNote(note);
       }
-    }),
-    emitter.addListener('midiSourcesChanged', handlers.onSourcesChanged),
-  ];
-  return () => subscriptions.forEach((subscription) => subscription.remove());
+    },
+    midiSourcesChanged: handlers.onSourcesChanged,
+  });
 }
