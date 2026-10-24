@@ -10,6 +10,7 @@ import {
   removeCurvePoint,
 } from '@gp-editor/core';
 import { bendAmountLabel } from '../score/bend-graph';
+import { t } from './i18n/i18n';
 
 /** The bend or tremolo bar panel's curve while it is edited: Apply puts it on the note. */
 export interface CurveDraft {
@@ -26,7 +27,6 @@ const QUARTER_FRACTIONS = ['', '¼', '½', '¾'] as const;
 /** The panel's positions run 0…12 across the note. */
 const LAST_POSITION = 12;
 
-export const CURVE_EDIT_HINT = 'Click the grid to add a point; drag a point to move it; right-click or ⌃-click removes it.';
 
 export function draftFromCurve(effect: CurveEffect, curve: Bend | undefined): CurveDraft {
   return { effect, points: normalizeCurvePoints(curve?.points ?? [], CURVE_VALUE_RANGES[effect]) };
@@ -109,9 +109,10 @@ export function describeDraftPoint(draft: CurveDraft): string {
   const index = draft.selectedIndex;
   const point = index === undefined ? undefined : draft.points[index];
   if (index === undefined || point === undefined) {
-    return CURVE_EDIT_HINT;
+    return t('tools.notePanels.curveHint');
   }
   const isOverATone = Math.abs(point.value) > QUARTERS_PER_TONE;
-  const pitch = point.value === 0 ? 'at pitch' : `${curveValueLabel(draft.effect, point.value)} ${isOverATone ? 'tones' : 'tone'}`;
-  return `Point ${index + 1} of ${draft.points.length}: ${point.position}/${LAST_POSITION} of the note, ${pitch}`;
+  const value = curveValueLabel(draft.effect, point.value);
+  const pitch = point.value === 0 ? t('tools.notePanels.atPitch') : t(isOverATone ? 'tools.notePanels.tones' : 'tools.notePanels.tone', { value });
+  return t('tools.notePanels.point', { index: index + 1, count: draft.points.length, position: point.position, last: LAST_POSITION, pitch });
 }

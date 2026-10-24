@@ -3,7 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { BEND_PRESETS, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { EditionPalette } from '../src/components/palette/EditionPalette';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { voiceTint } from '../src/score/voices';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -37,7 +37,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMul
   const press = (id: string) => ReactTestRenderer.act(() => tool(id).props.onPress());
   const pressLabel = (label: string) => ReactTestRenderer.act(() => byLabel(label)?.props.onPress());
   const pressTooltip = (tooltip: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.tooltip === tooltip)?.props.onPress());
-  const groupTitles = new Set(PALETTE_GROUPS.map((group) => group.title.toUpperCase()));
+  const groupTitles = new Set(paletteGroups().map((group) => group.title.toUpperCase()));
   const titles = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join('')).filter((text) => groupTitles.has(text));
   return { renderer, onEdit, onAction, onOpenPanel, onOpenChordPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
 }
@@ -45,12 +45,12 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMul
 describe('EditionPalette layout', () => {
   it('puts the note’s techniques right under the rhythm, where they show without scrolling', () => {
     expect(render().titles()).toEqual(['VOICE', 'RHYTHM', 'TECHNIQUES', 'ARTICULATION', 'DYNAMICS', 'NOTE', 'BEAT', 'BAR']);
-    expect(PALETTE_GROUPS.flatMap((group) => group.tools).length).toBeGreaterThan(45);
+    expect(paletteGroups().flatMap((group) => group.tools).length).toBeGreaterThan(45);
   });
 
   it('keeps every guitar technique in the techniques group, each with its key', () => {
     // Act
-    const techniques = PALETTE_GROUPS.find((group) => group.title === 'Techniques')?.tools ?? [];
+    const techniques = paletteGroups().find((group) => group.title === 'Techniques')?.tools ?? [];
 
     // Assert
     expect(techniques.map((tool) => [tool.id, tool.key])).toEqual(
@@ -77,7 +77,7 @@ describe('EditionPalette layout', () => {
   it('gives every tool a tooltip and draws music symbols as Bravura glyphs on the score canvas', () => {
     const palette = render();
     expect(palette.tool('value4').props.icon.props).toMatchObject({ glyph: '\uE1D5', kind: 'note' });
-    expect(PALETTE_GROUPS.flatMap((group) => group.tools).every((tool) => tool.tooltip.length > 0)).toBe(true);
+    expect(paletteGroups().flatMap((group) => group.tools).every((tool) => tool.tooltip.length > 0)).toBe(true);
   });
 });
 
@@ -144,7 +144,7 @@ describe('EditionPalette edits', () => {
 
   it('offers voices 1 to 4 in one row, each in its voice’s colour, with its key in the tooltip', () => {
     // Arrange / Act
-    const voices = PALETTE_GROUPS.find((group) => group.title === 'Voice')?.tools.slice(0, 4) ?? [];
+    const voices = paletteGroups().find((group) => group.title === 'Voice')?.tools.slice(0, 4) ?? [];
     const palette = render();
 
     // Assert
@@ -180,7 +180,7 @@ describe('EditionPalette edits', () => {
   });
 
   it('keeps the Voice group on one row: four voices, ⇄ and multivoice', () => {
-    const group = PALETTE_GROUPS.find((candidate) => candidate.title === 'Voice');
+    const group = paletteGroups().find((candidate) => candidate.title === 'Voice');
     expect(group?.tools.map((tool) => tool.id)).toEqual(['voice1', 'voice2', 'voice3', 'voice4', 'moveVoice', 'multivoice']);
     expect((group?.toolWidth ?? 0) * 6 + 2 * 6).toBeLessThanOrEqual(198);
   });

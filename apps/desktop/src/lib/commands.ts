@@ -1,162 +1,207 @@
-import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
+import { SCORE_MODES, type ScoreMode } from '../score/geometry';
+import type { AppCommand } from '../state/app-command';
 import type { PanelId } from '../state/panels';
-import { type Command, editorRow, keyRow, press, row } from './command-types';
-import { PALETTE_COMMANDS } from './palette-commands';
+import { type Command, type CommandActions, type RowSpec, editorRow, keyRow, press, row } from './command-types';
+import { type MessageKey, currentLanguage, isMessageKey, memoByLanguage, t, translate } from './i18n/i18n';
+import { KEYS, type KeyCommand, type KeyPress } from './key-commands';
+import { paletteToolCommands } from './palette-commands';
 
 export type { Command, CommandActions, CommandState } from './command-types';
 
-const FILE_ROWS: readonly Command[] = [
-  editorRow('file.new', 'File', 'New Score + Tab', { type: 'newFile', mode: 'notationAndTab' }, { when: 'always', shortcut: '⌘N', keywords: ['create', 'sheet', 'document'] }),
-  editorRow('file.newScore', 'File', 'New Score', { type: 'newFile', mode: 'notation' }, { when: 'always', keywords: ['create', 'notation', 'standard'] }),
-  editorRow('file.newTab', 'File', 'New Tab', { type: 'newFile', mode: 'tab' }, { when: 'always', keywords: ['create', 'tablature'] }),
-  editorRow('file.open', 'File', 'Open…', { type: 'openFile' }, { when: 'always', shortcut: '⌘O', keywords: ['file', 'gp', 'gp5', 'load', 'musicxml', 'ptb', 'tef', 'midi'] }),
-  row('file.recent', 'File', 'Recent Files…', (a) => a.openRecentFiles(), { when: 'always', keywords: ['open', 'recent', 'pinned', 'history'] }),
-  editorRow('file.importPdf', 'File', 'Import PDF…', { type: 'importPdf' }, { when: 'always', shortcut: '⇧⌘I', keywords: ['transcribe', 'ai', 'claude', 'scan'] }),
-  editorRow('file.save', 'File', 'Save', { type: 'saveFile' }, { shortcut: '⌘S', keywords: ['write'] }),
-  row('file.saveAs', 'File', 'Save As…', (a) => a.save(true), { shortcut: '⇧⌘S', keywords: ['format', 'gp', 'gp5', 'gp4', 'gp3', 'copy'] }),
-  editorRow('file.exportPdf', 'File', 'Export PDF…', { type: 'exportPdf' }, { shortcut: '⇧⌘E', keywords: ['print', 'paper', 'a4', 'letter'] }),
-  row('file.exportPng', 'File', 'Export PNG…', (a) => a.exportPng(), { keywords: ['image', 'picture', 'dpi'] }),
-  row('file.exportMidi', 'File', 'Export MIDI…', (a) => a.exportMidi(), { keywords: ['mid', 'smf'] }),
-  row('file.exportAsciiTab', 'File', 'Export ASCII Tab…', (a) => a.exportAsciiTab(), { keywords: ['text', 'txt', 'plain'] }),
-  row('file.exportMusicXml', 'File', 'Export MusicXML…', (a) => a.exportMusicXml(), { keywords: ['xml', 'musescore', 'sibelius', 'finale'] }),
-  row('file.exportCompressedMusicXml', 'File', 'Export Compressed MusicXML…', (a) => a.exportCompressedMusicXml(), { keywords: ['mxl', 'xml', 'zip'] }),
-  row('file.exportAudio', 'File', 'Export Audio…', (a) => a.exportAudio(), { keywords: ['wav', 'aiff', 'flac', 'mp3', 'ogg', 'vorbis', 'render', 'bounce', 'stems', 'sound'] }),
-  row('file.print', 'File', 'Print…', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
-  row('file.closeTab', 'File', 'Close Tab', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
-  row('file.nextTab', 'File', 'Next Tab', (a) => a.cycleTab(1), { when: 'tabs', shortcut: '⌃⇥', keywords: ['document', 'switch'] }),
-  row('file.previousTab', 'File', 'Previous Tab', (a) => a.cycleTab(-1), { when: 'tabs', shortcut: '⌃⇧⇥', keywords: ['document', 'switch'] }),
+/** Where a registry command lives: a menu (File, Edit, View, Tools, Track, Help) or a part of the editor. */
+type GroupId = 'app' | 'file' | 'edit' | 'view' | 'tools' | 'track' | 'note' | 'beat' | 'go' | 'playback' | 'help';
+
+/** A registry command's title key: "commands.title.<id>" (the catalogue test checks every row has one). */
+function titleKey(id: string): MessageKey | undefined {
+  const key = `commands.title.${id}`;
+  return isMessageKey(key) ? key : undefined;
+}
+
+function commandTitle(id: string): string {
+  const key = titleKey(id);
+  return key === undefined ? id : t(key);
+}
+
+/** Outside English, a command is found by its English title and group too (“transpose” finds 조옮김…). */
+function searchSpec(id: string, group: GroupId, spec: RowSpec): RowSpec {
+  const key = titleKey(id);
+  if (currentLanguage() === 'en' || key === undefined) {
+    return spec;
+  }
+  return { ...spec, keywords: [...(spec.keywords ?? []), translate('en', key), translate('en', `commands.group.${group}`)] };
+}
+
+function appRow(id: string, group: GroupId, run: (actions: CommandActions) => void, spec: RowSpec = {}): Command {
+  return row(id, t(`commands.group.${group}`), commandTitle(id), run, searchSpec(id, group, spec));
+}
+
+function appEditorRow(id: string, group: GroupId, command: AppCommand | KeyCommand, spec: RowSpec = {}): Command {
+  return editorRow(id, t(`commands.group.${group}`), commandTitle(id), command, searchSpec(id, group, spec));
+}
+
+function appKeyRow(id: string, group: GroupId, keyPress: KeyPress, spec: RowSpec = {}): Command {
+  return keyRow(id, t(`commands.group.${group}`), commandTitle(id), keyPress, searchSpec(id, group, spec));
+}
+
+const fileRows = (): readonly Command[] => [
+  appEditorRow('file.new', 'file', { type: 'newFile', mode: 'notationAndTab' }, { when: 'always', shortcut: '⌘N', keywords: ['create', 'sheet', 'document'] }),
+  appEditorRow('file.newScore', 'file', { type: 'newFile', mode: 'notation' }, { when: 'always', keywords: ['create', 'notation', 'standard'] }),
+  appEditorRow('file.newTab', 'file', { type: 'newFile', mode: 'tab' }, { when: 'always', keywords: ['create', 'tablature'] }),
+  appEditorRow('file.open', 'file', { type: 'openFile' }, { when: 'always', shortcut: '⌘O', keywords: ['file', 'gp', 'gp5', 'load', 'musicxml', 'ptb', 'tef', 'midi'] }),
+  appRow('file.recent', 'file', (a) => a.openRecentFiles(), { when: 'always', keywords: ['open', 'recent', 'pinned', 'history'] }),
+  appEditorRow('file.importPdf', 'file', { type: 'importPdf' }, { when: 'always', shortcut: '⇧⌘I', keywords: ['transcribe', 'ai', 'claude', 'scan'] }),
+  appEditorRow('file.save', 'file', { type: 'saveFile' }, { shortcut: '⌘S', keywords: ['write'] }),
+  appRow('file.saveAs', 'file', (a) => a.save(true), { shortcut: '⇧⌘S', keywords: ['format', 'gp', 'gp5', 'gp4', 'gp3', 'copy'] }),
+  appEditorRow('file.exportPdf', 'file', { type: 'exportPdf' }, { shortcut: '⇧⌘E', keywords: ['print', 'paper', 'a4', 'letter'] }),
+  appRow('file.exportPng', 'file', (a) => a.exportPng(), { keywords: ['image', 'picture', 'dpi'] }),
+  appRow('file.exportMidi', 'file', (a) => a.exportMidi(), { keywords: ['mid', 'smf'] }),
+  appRow('file.exportAsciiTab', 'file', (a) => a.exportAsciiTab(), { keywords: ['text', 'txt', 'plain'] }),
+  appRow('file.exportMusicXml', 'file', (a) => a.exportMusicXml(), { keywords: ['xml', 'musescore', 'sibelius', 'finale'] }),
+  appRow('file.exportCompressedMusicXml', 'file', (a) => a.exportCompressedMusicXml(), { keywords: ['mxl', 'xml', 'zip'] }),
+  appRow('file.exportAudio', 'file', (a) => a.exportAudio(), { keywords: ['wav', 'aiff', 'flac', 'mp3', 'ogg', 'vorbis', 'render', 'bounce', 'stems', 'sound'] }),
+  appRow('file.print', 'file', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
+  appRow('file.closeTab', 'file', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
+  appRow('file.nextTab', 'file', (a) => a.cycleTab(1), { when: 'tabs', shortcut: '⌃⇥', keywords: ['document', 'switch'] }),
+  appRow('file.previousTab', 'file', (a) => a.cycleTab(-1), { when: 'tabs', shortcut: '⌃⇧⇥', keywords: ['document', 'switch'] }),
 ];
 
-const EDIT_ROWS: readonly Command[] = [
-  keyRow('edit.undo', 'Edit', 'Undo', press('z', { metaKey: true }), { when: 'undo' }),
-  keyRow('edit.redo', 'Edit', 'Redo', press('z', { metaKey: true, shiftKey: true }), { when: 'redo' }),
-  keyRow('edit.copy', 'Edit', 'Copy the Selected Beats', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
-  keyRow('edit.cut', 'Edit', 'Cut the Selected Beats', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
-  keyRow('edit.paste', 'Edit', 'Paste Beats', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
-  ...[1, 2, 3, 4].map((number) => keyRow(`edit.voice${number}`, 'Edit', `Edit Voice ${number}`, press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
-  ...[1, 2, 3, 4].map((number) => keyRow(`edit.moveToVoice${number}`, 'Edit', `Move to Voice ${number}`, press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
-  editorRow('edit.multivoice', 'Edit', 'Multivoice On / Off', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all voices', 'polyphony', 'fade'] }),
-  row('edit.lyrics', 'Edit', 'Lyrics…', (a) => a.openLyrics(), { keywords: ['words', 'syllables', 'sing'] }),
-  row('edit.songWriter', 'Edit', 'Song Writer…', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
+const editRows = (): readonly Command[] => [
+  appKeyRow('edit.undo', 'edit', press('z', { metaKey: true }), { when: 'undo' }),
+  appKeyRow('edit.redo', 'edit', press('z', { metaKey: true, shiftKey: true }), { when: 'redo' }),
+  appKeyRow('edit.copy', 'edit', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
+  appKeyRow('edit.cut', 'edit', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
+  appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
+  ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.voice${number}`, 'edit', press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
+  ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.moveToVoice${number}`, 'edit', press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
+  appEditorRow('edit.multivoice', 'edit', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all', 'voices', 'polyphony', 'fade'] }),
+  appRow('edit.lyrics', 'edit', (a) => a.openLyrics(), { keywords: ['words', 'syllables', 'sing'] }),
+  appRow('edit.songWriter', 'edit', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
 ];
 
-const PANEL_ROWS: readonly (readonly [PanelId, string, readonly string[]])[] = [
-  ['palette', 'Edition Palette', ['tools', 'left']],
-  ['inspector', 'Inspector', ['song', 'track', 'right', 'properties']],
-  ['tracks', 'Tracks Panel', ['mixer', 'bar map', 'bottom']],
-  ['keyboard', 'Piano Keyboard', ['keys', 'instrument']],
-  ['neck', 'Fretboard', ['neck', 'instrument', 'guitar']],
-  ['mixer', 'Mixer', ['effects', 'master', 'strips', 'reverb', 'drive', 'eq']],
+/** The panels View shows or hides, and more words each is found by. */
+const PANEL_ROWS: readonly (readonly [PanelId, readonly string[]])[] = [
+  ['palette', ['tools', 'left']],
+  ['inspector', ['song', 'track', 'right', 'properties']],
+  ['tracks', ['mixer', 'bar', 'map', 'bottom']],
+  ['keyboard', ['keys', 'instrument']],
+  ['neck', ['neck', 'instrument', 'guitar']],
+  ['mixer', ['effects', 'master', 'strips', 'reverb', 'drive', 'eq']],
 ];
 
-const VIEW_ROWS: readonly Command[] = [
+const viewRows = (): readonly Command[] => [
   ...SCORE_MODES.map((mode: ScoreMode) =>
-    editorRow(`view.mode.${mode}`, 'View', `Show ${SCORE_MODE_LABELS[mode]}`, { type: 'setMode', mode }, { keywords: ['view', 'notation', 'tablature', 'staff'] }),
+    appEditorRow(`view.mode.${mode}`, 'view', { type: 'setMode', mode }, { keywords: ['view', 'notation', 'tablature', 'staff'] }),
   ),
-  keyRow('view.zoomIn', 'View', 'Zoom In', press('=', { metaKey: true }), { keywords: ['bigger', 'larger'] }),
-  keyRow('view.zoomOut', 'View', 'Zoom Out', press('-', { metaKey: true }), { keywords: ['smaller'] }),
-  ...PANEL_ROWS.map(([panel, name, keywords]) => row(`view.panel.${panel}`, 'View', `Show or Hide the ${name}`, (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
-  editorRow('view.multitrack', 'View', 'Multitrack', { type: 'toggleMultitrack' }, { shortcut: 'F3', keywords: ['all tracks', 'tracks', 'staves', 'system', 'show'] }),
-  row('view.focus', 'View', 'Focus / Unfocus', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide panels', 'score only', 'distraction'] }),
+  appKeyRow('view.zoomIn', 'view', press('=', { metaKey: true }), { keywords: ['bigger', 'larger'] }),
+  appKeyRow('view.zoomOut', 'view', press('-', { metaKey: true }), { keywords: ['smaller'] }),
+  ...PANEL_ROWS.map(([panel, keywords]) => appRow(`view.panel.${panel}`, 'view', (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
+  appEditorRow('view.multitrack', 'view', { type: 'toggleMultitrack' }, { shortcut: 'F3', keywords: ['all', 'tracks', 'staves', 'system', 'show'] }),
+  appRow('view.focus', 'view', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide', 'panels', 'score', 'only', 'distraction'] }),
 ];
 
-const TOOLS_ROWS: readonly Command[] = [
-  row('tools.tuner', 'Tools', 'Tuner…', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
-  row('tools.scales', 'Tools', 'Scales…', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
-  row('tools.transpose', 'Tools', 'Transpose…', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
-  row('tools.lineIn', 'Tools', 'Line In…', (a) => a.openLineIn(), { keywords: ['guitar', 'input', 'microphone', 'interface', 'sound lock', 'effects', 'amp'] }),
-  row('tools.expressionText', 'Tools', 'Expression Text…', (a) => a.openExpressionText(), {
+const toolsRows = (): readonly Command[] => [
+  appRow('tools.tuner', 'tools', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
+  appRow('tools.scales', 'tools', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
+  appRow('tools.transpose', 'tools', (a) => a.openTranspose(), { keywords: ['key', 'semitone', 'pitch', 'diatonic', 'chromatic', 'octave', 'chords'] }),
+  appRow('tools.lineIn', 'tools', (a) => a.openLineIn(), { keywords: ['guitar', 'input', 'microphone', 'interface', 'sound', 'lock', 'effects', 'amp'] }),
+  appRow('tools.expressionText', 'tools', (a) => a.openExpressionText(), {
     shortcut: '⌥⌘E',
-    keywords: ['chord', 'dynamic', 'key signature', 'octave', '8va', 'clef', 'direction', 'coda', 'type', '>'],
+    keywords: ['chord', 'dynamic', 'key', 'signature', 'octave', '8va', 'clef', 'direction', 'coda', 'type', '>'],
   }),
-  row('tools.instrument', 'Tools', 'Instrument…', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general midi'] }),
+  appRow('tools.instrument', 'tools', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general', 'midi'] }),
 ];
 
-const TRACK_ROWS: readonly Command[] = [
-  row('track.add', 'Track', 'Add Track…', (a) => a.runTrackCommand('add'), { shortcut: '⌥⌘N', keywords: ['new track', 'instrument', 'guitar', 'bass', 'drums', 'piano', 'ukulele', 'banjo'] }),
-  row('track.duplicate', 'Track', 'Duplicate Track', (a) => a.runTrackCommand('duplicate'), { keywords: ['copy', 'clone'] }),
-  row('track.delete', 'Track', 'Delete Track', (a) => a.runTrackCommand('delete'), { shortcut: '⌥⌘R', keywords: ['remove'] }),
-  row('track.moveUp', 'Track', 'Move Track Up', (a) => a.runTrackCommand('moveUp'), { keywords: ['order', 'reorder'] }),
-  row('track.moveDown', 'Track', 'Move Track Down', (a) => a.runTrackCommand('moveDown'), { keywords: ['order', 'reorder'] }),
-  row('track.addAudioTrack', 'Track', 'Add Audio Track…', (a) => a.addAudioTrack(), { keywords: ['backing track', 'recording', 'audio', 'mp3', 'wav', 'sync'] }),
-  editorRow('track.removeAudioTrack', 'Track', 'Remove the Audio Track', { type: 'setAudioTrack', audioTrack: undefined }, { keywords: ['backing track', 'recording', 'audio'] }),
-  keyRow('track.syncBar', 'Track', 'Sync the Cursor’s Bar to the Recording Now', press('y'), { keywords: ['audio', 'sync point', 'tap', 'backing track'] }),
-  editorRow('track.tempoFromAudio', 'Track', 'Tempo From the Audio Track’s Sync Points', { type: 'setTempoFromAudio' }, { keywords: ['audio', 'bpm', 'sync point', 'recording'] }),
+const trackRows = (): readonly Command[] => [
+  appRow('track.add', 'track', (a) => a.runTrackCommand('add'), { shortcut: '⌥⌘N', keywords: ['new', 'track', 'instrument', 'guitar', 'bass', 'drums', 'piano', 'ukulele', 'banjo'] }),
+  appRow('track.duplicate', 'track', (a) => a.runTrackCommand('duplicate'), { keywords: ['copy', 'clone'] }),
+  appRow('track.delete', 'track', (a) => a.runTrackCommand('delete'), { shortcut: '⌥⌘R', keywords: ['remove'] }),
+  appRow('track.moveUp', 'track', (a) => a.runTrackCommand('moveUp'), { keywords: ['order', 'reorder'] }),
+  appRow('track.moveDown', 'track', (a) => a.runTrackCommand('moveDown'), { keywords: ['order', 'reorder'] }),
+  appRow('track.addAudioTrack', 'track', (a) => a.addAudioTrack(), { keywords: ['backing', 'track', 'recording', 'audio', 'mp3', 'wav', 'sync'] }),
+  appEditorRow('track.removeAudioTrack', 'track', { type: 'setAudioTrack', audioTrack: undefined }, { keywords: ['backing', 'track', 'recording', 'audio'] }),
+  appKeyRow('track.syncBar', 'track', press('y'), { keywords: ['audio', 'sync', 'point', 'tap', 'backing', 'track'] }),
+  appEditorRow('track.tempoFromAudio', 'track', { type: 'setTempoFromAudio' }, { keywords: ['audio', 'bpm', 'sync', 'point', 'recording'] }),
 ];
 
-const NOTE_ROWS: readonly Command[] = [
-  keyRow('note.letRing', 'Note', 'Let Ring', press('r'), { when: 'note' }),
-  keyRow('note.slide', 'Note', 'Slide', press('s'), { when: 'note' }),
-  keyRow('note.hammer', 'Note', 'Hammer-On / Pull-Off', press('h'), { when: 'note', keywords: ['legato'] }),
-  keyRow('note.palmMute', 'Note', 'Palm Mute', press('m'), { when: 'note' }),
-  keyRow('note.dead', 'Note', 'Dead (Muted) Note', press('x'), { when: 'note' }),
-  keyRow('note.ghost', 'Note', 'Ghost Note', press('g'), { when: 'note' }),
-  keyRow('note.accent', 'Note', 'Accent', press('a'), { when: 'note' }),
-  keyRow('note.harmonic', 'Note', 'Natural Harmonic', press('n'), { when: 'note' }),
-  keyRow('note.tie', 'Note', 'Tie to the Previous Note', press('t'), { when: 'note' }),
-  keyRow('note.vibrato', 'Note', 'Vibrato…', press('b'), { when: 'note', keywords: ['wide', 'slight'] }),
-  keyRow('note.bend', 'Note', 'Bend…', press('c'), { when: 'note', keywords: ['choke', 'release'] }),
-  keyRow('note.fretUp', 'Note', 'Fret Up', press('='), { when: 'note', keywords: ['higher', 'semitone'] }),
-  keyRow('note.fretDown', 'Note', 'Fret Down', press('-'), { when: 'note', keywords: ['lower', 'semitone'] }),
-  keyRow('note.stringUp', 'Note', 'Move the Note to the String Above', press('ArrowUp', { altKey: true }), { when: 'note' }),
-  keyRow('note.stringDown', 'Note', 'Move the Note to the String Below', press('ArrowDown', { altKey: true }), { when: 'note' }),
-  keyRow('note.erase', 'Note', 'Note to Rest; on a Rest, Remove It', press('Backspace'), { when: 'beat', keywords: ['delete', 'erase'] }),
+const noteRows = (): readonly Command[] => [
+  appKeyRow('note.letRing', 'note', press('r'), { when: 'note' }),
+  appKeyRow('note.slide', 'note', press('s'), { when: 'note' }),
+  appKeyRow('note.hammer', 'note', press('h'), { when: 'note', keywords: ['legato'] }),
+  appKeyRow('note.palmMute', 'note', press('m'), { when: 'note' }),
+  appKeyRow('note.dead', 'note', press('x'), { when: 'note' }),
+  appKeyRow('note.ghost', 'note', press('g'), { when: 'note' }),
+  appKeyRow('note.accent', 'note', press('a'), { when: 'note' }),
+  appKeyRow('note.harmonic', 'note', press('n'), { when: 'note' }),
+  appKeyRow('note.tie', 'note', press('t'), { when: 'note' }),
+  appKeyRow('note.vibrato', 'note', press('b'), { when: 'note', keywords: ['wide', 'slight'] }),
+  appKeyRow('note.bend', 'note', press('c'), { when: 'note', keywords: ['choke', 'release'] }),
+  appKeyRow('note.fretUp', 'note', press('='), { when: 'note', keywords: ['higher', 'semitone'] }),
+  appKeyRow('note.fretDown', 'note', press('-'), { when: 'note', keywords: ['lower', 'semitone'] }),
+  appKeyRow('note.stringUp', 'note', press(KEYS.arrowUp, { altKey: true }), { when: 'note' }),
+  appKeyRow('note.stringDown', 'note', press(KEYS.arrowDown, { altKey: true }), { when: 'note' }),
+  appKeyRow('note.erase', 'note', press(KEYS.backspace), { when: 'beat', keywords: ['delete', 'erase'] }),
 ];
 
-const BEAT_ROWS: readonly Command[] = [
-  keyRow('beat.delete', 'Beat', 'Delete the Beat', press('Backspace', { shiftKey: true }), { when: 'beat' }),
-  keyRow('beat.insert', 'Beat', 'Insert a Beat After the Cursor', press('i'), { when: 'beat' }),
-  keyRow('beat.chord', 'Beat', 'Chord Diagram…', press('k'), { when: 'beat', keywords: ['chord', 'library', 'grid', 'name'] }),
-  keyRow('beat.longer', 'Beat', 'Longer Note Value', press('[', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
-  keyRow('beat.shorter', 'Beat', 'Shorter Note Value', press(']', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
-  keyRow('beat.dotted', 'Beat', 'Dotted', press('.'), { when: 'beat', keywords: ['dot', 'duration'] }),
-  keyRow('beat.triplet', 'Beat', 'Triplet', press('/'), { when: 'beat', keywords: ['tuplet'] }),
-  keyRow('beat.innerTriplet', 'Beat', 'Triplet Inside the Beat’s Tuplet', press('/', { altKey: true }), { when: 'beat', keywords: ['nested', 'tuplet'] }),
+const beatRows = (): readonly Command[] => [
+  appKeyRow('beat.delete', 'beat', press(KEYS.backspace, { shiftKey: true }), { when: 'beat' }),
+  appKeyRow('beat.insert', 'beat', press('i'), { when: 'beat' }),
+  appKeyRow('beat.chord', 'beat', press('k'), { when: 'beat', keywords: ['chord', 'library', 'grid', 'name'] }),
+  appKeyRow('beat.longer', 'beat', press('[', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
+  appKeyRow('beat.shorter', 'beat', press(']', { altKey: true }), { when: 'beat', keywords: ['duration'] }),
+  appKeyRow('beat.dotted', 'beat', press('.'), { when: 'beat', keywords: ['dot', 'duration'] }),
+  appKeyRow('beat.triplet', 'beat', press('/'), { when: 'beat', keywords: ['tuplet'] }),
+  appKeyRow('beat.innerTriplet', 'beat', press('/', { altKey: true }), { when: 'beat', keywords: ['nested', 'tuplet'] }),
 ];
 
-const GO_ROWS: readonly Command[] = [
-  keyRow('go.previousBeat', 'Go', 'Previous Beat', press('ArrowLeft'), { keywords: ['cursor', 'left'] }),
-  keyRow('go.nextBeat', 'Go', 'Next Beat', press('ArrowRight'), { keywords: ['cursor', 'right'] }),
-  keyRow('go.stringAbove', 'Go', 'String Above', press('ArrowUp'), { keywords: ['cursor', 'up'] }),
-  keyRow('go.stringBelow', 'Go', 'String Below', press('ArrowDown'), { keywords: ['cursor', 'down'] }),
-  keyRow('go.previousTrack', 'Go', 'Previous Track', press('ArrowUp', { metaKey: true }), { keywords: ['track', 'staff', 'up', 'multitrack'] }),
-  keyRow('go.nextTrack', 'Go', 'Next Track', press('ArrowDown', { metaKey: true }), { keywords: ['track', 'staff', 'down', 'multitrack'] }),
-  keyRow('go.previousBar', 'Go', 'Previous Bar', press('ArrowLeft', { altKey: true }), { keywords: ['measure'] }),
-  keyRow('go.nextBar', 'Go', 'Next Bar', press('ArrowRight', { altKey: true }), { keywords: ['measure'] }),
-  keyRow('go.firstBar', 'Go', 'First Bar', press('Home'), { keywords: ['start', 'beginning'] }),
-  keyRow('go.lastBar', 'Go', 'Last Bar', press('End'), { keywords: ['end'] }),
-  keyRow('go.selectPrevious', 'Go', 'Select the Previous Beat Too', press('ArrowLeft', { shiftKey: true }), { keywords: ['selection', 'extend'] }),
-  keyRow('go.selectNext', 'Go', 'Select the Next Beat Too', press('ArrowRight', { shiftKey: true }), { keywords: ['selection', 'extend'] }),
+const goRows = (): readonly Command[] => [
+  appKeyRow('go.previousBeat', 'go', press(KEYS.arrowLeft), { keywords: ['cursor', 'left'] }),
+  appKeyRow('go.nextBeat', 'go', press(KEYS.arrowRight), { keywords: ['cursor', 'right'] }),
+  appKeyRow('go.stringAbove', 'go', press(KEYS.arrowUp), { keywords: ['cursor', 'up'] }),
+  appKeyRow('go.stringBelow', 'go', press(KEYS.arrowDown), { keywords: ['cursor', 'down'] }),
+  appKeyRow('go.previousTrack', 'go', press(KEYS.arrowUp, { metaKey: true }), { keywords: ['track', 'staff', 'up', 'multitrack'] }),
+  appKeyRow('go.nextTrack', 'go', press(KEYS.arrowDown, { metaKey: true }), { keywords: ['track', 'staff', 'down', 'multitrack'] }),
+  appKeyRow('go.previousBar', 'go', press(KEYS.arrowLeft, { altKey: true }), { keywords: ['measure'] }),
+  appKeyRow('go.nextBar', 'go', press(KEYS.arrowRight, { altKey: true }), { keywords: ['measure'] }),
+  appKeyRow('go.firstBar', 'go', press(KEYS.home), { keywords: ['start', 'beginning'] }),
+  appKeyRow('go.lastBar', 'go', press(KEYS.end), { keywords: ['end'] }),
+  appKeyRow('go.selectPrevious', 'go', press(KEYS.arrowLeft, { shiftKey: true }), { keywords: ['selection', 'extend'] }),
+  appKeyRow('go.selectNext', 'go', press(KEYS.arrowRight, { shiftKey: true }), { keywords: ['selection', 'extend'] }),
 ];
 
-const PLAYBACK_ROWS: readonly Command[] = [
-  keyRow('play.toggle', 'Playback', 'Play / Stop', press(' '), { keywords: ['start', 'listen'] }),
-  keyRow('play.faster', 'Playback', 'Playback Tempo +5 BPM', press(']'), { keywords: ['speed', 'faster'] }),
-  keyRow('play.slower', 'Playback', 'Playback Tempo −5 BPM', press('['), { keywords: ['speed', 'slower'] }),
-  row('play.loop', 'Playback', 'Loop On / Off', (a) => a.toggleLoop(), { keywords: ['repeat', 'practice', 'bars'] }),
-  keyRow('play.speedUp', 'Playback', 'Playback Speed +5%', press('=', { altKey: true }), { keywords: ['faster', 'percent', 'relative'] }),
-  keyRow('play.speedDown', 'Playback', 'Playback Speed −5%', press('-', { altKey: true }), { keywords: ['slower', 'percent', 'relative'] }),
-  keyRow('play.metronome', 'Playback', 'Metronome On / Off', press('m', { altKey: true }), { keywords: ['click', 'beat', 'practice'] }),
-  keyRow('play.countIn', 'Playback', 'Count-In On / Off', press('c', { altKey: true }), { keywords: ['click', 'bar', 'practice'] }),
-  keyRow('play.tempoLock', 'Playback', 'Tempo Lock On / Off', press('l', { altKey: true }), { keywords: ['fixed', 'one tempo', 'practice'] }),
-  row('play.previewOnHover', 'Playback', 'Preview Notes on Hover', (a) => a.togglePreviewOnHover(), { keywords: ['hear', 'piano', 'fretboard', 'sound'] }),
+const playbackRows = (): readonly Command[] => [
+  appKeyRow('play.toggle', 'playback', press(' '), { keywords: ['start', 'listen'] }),
+  appKeyRow('play.faster', 'playback', press(']'), { keywords: ['speed', 'faster'] }),
+  appKeyRow('play.slower', 'playback', press('['), { keywords: ['speed', 'slower'] }),
+  appRow('play.loop', 'playback', (a) => a.toggleLoop(), { keywords: ['repeat', 'practice', 'bars'] }),
+  appKeyRow('play.speedUp', 'playback', press('=', { altKey: true }), { keywords: ['faster', 'percent', 'relative'] }),
+  appKeyRow('play.speedDown', 'playback', press('-', { altKey: true }), { keywords: ['slower', 'percent', 'relative'] }),
+  appKeyRow('play.metronome', 'playback', press('m', { altKey: true }), { keywords: ['click', 'beat', 'practice'] }),
+  appKeyRow('play.countIn', 'playback', press('c', { altKey: true }), { keywords: ['click', 'bar', 'practice'] }),
+  appKeyRow('play.tempoLock', 'playback', press('l', { altKey: true }), { keywords: ['fixed', 'one', 'tempo', 'practice'] }),
+  appRow('play.previewOnHover', 'playback', (a) => a.togglePreviewOnHover(), { keywords: ['hear', 'piano', 'fretboard', 'sound'] }),
 ];
 
-const HELP_ROWS: readonly Command[] = [row('help.shortcuts', 'Help', 'Keyboard Shortcuts', (a) => a.openShortcuts(), { when: 'always', shortcut: '⌘H', keywords: ['keys', 'help', 'cheat sheet'] })];
+const helpRows = (): readonly Command[] => [appRow('help.shortcuts', 'help', (a) => a.openShortcuts(), { when: 'always', shortcut: '⌘H', keywords: ['keys', 'help', 'cheat', 'sheet'] })];
 
-/** The menus' commands, the panels, and every key of the editor. */
-export const APP_COMMANDS: readonly Command[] = [
-  ...FILE_ROWS,
-  ...EDIT_ROWS,
-  ...VIEW_ROWS,
-  ...TOOLS_ROWS,
-  ...TRACK_ROWS,
-  ...NOTE_ROWS,
-  ...BEAT_ROWS,
-  ...GO_ROWS,
-  ...PLAYBACK_ROWS,
-  ...HELP_ROWS,
+/** GP Editor ▸ Settings… (⌘,): language, interface contrast, score paper. */
+const appSettingsRows = (): readonly Command[] => [
+  appRow('app.settings', 'app', (a) => a.openSettings(), { when: 'always', shortcut: '⌘,', keywords: ['preferences', 'language', 'korean', 'english', 'contrast', 'dark', 'light', 'paper', 'theme', 'colors'] }),
 ];
+
+/** The menus' commands, the panels, and every key of the editor, in the shown language. */
+export const appCommands = memoByLanguage((): readonly Command[] => [
+  ...fileRows(),
+  ...editRows(),
+  ...viewRows(),
+  ...toolsRows(),
+  ...trackRows(),
+  ...noteRows(),
+  ...beatRows(),
+  ...goRows(),
+  ...playbackRows(),
+  ...helpRows(),
+  ...appSettingsRows(),
+]);
 
 /** Same command, same row: a palette tool that does what a key does is listed once, with the key. */
 function commandKey(command: Command): string | undefined {
@@ -165,9 +210,11 @@ function commandKey(command: Command): string | undefined {
 
 /**
  * Every command of the command palette (⇧⌘P), in the order it lists them before anything is typed: the menus' commands
- * (File, Edit, View, Tools), the panels, the editor's keys, then the edition palette's tools.
+ * (File, Edit, View, Tools), the panels, the editor's keys, then the edition palette's tools — in the shown language,
+ * built again after a language change (call it where the list is used).
  */
-export const COMMANDS: readonly Command[] = (() => {
-  const taken = new Set(APP_COMMANDS.map(commandKey).filter((key) => key !== undefined));
-  return [...APP_COMMANDS, ...PALETTE_COMMANDS.filter((command) => !taken.has(commandKey(command) ?? ''))];
-})();
+export const allCommands = memoByLanguage((): readonly Command[] => {
+  const app = appCommands();
+  const taken = new Set(app.map(commandKey).filter((key) => key !== undefined));
+  return [...app, ...paletteToolCommands().filter((command) => !taken.has(commandKey(command) ?? ''))];
+});

@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../native/anthropic';
+import { t } from './i18n/i18n';
 
 /** Tokens a Messages API answer used. */
 export interface TokenUsage {
@@ -59,7 +60,7 @@ function readError(status: number, json: unknown): ToolAnswer {
   const error = isRecord(json) && isRecord(json.error) ? json.error : undefined;
   const apiMessage = typeof error?.message === 'string' ? error.message : `HTTP ${status}`;
   if (status === HTTP_UNAUTHORIZED) {
-    return failure(false, `The Anthropic API key was refused (${apiMessage})`, true);
+    return failure(false, t('tools.answer.keyRefused', { detail: apiMessage }), true);
   }
   const isRetryable = status === HTTP_TOO_MANY_REQUESTS || status >= HTTP_SERVER_ERRORS;
   return failure(isRetryable, apiMessage, !isRetryable);
@@ -72,14 +73,14 @@ export function readToolAnswer(response: ApiResponse, toolName: string, wording:
     return readError(response.status, json);
   }
   if (!isRecord(json) || !Array.isArray(json.content)) {
-    return failure(true, 'The answer was not a Messages API response');
+    return failure(true, t('tools.answer.notApi'));
   }
   if (json.stop_reason === 'max_tokens') {
-    return failure(false, `${wording.tooLong} (the model hit its output limit)`);
+    return failure(false, t('tools.answer.tooLong', { tooLong: wording.tooLong }));
   }
   const tool = json.content.find((block: unknown) => isRecord(block) && block.type === 'tool_use' && block.name === toolName);
   if (!isRecord(tool)) {
-    return failure(true, `The model answered without ${wording.what}`);
+    return failure(true, t('tools.answer.without', { what: wording.what }));
   }
   const usage = isRecord(json.usage) ? json.usage : {};
   return {

@@ -1,4 +1,5 @@
 import { type Song, type StringAddress, findNote } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { needsNote } from './note-edits';
 import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
 import { voiceMoveHint } from './voice-edits';
@@ -34,16 +35,16 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
       ? { numerator: numerator + edit.delta, denominator }
       : { numerator, denominator: DENOMINATORS[denominatorIndex + edit.delta] ?? denominator };
   const isShorter = next.numerator / next.denominator < numerator / denominator;
-  return isShorter ? `Bar ${header.number} is full: its notes do not fit in ${next.numerator}/${next.denominator}. Delete or shorten beats first.` : undefined;
+  return isShorter ? t('palette.hint.barFull', { number: header.number, meter: `${next.numerator}/${next.denominator}` }) : undefined;
 }
 
 /** An inner tuplet on a beat that is in no tuplet (or has no beat in the cursor's voice). */
 function innerTupletHint(song: Song, cursor: StringAddress): string | undefined {
   const voice = cursorVoice(song, cursor);
-  return voice === undefined || voice.isEmpty || isInTuplet(voice.duration) ? undefined : 'An inner tuplet goes inside a tuplet: make the beat a tuplet first.';
+  return voice === undefined || voice.isEmpty || isInTuplet(voice.duration) ? undefined : t('palette.hint.innerTuplet');
 }
 
 /** A note key (R, S, H … B, C) on a string with no note at the cursor. */
 export function noNoteHint(stringNumber: number): string {
-  return `String ${stringNumber} has no note at the cursor: type a fret (0–9) first.`;
+  return t('palette.hint.noNote', { number: stringNumber });
 }

@@ -15,6 +15,7 @@ const native = NativeModules.GPPdfExport as GPPdfExportModule | undefined;
 
 function requireNative(): GPPdfExportModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPPdfExport native module is not available on this platform');
   }
   return native;

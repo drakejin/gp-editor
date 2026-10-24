@@ -6,7 +6,7 @@ export function rasgueadoFingers(pattern: RasgueadoPattern): string {
   if (rhythm === 'anapaest') {
     return `${fingers} an.`;
   }
-  return pattern.endsWith('Triplet') ? `${fingers}³` : fingers;
+  return pattern.endsWith('Triplet') ? `${fingers}³` : fingers; // i18n-exempt: a pattern id, not text
 }
 
 /** The mark over a rasgueado beat: "rasg." and its fingers. */

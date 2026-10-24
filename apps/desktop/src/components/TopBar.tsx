@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { type Translate, useT } from '../hooks/use-i18n';
 import type { PracticeToggle } from '../lib/key-commands';
 import type { LcdInfo } from '../lib/lcd';
 import type { MetronomeBeat } from '../lib/metronome-beat';
@@ -56,6 +57,7 @@ export interface TopBarProps {
  */
 function TopBarView(props: TopBarProps) {
   const { palette, panels } = props;
+  const t = useT();
   return (
     <View style={[styles.bar, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}>
       <View style={styles.side}>
@@ -65,7 +67,7 @@ function TopBarView(props: TopBarProps) {
             palette={palette}
             label=""
             icon={<PanelIcon side={PANEL_SIDES[panel]} color={panels[panel] ? palette.chromeAccent : palette.chromeMuted} />}
-            tooltip={PANEL_TOOLTIPS[panel]}
+            tooltip={panelTooltip(panel, t)}
             onPress={() => props.onTogglePanel(panel)}
           />
         ))}
@@ -73,13 +75,13 @@ function TopBarView(props: TopBarProps) {
         <ChromeButton
           palette={palette}
           label={`${Math.round(props.zoom * 100)}% ▾`}
-          tooltip="Zoom (⌘- / ⌘=)"
+          tooltip={t('window.topBar.zoom')}
           isEnabled={props.hasDocument}
           onPress={(event) => props.onOpenMenu('zoom', event.nativeEvent.pageX)}
           minWidth={58}
         />
-        <ChromeButton palette={palette} label="↶" fontSize={15} tooltip="Undo (⌘Z)" isEnabled={props.canUndo} onPress={() => props.onCommand({ type: 'undo' })} />
-        <ChromeButton palette={palette} label="↷" fontSize={15} tooltip="Redo (⇧⌘Z)" isEnabled={props.canRedo} onPress={() => props.onCommand({ type: 'redo' })} />
+        <ChromeButton palette={palette} label="↶" fontSize={15} tooltip={t('window.topBar.undo')} isEnabled={props.canUndo} onPress={() => props.onCommand({ type: 'undo' })} />
+        <ChromeButton palette={palette} label="↷" fontSize={15} tooltip={t('window.topBar.redo')} isEnabled={props.canRedo} onPress={() => props.onCommand({ type: 'redo' })} />
       </View>
       <Transport {...props} />
       <View style={[styles.side, styles.right]}>
@@ -89,17 +91,17 @@ function TopBarView(props: TopBarProps) {
           palette={palette}
           label=""
           icon={<PanelIcon side="keyboard" color={panels.keyboard ? palette.chromeAccent : palette.chromeMuted} />}
-          tooltip="Show or hide the piano keyboard"
+          tooltip={t('window.topBar.keyboard')}
           onPress={() => props.onTogglePanel('keyboard')}
         />
         <ChromeButton
           palette={palette}
           label=""
           icon={<PanelIcon side="neck" color={panels.neck ? palette.chromeAccent : palette.chromeMuted} />}
-          tooltip="Show or hide the fretboard"
+          tooltip={t('window.topBar.fretboard')}
           onPress={() => props.onTogglePanel('neck')}
         />
-        <ChromeButton palette={palette} label="?" fontSize={14} tooltip="Keyboard shortcuts (⌘H)" onPress={props.onShowShortcuts} />
+        <ChromeButton palette={palette} label="?" fontSize={14} tooltip={t('window.topBar.shortcuts')} onPress={props.onShowShortcuts} />
       </View>
     </View>
   );
@@ -108,61 +110,63 @@ function TopBarView(props: TopBarProps) {
 /** Loop, metronome, count-in and the playback speed: −, the speed menu, +. */
 function PracticeButtons(props: TopBarProps) {
   const { palette } = props;
+  const t = useT();
   return (
     <>
       <ChromeButton
         palette={palette}
-        label="⟲ Loop"
-        tooltip="Loop the bars set in the speed menu"
+        label={t('window.topBar.loop')}
+        tooltip={t('window.topBar.loopTooltip')}
         isActive={props.isLooping}
         isEnabled={props.hasDocument}
         onPress={props.onToggleLoop}
       />
-      <ChromeButton palette={palette} label="Metronome" fontSize={11} tooltip="Metronome: a click on every beat (⌥M)" isActive={props.isMetronomeOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('metronome')} />
-      <ChromeButton palette={palette} label="Count-in" fontSize={11} tooltip="Count-in: a bar of clicks before playback (⌥C)" isActive={props.isCountInOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('countIn')} />
+      <ChromeButton palette={palette} label={t('common.metronome')} fontSize={11} tooltip={t('window.topBar.metronomeTooltip')} isActive={props.isMetronomeOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('metronome')} />
+      <ChromeButton palette={palette} label={t('window.countIn')} fontSize={11} tooltip={t('window.topBar.countInTooltip')} isActive={props.isCountInOn} isEnabled={props.hasDocument} onPress={() => props.onTogglePractice('countIn')} />
       <ChromeButton
         palette={palette}
         label="▾"
         fontSize={11}
         minWidth={18}
-        tooltip="Metronome volume, count-in, tempo lock and note preview on hover"
+        tooltip={t('window.topBar.practiceMenu')}
         isEnabled={props.hasDocument}
         onPress={(event) => props.onOpenMenu('practice', event.nativeEvent.pageX)}
       />
-      <ChromeButton palette={palette} label="−" fontSize={14} tooltip="Slower: playback speed −5% (⌥-)" isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(-SPEED_STEP_PERCENT)} />
+      <ChromeButton palette={palette} label="−" fontSize={14} tooltip={t('window.topBar.slower')} isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(-SPEED_STEP_PERCENT)} />
       <ChromeButton
         palette={palette}
         label={`♩ ${props.speedLabel} ▾`}
-        tooltip="Playback speed, loop bars, speed trainer, metronome volume and tempo lock"
+        tooltip={t('window.topBar.speedMenu')}
         isEnabled={props.hasDocument}
         isActive={props.speedLabel !== '100%'}
         onPress={(event) => props.onOpenMenu('speed', event.nativeEvent.pageX)}
         minWidth={72}
       />
-      <ChromeButton palette={palette} label="+" fontSize={14} tooltip="Faster: playback speed +5% (⌥=)" isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(SPEED_STEP_PERCENT)} />
+      <ChromeButton palette={palette} label="+" fontSize={14} tooltip={t('window.topBar.faster')} isEnabled={props.hasDocument} onPress={() => props.onShiftSpeed(SPEED_STEP_PERCENT)} />
     </>
   );
 }
 
 function Transport(props: TopBarProps) {
   const { palette, hasDocument, isPlaying, onCommand } = props;
+  const t = useT();
   const jump = (jumpTo: 'first' | 'previous' | 'next' | 'last') => () => onCommand({ type: 'goToBar', jump: jumpTo });
   return (
     <View style={styles.transport}>
-      <ChromeButton palette={palette} label="⏮︎" fontSize={14} tooltip="First bar (Home)" isEnabled={hasDocument} onPress={jump('first')} />
-      <ChromeButton palette={palette} label="⏪︎" fontSize={14} tooltip="Previous bar (⌥←)" isEnabled={hasDocument} onPress={jump('previous')} />
+      <ChromeButton palette={palette} label="⏮︎" fontSize={14} tooltip={t('window.topBar.firstBar')} isEnabled={hasDocument} onPress={jump('first')} />
+      <ChromeButton palette={palette} label="⏪︎" fontSize={14} tooltip={t('window.topBar.previousBar')} isEnabled={hasDocument} onPress={jump('previous')} />
       <ChromeButton
         palette={palette}
         label={isPlaying ? '⏸︎' : '▶︎'}
         fontSize={16}
-        tooltip={isPlaying ? 'Stop (Space)' : 'Play from the cursor’s bar (Space)'}
+        tooltip={isPlaying ? t('window.topBar.stop') : t('window.topBar.play')}
         isActive={isPlaying}
         isEnabled={hasDocument}
         minWidth={34}
         onPress={() => onCommand({ type: 'togglePlayback' })}
       />
-      <ChromeButton palette={palette} label="⏩︎" fontSize={14} tooltip="Next bar (⌥→)" isEnabled={hasDocument} onPress={jump('next')} />
-      <ChromeButton palette={palette} label="⏭︎" fontSize={14} tooltip="Last bar (End)" isEnabled={hasDocument} onPress={jump('last')} />
+      <ChromeButton palette={palette} label="⏩︎" fontSize={14} tooltip={t('window.topBar.nextBar')} isEnabled={hasDocument} onPress={jump('next')} />
+      <ChromeButton palette={palette} label="⏭︎" fontSize={14} tooltip={t('window.topBar.lastBar')} isEnabled={hasDocument} onPress={jump('last')} />
       <Lcd palette={palette} info={props.lcd} trackColor={props.trackColor} beat={props.beat} onSetTempo={props.onSetTempo} />
     </View>
   );
@@ -174,11 +178,16 @@ function Divider({ palette }: { readonly palette: Palette }) {
 
 const PANEL_SIDES = { palette: 'left', tracks: 'bottom', inspector: 'right' } as const;
 
-const PANEL_TOOLTIPS: Readonly<Record<'palette' | 'tracks' | 'inspector', string>> = {
-  palette: 'Show or hide the edition palette',
-  tracks: 'Show or hide the tracks and bar map',
-  inspector: 'Show or hide the Song / Track inspector',
-};
+function panelTooltip(panel: 'palette' | 'tracks' | 'inspector', t: Translate): string {
+  switch (panel) {
+    case 'palette':
+      return t('window.topBar.palettePanel');
+    case 'tracks':
+      return t('window.topBar.tracksPanel');
+    case 'inspector':
+      return t('window.topBar.inspectorPanel');
+  }
+}
 
 export const TopBar = memo(TopBarView);
 

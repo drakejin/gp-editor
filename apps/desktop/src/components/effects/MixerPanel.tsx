@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { type AudioTrack, type AudioTrackMix, DEFAULT_MASTER, EFFECT_NAMES, type Effect, type MasterMix, type Song, toggleEffect } from '@gp-editor/core';
+import { type AudioTrack, type AudioTrackMix, DEFAULT_MASTER, type Effect, type MasterMix, type Song, toggleEffect } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import type { MixPreview } from '../../lib/mix';
-import { formatEffectValue } from '../../lib/effect-values';
+import { effectName, formatEffectValue } from '../../lib/effect-values';
 import type { Palette } from '../../theme';
 import { AudioTrackControls } from '../audio-track/AudioTrackControls';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -39,21 +40,22 @@ interface StripProps {
 
 /** A channel strip: its name (selects it), then its effects in order, each switched on or off by a click. */
 function Strip({ palette, title, color, effects, footer, isSelected, onSelect, onToggle }: StripProps) {
+  const t = useT();
   return (
     <View style={[styles.strip, { borderColor: isSelected ? palette.chromeAccent : palette.chromeBorder, backgroundColor: palette.chromeDeep }]}>
-      <Pressable style={styles.stripHeader} onPress={onSelect} tooltip={`Edit the effects of ${title}`} accessibilityRole="button" accessibilityLabel={`Edit the effects of ${title}`}>
+      <Pressable style={styles.stripHeader} onPress={onSelect} tooltip={t('tools.mixer.editEffectsOf', { name: title })} accessibilityRole="button" accessibilityLabel={t('tools.mixer.editEffectsOf', { name: title })}>
         {color === undefined ? null : <View style={[styles.swatch, { backgroundColor: color }]} />}
         <Text numberOfLines={1} style={[styles.stripTitle, { color: palette.chromeText }]}>
           {title}
         </Text>
       </Pressable>
-      {effects.length === 0 ? <Text style={[styles.none, { color: palette.chromeMuted }]}>No effects</Text> : null}
+      {effects.length === 0 ? <Text style={[styles.none, { color: palette.chromeMuted }]}>{t('tools.mixer.noEffects')}</Text> : null}
       {effects.map((effect, index) => (
         <ChromeButton
           key={`${index}-${effect.type}`}
           palette={palette}
-          label={`${effect.isEnabled ? '●' : '○'} ${EFFECT_NAMES[effect.type]}`}
-          tooltip={`${effect.isEnabled ? 'Switch off' : 'Switch on'} ${EFFECT_NAMES[effect.type]} on ${title}`}
+          label={`${effect.isEnabled ? '●' : '○'} ${effectName(effect.type)}`}
+          tooltip={t(effect.isEnabled ? 'tools.mixer.switchOffIn' : 'tools.mixer.switchOnIn', { effect: effectName(effect.type), name: title })}
           fontSize={11}
           isActive={effect.isEnabled}
           onPress={() => onToggle(index)}
@@ -92,6 +94,7 @@ function AudioStrip({ palette, audioTrack, onSetMix }: AudioStripProps) {
  */
 export function MixerPanel(props: MixerPanelProps) {
   const { palette, song, selectedTrackIndex } = props;
+  const t = useT();
   const [isMasterSelected, setIsMasterSelected] = useState(false);
   const master = song.master ?? DEFAULT_MASTER;
   const track = song.tracks[selectedTrackIndex];
@@ -103,7 +106,7 @@ export function MixerPanel(props: MixerPanelProps) {
           <Strip
             key={trackIndex}
             palette={palette}
-            title={`${each.number}. ${each.name}`}
+            title={t('common.trackNumbered', { number: each.number, name: each.name })}
             color={`rgb(${each.color.r},${each.color.g},${each.color.b})`}
             effects={each.effects ?? []}
             isSelected={!isMasterSelected && trackIndex === selectedTrackIndex}
@@ -121,7 +124,7 @@ export function MixerPanel(props: MixerPanelProps) {
         )}
         <Strip
           palette={palette}
-          title="Master"
+          title={t('tools.mixer.master')}
           effects={master.effects}
           footer={formatEffectValue(OUTPUT_GAIN, master.gainDb)}
           isSelected={isMasterSelected}
@@ -132,9 +135,9 @@ export function MixerPanel(props: MixerPanelProps) {
       <View style={[styles.editorPane, { borderLeftColor: palette.chromeBorder }]}>
         <View style={styles.editorHeader}>
           <Text numberOfLines={1} style={[styles.editorTitle, { color: palette.chromeText }]}>
-            {isMasterSelected ? 'MASTER' : `EFFECTS · ${track?.name ?? ''}`}
+            {isMasterSelected ? t('tools.mixer.masterTitle') : t('tools.mixer.effectsOf', { name: track?.name ?? '' })}
           </Text>
-          <ChromeButton palette={palette} label="✕" tooltip="Close the mixer" onPress={props.onClose} />
+          <ChromeButton palette={palette} label="✕" tooltip={t('tools.mixer.close')} onPress={props.onClose} />
         </View>
         <ScrollView style={styles.editorScroll}>
           {isMasterSelected ? (

@@ -18,6 +18,8 @@ import type { ScoreMode } from '../score/geometry';
 import { type EditorAction, type OpenDocument, isEdited } from '../state/editor';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
+import { useLanguage } from './use-i18n';
 
 /** Each document opens in a new tab (or the tab already holding its file is shown); saving acts on one tab. */
 export interface DocumentCommands {
@@ -123,13 +125,11 @@ export function useDocument(
   const editor = activeEditor(workspace);
   const fileName = editor.document?.fileName;
   const edited = isEdited(editor);
+  const language = useLanguage();
   useEffect(() => {
-    setDocumentTitle(
-      fileName === undefined
-        ? 'GP Editor'
-        : `${fileName}${edited ? ' — Edited' : ''}`,
-    );
-  }, [fileName, edited]);
+    // i18n-exempt: the app's name
+    setDocumentTitle(fileName === undefined ? 'GP Editor' : edited ? t('window.titleEdited', { name: fileName }) : fileName);
+  }, [fileName, edited, language]);
 
   return { create, openDialog, openPath, openRecent, openDocument, save, saveTab };
 }
@@ -162,7 +162,7 @@ function useOpenFile(
         if (recentPath !== undefined && isMissingFileError(error)) {
           markMissing(recentPath);
         }
-        dispatch({ type: 'loadFailed', message: errorMessage(error, 'Unexpected error while opening the file') });
+        dispatch({ type: 'loadFailed', message: errorMessage(error, t('window.error.openUnexpected')) });
       }
     },
     [dispatch, remember, markMissing],
@@ -216,7 +216,7 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
         remember({ path: saved.path, name: saved.name });
         return true;
       } catch (error: unknown) {
-        toTab({ type: 'saveFailed', message: errorMessage(error, 'Unexpected error while saving') });
+        toTab({ type: 'saveFailed', message: errorMessage(error, t('window.error.saveUnexpected')) });
         return false;
       }
     },

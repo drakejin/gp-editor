@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SCALE_ROOTS, type ScaleChoice, type ScaleMatch, type Song, findScales, scaleNoteNames, scaleTitle } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { type NoteSource, hasScaleNeck, selectionNotes, sourceSummary, trackNotes } from '../../lib/scale-sources';
 import type { BeatRange } from '../../score/selection-tint';
 import type { Palette } from '../../theme';
@@ -50,6 +51,7 @@ function Section({ palette, label, children }: { readonly palette: Palette; read
  */
 export function ScalesPanel(props: ScalesPanelProps) {
   const { palette, song, trackIndex, choice, onChoose } = props;
+  const t = useT();
   const [rootIndex, setRootIndex] = useState(choice?.rootIndex ?? 0);
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<Found | undefined>(undefined);
@@ -64,31 +66,31 @@ export function ScalesPanel(props: ScalesPanelProps) {
     setRootIndex(next.rootIndex);
     onChoose(next);
   };
-  const where = props.selection === undefined ? `bar ${props.cursorMeasureIndex + 1}` : 'the selection';
+  const barNumber = props.cursorMeasureIndex + 1;
   return (
-    <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Scales">
+    <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.scales.title')}>
       <View style={[styles.header, { backgroundColor: palette.chromeDeep }]}>
-        <Text style={[styles.title, { color: palette.chromeText }]}>Scales</Text>
-        <ChromeButton palette={palette} label="Clear" tooltip="Clear the scale from the keyboard and the fretboard" fontSize={11} isEnabled={choice !== undefined} onPress={props.onClear} />
-        <ChromeButton palette={palette} label="Close" tooltip="Close the Scales panel" fontSize={11} onPress={props.onClose} />
+        <Text style={[styles.title, { color: palette.chromeText }]}>{t('tools.scales.title')}</Text>
+        <ChromeButton palette={palette} label={t('common.clear')} tooltip={t('tools.scales.clearTooltip')} fontSize={11} isEnabled={choice !== undefined} onPress={props.onClear} />
+        <ChromeButton palette={palette} label={t('common.close')} tooltip={t('tools.scales.closeTooltip')} fontSize={11} onPress={props.onClose} />
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
-        <Section palette={palette} label="Root">
+        <Section palette={palette} label={t('tools.scales.root')}>
           <View style={styles.wrap}>
             {SCALE_ROOTS.map((root, index) => (
-              <ChromeButton key={root.name} palette={palette} label={root.name} tooltip={`Root: ${root.name}`} fontSize={11} minWidth={28} isActive={index === rootIndex} onPress={() => chooseRoot(index)} />
+              <ChromeButton key={root.name} palette={palette} label={root.name} tooltip={t('tools.scales.rootTooltip', { name: root.name })} fontSize={11} minWidth={28} isActive={index === rootIndex} onPress={() => chooseRoot(index)} />
             ))}
           </View>
         </Section>
-        <Section palette={palette} label="Find">
+        <Section palette={palette} label={t('tools.scales.find')}>
           <View style={styles.wrap}>
-            <ChromeButton palette={palette} label={props.selection === undefined ? `From bar ${props.cursorMeasureIndex + 1}` : 'From selection'} tooltip={props.selection === undefined ? `Find the scales that hold the notes of ${where}` : 'Find the scales that hold the selected notes'} fontSize={11} onPress={() => find(selectionNotes(song, trackIndex, props.selection, props.cursorMeasureIndex))} />
-            <ChromeButton palette={palette} label="From track" tooltip="Find the scales that hold every note of the track" fontSize={11} onPress={() => find(trackNotes(song, trackIndex))} />
-            {found === undefined ? null : <ChromeButton palette={palette} label="All scales" tooltip="Back to every scale" fontSize={11} onPress={() => setFound(undefined)} />}
+            <ChromeButton palette={palette} label={props.selection === undefined ? t('tools.scales.fromBar', { number: barNumber }) : t('tools.scales.fromSelection')} tooltip={props.selection === undefined ? t('tools.scales.findBarTooltip', { number: barNumber }) : t('tools.scales.findSelectionTooltip')} fontSize={11} onPress={() => find(selectionNotes(song, trackIndex, props.selection, props.cursorMeasureIndex))} />
+            <ChromeButton palette={palette} label={t('tools.scales.fromTrack')} tooltip={t('tools.scales.fromTrackTooltip')} fontSize={11} onPress={() => find(trackNotes(song, trackIndex))} />
+            {found === undefined ? null : <ChromeButton palette={palette} label={t('tools.scales.allScales')} tooltip={t('tools.scales.allScalesTooltip')} fontSize={11} onPress={() => setFound(undefined)} />}
           </View>
           {found === undefined ? null : <Text style={[styles.note, { color: palette.chromeMuted }]}>{sourceSummary(found.source)}</Text>}
         </Section>
-        <Section palette={palette} label={found === undefined ? 'Scale' : 'Matches'}>
+        <Section palette={palette} label={found === undefined ? t('tools.scales.scale') : t('tools.scales.matches')}>
           {found === undefined ? (
             <ScaleList palette={palette} query={query} onChangeQuery={setQuery} selectedScaleIndex={choice?.scaleIndex} onChooseScale={(scaleIndex) => onChoose({ rootIndex, scaleIndex })} />
           ) : (
@@ -103,6 +105,7 @@ export function ScalesPanel(props: ScalesPanelProps) {
 
 /** The chosen scale: its title and notes, then its boxes on the shown track's neck. */
 function ChosenScale({ palette, choice, song, trackIndex }: { readonly palette: Palette; readonly choice: ScaleChoice; readonly song: Song; readonly trackIndex: number }) {
+  const t = useT();
   const track = song.tracks[trackIndex];
   return (
     <Section palette={palette} label={scaleTitle(choice)}>
@@ -110,7 +113,7 @@ function ChosenScale({ palette, choice, song, trackIndex }: { readonly palette: 
       {hasScaleNeck(track) ? (
         <ScaleBoxes key={`${choice.rootIndex}:${choice.scaleIndex}:${trackIndex}`} palette={palette} track={track} choice={choice} width={DIAGRAM_WIDTH} />
       ) : (
-        <Text style={[styles.note, { color: palette.chromeMuted }]}>Boxes need a pitched track of 3 to 10 strings.</Text>
+        <Text style={[styles.note, { color: palette.chromeMuted }]}>{t('tools.scales.boxesNeed')}</Text>
       )}
     </Section>
   );

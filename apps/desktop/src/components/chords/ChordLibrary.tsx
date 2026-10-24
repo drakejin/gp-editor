@@ -1,6 +1,8 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { type Chord, type NoteSpelling, type Song, type VoicingStyle, buildChordVoicings, parseChordName, recognizeChord, songChords } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { TextField } from '../TextField';
@@ -9,17 +11,17 @@ import { ChordThumb } from './ChordDiagramView';
 /** The library's three lists, as Guitar Pro's chord library: by name, by the grid's frets, and the score's own chords. */
 export type ChordLibraryTab = 'name' | 'position' | 'song';
 
-const TABS: readonly { readonly id: ChordLibraryTab; readonly label: string; readonly tooltip: string }[] = [
-  { id: 'name', label: 'By name', tooltip: 'Find the voicings of a chord by its name' },
-  { id: 'position', label: 'By position', tooltip: 'Every name the grid’s frets can have' },
-  { id: 'song', label: 'In this track', tooltip: 'The chords this track already uses' },
+const TABS: readonly { readonly id: ChordLibraryTab; readonly label: MessageKey; readonly tooltip: MessageKey }[] = [
+  { id: 'name', label: 'tools.chords.byName', tooltip: 'tools.chords.byNameTooltip' },
+  { id: 'position', label: 'tools.chords.byPosition', tooltip: 'tools.chords.byPositionTooltip' },
+  { id: 'song', label: 'tools.chords.inTrack', tooltip: 'tools.chords.inTrackTooltip' },
 ];
 
-const STYLES: readonly { readonly id: VoicingStyle; readonly label: string; readonly tooltip: string }[] = [
-  { id: 'normal', label: 'Normal', tooltip: 'The usual voicings, the root in the bass' },
-  { id: 'inversions', label: 'Inversions', tooltip: 'Another note than the root in the bass' },
-  { id: 'closeVoiced', label: 'Close', tooltip: 'Close voicings, on neighbouring strings' },
-  { id: 'openVoiced', label: 'Open', tooltip: 'Open voicings, spread over the strings' },
+const STYLES: readonly { readonly id: VoicingStyle; readonly label: MessageKey; readonly tooltip: MessageKey }[] = [
+  { id: 'normal', label: 'tools.chords.style.normal', tooltip: 'tools.chords.style.normalTooltip' },
+  { id: 'inversions', label: 'tools.chords.style.inversions', tooltip: 'tools.chords.style.inversionsTooltip' },
+  { id: 'closeVoiced', label: 'tools.chords.style.close', tooltip: 'tools.chords.style.closeTooltip' },
+  { id: 'openVoiced', label: 'tools.chords.style.open', tooltip: 'tools.chords.style.openTooltip' },
 ];
 
 export interface ChordLibraryProps {
@@ -41,6 +43,7 @@ export interface ChordLibraryProps {
 export function ChordLibrary(props: ChordLibraryProps) {
   const { palette } = props;
   const [tab, setTab] = useState<ChordLibraryTab>('name');
+  const t = useT();
   return (
     <View style={styles.library}>
       <View style={styles.tabs}>
@@ -49,8 +52,8 @@ export function ChordLibrary(props: ChordLibraryProps) {
             key={candidate.id}
             testID={`chord-library-${candidate.id}`}
             palette={palette}
-            label={candidate.label}
-            tooltip={candidate.tooltip}
+            label={t(candidate.label)}
+            tooltip={t(candidate.tooltip)}
             fontSize={11}
             isActive={tab === candidate.id}
             onPress={() => setTab(candidate.id)}
@@ -65,26 +68,28 @@ export function ChordLibrary(props: ChordLibraryProps) {
 function ByName({ palette, tuning, spelling, onLoad }: ChordLibraryProps) {
   const [query, setQuery] = useState('');
   const [style, setStyle] = useState<VoicingStyle>('normal');
+  const t = useT();
   // The field shows each key at once; the voicings follow when React has time (an 8-string search takes a moment).
   const searched = useDeferredValue(query);
   const spec = useMemo(() => parseChordName(searched), [searched]);
   const voicings = useMemo(() => (spec === undefined ? [] : buildChordVoicings(spec, tuning, { style, spelling })), [spec, tuning, style, spelling]);
-  const message = searched.trim() === '' ? 'Type a chord name: Am7, C/G, F#m7b5, Dsus4, G13…' : spec === undefined ? `“${searched.trim()}” is not a chord name.` : voicings.length === 0 ? 'No voicing on these strings.' : undefined;
+  const message =
+    searched.trim() === '' ? t('tools.chords.typeName') : spec === undefined ? t('tools.chords.notAChord', { name: searched.trim() }) : voicings.length === 0 ? t('tools.chords.noVoicing') : undefined;
   return (
     <>
       <View style={styles.searchRow}>
         <TextField
           testID="chord-search"
-          accessibilityLabel="Chord name to find"
+          accessibilityLabel={t('tools.chords.searchLabel')}
           value={query}
           onChangeText={setQuery}
-          placeholder="Chord name, e.g. Am7"
+          placeholder={t('tools.chords.searchPlaceholder')}
           placeholderTextColor={palette.chromeMuted}
           autoCorrect={false}
           style={[styles.field, { color: palette.chromeText, backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}
         />
         {STYLES.map((candidate) => (
-          <ChromeButton key={candidate.id} palette={palette} label={candidate.label} tooltip={candidate.tooltip} fontSize={10} isActive={style === candidate.id} onPress={() => setStyle(candidate.id)} />
+          <ChromeButton key={candidate.id} palette={palette} label={t(candidate.label)} tooltip={t(candidate.tooltip)} fontSize={10} isActive={style === candidate.id} onPress={() => setStyle(candidate.id)} />
         ))}
       </View>
       {message === undefined ? <ThumbGrid palette={palette} chords={voicings} onLoad={onLoad} testPrefix="chord-voicing" /> : <Hint palette={palette} text={message} />}
@@ -94,8 +99,9 @@ function ByName({ palette, tuning, spelling, onLoad }: ChordLibraryProps) {
 
 function ByPosition({ palette, tuning, spelling, frets, onName }: ChordLibraryProps) {
   const proposals = useMemo(() => recognizeChord(frets, tuning, { spelling }), [frets, tuning, spelling]);
+  const t = useT();
   if (proposals.length === 0) {
-    return <Hint palette={palette} text={frets.some((fret) => fret >= 0) ? 'These frets make no chord the library knows.' : 'Put fingers on the grid: every chord name its frets can have shows here.'} />;
+    return <Hint palette={palette} text={frets.some((fret) => fret >= 0) ? t('tools.chords.noKnownChord') : t('tools.chords.putFingers')} />;
   }
   return (
     <ScrollView style={styles.results} contentContainerStyle={styles.names}>
@@ -105,7 +111,7 @@ function ByPosition({ palette, tuning, spelling, frets, onName }: ChordLibraryPr
           testID={`chord-name-${index}`}
           palette={palette}
           label={`${proposal.name}  ${proposal.completeness}%`}
-          tooltip={`Name the chord ${proposal.name} (${proposal.completeness}% of its notes played)`}
+          tooltip={t('tools.chords.nameTooltip', { name: proposal.name, percent: proposal.completeness })}
           fontSize={12}
           onPress={() => onName(proposal.name)}
         />
@@ -116,7 +122,8 @@ function ByPosition({ palette, tuning, spelling, frets, onName }: ChordLibraryPr
 
 function InSong({ palette, song, trackIndex, onLoad }: ChordLibraryProps) {
   const chords = useMemo(() => songChords(song, trackIndex), [song, trackIndex]);
-  return chords.length === 0 ? <Hint palette={palette} text="No chords in this track yet." /> : <ThumbGrid palette={palette} chords={chords} onLoad={onLoad} testPrefix="chord-in-song" />;
+  const t = useT();
+  return chords.length === 0 ? <Hint palette={palette} text={t('tools.chords.noChordsInTrack')} /> : <ThumbGrid palette={palette} chords={chords} onLoad={onLoad} testPrefix="chord-in-song" />;
 }
 
 function ThumbGrid({ palette, chords, onLoad, testPrefix }: { readonly palette: Palette; readonly chords: readonly Chord[]; readonly onLoad: (chord: Chord) => void; readonly testPrefix: string }) {

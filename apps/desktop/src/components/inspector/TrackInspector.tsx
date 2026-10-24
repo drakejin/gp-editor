@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Effect, Song } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import { trackInstrument } from '../../lib/instruments';
 import type { MixPreview } from '../../lib/mix';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../../score/chords';
@@ -40,19 +42,20 @@ export interface TrackInspectorProps {
 /** The effects editor's width inside the inspector's sections. */
 const EFFECTS_WIDTH = 244;
 
-const STAVES: readonly { readonly staff: Staff; readonly label: string; readonly tooltip: string }[] = [
-  { staff: 'standard', label: 'Standard', tooltip: 'Show standard notation' },
-  { staff: 'tab', label: 'Tab', tooltip: 'Show tablature' },
+const STAVES: readonly { readonly staff: Staff; readonly label: MessageKey; readonly tooltip: MessageKey }[] = [
+  { staff: 'standard', label: 'tools.inspector.staff.standard', tooltip: 'tools.inspector.staff.standardTooltip' },
+  { staff: 'tab', label: 'tools.inspector.staff.tab', tooltip: 'tools.inspector.staff.tabTooltip' },
 ];
 
-const CHORD_PARTS: readonly { readonly part: keyof ChordDisplay; readonly label: string; readonly tooltip: string }[] = [
-  { part: 'showsNames', label: 'Names', tooltip: 'Show chord names over the staff' },
-  { part: 'showsDiagrams', label: 'Diagrams', tooltip: 'Show chord diagrams over the staff' },
+const CHORD_PARTS: readonly { readonly part: keyof ChordDisplay; readonly label: MessageKey; readonly tooltip: MessageKey }[] = [
+  { part: 'showsNames', label: 'tools.inspector.chordNames', tooltip: 'tools.inspector.chordNamesTooltip' },
+  { part: 'showsDiagrams', label: 'tools.inspector.chordDiagrams', tooltip: 'tools.inspector.chordDiagramsTooltip' },
 ];
 
 /** The TRACK tab: the shown track's name, notation, tuning and capo, its instrument and its effects. */
 export function TrackInspector(props: TrackInspectorProps) {
   const { palette, song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY } = props;
+  const t = useT();
   const track = song.tracks[trackIndex];
   if (track === undefined) {
     return null;
@@ -60,37 +63,37 @@ export function TrackInspector(props: TrackInspectorProps) {
   const instrument = trackInstrument(song, trackIndex);
   return (
     <>
-      <InspectorSection palette={palette} title="INFORMATION">
-        <InspectorTextField palette={palette} label="Name" value={track.name} onCommit={(name) => props.onSetTrackName(trackIndex, name)} />
-        <InspectorField palette={palette} label="Track">
+      <InspectorSection palette={palette} title={t('tools.inspector.information')}>
+        <InspectorTextField palette={palette} label={t('common.name')} value={track.name} onCommit={(name) => props.onSetTrackName(trackIndex, name)} />
+        <InspectorField palette={palette} label={t('common.track')}>
           <View style={[styles.swatch, { backgroundColor: `rgb(${track.color.r},${track.color.g},${track.color.b})` }]} />
-          <Text style={[styles.value, { color: palette.chromeText }]}>{`${track.number} of ${song.tracks.length} · ${track.strings.length} strings`}</Text>
+          <Text style={[styles.value, { color: palette.chromeText }]}>{t('tools.inspector.trackPosition', { number: track.number, total: song.tracks.length, strings: t('common.strings', { count: track.strings.length }) })}</Text>
         </InspectorField>
       </InspectorSection>
-      <InspectorSection palette={palette} title="MUSICAL NOTATION">
-        <InspectorField palette={palette} label="Notation">
+      <InspectorSection palette={palette} title={t('tools.inspector.musicalNotation')}>
+        <InspectorField palette={palette} label={t('tools.inspector.notation')}>
           {STAVES.map(({ staff, label, tooltip }) => (
-            <ChromeButton key={staff} palette={palette} label={label} tooltip={tooltip} isActive={showsStaff(mode, staff)} onPress={() => props.onChangeMode(toggleStaff(mode, staff))} />
+            <ChromeButton key={staff} palette={palette} label={t(label)} tooltip={t(tooltip)} isActive={showsStaff(mode, staff)} onPress={() => props.onChangeMode(toggleStaff(mode, staff))} />
           ))}
           <ChromeButton
             palette={palette}
-            label="Slash"
-            tooltip="Write the whole track in rhythm slashes"
+            label={t('tools.inspector.slash')}
+            tooltip={t('tools.inspector.slashTooltip')}
             isActive={track.hasSlashNotation === true}
             onPress={() => props.onSetTrackSlashNotation?.(trackIndex, track.hasSlashNotation !== true)}
           />
         </InspectorField>
-        <InspectorField palette={palette} label="Chords">
+        <InspectorField palette={palette} label={t('tools.inspector.chords')}>
           {CHORD_PARTS.map(({ part, label, tooltip }) => (
-            <ChromeButton key={part} palette={palette} label={label} tooltip={tooltip} isActive={chordDisplay[part]} onPress={() => props.onChangeChordDisplay?.({ ...chordDisplay, [part]: !chordDisplay[part] })} />
+            <ChromeButton key={part} palette={palette} label={t(label)} tooltip={t(tooltip)} isActive={chordDisplay[part]} onPress={() => props.onChangeChordDisplay?.({ ...chordDisplay, [part]: !chordDisplay[part] })} />
           ))}
         </InspectorField>
         {track.isPercussion ? null : (
           <>
-            <InspectorField palette={palette} label="Capo">
-              <ChromeButton palette={palette} label="−" tooltip="Capo one fret lower" isEnabled={track.offset > 0} onPress={() => props.onSetTrackCapo(trackIndex, track.offset - 1)} />
-              <Text style={[styles.capo, { color: palette.chromeText }]}>{track.offset === 0 ? 'None' : `Fret ${track.offset}`}</Text>
-              <ChromeButton palette={palette} label="+" tooltip="Capo one fret higher" isEnabled={track.offset < MAX_CAPO} onPress={() => props.onSetTrackCapo(trackIndex, track.offset + 1)} />
+            <InspectorField palette={palette} label={t('common.capo')}>
+              <ChromeButton palette={palette} label="−" tooltip={t('tools.inspector.capoLower')} isEnabled={track.offset > 0} onPress={() => props.onSetTrackCapo(trackIndex, track.offset - 1)} />
+              <Text style={[styles.capo, { color: palette.chromeText }]}>{track.offset === 0 ? t('common.none') : t('tools.inspector.capoFret', { fret: track.offset })}</Text>
+              <ChromeButton palette={palette} label="+" tooltip={t('tools.inspector.capoHigher')} isEnabled={track.offset < MAX_CAPO} onPress={() => props.onSetTrackCapo(trackIndex, track.offset + 1)} />
             </InspectorField>
             <NeckSettings
               song={song}
@@ -104,19 +107,19 @@ export function TrackInspector(props: TrackInspectorProps) {
           </>
         )}
       </InspectorSection>
-      <InspectorSection palette={palette} title="SOUNDS">
-        <InspectorField palette={palette} label="Instrument">
+      <InspectorSection palette={palette} title={t('tools.inspector.sounds')}>
+        <InspectorField palette={palette} label={t('common.instrument')}>
           <ChromeButton
             palette={palette}
-            label={track.isPercussion ? '♪ Drums (standard kit)' : `♪ ${instrument?.name ?? 'Instrument'} ▾`}
-            tooltip={track.isPercussion ? 'Guitar Pro 3–5 files hold no drum-kit setting' : 'Choose the track’s instrument'}
+            label={track.isPercussion ? t('tools.inspector.drums') : `♪ ${instrument?.name ?? t('common.instrument')} ▾`}
+            tooltip={track.isPercussion ? t('tools.inspector.drumsTooltip') : t('tools.inspector.instrumentTooltip')}
             isEnabled={!track.isPercussion}
             onPress={() => props.onEditInstrument(trackIndex)}
           />
         </InspectorField>
       </InspectorSection>
       {props.onSetTrackEffects === undefined ? null : (
-        <InspectorSection palette={palette} title="EFFECTS">
+        <InspectorSection palette={palette} title={t('tools.inspector.effects')}>
           <EffectChainEditor
             key={trackIndex}
             palette={palette}

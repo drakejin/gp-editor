@@ -3,7 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { QUARTER, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { EditionPalette, PALETTE_ROW_HEIGHT } from '../src/components/palette/EditionPalette';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, header, makeSong, note } from '../test-support/songs';
 
@@ -47,7 +47,7 @@ describe('edition palette: notation marks', () => {
     // Assert
     expect(MARK_TOOLS.filter((id) => palette.tool(id) === undefined)).toEqual([]);
     expect(MARK_TOOLS.every((id) => (palette.tool(id)?.props.tooltip ?? '').length > 10)).toBe(true);
-    const groupOf = (id: string) => PALETTE_GROUPS.find((group) => group.tools.some((tool) => tool.id === id))?.title;
+    const groupOf = (id: string) => paletteGroups().find((group) => group.tools.some((tool) => tool.id === id))?.title;
     expect(MARK_TOOLS.map(groupOf)).toEqual(['Note', 'Note', 'Note', 'Note', 'Beat', 'Beat', 'Beat', 'Beat', 'Bar']);
   });
 

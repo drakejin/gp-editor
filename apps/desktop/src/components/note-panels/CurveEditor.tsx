@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { type GestureResponderEvent, type NativeMouseEvent, type NativeSyntheticEvent, Pressable } from 'react-native';
 import type { CurveValueRange } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { type CurveDraft, dragDraft, pressDraft, removeDraftPoint } from '../../lib/curve-draft';
 import { ScoreCanvas } from '../../native/score-canvas';
 import { CURVE_GRID, curvePointAt, curvePointXY, curveView, engraveCurveGrid, hitTestCurvePoint } from '../../score/curve-grid';
@@ -29,6 +30,7 @@ interface DragStart {
  * as onPressMove.
  */
 export function CurveEditor({ palette, draft, onChange }: CurveEditorProps) {
+  const t = useT();
   const view = curveView(draft);
   const { min, max } = view;
   const commands = useMemo(() => engraveCurveGrid(draft, { min, max }, palette), [draft, min, max, palette]);
@@ -65,7 +67,7 @@ export function CurveEditor({ palette, draft, onChange }: CurveEditorProps) {
   return (
     <Pressable
       testID="curve-grid"
-      accessibilityLabel="Curve: click to add a point, drag to move it, right-click to remove it"
+      accessibilityLabel={t('tools.notePanels.curve')}
       onPressIn={handlePressIn}
       onPressMove={handlePressMove}
       onPressOut={() => {

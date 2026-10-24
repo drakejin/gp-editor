@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextField } from '../TextField';
+import { useT } from '../../hooks/use-i18n';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -41,6 +42,7 @@ interface PaletteTextFieldProps {
 
 /** A text field under its group (a section name, text above a beat); Return or Set applies it, empty removes it. */
 export function PaletteTextField({ palette, run, context, onChoose }: PaletteTextFieldProps) {
+  const t = useT();
   const [draft, setDraft] = useState(run.value(context));
   const apply = () => onChoose(run.edit(draft));
   return (
@@ -55,7 +57,7 @@ export function PaletteTextField({ palette, run, context, onChoose }: PaletteTex
         accessibilityLabel={run.placeholder}
         style={[styles.input, { color: palette.chromeText, backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}
       />
-      <ChromeButton palette={palette} label="Set" tooltip="Apply" onPress={apply} />
+      <ChromeButton palette={palette} label={t('palette.set')} tooltip={t('common.apply')} onPress={apply} />
     </View>
   );
 }

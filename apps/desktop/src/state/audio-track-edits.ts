@@ -13,6 +13,7 @@ import {
   setAudioTrackMix,
   setTempo,
 } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 
 /** Edits of the song's audio track (Track ▸ Add Audio Track…, its lane and its mixer strip); each is one undo step. */
 export type AudioTrackAction =
@@ -33,9 +34,13 @@ export interface AudioTrackEditResult {
   readonly hint?: string;
 }
 
-export const SYNC_ORDER_HINT =
-  'A sync point must come after the one before it and before the one after it, both in the score and in the recording.';
-export const TWO_SYNC_POINTS_HINT = 'Add two sync points first: the tempo is the pace of the recording between them.';
+export function syncOrderHint(): string {
+  return t('palette.hint.syncOrder');
+}
+
+export function twoSyncPointsHint(): string {
+  return t('palette.hint.twoSyncPoints');
+}
 const SECONDS_PER_MINUTE = 60;
 /** The written tempos the song takes (as setTempo clamps them). */
 const TEMPO_DECIMALS = 100;
@@ -46,16 +51,16 @@ function tempoFromAudio(song: Song): AudioTrackEditResult {
   const [first, second] = map.anchors;
   const point = first === undefined ? undefined : song.audioTrack?.syncPoints[first.pointIndex];
   if (first === undefined || second === undefined || point === undefined) {
-    return { song, hint: TWO_SYNC_POINTS_HINT };
+    return { song, hint: twoSyncPointsHint() };
   }
   const tempo = Math.round(((second.tick - first.tick) / QUARTER_TIME) * (SECONDS_PER_MINUTE / (second.seconds - first.seconds)) * TEMPO_DECIMALS) / TEMPO_DECIMALS;
   const next = setTempo(song, point.measureIndex, tempo);
-  return { song: next, hint: `Tempo from bar ${point.measureIndex + 1}: ${tempo} BPM, the recording's pace between the first two sync points.` };
+  return { song: next, hint: t('palette.hint.tempoFromAudio', { bar: point.measureIndex + 1, tempo }) };
 }
 
 /** The point at a new place, or the hint saying why it cannot go there. */
 function withSyncPoint(song: Song, point: AudioSyncPoint): AudioTrackEditResult {
-  return canSetAudioSyncPoint(song, point) ? { song: setAudioSyncPoint(song, point) } : { song, hint: SYNC_ORDER_HINT };
+  return canSetAudioSyncPoint(song, point) ? { song: setAudioSyncPoint(song, point) } : { song, hint: syncOrderHint() };
 }
 
 /** The song after an audio track action, and the hint it leaves. */
@@ -71,7 +76,7 @@ export function applyAudioTrackAction(song: Song, action: AudioTrackAction): Aud
       return { song: deleteAudioSyncPoint(song, action.pointIndex) };
     case 'moveAudioSyncPoint': {
       const moved = moveAudioSyncPoint(song, action.pointIndex, action.seconds);
-      return moved === song && song.audioTrack?.syncPoints[action.pointIndex]?.seconds !== action.seconds ? { song, hint: SYNC_ORDER_HINT } : { song: moved };
+      return moved === song && song.audioTrack?.syncPoints[action.pointIndex]?.seconds !== action.seconds ? { song, hint: syncOrderHint() } : { song: moved };
     }
     case 'setTempoFromAudio':
       return tempoFromAudio(song);

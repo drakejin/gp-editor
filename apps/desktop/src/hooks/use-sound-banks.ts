@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { type SoundBanks, addSoundBank, loadSoundBanks, removeSoundBank, selectSoundBank } from '../native/player';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 
 export interface SoundBankCommands {
   readonly soundBanks: SoundBanks;
@@ -26,7 +27,7 @@ export function useSoundBanks(onChanged: () => void): SoundBankCommands {
   useEffect(() => {
     loadSoundBanks()
       .then(setSoundBanks)
-      .catch((reason: unknown) => setError(errorMessage(reason, 'The sound bank could not be changed')));
+      .catch((reason: unknown) => setError(errorMessage(reason, t('tools.soundBank.changeFailed'))));
   }, []);
 
   const run = useCallback(
@@ -38,7 +39,7 @@ export function useSoundBanks(onChanged: () => void): SoundBankCommands {
             onChanged();
           }
         })
-        .catch((reason: unknown) => setError(errorMessage(reason, 'The sound bank could not be changed')));
+        .catch((reason: unknown) => setError(errorMessage(reason, t('tools.soundBank.changeFailed'))));
     },
     [onChanged],
   );

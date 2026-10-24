@@ -1,4 +1,5 @@
 import { type Song, type StringAddress, copyBeats, findNote, findVoice, moveBeatsToVoice, moveNotesToVoice } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import type { BeatPlace } from './mark-edits';
 
 /**
@@ -19,15 +20,15 @@ export function applyVoiceEdit(song: Song, cursor: StringAddress, edit: VoiceEdi
 /** Why a move changed nothing. */
 export function voiceMoveHint(song: Song, cursor: StringAddress, edit: VoiceEdit): string {
   if (edit.voiceIndex === cursor.voiceIndex) {
-    return `The notes are in voice ${edit.voiceIndex + 1} already.`;
+    return t('palette.hint.voiceAlready', { number: edit.voiceIndex + 1 });
   }
   const voice = findVoice(song, cursor);
   if (edit.from !== undefined) {
     const fragment = copyBeats(song, { ...cursor, ...edit.from }, cursor);
-    return fragment.items.some((item) => item.notes.length > 0) ? `Voice ${edit.voiceIndex + 1} plays something else there: nothing moved.` : 'No note to move in the selected beats.';
+    return fragment.items.some((item) => item.notes.length > 0) ? t('palette.hint.voiceBusy', { number: edit.voiceIndex + 1 }) : t('palette.hint.noNoteInSelection');
   }
   if (voice === undefined || voice.notes.length === 0) {
-    return voice?.isEmpty === false ? 'No note to move: the cursor’s beat is a rest.' : `No note to move: voice ${cursor.voiceIndex + 1} has nothing at the cursor.`;
+    return voice?.isEmpty === false ? t('palette.hint.noNoteRest') : t('palette.hint.noNoteInVoice', { number: cursor.voiceIndex + 1 });
   }
-  return `Voice ${edit.voiceIndex + 1} plays something else there: nothing moved.`;
+  return t('palette.hint.voiceBusy', { number: edit.voiceIndex + 1 });
 }

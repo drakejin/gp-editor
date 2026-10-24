@@ -16,6 +16,7 @@ const native = NativeModules.GPRecentFiles as GPRecentFilesModule | undefined;
 
 function requireNative(): GPRecentFilesModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPRecentFiles native module is not available on this platform');
   }
   return native;

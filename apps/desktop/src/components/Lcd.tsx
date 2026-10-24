@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import { type LcdInfo, TEMPO_LOCK_MARK } from '../lib/lcd';
 import type { MetronomeBeat } from '../lib/metronome-beat';
 import { parseTempoText } from '../lib/practice-tempo';
-import { MONO_FONT, type Palette } from '../theme';
+import { LCD_COLORS, MONO_FONT, type Palette } from '../theme';
 import { TextField } from './TextField';
 
 export interface LcdProps {
@@ -17,18 +18,16 @@ export interface LcdProps {
   readonly onSetTempo?: (tempo: number) => void;
 }
 
-const LCD_BACKGROUND = '#121417';
-const LCD_DIGITS = '#D7E3F4';
-/** The visual metronome: the beat being played, the accented first beat, the count-in. */
-const BEAT_COLORS = { lit: '#7FD4FF', accent: '#4A6378', idle: '#2B3540', countIn: '#FFB454' } as const;
 /** Longer bars show "beat/count" instead of a row of dots. */
 const MAX_BEAT_DOTS = 12;
 
 /** Guitar Pro's LCD in the middle of the top bar: the track, then bar, time signature, time, tempo and beat. */
 export function Lcd({ palette, info, trackColor, beat, onSetTempo }: LcdProps) {
+  const t = useT();
   return (
-    <View style={[styles.lcd, { borderColor: palette.chromeBorder }]} accessibilityLabel="Position">
+    <View style={[styles.lcd, { borderColor: palette.chromeBorder }]} accessibilityLabel={t('window.lcd.accessibility')}>
       {info === undefined ? (
+        // i18n-exempt: the app's name
         <Text style={[styles.idle, { color: palette.chromeMuted }]}>GP Editor</Text>
       ) : (
         <>
@@ -56,13 +55,14 @@ export function Lcd({ palette, info, trackColor, beat, onSetTempo }: LcdProps) {
 
 /** The tempo; a click opens a field to type one (decimals allowed), Return sets it. */
 function LcdTempo({ info, palette, onSetTempo }: { readonly info: LcdInfo; readonly palette: Palette; readonly onSetTempo?: (tempo: number) => void }) {
+  const t = useT();
   const [draft, setDraft] = useState<string | undefined>(undefined);
   if (onSetTempo === undefined) {
     return <Text numberOfLines={1} style={[styles.digits, styles.tempo]}>{info.tempo}</Text>;
   }
   if (draft === undefined) {
     return (
-      <Pressable testID="lcd-tempo" tooltip={`Click to type the tempo (decimals allowed, e.g. 92.5)${info.tempo.endsWith(TEMPO_LOCK_MARK) ? `; ${TEMPO_LOCK_MARK} = tempo locked (⌥L)` : ''}`} onPress={() => setDraft(String(info.tempoBpm))} style={styles.tempo}>
+      <Pressable testID="lcd-tempo" tooltip={info.tempo.endsWith(TEMPO_LOCK_MARK) ? t('window.lcd.tempoTooltipLocked', { mark: TEMPO_LOCK_MARK }) : t('window.lcd.tempoTooltip')} onPress={() => setDraft(String(info.tempoBpm))} style={styles.tempo}>
         <Text numberOfLines={1} style={styles.digits}>{info.tempo}</Text>
       </Pressable>
     );
@@ -81,18 +81,19 @@ function LcdTempo({ info, palette, onSetTempo }: { readonly info: LcdInfo; reado
       onSubmitEditing={commit}
       onBlur={() => setDraft(undefined)}
       autoFocus
-      accessibilityLabel="Tempo"
-      style={[styles.tempoField, { color: LCD_DIGITS, borderColor: palette.chromeBorder }]}
+      accessibilityLabel={t('common.tempo')}
+      style={[styles.tempoField, { color: LCD_COLORS.digits, borderColor: palette.chromeBorder }]}
     />
   );
 }
 
 /** One dot per beat of the bar (Guitar Pro's visual metronome): the current beat lit, the first one marked. */
 function BeatDots({ beat }: { readonly beat: MetronomeBeat }) {
-  const lit = beat.isCountIn ? BEAT_COLORS.countIn : BEAT_COLORS.lit;
+  const t = useT();
+  const lit = beat.isCountIn ? LCD_COLORS.countIn : LCD_COLORS.lit;
   return (
-    <View style={styles.beats} accessibilityLabel={`Beat ${beat.index + 1} of ${beat.count}`}>
-      {beat.isCountIn ? <Text style={[styles.countIn, { color: BEAT_COLORS.countIn }]}>Count-in</Text> : null}
+    <View style={styles.beats} accessibilityLabel={t('window.lcd.beatOf', { beat: beat.index + 1, count: beat.count })}>
+      {beat.isCountIn ? <Text style={[styles.countIn, { color: LCD_COLORS.countIn }]}>{t('window.countIn')}</Text> : null}
       {beat.count > MAX_BEAT_DOTS ? (
         <Text style={[styles.digits, { color: lit }]}>{`${beat.index + 1}/${beat.count}`}</Text>
       ) : (
@@ -100,7 +101,7 @@ function BeatDots({ beat }: { readonly beat: MetronomeBeat }) {
           const isLit = index === beat.index;
           const isAccent = index === 0;
           const testID = `beat-dot-${index}${isLit ? '-lit' : isAccent ? '-accent' : ''}`;
-          const color = isLit ? lit : isAccent ? BEAT_COLORS.accent : BEAT_COLORS.idle;
+          const color = isLit ? lit : isAccent ? LCD_COLORS.accent : LCD_COLORS.idle;
           return <View key={index} testID={testID} style={[styles.dot, isAccent ? styles.accentDot : null, { backgroundColor: color }]} />;
         })
       )}
@@ -117,7 +118,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 5,
     borderWidth: 1,
-    backgroundColor: LCD_BACKGROUND,
+    backgroundColor: LCD_COLORS.background,
     paddingHorizontal: 9,
     justifyContent: 'center',
     marginHorizontal: 8,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   swatch: { width: 8, height: 8, borderRadius: 2, marginRight: 6 },
   track: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
   position: { fontSize: 11, marginLeft: 'auto', paddingLeft: 8 },
-  digits: { fontFamily: MONO_FONT, fontSize: 11, color: LCD_DIGITS, marginRight: 11 },
+  digits: { fontFamily: MONO_FONT, fontSize: 11, color: LCD_COLORS.digits, marginRight: 11 },
   tempoField: { fontFamily: MONO_FONT, fontSize: 11, width: 64, height: 16, paddingHorizontal: 3, paddingVertical: 0, borderWidth: 1, borderRadius: 3, marginRight: 14 },
   idle: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
   beats: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', paddingLeft: 4, flexShrink: 0 },

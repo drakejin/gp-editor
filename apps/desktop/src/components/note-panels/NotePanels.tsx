@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { type Bend, type BendShape, type Note, TREMOLO_BAR_PRESETS, type TremoloBarPresetName, type VibratoKind, bendShapeOf, buildBend, vibratoOf } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { type CurveDraft, draftCurve, isDraftOf } from '../../lib/curve-draft';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import type { NotePanel } from '../../lib/key-commands';
 import { ScoreCanvas } from '../../native/score-canvas';
 import { VIBRATO_PREVIEW, bendAmountLabel, engraveVibratoPreview } from '../../score/bend-graph';
@@ -11,20 +13,27 @@ import type { Palette } from '../../theme';
 import { CurveNotePanel } from './CurveNotePanel';
 import { ChoiceRow, NotePanelFrame } from './NotePanelFrame';
 
-const VIBRATOS: readonly { readonly value: VibratoKind; readonly label: string; readonly tooltip: string }[] = [
-  { value: 'none', label: 'None', tooltip: 'No vibrato' },
-  { value: 'slight', label: 'Slight', tooltip: 'Slight vibrato (~)' },
-  { value: 'wide', label: 'Wide', tooltip: 'Wide vibrato (~~)' },
+/** A choice of a note panel with its label's and tooltip's message keys. */
+interface ChoiceKeys<T> {
+  readonly value: T;
+  readonly label: MessageKey;
+  readonly tooltip: MessageKey;
+}
+
+const VIBRATOS: readonly ChoiceKeys<VibratoKind>[] = [
+  { value: 'none', label: 'common.none', tooltip: 'tools.notePanels.vibrato.noneTooltip' },
+  { value: 'slight', label: 'tools.notePanels.vibrato.slight', tooltip: 'tools.notePanels.vibrato.slightTooltip' },
+  { value: 'wide', label: 'tools.notePanels.vibrato.wide', tooltip: 'tools.notePanels.vibrato.wideTooltip' },
 ];
 
-const BEND_SHAPES: readonly { readonly value: BendShape | 'none'; readonly label: string; readonly tooltip: string }[] = [
-  { value: 'none', label: 'None', tooltip: 'No bend' },
-  { value: 'bend', label: 'Bend', tooltip: 'Bend up and hold' },
-  { value: 'bendRelease', label: 'Bend & release', tooltip: 'Bend up, then back' },
-  { value: 'bendReleaseBend', label: 'Bend, release, bend', tooltip: 'Bend, release, bend again' },
-  { value: 'preBend', label: 'Pre-bend', tooltip: 'Bent before it is struck' },
-  { value: 'preBendRelease', label: 'Pre-bend & release', tooltip: 'Bent before it is struck, then released' },
-  { value: 'release', label: 'Release', tooltip: 'Starts bent and releases' },
+const BEND_SHAPES: readonly ChoiceKeys<BendShape | 'none'>[] = [
+  { value: 'none', label: 'common.none', tooltip: 'tools.notePanels.bend.noneTooltip' },
+  { value: 'bend', label: 'tools.notePanels.bend.bend', tooltip: 'tools.notePanels.bend.bendTooltip' },
+  { value: 'bendRelease', label: 'tools.notePanels.bend.bendRelease', tooltip: 'tools.notePanels.bend.bendReleaseTooltip' },
+  { value: 'bendReleaseBend', label: 'tools.notePanels.bend.bendReleaseBend', tooltip: 'tools.notePanels.bend.bendReleaseBendTooltip' },
+  { value: 'preBend', label: 'tools.notePanels.bend.preBend', tooltip: 'tools.notePanels.bend.preBendTooltip' },
+  { value: 'preBendRelease', label: 'tools.notePanels.bend.preBendRelease', tooltip: 'tools.notePanels.bend.preBendReleaseTooltip' },
+  { value: 'release', label: 'tools.notePanels.bend.release', tooltip: 'tools.notePanels.bend.releaseTooltip' },
 ];
 
 /** Bend amounts offered, in quarter tones: ¼ to 3 tones. */
@@ -33,15 +42,20 @@ const BEND_AMOUNTS: readonly number[] = [1, 2, 3, 4, 5, 6, 8, 10, 12];
 const DEFAULT_BEND_AMOUNT = 4;
 
 /** Guitar Pro's tremolo bar presets (TuxGuitar's, a tone deep), in the order its editor lists them. */
-const TREMOLO_BAR_CHOICES: readonly { readonly value: TremoloBarPresetName | 'none'; readonly label: string; readonly tooltip: string }[] = [
-  { value: 'none', label: 'None', tooltip: 'No whammy bar: clears the grid' },
-  { value: 'dip', label: 'Dip', tooltip: 'Down a tone and back' },
-  { value: 'dive', label: 'Dive', tooltip: 'Down a tone and hold' },
-  { value: 'releaseUp', label: 'Release (up)', tooltip: 'Starts a tone down, comes back up' },
-  { value: 'invertedDip', label: 'Inverted dip', tooltip: 'Up a tone and back' },
-  { value: 'return', label: 'Return', tooltip: 'Up a tone and hold' },
-  { value: 'releaseDown', label: 'Release (down)', tooltip: 'Starts a tone up, comes back down' },
+const TREMOLO_BAR_CHOICES: readonly ChoiceKeys<TremoloBarPresetName | 'none'>[] = [
+  { value: 'none', label: 'common.none', tooltip: 'tools.notePanels.whammy.noneTooltip' },
+  { value: 'dip', label: 'tools.notePanels.whammy.dip', tooltip: 'tools.notePanels.whammy.dipTooltip' },
+  { value: 'dive', label: 'tools.notePanels.whammy.dive', tooltip: 'tools.notePanels.whammy.diveTooltip' },
+  { value: 'releaseUp', label: 'tools.notePanels.whammy.releaseUp', tooltip: 'tools.notePanels.whammy.releaseUpTooltip' },
+  { value: 'invertedDip', label: 'tools.notePanels.whammy.invertedDip', tooltip: 'tools.notePanels.whammy.invertedDipTooltip' },
+  { value: 'return', label: 'tools.notePanels.whammy.return', tooltip: 'tools.notePanels.whammy.returnTooltip' },
+  { value: 'releaseDown', label: 'tools.notePanels.whammy.releaseDown', tooltip: 'tools.notePanels.whammy.releaseDownTooltip' },
 ];
+
+/** The choices' labels and tooltips in the shown language. */
+function translateChoices<T>(choices: readonly ChoiceKeys<T>[], t: (key: MessageKey) => string): readonly { readonly value: T; readonly label: string; readonly tooltip: string }[] {
+  return choices.map(({ value, label, tooltip }) => ({ value, label: t(label), tooltip: t(tooltip) }));
+}
 
 interface NotePanelViewProps {
   readonly palette: Palette;
@@ -59,10 +73,11 @@ interface NotePanelViewProps {
  * ("choking") or tremolo bar, edited point by point and put on the note by Apply.
  */
 export function NotePanelView({ palette, panel, note, onEdit, onPreview, onClose }: NotePanelViewProps) {
+  const t = useT();
   if (panel === 'vibrato') {
     return (
-      <NotePanelFrame palette={palette} title="Vibrato" subtitle={`String ${note.string} · fret ${note.fret}`} onClose={onClose}>
-        <ChoiceRow palette={palette} label="WIDTH" choices={VIBRATOS} current={vibratoOf(note.effect)} onChoose={(vibrato) => onEdit({ type: 'setVibrato', vibrato })} />
+      <NotePanelFrame palette={palette} title={t('tools.notePanels.vibrato')} subtitle={t('tools.notePanels.noteAt', { string: note.string, fret: note.fret })} onClose={onClose}>
+        <ChoiceRow palette={palette} label={t('tools.notePanels.width')} choices={translateChoices(VIBRATOS, t)} current={vibratoOf(note.effect)} onChoose={(vibrato) => onEdit({ type: 'setVibrato', vibrato })} />
         <View style={styles.preview}>
           <ScoreCanvas commands={engraveVibratoPreview(vibratoOf(note.effect), palette)} style={{ width: VIBRATO_PREVIEW.width, height: VIBRATO_PREVIEW.height }} />
         </View>
@@ -87,6 +102,7 @@ function BendPresets({ palette, draft, onLoad }: PresetsProps) {
   const curve = draftCurve(draft);
   const shaped = curve === undefined ? undefined : bendShapeOf(curve);
   const [amount, setAmount] = useState(shaped?.amount ?? DEFAULT_BEND_AMOUNT);
+  const t = useT();
   const shape: BendShape | 'none' | undefined = curve === undefined ? 'none' : shaped?.shape;
   const chooseAmount = (next: number) => {
     setAmount(next);
@@ -94,11 +110,11 @@ function BendPresets({ palette, draft, onLoad }: PresetsProps) {
   };
   return (
     <>
-      <ChoiceRow palette={palette} label="SHAPE" choices={BEND_SHAPES} current={shape} onChoose={(next) => onLoad(next === 'none' ? undefined : buildBend(next, amount))} />
+      <ChoiceRow palette={palette} label={t('tools.notePanels.shape')} choices={translateChoices(BEND_SHAPES, t)} current={shape} onChoose={(next) => onLoad(next === 'none' ? undefined : buildBend(next, amount))} />
       <ChoiceRow
         palette={palette}
-        label="AMOUNT"
-        choices={BEND_AMOUNTS.map((value) => ({ value, label: bendAmountLabel(value), tooltip: `${bendAmountLabel(value)} tone` }))}
+        label={t('tools.notePanels.amount')}
+        choices={BEND_AMOUNTS.map((value) => ({ value, label: bendAmountLabel(value), tooltip: t('tools.notePanels.amountTooltip', { amount: bendAmountLabel(value) }) }))}
         current={curve === undefined ? amount : shaped?.amount}
         onChoose={chooseAmount}
       />
@@ -108,9 +124,10 @@ function BendPresets({ palette, draft, onLoad }: PresetsProps) {
 
 /** Guitar Pro's tremolo bar presets: each loads its curve into the grid. */
 function TremoloBarPresets({ palette, draft, onLoad }: PresetsProps) {
+  const t = useT();
   const current = TREMOLO_BAR_CHOICES.find(({ value }) => (value === 'none' ? draft.points.length === 0 : isDraftOf(draft, TREMOLO_BAR_PRESETS[value])))?.value;
   return (
-    <ChoiceRow palette={palette} label="PRESET" choices={TREMOLO_BAR_CHOICES} current={current} onChoose={(value) => onLoad(value === 'none' ? undefined : TREMOLO_BAR_PRESETS[value])} />
+    <ChoiceRow palette={palette} label={t('tools.notePanels.preset')} choices={translateChoices(TREMOLO_BAR_CHOICES, t)} current={current} onChoose={(value) => onLoad(value === 'none' ? undefined : TREMOLO_BAR_PRESETS[value])} />
   );
 }
 

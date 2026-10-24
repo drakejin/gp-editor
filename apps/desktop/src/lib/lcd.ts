@@ -1,5 +1,7 @@
 import { type Song, type StringAddress, findNote } from '@gp-editor/core';
 import type { PlayingBeat } from '../score/row';
+import type { Translate } from '../hooks/use-i18n';
+import { t as translateNow } from './i18n/i18n';
 import { tabFretOf } from './notation';
 import type { LoopPass } from './practice-plan';
 import type { PracticeSettings } from '../state/practice';
@@ -31,31 +33,33 @@ export interface LcdSource {
   readonly practice: PracticeSettings;
   /** While a loop plays: the pass being played and its tempo (the speed trainer's). */
   readonly loopPass?: LoopPass;
+  /** The words' language (`useT()`'s `t`); the language shown now when absent. */
+  readonly t?: Translate;
 }
 
-function positionText(song: Song, cursor: StringAddress | undefined): string {
+function positionText(song: Song, cursor: StringAddress | undefined, t: Translate): string {
   if (cursor === undefined) {
     return '';
   }
   const note = findNote(song, cursor);
   const track = song.tracks[cursor.trackIndex];
-  const what = note === undefined || track === undefined ? 'empty' : `Fret ${tabFretOf(track, note)}`;
-  return `Voice ${cursor.voiceIndex + 1} · Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
+  const what = note === undefined || track === undefined ? t('window.lcd.empty') : t('window.fret', { number: tabFretOf(track, note) });
+  return t('window.lcd.position', { voice: cursor.voiceIndex + 1, beat: cursor.beatIndex + 1, string: cursor.string, what });
 }
 
 /** The tempo lock's mark after the tempo (the LCD tempo's tooltip names it). */
 export const TEMPO_LOCK_MARK = '🔒';
 
-function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined, isLocked: boolean): string {
+function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined, isLocked: boolean, t: Translate): string {
   // A padlock, not a word: the tempo, speed, beat dots and count-in fit the LCD at a 1280 pt window.
   const lock = isLocked ? ` ${TEMPO_LOCK_MARK}` : '';
   if (loopPass !== undefined) {
-    return `♩ = ${loopPass.tempo} · pass ${loopPass.passIndex + 1}${lock}`;
+    return `♩ = ${loopPass.tempo} · ${t('window.lcd.pass', { number: loopPass.passIndex + 1 })}${lock}`;
   }
   return percent === 100 ? `♩ = ${tempo}${lock}` : `♩ = ${tempo} (${percent}%)${lock}`;
 }
 
-export function lcdInfo({ song, trackIndex, cursor, playing, practice, loopPass }: LcdSource): LcdInfo {
+export function lcdInfo({ song, trackIndex, cursor, playing, practice, loopPass, t = translateNow }: LcdSource): LcdInfo {
   const track = song.tracks[trackIndex];
   const measureIndex = playing?.measureIndex ?? cursor?.measureIndex ?? 0;
   const measureHeader = song.measureHeaders[measureIndex];
@@ -65,12 +69,12 @@ export function lcdInfo({ song, trackIndex, cursor, playing, practice, loopPass 
   const tempo = playbackTempo(lockedTempo ?? measureHeader?.tempo ?? 0, scale);
   const percent = tempoPercent(scale);
   return {
-    track: track === undefined ? '' : `${track.number}. ${track.name || 'Untitled'}`,
+    track: track === undefined ? '' : t('common.trackNumbered', { number: track.number, name: track.name || t('common.untitled') }),
     bar: `${measureIndex + 1}/${song.measureHeaders.length}`,
     timeSignature: measureHeader === undefined ? '' : `${measureHeader.timeSignature.numerator}/${measureHeader.timeSignature.denominator}`,
     clock: `${formatClock(start)} / ${formatClock(songSeconds(song, scale, lockedTempo))}`,
-    tempo: tempoText(tempo, percent, playing === undefined ? undefined : loopPass, lockedTempo !== undefined),
+    tempo: tempoText(tempo, percent, playing === undefined ? undefined : loopPass, lockedTempo !== undefined, t),
     tempoBpm: lockedTempo ?? tempo,
-    position: positionText(song, cursor),
+    position: positionText(song, cursor, t),
   };
 }

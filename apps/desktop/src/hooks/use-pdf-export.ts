@@ -3,6 +3,7 @@ import type { PaperId } from '../export/paper';
 import { type ExportMode, buildPdfDocument, exportBaseName, exportStaves, pdfFileName } from '../export/pdf-document';
 import { type PngOptions, pngFileNames, pngSavedHint } from '../export/png-export';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { subscribeExportPngRequests, subscribeExportRequests, subscribePrintRequests } from '../native/gp-files';
 import { printPdf, savePdf } from '../native/pdf-export';
 import { savePngs } from '../native/png-export';
@@ -89,7 +90,7 @@ export function usePdfExport(
   useEffect(() => subscribeExportRequests(open), [open]);
   useEffect(() => subscribeExportPngRequests(openPng), [openPng]);
   const onFailed = useCallback(
-    (message: string) => dispatch(format === 'png' ? { type: 'exportFailed', message, what: 'the PNG images' } : { type: 'exportFailed', message }),
+    (message: string) => dispatch(format === 'png' ? { type: 'exportFailed', message, what: t('window.exportWhat.pngImages') } : { type: 'exportFailed', message }),
     [dispatch, format],
   );
   const { isSaving, run } = useSaveRun(close, onFailed);

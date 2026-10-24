@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import { TextField } from './TextField';
 import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
 import type { Palette } from '../theme';
@@ -22,45 +23,47 @@ interface ImportPanelProps {
  * Choose PDF… to start. Each import becomes a project in Documents/GP Editor Projects.
  */
 export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, onChooseModel, onStart, onClose }: ImportPanelProps) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
   const save = () => {
     onSaveKey(draft)
       .then(() => {
         setDraft('');
-        setMessage('Key saved on this Mac.');
+        setMessage(t('window.import.keySaved'));
       })
       .catch((reason: unknown) => setMessage(errorMessage(reason)));
   };
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: palette.text }]}>Import PDF → tab</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{t('window.import.title')}</Text>
         <Text style={[styles.hint, { color: palette.muted }]}>
-          Claude reads the sheet music page by page; each import becomes a folder in Documents/GP Editor Projects.
+          {t('window.import.intro')}
         </Text>
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>Anthropic API key</Text>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.import.apiKey')}</Text>
         {hasKey === true ? (
           <>
-            <Text style={[styles.hint, { color: palette.muted }]}>saved on this Mac</Text>
-            <BarButton label="Remove key" palette={palette} onPress={onRemoveKey} />
+            <Text style={[styles.hint, { color: palette.muted }]}>{t('window.import.keyStored')}</Text>
+            <BarButton label={t('window.import.removeKey')} palette={palette} onPress={onRemoveKey} />
           </>
         ) : null}
         <TextField
           value={draft}
           onChangeText={setDraft}
           secureTextEntry
-          placeholder={hasKey === true ? 'Replace with another key' : 'sk-ant-…'}
+          // i18n-exempt: the start of an Anthropic key, as the key is written
+          placeholder={hasKey === true ? t('window.import.replaceKey') : 'sk-ant-…'}
           placeholderTextColor={palette.muted}
           style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.paper }]}
         />
-        <BarButton label="Save key" palette={palette} isEnabled={draft.trim().length > 0} onPress={save} />
+        <BarButton label={t('window.import.saveKey')} palette={palette} isEnabled={draft.trim().length > 0} onPress={save} />
         {message === undefined ? null : <Text style={[styles.hint, { color: palette.muted }]}>{message}</Text>}
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>Model</Text>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.import.model')}</Text>
         {TRANSCRIPTION_MODELS.map((candidate) => (
           <BarButton
             key={candidate.id}
@@ -72,8 +75,8 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
         ))}
       </View>
       <View style={styles.row}>
-        <BarButton label="Choose PDF…" palette={palette} isAccent isEnabled={hasKey === true} onPress={onStart} />
-        <BarButton label="Close" palette={palette} onPress={onClose} />
+        <BarButton label={t('window.import.choosePdf')} palette={palette} isAccent isEnabled={hasKey === true} onPress={onStart} />
+        <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
       </View>
     </View>
   );

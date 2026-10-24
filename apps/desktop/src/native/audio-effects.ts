@@ -1,5 +1,6 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import type { MixLayout } from '../lib/mix';
+import { t } from '../lib/i18n/i18n';
 
 /** Where the line in plays: an input device (empty: the system's default), the track whose effects it goes through. */
 export interface LineInSettings {
@@ -37,7 +38,7 @@ export function loadLineInDevices(): Promise<unknown> {
 
 /** Starts the line in, asking for microphone access first; rejects when access is off or the input cannot open. */
 export function startLineIn(settings: LineInSettings): Promise<void> {
-  return native === undefined ? Promise.reject(new Error('The audio input is not available on this platform.')) : native.startLineIn(settings);
+  return native === undefined ? Promise.reject(new Error(t('window.native.lineInUnavailable'))) : native.startLineIn(settings);
 }
 
 export function updateLineIn(settings: LineInSettings): Promise<void> {

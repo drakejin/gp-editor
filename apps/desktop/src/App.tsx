@@ -32,6 +32,7 @@ import { TabStrip } from './components/TabStrip';
 import { TransposePanel } from './components/TransposePanel';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { TunerPanel } from './components/tuner/TunerPanel';
+import { SettingsPanel } from './components/settings/SettingsPanel';
 import { LineInPanel } from './components/effects/LineInPanel';
 import { MixerPanel } from './components/effects/MixerPanel';
 import { NotePanelView } from './components/note-panels/NotePanels';
@@ -58,12 +59,14 @@ import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
 import { useTrackDisplay } from './hooks/use-track-display';
 import { useTuner } from './hooks/use-tuner';
+import { useSettingsPanel } from './hooks/use-app-settings';
 import { useTrackManager } from './hooks/use-track-manager';
 import { useAudioExport } from './hooks/use-audio-export';
 import { useAudioTools } from './hooks/use-audio-tools';
 import { useWindowChrome } from './hooks/use-window-chrome';
+import { useT } from './hooks/use-i18n';
 import type { CommandActions } from './lib/command-types';
-import { COMMANDS } from './lib/commands';
+import { allCommands } from './lib/commands';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
@@ -78,7 +81,7 @@ import { describeReference } from './song-writer/reference';
 import { playbackStartTempo, typedTempoAction } from './state/practice';
 import { selectedFragment, selectionRange, selectionSummary } from './state/selection';
 import type { SongEdit } from './state/song-edits';
-import { NO_SELECTION_HINT, type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
+import { type TranspositionDraft, noSelectionHint, toTranspositionOptions, transpositionScope } from './state/transposition';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
 import { onChrome, usePalette } from './theme';
 
@@ -155,6 +158,9 @@ export default function App() {
   const { isPanelOpen: isRecentFilesOpen, closePanel: closeRecentFiles } = recentFiles;
   // Tools ▸ Tuner…: the microphone runs while its panel is open.
   const tuner = useTuner();
+  // GP Editor ▸ Settings… (⌘,): language, interface contrast, score paper.
+  const settingsPanel = useSettingsPanel();
+  const { isOpen: isSettingsOpen, close: closeSettings } = settingsPanel;
   const { isOpen: isTunerOpen, open: openTuner, close: closeTuner } = tuner;
   useEffect(() => subscribeTunerRequests(openTuner), [openTuner]);
   // Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P); the keyboard goes back to the score when they close.
@@ -177,6 +183,8 @@ export default function App() {
   // The panels over the window that are not the chrome's: closed by Esc after the save question.
   const closePanel = useCallback(() => {
     const closers: readonly (readonly [boolean, () => void])[] = [
+      // Settings first: it is over every other panel.
+      [isSettingsOpen, closeSettings],
       [isTunerOpen, closeTuner],
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
@@ -196,13 +204,13 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn, isTrackPanelOpen, closeTrackPanel]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn, isTrackPanelOpen, closeTrackPanel, isSettingsOpen, closeSettings]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isAudioExportOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen || isSettingsOpen;
   // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -338,9 +346,11 @@ export default function App() {
     }
   }, [activeTabId, stopPlayback, closePicker, closeChordPanel]);
 
+  // The LCD's words in the shown language (`t` changes with it, and the memo is rebuilt).
+  const t = useT();
   const lcd = useMemo(
-    () => (song === undefined ? undefined : lcdInfo({ song, trackIndex, cursor, playing: playback.playing, practice: playback.practice, loopPass: playback.loopPass })),
-    [song, trackIndex, cursor, playback.playing, playback.practice, playback.loopPass],
+    () => (song === undefined ? undefined : lcdInfo({ song, trackIndex, cursor, playing: playback.playing, practice: playback.practice, loopPass: playback.loopPass, t })),
+    [song, trackIndex, cursor, playback.playing, playback.practice, playback.loopPass, t],
   );
   const track = song?.tracks[trackIndex];
   // A note panel follows the cursor from note to note; an empty string closes it.
@@ -353,8 +363,8 @@ export default function App() {
   const errorText =
     state.error ??
     workspace.error ??
-    (playback.error !== undefined ? `Could not play: ${playback.error}` : sound.error !== undefined ? `Sound bank: ${sound.error}` : undefined) ??
-    (recentFiles.error !== undefined ? `Recent files: ${recentFiles.error}` : undefined);
+    (playback.error !== undefined ? t('window.error.couldNotPlay', { detail: playback.error }) : sound.error !== undefined ? t('window.error.soundBank', { detail: sound.error }) : undefined) ??
+    (recentFiles.error !== undefined ? t('window.error.recentFiles', { detail: recentFiles.error }) : undefined);
   const dismissError = () => {
     dispatch({ type: 'dismissError' });
     playback.dismissError();
@@ -380,6 +390,7 @@ export default function App() {
     openRecentFiles: recentFiles.openPanel,
     openSongWriter: songWriter.open,
     openShortcuts: chrome.openShortcutSheet,
+    openSettings: settingsPanel.open,
     openTranspose: transposePanel.open,
     openTuner,
     openScales,
@@ -396,7 +407,7 @@ export default function App() {
   };
   const transposeTo = (draft: TranspositionDraft) => {
     const scope = transpositionScope(state, draft.target);
-    dispatch(scope === undefined ? { type: 'showHint', hint: NO_SELECTION_HINT } : { type: 'transpose', scope, options: toTranspositionOptions(draft) });
+    dispatch(scope === undefined ? { type: 'showHint', hint: noSelectionHint() } : { type: 'transpose', scope, options: toTranspositionOptions(draft) });
     closeTranspose();
     focusScore();
   };
@@ -524,7 +535,7 @@ export default function App() {
         />
       ) : null}
       <ImportBanner palette={chromePalette} pdfImport={pdfImport} onOpenSettings={openImportPanel} />
-      {errorText !== undefined ? <ErrorBanner message={errorText} palette={palette} onDismiss={dismissError} /> : null}
+      {errorText !== undefined ? <ErrorBanner message={errorText} onDismiss={dismissError} /> : null}
       {document !== undefined ? (
         <DocumentLayout
           left={
@@ -664,7 +675,7 @@ export default function App() {
               <RecentFileList
                 files={recentFiles.files}
                 palette={palette}
-                heading="RECENT FILES"
+                heading={t('window.start.recentFiles')}
                 limit={START_SCREEN_RECENT_FILES}
                 onOpen={openRecent}
                 onTogglePin={recentFiles.togglePin}
@@ -702,7 +713,7 @@ export default function App() {
           key={commandPalette.session.id}
           initialQuery={commandPalette.session.initialQuery}
           palette={palette}
-          commands={COMMANDS}
+          commands={allCommands()}
           state={commandStateOf(workspace)}
           recentIds={commandPalette.recentIds}
           onRun={(command) => commandPalette.run(command, commandActions)}
@@ -754,6 +765,17 @@ export default function App() {
         <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={editAtCursor} onPreview={draftPreview.show} onClose={chrome.closeNotePanel} />
       ) : null}
       <TrackManagerOverlays manager={trackManager} palette={chromePalette} />
+      {isSettingsOpen ? (
+        <SettingsPanel
+          palette={palette}
+          snapshot={settingsPanel.snapshot}
+          onChange={settingsPanel.change}
+          onClose={() => {
+            closeSettings();
+            focusScore();
+          }}
+        />
+      ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
       {tabs.closing !== undefined ? (
         <SaveChangesPanel palette={palette} name={tabs.closing.name} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} />

@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SHORTCUT_GROUPS, type ShortcutGroup } from '../lib/shortcuts';
+import { useT } from '../hooks/use-i18n';
+import { type ShortcutGroup, shortcutGroups } from '../lib/shortcuts';
 import type { Palette } from '../theme';
 import { ChromeButton } from './chrome/ChromeButton';
 
@@ -10,20 +11,22 @@ interface ShortcutSheetProps {
 
 /** Help ▸ Keyboard Shortcuts (⌘H): every key the app answers, as a sheet over the window; a click outside closes it. */
 export function ShortcutSheet({ palette, onClose }: ShortcutSheetProps) {
-  const half = Math.ceil(SHORTCUT_GROUPS.length / 2);
-  const columns = [SHORTCUT_GROUPS.slice(0, half), SHORTCUT_GROUPS.slice(half)];
+  const t = useT();
+  const groups = shortcutGroups();
+  const half = Math.ceil(groups.length / 2);
+  const columns = [groups.slice(0, half), groups.slice(half)];
   return (
     <View style={styles.overlay}>
       <Pressable testID="shortcut-sheet-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Keyboard shortcuts">
+      <View style={[styles.sheet, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('commands.shortcuts.accessibility')}>
         <View style={[styles.header, { borderColor: palette.chromeBorder }]}>
-          <Text style={[styles.title, { color: palette.chromeText }]}>Keyboard Shortcuts</Text>
-          <ChromeButton palette={palette} label="Done" tooltip="Close the shortcut sheet" onPress={onClose} />
+          <Text style={[styles.title, { color: palette.chromeText }]}>{t('commands.shortcuts.title')}</Text>
+          <ChromeButton palette={palette} label={t('common.done')} tooltip={t('commands.shortcuts.doneTooltip')} onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={styles.columns}>
-          {columns.map((groups, index) => (
+          {columns.map((column, index) => (
             <View key={index} style={styles.column}>
-              {groups.map((group) => (
+              {column.map((group) => (
                 <GroupView key={group.title} palette={palette} group={group} />
               ))}
             </View>

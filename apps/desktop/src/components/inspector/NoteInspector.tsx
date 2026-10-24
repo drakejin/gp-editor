@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { DEFAULT_NOTE_AUDIO, type Note, type NoteAudio } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -18,43 +20,44 @@ const AUDIO_STEP = 5;
 
 interface AudioSetting {
   readonly setting: keyof NoteAudio;
-  readonly label: string;
-  readonly less: string;
-  readonly more: string;
+  readonly label: MessageKey;
+  readonly less: MessageKey;
+  readonly more: MessageKey;
   readonly format: (value: number) => string;
 }
 
 /** Guitar Pro 8's note inspector, "Audio": how the note plays back, never how it is written. */
 const AUDIO_SETTINGS: readonly AudioSetting[] = [
-  { setting: 'durationPercent', label: 'Duration', less: 'Play duration: shorter', more: 'Play duration: longer', format: (value) => `${value}%` },
-  { setting: 'offsetPercent', label: 'Start offset', less: 'Start offset: earlier', more: 'Start offset: later (a share of the beat)', format: (value) => `${value}%` },
-  { setting: 'velocityOffset', label: 'Velocity', less: 'Velocity change: less', more: 'Velocity change: more', format: (value) => (value < 0 ? `−${-value}` : `+${value}`) },
+  { setting: 'durationPercent', label: 'tools.inspector.duration', less: 'tools.inspector.durationLess', more: 'tools.inspector.durationMore', format: (value) => `${value}%` },
+  { setting: 'offsetPercent', label: 'tools.inspector.offset', less: 'tools.inspector.offsetLess', more: 'tools.inspector.offsetMore', format: (value) => `${value}%` },
+  { setting: 'velocityOffset', label: 'tools.inspector.velocity', less: 'tools.inspector.velocityLess', more: 'tools.inspector.velocityMore', format: (value) => (value < 0 ? `−${-value}` : `+${value}`) },
 ];
 
 /** The NOTE tab: the audio settings of the note at the cursor. */
 export function NoteInspector({ palette, note, onEditNote }: NoteInspectorProps) {
+  const t = useT();
   if (note === undefined || onEditNote === undefined) {
     return (
-      <InspectorSection palette={palette} title="AUDIO">
-        <Text style={[styles.hint, { color: palette.chromeMuted }]}>Put the cursor on a note to set how it plays back.</Text>
+      <InspectorSection palette={palette} title={t('tools.inspector.audio')}>
+        <Text style={[styles.hint, { color: palette.chromeMuted }]}>{t('tools.inspector.noNote')}</Text>
       </InspectorSection>
     );
   }
   const audio = note.audio ?? DEFAULT_NOTE_AUDIO;
   const shift = (setting: keyof NoteAudio, delta: number) => onEditNote({ type: 'shiftNoteAudio', setting, delta });
   return (
-    <InspectorSection palette={palette} title="AUDIO">
+    <InspectorSection palette={palette} title={t('tools.inspector.audio')}>
       {AUDIO_SETTINGS.map(({ setting, label, less, more, format }) => (
-        <InspectorField key={setting} palette={palette} label={label}>
-          <ChromeButton palette={palette} label="−" tooltip={less} onPress={() => shift(setting, -AUDIO_STEP)} />
+        <InspectorField key={setting} palette={palette} label={t(label)}>
+          <ChromeButton palette={palette} label="−" tooltip={t(less)} onPress={() => shift(setting, -AUDIO_STEP)} />
           <Text style={[styles.value, { color: palette.chromeText }]}>{format(audio[setting])}</Text>
-          <ChromeButton palette={palette} label="+" tooltip={more} onPress={() => shift(setting, AUDIO_STEP)} />
+          <ChromeButton palette={palette} label="+" tooltip={t(more)} onPress={() => shift(setting, AUDIO_STEP)} />
         </InspectorField>
       ))}
       <View style={styles.reset}>
-        <ChromeButton palette={palette} label="Reset" tooltip="Play the note as written" isEnabled={note.audio !== undefined} onPress={() => onEditNote({ type: 'resetNoteAudio' })} />
+        <ChromeButton palette={palette} label={t('common.reset')} tooltip={t('tools.inspector.resetTooltip')} isEnabled={note.audio !== undefined} onPress={() => onEditNote({ type: 'resetNoteAudio' })} />
       </View>
-      <Text style={[styles.hint, { color: palette.chromeMuted }]}>Playback only. Saved in GP5 files as the duration; .gp, GP4 and GP3 files leave them out.</Text>
+      <Text style={[styles.hint, { color: palette.chromeMuted }]}>{t('tools.inspector.audioNote')}</Text>
     </InspectorSection>
   );
 }

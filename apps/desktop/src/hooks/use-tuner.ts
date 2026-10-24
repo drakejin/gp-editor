@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_REFERENCE_A4, clampReferenceA4 } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { SILENT_INPUT, type TunerInput, type TunerStatus, nextTunerInput } from '../lib/tuner-input';
 import { startAudioInput, stopAudioInput, subscribeAudioFrames } from '../native/audio-input';
 
@@ -41,7 +42,7 @@ export function useTuner(): Tuner {
 /** A refused start: "denied" (GPAudioInput's code when microphone access is off) or any other failure. */
 function failureStatus(reason: unknown): TunerStatus {
   const code = typeof reason === 'object' && reason !== null ? (reason as { readonly code?: unknown }).code : undefined;
-  return code === 'denied' ? { kind: 'denied' } : { kind: 'failed', message: errorMessage(reason, 'The microphone could not start.') };
+  return code === 'denied' ? { kind: 'denied' } : { kind: 'failed', message: errorMessage(reason, t('tools.tuner.startFailed')) };
 }
 
 /**

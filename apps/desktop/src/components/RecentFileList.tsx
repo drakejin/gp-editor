@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import { type RecentFile, recentFileFolder } from '../lib/recent-files';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -27,27 +28,29 @@ interface RecentFileRowProps {
 /** One file: its name (pinned, missing), its folder, then Open, Pin / Unpin and Remove. */
 function RecentFileRow({ file, palette, onOpen, onTogglePin, onRemove }: RecentFileRowProps) {
   const { path, name, isPinned, isMissing } = file;
+  const t = useT();
   return (
     <View style={[styles.item, { borderColor: palette.border }]}>
       <View style={styles.texts}>
         <Text numberOfLines={1} style={[styles.name, { color: isMissing ? palette.muted : palette.text }]}>
           {name}
-          {isPinned ? <Text style={[styles.tag, { color: palette.accent }]}> · pinned</Text> : null}
-          {isMissing ? <Text style={[styles.tag, { color: palette.danger }]}> · missing</Text> : null}
+          {isPinned ? <Text style={[styles.tag, { color: palette.accent }]}>{` · ${t('window.recentFiles.pinned')}`}</Text> : null}
+          {isMissing ? <Text style={[styles.tag, { color: palette.danger }]}>{` · ${t('window.recentFiles.missing')}`}</Text> : null}
         </Text>
         <Text numberOfLines={1} ellipsizeMode="middle" style={[styles.folder, { color: palette.muted }]}>
           {recentFileFolder(path)}
         </Text>
       </View>
-      <BarButton label="Open" palette={palette} isAccent isEnabled={!isMissing} onPress={() => onOpen(path)} />
-      <BarButton label={isPinned ? 'Unpin' : 'Pin'} palette={palette} onPress={() => onTogglePin(path)} />
-      <BarButton label="Remove" palette={palette} onPress={() => onRemove(path)} />
+      <BarButton label={t('common.open')} palette={palette} isAccent isEnabled={!isMissing} onPress={() => onOpen(path)} />
+      <BarButton label={isPinned ? t('window.recentFiles.unpin') : t('window.recentFiles.pin')} palette={palette} onPress={() => onTogglePin(path)} />
+      <BarButton label={t('common.remove')} palette={palette} onPress={() => onRemove(path)} />
     </View>
   );
 }
 
 /** Recent files (pinned on top): open one, pin or unpin it, remove it. Nothing when there are none. */
 export function RecentFileList({ files, palette, heading, limit, onOpen, onTogglePin, onRemove, onShowAll }: RecentFileListProps) {
+  const t = useT();
   if (files.length === 0) {
     return null;
   }
@@ -60,7 +63,7 @@ export function RecentFileList({ files, palette, heading, limit, onOpen, onToggl
       ))}
       {shown.length < files.length && onShowAll !== undefined ? (
         <View style={styles.more}>
-          <BarButton label={`All ${files.length} Recent Files…`} palette={palette} onPress={onShowAll} />
+          <BarButton label={t('window.recentFiles.showAll', { count: files.length })} palette={palette} onPress={onShowAll} />
         </View>
       ) : null}
     </View>

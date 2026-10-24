@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { type AudioTrack, type Song, buildSyncMap } from '@gp-editor/core';
 import type { AudioTrackLaneCommands } from '../../hooks/use-audio-track';
+import { useT } from '../../hooks/use-i18n';
 import { AUDIO_LANE } from '../../score/audio-lane';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -28,6 +29,7 @@ function fileNameOf(path: string): string {
 
 /** Name, file, Replace… and remove; the strip; the sync tools and the zoom. */
 function LaneHeader({ audioTrack, lane, cursorMeasureIndex, palette }: AudioTrackLaneProps) {
+  const t = useT();
   const barNumber = (cursorMeasureIndex ?? 0) + 1;
   const fileName = fileNameOf(audioTrack.originalFilePath);
   return (
@@ -39,24 +41,24 @@ function LaneHeader({ audioTrack, lane, cursorMeasureIndex, palette }: AudioTrac
         <Text numberOfLines={1} style={[styles.file, { color: palette.chromeMuted }]}>
           {lane.peaks === undefined && lane.error !== undefined ? lane.error : fileName}
         </Text>
-        <ChromeButton palette={palette} label="Replace…" tooltip="Replace the recording with another audio file" fontSize={11} onPress={lane.addAudioTrack} />
-        <ChromeButton palette={palette} label="✕" tooltip="Remove the audio track" fontSize={11} onPress={lane.removeAudioTrack} />
+        <ChromeButton palette={palette} label={t('tools.audioTrack.replace')} tooltip={t('tools.audioTrack.replaceTooltip')} fontSize={11} onPress={lane.addAudioTrack} />
+        <ChromeButton palette={palette} label="✕" tooltip={t('tools.audioTrack.remove')} fontSize={11} onPress={lane.removeAudioTrack} />
       </View>
       <AudioTrackControls audioTrack={audioTrack} palette={palette} onSetMix={lane.setMix} />
       <View style={styles.row}>
-        <ChromeButton palette={palette} label={`Sync bar ${barNumber} (Y)`} tooltip={`While it plays: bar ${barNumber} starts at this moment of the recording (Y)`} fontSize={11} onPress={lane.markSyncPoint} />
+        <ChromeButton palette={palette} label={t('tools.audioTrack.syncBar', { number: barNumber })} tooltip={t('tools.audioTrack.syncBarTooltip', { number: barNumber })} fontSize={11} onPress={lane.markSyncPoint} />
         <ChromeButton
           palette={palette}
-          label="Delete point"
-          tooltip="Delete the selected sync point"
+          label={t('tools.audioTrack.deletePoint')}
+          tooltip={t('tools.audioTrack.deletePointTooltip')}
           fontSize={11}
           isEnabled={lane.selectedPointIndex !== undefined}
           onPress={lane.deleteSelectedPoint}
         />
-        <ChromeButton palette={palette} label="Tempo" tooltip="Set the song's tempo from the first two sync points" fontSize={11} onPress={lane.tempoFromAudio} />
+        <ChromeButton palette={palette} label={t('common.tempo')} tooltip={t('tools.audioTrack.tempoTooltip')} fontSize={11} onPress={lane.tempoFromAudio} />
         <View style={styles.spacer} />
-        <ChromeButton palette={palette} label="−" tooltip="Zoom out of the waveform" isEnabled={lane.canZoomOut} onPress={lane.zoomOut} />
-        <ChromeButton palette={palette} label="+" tooltip="Zoom into the waveform" isEnabled={lane.canZoomIn} onPress={lane.zoomIn} />
+        <ChromeButton palette={palette} label="−" tooltip={t('tools.audioTrack.zoomOut')} isEnabled={lane.canZoomOut} onPress={lane.zoomOut} />
+        <ChromeButton palette={palette} label="+" tooltip={t('tools.audioTrack.zoomIn')} isEnabled={lane.canZoomIn} onPress={lane.zoomIn} />
       </View>
     </View>
   );

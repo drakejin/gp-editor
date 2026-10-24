@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TextField } from '../TextField';
+import { type Translate, useT } from '../../hooks/use-i18n';
 import { type SongWriterDraft, type SongWriterStatus, stepLabel } from '../../hooks/use-song-writer';
 import { errorMessage } from '../../lib/errors';
 import { TRANSCRIPTION_MODELS } from '../../pdf-import/request';
@@ -29,6 +30,7 @@ export interface SongWriterPanelProps {
 function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<SongWriterPanelProps, 'palette' | 'hasKey' | 'model' | 'onSaveKey' | 'onChooseModel'>) {
   const [draftKey, setDraftKey] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
+  const t = useT();
   const save = () => {
     onSaveKey(draftKey)
       .then(() => setDraftKey(''))
@@ -36,24 +38,24 @@ function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<So
   };
   return (
     <View style={styles.claude}>
-      <Text style={[styles.label, { color: palette.chromeMuted }]}>CLAUDE</Text>
+      <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.songWriter.claude')}</Text>
       {TRANSCRIPTION_MODELS.map((candidate) => (
-        <ChromeButton key={candidate.id} palette={palette} label={candidate.name} tooltip={`Write with ${candidate.name}`} fontSize={11} isActive={candidate.id === model} onPress={() => onChooseModel(candidate.id)} />
+        <ChromeButton key={candidate.id} palette={palette} label={candidate.name} tooltip={t('tools.songWriter.writeWith', { name: candidate.name })} fontSize={11} isActive={candidate.id === model} onPress={() => onChooseModel(candidate.id)} />
       ))}
       {hasKey === true ? (
-        <Text style={[styles.note, { color: palette.chromeMuted }]}>API key saved on this Mac</Text>
+        <Text style={[styles.note, { color: palette.chromeMuted }]}>{t('tools.songWriter.keySaved')}</Text>
       ) : (
         <>
           <TextField
-            accessibilityLabel="Anthropic API key"
+            accessibilityLabel={t('tools.songWriter.keyLabel')}
             value={draftKey}
             onChangeText={setDraftKey}
             secureTextEntry
-            placeholder="Anthropic API key (sk-ant-…)"
+            placeholder={t('tools.songWriter.keyPlaceholder')}
             placeholderTextColor={palette.chromeMuted}
             style={[styles.key, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
           />
-          <ChromeButton palette={palette} label="Save key" tooltip="Save the key on this Mac" fontSize={11} isEnabled={draftKey.trim() !== ''} onPress={save} />
+          <ChromeButton palette={palette} label={t('tools.songWriter.saveKey')} tooltip={t('tools.songWriter.saveKeyTooltip')} fontSize={11} isEnabled={draftKey.trim() !== ''} onPress={save} />
         </>
       )}
       {message === undefined ? null : <Text style={[styles.note, { color: palette.danger }]}>{message}</Text>}
@@ -61,8 +63,8 @@ function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<So
   );
 }
 
-function statusText(status: SongWriterStatus): string {
-  return status.kind === 'running' ? stepLabel(status.step) : status.kind === 'failed' ? status.message : 'Claude plans the song, then writes it section by section; it opens as a new score.';
+function statusText(status: SongWriterStatus, t: Translate): string {
+  return status.kind === 'running' ? stepLabel(status.step) : status.kind === 'failed' ? status.message : t('tools.songWriter.idle');
 }
 
 /**
@@ -72,25 +74,26 @@ function statusText(status: SongWriterStatus): string {
 export function SongWriterPanel(props: SongWriterPanelProps) {
   const { palette, status } = props;
   const isRunning = status.kind === 'running';
+  const t = useT();
   return (
     <View style={styles.overlay}>
       <Pressable testID="song-writer-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={props.onClose} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Song Writer">
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.songWriter.title')}>
         <View style={[styles.header, { borderColor: palette.chromeBorder }]}>
           <View style={styles.titles}>
-            <Text style={[styles.title, { color: palette.chromeText }]}>Song Writer</Text>
-            <Text style={[styles.subtitle, { color: palette.chromeMuted }]}>AI Wizard · a new song for guitar and bass, written by Claude</Text>
+            <Text style={[styles.title, { color: palette.chromeText }]}>{t('tools.songWriter.title')}</Text>
+            <Text style={[styles.subtitle, { color: palette.chromeMuted }]}>{t('tools.songWriter.subtitle')}</Text>
           </View>
-          <ChromeButton palette={palette} label="Close" tooltip="Close the Song Writer" onPress={props.onClose} />
+          <ChromeButton palette={palette} label={t('common.close')} tooltip={t('tools.songWriter.closeTooltip')} onPress={props.onClose} />
         </View>
         <ScrollView contentContainerStyle={styles.body}>
           <SongWriterFields palette={palette} draft={props.draft} onChangeDraft={props.onChangeDraft} reference={props.reference} />
           <ClaudeRow palette={palette} hasKey={props.hasKey} model={props.model} onSaveKey={props.onSaveKey} onChooseModel={props.onChooseModel} />
         </ScrollView>
         <View style={[styles.footer, { borderColor: palette.chromeBorder }]}>
-          <Text style={[styles.status, { color: status.kind === 'failed' ? palette.danger : palette.chromeMuted }]}>{statusText(status)}</Text>
-          {isRunning ? <ChromeButton palette={palette} label="Stop" tooltip="Stop writing" onPress={props.onCancel} /> : null}
-          <ChromeButton palette={palette} label="Write song" tooltip="Write the song" isActive isEnabled={!isRunning && props.hasKey === true} onPress={props.onWrite} />
+          <Text style={[styles.status, { color: status.kind === 'failed' ? palette.danger : palette.chromeMuted }]}>{statusText(status, t)}</Text>
+          {isRunning ? <ChromeButton palette={palette} label={t('tools.songWriter.stop')} tooltip={t('tools.songWriter.stopTooltip')} onPress={props.onCancel} /> : null}
+          <ChromeButton palette={palette} label={t('tools.songWriter.write')} tooltip={t('tools.songWriter.writeTooltip')} isActive isEnabled={!isRunning && props.hasKey === true} onPress={props.onWrite} />
         </View>
       </View>
     </View>

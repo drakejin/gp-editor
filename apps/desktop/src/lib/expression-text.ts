@@ -13,6 +13,7 @@ import type {
 } from '../components/palette/palette-tools';
 import type { SongEdit } from '../state/song-edits';
 import { chordExpression, keyExpression } from './expression-keys';
+import { t } from './i18n/i18n';
 import { DIRECTION_TEXTS } from '../score/directions';
 
 /**
@@ -39,14 +40,10 @@ const KIND_ORDER: readonly ExpressionKind[] = [
   'direction',
 ];
 
-export const EXPRESSION_KIND_NAMES: Readonly<Record<ExpressionKind, string>> = {
-  chord: 'Chord',
-  dynamic: 'Dynamic',
-  keySignature: 'Key signature',
-  octaveSign: 'Octave sign',
-  clef: 'Clef',
-  direction: 'Direction',
-};
+/** What a kind of expression is called, in the shown language (the palette's group column). */
+export function expressionKindName(kind: ExpressionKind): string {
+  return t(`commands.expression.kind.${kind}`);
+}
 
 /** One thing the typed text can name, and the edit at the cursor that puts it on the score. */
 export interface ExpressionMatch {
@@ -102,12 +99,13 @@ export function nameScore(
   );
 }
 
+/** The dynamics' Italian names, as notation writes them in every language. */
 const ITALIAN: Readonly<Record<DynamicName, string>> = {
   ppp: 'pianississimo',
   pp: 'pianissimo',
   p: 'piano',
-  mp: 'mezzo piano',
-  mf: 'mezzo forte',
+  mp: 'mezzo piano', // i18n-exempt: Italian, as notation writes it
+  mf: 'mezzo forte', // i18n-exempt: Italian, as notation writes it
   f: 'forte',
   ff: 'fortissimo',
   fff: 'fortississimo',
@@ -131,72 +129,52 @@ function dynamicEntries(): readonly Entry[] {
   }));
 }
 
-const OCTAVE_SIGNS: readonly (readonly [
-  Ottava | 'none',
-  string,
-  readonly string[],
-])[] = [
-  [
-    '8va',
-    '8va — an octave higher',
-    ['8va', '8va alta', 'ottava', 'ottava alta'],
-  ],
-  ['8vb', '8vb — an octave lower', ['8vb', '8va bassa', 'ottava bassa']],
-  [
-    '15ma',
-    '15ma — two octaves higher',
-    ['15ma', '15va', 'quindicesima', 'quindicesima alta'],
-  ],
-  ['15mb', '15mb — two octaves lower', ['15mb', '15vb', 'quindicesima bassa']],
-  ['none', 'loco — no octave sign', ['loco', 'no octave sign']],
+/** The names an octave sign is typed by — Italian and English in every language; its title (shown language) too. */
+const OCTAVE_SIGNS: readonly (readonly [Ottava | 'none', readonly string[]])[] = [
+  ['8va', ['8va', '8va alta', 'ottava', 'ottava alta']], // i18n-exempt: names typed, as notation writes them
+  ['8vb', ['8vb', '8va bassa', 'ottava bassa']], // i18n-exempt: names typed, as notation writes them
+  ['15ma', ['15ma', '15va', 'quindicesima', 'quindicesima alta']], // i18n-exempt: names typed, as notation writes them
+  ['15mb', ['15mb', '15vb', 'quindicesima bassa']], // i18n-exempt: names typed, as notation writes them
+  ['none', ['loco', 'no octave sign']], // i18n-exempt: names typed, English in every language
 ];
 
 function octaveEntries(): readonly Entry[] {
-  return OCTAVE_SIGNS.map(([ottava, title, names]) => ({
-    names,
-    match: {
-      id: `octaveSign.${ottava}`,
-      kind: 'octaveSign',
-      title,
-      scope: 'beat',
-      edit: () => ({ type: 'setOttava', ottava }),
-    },
-  }));
+  return OCTAVE_SIGNS.map(([ottava, names]) => {
+    const title = t(`commands.expression.ottava.${ottava}`);
+    return {
+      names: [...names, title],
+      match: { id: `octaveSign.${ottava}`, kind: 'octaveSign', title, scope: 'beat', edit: () => ({ type: 'setOttava', ottava }) },
+    };
+  });
 }
 
-const CLEFS: readonly (readonly [Clef, string, readonly string[]])[] = [
-  [
-    'treble',
-    'Treble clef (G)',
-    ['treble', 'treble clef', 'g clef', 'violin clef'],
-  ],
-  ['bass', 'Bass clef (F)', ['bass', 'bass clef', 'f clef']],
-  ['alto', 'Alto clef (C)', ['alto', 'alto clef', 'c clef', 'viola clef']],
-  ['tenor', 'Tenor clef (C)', ['tenor', 'tenor clef']],
+/** The names a clef is typed by — English in every language; its title (shown language) too. */
+const CLEFS: readonly (readonly [Exclude<Clef, 'neutral'>, readonly string[]])[] = [
+  ['treble', ['treble', 'treble clef', 'g clef', 'violin clef']], // i18n-exempt: names typed, English in every language
+  ['bass', ['bass', 'bass clef', 'f clef']], // i18n-exempt: names typed, English in every language
+  ['alto', ['alto', 'alto clef', 'c clef', 'viola clef']], // i18n-exempt: names typed, English in every language
+  ['tenor', ['tenor', 'tenor clef']], // i18n-exempt: names typed, English in every language
 ];
 
 function clefEntries(): readonly Entry[] {
-  return CLEFS.map(([clef, title, names]) => ({
-    names,
-    match: {
-      id: `clef.${clef}`,
-      kind: 'clef',
-      title,
-      scope: 'bar',
-      edit: () => ({ type: 'setClef', clef }),
-    },
-  }));
+  return CLEFS.map(([clef, names]) => {
+    const title = t(`commands.expression.clef.${clef}`);
+    return {
+      names: [...names, title],
+      match: { id: `clef.${clef}`, kind: 'clef', title, scope: 'bar', edit: () => ({ type: 'setClef', clef }) },
+    };
+  });
 }
 
 /** Other names a direction goes by: the words Guitar Pro writes for it, and the Italian. */
 const DIRECTION_ALIASES: Readonly<
   Partial<Record<MusicalDirection, readonly string[]>>
 > = {
-  daCapo: ['da capo'],
-  daSegno: ['dal segno'],
-  daSegnoSegno: ['dal segno segno'],
-  daCoda: ['to coda'],
-  daDoubleCoda: ['to double coda'],
+  daCapo: ['da capo'], // i18n-exempt: names typed, as notation writes them
+  daSegno: ['dal segno'], // i18n-exempt: names typed, as notation writes them
+  daSegnoSegno: ['dal segno segno'], // i18n-exempt: names typed, as notation writes them
+  daCoda: ['to coda'], // i18n-exempt: names typed, as notation writes them
+  daDoubleCoda: ['to double coda'], // i18n-exempt: names typed, as notation writes them
 };
 
 function directionEntries(context: ExpressionContext): readonly Entry[] {
@@ -207,7 +185,7 @@ function directionEntries(context: ExpressionContext): readonly Entry[] {
       direction in DIRECTION_TEXTS
         ? [DIRECTION_TEXTS[direction as keyof typeof DIRECTION_TEXTS]]
         : [];
-    const title = directions.includes(direction) ? `Remove ${label}` : label;
+    const title = directions.includes(direction) ? t('commands.expression.removeDirection', { direction: label }) : label;
     return {
       names: [label, ...words, ...(DIRECTION_ALIASES[direction] ?? [])],
       match: {

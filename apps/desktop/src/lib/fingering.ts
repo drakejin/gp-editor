@@ -8,6 +8,7 @@ const RIGHT_HAND: Readonly<Record<Finger, FingeringLabel>> = { thumb: 'p', index
 const PIANO: Readonly<Record<Finger, FingeringLabel>> = { thumb: '1', index: '2', middle: '3', annular: '4', little: '5' };
 
 /** GM families played on a keyboard, written with piano fingering. */
+// i18n-exempt: gp-core's family names, looked up (not shown)
 const KEYBOARD_FAMILIES: ReadonlySet<number> = new Set(['Piano', 'Organ'].map((name) => GM_INSTRUMENT_FAMILIES.indexOf(name)));
 
 export function fingeringLabel(finger: Finger, hand: Hand, isKeyboard: boolean): FingeringLabel {

@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import type { Palette } from '../theme';
 import type { ReactNode } from 'react';
@@ -17,6 +18,7 @@ interface EmptyStateProps {
 
 /** Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro, Power Tab or TablEdit file. */
 export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, recentFiles, projects }: EmptyStateProps) {
+  const t = useT();
   if (isLoading) {
     return (
       <View style={styles.empty}>
@@ -26,12 +28,12 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
   }
   return (
     <View style={styles.empty}>
+      {/* i18n-exempt: the app's name */}
       <Text style={[styles.title, { color: palette.text }]}>GP Editor</Text>
       <Text style={[styles.text, { color: palette.muted }]}>
-        Start a new sheet, import a PDF of sheet music or tab, or open a Guitar Pro file — .gp (7/8), .gpx (6), .gp5, .gp4, .gp3, .gtp (1/2) —,{'\n'}a
-        Power Tab (.ptb), TablEdit (.tef) or MIDI file (.mid), or drop one onto this window.
+        {t('window.start.intro')}
       </Text>
-      <Text style={[styles.sectionTitle, { color: palette.muted }]}>NEW SHEET (⌘N)</Text>
+      <Text style={[styles.sectionTitle, { color: palette.muted }]}>{t('window.start.newSheet')}</Text>
       <View style={styles.row}>
         {SCORE_MODES.map((mode) => (
           <Pressable key={mode} onPress={() => onCreate(mode)} style={[styles.newButton, { borderColor: palette.accent }]}>
@@ -41,10 +43,10 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
       </View>
       <View style={styles.row}>
         <Pressable onPress={onOpen} style={[styles.openButton, { backgroundColor: palette.accent }]}>
-          <Text style={[styles.openButtonText, { color: palette.accentText }]}>Open File… (⌘O)</Text>
+          <Text style={[styles.openButtonText, { color: palette.accentText }]}>{t('window.start.open')}</Text>
         </Pressable>
         <Pressable onPress={onImportPdf} style={[styles.openButton, { backgroundColor: palette.accent }]}>
-          <Text style={[styles.openButtonText, { color: palette.accentText }]}>Import PDF… (⇧⌘I)</Text>
+          <Text style={[styles.openButtonText, { color: palette.accentText }]}>{t('window.start.importPdf')}</Text>
         </Pressable>
       </View>
       {recentFiles === undefined ? null : <View style={styles.recentFiles}>{recentFiles}</View>}

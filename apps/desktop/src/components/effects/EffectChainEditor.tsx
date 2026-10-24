@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   CHAIN_PRESETS,
-  EFFECT_NAMES,
   type Effect,
   MAX_TRACK_EFFECTS,
   TRACK_EFFECT_TYPES,
@@ -13,6 +12,8 @@ import {
   moveEffect,
   toggleEffect,
 } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
+import { chainPresetName, effectName } from '../../lib/effect-values';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { EffectEditor } from './EffectEditor';
@@ -42,27 +43,28 @@ interface SlotRowProps {
 
 /** An effect of the chain: on/off, its name (selects it for editing), and up / down / remove. */
 function SlotRow({ palette, effect, index, count, isSelected, isFixed, onSelect, onEdit }: SlotRowProps) {
-  const name = EFFECT_NAMES[effect.type];
+  const t = useT();
+  const name = effectName(effect.type);
   return (
     <View style={[styles.slot, isSelected ? { backgroundColor: palette.chromeRaised } : null]}>
       <ChromeButton
         palette={palette}
         label={effect.isEnabled ? '●' : '○'}
-        tooltip={`${effect.isEnabled ? 'Switch off' : 'Switch on'} ${name}`}
+        tooltip={t(effect.isEnabled ? 'tools.effects.switchOff' : 'tools.effects.switchOn', { name })}
         isActive={effect.isEnabled}
         minWidth={22}
         onPress={() => onEdit((effects) => toggleEffect(effects, index))}
       />
-      <Pressable style={styles.slotName} onPress={onSelect} tooltip={`Edit ${name}`} accessibilityRole="button" accessibilityLabel={`Edit ${name}`}>
+      <Pressable style={styles.slotName} onPress={onSelect} tooltip={t('tools.effects.edit', { name })} accessibilityRole="button" accessibilityLabel={t('tools.effects.edit', { name })}>
         <Text numberOfLines={1} style={[styles.slotText, { color: effect.isEnabled ? palette.chromeText : palette.chromeMuted }]}>
           {`${index + 1}. ${name}`}
         </Text>
       </Pressable>
       {isFixed ? null : (
         <>
-          <ChromeButton palette={palette} label="▲" tooltip={`Move ${name} earlier`} fontSize={9} minWidth={20} isEnabled={index > 0} onPress={() => onEdit((effects) => moveEffect(effects, index, index - 1))} />
-          <ChromeButton palette={palette} label="▼" tooltip={`Move ${name} later`} fontSize={9} minWidth={20} isEnabled={index < count - 1} onPress={() => onEdit((effects) => moveEffect(effects, index, index + 1))} />
-          <ChromeButton palette={palette} label="✕" tooltip={`Remove ${name}`} fontSize={10} minWidth={20} onPress={() => onEdit((effects) => deleteEffect(effects, index))} />
+          <ChromeButton palette={palette} label="▲" tooltip={t('tools.effects.moveEarlier', { name })} fontSize={9} minWidth={20} isEnabled={index > 0} onPress={() => onEdit((effects) => moveEffect(effects, index, index - 1))} />
+          <ChromeButton palette={palette} label="▼" tooltip={t('tools.effects.moveLater', { name })} fontSize={9} minWidth={20} isEnabled={index < count - 1} onPress={() => onEdit((effects) => moveEffect(effects, index, index + 1))} />
+          <ChromeButton palette={palette} label="✕" tooltip={t('tools.effects.remove', { name })} fontSize={10} minWidth={20} onPress={() => onEdit((effects) => deleteEffect(effects, index))} />
         </>
       )}
     </View>
@@ -72,9 +74,10 @@ function SlotRow({ palette, effect, index, count, isSelected, isFixed, onSelect,
 /** Adding an effect: a button that opens the effect types. */
 function AddEffect({ palette, effects, onAdd }: { readonly palette: Palette; readonly effects: readonly Effect[]; readonly onAdd: (effects: readonly Effect[]) => void }) {
   const [isAdding, setIsAdding] = useState(false);
+  const t = useT();
   const isFull = effects.length >= MAX_TRACK_EFFECTS;
   if (!isAdding) {
-    return <ChromeButton palette={palette} label="+ Add effect" tooltip={isFull ? `At most ${MAX_TRACK_EFFECTS} effects` : 'Add an effect at the end'} isEnabled={!isFull} onPress={() => setIsAdding(true)} />;
+    return <ChromeButton palette={palette} label={t('tools.effects.addEffect')} tooltip={isFull ? t('tools.effects.atMost', { count: MAX_TRACK_EFFECTS }) : t('tools.effects.addAtEnd')} isEnabled={!isFull} onPress={() => setIsAdding(true)} />;
   }
   return (
     <View style={styles.wrap}>
@@ -82,8 +85,8 @@ function AddEffect({ palette, effects, onAdd }: { readonly palette: Palette; rea
         <ChromeButton
           key={type}
           palette={palette}
-          label={EFFECT_NAMES[type]}
-          tooltip={`Add ${EFFECT_NAMES[type]}`}
+          label={effectName(type)}
+          tooltip={t('tools.effects.add', { name: effectName(type) })}
           fontSize={11}
           onPress={() => {
             setIsAdding(false);
@@ -91,7 +94,7 @@ function AddEffect({ palette, effects, onAdd }: { readonly palette: Palette; rea
           }}
         />
       ))}
-      <ChromeButton palette={palette} label="Cancel" tooltip="Add nothing" fontSize={11} onPress={() => setIsAdding(false)} />
+      <ChromeButton palette={palette} label={t('common.cancel')} tooltip={t('tools.effects.addNothing')} fontSize={11} onPress={() => setIsAdding(false)} />
     </View>
   );
 }
@@ -99,6 +102,7 @@ function AddEffect({ palette, effects, onAdd }: { readonly palette: Palette; rea
 /** An effect chain: its effects in order, each switchable, movable and removable, and the selected one's settings. */
 export function EffectChainEditor({ palette, effects, width, isFixed = false, onChange, onPreview }: EffectChainEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const t = useT();
   const shownIndex = Math.min(selectedIndex, Math.max(0, effects.length - 1));
   const selected = effects[shownIndex];
   const edit = (change: (chain: readonly Effect[]) => readonly Effect[]) => {
@@ -117,11 +121,11 @@ export function EffectChainEditor({ palette, effects, width, isFixed = false, on
       {isFixed ? null : (
         <View style={styles.wrap}>
           {CHAIN_PRESETS.map(({ name }) => (
-            <ChromeButton key={name} palette={palette} label={name} tooltip={`Replace the effects with the ${name} chain`} fontSize={11} onPress={() => edit(() => applyChainPreset(name) ?? effects)} />
+            <ChromeButton key={name} palette={palette} label={chainPresetName(name)} tooltip={t('tools.effects.chainTooltip', { name: chainPresetName(name) })} fontSize={11} onPress={() => edit(() => applyChainPreset(name) ?? effects)} />
           ))}
         </View>
       )}
-      {effects.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>No effects: the track plays its instrument as it is.</Text> : null}
+      {effects.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>{t('tools.effects.none')}</Text> : null}
       {effects.map((effect, index) => (
         <SlotRow
           key={`${index}-${effect.type}`}

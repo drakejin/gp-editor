@@ -68,6 +68,7 @@ function tripletBracket(x1: number, x2: number, y: number, color: string): DrawC
 /** The triplet-feel mark starting at x, its notes centred about the text line `y` (a ui text's centre). */
 export function engraveTripletFeel(feel: TripletFeel, x: number, y: number, color: string): DrawCommand[] {
   if (feel === 'none') {
+    // i18n-exempt: the score's tempo-mark wording
     return [{ kind: 'text', x, y, text: 'Straight', size: SWING.textSize, color, font: 'ui', align: 'left' }];
   }
   const space = staffSpace(SWING.musicSize);

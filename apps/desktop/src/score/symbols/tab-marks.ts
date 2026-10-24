@@ -54,6 +54,7 @@ const KIND_ORDER: readonly TabMarkKind[] = [
   'pickStroke',
 ];
 
+// i18n-exempt: notation (the score's span marks)
 const SPAN_LABELS = { palmMute: 'P.M.', letRing: 'let ring' } as const;
 const HARMONIC_LABELS: Readonly<Partial<Record<HarmonicType, string>>> = {
   artificial: 'A.H.',

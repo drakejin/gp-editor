@@ -1,4 +1,5 @@
 import { type Song, type Track, findTuningPreset, resolveTrackInstrument, trackTuning } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { authorshipCredits } from '../lib/song-credits';
 import { neckTitleFor } from '../lib/tuning-hint';
 import type { DrawAlign, DrawCommand } from '../score/draw';
@@ -64,7 +65,7 @@ export function titleBlockLines(song: Song, trackIndex: number, title: string): 
 
 /** "Lead — Guitar · 6 strings · Drop D (D A D G B E) · capo 2"; a drum track shows only its name. */
 function trackLine(song: Song, track: Track): string {
-  const name = track.name || `Track ${track.number}`;
+  const name = track.name || t('common.trackNumber', { number: track.number });
   const instrument = resolveTrackInstrument(track, song.channels);
   if (instrument === 'percussion') {
     return name;

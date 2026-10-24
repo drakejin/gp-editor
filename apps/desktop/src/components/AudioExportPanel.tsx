@@ -10,11 +10,13 @@ import {
   OGG_QUALITIES,
   SAMPLE_RATES,
   audioFormat,
+  bitDepthLabel,
   mp3BitrateLabel,
   oggQualityLabel,
   sampleRateLabel,
 } from '../export/audio-formats';
 import type { AudioExportStatus } from '../hooks/use-audio-export';
+import { type Translate, useT } from '../hooks/use-i18n';
 import { isAudioLoaded } from '../native/audio-track';
 import type { LoopRange } from '../state/practice';
 import type { Palette } from '../theme';
@@ -44,20 +46,21 @@ interface OptionRowProps {
 
 /** The format's quality (bit depth, bit rate or Vorbis quality), then the sample rate. */
 function QualityRow({ palette, options, isEnabled, onChange }: OptionRowProps) {
+  const t = useT();
   const format = audioFormat(options.formatId);
   const choices =
     format.id === 'mp3'
-      ? { label: 'Bit rate', items: MP3_BITRATES.map((value) => ({ text: mp3BitrateLabel(value), isActive: value === options.mp3Bitrate, next: { ...options, mp3Bitrate: value } })) }
+      ? { label: t('window.audioExport.bitRate'), items: MP3_BITRATES.map((value) => ({ text: mp3BitrateLabel(value), isActive: value === options.mp3Bitrate, next: { ...options, mp3Bitrate: value } })) }
       : format.id === 'ogg'
-      ? { label: 'Quality', items: OGG_QUALITIES.map((value) => ({ text: oggQualityLabel(value), isActive: value === options.oggQuality, next: { ...options, oggQuality: value } })) }
-      : { label: 'Bit depth', items: BIT_DEPTHS.map((value) => ({ text: `${value}-bit`, isActive: value === options.bitDepth, next: { ...options, bitDepth: value } })) };
+      ? { label: t('window.audioExport.quality'), items: OGG_QUALITIES.map((value) => ({ text: oggQualityLabel(value), isActive: value === options.oggQuality, next: { ...options, oggQuality: value } })) }
+      : { label: t('window.audioExport.bitDepth'), items: BIT_DEPTHS.map((value) => ({ text: bitDepthLabel(value), isActive: value === options.bitDepth, next: { ...options, bitDepth: value } })) };
   return (
     <View style={styles.row}>
       <Text style={[styles.label, { color: palette.text }]}>{choices.label}</Text>
       {choices.items.map((item) => (
         <BarButton key={item.text} label={item.text} palette={palette} isActive={item.isActive} isEnabled={isEnabled} onPress={() => onChange(item.next)} />
       ))}
-      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>Sample rate</Text>
+      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>{t('window.audioExport.sampleRate')}</Text>
       {SAMPLE_RATES.map((rate) => (
         <BarButton key={rate} label={sampleRateLabel(rate)} palette={palette} isActive={rate === options.sampleRate} isEnabled={isEnabled} onPress={() => onChange({ ...options, sampleRate: rate })} />
       ))}
@@ -67,34 +70,35 @@ function QualityRow({ palette, options, isEnabled, onChange }: OptionRowProps) {
 
 /** The whole song or the loop's bars; one file or one per track. */
 function RangeRow({ palette, options, isEnabled, onChange, loop }: OptionRowProps & { readonly loop?: LoopRange }) {
+  const t = useT();
   const loopLabel =
     loop === undefined
-      ? 'Loop bars (none set)'
+      ? t('window.audioExport.loopNone')
       : loop.fromMeasureIndex === loop.toMeasureIndex
-      ? `Loop bar ${loop.fromMeasureIndex + 1}`
-      : `Loop bars ${loop.fromMeasureIndex + 1}–${loop.toMeasureIndex + 1}`;
+      ? t('window.audioExport.loopBar', { bar: loop.fromMeasureIndex + 1 })
+      : t('window.audioExport.loopBars', { from: loop.fromMeasureIndex + 1, to: loop.toMeasureIndex + 1 });
   const isLoop = options.range === 'loop' && loop !== undefined;
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: palette.text }]}>Play</Text>
-      <BarButton label="Whole song" palette={palette} isActive={!isLoop} isEnabled={isEnabled} onPress={() => onChange({ ...options, range: 'song' })} />
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.audioExport.play')}</Text>
+      <BarButton label={t('common.wholeSong')} palette={palette} isActive={!isLoop} isEnabled={isEnabled} onPress={() => onChange({ ...options, range: 'song' })} />
       <BarButton label={loopLabel} palette={palette} isActive={isLoop} isEnabled={isEnabled && loop !== undefined} onPress={() => onChange({ ...options, range: 'loop' })} />
-      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>Files</Text>
-      <BarButton label="One file" palette={palette} isActive={!options.isPerTrack} isEnabled={isEnabled} onPress={() => onChange({ ...options, isPerTrack: false })} />
-      <BarButton label="One file per track" palette={palette} isActive={options.isPerTrack} isEnabled={isEnabled} onPress={() => onChange({ ...options, isPerTrack: true })} />
+      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>{t('window.audioExport.files')}</Text>
+      <BarButton label={t('window.audioExport.oneFile')} palette={palette} isActive={!options.isPerTrack} isEnabled={isEnabled} onPress={() => onChange({ ...options, isPerTrack: false })} />
+      <BarButton label={t('window.audioExport.filePerTrack')} palette={palette} isActive={options.isPerTrack} isEnabled={isEnabled} onPress={() => onChange({ ...options, isPerTrack: true })} />
     </View>
   );
 }
 
 /** What the status line says while the export runs. */
-function statusText(status: AudioExportStatus): string | undefined {
+function statusText(status: AudioExportStatus, t: Translate): string | undefined {
   switch (status.kind) {
     case 'choosing':
-      return 'Choose where to save…';
+      return t('window.audioExport.choosing');
     case 'rendering':
-      return `Rendering file ${status.fileIndex + 1} of ${status.fileCount}: ${Math.round(status.fraction * 100)}%`;
+      return t('window.audioExport.rendering', { file: status.fileIndex + 1, count: status.fileCount, percent: Math.round(status.fraction * 100) });
     case 'cancelling':
-      return 'Stopping…';
+      return t('window.audioExport.stopping');
     default:
       return undefined;
   }
@@ -110,6 +114,7 @@ function overallFraction(status: AudioExportStatus): number {
  * or the loop's bars, one file or one per track; Export… asks where to save, then the render's progress with Cancel.
  */
 export function AudioExportPanel({ palette, song, fileName, loop, options, status, onChangeOptions, onExport, onCancel, onClose }: AudioExportPanelProps) {
+  const t = useT();
   // A render of the song: again only for another song or range, not for another format.
   // The length at the audio track's pace when it plays (its file loaded) under the whole mix, as the export renders it.
   const hasAudio = song.audioTrack !== undefined && isAudioLoaded(song.audioTrack.assetId);
@@ -120,15 +125,15 @@ export function AudioExportPanel({ palette, song, fileName, loop, options, statu
   const summary = audioExportSummary(song, fileName, options, loop, seconds);
   const hasFiles = useMemo(() => planAudioExport(song, fileName, options, loop).length > 0, [song, fileName, options, loop]);
   const isIdle = status.kind === 'idle';
-  const running = statusText(status);
+  const running = statusText(status, t);
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: palette.text }]}>Export Audio</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{t('window.audioExport.title')}</Text>
         <Text style={[styles.hint, { color: palette.muted }]}>{audioExportDescription(song, options.isPerTrack, hasAudio)}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>Format</Text>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.audioExport.format')}</Text>
         {AUDIO_FORMATS.map((format) => (
           <BarButton
             key={format.id}
@@ -143,9 +148,9 @@ export function AudioExportPanel({ palette, song, fileName, loop, options, statu
       <QualityRow palette={palette} options={options} isEnabled={isIdle} onChange={onChangeOptions} />
       <RangeRow palette={palette} options={options} isEnabled={isIdle} onChange={onChangeOptions} loop={loop} />
       <View style={styles.row}>
-        <BarButton label="Export…" palette={palette} isAccent isEnabled={isIdle && hasFiles} onPress={onExport} />
-        {status.kind === 'rendering' ? <BarButton label="Cancel" palette={palette} onPress={onCancel} /> : null}
-        <BarButton label="Close" palette={palette} onPress={onClose} />
+        <BarButton label={t('window.audioExport.export')} palette={palette} isAccent isEnabled={isIdle && hasFiles} onPress={onExport} />
+        {status.kind === 'rendering' ? <BarButton label={t('common.cancel')} palette={palette} onPress={onCancel} /> : null}
+        <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
         {status.kind === 'rendering' ? (
           <View style={[styles.track, { backgroundColor: palette.border }]}>
             <View style={[styles.fill, { backgroundColor: palette.accent, width: `${Math.round(overallFraction(status) * 100)}%` }]} />

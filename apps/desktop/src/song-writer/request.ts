@@ -1,3 +1,4 @@
+// i18n-exempt-file: the prompts and requests sent to Claude, in English whatever the app's language
 import { MAX_PLAN_BARS, MAX_PLAN_SECTIONS, MAX_SECTION_BARS, PLAN_SONG_TOOL, type SongPlan, WRITE_SECTION_TOOL } from '@gp-editor/core';
 
 /** What the user asks the song writer for (Edit ▸ AI Wizard ▸ Song Writer…). */

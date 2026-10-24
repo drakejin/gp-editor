@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import { t } from '../lib/i18n/i18n';
 
 /** A kept audio file (GPAudioAssets.m): its id, length and format. */
 export interface AudioFileInfo {
@@ -52,14 +53,14 @@ export function isAudioLoaded(assetId: string): boolean {
 
 function requireNative(): GPAudioTrackModule {
   if (native === undefined) {
-    throw new Error('The audio track is not available on this platform');
+    throw new Error(t('window.native.audioTrackUnavailable'));
   }
   return native;
 }
 
 /** Keeps a .gp file's audio (base64) natively; its id and format. Rejects when macOS cannot play it. */
 export function loadAudioData(base64: string, extension: string): Promise<AudioFileInfo> {
-  return native === undefined ? Promise.reject(new Error('The audio track is not available on this platform')) : native.loadData(base64, extension).then(remember);
+  return native === undefined ? Promise.reject(new Error(t('window.native.audioTrackUnavailable'))) : native.loadData(base64, extension).then(remember);
 }
 
 /** Track ▸ Add Audio Track…: asks first when replacing, then an open panel; null when cancelled. */
@@ -69,12 +70,12 @@ export function chooseAudioFile(isReplacing: boolean): Promise<ChosenAudioFile |
 
 /** A kept file's bytes as base64 (for a .gp save). */
 export function audioData(assetId: string): Promise<string> {
-  return native === undefined ? Promise.reject(new Error('The audio track is not available on this platform')) : native.data(assetId);
+  return native === undefined ? Promise.reject(new Error(t('window.native.audioTrackUnavailable'))) : native.data(assetId);
 }
 
 /** A kept file's waveform, computed once natively (untrusted until parseAudioPeaks checks it). */
 export function audioPeaks(assetId: string): Promise<NativeAudioPeaks> {
-  return native === undefined ? Promise.reject(new Error('The audio track is not available on this platform')) : native.peaks(assetId);
+  return native === undefined ? Promise.reject(new Error(t('window.native.audioTrackUnavailable'))) : native.peaks(assetId);
 }
 
 /** Track ▸ Add Audio Track… (the "addAudioTrackRequested" event); returns the unsubscribe function. */

@@ -1,6 +1,6 @@
 import { addTrack, buildNewSong } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { LAST_TRACK_HINT, trackStepAction } from '../src/state/track-edits';
+import { lastTrackHint, trackStepAction } from '../src/state/track-edits';
 import { remapEditorTracks } from '../src/state/track-remap';
 import { shownTrackIndexes, trackModeOf } from '../src/state/track-display';
 
@@ -137,7 +137,7 @@ describe('editorReducer: deleting tracks', () => {
 
     // Assert
     expect(refused.document).toBe(single.document);
-    expect(refused.hint).toBe(LAST_TRACK_HINT);
+    expect(refused.hint).toBe(lastTrackHint());
     expect(refused.past).toHaveLength(0);
   });
 });

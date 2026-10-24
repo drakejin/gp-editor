@@ -23,6 +23,7 @@ const native = NativeModules.GPAnthropic as GPAnthropicModule | undefined;
 
 function requireNative(): GPAnthropicModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPAnthropic native module is not available on this platform');
   }
   return native;

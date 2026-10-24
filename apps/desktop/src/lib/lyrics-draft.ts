@@ -1,6 +1,6 @@
 import { type Lyrics, type Song, lyricsSyllables, separateCjkSyllables } from '@gp-editor/core';
 import { sungBeats } from '../score/lyrics';
-import { plural } from './wording';
+import { t } from './i18n/i18n';
 
 /** What the Lyrics panel edits: a track's lyrics text and the bar they start at (1-based). */
 export interface LyricsDraft {
@@ -49,13 +49,13 @@ export function lyricsFit(song: Song, draft: LyricsDraft): string {
   // Up to the last syllable with text: blanks after it leave no note bare.
   const syllables = lyricsSyllables(draftLyrics(draft).text).reduce((count, syllable, index) => (syllable.trim() === '' ? count : index + 1), 0);
   if (syllables === 0) {
-    return 'No lyrics on this track';
+    return t('tools.lyrics.none');
   }
   const measures = song.tracks[draft.trackIndex]?.measures.slice(Math.max(0, draft.from - 1)) ?? [];
   const notes = measures.reduce((count, measure) => count + sungBeats(measure).length, 0);
-  const fit = `${plural(syllables, 'syllable')} for ${plural(notes, 'note')} from bar ${draft.from}`;
+  const fit = t('tools.lyrics.fit', { syllables: t('tools.lyrics.syllables', { count: syllables }), notes: t('common.notes', { count: notes }), bar: draft.from });
   const extra = syllables - notes;
-  return extra > 0 ? `${fit}: the last ${extra} ${extra === 1 ? 'has' : 'have'} no note` : fit;
+  return extra > 0 ? t('tools.lyrics.extra', { fit, count: extra }) : fit;
 }
 
 /** Guitar Pro 5 files hold one track's lyrics, the first track's with some: a note when that is another track. */
@@ -65,5 +65,5 @@ export function gp5LyricsNote(song: Song, trackIndex: number): string | undefine
   if (keptTrack === undefined || kept >= trackIndex) {
     return undefined;
   }
-  return `Saved as Guitar Pro 5, the song keeps one track’s lyrics: those of “${keptTrack.name}”.`;
+  return t('tools.lyrics.gp5Note', { name: keptTrack.name });
 }

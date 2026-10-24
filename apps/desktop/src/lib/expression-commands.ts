@@ -1,6 +1,6 @@
 import type { CommandMatch } from './command-search';
 import { type Command, type CommandState, isRequirementMet } from './command-types';
-import { EXPRESSION_KIND_NAMES, type ExpressionKind, type ExpressionMatch, searchExpressions } from './expression-text';
+import { type ExpressionKind, type ExpressionMatch, expressionKindName, searchExpressions } from './expression-text';
 
 /** The command palette's Expression Text: what is typed after “>” (Tools ▸ Expression Text… opens the palette with it). */
 export const EXPRESSION_PREFIX = '>';
@@ -22,7 +22,7 @@ function expressionCommand(match: ExpressionMatch): Command {
   return {
     id: `expression.${match.id}`,
     title: match.title,
-    group: EXPRESSION_KIND_NAMES[match.kind],
+    group: expressionKindName(match.kind),
     keywords: [],
     isEnabled: (state) => isRequirementMet(match.scope, state) && !(PITCHED_KINDS.has(match.kind) && state.isPercussion),
     run: (actions) => actions.runCommand({ type: 'edit', edit: match.edit() }),

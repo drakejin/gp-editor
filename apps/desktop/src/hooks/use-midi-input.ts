@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlayedNote } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import {
   CHORD_WINDOW_MS,
   DEFAULT_MIDI_INPUT,
@@ -27,7 +28,6 @@ export interface MidiInput {
   readonly changeSettings: (change: Partial<MidiInputSettings>) => void;
 }
 
-const MIDI_FAILED = 'MIDI input is not available';
 
 /**
  * MIDI input (step entry): the settings, kept in user defaults; the Mac's MIDI sources, listed again when a device comes
@@ -46,13 +46,13 @@ export function useMidiInput(onPlayed: (notes: readonly PlayedNote[]) => void): 
   const refreshSources = useCallback(() => {
     listMidiSources()
       .then(setSources)
-      .catch((reason: unknown) => setError(errorMessage(reason, MIDI_FAILED)));
+      .catch((reason: unknown) => setError(errorMessage(reason, t('tools.midiInput.unavailable'))));
   }, []);
 
   useEffect(() => {
     loadMidiInputSettings()
       .then((json) => setSettings(parseMidiInputSettings(json)))
-      .catch((reason: unknown) => setError(errorMessage(reason, MIDI_FAILED)));
+      .catch((reason: unknown) => setError(errorMessage(reason, t('tools.midiInput.unavailable'))));
     refreshSources();
   }, [refreshSources]);
 
@@ -63,7 +63,7 @@ export function useMidiInput(onPlayed: (notes: readonly PlayedNote[]) => void): 
   useEffect(() => {
     listenToMidiSources(listened)
       .then(setListening)
-      .catch((reason: unknown) => setError(errorMessage(reason, MIDI_FAILED)));
+      .catch((reason: unknown) => setError(errorMessage(reason, t('tools.midiInput.unavailable'))));
   }, [listened]);
   useEffect(
     () => () => {
@@ -77,7 +77,7 @@ export function useMidiInput(onPlayed: (notes: readonly PlayedNote[]) => void): 
     (change: Partial<MidiInputSettings>) => {
       const next = { ...settings, ...change };
       setSettings(next);
-      saveMidiInputSettings(serializeMidiInputSettings(next)).catch((reason: unknown) => setError(errorMessage(reason, MIDI_FAILED)));
+      saveMidiInputSettings(serializeMidiInputSettings(next)).catch((reason: unknown) => setError(errorMessage(reason, t('tools.midiInput.unavailable'))));
     },
     [settings],
   );

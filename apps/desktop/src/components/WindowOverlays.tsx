@@ -1,9 +1,10 @@
 import type { Dispatch } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { Song } from '@gp-editor/core';
+import { useT } from '../hooks/use-i18n';
 import { trackInstrument } from '../lib/instruments';
 import type { EditorAction } from '../state/editor';
-import { type Palette, onChrome } from '../theme';
+import { type Palette, STRIP_COLORS, onChrome } from '../theme';
 import { InstrumentPicker } from './InstrumentPicker';
 
 /** The instrument picker over the window for a track (none for a drum track: its kit is not a GM program). */
@@ -36,15 +37,16 @@ export function PickerOverlay({
 }
 
 /** The error banner over the score; a click dismisses it. */
-export function ErrorBanner({ message, palette, onDismiss }: { readonly message: string; readonly palette: Palette; readonly onDismiss: () => void }) {
+export function ErrorBanner({ message, onDismiss }: { readonly message: string; readonly onDismiss: () => void }) {
+  const t = useT();
   return (
-    <Pressable onPress={onDismiss} style={[styles.error, { backgroundColor: palette.danger }]}>
-      <Text style={styles.errorText}>{message} (click to dismiss)</Text>
+    <Pressable onPress={onDismiss} style={styles.error}>
+      <Text style={styles.errorText}>{t('window.error.banner', { message })}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  error: { paddingHorizontal: 14, paddingVertical: 8 },
-  errorText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+  error: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: STRIP_COLORS.errorBackground },
+  errorText: { color: STRIP_COLORS.errorText, fontSize: 12, fontWeight: '600' },
 });

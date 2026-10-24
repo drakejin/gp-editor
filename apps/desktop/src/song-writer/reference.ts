@@ -1,3 +1,4 @@
+// i18n-exempt-file: the open score described for Claude's prompt, never shown
 import type { Duration, Measure, Note, Song, Track } from '@gp-editor/core';
 import { pitchName, tuningLabel } from '../lib/pitch';
 

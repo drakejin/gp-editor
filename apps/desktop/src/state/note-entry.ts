@@ -1,8 +1,11 @@
 import { BANJO_DRONE_FRET, type Song, type StringAddress, fretFromTab, trackTuning } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { pitchName } from '../lib/pitch';
 
 /** A fret below the peg of a banjo's short 5th string. */
-export const DRONE_FRET_HINT = `The banjo's 5th string starts at fret ${BANJO_DRONE_FRET}: type 0 for the open string, or ${BANJO_DRONE_FRET + 1} and up.`;
+export function droneFretHint(): string {
+  return t('palette.hint.droneFret', { fret: BANJO_DRONE_FRET, next: BANJO_DRONE_FRET + 1 });
+}
 
 /**
  * The fret the file stores for a fret typed at the cursor, as the tab shows it: on a banjo's short 5th string the tab
@@ -18,5 +21,5 @@ export function playedNotesHint(skipped: readonly number[]): string | undefined 
   if (skipped.length === 0) {
     return undefined;
   }
-  return `MIDI input: ${skipped.map(pitchName).join(', ')} ${skipped.length === 1 ? 'is' : 'are'} out of this track's reach.`;
+  return t(skipped.length === 1 ? 'palette.hint.midiOutOfReach.one' : 'palette.hint.midiOutOfReach.other', { pitches: skipped.map(pitchName).join(', ') });
 }

@@ -1,6 +1,7 @@
 import { type ReactNode, memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Channel, Track } from '@gp-editor/core';
+import { type Translate, useT } from '../hooks/use-i18n';
 import { ScoreCanvas } from '../native/score-canvas';
 import { BAR_MAP, selectedRowColor, visibleTrackColor } from '../score/bar-map';
 import type { DrawCommand } from '../score/draw';
@@ -62,8 +63,9 @@ export interface TrackMixerRowProps {
 /** One track of the table: instrument icon, "1. Name", show / mute / solo, volume and pan. */
 function TrackMixerRowView(props: TrackMixerRowProps) {
   const { track, trackIndex, isSelected, palette } = props;
+  const t = useT();
   const number = track.number;
-  const name = track.name.trim() === '' ? 'Untitled' : track.name;
+  const name = track.name.trim() === '' ? t('common.untitled') : track.name;
   const isDrums = props.iconKind === 'drums';
   const instrumentIcon = useMemo(() => engraveInstrumentIcon(props.iconKind, visibleTrackColor(track.color)), [props.iconKind, track.color]);
   const drag = useTrackRowDrag(trackIndex, props.trackCount ?? 1, { onSelect: props.onSelectTrack, onDragOver: props.onDragTrack, onDrop: props.onMoveTrack });
@@ -74,21 +76,21 @@ function TrackMixerRowView(props: TrackMixerRowProps) {
       <PanelIconButton
         commands={instrumentIcon}
         size={TRACK_TABLE.instrumentBox}
-        accessibilityLabel={`Instrument of track ${number}`}
-        tooltip={isDrums ? 'Drums' : `${props.instrumentName ?? 'Instrument'} (click to change)`}
+        accessibilityLabel={t('window.tracks.instrumentOf', { number })}
+        tooltip={isDrums ? t('window.tracks.drums') : t('window.tracks.instrumentTooltip', { instrument: props.instrumentName ?? t('common.instrument') })}
         isEnabled={!isDrums}
         palette={palette}
         onPress={() => props.onEditInstrument(trackIndex)}
       />
       <Pressable
         {...drag}
-        tooltip={`${props.instrumentName === undefined ? name : `${name}: ${props.instrumentName}`}${props.onMoveTrack === undefined ? '' : ' (drag up or down to move the track)'}`}
+        tooltip={nameTooltip(name, props.instrumentName, props.onMoveTrack !== undefined, t)}
         accessibilityRole="button"
-        accessibilityLabel={`Track ${number}: ${name}`}
+        accessibilityLabel={t('window.tracks.trackLabel', { number, name })}
         style={styles.name}
       >
         <Text numberOfLines={1} style={[styles.nameText, { color: palette.chromeText }, isSelected ? styles.selectedName : null]}>
-          {`${number}. ${name}`}
+          {t('common.trackNumbered', { number, name })}
         </Text>
       </Pressable>
       <TrackToggles {...props} />
@@ -99,18 +101,25 @@ function TrackMixerRowView(props: TrackMixerRowProps) {
 
 export const TrackMixerRow = memo(TrackMixerRowView);
 
+/** The name's tooltip: the name and its instrument, and how to move the track when it can be dragged. */
+function nameTooltip(name: string, instrumentName: string | undefined, canDrag: boolean, t: Translate): string {
+  const named = instrumentName === undefined ? name : t('window.tracks.nameWithInstrument', { name, instrument: instrumentName });
+  return canDrag ? t('window.tracks.dragToMove', { name: named }) : named;
+}
+
 /** Volume and pan of the track's channel; stable callbacks keep the memoized sliders from re-rendering. */
 function TrackSliders({ track, trackIndex, channel, palette, onSetTrackVolume, onSetTrackBalance }: TrackMixerRowProps) {
   const setVolume = useCallback((volume: number) => onSetTrackVolume(trackIndex, volume), [onSetTrackVolume, trackIndex]);
   const setBalance = useCallback((balance: number) => onSetTrackBalance(trackIndex, balance), [onSetTrackBalance, trackIndex]);
+  const t = useT();
   const isEnabled = channel !== undefined;
   return (
     <>
       <MixerSlider
         value={channel?.volume ?? MIXER.max}
         width={TRACK_TABLE.volumeWidth}
-        label="Volume"
-        accessibilityLabel={`Volume of track ${track.number}`}
+        label={t('common.volume')}
+        accessibilityLabel={t('window.tracks.volumeOf', { number: track.number })}
         isEnabled={isEnabled}
         palette={palette}
         onChange={setVolume}
@@ -119,8 +128,8 @@ function TrackSliders({ track, trackIndex, channel, palette, onSetTrackVolume, o
       <MixerSlider
         value={channel?.balance ?? MIXER.centre}
         width={TRACK_TABLE.panWidth}
-        label="Pan"
-        accessibilityLabel={`Pan of track ${track.number}`}
+        label={t('window.tracks.pan')}
+        accessibilityLabel={t('window.tracks.panOf', { number: track.number })}
         isCentred
         isEnabled={isEnabled}
         palette={palette}
@@ -131,11 +140,11 @@ function TrackSliders({ track, trackIndex, channel, palette, onSetTrackVolume, o
 }
 
 /** The eye's tooltip: the selected track is always shown; another is shown or hidden by its eye. */
-function eyeTooltip(isSelected: boolean, isShown: boolean): string {
+function eyeTooltip(isSelected: boolean, isShown: boolean, t: Translate): string {
   if (isSelected) {
-    return 'Shown in the score: the selected track always is';
+    return t('window.tracks.eyeSelected');
   }
-  return isShown ? 'Shown in the score (click to hide)' : 'Show in the score (Multitrack)';
+  return isShown ? t('window.tracks.eyeShown') : t('window.tracks.eyeHidden');
 }
 
 /** Eye (shown in the score), mute and solo. */
@@ -144,20 +153,21 @@ function TrackToggles({ track, trackIndex, isSelected, isShown, palette, onToggl
   const speaker = useMemo(() => engraveSpeakerIcon(track.mute ? palette.chromeAccentText : palette.chromeMuted, track.mute), [track.mute, palette]);
   const headphones = useMemo(() => engraveHeadphonesIcon(track.solo ? palette.chromeAccentText : palette.chromeMuted), [track.solo, palette]);
   const number = track.number;
+  const t = useT();
   return (
     <View style={styles.toggles}>
       <PanelIconButton
         commands={eye}
-        accessibilityLabel={`Show track ${number} in the score`}
-        tooltip={eyeTooltip(isSelected, isShown)}
+        accessibilityLabel={t('window.tracks.showOf', { number })}
+        tooltip={eyeTooltip(isSelected, isShown, t)}
         isChecked={isShown}
         palette={palette}
         onPress={() => onToggleShown(trackIndex)}
       />
       <PanelIconButton
         commands={speaker}
-        accessibilityLabel={`Mute track ${number}`}
-        tooltip={track.mute ? 'Muted (click to unmute)' : 'Mute'}
+        accessibilityLabel={t('window.tracks.muteOf', { number })}
+        tooltip={track.mute ? t('window.tracks.muted') : t('common.mute')}
         isChecked={track.mute}
         isHighlighted={track.mute}
         palette={palette}
@@ -165,8 +175,8 @@ function TrackToggles({ track, trackIndex, isSelected, isShown, palette, onToggl
       />
       <PanelIconButton
         commands={headphones}
-        accessibilityLabel={`Solo track ${number}`}
-        tooltip={track.solo ? 'Solo (click to stop)' : 'Solo'}
+        accessibilityLabel={t('window.tracks.soloOf', { number })}
+        tooltip={track.solo ? t('window.tracks.soloed') : t('common.solo')}
         isChecked={track.solo}
         isHighlighted={track.solo}
         palette={palette}
@@ -220,26 +230,27 @@ interface TrackTableBandProps {
 
 /** "Tracks" over the table, Multitrack, and the mixer columns named, as tall as the bar numbers beside it. */
 export function TrackTableHeader({ palette, isMultitrack = false, onToggleMultitrack }: TrackTableBandProps) {
+  const t = useT();
   const caption = [styles.caption, { color: palette.chromeMuted }];
   return (
     <View style={[styles.band, { height: BAR_MAP.headerHeight, backgroundColor: palette.chromeDeep }]}>
-      <Text style={[styles.title, { color: palette.chromeText }]}>Tracks</Text>
+      <Text style={[styles.title, { color: palette.chromeText }]}>{t('window.tracks.title')}</Text>
       {onToggleMultitrack === undefined ? null : (
         <Pressable
           testID="tracks-panel-multitrack"
           onPress={onToggleMultitrack}
-          tooltip="Multitrack: every track in the score (F3)"
+          tooltip={t('window.tracks.multitrackTooltip')}
           accessibilityRole="button"
-          accessibilityLabel="Multitrack: every track in the score (F3)"
+          accessibilityLabel={t('window.tracks.multitrackTooltip')}
           accessibilityState={{ selected: isMultitrack }}
           style={[styles.toggle, isMultitrack ? { backgroundColor: palette.chromeAccent } : { borderColor: palette.chromeMuted }]}
         >
-          <Text style={[styles.caption, { color: isMultitrack ? palette.chromeAccentText : palette.chromeText }]}>Multitrack</Text>
+          <Text style={[styles.caption, { color: isMultitrack ? palette.chromeAccentText : palette.chromeText }]}>{t('window.export.multitrack')}</Text>
         </Pressable>
       )}
-      <Text style={[caption, { width: TRACK_TABLE.volumeWidth }]}>Volume</Text>
+      <Text style={[caption, { width: TRACK_TABLE.volumeWidth }]}>{t('common.volume')}</Text>
       <View style={styles.gap} />
-      <Text style={[caption, { width: TRACK_TABLE.panWidth }]}>Pan</Text>
+      <Text style={[caption, { width: TRACK_TABLE.panWidth }]}>{t('window.tracks.pan')}</Text>
     </View>
   );
 }
@@ -251,19 +262,20 @@ interface TrackTableFooterProps extends TrackTableBandProps {
 
 /** Beside the sections row of the bar map: the track buttons, and "+ Audio Track" while the song has none. */
 export function TrackTableFooter({ palette, onAddAudioTrack, trackActions }: TrackTableFooterProps) {
+  const t = useT();
   return (
     <View style={[styles.band, { height: BAR_MAP.sectionsHeight, backgroundColor: palette.chromeDeep }]}>
-      <Text style={[styles.caption, styles.sections, { color: palette.chromeMuted }]}>Sections</Text>
+      <Text style={[styles.caption, styles.sections, { color: palette.chromeMuted }]}>{t('window.tracks.sections')}</Text>
       {trackActions}
       {onAddAudioTrack === undefined ? null : (
         <Pressable
           testID="tracks-panel-add-audio-track"
           onPress={onAddAudioTrack}
-          tooltip="Add a recording that plays in sync with the score (Track ▸ Add Audio Track…)"
+          tooltip={t('window.tracks.addAudioTooltip')}
           accessibilityRole="button"
-          accessibilityLabel="Add an audio track"
+          accessibilityLabel={t('window.tracks.addAudioAccessibility')}
         >
-          <Text style={[styles.caption, { color: palette.chromeText }]}>+ Audio Track</Text>
+          <Text style={[styles.caption, { color: palette.chromeText }]}>{t('window.tracks.addAudio')}</Text>
         </Pressable>
       )}
     </View>

@@ -3,8 +3,8 @@ import { adjacentString, clampCursor, cursorInTrack, firstCursor } from '../lib/
 import type { ScoreMode } from '../score/geometry';
 import type { EditorState } from './editor';
 import {
-  SELECTED_TRACK_SHOWN_HINT,
   adjacentTrackIndex,
+  selectedTrackShownHint,
   setTrackMode,
   shownTrackIndexes,
   toggleMultitrack,
@@ -34,7 +34,8 @@ export function reduceTrackDisplay(state: EditorState, action: TrackDisplayActio
 function toggleShown(state: EditorState, trackIndex: number): EditorState {
   const trackCount = state.document?.song.tracks.length ?? 0;
   if (trackIndex === state.trackIndex) {
-    return state.hint === SELECTED_TRACK_SHOWN_HINT ? state : { ...state, hint: SELECTED_TRACK_SHOWN_HINT };
+    const hint = selectedTrackShownHint();
+    return state.hint === hint ? state : { ...state, hint };
   }
   const trackDisplay = toggleTrackShown(state.trackDisplay, trackCount, state.trackIndex, trackIndex);
   return trackDisplay === state.trackDisplay ? state : { ...state, trackDisplay };

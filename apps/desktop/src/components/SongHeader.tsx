@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { StyleSheet, Text, type TextStyle, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { type TitleLine, titleBlockLines } from '../export/title-block';
+import { useLanguage } from '../hooks/use-i18n';
 import type { Palette } from '../theme';
 
 interface SongHeaderProps {
@@ -16,6 +17,8 @@ interface SongHeaderProps {
  * the author and tab credits, then the shown track with its instrument and tuning on the left.
  */
 function SongHeaderView({ song, trackIndex, fileName, palette }: SongHeaderProps) {
+  // The credits' words ("Music:", "작곡:") follow the language.
+  useLanguage();
   const lines = titleBlockLines(song, trackIndex, song.info.title || fileName);
   return (
     <View style={styles.container}>

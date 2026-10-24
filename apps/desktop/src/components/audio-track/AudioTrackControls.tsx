@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { AudioTrack, AudioTrackMix } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { DETUNE_STEP, SEMITONE_CENTS, formatDetune, shiftDetune, sliderToVolume, volumeToSlider } from '../../lib/audio-track';
 import { engraveHeadphonesIcon, engraveSpeakerIcon } from '../../score/panel-icons';
 import type { Palette } from '../../theme';
@@ -24,6 +25,7 @@ const VOLUME_WIDTH = 70;
 /** Mute, solo and the volume slider. */
 function SoundControls({ audioTrack, palette, onSetMix, volumeWidth = VOLUME_WIDTH }: AudioTrackControlsProps) {
   const { mute, solo } = audioTrack;
+  const t = useT();
   const speaker = useMemo(() => engraveSpeakerIcon(mute ? palette.chromeAccentText : palette.chromeMuted, mute), [mute, palette]);
   const headphones = useMemo(() => engraveHeadphonesIcon(solo ? palette.chromeAccentText : palette.chromeMuted), [solo, palette]);
   const setVolume = useCallback((value: number) => onSetMix({ volume: sliderToVolume(value) }), [onSetMix]);
@@ -31,8 +33,8 @@ function SoundControls({ audioTrack, palette, onSetMix, volumeWidth = VOLUME_WID
     <View style={styles.row}>
       <PanelIconButton
         commands={speaker}
-        accessibilityLabel="Mute the audio track"
-        tooltip={mute ? 'Muted (click to unmute)' : 'Mute'}
+        accessibilityLabel={t('tools.audioTrack.muteLabel')}
+        tooltip={mute ? t('tools.audioTrack.muted') : t('common.mute')}
         isChecked={mute}
         isHighlighted={mute}
         palette={palette}
@@ -40,15 +42,15 @@ function SoundControls({ audioTrack, palette, onSetMix, volumeWidth = VOLUME_WID
       />
       <PanelIconButton
         commands={headphones}
-        accessibilityLabel="Solo the audio track"
-        tooltip={solo ? 'Solo (click to stop)' : 'Solo'}
+        accessibilityLabel={t('tools.audioTrack.soloLabel')}
+        tooltip={solo ? t('tools.audioTrack.soloed') : t('common.solo')}
         isChecked={solo}
         isHighlighted={solo}
         palette={palette}
         onPress={() => onSetMix({ solo: !solo })}
       />
       <View style={styles.gap} />
-      <MixerSlider value={volumeToSlider(audioTrack.volume)} width={volumeWidth} label="Volume" accessibilityLabel="Volume of the audio track" palette={palette} onChange={setVolume} />
+      <MixerSlider value={volumeToSlider(audioTrack.volume)} width={volumeWidth} label={t('common.volume')} accessibilityLabel={t('tools.audioTrack.volumeLabel')} palette={palette} onChange={setVolume} />
     </View>
   );
 }
@@ -56,16 +58,17 @@ function SoundControls({ audioTrack, palette, onSetMix, volumeWidth = VOLUME_WID
 /** The detune and its −/+ steps: ten cents, a semitone with the outer ones. */
 function DetuneControls({ audioTrack, palette, onSetMix }: AudioTrackControlsProps) {
   const { detuneCents } = audioTrack;
+  const t = useT();
   const detune = (delta: number) => onSetMix({ detuneCents: shiftDetune(detuneCents, delta) });
   return (
     <View style={styles.row}>
-      <ChromeButton palette={palette} label="«" tooltip="Detune a semitone down" fontSize={11} minWidth={18} onPress={() => detune(-SEMITONE_CENTS)} />
-      <ChromeButton palette={palette} label="−" tooltip="Detune 10 cents down" fontSize={11} minWidth={18} onPress={() => detune(-DETUNE_STEP)} />
-      <Text style={[styles.detune, { color: palette.chromeText }]} accessibilityLabel={`Detune ${formatDetune(detuneCents)}`}>
+      <ChromeButton palette={palette} label="«" tooltip={t('tools.audioTrack.detuneSemitoneDown')} fontSize={11} minWidth={18} onPress={() => detune(-SEMITONE_CENTS)} />
+      <ChromeButton palette={palette} label="−" tooltip={t('tools.audioTrack.detuneCentsDown')} fontSize={11} minWidth={18} onPress={() => detune(-DETUNE_STEP)} />
+      <Text style={[styles.detune, { color: palette.chromeText }]} accessibilityLabel={t('tools.audioTrack.detune', { value: formatDetune(detuneCents) })}>
         {formatDetune(detuneCents)}
       </Text>
-      <ChromeButton palette={palette} label="+" tooltip="Detune 10 cents up" fontSize={11} minWidth={18} onPress={() => detune(DETUNE_STEP)} />
-      <ChromeButton palette={palette} label="»" tooltip="Detune a semitone up" fontSize={11} minWidth={18} onPress={() => detune(SEMITONE_CENTS)} />
+      <ChromeButton palette={palette} label="+" tooltip={t('tools.audioTrack.detuneCentsUp')} fontSize={11} minWidth={18} onPress={() => detune(DETUNE_STEP)} />
+      <ChromeButton palette={palette} label="»" tooltip={t('tools.audioTrack.detuneSemitoneUp')} fontSize={11} minWidth={18} onPress={() => detune(SEMITONE_CENTS)} />
     </View>
   );
 }

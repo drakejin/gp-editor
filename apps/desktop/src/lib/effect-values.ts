@@ -1,4 +1,5 @@
-import { type EffectParamSpec, clampEffectParam } from '@gp-editor/core';
+import { type EffectParamSpec, type EffectType, clampEffectParam } from '@gp-editor/core';
+import { isMessageKey, t } from './i18n/i18n';
 
 const MINUS = '−';
 const MILLISECONDS_PER_SECOND = 1000;
@@ -13,9 +14,9 @@ function formatDb(value: number): string {
 
 function formatHz(value: number): string {
   if (value >= HERTZ_PER_KILOHERTZ) {
-    return `${(value / HERTZ_PER_KILOHERTZ).toFixed(1)} kHz`;
+    return `${(value / HERTZ_PER_KILOHERTZ).toFixed(1)} kHz`; // i18n-exempt: units
   }
-  return value < SLOW_HERTZ ? `${value.toFixed(2)} Hz` : `${Math.round(value)} Hz`;
+  return value < SLOW_HERTZ ? `${value.toFixed(2)} Hz` : `${Math.round(value)} Hz`; // i18n-exempt: units
 }
 
 function formatMs(value: number): string {
@@ -25,10 +26,48 @@ function formatMs(value: number): string {
   return Number.isInteger(value) ? `${value} ms` : `${value.toFixed(1)} ms`;
 }
 
+/** "Mid boost" → "midBoost", "1x12 open back" → "1x12OpenBack": a gp-core name as the end of a message key. */
+export function nameKey(name: string): string {
+  const words = name.split(/[^A-Za-z0-9]+/).filter((word) => word !== '');
+  return words.map((word, index) => (index === 0 ? word.toLowerCase() : `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)).join('');
+}
+
+/** A gp-core name (an effect's parameter, choice or preset) in the shown language; as written when it has no message. */
+function translatedName(prefix: string, name: string): string {
+  const key = `${prefix}.${nameKey(name)}`;
+  return isMessageKey(key) ? t(key) : name;
+}
+
+/** "Compressor" / "컴프레서": an effect type's name. */
+export function effectName(type: EffectType): string {
+  return t(`tools.effect.name.${type}`);
+}
+
+/** A parameter's label ("Low cut"), from its English label (ids repeat across effects with other labels). */
+export function effectParamLabel(spec: EffectParamSpec): string {
+  return translatedName('tools.effect.param', spec.label);
+}
+
+/** One of a choice parameter's values ("Medium hall", "2x12 combo"). */
+export function effectChoiceName(choice: string): string {
+  return translatedName('tools.effect.choice', choice);
+}
+
+/** An effect preset's name ("Mid boost"); presets are applied and matched by their English name. */
+export function effectPresetName(name: string): string {
+  return translatedName('tools.effect.preset', name);
+}
+
+/** A whole chain preset's name ("Bass DI"). */
+export function chainPresetName(name: string): string {
+  return translatedName('tools.effect.chain', name);
+}
+
 /** "350 ms", "12.5 kHz", "+18.0 dB", "50%", or the choice's name. */
 export function formatEffectValue(spec: EffectParamSpec, value: number): string {
   if (spec.choices !== undefined) {
-    return spec.choices[Math.round(value)] ?? String(value);
+    const choice = spec.choices[Math.round(value)];
+    return choice === undefined ? String(value) : effectChoiceName(choice);
   }
   switch (spec.unit) {
     case 'dB':

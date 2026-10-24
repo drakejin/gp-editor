@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import { t } from '../lib/i18n/i18n';
 
 interface GPAudioInputModule {
   start(): Promise<void>;
@@ -14,7 +15,7 @@ const native = NativeModules.GPAudioInput as GPAudioInputModule | undefined;
 
 /** Starts capture, asking for microphone access the first time; rejects with code "denied" when access is off. */
 export function startAudioInput(): Promise<void> {
-  return native === undefined ? Promise.reject(new Error('The microphone is not available on this platform.')) : native.start();
+  return native === undefined ? Promise.reject(new Error(t('window.native.microphoneUnavailable'))) : native.start();
 }
 
 /** Stops capture (also done natively when the app quits); a no-op where the module is missing. */

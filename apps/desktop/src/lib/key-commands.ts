@@ -1,3 +1,4 @@
+// i18n-exempt-file: key names (react-native's KeyEvent.key values) and editor commands, nothing shown
 import type { HandledKeyEvent } from 'react-native';
 import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
@@ -51,6 +52,20 @@ export interface KeyPress {
   readonly shiftKey: boolean;
   readonly altKey: boolean;
 }
+
+/** The named keys the editor answers, as react-native-macos names them (KeyEvent.key). */
+export const KEYS = {
+  arrowUp: 'ArrowUp',
+  arrowDown: 'ArrowDown',
+  arrowLeft: 'ArrowLeft',
+  arrowRight: 'ArrowRight',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  home: 'Home',
+  end: 'End',
+  escape: 'Escape',
+  enter: 'Enter',
+} as const;
 
 const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 

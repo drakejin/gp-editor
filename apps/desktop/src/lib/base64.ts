@@ -28,6 +28,7 @@ function pairValue(text: string, index: number): number {
 
 function invalidCharacterError(text: string): Error {
   const invalid = [...text].find((char) => !ALPHABET.includes(char)) ?? text;
+  // i18n-exempt: a diagnostic of data the app itself encoded; kept free of the catalogues (the Hermes smoke bundles this file)
   return new Error(`Invalid base64 character "${invalid}"`);
 }
 

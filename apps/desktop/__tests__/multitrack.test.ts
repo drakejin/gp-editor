@@ -1,5 +1,5 @@
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { SELECTED_TRACK_SHOWN_HINT, shownTrackIndexes } from '../src/state/track-display';
+import { selectedTrackShownHint, shownTrackIndexes } from '../src/state/track-display';
 import { beat, makeSong, note, withTrack } from '../test-support/songs';
 
 const BASS_STRINGS = [43, 38, 33, 28].map((tuning, i) => ({ number: i + 1, tuning }));
@@ -34,7 +34,7 @@ describe('the multitrack view in the editor', () => {
 
     // Assert
     expect(shown(state)).toEqual([0, 1, 2]);
-    expect(state.hint).toBe(SELECTED_TRACK_SHOWN_HINT);
+    expect(state.hint).toBe(selectedTrackShownHint());
   });
 
   it('sets the selected track’s own staves in the multitrack view and the score’s mode outside it', () => {

@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { EFFECT_PARAMS, EFFECT_PRESETS, type Effect, applyEffectPreset, matchingEffectPreset, setEffectParam } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
+import { effectPresetName } from '../../lib/effect-values';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { PARAM_SLIDER, ParamSlider } from './ParamSlider';
@@ -18,6 +20,7 @@ const SLIDER_MARGIN = PARAM_SLIDER.labelWidth + PARAM_SLIDER.valueWidth + 16;
 
 /** One effect's presets and parameters (values heard while dragging, written to the song when the drag ends). */
 export function EffectEditor({ palette, effect, width, onChange, onPreview }: EffectEditorProps) {
+  const t = useT();
   const preset = matchingEffectPreset(effect);
   const withParam = (id: string, value: number): Effect => setEffectParam([effect], 0, id, value)[0] ?? effect;
   return (
@@ -27,8 +30,8 @@ export function EffectEditor({ palette, effect, width, onChange, onPreview }: Ef
           <ChromeButton
             key={name}
             palette={palette}
-            label={name}
-            tooltip={`${name} preset`}
+            label={effectPresetName(name)}
+            tooltip={t('tools.effects.presetTooltip', { name: effectPresetName(name) })}
             fontSize={11}
             isActive={preset === name}
             onPress={() => onChange(applyEffectPreset([effect], 0, name)[0] ?? effect)}

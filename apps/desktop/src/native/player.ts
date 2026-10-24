@@ -41,6 +41,7 @@ const native = NativeModules.GPPlayer as GPPlayerModule | undefined;
 
 function requireNative(): GPPlayerModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPPlayer native module is not available on this platform');
   }
   return native;

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex } from '@gp-editor/core';
+import { GM_INSTRUMENT_FAMILIES, gmFamilyIndex } from '@gp-editor/core';
+import { useT } from '../hooks/use-i18n';
+import { gmFamilyName, gmProgramName } from '../lib/instruments';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 
@@ -15,10 +17,6 @@ interface InstrumentPickerProps {
 
 const FAMILY_SIZE = 8;
 
-function instrumentName(program: number): string {
-  return GM_INSTRUMENT_NAMES[program] ?? `Program ${program + 1}`;
-}
-
 /**
  * Picks a track's instrument in two clearly separate steps, in a panel over the score: on the left (step 1) one of the
  * 16 General MIDI families — browsing only; on the right (step 2) one of that family's 8 instruments, which the track
@@ -26,6 +24,7 @@ function instrumentName(program: number): string {
  * outside closes it.
  */
 export function InstrumentPicker({ trackName, program, palette, onSetProgram, onClose }: InstrumentPickerProps) {
+  const t = useT();
   const [familyIndex, setFamilyIndex] = useState(gmFamilyIndex(program));
   const programs = Array.from({ length: FAMILY_SIZE }, (_, i) => familyIndex * FAMILY_SIZE + i);
   return (
@@ -34,27 +33,27 @@ export function InstrumentPicker({ trackName, program, palette, onSetProgram, on
       <View style={[styles.panel, { backgroundColor: palette.paper, borderColor: palette.border }]}>
         <View style={[styles.header, { borderColor: palette.border }]}>
           <View style={styles.headerTexts}>
-            <Text style={[styles.title, { color: palette.text }]}>{`Instrument · ${trackName}`}</Text>
-            <Text style={[styles.now, { color: palette.muted }]}>{`Now: ${instrumentName(program)}`}</Text>
+            <Text style={[styles.title, { color: palette.text }]}>{t('window.picker.title', { track: trackName })}</Text>
+            <Text style={[styles.now, { color: palette.muted }]}>{t('window.picker.now', { instrument: gmProgramName(program) })}</Text>
           </View>
-          <BarButton label="Done" palette={palette} isAccent onPress={onClose} />
+          <BarButton label={t('common.done')} palette={palette} isAccent onPress={onClose} />
         </View>
         <View style={styles.panes}>
           <View style={[styles.familyPane, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
-            <Text style={[styles.paneTitle, { color: palette.muted }]}>1  Family</Text>
+            <Text style={[styles.paneTitle, { color: palette.muted }]}>{t('window.picker.family')}</Text>
             <ScrollView>
               {GM_INSTRUMENT_FAMILIES.map((family, index) => (
-                <PickerRow key={family} pane="family" label={family} isSelected={index === familyIndex} palette={palette} onPress={() => setFamilyIndex(index)} />
+                <PickerRow key={family} pane="family" label={gmFamilyName(index)} isSelected={index === familyIndex} palette={palette} onPress={() => setFamilyIndex(index)} />
               ))}
             </ScrollView>
           </View>
           <View style={styles.instrumentPane}>
-            <Text style={[styles.paneTitle, { color: palette.muted }]}>2  Instrument</Text>
+            <Text style={[styles.paneTitle, { color: palette.muted }]}>{t('window.picker.instrument')}</Text>
             {programs.map((candidate) => (
               <PickerRow
                 key={candidate}
                 pane="instrument"
-                label={instrumentName(candidate)}
+                label={gmProgramName(candidate)}
                 isSelected={candidate === program}
                 palette={palette}
                 onPress={() => onSetProgram(candidate)}
@@ -63,8 +62,7 @@ export function InstrumentPicker({ trackName, program, palette, onSetProgram, on
           </View>
         </View>
         <Text style={[styles.footer, { color: palette.muted, borderColor: palette.border }]}>
-          Choose a family on the left, then an instrument on the right. The track plays it at once — while the song plays,
-          you hear it straight away. Saved with the song.
+          {t('window.picker.footer')}
         </Text>
       </View>
     </View>

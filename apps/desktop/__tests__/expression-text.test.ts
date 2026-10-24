@@ -14,6 +14,7 @@ import {
   type ExpressionMatch,
   searchExpressions,
 } from '../src/lib/expression-text';
+import { setLanguage } from '../src/lib/i18n/i18n';
 import type { AppCommand } from '../src/state/app-command';
 import type { SongEdit } from '../src/state/song-edits';
 import { beat, header, makeSong, note } from '../test-support/songs';
@@ -280,5 +281,32 @@ describe('expression commands', () => {
       true,
     ]);
     expect(enabled('coda', { ...STATE, hasDocument: false })).toBe(false);
+  });
+});
+
+describe('Expression Text in Korean', () => {
+  beforeEach(() => setLanguage('ko'));
+  afterEach(() => setLanguage('en'));
+
+  it('titles octave signs, clefs and keys in Korean and groups them by their Korean kind', () => {
+    expect(first('8va').title).toBe('8va — 한 옥타브 위');
+    expect(first('bass clef').title).toBe('낮은음자리표 (F)');
+    expect(titles('E minor')).toContain('E 단조 (1♯)');
+    const state: CommandState = { hasDocument: true, hasSelection: false, canUndo: false, canRedo: false, tabCount: 1, isPercussion: false, palette: CONTEXT.palette, tuning: STANDARD_TUNING };
+    expect(expressionCommands('bass clef', state)[0]?.group).toBe('음자리표');
+  });
+
+  it('reads keys, clefs and chords typed with Korean words', () => {
+    expect(first('E 단조')).toMatchObject({ kind: 'keySignature', title: 'E 단조 (1♯)' });
+    expect(first('플랫 3개')).toMatchObject({ kind: 'keySignature', title: 'E♭ 장조 / C 단조 (3♭)' });
+    expect(first('2 샵').title).toBe('D 장조 / B 단조 (2♯)');
+    expect(first('조표 없음').title).toBe('C 장조 / A 단조 (조표 없음)');
+    expect(first('높은음').title).toBe('높은음자리표 (G)');
+    expect(first('A 마이너')).toMatchObject({ kind: 'chord', title: 'Am' });
+  });
+
+  it('still reads English names', () => {
+    expect(first('treble').title).toBe('높은음자리표 (G)');
+    expect(first('mezzo forte').title).toBe('mf (mezzo forte)');
   });
 });

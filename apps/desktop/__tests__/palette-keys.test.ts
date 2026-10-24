@@ -1,7 +1,7 @@
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { keyCommand } from '../src/lib/key-commands';
 
-const TOOLS_WITH_KEYS = PALETTE_GROUPS.flatMap((group) => group.tools).filter((tool) => tool.key !== undefined);
+const TOOLS_WITH_KEYS = paletteGroups().flatMap((group) => group.tools).filter((tool) => tool.key !== undefined);
 
 const pressOf = (key: string) => keyCommand({ key: key.toLowerCase(), metaKey: false, shiftKey: false, altKey: false }, { current: undefined }, 0);
 

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import type { PdfImport } from '../hooks/use-pdf-import';
 import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
 import { importProgressText, projectStatusText } from '../pdf-import/status';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
-import { plural } from '../lib/wording';
 
 interface ImportBannerProps {
   readonly palette: Palette;
@@ -19,6 +19,7 @@ interface ImportBannerProps {
  */
 export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBannerProps) {
   const [showsWarnings, setShowsWarnings] = useState(false);
+  const t = useT();
   const { current, isRunning, error } = pdfImport;
   if (current === undefined && error === undefined) {
     return null;
@@ -26,7 +27,7 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
   const project = current?.project;
   const modelName = TRANSCRIPTION_MODELS.find((model) => model.id === project?.model)?.name ?? project?.model ?? '';
   const line =
-    project === undefined ? error ?? '' : isRunning ? importProgressText(project, modelName) : `“${project.name}”: ${projectStatusText(project)}`;
+    project === undefined ? error ?? '' : isRunning ? importProgressText(project, modelName) : t('window.import.projectLine', { name: project.name, status: projectStatusText(project) });
   const warnings = project?.warnings ?? [];
   const canResume = !isRunning && project !== undefined && project.status !== 'done' && current !== undefined;
   return (
@@ -35,19 +36,19 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
         <Text numberOfLines={2} style={[styles.line, { color: error === undefined ? palette.text : palette.danger }]}>
           {error !== undefined && project !== undefined ? `${line} — ${error}` : line}
         </Text>
-        {isRunning ? <BarButton label="Cancel" palette={palette} onPress={pdfImport.cancel} /> : null}
+        {isRunning ? <BarButton label={t('common.cancel')} palette={palette} onPress={pdfImport.cancel} /> : null}
         {!isRunning && warnings.length > 0 ? (
           <BarButton
-            label={`${plural(warnings.length, 'warning')} ${showsWarnings ? '▴' : '▾'}`}
+            label={`${t('window.import.warnings', { count: warnings.length })} ${showsWarnings ? '▴' : '▾'}`}
             palette={palette}
             isActive={showsWarnings}
             onPress={() => setShowsWarnings(!showsWarnings)}
           />
         ) : null}
-        {canResume ? <BarButton label="Resume" palette={palette} isAccent onPress={() => pdfImport.resume(current.path)} /> : null}
-        {!isRunning ? <BarButton label="Import settings…" palette={palette} onPress={onOpenSettings} /> : null}
-        {current !== undefined ? <BarButton label="Show in Finder" palette={palette} onPress={() => pdfImport.reveal(current.path)} /> : null}
-        {!isRunning ? <BarButton label="Dismiss" palette={palette} onPress={pdfImport.dismiss} /> : null}
+        {canResume ? <BarButton label={t('common.resume')} palette={palette} isAccent onPress={() => pdfImport.resume(current.path)} /> : null}
+        {!isRunning ? <BarButton label={t('window.import.settings')} palette={palette} onPress={onOpenSettings} /> : null}
+        {current !== undefined ? <BarButton label={t('common.showInFinder')} palette={palette} onPress={() => pdfImport.reveal(current.path)} /> : null}
+        {!isRunning ? <BarButton label={t('common.dismiss')} palette={palette} onPress={pdfImport.dismiss} /> : null}
       </View>
       {showsWarnings && !isRunning
         ? warnings.map((warning, index) => (

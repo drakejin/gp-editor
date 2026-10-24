@@ -20,23 +20,23 @@ const GAP = 2;
 /** Room between the signs and the words when a bar has both. */
 const SIDE_GAP = 10;
 
-/** The words Guitar Pro writes for the jumps and the fine. */
+/** The words Guitar Pro writes for the jumps and the fine (notation: the same in every language). */
 export const DIRECTION_TEXTS: Readonly<Record<DirectionJump | 'fine', string>> = {
-  fine: 'Fine',
+  fine: 'Fine', // i18n-exempt: notation
   daCapo: 'D.C.',
-  daCapoAlCoda: 'D.C. al Coda',
-  daCapoAlDoubleCoda: 'D.C. al Double Coda',
-  daCapoAlFine: 'D.C. al Fine',
+  daCapoAlCoda: 'D.C. al Coda', // i18n-exempt: notation
+  daCapoAlDoubleCoda: 'D.C. al Double Coda', // i18n-exempt: notation
+  daCapoAlFine: 'D.C. al Fine', // i18n-exempt: notation
   daSegno: 'D.S.',
-  daSegnoAlCoda: 'D.S. al Coda',
-  daSegnoAlDoubleCoda: 'D.S. al Double Coda',
-  daSegnoAlFine: 'D.S. al Fine',
+  daSegnoAlCoda: 'D.S. al Coda', // i18n-exempt: notation
+  daSegnoAlDoubleCoda: 'D.S. al Double Coda', // i18n-exempt: notation
+  daSegnoAlFine: 'D.S. al Fine', // i18n-exempt: notation
   daSegnoSegno: 'D.S.S.',
-  daSegnoSegnoAlCoda: 'D.S.S. al Coda',
-  daSegnoSegnoAlDoubleCoda: 'D.S.S. al Double Coda',
-  daSegnoSegnoAlFine: 'D.S.S. al Fine',
-  daCoda: 'To Coda',
-  daDoubleCoda: 'To Double Coda',
+  daSegnoSegnoAlCoda: 'D.S.S. al Coda', // i18n-exempt: notation
+  daSegnoSegnoAlDoubleCoda: 'D.S.S. al Double Coda', // i18n-exempt: notation
+  daSegnoSegnoAlFine: 'D.S.S. al Fine', // i18n-exempt: notation
+  daCoda: 'To Coda', // i18n-exempt: notation
+  daDoubleCoda: 'To Double Coda', // i18n-exempt: notation
 };
 
 /** The signs of a target drawn at the start of the bar: a double sign is the sign twice. */

@@ -2,6 +2,7 @@ import { type Song, type SongFile, type WritableFormat, setAudioTrack, writeSong
 import { audioData, loadAudioData } from '../native/audio-track';
 import { base64ToBytes, bytesToBase64 } from './base64';
 import { errorMessage } from './errors';
+import { t } from './i18n/i18n';
 
 /** A song as it opens, and what the hint strip says about its audio track. */
 export interface LoadedSong {
@@ -29,7 +30,7 @@ export async function withLoadedAudio(file: SongFile): Promise<LoadedSong> {
     const info = await loadAudioData(bytesToBase64(audioTrackData), track.fileExtension);
     return { song: setAudioTrack(song, { ...track, assetId: info.assetId }) };
   } catch (error: unknown) {
-    return { song, hint: `The audio track's file cannot be played: ${errorMessage(error, 'unknown format')}.` };
+    return { song, hint: t('tools.audioTrack.cannotPlay', { detail: errorMessage(error, t('tools.audioTrack.unknownFormat')) }) };
   }
 }
 
@@ -43,6 +44,6 @@ export async function songBytesFor(song: Song, format: WritableFormat): Promise<
     const audioTrackData = base64ToBytes(await audioData(track.assetId));
     return { bytes: writeSong(song, format, { audioTrackData }) };
   } catch (error: unknown) {
-    return { bytes: writeSong(song, format), hint: `The audio track was left out: ${errorMessage(error, 'its file is not loaded')}.` };
+    return { bytes: writeSong(song, format), hint: t('tools.audioTrack.leftOut', { detail: errorMessage(error, t('tools.audioTrack.fileNotLoaded')) }) };
   }
 }

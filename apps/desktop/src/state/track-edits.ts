@@ -1,4 +1,5 @@
 import { type NewTrack, type Song, addTrack, deleteTrack, duplicateTrack, moveTrack } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 
 /**
  * Track ▸ Add Track…, Duplicate Track, Delete Track, Move Track Up / Down and the tracks panel's buttons, drags and menu;
@@ -19,8 +20,13 @@ export interface TrackEditResult {
   readonly hint?: string;
 }
 
-export const LAST_TRACK_HINT = 'A song keeps at least one track: add another one before deleting this one.';
-export const ADD_TRACK_FAILED_HINT = 'That track could not be added: choose an instrument and a tuning of 1 to 8 strings.';
+export function lastTrackHint(): string {
+  return t('palette.hint.lastTrack');
+}
+
+function addTrackFailedHint(): string {
+  return t('palette.hint.addTrackFailed');
+}
 
 function withShown(song: Song, next: Song, shownTrackIndex: number): TrackEditResult {
   return next === song ? { song } : { song: next, shownTrackIndex };
@@ -31,12 +37,12 @@ export function applyTrackAction(song: Song, action: TrackAction): TrackEditResu
   switch (action.type) {
     case 'addTrack': {
       const added = addTrack(song, action.track);
-      return added === song ? { song, hint: ADD_TRACK_FAILED_HINT } : withShown(song, added, added.tracks.length - 1);
+      return added === song ? { song, hint: addTrackFailedHint() } : withShown(song, added, added.tracks.length - 1);
     }
     case 'duplicateTrack':
       return withShown(song, duplicateTrack(song, action.trackIndex), action.trackIndex + 1);
     case 'deleteTrack':
-      return song.tracks.length <= 1 ? { song, hint: LAST_TRACK_HINT } : { song: deleteTrack(song, action.trackIndex) };
+      return song.tracks.length <= 1 ? { song, hint: lastTrackHint() } : { song: deleteTrack(song, action.trackIndex) };
     case 'moveTrack':
       return { song: moveTrack(song, action.fromIndex, action.toIndex) };
   }

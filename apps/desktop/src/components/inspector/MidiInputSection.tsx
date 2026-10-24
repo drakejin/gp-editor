@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { type Translate, useT } from '../../hooks/use-i18n';
 import type { MidiInput } from '../../hooks/use-midi-input';
 import { CHORD_WINDOW_MS } from '../../lib/midi-input';
-import { plural } from '../../lib/wording';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { InspectorSection } from './InspectorParts';
@@ -12,17 +12,17 @@ interface MidiInputSectionProps {
 }
 
 /** What MIDI input is doing now, under its settings. */
-function statusText(midiInput: MidiInput): string {
+function statusText(midiInput: MidiInput, t: Translate): string {
   if (midiInput.error !== undefined) {
     return midiInput.error;
   }
   if (!midiInput.settings.isEnabled) {
-    return 'Off.';
+    return t('tools.midiInput.off');
   }
   if (midiInput.sources.length === 0) {
-    return 'No MIDI source found: connect a keyboard or MIDI guitar.';
+    return t('tools.midiInput.noSource');
   }
-  return midiInput.listening === 0 ? 'The chosen source is not connected.' : `Listening to ${plural(midiInput.listening, 'source')}.`;
+  return midiInput.listening === 0 ? t('tools.midiInput.notConnected') : t('tools.midiInput.listening', { count: midiInput.listening });
 }
 
 /**
@@ -31,14 +31,15 @@ function statusText(midiInput: MidiInput): string {
  */
 export function MidiInputSection({ palette, midiInput }: MidiInputSectionProps) {
   const { settings, sources, changeSettings } = midiInput;
-  const choices: readonly { readonly id?: number; readonly name: string }[] = [{ name: 'All sources' }, ...sources];
+  const t = useT();
+  const choices: readonly { readonly id?: number; readonly name: string }[] = [{ name: t('tools.midiInput.allSources') }, ...sources];
   return (
-    <InspectorSection palette={palette} title="MIDI INPUT">
+    <InspectorSection palette={palette} title={t('tools.midiInput.title')}>
       <View style={styles.row}>
         <ChromeButton
           palette={palette}
-          label={settings.isEnabled ? '● On' : '○ Off'}
-          tooltip={settings.isEnabled ? 'Stop entering notes from MIDI' : 'Enter notes at the cursor from a MIDI keyboard or MIDI guitar'}
+          label={settings.isEnabled ? `● ${t('common.on')}` : `○ ${t('common.off')}`}
+          tooltip={settings.isEnabled ? t('tools.midiInput.stopTooltip') : t('tools.midiInput.startTooltip')}
           isActive={settings.isEnabled}
           onPress={() => changeSettings({ isEnabled: !settings.isEnabled })}
         />
@@ -48,7 +49,7 @@ export function MidiInputSection({ palette, midiInput }: MidiInputSectionProps) 
           <ChromeButton
             palette={palette}
             label={`${choice.id === settings.sourceId ? '●' : '○'}  ${choice.name}`}
-            tooltip={choice.id === undefined ? 'Listen to every MIDI source' : `Listen to ${choice.name} only`}
+            tooltip={choice.id === undefined ? t('tools.midiInput.listenAll') : t('tools.midiInput.listenOne', { name: choice.name })}
             isActive={choice.id === settings.sourceId}
             onPress={() => changeSettings({ sourceId: choice.id })}
           />
@@ -57,8 +58,8 @@ export function MidiInputSection({ palette, midiInput }: MidiInputSectionProps) 
       <View style={styles.row}>
         <ChromeButton
           palette={palette}
-          label={`${settings.isGuitarMode ? '☑' : '☐'}  MIDI guitar (one channel per string)`}
-          tooltip="Channel 1 is string 1, channel 2 string 2 … as a MIDI guitar sends them"
+          label={`${settings.isGuitarMode ? '☑' : '☐'}  ${t('tools.midiInput.guitarMode')}`}
+          tooltip={t('tools.midiInput.guitarModeTooltip')}
           isActive={settings.isGuitarMode}
           onPress={() => changeSettings({ isGuitarMode: !settings.isGuitarMode })}
         />
@@ -66,16 +67,14 @@ export function MidiInputSection({ palette, midiInput }: MidiInputSectionProps) 
       <View style={styles.row}>
         <ChromeButton
           palette={palette}
-          label={`${settings.usesVelocity ? '☑' : '☐'}  Velocity sets the dynamic`}
-          tooltip="Notes get the velocity they were played with"
+          label={`${settings.usesVelocity ? '☑' : '☐'}  ${t('tools.midiInput.velocity')}`}
+          tooltip={t('tools.midiInput.velocityTooltip')}
           isActive={settings.usesVelocity}
           onPress={() => changeSettings({ usesVelocity: !settings.usesVelocity })}
         />
       </View>
-      <Text style={[styles.note, { color: palette.chromeMuted }]}>{statusText(midiInput)}</Text>
-      <Text style={[styles.note, { color: palette.chromeMuted }]}>
-        Notes struck within {CHORD_WINDOW_MS} ms make one beat at the cursor, which then moves on. On this Mac; not saved in the file.
-      </Text>
+      <Text style={[styles.note, { color: palette.chromeMuted }]}>{statusText(midiInput, t)}</Text>
+      <Text style={[styles.note, { color: palette.chromeMuted }]}>{t('tools.midiInput.chordWindow', { ms: CHORD_WINDOW_MS })}</Text>
     </InspectorSection>
   );
 }

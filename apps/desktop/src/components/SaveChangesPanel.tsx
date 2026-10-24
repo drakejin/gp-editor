@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import type { Palette } from '../theme';
 import { ChromeButton } from './chrome/ChromeButton';
 
@@ -14,17 +15,18 @@ interface SaveChangesPanelProps {
 
 /** Asked before an edited tab closes (its ×, File ▸ Close Tab): a small dark panel over the window. */
 export function SaveChangesPanel({ palette, name, onSave, onDiscard, onCancel }: SaveChangesPanelProps) {
+  const t = useT();
   return (
     <View style={styles.overlay}>
       <Pressable testID="save-changes-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onCancel} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Save changes">
-        <Text style={[styles.title, { color: palette.chromeText }]}>{`Save changes to “${name}”?`}</Text>
-        <Text style={[styles.message, { color: palette.chromeMuted }]}>Your changes will be lost if you don’t save them.</Text>
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('window.saveChanges.accessibility')}>
+        <Text style={[styles.title, { color: palette.chromeText }]}>{t('window.saveChanges.title', { name })}</Text>
+        <Text style={[styles.message, { color: palette.chromeMuted }]}>{t('window.saveChanges.message')}</Text>
         <View style={styles.buttons}>
-          <ChromeButton palette={palette} label="Don’t Save" tooltip="Close the tab without saving" minWidth={86} onPress={onDiscard} />
+          <ChromeButton palette={palette} label={t('window.saveChanges.discard')} tooltip={t('window.saveChanges.discardTooltip')} minWidth={86} onPress={onDiscard} />
           <View style={styles.gap} />
-          <ChromeButton palette={palette} label="Cancel" tooltip="Keep the tab open (Esc)" minWidth={72} onPress={onCancel} />
-          <ChromeButton palette={palette} label="Save" tooltip="Save, then close the tab" minWidth={72} isActive onPress={onSave} />
+          <ChromeButton palette={palette} label={t('common.cancel')} tooltip={t('window.saveChanges.cancelTooltip')} minWidth={72} onPress={onCancel} />
+          <ChromeButton palette={palette} label={t('common.save')} tooltip={t('window.saveChanges.saveTooltip')} minWidth={72} isActive onPress={onSave} />
         </View>
       </View>
     </View>

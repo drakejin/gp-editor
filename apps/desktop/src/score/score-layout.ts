@@ -1,5 +1,6 @@
 import type { Song, Track } from '@gp-editor/core';
 import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
+import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
 import { hasDirections } from './directions';
@@ -177,7 +178,7 @@ export function shortTrackName(name: string): string {
 
 /** What a staff is labelled with: the track's name on the first system, its short name on the others. */
 export function staffLabel(track: Pick<Track, 'name' | 'number'>, isFirstSystem: boolean): string {
-  const name = track.name.trim() === '' ? `Track ${track.number}` : track.name.trim();
+  const name = track.name.trim() === '' ? t('common.trackNumber', { number: track.number }) : track.name.trim();
   return isFirstSystem ? name : shortTrackName(name);
 }
 
