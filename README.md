@@ -415,6 +415,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   between tracks and between notation and tab drag it taller or shorter; + / − beside a system take a bar in or give one
   away, × puts the system back; *New system at bar n* and *Reset Positions* (also View ▸ Reset Positions) on the strip
   over the score. The score shows a drag as it moves; letting go is one undo step. A `.gp` file keeps the layout.
+  Handles that can be dragged are blue, moved ones red, the guideline yellow — apart on every score paper and contrast.
 - **Sound**: the Track inspector's *Instrument* (or the track's icon in the tracks panel) opens the instrument panel
   over the score — step 1 on the left picks one of the 16 General MIDI families (Piano, Guitar, Bass, Strings, Brass,
   Synth Lead…), step 2 on the right one of its 8 instruments, which the track plays at once. The panel stays open to
@@ -501,12 +502,12 @@ Guitar Pro's own files differently are listed, with that evidence, in
   `.gp`, GP4 and GP3 files leave them out.
 - **View ▸ Focus / Unfocus** (⇧⌘F): only the score and the top bar; Unfocus brings back the panels that were shown.
 - **Settings** (GP Editor ▸ Settings…, ⌘,): *Language* — the system's, English or 한국어 (Korean): the window, panels,
-  palette, inspector, shortcut sheet, command palette, hints and errors change at once, and so do the menus and the save
-  panels; macOS's own menu items (Services, Window, Quit …) follow at the next start. In Korean the command palette finds
-  Korean titles, their initial consonants (ㅌㄴ → 튜너) and still the English names. Notation on the score (P.M., let
-  ring, 8va, dynamics, chords) stays as notation writes it. *Interface contrast* — Standard or High (darker panels,
-  brighter text and borders) — and *Score paper* — light, dark or following the system; every text colour reads at WCAG
-  AA. The settings are kept for the next start.
+  palette, inspector, Stylesheet and Design Mode, shortcut sheet, command palette, hints and errors change at once, and
+  so do the menus and the save panels; macOS's own menu items (Services, Window, Quit …) follow at the next start. In
+  Korean the command palette finds Korean titles, their initial consonants (ㅌㄴ → 튜너) and still the English names.
+  Notation on the score (P.M., let ring, 8va, dynamics, chords) stays as notation writes it. *Interface contrast* —
+  Standard or High (darker panels, brighter text and borders) — and *Score paper* — light, dark or following the
+  system; every text colour reads at WCAG AA. The settings are kept for the next start.
 
 ## License
 
