@@ -48,7 +48,8 @@ function ClaudeRow({ palette, hasKey, model, onSaveKey, onChooseModel }: Pick<So
             accessibilityLabel="Anthropic API key"
             value={draftKey}
             onChangeText={setDraftKey}
-            secureTextEntry
+            autoCorrect={false}
+            spellCheck={false}
             placeholder="Anthropic API key (sk-ant-…)"
             placeholderTextColor={palette.chromeMuted}
             style={[styles.key, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}

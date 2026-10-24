@@ -6,7 +6,7 @@ import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 import { errorMessage } from '../lib/errors';
 
-interface ImportPanelProps {
+export interface ImportPanelProps {
   readonly palette: Palette;
   readonly hasKey?: boolean;
   readonly model: string;
@@ -51,7 +51,8 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
         <TextField
           value={draft}
           onChangeText={setDraft}
-          secureTextEntry
+          autoCorrect={false}
+          spellCheck={false}
           placeholder={hasKey === true ? 'Replace with another key' : 'sk-ant-…'}
           placeholderTextColor={palette.muted}
           style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.paper }]}

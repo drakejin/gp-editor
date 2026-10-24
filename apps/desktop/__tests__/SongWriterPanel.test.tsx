@@ -81,6 +81,12 @@ describe('SongWriterPanel', () => {
     expect(render({ hasKey: false }).input('Anthropic API key')).toBeDefined();
   });
 
+  it('takes the key in a plain field, never a secure one (it crashes the app on macOS 26)', () => {
+    const field = render({ hasKey: false }).input('Anthropic API key');
+    expect(field?.props.secureTextEntry).toBe(false);
+    expect(field?.props.autoCorrect).toBe(false);
+  });
+
   it('shows the progress and stops on request', () => {
     // Arrange
     const running: SongWriterStatus = { kind: 'running', step: { kind: 'writing', written: 1, total: 4, writing: ['Chorus'] } };
