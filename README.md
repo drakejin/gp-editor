@@ -70,6 +70,9 @@ npm run build:mac                           # Release .app → apps/desktop/maco
 
 `build:mac` first fetches the GeneralUser GS SoundFont (32 MB, pinned and checksummed;
 `npm --prefix apps/desktop run soundfont` does it alone). Without it the app plays with the macOS sounds.
+It then builds the audio export's MP3 and Ogg Vorbis encoders — LAME, libogg and libvorbis from their official source
+releases (pinned and checksummed), universal static libraries, once (`npm --prefix apps/desktop run audio-codecs`);
+this needs the network the first time and only Xcode's command line tools.
 
 Release zips (arm64 and universal, with `SHA256SUMS.txt`) from the Release build:
 
@@ -111,7 +114,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
   piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
-  Export MIDI, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
+  Export MIDI, Export Audio, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
   grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
@@ -341,6 +344,13 @@ Guitar Pro's own files differently are listed, with that evidence, in
 - **Export MIDI**: File ▸ Export MIDI… saves the song as playback plays it as a Standard MIDI File (`.mid`): repeats
   unfolded, at the written tempo (not the practice speed), muted tracks left out and, when a track is solo, only the
   solo tracks.
+- **Export audio**: File ▸ Export Audio… (or the command palette) renders the song as playback sounds — the sound bank,
+  each track's instrument, volume, pan, mute and solo, its effects and the master mix — faster than real time, repeats
+  unfolded, at the written tempo (never the practice speed, a metronome or a count-in), with a tail until reverbs and
+  delays have died away (at most 10 s). Formats: *WAV*, *AIFF* or *FLAC* (16 or 24-bit), *MP3* (128, 192, 256 or 320
+  kbps, or VBR V2, by LAME) or *Ogg Vorbis* (quality 4, 6, 8 or 10, by libvorbis), at 44.1 or 48 kHz. *Whole song* or
+  the *Loop bars* (as written), *One file* (a save panel) or *One file per track* (each playing track alone, into a
+  folder you choose). The panel shows the progress with *Cancel*; the hint strip says what was saved where.
 - **Export ASCII tab**: File ▸ Export ASCII Tab… saves the fretted tracks (drum tracks are left out) as plain-text tab
   (`.txt`, TuxGuitar's layout): each string named by its open note, bars spaced by the length of their beats, h / p,
   slides (/ \\), bends (b, r, H), dead notes (X) and chord names above, in lines of at most 80 columns.
@@ -414,3 +424,8 @@ The tests also read the written files with alphaTab itself (`@coderline/alphatab
 The app bundles the Bravura music font (SIL Open Font License 1.1, `apps/desktop/macos/GPEditor-macOS/Fonts/`) and
 the GeneralUser GS SoundFont by S. Christian Collins (free to use and redistribute in software; its license is in
 `apps/desktop/macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt` and ships inside the app).
+The audio export links, statically and unmodified, LAME 3.100 (MP3; GNU Library General Public License v2 — the app
+is open source under LGPL-2.1-or-later, so it can be rebuilt against a modified LAME) and libogg 1.3.6 / libvorbis
+1.3.7 (Ogg Vorbis; BSD 3-clause, Xiph.Org Foundation). They are built from their official sources by
+`apps/desktop/scripts/audio-codecs/fetch.sh`; their license texts are in `apps/desktop/macos/GPEditor-macOS/Licenses/`
+and ship inside the app (`Contents/Resources/Licenses`).

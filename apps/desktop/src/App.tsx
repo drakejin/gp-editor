@@ -1,6 +1,7 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Effect, type MasterMix, type PlayedNote, type Song, findNote } from '@gp-editor/core';
+import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
 import { DocumentLayout } from './components/DocumentLayout';
@@ -50,6 +51,7 @@ import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
 import { useTuner } from './hooks/use-tuner';
+import { useAudioExport } from './hooks/use-audio-export';
 import { useAudioTools } from './hooks/use-audio-tools';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import type { CommandActions } from './lib/command-types';
@@ -109,6 +111,9 @@ export default function App() {
   const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch, state.chordDisplay);
   // File ▸ Export MIDI… and Export ASCII Tab….
   const songExport = useSongExport(document, dispatch);
+  // File ▸ Export Audio…: the song rendered with its sounds and effects, as playback plays it.
+  const audioExport = useAudioExport(document, playback.practice, dispatch);
+  const { isOpen: isAudioExportOpen, close: closeAudioExport } = audioExport;
   const clipboard = useClipboard(state, dispatch);
   const { selectionAnchor } = state;
   // The tinted beats; the same object while the cursor and the anchor stay, so rows outside it are not redrawn.
@@ -159,6 +164,7 @@ export default function App() {
       [isSongWriterOpen, closeSongWriter],
       [isImportPanelOpen, () => setIsImportPanelOpen(false)],
       [isExportPanelOpen, closeExportPanel],
+      [isAudioExportOpen, closeAudioExport],
       [isRecentFilesOpen, closeRecentFiles],
       [isLyricsOpen, closeLyricsPanel],
       [isScalesOpen, closeScales],
@@ -172,12 +178,12 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
-    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
+    tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isAudioExportOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
     chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen;
   // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
@@ -340,6 +346,7 @@ export default function App() {
     exportAsciiTab: songExport.exportAsciiTab,
     exportMusicXml: songExport.exportMusicXml,
     exportCompressedMusicXml: songExport.exportCompressedMusicXml,
+    exportAudio: audioExport.open,
     print: pdfExport.print,
     closeTab: () => activeTabId !== undefined && tabs.requestClose(activeTabId),
     cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
@@ -424,6 +431,20 @@ export default function App() {
           onSave={pdfExport.save}
           onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
+        />
+      ) : null}
+      {audioExport.isOpen && document !== undefined ? (
+        <AudioExportPanel
+          palette={chromePalette}
+          song={document.song}
+          fileName={document.fileName}
+          loop={playback.practice.loop}
+          options={audioExport.options}
+          status={audioExport.status}
+          onChangeOptions={audioExport.setOptions}
+          onExport={audioExport.start}
+          onCancel={audioExport.cancel}
+          onClose={audioExport.close}
         />
       ) : null}
       {isTransposeOpen ? (

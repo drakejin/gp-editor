@@ -31,6 +31,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     exportAsciiTab: jest.fn(),
     exportMusicXml: jest.fn(),
     exportCompressedMusicXml: jest.fn(),
+    exportAudio: jest.fn(),
     print: jest.fn(),
     closeTab: jest.fn(),
     cycleTab: jest.fn(),
@@ -76,6 +77,7 @@ describe('command registry', () => {
         'file.exportAsciiTab',
         'file.exportMusicXml',
         'file.exportCompressedMusicXml',
+        'file.exportAudio',
         'file.print',
         'file.closeTab',
         'file.nextTab',
@@ -172,7 +174,7 @@ describe('command registry: running', () => {
     const actions = mockActions();
 
     // Act
-    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer']) {
+    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'file.exportAudio', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer']) {
       find(id).run(actions);
     }
 
@@ -182,6 +184,7 @@ describe('command registry: running', () => {
     expect(actions.exportAsciiTab).toHaveBeenCalled();
     expect(actions.exportMusicXml).toHaveBeenCalled();
     expect(actions.exportCompressedMusicXml).toHaveBeenCalled();
+    expect(actions.exportAudio).toHaveBeenCalled();
     expect(actions.openTuner).toHaveBeenCalled();
     expect(actions.openScales).toHaveBeenCalled();
     expect(actions.openLyrics).toHaveBeenCalled();

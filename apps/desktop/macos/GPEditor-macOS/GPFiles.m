@@ -5,6 +5,7 @@
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
 // writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
+// File ▸ Export Audio… comes here as an event too; its single file's place is chosen with showSavePanel.
 // Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P) come here as events too.
 
 #import <AppKit/AppKit.h>
@@ -36,6 +37,7 @@ static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
 static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
 static NSString *const kExportMusicXmlRequestedEvent = @"exportMusicXmlRequested";
 static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompressedMusicXmlRequested";
+static NSString *const kExportAudioRequestedEvent = @"exportAudioRequested";
 static NSString *const kTransposeRequestedEvent = @"transposeRequested";
 static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
 
@@ -196,6 +198,7 @@ RCT_EXPORT_MODULE();
                selector:@selector(onExportCompressedMusicXmlCommand:)
                    name:GPEditorExportCompressedMusicXmlCommandNotification
                  object:nil];
+    [center addObserver:self selector:@selector(onExportAudioCommand:) name:GPEditorExportAudioCommandNotification object:nil];
     [center addObserver:self selector:@selector(onTransposeCommand:) name:GPEditorTransposeCommandNotification object:nil];
     [center addObserver:self selector:@selector(onCommandPaletteCommand:) name:GPEditorCommandPaletteCommandNotification object:nil];
   }
@@ -213,7 +216,7 @@ RCT_EXPORT_MODULE();
     kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
-    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent,
+    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent, kExportAudioRequestedEvent,
     kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent
   ];
 }
@@ -362,6 +365,14 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kExportCompressedMusicXmlRequestedEvent body:@{}];
+  }
+}
+
+/** File ▸ Export Audio… (GPAudioExport.m renders and writes the files). */
+- (void)onExportAudioCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kExportAudioRequestedEvent body:@{}];
   }
 }
 

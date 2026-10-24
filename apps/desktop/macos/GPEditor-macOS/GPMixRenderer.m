@@ -13,7 +13,7 @@ static const AVAudioFrameCount kChunkFrames = 4096;
            seconds:(NSTimeInterval)seconds
         sampleRate:(double)sampleRate
              error:(NSError **)error
-             chunk:(void (^)(AVAudioPCMBuffer *buffer))chunk
+             chunk:(void (^)(AVAudioPCMBuffer *buffer, BOOL *stop))chunk
 {
   AVAudioEngine *engine = [AVAudioEngine new];
   AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:sampleRate channels:2];
@@ -37,13 +37,14 @@ static const AVAudioFrameCount kChunkFrames = 4096;
   }
   AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:engine.manualRenderingFormat frameCapacity:kChunkFrames];
   AVAudioFramePosition total = (AVAudioFramePosition)llround(MAX(0, seconds) * sampleRate);
-  while (engine.manualRenderingSampleTime < total) {
+  BOOL isStopped = NO;
+  while (engine.manualRenderingSampleTime < total && !isStopped) {
     AVAudioFrameCount frames = (AVAudioFrameCount)MIN((AVAudioFramePosition)kChunkFrames, total - engine.manualRenderingSampleTime);
     if ([engine renderOffline:frames toBuffer:buffer error:error] != AVAudioEngineManualRenderingStatusSuccess) {
       [engine stop];
       return NO;
     }
-    chunk(buffer);
+    chunk(buffer, &isStopped);
   }
   [sequencer stop];
   [engine stop];
@@ -59,7 +60,7 @@ static const AVAudioFrameCount kChunkFrames = 4096;
 {
   AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:sampleRate channels:2];
   AVAudioPCMBuffer *all = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)llround(MAX(0, seconds) * sampleRate) + 1];
-  BOOL isRendered = [self renderMidi:midi bankURL:bankURL mix:mix seconds:seconds sampleRate:sampleRate error:error chunk:^(AVAudioPCMBuffer *buffer) {
+  BOOL isRendered = [self renderMidi:midi bankURL:bankURL mix:mix seconds:seconds sampleRate:sampleRate error:error chunk:^(AVAudioPCMBuffer *buffer, BOOL *stop) {
     for (AVAudioChannelCount channel = 0; channel < 2; channel++) {
       memcpy(all.floatChannelData[channel] + all.frameLength, buffer.floatChannelData[channel], buffer.frameLength * sizeof(float));
     }
