@@ -52,6 +52,19 @@ function mockActions(): jest.Mocked<CommandActions> {
   };
 }
 
+describe('command registry: voices', () => {
+  it('lists Edit Voice 1 to 4 with ⌘1 to ⌘4 once, the palette’s Voice buttons being the same commands', () => {
+    // Act
+    const voices = [1, 2, 3, 4].map((number) => find(`edit.voice${number}`));
+
+    // Assert
+    expect(voices.map((command) => [command.title, command.shortcut])).toEqual([1, 2, 3, 4].map((number) => [`Edit Voice ${number}`, `⌘${number}`]));
+    expect(voices.map((command) => command.command)).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'selectVoice', voiceIndex })));
+    expect(COMMANDS.some((command) => command.id === 'palette.voice3')).toBe(false);
+    expect(voices.every((command) => command.isEnabled(ON_NOTE))).toBe(true);
+  });
+});
+
 describe('command registry', () => {
   it('gives every command its own id, a title and a group', () => {
     const ids = COMMANDS.map((command) => command.id);

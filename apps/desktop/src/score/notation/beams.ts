@@ -16,6 +16,7 @@ import type { Chord, StemDirection } from './chords';
 import type { StaffNote, VoiceEvent } from './events';
 import { musicGlyph, polygon, vertical } from './glyphs';
 import { BEAM, STAFF, STEM } from './metrics';
+import { isUpperVoice } from '../voices';
 
 /** Events of one voice joined by beams (from `layoutBeams`), left to right. */
 export interface BeamGroup {
@@ -103,8 +104,8 @@ function directionOf(notes: readonly StaffNote[]): StemDirection {
 }
 
 /**
- * Stem direction per event: with a second voice, voice 1 up and the others down; otherwise the voice's own
- * direction, up for rhythm slashes, or the average position of the beam group (or the chord) against the middle line.
+ * Stem direction per event: with more than one voice, voices 1 and 3 up and voices 2 and 4 down; otherwise the voice's
+ * own direction, up for rhythm slashes, or the average position of the beam group (or the chord) against the middle line.
  */
 export function stemDirections(
   events: readonly VoiceEvent[],
@@ -118,7 +119,7 @@ export function stemDirections(
   );
   return events.map((event, index) => {
     if (isMultiVoice) {
-      return event.voiceIndex === 0 ? 'up' : 'down';
+      return isUpperVoice(event.voiceIndex) ? 'up' : 'down';
     }
     const members = groupOf.get(index)?.members ?? [index];
     const lead = events[members[0] ?? index] ?? event;

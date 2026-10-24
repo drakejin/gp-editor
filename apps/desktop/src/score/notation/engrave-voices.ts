@@ -32,10 +32,13 @@ import { legatoMarks } from './slurs';
 import { ties } from './ties';
 import { tupletGroups, tupletMarks } from './tuplets';
 import type { VoiceLayout } from './voice-layout';
+import { voiceTint } from '../voices';
 
 export interface Highlight {
   readonly beatIndex: number;
   readonly string?: number;
+  /** The cursor's voice: only its note is lit, in the voice's colour; every voice's notes when absent (the playing beat). */
+  readonly voiceIndex?: number;
 }
 
 export interface VoicesContext {
@@ -54,6 +57,8 @@ export interface VoicesContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track: fingers are written 1–5 (piano fingering). */
   readonly isKeyboard?: boolean;
+  /** The voice being edited (the cursor's): the other voices are drawn faded, as Guitar Pro 8 does. */
+  readonly editedVoiceIndex?: number;
 }
 
 function isHighlighted(
@@ -64,28 +69,40 @@ function isHighlighted(
   return (
     highlight !== undefined &&
     highlight.beatIndex === event.beatIndex &&
+    (highlight.voiceIndex === undefined || highlight.voiceIndex === event.voiceIndex) &&
     (highlight.string === undefined || highlight.string === note?.string)
   );
+}
+
+/** The lit colour: the cursor's voice's colour (the accent in voice 1), the accent at the playing beat. */
+function litColor(context: VoicesContext): string {
+  const voiceIndex = context.highlight?.voiceIndex;
+  return voiceIndex === undefined
+    ? context.palette.accent
+    : voiceTint(voiceIndex, context.palette);
 }
 
 function engraveChord(
   chord: Chord,
   context: VoicesContext,
   isFlagged: boolean,
+  ink: string,
 ): DrawCommand[] {
   const { top, palette, highlight } = context;
   // A slash stands for every note of its beat: it lights whatever string the cursor is on.
   const isLit = (note: StaffNote) =>
     note.isSlash === true
-      ? highlight?.beatIndex === chord.event.beatIndex
+      ? isHighlighted(
+          highlight === undefined ? undefined : { ...highlight, string: undefined },
+          chord.event,
+        )
       : isHighlighted(highlight, chord.event, note);
-  const colorOf = (note: StaffNote) =>
-    isLit(note) ? palette.accent : palette.text;
+  const colorOf = (note: StaffNote) => (isLit(note) ? litColor(context) : ink);
   return [
     ...ledgerLines(chord, top, palette.line),
-    ...accidentals(chord, palette.text),
+    ...accidentals(chord, ink),
     ...noteheads(chord, colorOf),
-    ...dots(chord, top, palette.text, isFlagged && chord.direction === 'up'),
+    ...dots(chord, top, ink, isFlagged && chord.direction === 'up'),
   ];
 }
 
@@ -93,14 +110,14 @@ function engraveRests(
   layout: VoiceLayout,
   context: VoicesContext,
 ): DrawCommand[] {
-  const { highlight, palette, top } = context;
+  const { highlight, top } = context;
   return layout.events.flatMap((event, index) =>
     layout.chords[index] === undefined
       ? rest(
           event,
           layout.isMultiVoice,
           top,
-          isHighlighted(highlight, event) ? palette.accent : palette.text,
+          isHighlighted(highlight, event) ? litColor(context) : layout.color,
         )
       : [],
   );
@@ -119,13 +136,39 @@ function techniques(layout: VoiceLayout): DrawCommand[] {
   ];
 }
 
-/** Notes, rests, stems, beams, flags, tuplets, ties, ottava marks and playing techniques of a measure's voices. */
+/**
+ * Notes, rests, stems, beams, flags, tuplets, ties, ottava marks and playing techniques of a measure's voices. The
+ * voices are placed together (stems, rests and noteheads apart); then the voices not being edited are drawn faded, and
+ * the edited one over them.
+ */
 export function engraveVoices(
   placed: readonly VoiceEvent[],
   context: VoicesContext,
 ): DrawCommand[] {
   const isMultiVoice = placed.some(event => event.voiceIndex > 0);
   const events = isMultiVoice ? separateVoices(placed) : placed;
+  const { editedVoiceIndex, palette } = context;
+  const isFaded = (event: VoiceEvent) =>
+    editedVoiceIndex !== undefined && event.voiceIndex !== editedVoiceIndex;
+  const faded = events.filter(isFaded);
+  const inked = events.filter(event => !isFaded(event));
+  return [
+    ...(faded.length === 0
+      ? []
+      : engraveVoiceEvents(faded, context, isMultiVoice, palette.muted)),
+    ...(inked.length === 0
+      ? []
+      : engraveVoiceEvents(inked, context, isMultiVoice, palette.text)),
+  ];
+}
+
+/** Some voices of the measure, already placed against the others, drawn in one ink. */
+function engraveVoiceEvents(
+  events: readonly VoiceEvent[],
+  context: VoicesContext,
+  isMultiVoice: boolean,
+  ink: string,
+): DrawCommand[] {
   const groups = beamGroups(events, context.header);
   const directions = stemDirections(events, groups, isMultiVoice);
   const chords = events.map((event, index) =>
@@ -136,7 +179,6 @@ export function engraveVoices(
   const beamed = beamChords(groups, chords);
   const tips = stemTips(chords, beamed);
   const flagged = flaggedChords(chords, beamed);
-  const ink = context.palette.text;
   const layout: VoiceLayout = {
     ...context,
     events,
@@ -149,7 +191,7 @@ export function engraveVoices(
     ...chords.flatMap(chord =>
       chord === undefined
         ? []
-        : engraveChord(chord, context, flagged.has(chord.eventIndex)),
+        : engraveChord(chord, context, flagged.has(chord.eventIndex), ink),
     ),
     ...stems(chords, tips, ink),
     ...beamed.flatMap(group => beamPolygons(group, ink)),

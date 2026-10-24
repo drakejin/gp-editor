@@ -6,7 +6,8 @@ import { type Highlight, engraveVoices } from './engrave-voices';
 import { buildVoiceEvents } from './events';
 import { keyChange } from './key-signature';
 import { type ClefKind, clefKind } from './pitch';
-import { measureRest } from './rests';
+import { emptyVoiceRest, measureRest } from './rests';
+import { voiceTint } from '../voices';
 import { barLines, staffLines, timeSignature } from './staff';
 
 export interface NotationContext {
@@ -27,6 +28,25 @@ export interface NotationContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
   readonly isKeyboard?: boolean;
+  /** The voice being edited (the cursor's): the other voices faded, and its whole rest where it has nothing in the bar. */
+  readonly editedVoiceIndex?: number;
+}
+
+/** The rest standing for the edited voice when it has no event in the bar (beats of other voices only). */
+function emptyVoiceMark(
+  context: NotationContext,
+  start: number,
+): DrawCommand[] {
+  const { measure, editedVoiceIndex, layout, top, palette } = context;
+  if (
+    editedVoiceIndex === undefined ||
+    measure.beats.length === 0 ||
+    measure.beats.some(beat => beat.voices[editedVoiceIndex]?.isEmpty === false)
+  ) {
+    return [];
+  }
+  const tint = voiceTint(editedVoiceIndex, palette);
+  return [emptyVoiceRest((start + layout.width) / 2, top, editedVoiceIndex, tint)];
 }
 
 function keyChangeCommands(
@@ -98,5 +118,6 @@ export function engraveNotationMeasure(
       ? []
       : timeSignature(header, timeSignatureX, top, palette.text)),
     ...voices,
+    ...emptyVoiceMark(context, start),
   ];
 }

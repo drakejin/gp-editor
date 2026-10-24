@@ -65,6 +65,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: '↑ / ↓', action: 'String above / below', press: key('ArrowDown') },
       { keys: '⌥← / ⌥→', action: 'Previous / next bar', press: key('ArrowRight', { altKey: true }) },
       { keys: '⇧← / ⇧→', action: 'Select beats (for ⌘C / ⌘X)', press: key('ArrowRight', { shiftKey: true }) },
+      { keys: '⌘1 – ⌘4', action: 'Edit voice 1, 2, 3 or 4 (the palette’s Voice buttons)', press: key('1', { metaKey: true }) },
       { keys: 'Home / End', action: 'First / last bar', press: key('Home') },
       { keys: '⌘- / ⌘=', action: 'Zoom out / in', press: key('=', { metaKey: true }) },
     ],

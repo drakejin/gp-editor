@@ -12,6 +12,7 @@ import {
 } from '@gp-editor/core';
 import { parseTempoText } from '../../lib/practice-tempo';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
+import { voiceTint } from '../../score/voices';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
@@ -80,16 +81,20 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
   ['semi', 'S.H.', 'Semi harmonic'],
 ];
 
+const VOICE_ORDINALS = ['first', 'second', 'third', 'fourth'] as const;
+
+/** Guitar Pro 8's four voices, each button in its voice's colour; ⌘1–⌘4 do the same. */
 function voiceGroup(): PaletteGroup {
-  const voiceTool = (voiceIndex: number): PaletteTool => ({
+  const voiceTool = (ordinal: string, voiceIndex: number): PaletteTool => ({
     id: `voice${voiceIndex + 1}`,
     face: String(voiceIndex + 1),
-    tooltip: `Voice ${voiceIndex + 1}: edit the ${voiceIndex === 0 ? 'first' : 'second'} voice of the bar`,
+    tooltip: `Voice ${voiceIndex + 1}: edit the ${ordinal} voice of the bar (⌘${voiceIndex + 1})`,
     scope: 'beat',
     run: { kind: 'action', action: { type: 'selectVoice', voiceIndex } },
     isActive: (context) => context.cursor?.voiceIndex === voiceIndex,
+    tint: (palette) => voiceTint(voiceIndex, palette),
   });
-  return { title: 'Voice', tools: [voiceTool(0), voiceTool(1)] };
+  return { title: 'Voice', tools: VOICE_ORDINALS.map(voiceTool) };
 }
 
 function barGroup(): PaletteGroup {

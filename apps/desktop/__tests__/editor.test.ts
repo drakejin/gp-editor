@@ -338,14 +338,38 @@ describe('editorReducer: second voice', () => {
     expect(second.past).toEqual([]);
   });
 
-  it('selects only voice 1 or 2, and only where the beat has that voice', () => {
+  it('selects voices 1 to 4, also on a beat read with fewer voice slots, and no voice past the fourth', () => {
     const start = twoVoices();
-    expect(editorReducer(start, { type: 'selectVoice', voiceIndex: 2 })).toBe(start);
+    expect(at(editorReducer(start, { type: 'selectVoice', voiceIndex: 2 }))).toEqual({ ...at(start), voiceIndex: 2 });
+    expect(at(editorReducer(start, { type: 'selectVoice', voiceIndex: 3 }))).toEqual({ ...at(start), voiceIndex: 3 });
+    expect(editorReducer(start, { type: 'selectVoice', voiceIndex: 4 })).toBe(start);
     expect(editorReducer(start, { type: 'selectVoice', voiceIndex: -1 })).toBe(start);
     expect(editorReducer(start, { type: 'selectVoice', voiceIndex: 0 })).toBe(start);
     const oneVoice = loadedState();
-    expect(editorReducer(oneVoice, { type: 'selectVoice', voiceIndex: 1 })).toBe(oneVoice);
+    expect(at(editorReducer(oneVoice, { type: 'selectVoice', voiceIndex: 1 }))).toMatchObject({ voiceIndex: 1 });
     expect(editorReducer(INITIAL_EDITOR_STATE, { type: 'selectVoice', voiceIndex: 1 })).toBe(INITIAL_EDITOR_STATE);
+  });
+
+  it('types a fret into voice 3 of a bar read with two voice slots, then sets its duration and rests in voice 4', () => {
+    // Arrange: the cursor on the third beat (a dotted quarter at 960), voice 3
+    let state = twoVoices();
+    for (let step = 0; step < 2; step++) {
+      state = editorReducer(state, { type: 'moveCursorBeat', step: 1 });
+    }
+    state = editorReducer(state, { type: 'selectVoice', voiceIndex: 2 });
+
+    // Act
+    const typed = editorReducer(state, { type: 'setNoteFret', fret: 9 });
+    const halved = editorReducer(typed, { type: 'edit', edit: { type: 'setNoteValue', value: 8 } });
+    const inVoice4 = editorReducer(editorReducer(halved, { type: 'selectVoice', voiceIndex: 3 }), { type: 'setNoteFret', fret: 2 });
+
+    // Assert
+    expect(voiceEvents(typed, 2)).toEqual(['0:4:r', '960:4.:9', '2400:4.:r']);
+    expect(voiceEvents(halved, 2)).toEqual(['0:4:r', '960:8.:9', '1680:8.:r', '2400:4.:r']);
+    expect(voiceEvents(inVoice4, 3)).toContain('960:4.:2');
+    expect(voiceEvents(inVoice4, 0)).toEqual(voiceEvents(state, 0));
+    expect(at(inVoice4)).toMatchObject({ voiceIndex: 3 });
+    expect(inVoice4.past).toHaveLength(3);
   });
 
   it('types a fret into the empty second voice: a note as long as the beat, rests to the bar lines, one undo step', () => {

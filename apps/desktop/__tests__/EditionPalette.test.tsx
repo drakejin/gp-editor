@@ -4,6 +4,7 @@ import { BEND_PRESETS, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { EditionPalette } from '../src/components/palette/EditionPalette';
 import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { voiceTint } from '../src/score/voices';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -133,7 +134,41 @@ describe('EditionPalette edits', () => {
     const palette = render();
     palette.press('fretUp');
     palette.press('voice2');
-    expect(palette.onAction.mock.calls.map(([action]) => action)).toEqual([{ type: 'shiftNoteFret', delta: 1 }, { type: 'selectVoice', voiceIndex: 1 }]);
+    palette.press('voice4');
+    expect(palette.onAction.mock.calls.map(([action]) => action)).toEqual([
+      { type: 'shiftNoteFret', delta: 1 },
+      { type: 'selectVoice', voiceIndex: 1 },
+      { type: 'selectVoice', voiceIndex: 3 },
+    ]);
+  });
+
+  it('offers voices 1 to 4 in one row, each in its voice’s colour, with its key in the tooltip', () => {
+    // Arrange / Act
+    const voices = PALETTE_GROUPS.find((group) => group.title === 'Voice')?.tools ?? [];
+    const palette = render();
+
+    // Assert
+    expect(voices.map((tool) => tool.face)).toEqual(['1', '2', '3', '4']);
+    expect(voices.map((tool) => tool.tooltip)).toEqual([
+      'Voice 1: edit the first voice of the bar (⌘1)',
+      'Voice 2: edit the second voice of the bar (⌘2)',
+      'Voice 3: edit the third voice of the bar (⌘3)',
+      'Voice 4: edit the fourth voice of the bar (⌘4)',
+    ]);
+    expect(voices.map((tool) => tool.tint?.(PALETTE))).toEqual([0, 1, 2, 3].map((index) => voiceTint(index, PALETTE)));
+    expect(palette.tool('voice3').findAllByProps({ testID: 'palette-voice3-tint' })).not.toHaveLength(0);
+  });
+
+  it('lights the cursor’s voice and keeps the beat’s tools on in voice 3 of a beat read with one voice slot', () => {
+    // Act
+    const palette = render({ ...ON_NOTE, voiceIndex: 2 });
+
+    // Assert
+    expect(palette.tool('voice3').props.isActive).toBe(true);
+    expect(palette.tool('voice1').props.isActive).toBe(false);
+    expect(palette.tool('voice4').props.isEnabled).toBe(true);
+    expect(palette.tool('value8').props.isEnabled).toBe(true);
+    expect(palette.tool('palmMute').props.isEnabled).toBe(false);
   });
 
   it('opens a tool’s options under its group, lights the current one, and applies a choice', () => {
@@ -191,7 +226,8 @@ describe('EditionPalette edits', () => {
     palette.press('tuplet');
     const sizes = labels();
     palette.press('innerTuplet');
-    palette.pressLabel('3');
+    // The Voice group's third button is labelled 3 too.
+    palette.pressTooltip('3-tuplet inside the beat’s tuplet');
 
     // Assert
     expect(sizes).toEqual(expect.arrayContaining(['None', '3', '5', '6', '7', '9', '10', '11', '12']));

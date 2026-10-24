@@ -19,14 +19,14 @@ describe('lcdInfo', () => {
       clock: '00:02 / 00:06',
       tempo: '♩ = 120',
       tempoBpm: 120,
-      position: 'Beat 1 · String 2 · Fret 5',
+      position: 'Voice 1 · Beat 1 · String 2 · Fret 5',
     });
   });
 
   it('shows a banjo drone note’s fret as the tab does (stored 2 is fret 7)', () => {
     const banjo = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, strings: [62, 59, 55, 50, 67].map((tuning, i) => ({ number: i + 1, tuning })) })) };
     const song = { ...banjo, tracks: [{ ...banjo.tracks[0]!, measures: [banjo.tracks[0]!.measures[0]!, { ...banjo.tracks[0]!.measures[1]!, beats: [beat(4800, [note(5, 2)])] }] }] };
-    expect(lcdInfo({ song, trackIndex: 0, cursor: { ...CURSOR, string: 5 }, practice: INITIAL_PRACTICE }).position).toBe('Beat 1 · String 5 · Fret 7');
+    expect(lcdInfo({ song, trackIndex: 0, cursor: { ...CURSOR, string: 5 }, practice: INITIAL_PRACTICE }).position).toBe('Voice 1 · Beat 1 · String 5 · Fret 7');
   });
 
   it('follows the playing bar while playing, at the playback speed', () => {
@@ -69,6 +69,14 @@ describe('lcdInfo', () => {
 
   it('says when the cursor is on an empty string or a rest', () => {
     const info = lcdInfo({ song: SONG, trackIndex: 0, cursor: { ...CURSOR, measureIndex: 0 }, practice: INITIAL_PRACTICE });
-    expect(info.position).toBe('Beat 1 · String 2 · empty');
+    expect(info.position).toBe('Voice 1 · Beat 1 · String 2 · empty');
+  });
+
+  it('names the voice the cursor is on, and its note only', () => {
+    // Act: the cursor on voice 3 of the beat whose voice 1 plays fret 5 on string 2
+    const info = lcdInfo({ song: SONG, trackIndex: 0, cursor: { ...CURSOR, voiceIndex: 2 }, practice: INITIAL_PRACTICE });
+
+    // Assert
+    expect(info.position).toBe('Voice 3 · Beat 1 · String 2 · empty');
   });
 });

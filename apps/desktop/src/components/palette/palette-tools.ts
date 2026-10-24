@@ -2,6 +2,7 @@ import type { GlyphKind } from './MusicIcon';
 import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
+import type { Palette } from '../../theme';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
 
 /** What the palette knows about the cursor: its note, voice, beat and bar. */
@@ -68,6 +69,8 @@ export interface PaletteTool {
   readonly scope: ToolScope;
   readonly isActive?: (context: PaletteContext) => boolean;
   readonly run: PaletteRun;
+  /** A colour strip under the face (each Voice button in its voice's colour). */
+  readonly tint?: (palette: Palette) => string;
 }
 
 /** "Label  [−] value [+]" for a bar setting. */

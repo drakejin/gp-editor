@@ -142,6 +142,7 @@ export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD
             playing={inRow(playing?.measureIndex) ? playing : undefined}
             selection={clipRange(selection, item.measures[0]?.measureIndex ?? 0, item.measures[item.measures.length - 1]?.measureIndex ?? 0)}
             markLanes={markLanes}
+            editedVoiceIndex={cursor?.voiceIndex}
             zoom={zoom}
             rowIndex={index}
             onPress={onPressRow}

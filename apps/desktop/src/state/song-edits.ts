@@ -16,6 +16,7 @@ import {
   deleteMeasure,
   deleteNote,
   findNote,
+  findVoice,
   insertBeat,
   insertMeasure,
   isSameTuplet,
@@ -78,13 +79,12 @@ export function beatAddress(cursor: StringAddress): BeatAddress {
   return { trackIndex, measureIndex, beatIndex, voiceIndex };
 }
 
+/** The cursor's voice; voices 3 and 4 of a beat read from a GP3–GP5 file are empty voices. */
 export function cursorVoice(
   song: Song,
   cursor: StringAddress,
 ): Voice | undefined {
-  return song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[
-    cursor.beatIndex
-  ]?.voices[cursor.voiceIndex];
+  return findVoice(song, cursor);
 }
 
 /** Applies one cursor edit to the song. */

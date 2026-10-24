@@ -26,6 +26,12 @@ describe('isSameRow', () => {
     expect(isSameRow(before, after)).toBe(true);
   });
 
+  it('redraws every row of the track when the cursor goes to another voice (the other voices fade)', () => {
+    const before = { ...rowProps(), editedVoiceIndex: 0 };
+    expect(isSameRow(before, { ...before, editedVoiceIndex: 2 })).toBe(false);
+    expect(isSameRow(before, { ...before, editedVoiceIndex: 0 })).toBe(true);
+  });
+
   it('redraws a row when the zoom changes', () => {
     const before = rowProps();
     expect(isSameRow(before, { ...before, zoom: 1.25 })).toBe(false);

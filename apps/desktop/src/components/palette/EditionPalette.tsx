@@ -116,6 +116,9 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
 function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
   const color = isActive ? palette.chromeAccentText : palette.chromeText;
   const face = tool.glyph === undefined ? undefined : <MusicIcon glyph={tool.face} kind={tool.glyph} color={color} />;
+  if (tool.tint !== undefined) {
+    return <TintedFace testID={`palette-${tool.id}-tint`} face={tool.face} color={color} tint={tool.tint(palette)} />;
+  }
   if (tool.key === undefined) {
     return face;
   }
@@ -127,6 +130,18 @@ function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
         </Text>
       )}
       <Text style={[styles.keyBadge, face === undefined ? null : styles.keyBesideGlyph, { color: isActive ? palette.chromeAccentText : palette.chromeMuted }]}>{tool.key}</Text>
+    </View>
+  );
+}
+
+/** A text face over a strip of its colour (the Voice buttons). */
+function TintedFace({ testID, face, color, tint }: { readonly testID: string; readonly face: string; readonly color: string; readonly tint: string }) {
+  return (
+    <View style={styles.tintedFace}>
+      <Text numberOfLines={1} style={[styles.faceText, { color }]}>
+        {face}
+      </Text>
+      <View testID={testID} style={[styles.tintStrip, { backgroundColor: tint }]} />
     </View>
   );
 }
@@ -206,6 +221,8 @@ const styles = StyleSheet.create({
   groupTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginLeft: 2 },
   tools: { flexDirection: 'row', flexWrap: 'wrap' },
   keyedFace: { flexDirection: 'row', alignItems: 'center' },
+  tintedFace: { alignItems: 'center' },
+  tintStrip: { width: 14, height: 3, borderRadius: 1.5, marginTop: 1 },
   faceText: { fontSize: 10.5, fontWeight: '600' },
   /** The key, small and raised like an exponent. */
   keyBadge: { fontSize: 8, fontWeight: '700', marginLeft: 2, alignSelf: 'flex-start', marginTop: 1 },

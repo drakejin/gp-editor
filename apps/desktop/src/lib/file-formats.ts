@@ -9,7 +9,7 @@ export interface FileFormat {
   readonly extension: string;
   /**
    * What the file keeps and leaves out: the save panel's message, and for a Guitar Pro format the hint bar's when it is
-   * written. None for GP5, which holds what the editor edits.
+   * written. None for GP5, which holds what the editor edits but voices 3 and 4 (`saveHint` says so when they play).
    */
   readonly note?: string;
 }
@@ -35,14 +35,14 @@ export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
     id: 'gp4',
     label: 'Guitar Pro 4 (.gp4)',
     extension: 'gp4',
-    note: 'Guitar Pro 4 keeps one voice per bar (voice 2 joins voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
+    note: 'Guitar Pro 4 keeps one voice per bar (voices 2, 3 and 4 join voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
   },
   {
     id: 'gp3',
     label: 'Guitar Pro 3 (.gp3)',
     extension: 'gp3',
     note:
-      'Guitar Pro 3 keeps one voice per bar (voice 2 joins voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
+      'Guitar Pro 3 keeps one voice per bar (voices 2, 3 and 4 join voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado, the sustain pedal, rhythm slashes, beaming and shown accidentals are left out.',
   },
 ];
 
@@ -83,12 +83,18 @@ function hasEffects(song: Song): boolean {
   return song.tracks.some((track) => (track.effects?.length ?? 0) > 0) || (song.master !== undefined && !isDefaultMaster(song.master));
 }
 
-/** What the hint strip says when `song` is saved in `format`: its note, and the effects and audio track it leaves out. */
+/** True when a note plays in voice 3 or 4 (Guitar Pro 5 files hold two voices). */
+function playsPastTwoVoices(song: Song): boolean {
+  return song.tracks.some((track) => track.measures.some((measure) => measure.beats.some((beat) => beat.voices.slice(2).some((voice) => voice.notes.length > 0))));
+}
+
+/** What the hint strip says when `song` is saved in `format`: its note, and the voices, effects and audio track it leaves out. */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const name = format.label.replace(/ \(.*\)$/, '');
+  const voices = format.id === 'gp5' && playsPastTwoVoices(song) ? `${name} keeps two voices: the notes of voices 3 and 4 are left out; save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
   const effects = format.id !== 'gp' && hasEffects(song) ? `${name} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
   const audio = format.id !== 'gp' && song.audioTrack !== undefined ? `${name} keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.` : undefined;
-  const parts = [format.note, effects, audio].filter((part): part is string => part !== undefined);
+  const parts = [format.note, voices, effects, audio].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 

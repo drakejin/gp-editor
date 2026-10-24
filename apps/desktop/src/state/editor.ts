@@ -15,6 +15,7 @@ import {
   enterPlayedNotes,
   findNote,
   insertMeasure,
+  voiceOf,
   setNoteFret,
   setNoteString,
   setMasterMix,
@@ -60,8 +61,6 @@ import {
 
 /** Undo depth kept in memory. */
 export const HISTORY_LIMIT = 200;
-/** Voices the cursor can be on: Guitar Pro 5 files hold two per beat. */
-const SELECTABLE_VOICES = 2;
 /** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"). */
 export const NEW_DOCUMENT_NAME = 'Untitled';
 
@@ -146,7 +145,7 @@ export type EditorAction =
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
-  /** The cursor on voice 1 (0) or 2 (1) of the same beat. */
+  /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
   | { readonly type: 'selectVoice'; readonly voiceIndex: number }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
@@ -362,15 +361,11 @@ function applySongAction(song: Song, action: SongAction): Song {
   }
 }
 
-/** The cursor on another voice of the same beat; the same state where the beat has no such voice. */
+/** The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet; the same state past voice 4. */
 function selectVoice(state: EditorState, voiceIndex: number): EditorState {
   const { cursor } = state;
   const beat = cursor === undefined ? undefined : cursorBeat(state, cursor);
-  const isSelectable =
-    Number.isInteger(voiceIndex) &&
-    voiceIndex >= 0 &&
-    voiceIndex < SELECTABLE_VOICES &&
-    beat?.voices[voiceIndex] !== undefined;
+  const isSelectable = beat !== undefined && voiceOf(beat, voiceIndex) !== undefined;
   if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
     return state;
   }

@@ -26,6 +26,11 @@ export interface Palette {
   /** Selected / active controls on the chrome (Guitar Pro's blue). */
   readonly chromeAccent: string;
   readonly chromeAccentText: string;
+  /**
+   * The voices' colours, voice 1 to 4 (Guitar Pro 8 colours them; voice 1 is the accent here): the cursor in each voice,
+   * the palette's Voice buttons and the tab's fret numbers of voices 2–4. The accent for all four when absent.
+   */
+  readonly voices?: readonly string[];
 }
 
 /** The chrome looks the same in light and dark mode, as Guitar Pro's does. */
@@ -53,6 +58,7 @@ const LIGHT: Palette = {
   danger: '#C62828',
   border: '#D9D9DE',
   desk: '#D3D5D9',
+  voices: ['#D4572A', '#23964A', '#D2397F', '#8650D6'],
   ...CHROME,
 };
 
@@ -69,6 +75,7 @@ const DARK: Palette = {
   danger: '#FF6B6B',
   border: '#3A3A3D',
   desk: '#141416',
+  voices: ['#F07A4A', '#5CC97C', '#F06EAE', '#B28CFF'],
   ...CHROME,
 };
 
