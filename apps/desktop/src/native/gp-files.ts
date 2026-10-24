@@ -35,6 +35,7 @@ interface GPFilesModule {
   writeFile(path: string, base64: string): Promise<SavedFile>;
   writeTextFile(path: string, text: string): Promise<SavedFile>;
   setDocumentTitle(title: string): void;
+  setUndoState(canUndo: boolean, canRedo: boolean): void;
 }
 
 const native = NativeModules.GPFiles as GPFilesModule | undefined;
@@ -229,6 +230,27 @@ export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
   }
   const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('helpRequested', onHelpRequested);
   return () => subscription.remove();
+}
+
+/** Edit ▸ Undo / Redo of the menu bar (their key equivalents ⌘Z / ⇧⌘Z in the activated app). */
+export interface UndoEventHandlers {
+  readonly onUndoRequested: () => void;
+  readonly onRedoRequested: () => void;
+}
+
+/** Edit ▸ Undo and Redo chosen (or their keys pressed); returns the unsubscribe function. */
+export function subscribeUndoRequests(handlers: UndoEventHandlers): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const emitter = new NativeEventEmitter(NativeModules.GPFiles);
+  const subscriptions = [emitter.addListener('undoRequested', handlers.onUndoRequested), emitter.addListener('redoRequested', handlers.onRedoRequested)];
+  return () => subscriptions.forEach((subscription) => subscription.remove());
+}
+
+/** Enables Edit ▸ Undo / Redo of the menu bar when the shown tab has something to undo / redo. */
+export function setUndoState(canUndo: boolean, canRedo: boolean): void {
+  native?.setUndoState(canUndo, canRedo);
 }
 
 /** View ▸ Focus / Unfocus (⇧⌘F): only the score and the transport, or the panels back. */

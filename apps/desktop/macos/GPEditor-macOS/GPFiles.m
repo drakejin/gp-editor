@@ -1,7 +1,7 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
 // the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
 // As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
-// Also Edit ▸ Lyrics…, Tools ▸ Scales… and View ▸ Focus / Unfocus.
+// Also Edit ▸ Undo / Redo (the score's, with JS's undo state back: setUndoState), Edit ▸ Lyrics…, Tools ▸ Scales… and View ▸ Focus / Unfocus.
 // AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
 // File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
 // writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
@@ -26,6 +26,8 @@ static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
 static NSString *const kPrintRequestedEvent = @"printRequested";
 static NSString *const kHelpRequestedEvent = @"helpRequested";
 static NSString *const kFocusRequestedEvent = @"focusRequested";
+static NSString *const kUndoRequestedEvent = @"undoRequested";
+static NSString *const kRedoRequestedEvent = @"redoRequested";
 static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
 static NSString *const kLyricsRequestedEvent = @"lyricsRequested";
 static NSString *const kScalesRequestedEvent = @"scalesRequested";
@@ -188,6 +190,8 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
     [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
     [center addObserver:self selector:@selector(onFocusCommand:) name:GPEditorFocusCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onUndoCommand:) name:GPEditorUndoCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onRedoCommand:) name:GPEditorRedoCommandNotification object:nil];
     [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
     [center addObserver:self selector:@selector(onLyricsCommand:) name:GPEditorLyricsCommandNotification object:nil];
     [center addObserver:self selector:@selector(onScalesCommand:) name:GPEditorScalesCommandNotification object:nil];
@@ -226,7 +230,7 @@ RCT_EXPORT_MODULE();
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
     kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent, kExportAudioRequestedEvent,
-    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent,
+    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent, kUndoRequestedEvent, kRedoRequestedEvent,
     kMultitrackRequestedEvent, kPreviousTrackRequestedEvent, kNextTrackRequestedEvent
   ];
 }
@@ -287,7 +291,6 @@ RCT_EXPORT_MODULE();
   }
 }
 
-/** View ▸ Focus / Unfocus. */
 /** View ▸ Multitrack, Previous Track, Next Track. */
 - (void)onMultitrackCommand:(NSNotification *)note
 {
@@ -310,6 +313,22 @@ RCT_EXPORT_MODULE();
   }
 }
 
+/** Edit ▸ Undo / Redo for the score (EditMenu.swift: not while a text field edits, its own undo then). */
+- (void)onUndoCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kUndoRequestedEvent body:@{}];
+  }
+}
+
+- (void)onRedoCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kRedoRequestedEvent body:@{}];
+  }
+}
+
+/** View ▸ Focus / Unfocus. */
 - (void)onFocusCommand:(NSNotification *)note
 {
   if (hasListeners) {
@@ -618,6 +637,14 @@ RCT_EXPORT_METHOD(writeTextFile : (NSString *)path text : (NSString *)text resol
     return;
   }
   resolve(@{@"name" : path.lastPathComponent, @"path" : path});
+}
+
+/** Whether the shown tab can undo / redo: Edit ▸ Undo / Redo of the menu bar follow it (EditMenu.swift). */
+RCT_EXPORT_METHOD(setUndoState : (BOOL)canUndo canRedo : (BOOL)canRedo)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorUndoStateNotification object:nil userInfo:@{@"canUndo" : @(canUndo), @"canRedo" : @(canRedo)}];
+  });
 }
 
 RCT_EXPORT_METHOD(setDocumentTitle : (NSString *)title)

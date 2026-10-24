@@ -42,6 +42,7 @@ import { useClipboard } from './hooks/use-clipboard';
 import { commandStateOf, useCommandPalette, useTransposePanel } from './hooks/use-command-palette';
 import { useDocument } from './hooks/use-document';
 import { useDraftPreview } from './hooks/use-draft-preview';
+import { useEditMenu } from './hooks/use-edit-menu';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { useLyricsEditor } from './hooks/use-lyrics-editor';
 import { useMidiInput } from './hooks/use-midi-input';
@@ -249,6 +250,8 @@ export default function App() {
     clipboard,
     keyboardView,
   });
+  // Edit ▸ Undo / Redo of the menu bar, and ⌘Z / ⇧⌘Z in the activated app (the menu's key equivalents).
+  useEditMenu(state.past.length > 0, state.future.length > 0, commands.runCommand);
 
   // Palette buttons edit at the cursor, then hand the keyboard back to the score (to type the next fret).
   const editAtCursor = useCallback((edit: SongEdit) => {

@@ -8,6 +8,8 @@ struct GPEditorApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
   /// File ▸ Open Recent's files (RecentFilesMenu.swift).
   @StateObject private var recentFiles = RecentFilesModel()
+  /// Edit ▸ Undo / Redo's state from JS (EditMenu.swift).
+  @StateObject private var editMenu = EditMenuModel()
 
   var body: some Scene {
     Window("GP Editor", id: "main") {
@@ -96,16 +98,23 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("p")
       }
-      // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
-      CommandGroup(after: .pasteboard) {
-        Divider()
-        // The lyrics of a track, above the score (Guitar Pro's lyrics editor).
-        Button("Lyrics…") {
-          NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
+      // The Edit menu (one group: a commands builder takes at most ten).
+      Group {
+        // Edit ▸ Undo / Redo: the score's history (EditMenu.swift), not the window's undo manager.
+        CommandGroup(replacing: .undoRedo) {
+          UndoRedoCommands(model: editMenu)
         }
-        Menu("AI Wizard") {
-          Button("Song Writer…") {
-            NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
+        // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
+        CommandGroup(after: .pasteboard) {
+          Divider()
+          // The lyrics of a track, above the score (Guitar Pro's lyrics editor).
+          Button("Lyrics…") {
+            NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
+          }
+          Menu("AI Wizard") {
+            Button("Song Writer…") {
+              NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
+            }
           }
         }
       }

@@ -92,6 +92,13 @@ FOUNDATION_EXPORT NSString *const GPEditorNextTabCommandNotification;
 /** File ▸ Previous Tab (⌃⇧Tab) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPreviousTabCommandNotification;
 
+/** Edit ▸ Undo / Redo (⌘Z / ⇧⌘Z) for the score (EditMenu.swift); GPFiles.m forwards them as "undoRequested" / "redoRequested". */
+FOUNDATION_EXPORT NSString *const GPEditorUndoCommandNotification;
+FOUNDATION_EXPORT NSString *const GPEditorRedoCommandNotification;
+
+/** JS's undo state for Edit ▸ Undo / Redo (GPFiles' setUndoState). userInfo: "canUndo", "canRedo" (NSNumber booleans). */
+FOUNDATION_EXPORT NSString *const GPEditorUndoStateNotification;
+
 /** View ▸ Multitrack (F3) was chosen; GPFiles.m forwards it to JS as "multitrackRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMultitrackCommandNotification;
 

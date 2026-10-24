@@ -36,3 +36,6 @@ NSString *const GPEditorMixerCommandNotification = @"GPEditorMixerCommand";
 NSString *const GPEditorLineInCommandNotification = @"GPEditorLineInCommand";
 NSString *const GPEditorAddAudioTrackCommandNotification = @"GPEditorAddAudioTrackCommand";
 NSString *const GPEditorTrackCommandNotification = @"GPEditorTrackCommand";
+NSString *const GPEditorUndoCommandNotification = @"GPEditorUndoCommand";
+NSString *const GPEditorRedoCommandNotification = @"GPEditorRedoCommand";
+NSString *const GPEditorUndoStateNotification = @"GPEditorUndoState";
