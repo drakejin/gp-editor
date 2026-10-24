@@ -209,6 +209,17 @@ describe('useEditorCommands: mouse selection', () => {
   });
 });
 
+describe('useEditorCommands: a click on another track’s staff', () => {
+  it('puts the cursor on that track (the multitrack view)', () => {
+    // Act
+    const { commands, sources } = renderCommands(openSong());
+    commands.onPressBeat({ measureIndex: 1, beatIndex: 0, string: 2, trackIndex: 2 }, false);
+
+    // Assert
+    expect(sources.dispatch).toHaveBeenCalledWith({ type: 'placeCursor', cursor: { trackIndex: 2, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 2 } });
+  });
+});
+
 describe('useEditorCommands: keys while a popup is open', () => {
   const key = (k: string) => ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false } }) as never;
 

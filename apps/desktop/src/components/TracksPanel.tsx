@@ -19,6 +19,13 @@ export const TRACKS_PANEL = {
 export interface TracksPanelProps {
   readonly song: Song;
   readonly selectedTrackIndex: number;
+  /** The tracks the score shows (their eyes are lit); the selected one alone by default. */
+  readonly shownTrackIndexes?: readonly number[];
+  /** View ▸ Multitrack is on (the Multitrack button over the table is lit). */
+  readonly isMultitrack?: boolean;
+  /** A track's eye: shows or hides it in the multitrack view. */
+  readonly onToggleTrackShown: (trackIndex: number) => void;
+  readonly onToggleMultitrack: () => void;
   readonly cursorMeasureIndex?: number;
   readonly playingMeasureIndex?: number;
   readonly palette: Palette;
@@ -40,11 +47,11 @@ export interface TracksPanelProps {
 
 /**
  * Guitar Pro's tracks panel, dark in both appearances: the track table (instrument, name, show / mute / solo, volume,
- * pan) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
+ * pan; Multitrack over it, the eyes choosing the tracks it shows) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
  * marked; clicking a cell goes there. The two halves share their row heights, and the whole panel scrolls vertically.
  */
 function TracksPanelView(props: TracksPanelProps) {
-  const { song, selectedTrackIndex, palette, trackActions } = props;
+  const { song, selectedTrackIndex, palette, trackActions, shownTrackIndexes = [selectedTrackIndex] } = props;
   // A track's name being dragged: where it would go.
   const [drag, setDrag] = useState<{ readonly fromIndex: number; readonly toIndex: number } | undefined>(undefined);
   const onDragTrack = useCallback((fromIndex: number, toIndex: number | undefined) => setDrag(toIndex === undefined ? undefined : { fromIndex, toIndex }), []);
@@ -62,7 +69,7 @@ function TracksPanelView(props: TracksPanelProps) {
       <ScrollView style={styles.vertical}>
         <View style={styles.columns}>
           <View style={[styles.table, { borderRightColor: palette.chromeBorder }]}>
-            <TrackTableHeader palette={palette} />
+            <TrackTableHeader palette={palette} isMultitrack={props.isMultitrack === true} onToggleMultitrack={props.onToggleMultitrack} />
             {song.tracks.map((track, trackIndex) => (
               <TrackMixerRow
                 key={trackIndex}
@@ -72,8 +79,10 @@ function TracksPanelView(props: TracksPanelProps) {
                 instrumentName={rows[trackIndex]?.instrumentName}
                 iconKind={rows[trackIndex]?.iconKind ?? 'guitar'}
                 isSelected={trackIndex === selectedTrackIndex}
+                isShown={shownTrackIndexes.includes(trackIndex)}
                 palette={palette}
                 onSelectTrack={props.onSelectTrack}
+                onToggleShown={props.onToggleTrackShown}
                 onSetTrackMute={props.onSetTrackMute}
                 onSetTrackSolo={props.onSetTrackSolo}
                 onSetTrackVolume={props.onSetTrackVolume}

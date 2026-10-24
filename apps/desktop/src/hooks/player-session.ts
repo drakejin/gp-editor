@@ -4,7 +4,7 @@ import { type AudioPlayback, audioPlaybackOf, audioSecondsAtRender } from '../li
 import { isAudioLoaded } from '../native/audio-track';
 import { bytesToBase64 } from '../lib/base64';
 import { type MetronomeBeat, isSameBeat, metronomeBeatAt } from '../lib/metronome-beat';
-import { playingBeatAt, samePlayingBeat } from '../lib/playing-beat';
+import { type PlayingTracks, playingBeatAt, playingTracksAt, samePlayingBeat, samePlayingTracks } from '../lib/playing-beat';
 import {
   type LoopPass,
   type PlaybackPlan,
@@ -26,6 +26,8 @@ export interface PlaybackState {
   readonly isPlaying: boolean;
   /** Beat of the shown track that is sounding now. */
   readonly playing?: PlayingBeat;
+  /** In the multitrack view: the beat sounding now on each shown track. */
+  readonly playingTracks?: PlayingTracks;
   /** While a loop plays: the pass being played and its tempo. */
   readonly loopPass?: LoopPass;
   /** The metronome's beat now (the visual metronome), the count-in's too. */
@@ -39,6 +41,8 @@ export interface PlaybackState {
 export interface Follow {
   readonly song: Song | undefined;
   readonly trackIndex: number;
+  /** The tracks the score shows, when it shows several: each one's playing beat is followed. */
+  readonly shownTrackIndexes?: readonly number[];
   readonly practice: PracticeSettings;
   readonly timeline: readonly TimelineEntry[];
   readonly plan?: PlaybackPlan;
@@ -220,7 +224,7 @@ async function pollPlayer(session: PlayerSession): Promise<void> {
 /** The playing beat, loop pass and metronome beat at `seconds` of the render; React state changes only when they do. */
 function followPosition(session: PlayerSession, song: Song, seconds: number): void {
   const follow = session.follow.current;
-  const { trackIndex, timeline, plan } = follow;
+  const { trackIndex, shownTrackIndexes = [], timeline, plan } = follow;
   const at = positionAt(timeline, seconds);
   const loopPass = plan === undefined ? undefined : loopPassAt(plan, timeline, seconds);
   session.follow.current = {
@@ -229,12 +233,14 @@ function followPosition(session: PlayerSession, song: Song, seconds: number): vo
     passIndex: loopPass?.passIndex ?? follow.passIndex,
   };
   const playing = at === undefined ? undefined : playingBeatAt(song, trackIndex, at);
+  const playingTracks = at === undefined || shownTrackIndexes.length < 2 ? undefined : playingTracksAt(song, shownTrackIndexes, at);
   const beat = metronomeBeatAt(song, timeline, follow.countInSeconds ?? 0, seconds);
   const audioSeconds = audioSecondsAtRender(follow.audioRuns, seconds);
   session.setState((previous) =>
-    previous.isPlaying && samePlayingBeat(previous.playing, playing) && isSameLoopPass(previous.loopPass, loopPass) && isSameBeat(previous.beat, beat)
+    previous.isPlaying && samePlayingBeat(previous.playing, playing) && samePlayingTracks(previous.playingTracks, playingTracks) &&
+    isSameLoopPass(previous.loopPass, loopPass) && isSameBeat(previous.beat, beat)
       ? previous
-      : { isPlaying: true, playing, loopPass, beat, audioSeconds },
+      : { isPlaying: true, playing, playingTracks, loopPass, beat, audioSeconds },
   );
 }
 

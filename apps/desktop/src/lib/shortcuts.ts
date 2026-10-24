@@ -62,13 +62,15 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     title: 'Moving around',
     shortcuts: [
       { keys: '← / →', action: 'Previous / next beat', press: key('ArrowLeft') },
-      { keys: '↑ / ↓', action: 'String above / below', press: key('ArrowDown') },
+      { keys: '↑ / ↓', action: 'String above / below (in Multitrack, on into the track above / below)', press: key('ArrowDown') },
+      { keys: '⌘↑ / ⌘↓', action: 'Previous / next track (the shown ones in Multitrack)', press: key('ArrowDown', { metaKey: true }) },
       { keys: '⌥← / ⌥→', action: 'Previous / next bar', press: key('ArrowRight', { altKey: true }) },
       { keys: '⇧← / ⇧→', action: 'Select beats (for ⌘C / ⌘X)', press: key('ArrowRight', { shiftKey: true }) },
       { keys: '⌘1 – ⌘4', action: 'Edit voice 1, 2, 3 or 4 (the palette’s Voice buttons)', press: key('1', { metaKey: true }) },
       { keys: '⌥1 – ⌥4', action: 'Move the note (or the selected beats) to voice 1, 2, 3 or 4', press: key('2', { altKey: true }) },
       { keys: 'Home / End', action: 'First / last bar', press: key('Home') },
       { keys: '⌘- / ⌘=', action: 'Zoom out / in', press: key('=', { metaKey: true }) },
+      { keys: 'F3', action: 'View ▸ Multitrack: every track the tracks panel’s eyes show' },
     ],
   },
   {

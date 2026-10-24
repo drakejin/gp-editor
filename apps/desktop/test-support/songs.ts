@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL, EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, QUARTER_TIME, RED } from '@gp-editor/core';
-import type { Beat, Duration, MeasureHeader, Note, NoteEffect, Song } from '@gp-editor/core';
+import type { Beat, Duration, MeasureHeader, Note, NoteEffect, Song, Track } from '@gp-editor/core';
 
 export interface StringsOptions {
   /** GM program of the track's channel; the song keeps no channel when left out. */
@@ -84,4 +84,22 @@ export function makeSong(measures: Beat[][], headers: MeasureHeader[] = measures
       },
     ],
   };
+}
+
+/** The song with one more track after the others: `measures[i]` are its beats of bar i (an empty bar where left out). */
+export function withTrack(song: Song, measures: readonly (readonly Beat[])[], overrides: Partial<Track> = {}): Song {
+  const template = song.tracks[0];
+  if (template === undefined) {
+    return song;
+  }
+  const number = song.tracks.length + 1;
+  const track: Track = {
+    ...template,
+    number,
+    name: `Track ${number}`,
+    channelId: number,
+    measures: song.measureHeaders.map((_, headerIndex) => ({ headerIndex, clef: 'treble', keySignature: 0, beats: measures[headerIndex] ?? [] })),
+    ...overrides,
+  };
+  return { ...song, tracks: [...song.tracks, track] };
 }

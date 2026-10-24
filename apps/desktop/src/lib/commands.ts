@@ -56,6 +56,7 @@ const VIEW_ROWS: readonly Command[] = [
   keyRow('view.zoomIn', 'View', 'Zoom In', press('=', { metaKey: true }), { keywords: ['bigger', 'larger'] }),
   keyRow('view.zoomOut', 'View', 'Zoom Out', press('-', { metaKey: true }), { keywords: ['smaller'] }),
   ...PANEL_ROWS.map(([panel, name, keywords]) => row(`view.panel.${panel}`, 'View', `Show or Hide the ${name}`, (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
+  editorRow('view.multitrack', 'View', 'Multitrack', { type: 'toggleMultitrack' }, { shortcut: 'F3', keywords: ['all tracks', 'tracks', 'staves', 'system', 'show'] }),
   row('view.focus', 'View', 'Focus / Unfocus', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide panels', 'score only', 'distraction'] }),
 ];
 
@@ -118,6 +119,8 @@ const GO_ROWS: readonly Command[] = [
   keyRow('go.nextBeat', 'Go', 'Next Beat', press('ArrowRight'), { keywords: ['cursor', 'right'] }),
   keyRow('go.stringAbove', 'Go', 'String Above', press('ArrowUp'), { keywords: ['cursor', 'up'] }),
   keyRow('go.stringBelow', 'Go', 'String Below', press('ArrowDown'), { keywords: ['cursor', 'down'] }),
+  keyRow('go.previousTrack', 'Go', 'Previous Track', press('ArrowUp', { metaKey: true }), { keywords: ['track', 'staff', 'up', 'multitrack'] }),
+  keyRow('go.nextTrack', 'Go', 'Next Track', press('ArrowDown', { metaKey: true }), { keywords: ['track', 'staff', 'down', 'multitrack'] }),
   keyRow('go.previousBar', 'Go', 'Previous Bar', press('ArrowLeft', { altKey: true }), { keywords: ['measure'] }),
   keyRow('go.nextBar', 'Go', 'Next Bar', press('ArrowRight', { altKey: true }), { keywords: ['measure'] }),
   keyRow('go.firstBar', 'Go', 'First Bar', press('Home'), { keywords: ['start', 'beginning'] }),

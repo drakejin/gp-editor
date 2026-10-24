@@ -1,5 +1,5 @@
 import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '@gp-editor/core';
-import { adjacentBeat, clampCursor } from '../lib/navigation';
+import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { plural } from '../lib/wording';
 import type { BeatRange } from '../score/selection-tint';
 import type { EditorAction, EditorState } from './editor';
@@ -69,7 +69,8 @@ export function extendSelection(state: EditorState, step: -1 | 1): EditorState {
 
 /**
  * A mouse drag, or a shift-click: the cursor on `target`, the selection anchored where it started (the cursor before
- * the first such move). Back on the anchor's beat nothing is selected.
+ * the first such move). Back on the anchor's beat nothing is selected. A target on another track (a shift-click in the
+ * multitrack view) selects to the beat of the cursor's track at that moment: a selection stays on one track.
  */
 export function selectTo(state: EditorState, target: StringAddress): EditorState {
   const song = state.document?.song;
@@ -77,7 +78,8 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
   if (song === undefined || cursor === undefined) {
     return state;
   }
-  const moved = clampCursor(song, target) ?? cursor;
+  const onTrack = target.trackIndex === cursor.trackIndex ? target : cursorInTrack(song, target, cursor.trackIndex, cursor.string);
+  const moved = (onTrack === undefined ? undefined : clampCursor(song, onTrack)) ?? cursor;
   const anchor = state.selectionAnchor ?? cursor;
   const isAnchorBeat = moved.measureIndex === anchor.measureIndex && moved.beatIndex === anchor.beatIndex;
   return { ...state, cursor: moved, selectionAnchor: isAnchorBeat ? undefined : anchor };

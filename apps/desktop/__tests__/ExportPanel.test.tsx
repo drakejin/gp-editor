@@ -6,8 +6,9 @@ import { ExportPanel } from '../src/components/ExportPanel';
 import { pdfPageCount } from '../src/export/pdf-document';
 import type { ExportFormat } from '../src/hooks/use-pdf-export';
 import type { ScoreMode } from '../src/score/geometry';
+import type { StaffSpec } from '../src/score/score-layout';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, header, makeSong, note, toTux } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux, withTrack } from '../test-support/songs';
 
 const SAVE = 'Save PDF…';
 
@@ -20,7 +21,7 @@ interface Rendered {
 
 const song: Song = makeSong(Array.from({ length: 40 }, (_, i) => [beat(toTux(header(i + 1).start), [note(1, i % 5)])]));
 
-function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: ExportFormat = 'pdf', exportSong: Song = song): Rendered {
+function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: ExportFormat = 'pdf', exportSong: Song = song, staves?: readonly StaffSpec[]): Rendered {
   const onSave = jest.fn();
   const onSavePng = jest.fn();
   const onClose = jest.fn();
@@ -31,6 +32,7 @@ function render(mode: ScoreMode = 'notationAndTab', isSaving = false, format: Ex
         palette={PALETTE}
         song={exportSong}
         trackIndex={0}
+        staves={staves}
         fileName="Song.gp5"
         mode={mode}
         format={format}
@@ -108,6 +110,27 @@ describe('ExportPanel', () => {
     const rendered = render('tab', true);
     expect(button(rendered, SAVE).props.isEnabled).toBe(false);
     expect(allText(rendered)).toContain('Saving…');
+  });
+});
+
+describe('ExportPanel in the multitrack view', () => {
+  const duet = withTrack(song, song.tracks[0]!.measures.map((m) => m.beats), { name: 'Bass' });
+  const staves: readonly StaffSpec[] = [{ trackIndex: 0, mode: 'notationAndTab' }, { trackIndex: 1, mode: 'tab' }];
+
+  it('exports the shown tracks as shown, or all of them in one mode', () => {
+    // Arrange
+    const rendered = render('notationAndTab', false, 'pdf', duet, staves);
+    const asShownPages = pdfPageCount(duet, 0, 'notationAndTab', { paper: 'a4', fileName: 'Song.gp5', staves });
+
+    // Act + Assert: As Shown first and chosen
+    expect(rendered.renderer.root.findAllByType(BarButton).map((b) => b.props.label).slice(0, 4)).toEqual(['As Shown', 'Score + Tab', 'Score', 'Tab']);
+    expect(activeLabels(rendered)).toEqual(['As Shown', 'A4']);
+    expect(allText(rendered)).toContain('2 tracks as the score shows them');
+    expect(allText(rendered)).toContain(asShownPages === 1 ? '1 page' : `${asShownPages} pages`);
+    press(rendered, SAVE);
+    press(rendered, 'Tab');
+    press(rendered, SAVE);
+    expect(rendered.onSave.mock.calls).toEqual([['asShown', 'a4'], ['tab', 'a4']]);
   });
 });
 

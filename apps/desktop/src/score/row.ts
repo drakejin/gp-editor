@@ -49,6 +49,8 @@ export interface RowContext {
   readonly markLanes?: readonly TabMarkKind[];
   /** The voice being edited in the track (the cursor's, in every row): the other voices faded (Guitar Pro 8). */
   readonly editedVoiceIndex?: number;
+  /** Bar numbers, markers, tempo and endings over the staves; only the top staff of a multitrack system has them. */
+  readonly hasHeading?: boolean;
 }
 
 /** Clef (+ key signature) column at the start of every row, wide enough for the track's largest key signature. */
@@ -133,7 +135,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
   const notation = engraveNotation(context, scope);
   const { chordNamesY, chordDiagramsTop } = context.geometry;
   const commands = [
-    ...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header)),
+    ...(context.hasHeading === false ? [] : engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header))),
     ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette: context.palette }),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),

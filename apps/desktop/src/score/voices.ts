@@ -1,3 +1,4 @@
+import type { StringAddress } from '@gp-editor/core';
 import type { Palette } from '../theme';
 
 /**
@@ -21,4 +22,12 @@ export function voiceTint(voiceIndex: number, palette: Palette): string {
 /** The cursor's box in the tab: the selection colour in voice 1, a light wash of the voice's colour in the others. */
 export function cursorFill(voiceIndex: number, palette: Palette): string {
   return voiceIndex === 0 || palette.voices === undefined ? palette.selection : `${voiceTint(voiceIndex, palette)}${CURSOR_ALPHA}`;
+}
+
+/**
+ * The voice the rows of track `trackIndex` are edited in, the others faded: the cursor's, on the cursor's track only (the
+ * other staves of a multitrack system stay in full ink); none in Multivoice.
+ */
+export function editedVoiceOf(cursor: StringAddress | undefined, trackIndex: number, isMultivoice: boolean | undefined): number | undefined {
+  return isMultivoice === true || cursor === undefined || cursor.trackIndex !== trackIndex ? undefined : cursor.voiceIndex;
 }

@@ -63,6 +63,8 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'ArrowDown' },
   { key: 'ArrowUp', altKey: true },
   { key: 'ArrowDown', altKey: true },
+  { key: 'ArrowUp', metaKey: true },
+  { key: 'ArrowDown', metaKey: true },
   { key: 'ArrowLeft' },
   { key: 'ArrowRight' },
   { key: 'ArrowLeft', altKey: true },
@@ -151,7 +153,8 @@ function practiceKey(key: string): KeyCommand | undefined {
 }
 
 /**
- * The editor's keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note, digits type
+ * The editor's keys: arrows move the cursor (↑/↓ between strings — on into the next shown track in the multitrack view —,
+ * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's
@@ -166,6 +169,9 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   }
   if (press.metaKey && (press.key === '=' || press.key === '-')) {
     return { type: 'zoom', direction: press.key === '=' ? 1 : -1 };
+  }
+  if (press.metaKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
+    return { type: 'moveCursorTrack', step: press.key === 'ArrowUp' ? -1 : 1 };
   }
   if (press.metaKey) {
     return CLIPBOARD_KEYS[press.key.toLowerCase()] ?? VOICE_KEYS[press.key];

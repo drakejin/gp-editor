@@ -2,6 +2,7 @@ import { addTrack, buildNewSong } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { LAST_TRACK_HINT, trackStepAction } from '../src/state/track-edits';
 import { remapEditorTracks } from '../src/state/track-remap';
+import { shownTrackIndexes } from '../src/state/track-display';
 
 /** A new sheet with a bass and drums added (Track 1, Bass, Drums), the cursor on the bass's string 2 in bar 3. */
 function threeTrackState(): EditorState {
@@ -155,6 +156,57 @@ describe('editorReducer: moving tracks', () => {
     expect(trackStepAction(song, 0, -1)).toBeUndefined();
     expect(trackStepAction(song, 2, 1)).toBeUndefined();
     expect(trackStepAction(song, 5, -1)).toBeUndefined();
+  });
+});
+
+describe('editorReducer: tracks edited while the multitrack view shows some of them', () => {
+  /** Track 1, Bass, Drums, Piano in the multitrack view, Bass hidden, Drums shown as tab only, the cursor on Piano. */
+  function multitrackState(): EditorState {
+    const song = addTrack(addTrack(addTrack(buildNewSong(), { kind: 'bass' }), { kind: 'drums' }), { kind: 'keys' });
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp', path: '/a.gp', song } });
+    return run(
+      loaded,
+      { type: 'toggleMultitrack' },
+      { type: 'selectTrack', trackIndex: 2 },
+      { type: 'setMode', mode: 'tab' },
+      { type: 'selectTrack', trackIndex: 3 },
+      { type: 'toggleTrackShown', trackIndex: 1 },
+    );
+  }
+  const shown = (state: EditorState) => shownTrackIndexes(state.trackDisplay, state.document!.song.tracks.length, state.trackIndex).map((index) => names(state)[index]);
+
+  it('keeps the hidden tracks hidden and each track’s staves when a track before them is deleted', () => {
+    // Arrange
+    const before = multitrackState();
+
+    // Act
+    const deleted = run(before, { type: 'deleteTrack', trackIndex: 0 });
+
+    // Assert
+    expect(shown(before)).toEqual(['Track 1', 'Drums', 'Piano']);
+    expect(names(deleted)).toEqual(['Bass', 'Drums', 'Piano']);
+    expect(shown(deleted)).toEqual(['Drums', 'Piano']);
+    expect(deleted.trackDisplay.multitrackModes).toEqual({ 1: 'tab' });
+  });
+
+  it('moves a track’s eye and staves with the track', () => {
+    // Act
+    const moved = run(multitrackState(), { type: 'moveTrack', fromIndex: 1, toIndex: 3 });
+
+    // Assert
+    expect(names(moved)).toEqual(['Track 1', 'Drums', 'Piano', 'Bass']);
+    expect(shown(moved)).toEqual(['Track 1', 'Drums', 'Piano']);
+    expect(moved.trackDisplay.multitrackModes).toEqual({ 1: 'tab' });
+  });
+
+  it('forgets a deleted track’s eye', () => {
+    // Act
+    const deleted = run(multitrackState(), { type: 'deleteTrack', trackIndex: 1 });
+
+    // Assert
+    expect(names(deleted)).toEqual(['Track 1', 'Drums', 'Piano']);
+    expect(deleted.trackDisplay.hiddenTrackIndexes).toEqual([]);
+    expect(shown(deleted)).toEqual(['Track 1', 'Drums', 'Piano']);
   });
 });
 

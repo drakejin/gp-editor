@@ -36,10 +36,14 @@ export interface TrackMixerRowProps {
   /** General MIDI instrument name (or "Drums"), for the tooltips. */
   readonly instrumentName?: string;
   readonly iconKind: InstrumentIconKind;
-  /** The track shown in the score. */
+  /** The selected track (the cursor's, the inspector's). */
   readonly isSelected: boolean;
+  /** The score shows the track: the selected one, or one the multitrack view shows. */
+  readonly isShown: boolean;
   readonly palette: Palette;
   readonly onSelectTrack: (trackIndex: number) => void;
+  /** The eye: the track shown or hidden in the multitrack view. */
+  readonly onToggleShown: (trackIndex: number) => void;
   readonly onSetTrackMute: (trackIndex: number, isMute: boolean) => void;
   readonly onSetTrackSolo: (trackIndex: number, isSolo: boolean) => void;
   readonly onSetTrackVolume: (trackIndex: number, volume: number) => void;
@@ -126,9 +130,17 @@ function TrackSliders({ track, trackIndex, channel, palette, onSetTrackVolume, o
   );
 }
 
-/** Eye (the track the score shows), mute and solo. */
-function TrackToggles({ track, trackIndex, isSelected, palette, onSelectTrack, onSetTrackMute, onSetTrackSolo }: TrackMixerRowProps) {
-  const eye = useMemo(() => engraveEyeIcon(isSelected ? palette.chromeText : palette.chromeMuted), [isSelected, palette]);
+/** The eye's tooltip: the selected track is always shown; another is shown or hidden by its eye. */
+function eyeTooltip(isSelected: boolean, isShown: boolean): string {
+  if (isSelected) {
+    return 'Shown in the score: the selected track always is';
+  }
+  return isShown ? 'Shown in the score (click to hide)' : 'Show in the score (Multitrack)';
+}
+
+/** Eye (shown in the score), mute and solo. */
+function TrackToggles({ track, trackIndex, isSelected, isShown, palette, onToggleShown, onSetTrackMute, onSetTrackSolo }: TrackMixerRowProps) {
+  const eye = useMemo(() => engraveEyeIcon(isShown ? palette.chromeText : palette.chromeMuted), [isShown, palette]);
   const speaker = useMemo(() => engraveSpeakerIcon(track.mute ? palette.chromeAccentText : palette.chromeMuted, track.mute), [track.mute, palette]);
   const headphones = useMemo(() => engraveHeadphonesIcon(track.solo ? palette.chromeAccentText : palette.chromeMuted), [track.solo, palette]);
   const number = track.number;
@@ -137,10 +149,10 @@ function TrackToggles({ track, trackIndex, isSelected, palette, onSelectTrack, o
       <PanelIconButton
         commands={eye}
         accessibilityLabel={`Show track ${number} in the score`}
-        tooltip={isSelected ? 'Shown in the score' : 'Show in the score'}
-        isChecked={isSelected}
+        tooltip={eyeTooltip(isSelected, isShown)}
+        isChecked={isShown}
         palette={palette}
-        onPress={() => onSelectTrack(trackIndex)}
+        onPress={() => onToggleShown(trackIndex)}
       />
       <PanelIconButton
         commands={speaker}
@@ -199,16 +211,32 @@ export function PanelIconButton(props: PanelIconButtonProps) {
 
 interface TrackTableBandProps {
   readonly palette: Palette;
+  /** View ▸ Multitrack (F3), lit while on. */
+  readonly isMultitrack?: boolean;
+  readonly onToggleMultitrack?: () => void;
   /** Guitar Pro's "Audio track" button (the song has none yet). */
   readonly onAddAudioTrack?: () => void;
 }
 
-/** "Tracks" over the table, with the mixer columns named, as tall as the bar numbers beside it. */
-export function TrackTableHeader({ palette }: TrackTableBandProps) {
+/** "Tracks" over the table, Multitrack, and the mixer columns named, as tall as the bar numbers beside it. */
+export function TrackTableHeader({ palette, isMultitrack = false, onToggleMultitrack }: TrackTableBandProps) {
   const caption = [styles.caption, { color: palette.chromeMuted }];
   return (
     <View style={[styles.band, { height: BAR_MAP.headerHeight, backgroundColor: palette.chromeDeep }]}>
       <Text style={[styles.title, { color: palette.chromeText }]}>Tracks</Text>
+      {onToggleMultitrack === undefined ? null : (
+        <Pressable
+          testID="tracks-panel-multitrack"
+          onPress={onToggleMultitrack}
+          tooltip="Multitrack: every track in the score (F3)"
+          accessibilityRole="button"
+          accessibilityLabel="Multitrack: every track in the score (F3)"
+          accessibilityState={{ selected: isMultitrack }}
+          style={[styles.toggle, isMultitrack ? { backgroundColor: palette.chromeAccent } : { borderColor: palette.chromeMuted }]}
+        >
+          <Text style={[styles.caption, { color: isMultitrack ? palette.chromeAccentText : palette.chromeText }]}>Multitrack</Text>
+        </Pressable>
+      )}
       <Text style={[caption, { width: TRACK_TABLE.volumeWidth }]}>Volume</Text>
       <View style={styles.gap} />
       <Text style={[caption, { width: TRACK_TABLE.panWidth }]}>Pan</Text>
@@ -254,6 +282,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 11, fontWeight: '700' },
   caption: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
   sections: { flex: 1, textAlign: 'left' },
+  toggle: { height: 16, paddingHorizontal: 6, marginRight: TRACK_TABLE.columnGap, borderRadius: 4, borderWidth: 1, borderColor: 'transparent', justifyContent: 'center' },
   name: { flex: 1, height: BAR_MAP.rowHeight, justifyContent: 'center', marginLeft: 6, marginRight: 4 },
   nameText: { fontSize: 12 },
   selectedName: { fontWeight: '700' },

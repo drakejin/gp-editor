@@ -57,3 +57,14 @@ export function voiceWithNoteAt(song: Song, cursor: StringAddress): StringAddres
   const voiceIndex = Array.from({ length: MAX_VOICES }, (_, index) => index).find((index) => findNote(song, { ...cursor, voiceIndex: index }) !== undefined);
   return voiceIndex === undefined ? cursor : { ...cursor, voiceIndex };
 }
+
+/**
+ * The cursor on another track at the same moment: the beat of the same bar sounding where the cursor's beat starts
+ * (else the bar's first), on `string` kept on that track's strings.
+ */
+export function cursorInTrack(song: Song, cursor: StringAddress, trackIndex: number, string: number): StringAddress | undefined {
+  const start = song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex]?.start;
+  const beats = song.tracks[trackIndex]?.measures[cursor.measureIndex]?.beats ?? [];
+  const sounding = start === undefined ? -1 : beats.reduce((found, beat, index) => (beat.start <= start ? index : found), -1);
+  return clampCursor(song, { ...cursor, trackIndex, beatIndex: Math.max(0, sounding), string });
+}

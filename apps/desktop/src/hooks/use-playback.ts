@@ -6,6 +6,7 @@ import type { MetronomeBeat } from '../lib/metronome-beat';
 import { hasSameEffectRouting } from '../lib/mix';
 import type { LoopPass } from '../lib/practice-plan';
 import { setAudioTrackMix, setMidiController, setMidiProgram } from '../native/player';
+import type { PlayingTracks } from '../lib/playing-beat';
 import type { PlayingBeat } from '../score/row';
 import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, needsNewRender, practiceReducer } from '../state/practice';
 import {
@@ -24,6 +25,8 @@ export interface Playback {
   readonly isPlaying: boolean;
   /** Beat of the shown track that is sounding now. */
   readonly playing?: PlayingBeat;
+  /** In the multitrack view: the beat sounding now on each shown track. */
+  readonly playingTracks?: PlayingTracks;
   /** While a loop plays: the pass being played and its tempo. */
   readonly loopPass?: LoopPass;
   /** The metronome's beat now, the count-in's too (the visual metronome). */
@@ -71,15 +74,15 @@ function cancelRestart(timer: { current: ReturnType<typeof setTimeout> | undefin
 
 /**
  * Plays the whole song (all tracks, honouring mute/solo) from a measure, or the practice loop pass after pass, at the
- * practice tempo, and follows it on the given track.
+ * practice tempo, and follows it on the given track (and on the shown tracks of the multitrack view).
  */
-export function usePlayback(song: Song | undefined, trackIndex: number): Playback {
+export function usePlayback(song: Song | undefined, trackIndex: number, shownTrackIndexes?: readonly number[]): Playback {
   const [state, setState] = useState<PlaybackState>({ isPlaying: false });
   const [practice, setPractice] = useState<PracticeSettings>(INITIAL_PRACTICE);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const generation = useRef(0);
   const follow = useRef<Follow>({ song, trackIndex, practice, timeline: [], measureIndex: 0 });
-  follow.current = { ...follow.current, song, trackIndex, practice };
+  follow.current = { ...follow.current, song, trackIndex, shownTrackIndexes, practice };
   const session = useMemo<PlayerSession>(() => ({ timer, generation, follow, setState }), []);
 
   // Restarts are coalesced: a run of clicks (instruments, sound banks) restarts once, after the last.

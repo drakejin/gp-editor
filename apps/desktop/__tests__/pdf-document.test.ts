@@ -1,11 +1,12 @@
-import { DYNAMICS, type DynamicName, QUARTER, type Song } from '@gp-editor/core';
+import { DYNAMICS, type DynamicName, QUARTER, type Song, readSong } from '@gp-editor/core';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE } from '../src/export/paper';
-import { buildPdfDocument, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
+import { buildPdfDocument, exportStaves, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
 import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
 import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
 import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
+import { readFixture } from '../test-support/fixtures';
 import { textValues } from '../test-support/score-helpers';
-import { beat, header, makeSong, note, toTux } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux, withTrack } from '../test-support/songs';
 
 const BEATS_PER_BAR = 4;
 const QUARTER_TICKS = 960;
@@ -312,6 +313,67 @@ describe('buildPdfDocument', () => {
     const pdf = buildPdfDocument(song, 5, 'tab', { paper: 'a4' });
     expect(pdf.pages).toHaveLength(1);
     expect(textValues(pdf.pages[0]?.commands ?? [])).toContain('Etude');
+  });
+});
+
+describe('buildPdfDocument with several tracks (the multitrack view)', () => {
+  const twoTracks = withTrack(withInfo(songOfBars(24), { title: 'Duet' }), songOfBars(24).tracks[0]!.measures.map((m) => m.beats), { name: 'Second Guitar' });
+  const staves = [{ trackIndex: 0, mode: 'notationAndTab' as const }, { trackIndex: 1, mode: 'tab' as const }];
+
+  it('prints every shown track in each system, named in full on the first and short after, counting pages like pdfPageCount', () => {
+    // Act
+    const pdf = buildPdfDocument(twoTracks, 0, 'notation', { paper: 'a4', staves });
+    const texts = pdf.pages.flatMap((page) => textValues(page.commands));
+
+    // Assert
+    expect(texts.filter((text) => text === 'Second Guitar')).toHaveLength(1);
+    expect(texts.filter((text) => text === 'Seco. Guit.').length).toBeGreaterThan(0);
+    expect(pdfPageCount(twoTracks, 0, 'notation', { paper: 'a4', staves })).toBe(pdf.pages.length);
+  });
+
+  it('prints a system taller than the page smaller, laid out wider so it still fills the printable width', () => {
+    // Arrange
+    const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: a bar line close to the right margin on every page but the last (its system is not stretched)
+    pdf.pages.slice(0, -1).forEach((page) => {
+      const right = Math.max(...page.commands.slice(1).filter((c) => c.kind === 'line').map((c) => bounds(c).maxX));
+      expect(right).toBeGreaterThan(page.width - PAGE.margin - 40);
+      expect(right).toBeLessThanOrEqual(page.width - PAGE.margin + 1);
+    });
+  });
+
+  it('keeps a system taller than the page inside it', () => {
+    // Arrange: eleven tracks in Score + Tab make a system taller than an A4 page
+    const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: everything but the paper itself
+    pdf.pages.forEach((page) => {
+      page.commands.slice(1).forEach((command) => {
+        const box = bounds(command);
+        expect(box.minY).toBeGreaterThanOrEqual(0);
+        expect(box.maxY).toBeLessThanOrEqual(page.height - PAGE.margin);
+        expect(box.maxX).toBeLessThanOrEqual(page.width);
+      });
+    });
+  });
+
+  it('exports the shown tracks as shown or all in one mode, and one track as it is', () => {
+    expect(exportStaves(staves, 'asShown')).toBe(staves);
+    expect(exportStaves(staves, 'notation')).toEqual([{ trackIndex: 0, mode: 'notation' }, { trackIndex: 1, mode: 'notation' }]);
+    expect(exportStaves([staves[0]!], 'asShown')).toBeUndefined();
+  });
+
+  it('names the file after the multitrack view', () => {
+    expect(pdfFileName(twoTracks, 0, 'tab', 'Duet.gp', staves)).toBe('Duet (Multitrack).pdf');
   });
 });
 

@@ -1,5 +1,5 @@
-import { type Dispatch, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { type Effect, type MasterMix, type PlayedNote, type Song, type TrackIndexMap, findNote } from '@gp-editor/core';
 import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
@@ -11,7 +11,7 @@ import { HintBar } from './components/HintBar';
 import { ImportBanner } from './components/ImportBanner';
 import { ImportPanel } from './components/ImportPanel';
 import { Inspector } from './components/inspector/Inspector';
-import { InstrumentPicker } from './components/InstrumentPicker';
+import { ErrorBanner, PickerOverlay } from './components/WindowOverlays';
 import { InstrumentView } from './components/InstrumentView';
 import { EditionPalette } from './components/palette/EditionPalette';
 import { ProjectList } from './components/ProjectList';
@@ -55,6 +55,7 @@ import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
+import { useTrackDisplay } from './hooks/use-track-display';
 import { useTuner } from './hooks/use-tuner';
 import { useTrackManager } from './hooks/use-track-manager';
 import { useAudioExport } from './hooks/use-audio-export';
@@ -62,7 +63,6 @@ import { useAudioTools } from './hooks/use-audio-tools';
 import { useWindowChrome } from './hooks/use-window-chrome';
 import type { CommandActions } from './lib/command-types';
 import { COMMANDS } from './lib/commands';
-import { trackInstrument } from './lib/instruments';
 import { HANDLED_KEYS, type NotePanel } from './lib/key-commands';
 import { lcdInfo } from './lib/lcd';
 import { tempoPercent } from './lib/practice-tempo';
@@ -79,7 +79,7 @@ import { selectedFragment, selectionRange, selectionSummary } from './state/sele
 import type { SongEdit } from './state/song-edits';
 import { NO_SELECTION_HINT, type TranspositionDraft, toTranspositionOptions, transpositionScope } from './state/transposition';
 import { INITIAL_WORKSPACE, activeEditor, tabLabels, workspaceReducer } from './state/workspace';
-import { type Palette, onChrome, usePalette } from './theme';
+import { onChrome, usePalette } from './theme';
 
 /** How many recent files the start screen lists (above the PDF import projects); the panel lists all of them. */
 const START_SCREEN_RECENT_FILES = 5;
@@ -95,7 +95,9 @@ export default function App() {
   const keyboardView = useRef<View>(null);
   const { document, cursor, trackIndex } = state;
   const song = document?.song;
-  const playback = usePlayback(song, trackIndex);
+  // The tracks the score shows (View ▸ Multitrack, the tracks panel's eyes), each in its own staves.
+  const trackView = useTrackDisplay(state, dispatch);
+  const playback = usePlayback(song, trackIndex, trackView.shownTrackIndexes);
   const sound = useSoundBanks(playback.restart);
   const chrome = useWindowChrome();
   const [windowWidth, setWindowWidth] = useState(0);
@@ -114,7 +116,7 @@ export default function App() {
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel; File ▸ Export PNG… opens it for PNG images.
-  const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch, state.chordDisplay);
+  const pdfExport = usePdfExport(document, trackIndex, trackView.selectedMode, dispatch, state.chordDisplay, trackView.staves);
   // File ▸ Export MIDI… and Export ASCII Tab….
   const songExport = useSongExport(document, dispatch);
   // File ▸ Export Audio…: the song rendered with its sounds and effects, as playback plays it.
@@ -456,8 +458,9 @@ export default function App() {
           palette={chromePalette}
           song={document.song}
           trackIndex={trackIndex}
+          staves={trackView.staves}
           fileName={document.fileName}
-          mode={state.mode}
+          mode={trackView.selectedMode}
           chordDisplay={state.chordDisplay}
           format={pdfExport.format}
           isSaving={pdfExport.isSaving}
@@ -533,11 +536,12 @@ export default function App() {
               key={activeTabId}
               song={draftPreview.song ?? document.song}
               trackIndex={trackIndex}
-              mode={state.mode}
+              staves={trackView.staves}
               chordDisplay={state.chordDisplay}
               cursor={cursor}
               isMultivoice={state.isMultivoice}
               playing={playback.playing}
+              playingTracks={playback.playingTracks}
               selection={selection}
               palette={palette}
               zoom={chrome.zoom}
@@ -564,7 +568,7 @@ export default function App() {
                 palette={palette}
                 song={document.song}
                 trackIndex={trackIndex}
-                mode={state.mode}
+                mode={trackView.selectedMode}
                 notice={state.notice}
                 soundBanks={sound.soundBanks}
                 onChangeMode={(mode) => dispatch({ type: 'setMode', mode })}
@@ -606,6 +610,10 @@ export default function App() {
                 <TracksPanel
                   song={document.song}
                   selectedTrackIndex={trackIndex}
+                  shownTrackIndexes={trackView.shownTrackIndexes}
+                  isMultitrack={trackView.isMultitrack}
+                  onToggleMultitrack={trackView.toggleMultitrack}
+                  onToggleTrackShown={trackView.toggleTrackShown}
                   cursorMeasureIndex={cursor?.measureIndex}
                   playingMeasureIndex={playback.playing?.measureIndex}
                   palette={palette}
@@ -751,44 +759,6 @@ export default function App() {
   );
 }
 
-function PickerOverlay({
-  palette,
-  song,
-  trackIndex,
-  dispatch,
-  onClose,
-}: {
-  readonly palette: Palette;
-  readonly song: Song;
-  readonly trackIndex: number;
-  readonly dispatch: Dispatch<EditorAction>;
-  readonly onClose: () => void;
-}) {
-  const instrument = trackInstrument(song, trackIndex);
-  if (instrument === undefined || instrument.isPercussion) {
-    return null;
-  }
-  return (
-    <InstrumentPicker
-      trackName={song.tracks[trackIndex]?.name ?? ''}
-      program={instrument.program}
-      palette={onChrome(palette)}
-      onSetProgram={(program) => dispatch({ type: 'setTrackProgram', trackIndex, program })}
-      onClose={onClose}
-    />
-  );
-}
-
-function ErrorBanner({ message, palette, onDismiss }: { readonly message: string; readonly palette: Palette; readonly onDismiss: () => void }) {
-  return (
-    <Pressable onPress={onDismiss} style={[styles.error, { backgroundColor: palette.danger }]}>
-      <Text style={styles.errorText}>{message} (click to dismiss)</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  error: { paddingHorizontal: 14, paddingVertical: 8 },
-  errorText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
 });

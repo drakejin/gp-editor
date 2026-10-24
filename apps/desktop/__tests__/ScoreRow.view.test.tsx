@@ -210,6 +210,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
+      trackIndex: 0,
     }, false);
   });
 
@@ -226,6 +227,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: undefined,
+      trackIndex: 0,
     }, false);
   });
 
@@ -248,6 +250,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
+      trackIndex: 0,
     }, false);
     expect(row.canvas().style).toEqual({
       width: ROW_WIDTH * 1.5,
@@ -264,7 +267,7 @@ describe('ScoreRow presses', () => {
     ReactTestRenderer.act(() => pressHandler(row.canvasNode())({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, shiftKey: true } }));
 
     // Assert
-    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2 }, true);
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, true);
   });
 
   it('follows a drag from where the mouse went down, in layout points, into the rows around it', () => {
@@ -279,7 +282,7 @@ describe('ScoreRow presses', () => {
     ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { locationX: 0, locationY: 0, pageX: 560, pageY: 600 } }));
 
     // Assert
-    expect(onDrag).toHaveBeenCalledWith(2, 80, 170);
+    expect(onDrag).toHaveBeenCalledWith(2, 80, 170, 0);
   });
 
   it('finds the string on a bass track in tab-only mode', () => {
@@ -296,6 +299,37 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: 4,
+      trackIndex: 0,
     }, false);
+  });
+});
+
+describe('ScoreRow as a staff of a multitrack system', () => {
+  const DECOR = { namesWidth: 90, label: 'Lead', isFirstStaff: false, isLastStaff: true, height: 400 };
+
+  it('draws the track’s label and its row without the heading, on a canvas as tall as the decor says', () => {
+    // Arrange
+    const row = render();
+
+    // Act
+    row.update({ ...row.props, trackIndex: 0, decor: DECOR, hasHeading: false });
+
+    // Assert
+    expect(textValues(row.canvas().commands)).toContain('Lead');
+    expect(textValues(row.canvas().commands)).not.toContain('1');
+    expect(row.canvas().style).toEqual({ width: ROW_WIDTH, height: DECOR.height });
+  });
+
+  it('hits the beat under a press past the names column and names the staff’s track', () => {
+    // Arrange
+    const row = render();
+    row.update({ ...row.props, decor: DECOR });
+    const { x, y } = tabPoint(row.props, 1, 2);
+
+    // Act
+    row.pressAt(x + DECOR.namesWidth, y);
+
+    // Assert
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, false);
   });
 });

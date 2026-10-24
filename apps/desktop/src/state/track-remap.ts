@@ -1,6 +1,7 @@
 import { type Song, type TrackIndexMap, isIdentityTrackMap, matchTrackIndexes, remapTrackIndex } from '@gp-editor/core';
 import { clampCursor, firstCursor } from '../lib/navigation';
 import type { EditorState } from './editor';
+import { remapTrackDisplay } from './track-display';
 
 /** The shown track after a track edit: where it went; when it was deleted, the track now at its place (else the last). */
 function followShownTrack(map: TrackIndexMap, trackIndex: number, song: Song): number {
@@ -22,7 +23,8 @@ export function remapEditorTracks(state: EditorState, map: TrackIndexMap): Edito
   const cursor = before === undefined ? firstCursor(song, trackIndex) : clampCursor(song, { ...before, trackIndex: remapTrackIndex(map, before.trackIndex) ?? trackIndex });
   const anchorTrackIndex = anchor === undefined ? undefined : remapTrackIndex(map, anchor.trackIndex);
   const selectionAnchor = anchor === undefined || anchorTrackIndex === undefined ? undefined : { ...anchor, trackIndex: anchorTrackIndex };
-  return { ...state, trackIndex, cursor, selectionAnchor };
+  const trackDisplay = remapTrackDisplay(state.trackDisplay, (index) => remapTrackIndex(map, index));
+  return { ...state, trackIndex, cursor, selectionAnchor, trackDisplay };
 }
 
 /** After an undo or a redo from `before` to `after`: when the tracks themselves changed, the state follows them. */

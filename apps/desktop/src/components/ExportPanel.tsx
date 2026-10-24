@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { DEFAULT_PAPER, PAPER_IDS, PAPER_SIZES, type PaperId } from '../export/paper';
-import { exportBaseName, pdfPageCount } from '../export/pdf-document';
+import { type ExportMode, exportBaseName, exportStaves, pdfPageCount } from '../export/pdf-document';
 import { DEFAULT_PNG_OPTIONS, PNG_RESOLUTIONS, type PngOptions, pngFileNames, pngFilesText, pngPixelSize } from '../export/png-export';
 import type { ExportFormat } from '../hooks/use-pdf-export';
 import { plural } from '../lib/wording';
 import type { ChordDisplay } from '../score/chords';
 import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
+import type { StaffSpec } from '../score/score-layout';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 
@@ -16,6 +17,8 @@ interface ExportPanelProps {
   readonly song: Song;
   /** The shown track: the one exported. */
   readonly trackIndex: number;
+  /** The multitrack view's staves: with several, they are exported, each track as shown unless one mode is chosen. */
+  readonly staves?: readonly StaffSpec[];
   /** The open file's name, the title of a song without one. */
   readonly fileName: string;
   /** The score's view mode, selected when the panel opens. */
@@ -25,14 +28,18 @@ interface ExportPanelProps {
   /** A PDF, or PNG images (one per page of the same layout). */
   readonly format: ExportFormat;
   readonly isSaving: boolean;
-  readonly onSave: (mode: ScoreMode, paper: PaperId) => void;
-  readonly onSavePng: (mode: ScoreMode, paper: PaperId, png: PngOptions) => void;
+  readonly onSave: (mode: ExportMode, paper: PaperId) => void;
+  readonly onSavePng: (mode: ExportMode, paper: PaperId, png: PngOptions) => void;
   readonly onClose: () => void;
 }
+
+/** The Show choice's buttons: "As Shown" first in the multitrack view. */
+const AS_SHOWN_LABEL = 'As Shown';
 
 interface PngSummaryInput {
   readonly song: Song;
   readonly trackIndex: number;
+  readonly staves?: readonly StaffSpec[];
   readonly fileName: string;
   readonly mode: ScoreMode;
   readonly paper: PaperId;
@@ -41,8 +48,8 @@ interface PngSummaryInput {
 }
 
 /** "3 pages → Song (Tab)-1.png … Song (Tab)-3.png, 1240 × 1754 px each, into a folder you choose". */
-function pngSummary({ song, trackIndex, fileName, mode, paper, pageCount, png }: PngSummaryInput): string {
-  const names = pngFileNames(exportBaseName(song, trackIndex, mode, fileName), pageCount);
+function pngSummary({ song, trackIndex, staves, fileName, mode, paper, pageCount, png }: PngSummaryInput): string {
+  const names = pngFileNames(exportBaseName(song, trackIndex, mode, fileName, staves), pageCount);
   const { width, height } = pngPixelSize(PAPER_SIZES[paper], png.dpi);
   const size = `${width} × ${height} px`;
   return pageCount === 1
@@ -72,30 +79,36 @@ function PngOptionsRow({ palette, png, onChange }: PngOptionsRowProps) {
 }
 
 /**
- * Export (Export… button, File ▸ Export PDF… / Export PNG…): the shown track as Score + Tab, Score or Tab on A4 or US
- * Letter, with the number of pages it makes; Save PDF… asks where to save it. For PNG images, also the resolution and
+ * Export (Export… button, File ▸ Export PDF… / Export PNG…): the shown track as Score + Tab, Score or Tab (the
+ * multitrack view's tracks As Shown, or all in one of those) on A4 or US Letter, with the number of pages it makes; Save PDF… asks where to save it. For PNG images, also the resolution and
  * the background, and the files it writes (one per page).
  */
-export function ExportPanel({ palette, song, trackIndex, fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose }: ExportPanelProps) {
-  const [mode, setMode] = useState<ScoreMode>(viewMode);
+export function ExportPanel(props: ExportPanelProps) {
+  const { palette, song, trackIndex, staves = [], fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose } = props;
+  const isMultitrack = staves.length > 1;
+  const [choice, setChoice] = useState<ExportMode>(isMultitrack ? 'asShown' : viewMode);
+  const mode = choice === 'asShown' ? viewMode : choice;
+  const printed = useMemo(() => exportStaves(staves, choice), [staves, choice]);
   const [paper, setPaper] = useState<PaperId>(DEFAULT_PAPER);
   const [png, setPng] = useState<PngOptions>(DEFAULT_PNG_OPTIONS);
-  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { paper, fileName, chordDisplay }), [song, trackIndex, mode, paper, fileName, chordDisplay]);
+  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { paper, fileName, chordDisplay, staves: printed }), [song, trackIndex, mode, paper, fileName, chordDisplay, printed]);
   const trackName = song.tracks[trackIndex]?.name ?? '';
   const isPng = format === 'png';
-  const summary = isPng ? pngSummary({ song, trackIndex, fileName, mode, paper, pageCount, png }) : plural(pageCount, 'page');
+  const summary = isPng ? pngSummary({ song, trackIndex, staves: printed, fileName, mode, paper, pageCount, png }) : plural(pageCount, 'page');
+  const what = isMultitrack ? `${plural(staves.length, 'track')} as the score shows them` : trackName === '' ? 'The shown track' : `Track “${trackName}”`;
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>{isPng ? 'Export PNG' : 'Export PDF'}</Text>
         <Text style={[styles.hint, { color: palette.muted }]}>
-          {trackName === '' ? 'The shown track' : `Track “${trackName}”`}, every bar, {isPng ? 'one image per page, as in the PDF.' : 'in black on white.'}
+          {what}, every bar, {isPng ? 'one image per page, as in the PDF.' : 'in black on white.'}
         </Text>
       </View>
       <View style={styles.row}>
         <Text style={[styles.label, { color: palette.text }]}>Show</Text>
+        {isMultitrack ? <BarButton label={AS_SHOWN_LABEL} palette={palette} isActive={choice === 'asShown'} onPress={() => setChoice('asShown')} /> : null}
         {SCORE_MODES.map((option) => (
-          <BarButton key={option} label={SCORE_MODE_LABELS[option]} palette={palette} isActive={option === mode} onPress={() => setMode(option)} />
+          <BarButton key={option} label={SCORE_MODE_LABELS[option]} palette={palette} isActive={option === choice} onPress={() => setChoice(option)} />
         ))}
         <Text style={[styles.label, styles.spaced, { color: palette.text }]}>Paper</Text>
         {PAPER_IDS.map((option) => (
@@ -109,7 +122,7 @@ export function ExportPanel({ palette, song, trackIndex, fileName, mode: viewMod
           palette={palette}
           isAccent
           isEnabled={!isSaving}
-          onPress={() => (isPng ? onSavePng(mode, paper, png) : onSave(mode, paper))}
+          onPress={() => (isPng ? onSavePng(choice, paper, png) : onSave(choice, paper))}
         />
         <BarButton label="Close" palette={palette} onPress={onClose} />
         <Text style={[styles.hint, { color: palette.muted }]}>{isSaving ? 'Saving…' : summary}</Text>

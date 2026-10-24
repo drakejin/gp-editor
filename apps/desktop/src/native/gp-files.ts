@@ -240,6 +240,28 @@ export function subscribeFocusRequests(onFocusRequested: () => void): () => void
   return () => subscription.remove();
 }
 
+export interface TrackViewEventHandlers {
+  /** View ▸ Multitrack (F3). */
+  readonly onMultitrackRequested: () => void;
+  /** View ▸ Previous Track / Next Track (⌘↑ / ⌘↓ on the score). */
+  readonly onPreviousTrackRequested: () => void;
+  readonly onNextTrackRequested: () => void;
+}
+
+/** View ▸ Multitrack, Previous Track and Next Track. */
+export function subscribeTrackViewRequests(handlers: TrackViewEventHandlers): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const emitter = new NativeEventEmitter(NativeModules.GPFiles);
+  const subscriptions = [
+    emitter.addListener('multitrackRequested', handlers.onMultitrackRequested),
+    emitter.addListener('previousTrackRequested', handlers.onPreviousTrackRequested),
+    emitter.addListener('nextTrackRequested', handlers.onNextTrackRequested),
+  ];
+  return () => subscriptions.forEach((subscription) => subscription.remove());
+}
+
 export interface TabEventHandlers {
   /** File ▸ Close Tab (⌘W). */
   readonly onCloseTabRequested: () => void;
