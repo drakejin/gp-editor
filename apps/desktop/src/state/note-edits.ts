@@ -1,5 +1,5 @@
 import {
-  type BendShape,
+  type Bend,
   DYNAMICS,
   type Duration,
   type DynamicName,
@@ -13,12 +13,9 @@ import {
   type SlideType,
   type Song,
   type StringAddress,
-  TREMOLO_BAR_PRESETS,
   type ToggleableEffect,
-  type TremoloBarPresetName,
   type Trill,
   type VibratoKind,
-  buildBend,
   buildHarmonic,
   findNote,
   setNoteBend,
@@ -41,17 +38,11 @@ export type NoteEdit =
   | { readonly type: 'toggleSlide' }
   /** Adds or removes one slide type, keeping the others. */
   | { readonly type: 'toggleSlideType'; readonly slide: SlideType }
-  /** A bend of any shape, `amount` quarter tones high (1–12, rounded and clamped by buildBend). */
-  | {
-      readonly type: 'setBendShape';
-      readonly shape: BendShape | 'none';
-      readonly amount: number;
-    }
+  /** The bend panel's curve (setNoteBend keeps it on the grid, 0–12 quarter tones); undefined removes the bend. */
+  | { readonly type: 'setBend'; readonly bend: Bend | undefined }
   | { readonly type: 'setVibrato'; readonly vibrato: VibratoKind }
-  | {
-      readonly type: 'setTremoloBar';
-      readonly preset: TremoloBarPresetName | 'none';
-    }
+  /** The tremolo bar panel's curve (±24 quarter tones); undefined removes it. */
+  | { readonly type: 'setTremoloBar'; readonly tremoloBar: Bend | undefined }
   | { readonly type: 'toggleHarmonic' }
   | { readonly type: 'setHarmonic'; readonly harmonic: HarmonicType | 'none' }
   | { readonly type: 'setDynamic'; readonly dynamic: DynamicName }
@@ -71,7 +62,7 @@ const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
   toggleTie: true,
   toggleSlide: true,
   toggleSlideType: true,
-  setBendShape: true,
+  setBend: true,
   setVibrato: true,
   setTremoloBar: true,
   toggleHarmonic: true,
@@ -121,8 +112,8 @@ export function applyNoteEdit(
         cursor,
         toggled(note.effect.slides, edit.slide),
       );
-    case 'setBendShape':
-      return setNoteBend(song, cursor, edit.shape === 'none' ? undefined : buildBend(edit.shape, edit.amount));
+    case 'setBend':
+      return setNoteBend(song, cursor, edit.bend);
     case 'setVibrato':
       return setNoteVibrato(song, cursor, edit.vibrato);
     default:
@@ -139,11 +130,7 @@ function applyNoteDetail(
 ): Song {
   switch (edit.type) {
     case 'setTremoloBar':
-      return setNoteTremoloBar(
-        song,
-        cursor,
-        edit.preset === 'none' ? undefined : TREMOLO_BAR_PRESETS[edit.preset],
-      );
+      return setNoteTremoloBar(song, cursor, edit.tremoloBar);
     case 'toggleHarmonic':
       return setNoteHarmonic(
         song,

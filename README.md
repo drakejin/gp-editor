@@ -215,12 +215,19 @@ Guitar Pro's own files differently are listed, with that evidence, in
     one of them as a button with its key in the corner — Bend C, Slide S, H/P H, Harm. N, P.M. M, L.R. R, Dead X,
     Vib. B, ( ) G — lit while the note has it, then the whammy bar, trill, tremolo picking, grace note, tap, slap,
     pop, fade in, fade out and volume swell
-  - `B` (or the palette's *Vib.*) opens the **vibrato** panel (none / slight / wide, with how it is drawn); `C` (or *Bend*) the **bend (choking)** panel:
-    the shape (bend, bend & release, bend-release-bend, pre-bend, pre-bend & release, release) and the amount (¼ to 3
-    tones), with its curve. A choice applies at once (one undo step each); *Done*, Esc or a click outside closes the
-    panel, and it closes by itself when the cursor moves onto an empty string.
+  - `B` (or the palette's *Vib.*) opens the **vibrato** panel (none / slight / wide, with how it is drawn; a choice
+    applies at once); `C` (or *Bend*) the **bend (choking)** panel: the shape (bend, bend & release, bend-release-bend,
+    pre-bend, pre-bend & release, release) and the amount (¼ to 3 tones) load a curve into Guitar Pro 8's curve grid.
+    *Done*, Esc or a click outside closes a panel, and it closes by itself when the cursor moves onto an empty string.
+  - the palette's *W.bar* (Guitar Pro has no key for it) opens the **tremolo bar (whammy bar)** panel: the presets
+    (dip, dive, release up, inverted dip, return, release down) and the curve on a grid, positions 0–12 across the note
+    and quarter tones up and down (±3 tones, an octave when the curve goes further). In both curve panels a click adds a
+    point, a drag moves it, a right click or ⌃-click removes it (or *Delete* the selected one), and ◀ ▶ ▼ ▲ step the
+    selected point; the score previews the curve, *Apply* puts it on the note (one undo step), *Remove* takes it off.
+    A .gp5 file keeps every point; a .gp file (Guitar Pro 7/8) keeps a start, one middle value and an end, and the
+    panel says when a curve is more than that.
   - the palette also sets: dynamics ppp–fff, heavy accent, staccato; the slide kinds (shift, legato, in from below /
-    above, out down / up); the whammy bar (dip, dive, release up / down, inverted dip, return); harmonics (natural, artificial, tapped, pinch, semi);
+    above, out down / up); harmonics (natural, artificial, tapped, pinch, semi);
     trill and tremolo picking speeds; a grace note before or on the beat; tapping, slap, pop, fade in; brush and pick
     strokes up / down; text above the beat. Options open under their group.
   - bars (the palette's Bar group): add/delete bar, time signature, tempo, key signature, repeat start/end and the

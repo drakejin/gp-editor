@@ -1,11 +1,11 @@
 // Note effect edits after TuxGuitar's TGMeasureManager setters (setVibrato, changeDeadNote, setBendNote …), with the
 // presets of its bend and tremolo bar dialogs (TGBendDialog, TGTremoloBarDialog), LGPL-2.1.
-import { BEND_MAX_POSITION, BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../formats/common/bend-units';
 import { artificialHarmonicOffset, harmonicFretOffset } from '../formats/common/harmonics';
 import { toVibratoFlags, vibratoOf } from '../model/defaults';
-import type { Bend, BendPoint, Harmonic, HarmonicType, Note, NoteEffect, SlideType, Song, VibratoKind } from '../model/song';
+import type { Bend, Harmonic, HarmonicType, Note, NoteEffect, SlideType, Song, VibratoKind } from '../model/song';
 import type { StringAddress } from './addresses';
 import { buildBend, isSameCurve } from './bend-shapes';
+import { CURVE_VALUE_RANGES, type CurveValueRange, curveFromPoints, normalizeCurvePoints } from './curve-points';
 import { MAX_FRET } from './edit-song';
 import { updateNote } from './song-paths';
 
@@ -170,22 +170,14 @@ export function setNoteSlides(song: Song, at: StringAddress, slides: readonly Sl
   });
 }
 
-function clampRound(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value) + 0));
-}
-
-/** Points rounded onto the 0…12 grid and their values into min…max quarter tones, sorted by position; undefined when there are none. */
-function normalizeCurve(curve: Bend | undefined, min: number, max: number): Bend | undefined {
-  const points = (curve?.points ?? [])
-    .filter((point) => Number.isFinite(point.position) && Number.isFinite(point.value))
-    .map((point): BendPoint => ({ position: clampRound(point.position, 0, BEND_MAX_POSITION), value: clampRound(point.value, min, max) }))
-    .sort((a, b) => a.position - b.position);
-  return points.length === 0 ? undefined : { points };
+/** The curve's points on the 0…12 grid, values within the range, sorted, one per position; undefined when there are none. */
+function normalizeCurve(curve: Bend | undefined, range: CurveValueRange): Bend | undefined {
+  return curveFromPoints(normalizeCurvePoints(curve?.points ?? [], range));
 }
 
 /** New song with the note's bend set (see BEND_PRESETS; values 0…12 quarter tones) or cleared. Same song when nothing changes. */
 export function setNoteBend(song: Song, at: StringAddress, bend: Bend | undefined): Song {
-  return setOptionalEffect(song, at, 'bend', normalizeCurve(bend, 0, BEND_MAX_VALUE), isSameCurve);
+  return setOptionalEffect(song, at, 'bend', normalizeCurve(bend, CURVE_VALUE_RANGES.bend), isSameCurve);
 }
 
 /**
@@ -193,7 +185,7 @@ export function setNoteBend(song: Song, at: StringAddress, bend: Bend | undefine
  * when nothing changes.
  */
 export function setNoteTremoloBar(song: Song, at: StringAddress, tremoloBar: Bend | undefined): Song {
-  return setOptionalEffect(song, at, 'tremoloBar', normalizeCurve(tremoloBar, -TREMOLO_BAR_LIMIT, TREMOLO_BAR_LIMIT), isSameCurve);
+  return setOptionalEffect(song, at, 'tremoloBar', normalizeCurve(tremoloBar, CURVE_VALUE_RANGES.tremoloBar), isSameCurve);
 }
 
 function normalizeHarmonic(harmonic: Harmonic): Harmonic | undefined {

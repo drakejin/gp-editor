@@ -4,10 +4,8 @@ import {
   type NoteValue,
   type SlideType,
   type StrokeDirection,
-  TREMOLO_BAR_PRESETS,
   TUPLET_SIZES,
   type ToggleableEffect,
-  type TremoloBarPresetName,
   type TripletFeel,
   dynamicOf,
   vibratoOf,
@@ -17,7 +15,7 @@ import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
 import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
-import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool, isSameBend } from './palette-tools';
+import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
 
@@ -80,15 +78,6 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
   ['pinch', 'P.H.', 'Pinch harmonic'],
   ['semi', 'S.H.', 'Semi harmonic'],
 ];
-
-export const TREMOLO_BAR_LABELS: Readonly<Record<TremoloBarPresetName, string>> = {
-  dip: 'Dip',
-  dive: 'Dive',
-  releaseUp: 'Release up',
-  invertedDip: 'Inverted dip',
-  return: 'Return',
-  releaseDown: 'Release down',
-};
 
 function voiceGroup(): PaletteGroup {
   const voiceTool = (voiceIndex: number): PaletteTool => ({
@@ -229,16 +218,6 @@ function articulationGroup(): PaletteGroup {
   };
 }
 
-function tremoloBarOptions(): readonly PaletteOption[] {
-  const presets = (Object.keys(TREMOLO_BAR_LABELS) as TremoloBarPresetName[]).map((preset) => ({
-    label: TREMOLO_BAR_LABELS[preset],
-    tooltip: `Whammy bar: ${TREMOLO_BAR_LABELS[preset]}`,
-    edit: { type: 'setTremoloBar', preset } as const,
-    isActive: (c: PaletteContext) => isSameBend(c.note?.effect.tremoloBar, TREMOLO_BAR_PRESETS[preset]),
-  }));
-  return [{ label: 'None', tooltip: 'No whammy bar', edit: { type: 'setTremoloBar', preset: 'none' }, isActive: (c) => c.note?.effect.tremoloBar === undefined }, ...presets];
-}
-
 /** Everything played on the note, the ones with a key first (in the order guitarists name them). */
 function techniquesGroup(): PaletteGroup {
   const slides: readonly PaletteOption[] = SLIDES.map(([slide, label, tooltip]) => ({ label, tooltip, edit: { type: 'toggleSlideType', slide }, isActive: (c) => c.note?.effect.slides.includes(slide) === true }));
@@ -267,7 +246,7 @@ function techniquesGroup(): PaletteGroup {
         isActive: (c) => c.note !== undefined && vibratoOf(c.note.effect) !== 'none',
       },
       effectTool('ghost', '( )', 'Ghost note', 'ghostNote', { key: 'G' }),
-      { id: 'whammy', face: 'W.bar', tooltip: 'Whammy bar', scope: 'note', run: { kind: 'options', options: tremoloBarOptions() }, isActive: (c) => c.note?.effect.tremoloBar !== undefined },
+      { id: 'whammy', face: 'W.bar', tooltip: 'Whammy bar: presets and your own curve', scope: 'note', run: { kind: 'panel', panel: 'tremoloBar' }, isActive: (c) => c.note?.effect.tremoloBar !== undefined },
       { id: 'trill', face: GLYPH.trill, glyph: 'mark', tooltip: 'Trill (with the fret 2 above)', scope: 'note', run: { kind: 'options', options: speedOptions('setTrill', [16, 32, 64]) }, isActive: (c) => c.note?.effect.trill !== undefined },
       { id: 'tremoloPicking', face: GLYPH.tremolo, glyph: 'mark', tooltip: 'Tremolo picking', scope: 'note', run: { kind: 'options', options: speedOptions('setTremoloPicking', [8, 16, 32]) }, isActive: (c) => c.note?.effect.tremoloPicking !== undefined },
       { id: 'grace', face: GLYPH.grace, glyph: 'note', tooltip: 'Grace note (2 frets below, hammered)', scope: 'note', run: { kind: 'options', options: graceOptions() }, isActive: (c) => c.note?.effect.grace !== undefined },

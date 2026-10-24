@@ -45,7 +45,7 @@ describe('hints for a note key on an empty string', () => {
     { type: 'toggleEffect', effect: 'letRing' },
     { type: 'toggleSlide' },
     { type: 'setVibrato', vibrato: 'wide' },
-    { type: 'setBendShape', shape: 'bend', amount: 4 },
+    { type: 'setBend', bend: { points: [{ position: 0, value: 0 }, { position: 6, value: 4 }] } },
   ] as const)('says to type a fret first for $type', (edit) => {
     // Act
     const next = editorReducer(emptyString(), { type: 'edit', edit });
