@@ -128,7 +128,7 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.topBar.fretboard': '지판 보기/가리기',
   'window.topBar.shortcuts': '단축키 (⌘H)',
   'window.topBar.loop': '⟲ 반복',
-  'window.topBar.loopTooltip': '속도 메뉴에서 정한 마디를 구간 반복합니다',
+  'window.topBar.loopTooltip': '선택한 마디를 구간 반복합니다. 선택이 없으면 곡 전체를 반복합니다',
   'window.topBar.metronomeTooltip': '메트로놈: 박마다 클릭 소리 (⌥M)',
   'window.topBar.countInTooltip': '카운트 인: 재생 전에 한 마디 동안 클릭 소리 (⌥C)',
   'window.topBar.practiceMenu': '메트로놈 볼륨, 카운트 인, 템포 고정, 마우스를 올리면 미리 듣기',

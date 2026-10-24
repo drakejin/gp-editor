@@ -14,8 +14,8 @@ function run(actions: readonly PracticeAction[], from: PracticeSettings = INITIA
   return actions.reduce(practiceReducer, from);
 }
 
-/** An 8-bar song with the cursor in bar 1. */
-const SCOPE = { measureCount: 8, cursorMeasureIndex: 0 };
+/** An 8-bar song, nothing selected. */
+const SCOPE = { measureCount: 8 };
 const LOOPING: PracticeSettings = {
   ...INITIAL_PRACTICE,
   isLooping: true,
@@ -64,23 +64,47 @@ describe('practiceReducer chosen speed', () => {
 });
 
 describe('practiceReducer loop', () => {
-  it('loops the cursor bar the first time the loop is turned on', () => {
+  it('loops the whole song when the loop is turned on with nothing selected (Guitar Pro 8)', () => {
     // Act
-    const looping = run([{ type: 'toggleLoop', measureCount: 8, cursorMeasureIndex: 3 }]);
+    const looping = run([{ type: 'toggleLoop', ...SCOPE }]);
 
     // Assert
     expect(looping.isLooping).toBe(true);
-    expect(looping.loop).toEqual({ fromMeasureIndex: 3, toMeasureIndex: 3 });
+    expect(looping.loop).toBeUndefined();
+    expect(resolveLoopRange(looping.loop, 8)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 7 });
   });
 
-  it('keeps the range when the loop is turned off and on again', () => {
+  it('loops the selected bars when the loop is turned on with a selection', () => {
     // Act
-    const off = practiceReducer(LOOPING, { type: 'toggleLoop', measureCount: 8, cursorMeasureIndex: 7 });
-    const on = practiceReducer(off, { type: 'toggleLoop', measureCount: 8, cursorMeasureIndex: 7 });
+    const looping = run([{ type: 'toggleLoop', measureCount: 8, selection: { fromMeasureIndex: 2, toMeasureIndex: 4 } }]);
+
+    // Assert
+    expect(looping.isLooping).toBe(true);
+    expect(looping.loop).toEqual({ fromMeasureIndex: 2, toMeasureIndex: 4 });
+  });
+
+  it('forgets the range when the loop is turned off, so turning it on again loops the song or the new selection', () => {
+    // Act
+    const off = practiceReducer(LOOPING, { type: 'toggleLoop', ...SCOPE });
+    const on = practiceReducer(off, { type: 'toggleLoop', ...SCOPE });
 
     // Assert
     expect(off.isLooping).toBe(false);
-    expect(on.loop).toEqual({ fromMeasureIndex: 2, toMeasureIndex: 4 });
+    expect(off.loop).toBeUndefined();
+    expect(on.loop).toBeUndefined();
+  });
+
+  it('loops a selection played while looping, clamped to the song', () => {
+    // Act
+    const selected = practiceReducer(LOOPING, { type: 'setLoop', range: { fromMeasureIndex: 5, toMeasureIndex: 9 }, ...SCOPE });
+
+    // Assert
+    expect(selected.loop).toEqual({ fromMeasureIndex: 5, toMeasureIndex: 7 });
+    expect(selected.isLooping).toBe(true);
+  });
+
+  it('returns the same settings when the selection is the loop already', () => {
+    expect(practiceReducer(LOOPING, { type: 'setLoop', range: { fromMeasureIndex: 2, toMeasureIndex: 4 }, ...SCOPE })).toBe(LOOPING);
   });
 
   it('moves the end along when the start is set past it, and the start when the end is set before it', () => {
@@ -121,19 +145,14 @@ describe('practiceReducer loop', () => {
     expect(loop).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 7 });
   });
 
-  it('keeps the other end at the cursor bar when an end of a loop not set yet changes', () => {
-    // Arrange
-    const scope = { measureCount: 8, cursorMeasureIndex: 3 };
-
+  it('keeps the other end at the song’s first or last bar when an end of a loop not set yet changes', () => {
     // Act
-    const earlierStart = practiceReducer(INITIAL_PRACTICE, { type: 'setLoopFrom', measureIndex: 2, ...scope });
-    const laterEnd = practiceReducer(INITIAL_PRACTICE, { type: 'setLoopTo', measureIndex: 4, ...scope });
-    const earlierEnd = practiceReducer(INITIAL_PRACTICE, { type: 'setLoopTo', measureIndex: 1, ...scope });
+    const laterStart = practiceReducer(INITIAL_PRACTICE, { type: 'setLoopFrom', measureIndex: 2, ...SCOPE });
+    const earlierEnd = practiceReducer(INITIAL_PRACTICE, { type: 'setLoopTo', measureIndex: 4, ...SCOPE });
 
     // Assert
-    expect(earlierStart.loop).toEqual({ fromMeasureIndex: 2, toMeasureIndex: 3 });
-    expect(laterEnd.loop).toEqual({ fromMeasureIndex: 3, toMeasureIndex: 4 });
-    expect(earlierEnd.loop).toEqual({ fromMeasureIndex: 1, toMeasureIndex: 1 });
+    expect(laterStart.loop).toEqual({ fromMeasureIndex: 2, toMeasureIndex: 7 });
+    expect(earlierEnd.loop).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 4 });
   });
 });
 
@@ -150,10 +169,10 @@ describe('resolveLoopRange', () => {
     });
   });
 
-  it('falls back to the given bar when no loop was set', () => {
+  it('is the whole song when no loop was set', () => {
     // Act / Assert
-    expect(resolveLoopRange(undefined, 6, 2)).toEqual({ fromMeasureIndex: 2, toMeasureIndex: 2 });
-    expect(resolveLoopRange(undefined, 6)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 0 });
+    expect(resolveLoopRange(undefined, 6)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 5 });
+    expect(resolveLoopRange(undefined, 0)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 0 });
   });
 });
 

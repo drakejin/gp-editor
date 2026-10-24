@@ -65,8 +65,8 @@ describe('the window in Korean', () => {
     korean();
 
     // Assert
-    expect(english).toContainEqual(['⟲ Loop', 'Loop the bars set in the speed menu']);
-    expect(labels()).toContainEqual(['⟲ 반복', '속도 메뉴에서 정한 마디를 구간 반복합니다']);
+    expect(english).toContainEqual(['⟲ Loop', 'Loop the selected bars, or the whole song with nothing selected']);
+    expect(labels()).toContainEqual(['⟲ 반복', '선택한 마디를 구간 반복합니다. 선택이 없으면 곡 전체를 반복합니다']);
     expect(labels()).toContainEqual(['메트로놈', '메트로놈: 박마다 클릭 소리 (⌥M)']);
     expect(labels()).toContainEqual(['↶', '실행 취소 (⌘Z)']);
     ReactTestRenderer.act(() => renderer.unmount());

@@ -130,7 +130,7 @@ export const EN_WINDOW = {
   'window.topBar.fretboard': 'Show or hide the fretboard',
   'window.topBar.shortcuts': 'Keyboard shortcuts (⌘H)',
   'window.topBar.loop': '⟲ Loop',
-  'window.topBar.loopTooltip': 'Loop the bars set in the speed menu',
+  'window.topBar.loopTooltip': 'Loop the selected bars, or the whole song with nothing selected',
   'window.topBar.metronomeTooltip': 'Metronome: a click on every beat (⌥M)',
   'window.topBar.countInTooltip': 'Count-in: a bar of clicks before playback (⌥C)',
   'window.topBar.practiceMenu': 'Metronome volume, count-in, tempo lock and note preview on hover',

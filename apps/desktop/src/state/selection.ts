@@ -3,6 +3,7 @@ import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import type { BeatRange } from '../score/selection-tint';
 import type { EditorAction, EditorState } from './editor';
+import type { LoopRange } from './practice';
 import { beatAddress } from './song-edits';
 
 /** What the selection helpers read of the editor state. */
@@ -35,6 +36,12 @@ export function selectionStart(state: SelectionState): { readonly measureIndex: 
   const first = range?.first;
   const tick = first === undefined || cursor === undefined ? undefined : state.document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex]?.beats[first.beatIndex]?.start;
   return first === undefined || tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
+}
+
+/** The bars a selection spans, first to last: what the loop plays; undefined without a selection. */
+export function selectionBars(state: SelectionState): LoopRange | undefined {
+  const range = selectionRange(state);
+  return range === undefined ? undefined : { fromMeasureIndex: range.first.measureIndex, toMeasureIndex: range.last.measureIndex };
 }
 
 /** The selected beats in the cursor's voice — the cursor's beat when nothing is selected; undefined when there are none. */

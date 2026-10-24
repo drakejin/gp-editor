@@ -22,7 +22,10 @@ export interface PracticeSettings {
   /** Every tempo of the song is multiplied by it during playback (1 = as written). */
   readonly tempoScale: number;
   readonly isLooping: boolean;
-  /** Set from the cursor's bar the first time the loop is turned on or an end is set. */
+  /**
+   * The bars the loop plays: the selection's when the loop is turned on with one or a selection is played while it is
+   * on, or the ends set in the speed menu; undefined = the whole song (Guitar Pro 8). Forgotten when the loop is turned off.
+   */
   readonly loop?: LoopRange;
   /** Speed trainer: BPM added on each pass of the loop (0 = off). */
   readonly trainerStep: number;
@@ -55,10 +58,10 @@ export const METRONOME_VOLUME_STEP = 10;
 const MIN_METRONOME_VOLUME = 10;
 const MAX_METRONOME_VOLUME = 100;
 
-/** The song's bar count, and the cursor's bar: where a loop not set yet starts and ends. */
+/** The song's bar count, and the bars of the beat selection (undefined without one): what a loop turned on plays. */
 export interface LoopScope {
   readonly measureCount: number;
-  readonly cursorMeasureIndex: number;
+  readonly selection?: LoopRange;
 }
 
 /** Changes from the transport bar; `writtenTempo` is the written tempo of the bar the tempo is shown for. */
@@ -72,6 +75,8 @@ export type PracticeAction =
   /** Relative speed: `delta` percent (5% steps) of the written tempo. */
   | { readonly type: 'shiftSpeed'; readonly delta: number; readonly writtenTempo: number }
   | ({ readonly type: 'toggleLoop' } & LoopScope)
+  /** The bars of a selection played while the loop is on. */
+  | { readonly type: 'setLoop'; readonly range: LoopRange; readonly measureCount: number }
   | ({ readonly type: 'setLoopFrom'; readonly measureIndex: number } & LoopScope)
   | ({ readonly type: 'setLoopTo'; readonly measureIndex: number } & LoopScope)
   | { readonly type: 'shiftTrainerStep'; readonly delta: number }
@@ -89,25 +94,34 @@ function clampIndex(index: number, count: number): number {
   return Math.min(Math.max(0, count - 1), Math.max(0, Math.trunc(index)));
 }
 
-/** The loop clamped to a song of `measureCount` bars; the bar `fallbackIndex` when no loop was set yet. */
-export function resolveLoopRange(loop: LoopRange | undefined, measureCount: number, fallbackIndex = 0): LoopRange {
-  const from = clampIndex(loop?.fromMeasureIndex ?? fallbackIndex, measureCount);
-  const to = clampIndex(loop?.toMeasureIndex ?? fallbackIndex, measureCount);
+/** The loop clamped to a song of `measureCount` bars; the whole song when no loop was set. */
+export function resolveLoopRange(loop: LoopRange | undefined, measureCount: number): LoopRange {
+  const from = clampIndex(loop?.fromMeasureIndex ?? 0, measureCount);
+  const to = clampIndex(loop?.toMeasureIndex ?? measureCount - 1, measureCount);
   return { fromMeasureIndex: Math.min(from, to), toMeasureIndex: Math.max(from, to) };
 }
 
 /** A new first bar; the last bar moves along when it would come before it. */
 function withLoopFrom(loop: LoopRange | undefined, measureIndex: number, scope: LoopScope): LoopRange {
-  const current = resolveLoopRange(loop, scope.measureCount, scope.cursorMeasureIndex);
+  const current = resolveLoopRange(loop, scope.measureCount);
   const from = clampIndex(measureIndex, scope.measureCount);
   return { fromMeasureIndex: from, toMeasureIndex: Math.max(from, current.toMeasureIndex) };
 }
 
 /** A new last bar; the first bar moves along when it would come after it. */
 function withLoopTo(loop: LoopRange | undefined, measureIndex: number, scope: LoopScope): LoopRange {
-  const current = resolveLoopRange(loop, scope.measureCount, scope.cursorMeasureIndex);
+  const current = resolveLoopRange(loop, scope.measureCount);
   const to = clampIndex(measureIndex, scope.measureCount);
   return { fromMeasureIndex: Math.min(to, current.fromMeasureIndex), toMeasureIndex: to };
+}
+
+/** Turned on: the selection's bars, else the whole song; turned off: the range is forgotten. */
+function toggledLoop(settings: PracticeSettings, scope: LoopScope): PracticeSettings {
+  if (settings.isLooping) {
+    return { ...settings, isLooping: false, loop: undefined };
+  }
+  const loop = scope.selection === undefined ? undefined : resolveLoopRange(scope.selection, scope.measureCount);
+  return { ...settings, isLooping: true, loop };
 }
 
 function shiftTrainerMaxTempo(settings: PracticeSettings, delta: number, writtenTempo: number): number {
@@ -138,11 +152,9 @@ function applySpeedAction(settings: PracticeSettings, action: PracticeAction): P
 function applyLoopAction(settings: PracticeSettings, action: PracticeAction): PracticeSettings {
   switch (action.type) {
     case 'toggleLoop':
-      return {
-        ...settings,
-        isLooping: !settings.isLooping,
-        loop: resolveLoopRange(settings.loop, action.measureCount, action.cursorMeasureIndex),
-      };
+      return toggledLoop(settings, action);
+    case 'setLoop':
+      return { ...settings, loop: resolveLoopRange(action.range, action.measureCount) };
     case 'setLoopFrom':
       return { ...settings, loop: withLoopFrom(settings.loop, action.measureIndex, action) };
     case 'setLoopTo':
@@ -221,7 +233,7 @@ export function playbackStartTempo(song: Song, settings: PracticeSettings, curso
     return settings.lockedTempo;
   }
   const measureCount = song.measureHeaders.length;
-  const startIndex = settings.isLooping ? resolveLoopRange(settings.loop, measureCount, cursorMeasureIndex).fromMeasureIndex : cursorMeasureIndex;
+  const startIndex = settings.isLooping ? resolveLoopRange(settings.loop, measureCount).fromMeasureIndex : cursorMeasureIndex;
   return song.measureHeaders[startIndex]?.tempo ?? song.measureHeaders[0]?.tempo ?? DEFAULT_START_TEMPO;
 }
 

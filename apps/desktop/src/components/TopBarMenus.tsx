@@ -71,8 +71,8 @@ export function SpeedMenu(props: SpeedMenuProps) {
 
 function LoopSection({ palette, practice, measureCount, cursorMeasureIndex, onChangePractice }: SpeedMenuProps) {
   const t = useT();
-  const scope = { measureCount, cursorMeasureIndex };
-  const loop = resolveLoopRange(practice.loop, measureCount, cursorMeasureIndex);
+  const scope = { measureCount };
+  const loop = resolveLoopRange(practice.loop, measureCount);
   const setFrom = (measureIndex: number) => onChangePractice({ type: 'setLoopFrom', measureIndex, ...scope });
   const setTo = (measureIndex: number) => onChangePractice({ type: 'setLoopTo', measureIndex, ...scope });
   return (

@@ -37,8 +37,9 @@ export interface Playback {
   /** Playback tempo, loop, speed trainer, metronome, count-in and tempo lock of this session (never saved to the file). */
   readonly practice: PracticeSettings;
   /**
-   * Plays from a bar (from `fromTick` inside it, when given); when looping, plays the loop from its first bar until
-   * stopped. With the count-in on, a bar of clicks comes first and playback starts at the bar's beginning.
+   * Plays from a bar (from `fromTick` inside it, when given); when looping, plays the loop until stopped, starting there
+   * when that bar is inside the loop, else at the loop's first bar. With the count-in on, a bar of clicks comes first
+   * and playback starts at the bar's beginning (a loop's at its first bar).
    */
   readonly start: (fromMeasureIndex: number, fromTick?: number) => void;
   readonly stop: () => void;
@@ -99,7 +100,7 @@ export function usePlayback(song: Song | undefined, trackIndex: number, shownTra
     (fromMeasureIndex: number, fromTick?: number) => {
       const { practice: current } = follow.current;
       const withCountIn = current.isCountInOn && !isPlayingNow.current;
-      launchPlayer(session, current.isLooping ? { withCountIn } : { measureIndex: fromMeasureIndex, tick: fromTick, withCountIn });
+      launchPlayer(session, { measureIndex: fromMeasureIndex, tick: fromTick, withCountIn });
     },
     [session],
   );
