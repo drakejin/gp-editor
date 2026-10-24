@@ -68,7 +68,9 @@ describe('readXmlTree', () => {
       { name: 'B', attributes: [], text: '', children: [] },
     ]);
   });
+});
 
+describe('readXmlTree outside the plain subset', () => {
   it.each([
     ['a document type', '<!DOCTYPE r><r/>'],
     ['a character reference', '<r>&#233;</r>'],
