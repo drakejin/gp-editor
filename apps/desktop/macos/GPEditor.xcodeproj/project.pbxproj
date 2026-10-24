@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		111DFCEBDBD7BB7A3DBE48F0 /* GPAudioExport.m in Sources */ = {isa = PBXBuildFile; fileRef = 7026FC00E27E09D3B8037E34 /* GPAudioExport.m */; };
+		0BB148E12360621964A9B321 /* GPAudioExporter.m in Sources */ = {isa = PBXBuildFile; fileRef = C95C7205331A786A07D997A7 /* GPAudioExporter.m */; };
+		8E917393848649A8388AEE31 /* GPAudioFileWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 69A85486FFD214358AAA766B /* GPAudioFileWriter.m */; };
+		0BBBFFA1D5758BC595A92ED0 /* GPMp3Writer.m in Sources */ = {isa = PBXBuildFile; fileRef = 9D6475E8EDD4BDF79E266B07 /* GPMp3Writer.m */; };
+		E7817357F592ED671E90E24A /* GPVorbisWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 57BE7F1F7E04A355B58D9290 /* GPVorbisWriter.m */; };
+		A0B6EE78EE70979B1D7F9947 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = 9EA105F3DD3227D285186EA8 /* Licenses */; };
 		12D6630D9C83B7B43289E961 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 561061B6A123AF15D9CBEDA4 /* PrivacyInfo.xcprivacy */; };
 		21FBB899D44D7E831E6A9710 /* GPSandbox.h in Headers */ = {isa = PBXBuildFile; fileRef = 62594748D8802E81D9954180 /* GPSandbox.h */; };
 		23A0CD49FA7AE1D518E89E54 /* SoundFonts in Resources */ = {isa = PBXBuildFile; fileRef = 11867E8459E40F32370EB0D1 /* SoundFonts */; };
@@ -49,6 +55,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5290612ABC55FDF88BA921D1 /* GPAudioExporter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioExporter.h; sourceTree = "<group>"; };
+		495482B719AE11C62FF31F5B /* GPAudioFileWriter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioFileWriter.h; sourceTree = "<group>"; };
+		7010D29551E58D3795714ED8 /* GPMp3Writer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMp3Writer.h; sourceTree = "<group>"; };
+		9464C25F7CAEC4B8CBB8A936 /* GPVorbisWriter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPVorbisWriter.h; sourceTree = "<group>"; };
+		7026FC00E27E09D3B8037E34 /* GPAudioExport.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioExport.m; sourceTree = "<group>"; };
+		C95C7205331A786A07D997A7 /* GPAudioExporter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioExporter.m; sourceTree = "<group>"; };
+		69A85486FFD214358AAA766B /* GPAudioFileWriter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioFileWriter.m; sourceTree = "<group>"; };
+		9D6475E8EDD4BDF79E266B07 /* GPMp3Writer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMp3Writer.m; sourceTree = "<group>"; };
+		57BE7F1F7E04A355B58D9290 /* GPVorbisWriter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPVorbisWriter.m; sourceTree = "<group>"; };
+		9EA105F3DD3227D285186EA8 /* Licenses */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
 		080F334520A0F698E37A64BE /* GPEditorNotifications.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPEditorNotifications.m; sourceTree = "<group>"; };
 		0990F1FF3E8966EC7807BD01 /* GPScoreCanvasComponentView.mm */ = {isa = PBXFileReference; includeInIndex = 1; path = GPScoreCanvasComponentView.mm; sourceTree = "<group>"; };
 		09C3316ED24DFB499B80F563 /* Bravura.otf */ = {isa = PBXFileReference; includeInIndex = 1; path = Bravura.otf; sourceTree = "<group>"; };
@@ -185,6 +201,16 @@
 				F9A30530F25408A9498452F0 /* GPTrackInstruments.m */,
 				789E6B7C95659D3B6106F7E7 /* GPMixRenderer.h */,
 				3DBBFCBADEE7541F1B87CC0D /* GPMixRenderer.m */,
+				5290612ABC55FDF88BA921D1 /* GPAudioExporter.h */,
+				495482B719AE11C62FF31F5B /* GPAudioFileWriter.h */,
+				7010D29551E58D3795714ED8 /* GPMp3Writer.h */,
+				9464C25F7CAEC4B8CBB8A936 /* GPVorbisWriter.h */,
+				7026FC00E27E09D3B8037E34 /* GPAudioExport.m */,
+				C95C7205331A786A07D997A7 /* GPAudioExporter.m */,
+				69A85486FFD214358AAA766B /* GPAudioFileWriter.m */,
+				9D6475E8EDD4BDF79E266B07 /* GPMp3Writer.m */,
+				57BE7F1F7E04A355B58D9290 /* GPVorbisWriter.m */,
+				9EA105F3DD3227D285186EA8 /* Licenses */,
 				D2C8D19AD746FFA978781BE5 /* GPLineIn.h */,
 				B6CC810933EFF540A98D06B5 /* GPLineIn.m */,
 				F466B94CDE374A978392C0FF /* GPCommandPainter.h */,
@@ -355,6 +381,7 @@
 				CED0DE4CD987FE0C92AFECF2 /* Bravura.otf in Resources */,
 				BA2F55F9E25B75DA36564224 /* Bravura-OFL.txt in Resources */,
 				23A0CD49FA7AE1D518E89E54 /* SoundFonts in Resources */,
+				A0B6EE78EE70979B1D7F9947 /* Licenses in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -491,6 +518,11 @@
 				9DFBFDA56541757CE5FCA170 /* GPMixGraph.m in Sources */,
 				27C5A817218360E23C279E5B /* GPTrackInstruments.m in Sources */,
 				88BD909AAD9FABBAE600E7C3 /* GPMixRenderer.m in Sources */,
+				111DFCEBDBD7BB7A3DBE48F0 /* GPAudioExport.m in Sources */,
+				0BB148E12360621964A9B321 /* GPAudioExporter.m in Sources */,
+				8E917393848649A8388AEE31 /* GPAudioFileWriter.m in Sources */,
+				0BBBFFA1D5758BC595A92ED0 /* GPMp3Writer.m in Sources */,
+				E7817357F592ED671E90E24A /* GPVorbisWriter.m in Sources */,
 				D0C5E5540A6C613B5AE6EC94 /* GPLineIn.m in Sources */,
 				5ACF2BF401636235FB5ADF05 /* GPCommandPainter.m in Sources */,
 				24F4F91612F80709C42BE57A /* GPPdfExport.m in Sources */,
@@ -561,10 +593,22 @@
 				INFOPLIST_FILE = "GPEditor-macos/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/ThirdParty/audio-codecs/include",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/ThirdParty/audio-codecs/lib",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
+					"-lmp3lame",
+					"-lvorbisenc",
+					"-lvorbis",
+					"-logg",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.drakejin.gpeditor;
 				PRODUCT_NAME = GPEditor;
@@ -587,10 +631,22 @@
 				INFOPLIST_FILE = "GPEditor-macos/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/ThirdParty/audio-codecs/include",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/ThirdParty/audio-codecs/lib",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
+					"-lmp3lame",
+					"-lvorbisenc",
+					"-lvorbis",
+					"-logg",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.drakejin.gpeditor;
 				PRODUCT_NAME = GPEditor;

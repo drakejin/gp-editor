@@ -8,6 +8,7 @@ NSString *const GPEditorExportMidiCommandNotification = @"GPEditorExportMidiComm
 NSString *const GPEditorExportAsciiTabCommandNotification = @"GPEditorExportAsciiTabCommand";
 NSString *const GPEditorExportMusicXmlCommandNotification = @"GPEditorExportMusicXmlCommand";
 NSString *const GPEditorExportCompressedMusicXmlCommandNotification = @"GPEditorExportCompressedMusicXmlCommand";
+NSString *const GPEditorExportAudioCommandNotification = @"GPEditorExportAudioCommand";
 NSString *const GPEditorPrintCommandNotification = @"GPEditorPrintCommand";
 NSString *const GPEditorHelpCommandNotification = @"GPEditorHelpCommand";
 NSString *const GPEditorSongWriterCommandNotification = @"GPEditorSongWriterCommand";

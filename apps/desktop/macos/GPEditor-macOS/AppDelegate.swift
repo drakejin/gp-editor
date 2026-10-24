@@ -86,6 +86,10 @@ struct GPEditorApp: App {
         Button("Export Compressed MusicXML…") {
           NotificationCenter.default.post(name: .GPEditorExportCompressedMusicXmlCommand, object: nil)
         }
+        // The song (or the loop's bars) rendered with its sounds and effects: WAV, AIFF, FLAC, MP3 or Ogg Vorbis.
+        Button("Export Audio…") {
+          NotificationCenter.default.post(name: .GPEditorExportAudioCommand, object: nil)
+        }
         Divider()
         Button("Print…") {
           NotificationCenter.default.post(name: .GPEditorPrintCommand, object: nil)

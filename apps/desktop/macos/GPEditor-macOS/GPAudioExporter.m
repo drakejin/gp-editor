@@ -35,6 +35,8 @@ static float PeakOf(AVAudioPCMBuffer *buffer)
 @implementation GPExportRun
 @end
 
+static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *run, NSError *_Nullable failure, NSURL *url, NSError **error);
+
 @implementation GPAudioExporter
 
 + (AVAudioFramePosition)exportMidi:(NSData *)midi
@@ -75,19 +77,24 @@ static float PeakOf(AVAudioPCMBuffer *buffer)
     }
   }];
   NSError *failure = !isRendered ? (renderError ?: GPAudioExportError(5, @"The song could not be rendered")) : run.failure;
+  return Conclude(writer, run, failure, url, error);
+}
+
+/** Finishes the file, or removes it when the render failed or was cancelled: the frames written, or -1. */
+static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *run, NSError *_Nullable failure, NSURL *url, NSError **error)
+{
   if (failure == nil && !run.isCancelled) {
     NSError *finishError = nil;
     failure = [writer finish:&finishError] ? nil : finishError;
   }
-  if (failure != nil || run.isCancelled) {
-    writer = nil;
-    [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
-    if (error != NULL) {
-      *error = failure ?: GPAudioExportError(GPAudioExportCancelledCode, @"The export was cancelled");
-    }
-    return -1;
+  if (failure == nil && !run.isCancelled) {
+    return run.written;
   }
-  return run.written;
+  [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+  if (error != NULL) {
+    *error = failure ?: GPAudioExportError(GPAudioExportCancelledCode, @"The export was cancelled");
+  }
+  return -1;
 }
 
 @end

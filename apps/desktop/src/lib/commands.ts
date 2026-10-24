@@ -20,6 +20,7 @@ const FILE_ROWS: readonly Command[] = [
   row('file.exportAsciiTab', 'File', 'Export ASCII Tab…', (a) => a.exportAsciiTab(), { keywords: ['text', 'txt', 'plain'] }),
   row('file.exportMusicXml', 'File', 'Export MusicXML…', (a) => a.exportMusicXml(), { keywords: ['xml', 'musescore', 'sibelius', 'finale'] }),
   row('file.exportCompressedMusicXml', 'File', 'Export Compressed MusicXML…', (a) => a.exportCompressedMusicXml(), { keywords: ['mxl', 'xml', 'zip'] }),
+  row('file.exportAudio', 'File', 'Export Audio…', (a) => a.exportAudio(), { keywords: ['wav', 'aiff', 'flac', 'mp3', 'ogg', 'vorbis', 'render', 'bounce', 'stems', 'sound'] }),
   row('file.print', 'File', 'Print…', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
   row('file.closeTab', 'File', 'Close Tab', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
   row('file.nextTab', 'File', 'Next Tab', (a) => a.cycleTab(1), { when: 'tabs', shortcut: '⌃⇥', keywords: ['document', 'switch'] }),

@@ -30,6 +30,9 @@ FOUNDATION_EXPORT NSString *const GPEditorExportMusicXmlCommandNotification;
 /** File ▸ Export Compressed MusicXML… was chosen (JS event "exportCompressedMusicXmlRequested"). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorExportCompressedMusicXmlCommandNotification;
 
+/** File ▸ Export Audio… was chosen (JS event "exportAudioRequested"). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorExportAudioCommandNotification;
+
 /** File ▸ Print… (⌘P) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPrintCommandNotification;
 

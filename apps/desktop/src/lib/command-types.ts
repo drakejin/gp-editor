@@ -26,6 +26,8 @@ export interface CommandActions {
   readonly exportAsciiTab: () => void;
   readonly exportMusicXml: () => void;
   readonly exportCompressedMusicXml: () => void;
+  /** File ▸ Export Audio…: the audio export panel. */
+  readonly exportAudio: () => void;
   readonly print: () => void;
   readonly closeTab: () => void;
   readonly cycleTab: (step: 1 | -1) => void;

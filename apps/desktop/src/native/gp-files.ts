@@ -153,6 +153,15 @@ export function subscribeSongExportRequests(handlers: SongExportHandlers): () =>
   return () => subscriptions.forEach((subscription) => subscription.remove());
 }
 
+/** File ▸ Export Audio…; returns the unsubscribe function. */
+export function subscribeExportAudioRequests(onExportAudioRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('exportAudioRequested', onExportAudioRequested);
+  return () => subscription.remove();
+}
+
 /** File ▸ Print… (⌘P). */
 export function subscribePrintRequests(onPrintRequested: () => void): () => void {
   if (native === undefined) {

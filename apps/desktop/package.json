@@ -6,13 +6,14 @@
   "scripts": {
     "start": "react-native start",
     "macos": "react-native run-macos",
-    "build:macos": "scripts/soundfont/fetch.sh && xcodebuild -workspace macos/GPEditor.xcworkspace -scheme GPEditor-macOS -configuration Release -derivedDataPath macos/build/DerivedData -destination platform=macOS build",
+    "build:macos": "scripts/soundfont/fetch.sh && scripts/audio-codecs/fetch.sh && xcodebuild -workspace macos/GPEditor.xcworkspace -scheme GPEditor-macOS -configuration Release -derivedDataPath macos/build/DerivedData -destination platform=macOS build",
     "pods": "pod install --project-directory=macos",
     "lint": "eslint .",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "package:macos": "scripts/release/package.sh",
-    "soundfont": "scripts/soundfont/fetch.sh"
+    "soundfont": "scripts/soundfont/fetch.sh",
+    "audio-codecs": "scripts/audio-codecs/fetch.sh"
   },
   "dependencies": {
     "react": "19.2.0",
