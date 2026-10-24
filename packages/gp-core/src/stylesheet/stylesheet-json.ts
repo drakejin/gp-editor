@@ -1,6 +1,7 @@
 // A stylesheet and a bar's Design Mode layout from untrusted JSON (a saved file's entries; no TuxGuitar counterpart):
 // every value of the wrong kind takes its default, numbers are clamped into range, texts lose control characters.
-import { isJsonObject, ownValue } from '../effects/effects-json';
+import { ownValue } from '../effects/effects-json';
+import { type RawObject, isRawObject } from '../transcription/parse-values';
 import type { BarDesign, BeatOffset } from '../model/song';
 import {
   type BarNumbers,
@@ -22,8 +23,6 @@ import {
   type TextStyle,
   type TrackNameFormat,
 } from '../model/stylesheet';
-
-type JsonObject = Readonly<Record<string, unknown>>;
 
 interface Range {
   readonly min: number;
@@ -71,8 +70,8 @@ function textOr(raw: unknown, fallback: string, maxLength: number): string {
   return typeof raw === 'string' ? raw.replace(CONTROL_CHARACTERS, '').slice(0, maxLength) : fallback;
 }
 
-function objectOf(raw: unknown): JsonObject {
-  return isJsonObject(raw) ? raw : {};
+function objectOf(raw: unknown): RawObject {
+  return isRawObject(raw) ? raw : {};
 }
 
 function parseMargins(raw: unknown): PageMargins {
@@ -119,7 +118,7 @@ function parseHeader(raw: unknown): HeaderStyle {
   };
 }
 
-export function parseTextStyle(raw: unknown, fallback: TextStyle): TextStyle {
+function parseTextStyle(raw: unknown, fallback: TextStyle): TextStyle {
   const object = objectOf(raw);
   return {
     family: textOr(ownValue(object, 'family'), fallback.family, STYLESHEET_LIMITS.familyLength),
@@ -188,7 +187,7 @@ function parseBeatOffsets(raw: unknown): BeatOffset[] {
 
 /** A bar's Design Mode layout from untrusted JSON; undefined when nothing of it differs from the bar as laid out. */
 export function parseBarDesign(raw: unknown): BarDesign | undefined {
-  if (!isJsonObject(raw)) {
+  if (!isRawObject(raw)) {
     return undefined;
   }
   const systemBars = ownValue(raw, 'systemBars');
@@ -210,7 +209,7 @@ export function isSameJson(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) || Array.isArray(b)) {
     return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item: unknown, i) => isSameJson(item, b[i]));
   }
-  if (!isJsonObject(a) || !isJsonObject(b)) {
+  if (!isRawObject(a) || !isRawObject(b)) {
     return false;
   }
   const keys = Object.keys(a).filter((key) => a[key] !== undefined);

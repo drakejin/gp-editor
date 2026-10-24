@@ -67,7 +67,7 @@ const pitchOf = (value: StringValue, context: VoicingContext): number => (contex
  * The notes from the lowest pitch up (string order breaks ties). TuxGuitar goes by string, lowest string first: the
  * same on a guitar, but a re-entrant tuning (ukulele) has its lowest note on an inner string.
  */
-export function byPitch(combination: readonly StringValue[], context: VoicingContext): readonly StringValue[] {
+function byPitch(combination: readonly StringValue[], context: VoicingContext): readonly StringValue[] {
   return [...combination].sort((a, b) => pitchOf(a, context) - pitchOf(b, context) || a.string - b.string);
 }
 

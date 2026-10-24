@@ -1,6 +1,7 @@
 // A song's stylesheet and Design Mode layout as JSON of our own (no TuxGuitar counterpart): the .gp writer stores them
 // as zip entries (GP7_STYLESHEET_ENTRY, GP7_DESIGN_ENTRY) that Guitar Pro ignores. GP3/GP4/GP5 and MusicXML cannot.
-import { isJsonObject, ownValue, parseJsonText } from '../effects/effects-json';
+import { ownValue, parseJsonText } from '../effects/effects-json';
+import { isRawObject } from '../transcription/parse-values';
 import { isDefaultStylesheet, setStylesheet } from '../edit/stylesheet';
 import type { MeasureHeader, Song } from '../model/song';
 import { parseBarDesign, parseStylesheet } from './stylesheet-json';
@@ -17,7 +18,7 @@ export function songStylesheetToJson(song: Song): string | undefined {
 /** The song with the stylesheet `text` holds, checked like any untrusted input; other text leaves the song as it is. */
 export function readSongStylesheet(song: Song, text: string): Song {
   const raw = parseJsonText(text);
-  if (!isJsonObject(raw) || ownValue(raw, 'version') !== SONG_STYLESHEET_VERSION) {
+  if (!isRawObject(raw) || ownValue(raw, 'version') !== SONG_STYLESHEET_VERSION) {
     return song;
   }
   return setStylesheet(song, parseStylesheet(ownValue(raw, 'stylesheet')));
@@ -31,7 +32,7 @@ export function songDesignToJson(song: Song): string | undefined {
 
 /** A bar's design from one entry, when the entry names a bar of the song. */
 function designEntry(entry: unknown, barCount: number): readonly [number, NonNullable<MeasureHeader['design']>] | undefined {
-  const measureIndex = isJsonObject(entry) ? ownValue(entry, 'measureIndex') : undefined;
+  const measureIndex = isRawObject(entry) ? ownValue(entry, 'measureIndex') : undefined;
   if (typeof measureIndex !== 'number' || !Number.isInteger(measureIndex) || measureIndex < 0 || measureIndex >= barCount) {
     return undefined;
   }
@@ -42,7 +43,7 @@ function designEntry(entry: unknown, barCount: number): readonly [number, NonNul
 /** The song with the bars' Design Mode layout `text` holds, checked; text of another version leaves the song as it is. */
 export function readSongDesign(song: Song, text: string): Song {
   const raw = parseJsonText(text);
-  if (!isJsonObject(raw) || ownValue(raw, 'version') !== SONG_DESIGN_VERSION) {
+  if (!isRawObject(raw) || ownValue(raw, 'version') !== SONG_DESIGN_VERSION) {
     return song;
   }
   const bars = ownValue(raw, 'bars');

@@ -1,4 +1,5 @@
 // Chord symbols ("Am7", "C/G", "F#m7b5") back to a ChordSpec: the inverse of naming.ts, for the chord library's search.
+import { letterPitchClass } from '../edit/key-spelling';
 import { CHORD_TYPES } from './database';
 import { chordQuality } from './naming';
 import { CHORD_EXTENSIONS, type ChordSpec, DEGREE_SHIFTS, buildChordSpec, pitchClass } from './spec';
@@ -66,14 +67,13 @@ function lookupQuality(text: string): ChordQuality | undefined {
   return undefined;
 }
 
-const LETTERS: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const NOTE = /^([A-Ga-g])([#b♯♭]?)/;
 
 /** A note name at the start of the text: its pitch class and length. */
 function readNote(text: string): { readonly pitchClass: number; readonly length: number } | undefined {
   const match = NOTE.exec(text);
   const letter = match?.[1]?.toUpperCase();
-  const base = letter === undefined ? undefined : LETTERS[letter];
+  const base = letterPitchClass(letter);
   if (match === null || base === undefined) {
     return undefined;
   }

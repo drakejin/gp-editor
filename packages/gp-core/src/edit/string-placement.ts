@@ -178,7 +178,7 @@ export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly numbe
 }
 
 /** Frets the fretting hand covers without moving: one per finger, from the index finger's fret. */
-export const HAND_SPAN = 4;
+const HAND_SPAN = 4;
 
 /** How far the hand (index finger at `handFret`, first position at least) must reach for a fret, as the tab counts it. */
 function handDistance(neckFret: number, handFret: number): number {

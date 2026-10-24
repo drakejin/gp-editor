@@ -1,6 +1,7 @@
 import {
   type Channel,
   type Duration,
+  type Hairpin,
   type Measure,
   type MeasureHeader,
   type NoteAudio,
@@ -113,8 +114,9 @@ export const DEFAULT_NOTE_AUDIO: NoteAudio = { durationPercent: 100, offsetPerce
 /** The ranges of NoteAudio's settings (a velocity change spans the whole MIDI velocity range, 127). */
 export const NOTE_AUDIO_LIMITS = { minDurationPercent: 1, maxDurationPercent: 200, maxOffsetPercent: 99, maxVelocityOffset: 127 } as const;
 
-function clampRounded(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
+/** `value` kept within min…max. */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 /** Same audio settings (undefined = the defaults are left out, so only undefined matches it). */
@@ -129,9 +131,9 @@ export function toNoteAudio(audio: NoteAudio): NoteAudio | undefined {
   }
   const limits = NOTE_AUDIO_LIMITS;
   const clamped: NoteAudio = {
-    durationPercent: clampRounded(audio.durationPercent, limits.minDurationPercent, limits.maxDurationPercent),
-    offsetPercent: clampRounded(audio.offsetPercent, 0, limits.maxOffsetPercent),
-    velocityOffset: clampRounded(audio.velocityOffset, -limits.maxVelocityOffset, limits.maxVelocityOffset),
+    durationPercent: clamp(Math.round(audio.durationPercent), limits.minDurationPercent, limits.maxDurationPercent),
+    offsetPercent: clamp(Math.round(audio.offsetPercent), 0, limits.maxOffsetPercent),
+    velocityOffset: clamp(Math.round(audio.velocityOffset), -limits.maxVelocityOffset, limits.maxVelocityOffset),
   };
   return isSameNoteAudio(clamped, DEFAULT_NOTE_AUDIO) ? undefined : clamped;
 }
@@ -220,9 +222,14 @@ export function measureTicks(numerator: number, denominator: number): number {
   return Math.round((numerator * QUARTER_TIME * 4) / denominator);
 }
 
+/** Length of a header's measure in ticks. */
+export function headerTicks(header: MeasureHeader): number {
+  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+}
+
 /** True when a voice of the measure runs past its end (an over-full measure; Guitar Pro allows and marks them). */
 export function isMeasureOverfull(measure: Measure, header: MeasureHeader): boolean {
-  const end = header.start + measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  const end = header.start + headerTicks(header);
   return measure.beats.some((beat) => beat.voices.some((voice) => !voice.isEmpty && beat.start + durationTicks(voice.duration) > end));
 }
 
@@ -289,6 +296,13 @@ export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
     return a.offset - b.offset;
   }
   return a.action === b.action ? 0 : a.action === 'up' ? -1 : 1;
+}
+
+/** A crescendo or decrescendo over a run of beats (Beat.hairpin). */
+const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
+
+export function isHairpin(value: unknown): value is Hairpin {
+  return HAIRPINS.some((hairpin) => hairpin === value);
 }
 
 /** Guitar Pro's octave signs (GPIF's `<Ottavia>` values). */

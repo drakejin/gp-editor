@@ -14,8 +14,11 @@ export interface SpelledNote {
 /** How a black key that is not in the key is written: by the key (sharps in sharp keys and C), or as asked. */
 export type BlackKeySpelling = 'key' | 'sharp' | 'flat';
 
+/** The natural notes' letters, C … B: a letter is counted by its index here (0 = C … 6 = B). */
+export const NOTE_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
+
 const OCTAVE = 12;
-const LETTERS = 7;
+const LETTERS = NOTE_LETTERS.length;
 const MAX_KEY_ACCIDENTALS = 7;
 /** Pitch class of each letter, C … B. */
 const LETTER_PITCH_CLASSES: readonly number[] = [0, 2, 4, 5, 7, 9, 11];
@@ -27,6 +30,12 @@ const FIFTH = 7;
 /** Accidentals of the two spellings of the key a tritone from C (F# major, G flat major). */
 const TRITONE_KEY = 6;
 
+/** The pitch class of a natural note named by its capital letter (C = 0 … B = 11); undefined for any other text. */
+export function letterPitchClass(letter: string | undefined): number | undefined {
+  const index = NOTE_LETTERS.findIndex((name) => name === letter);
+  return index < 0 ? undefined : LETTER_PITCH_CLASSES[index];
+}
+
 export function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
 }
@@ -36,7 +45,7 @@ function isKeySignature(keySignature: number): boolean {
 }
 
 /** The alteration a key signature gives a letter (0 = C … 6 = B); 0 for a key signature out of range. */
-export function keyAlteration(letter: number, keySignature: number): number {
+function keyAlteration(letter: number, keySignature: number): number {
   if (!isKeySignature(keySignature)) {
     return 0;
   }

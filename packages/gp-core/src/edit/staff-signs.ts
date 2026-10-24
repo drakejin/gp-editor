@@ -1,22 +1,14 @@
 // Clefs and octave signs as Guitar Pro 8's Expression Text and edition palette set them (no TuxGuitar counterpart:
 // TuxGuitar has neither edit). Both change only how the notation staff writes the notes, never their frets.
 import { isOttava } from '../model/defaults';
-import type { Beat, Clef, Measure, Ottava, Song } from '../model/song';
+import type { Beat, Clef, Ottava, Song } from '../model/song';
 import type { BeatAddress } from './addresses';
+import { orderRun, updateRunBeats } from './beat-runs';
 import { runEnd } from './measure-headers';
 import { updateTrack } from './song-paths';
 
 /** The clefs a pitched track's bar can take (Guitar Pro's G, F, C3 and C4 clefs); drum tracks keep the neutral one. */
 const PITCHED_CLEFS: readonly Clef[] = ['treble', 'bass', 'alto', 'tenor'];
-
-function isBefore(a: BeatAddress, b: BeatAddress): boolean {
-  return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beatIndex < b.beatIndex);
-}
-
-function isInRange(measureIndex: number, beatIndex: number, first: BeatAddress, last: BeatAddress): boolean {
-  const here = { ...first, measureIndex, beatIndex };
-  return !isBefore(here, first) && !isBefore(last, here);
-}
 
 function withOttava(beat: Beat, ottava: Ottava | undefined): Beat {
   if (beat.ottava === ottava) {
@@ -35,17 +27,8 @@ export function setOttava(song: Song, from: BeatAddress, to: BeatAddress, ottava
   if (ottava !== undefined && !isOttava(ottava)) {
     return song;
   }
-  const [first, last] = isBefore(to, from) ? [to, from] : [from, to];
-  return updateTrack(song, first.trackIndex, (track) => {
-    if (track.isPercussion) {
-      return track;
-    }
-    const measures = track.measures.map((measure, measureIndex): Measure => {
-      const beats = measure.beats.map((beat, beatIndex) => (isInRange(measureIndex, beatIndex, first, last) ? withOttava(beat, ottava) : beat));
-      return beats.every((beat, index) => beat === measure.beats[index]) ? measure : { ...measure, beats };
-    });
-    return measures.every((measure, index) => measure === track.measures[index]) ? track : { ...track, measures };
-  });
+  const [first, last] = orderRun(from, to);
+  return updateTrack(song, first.trackIndex, (track) => (track.isPercussion ? track : updateRunBeats(track, first, last, (beat) => withOttava(beat, ottava))));
 }
 
 /**

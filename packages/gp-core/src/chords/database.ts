@@ -53,7 +53,7 @@ const MINOR_SEVENTH_DEGREE = 11;
 const MAJOR_SEVENTH_DEGREE = 12;
 
 /** The type's place in CHORD_TYPES (0 for an unknown name). */
-export function chordTypeIndex(name: ChordTypeName): number {
+function chordTypeIndex(name: ChordTypeName): number {
   return Math.max(0, CHORD_TYPES.findIndex((type) => type.name === name));
 }
 

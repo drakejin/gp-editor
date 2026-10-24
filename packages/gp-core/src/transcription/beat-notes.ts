@@ -2,6 +2,7 @@ import { MAX_FRET } from '../edit/edit-song';
 import { sortByString } from '../edit/song-paths';
 import { placeNotes } from '../edit/string-placement';
 import { DEFAULT_VELOCITY } from '../formats/common/velocity';
+import { clamp } from '../model/defaults';
 import type { Note } from '../model/song';
 import { toNoteEffect } from './note-effects';
 import { parsePitch } from './pitch';
@@ -75,14 +76,10 @@ interface FreeEntry {
 
 type Entry = FixedEntry | FreeEntry | { readonly kind: 'unreadable' };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
-
 function toEntry(note: TranscribedNote, voice: VoiceAtBeat, voiceIndex: number, neck: Neck): Entry {
   if (note.string !== undefined && note.fret !== undefined) {
-    const string = clamp(note.string, 1, neck.tuning.length);
-    const fret = clamp(note.fret, 0, MAX_FRET);
+    const string = clamp(Math.round(note.string), 1, neck.tuning.length);
+    const fret = clamp(Math.round(note.fret), 0, MAX_FRET);
     const isTied = note.tied === true && voice.previous.some((previous) => previous.string === string && previous.fret === fret);
     return { kind: 'fixed', voiceIndex, note, string, fret, isTied };
   }

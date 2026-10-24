@@ -1,7 +1,9 @@
 // Measure insertion and removal after TuxGuitar's TGSongManager.addNewMeasure / removeMeasureHeader (LGPL-2.1).
+import { headerTicks } from '../model/defaults';
 import type { Measure, MeasureHeader, Song, Track } from '../model/song';
 import { withMeasureDeleted, withMeasureInserted } from './audio-track';
-import { headerTicks, relayoutMeasures } from './relayout';
+import { relayoutMeasures } from './relayout';
+import { insertAt } from './song-paths';
 import { restEvents, toBeats } from './timeline';
 
 /** Voice slots of the beats around a measure: the measure's own beats, else any beat of the track, else one. */
@@ -36,10 +38,6 @@ export function restMeasure(track: Track, neighbourIndex: number, header: Measur
     keySignature: neighbour?.keySignature ?? 0,
     beats: toBeats(header.start, { voiceCount, voices }, []),
   };
-}
-
-function insertAt<T>(items: readonly T[], index: number, item: T): readonly T[] {
-  return [...items.slice(0, index), item, ...items.slice(index)];
 }
 
 /**

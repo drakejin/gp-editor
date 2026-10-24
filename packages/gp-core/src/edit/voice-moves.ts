@@ -1,6 +1,7 @@
 // Guitar Pro 8's Move Voice (⌥1–⌥4); no TuxGuitar counterpart.
 import type { Note, Song, Voice } from '../model/song';
 import { type BeatAddress, findVoice, isVoiceIndex, locateVoice } from './addresses';
+import { isInRun, orderRun } from './beat-runs';
 import { deleteBeatNotes } from './beats';
 import { sortByString, updateNote, updateVoice } from './song-paths';
 import { isSameDuration } from './timeline';
@@ -79,15 +80,11 @@ function untieOrphans(song: Song, at: BeatAddress, voiceIndexes: readonly number
 
 /** Where each beat from `from` to `to` (either order, inclusive, across bars) of `from`'s track starts. */
 function runStarts(song: Song, from: BeatAddress, to: BeatAddress): readonly BeatStart[] {
-  const isBefore = (a: BeatAddress, b: BeatAddress) => a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beatIndex < b.beatIndex);
-  const [first, last] = isBefore(to, from) ? [to, from] : [from, to];
+  const [first, last] = orderRun(from, to);
   const measures = song.tracks[from.trackIndex]?.measures ?? [];
   return measures.slice(first.measureIndex, last.measureIndex + 1).flatMap((measure, offset) => {
     const measureIndex = first.measureIndex + offset;
-    return measure.beats.flatMap((beat, beatIndex) => {
-      const place = { ...first, measureIndex, beatIndex };
-      return isBefore(place, first) || isBefore(last, place) ? [] : [{ measureIndex, start: beat.start }];
-    });
+    return measure.beats.flatMap((beat, beatIndex) => (isInRun(measureIndex, beatIndex, first, last) ? [{ measureIndex, start: beat.start }] : []));
   });
 }
 
