@@ -3,7 +3,7 @@ import { withoutExtension } from '../lib/file-name';
 import { t } from '../lib/i18n/i18n';
 import { squeezeRow } from '../lib/layout';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
-import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
+import { type DrawCommand, placeCommands, translateCommands } from '../score/draw';
 import { SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import { type RowContext, engraveRow } from '../score/row';
 import { type ScoreLayout, type ScoreStaff, type StaffSpec, layoutStaves, scoreStaves, systemHeightOf } from '../score/score-layout';
@@ -177,7 +177,7 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   return { song, title, paper, margins, hasFooter, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
 }
 
-/** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the system's top. */
+/** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the staff's top. */
 function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: number): DrawCommand[] {
   const { song, layout } = plan;
   const staff = layout.staves[staffIndex];
@@ -190,20 +190,23 @@ function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: numbe
     markLanes: staff.markLanes, hasHeading: staff.hasHeading,
   };
   const decor = staffDecor(song, layout, systemIndex, staffIndex);
-  return translateCommands(decor === undefined ? engraveRow(context) : engraveSystemStaff(context, decor), 0, staff.top);
+  return decor === undefined ? engraveRow(context) : engraveSystemStaff(context, decor);
 }
 
 /**
- * One system scaled and placed with its top at `y`. A system still too wide once squeezed (a bar denser than
- * squeezeRow can fit), or taller than the room under `y`, is printed smaller to stay on the page.
+ * One system scaled and placed with its top at `y`, each staff moved to its place in the system, scaled and put on the
+ * page in one pass. A system still too wide once squeezed (a bar denser than squeezeRow can fit), or taller than the
+ * room under `y`, is printed smaller to stay on the page.
  */
 function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): DrawCommand[] {
-  const { layout } = plan;
+  const { layout, margins } = plan;
   const system = layout.systems[systemIndex];
-  const commands = layout.staves.flatMap((_, staffIndex) => engraveSystemPart(plan, systemIndex, staffIndex));
   const width = (system?.rows[0]?.measures ?? []).reduce((sum, measure) => sum + measure.width, system?.headerWidth ?? 0);
   const fit = Math.min(1, plan.rowWidth / width, (plan.bottom - y) / plan.rowHeight);
-  return translateCommands(scaleCommands(commands, plan.scale * fit), plan.margins.left, y);
+  const scale = plan.scale * fit;
+  return layout.staves.flatMap((staff, staffIndex) =>
+    placeCommands(engraveSystemPart(plan, systemIndex, staffIndex), { dx: 0, dy: staff.top, scale, x: margins.left, y }),
+  );
 }
 
 /** "<title> — <page> / <pages>", centred in the footer band. */
