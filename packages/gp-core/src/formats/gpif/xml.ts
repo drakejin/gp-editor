@@ -43,15 +43,20 @@ export function parseXml(xml: string): XmlElement {
 
 /**
  * Check and parse a document with `parser` (its options set how entities are read); `kind` names it in errors.
- * A plain document (most are) is read by readXmlTree into the same tree, faster; the rest by `parser`.
+ * A plain document (most are) is valid and read by readXmlTree into the same tree, faster; the rest is checked by
+ * XMLValidator and read by `parser`.
  */
 export function parseXmlDocument(source: string, parser: XMLParser, kind: string): XmlElement {
+  const tree = readXmlTree(source);
+  if (tree !== undefined) {
+    return tree;
+  }
   const validation = XMLValidator.validate(source);
   if (validation !== true) {
     const { msg, line } = validation.err;
     throw new GpFormatError(`Invalid ${kind} document: ${msg} (line ${line})`);
   }
-  return readXmlTree(source) ?? parseWithParser(source, parser, kind);
+  return parseWithParser(source, parser, kind);
 }
 
 function parseWithParser(source: string, parser: XMLParser, kind: string): XmlElement {

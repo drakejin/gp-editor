@@ -81,6 +81,17 @@ describe('readXmlTree', () => {
     ['an unclosed element', '<r><a></r>'],
     ['an unclosed comment', '<r><!-- </r>'],
     ['an unclosed tag', '<r><a'],
+    ['a closing tag of another element', '<r><a></b></r>'],
+    ['a second root', '<r/><s/>'],
+    ['text outside the root', '<r/>x'],
+    ['a name beyond ASCII', '<r><é/></r>'],
+    ['an attribute without white space before it', '<r a="1"b="2"/>'],
+    ['an attribute given twice', '<r a="1" a="2"/>'],
+    ['an attribute without quotes', '<r a=1/>'],
+    ['an attribute without a value', '<r a/>'],
+    ['the XML declaration after the start', ' <?xml version="1.0"?><r/>'],
+    ['a byte order mark', '\uFEFF<r/>'],
+    ['a CDATA-like section that is not CDATA', '<r><![X[a]]></r>'],
   ])('leaves %s to fast-xml-parser', (_case, xml) => {
     // Arrange / Act / Assert
     expect(readXmlTree(xml)).toBeUndefined();

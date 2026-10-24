@@ -1,42 +1,21 @@
-// The element tree of a document XMLValidator accepted, read straight from its text: what fast-xml-parser's ordered
-// parse (preserveOrder, attributes kept, values as text, no trimming, declaration, PIs and comments left out) and
-// xml.ts's conversion of it give — same names, attributes, texts — without its node objects, path matching and text
-// built a character at a time, which made up most of the time a GPIF file took to open in Hermes.
-// Only the plain subset is read here: a document type, an entity other than the five XML ones, a name the parser
-// guards against (an object's built-in property names), a reserved node name or deep nesting returns undefined, and
-// the caller parses with fast-xml-parser as before.
-import type { XmlElement } from './xml';
+// The element tree of a plain XML document, read straight from its text. A document of the plain subset is one
+// fast-xml-parser's XMLValidator accepts, and the tree is what its ordered parse (preserveOrder, attributes kept, values
+// as text, no trimming, declaration, PIs and comments left out) and xml.ts's conversion of it give — same names,
+// attributes, texts —, without the validator's and the parser's passes, their node objects, path matching and text
+// built a character at a time: most of the time a GPIF file took to open in Hermes.
+// The subset: one root element; outside it white space, comments and processing instructions (the XML declaration
+// first); tags and entities as xml-tag.ts reads them; CDATA; no deeper than MAX_DEPTH. Anything else returns
+// undefined, and the caller validates and parses with fast-xml-parser as before (its errors, its reading).
+import { type XmlElement } from './xml';
+import { closingTagEnd, decodeEntities, hasGuardedName, isBlank, readOpeningTag } from './xml-tag';
 
-/** fast-xml-parser's DANGEROUS_PROPERTY_NAMES and criticalProperties: it renames or refuses these names. */
-const GUARDED_NAMES: ReadonlySet<string> = new Set([
-  'hasOwnProperty',
-  'toString',
-  'valueOf',
-  '__defineGetter__',
-  '__defineSetter__',
-  '__lookupGetter__',
-  '__lookupSetter__',
-  '__proto__',
-  'constructor',
-  'prototype',
-]);
 /** Below fast-xml-parser's maxNestedTags (100), past which it throws. */
 const MAX_DEPTH = 64;
-const XML_ENTITIES: ReadonlyMap<string, string> = new Map([
-  ['amp', '&'],
-  ['lt', '<'],
-  ['gt', '>'],
-  ['quot', '"'],
-  ['apos', "'"],
-]);
-/** fast-xml-parser's attribute expression (attrsRegx), so attributes split as it splits them. */
-const ATTRIBUTE = /([^\s=]+)\s*(=\s*(['"])([\s\S]*?)\3)?/g;
-const WHITESPACE = /\s/;
-const NO_ATTRIBUTES: ReadonlyMap<string, string> = new Map();
 const NO_CHILDREN: readonly XmlElement[] = [];
-const CODE = { slash: 0x2f, question: 0x3f, exclamation: 0x21, hyphen: 0x2d, bracket: 0x5b, greaterThan: 0x3e } as const;
+const CODE = { slash: 0x2f, question: 0x3f, exclamation: 0x21, hyphen: 0x2d, greaterThan: 0x3e, space: 0x20 } as const;
 const QUOTES: ReadonlySet<number> = new Set([0x22, 0x27]);
-const CDATA_START = '<![CDATA['.length;
+const CDATA_START = '<![CDATA[';
+const BYTE_ORDER_MARK = '﻿';
 
 interface OpenElement {
   readonly name: string;
@@ -56,16 +35,15 @@ interface TreeState {
 /** Index after the node starting with `<` at `at`, or -1 when the document leaves the plain subset. */
 type NodeReader = (state: TreeState, at: number) => number;
 
-/** The root element, or undefined when the document needs fast-xml-parser (see the file comment). */
+/** The root element, or undefined when the document is not plain (see the file comment). */
 export function readXmlTree(source: string): XmlElement | undefined {
+  if (source.startsWith(BYTE_ORDER_MARK)) {
+    return undefined;
+  }
   const xml = source.includes('\r') ? source.replace(/\r\n?/g, '\n') : source;
   const state: TreeState = { xml, open: [], roots: [], pending: '' };
   let at = 0;
-  while (at < xml.length) {
-    const tag = xml.indexOf('<', at);
-    if (tag < 0) {
-      break;
-    }
+  for (let tag = xml.indexOf('<'); tag >= 0; tag = xml.indexOf('<', at)) {
     if (tag > at) {
       state.pending += xml.slice(at, tag);
     }
@@ -74,7 +52,9 @@ export function readXmlTree(source: string): XmlElement | undefined {
       return undefined;
     }
   }
-  return state.open.length === 0 ? state.roots[0] : undefined;
+  state.pending += xml.slice(at);
+  const isComplete = state.open.length === 0 && state.roots.length === 1 && flushText(state);
+  return isComplete ? state.roots[0] : undefined;
 }
 
 function readerAt(xml: string, at: number): NodeReader {
@@ -86,28 +66,27 @@ function readerAt(xml: string, at: number): NodeReader {
     return readInstruction;
   }
   if (next !== CODE.exclamation) {
-    return readOpeningTag;
+    return readElement;
   }
-  const third = xml.charCodeAt(at + 2);
-  if (third === CODE.hyphen && xml.charCodeAt(at + 3) === CODE.hyphen) {
+  if (xml.startsWith('--', at + 2)) {
     return readComment;
   }
-  return third === CODE.bracket ? readCdata : leaveSubset;
+  return xml.startsWith(CDATA_START, at) ? readCdata : leaveSubset;
 }
 
 function leaveSubset(): number {
   return -1;
 }
 
-/** The pending text, entities decoded, joins the open element's text (outside the root it is dropped unread). */
+/** The pending text, entities decoded, joins the open element's text; outside the root it must be white space. */
 function flushText(state: TreeState): boolean {
   const current = state.open[state.open.length - 1];
   const pending = state.pending;
   state.pending = '';
-  if (pending === '' || current === undefined) {
-    return true;
+  if (current === undefined) {
+    return isBlank(pending);
   }
-  const text = decodeEntities(pending);
+  const text = pending === '' ? '' : decodeEntities(pending);
   if (text === undefined) {
     return false;
   }
@@ -120,24 +99,68 @@ function addElement(state: TreeState, element: XmlElement): void {
   (parent === undefined ? state.roots : parent.children).push(element);
 }
 
-function readClosingTag(state: TreeState, at: number): number {
-  const end = state.xml.indexOf('>', at);
-  const element = end < 0 || !flushText(state) ? undefined : state.open.pop();
-  if (element === undefined) {
+function readElement(state: TreeState, at: number): number {
+  const tag = readOpeningTag(state.xml, at);
+  const isPlain = tag !== undefined && state.open.length < MAX_DEPTH && (state.open.length > 0 || state.roots.length === 0);
+  if (!isPlain || !flushText(state)) {
     return -1;
   }
-  const { name, attributes, children, text } = element;
+  const { name, attributes, isSelfClosing, end } = tag;
+  if (isSelfClosing) {
+    addElement(state, { name, attributes, children: NO_CHILDREN, text: '' });
+  } else {
+    state.open.push({ name, attributes, children: [], text: '' });
+  }
+  return end + 1;
+}
+
+function readClosingTag(state: TreeState, at: number): number {
+  const current = state.open[state.open.length - 1];
+  const end = current === undefined ? -1 : closingTagEnd(state.xml, at, current.name);
+  if (current === undefined || end < 0 || !flushText(state)) {
+    return -1;
+  }
+  state.open.pop();
+  const { name, attributes, children, text } = current;
   addElement(state, { name, attributes, children: children.length === 0 ? NO_CHILDREN : children, text });
   return end + 1;
 }
 
-/** A processing instruction (the XML declaration among them) ends the text before it and leaves nothing. */
+/**
+ * A processing instruction ends the text before it and leaves nothing. Plain: it ends at the first `?>` (where
+ * XMLValidator ends it) outside quotes too (where the parser does), has a name, and only the first one is named xml.
+ */
 function readInstruction(state: TreeState, at: number): number {
-  const end = tagEnd(state.xml, at + 1, CODE.question);
-  if (end < 0 || !flushText(state) || hasGuardedName(state.xml.slice(at + 2, end))) {
+  const { xml } = state;
+  const end = xml.indexOf('?>', at + 2);
+  // XMLValidator's name: up to the first space or "?".
+  const hasName = !isNameEnd(xml.charCodeAt(at + 2));
+  const isXml = xml.startsWith('xml', at + 2) && isNameEnd(xml.charCodeAt(at + 5));
+  const isPlain = end >= 0 && end === quotedTagEnd(xml, at + 1) && hasName && (!isXml || at === 0);
+  if (!isPlain || hasGuardedName(xml.slice(at + 2, end)) || !flushText(state)) {
     return -1;
   }
   return end + 2;
+}
+
+function isNameEnd(code: number): boolean {
+  return code === CODE.space || code === CODE.question;
+}
+
+/** Index of the first `?>`'s `?` from `from` on outside quoted values, as fast-xml-parser finds a PI's end; -1 if none. */
+function quotedTagEnd(xml: string, from: number): number {
+  let quote = 0;
+  for (let i = from; i < xml.length; i++) {
+    const code = xml.charCodeAt(i);
+    if (quote !== 0) {
+      quote = code === quote ? 0 : quote;
+    } else if (QUOTES.has(code)) {
+      quote = code;
+    } else if (code === CODE.question && xml.charCodeAt(i + 1) === CODE.greaterThan) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 function readComment(state: TreeState, at: number): number {
@@ -146,122 +169,13 @@ function readComment(state: TreeState, at: number): number {
 }
 
 function readCdata(state: TreeState, at: number): number {
-  const end = state.xml.indexOf(']]>', at);
+  const end = state.xml.indexOf(']]>', at + CDATA_START.length);
   if (end < 0 || !flushText(state)) {
     return -1;
   }
   const current = state.open[state.open.length - 1];
   if (current !== undefined) {
-    // substring, not slice, as fast-xml-parser takes it (a "<![]]>" swaps the bounds).
-    current.text += state.xml.substring(at + CDATA_START, end);
+    current.text += state.xml.slice(at + CDATA_START.length, end);
   }
   return end + 3;
-}
-
-function readOpeningTag(state: TreeState, at: number): number {
-  const end = tagEnd(state.xml, at + 1, CODE.greaterThan);
-  const tag = end < 0 ? undefined : splitTag(state.xml.slice(at + 1, end));
-  const attributes = tag === undefined ? undefined : readAttributes(tag.attributes);
-  if (tag === undefined || attributes === undefined || !flushText(state) || state.open.length >= MAX_DEPTH) {
-    return -1;
-  }
-  if (tag.isSelfClosing) {
-    addElement(state, { name: tag.name, attributes, children: NO_CHILDREN, text: '' });
-  } else {
-    state.open.push({ name: tag.name, attributes, children: [], text: '' });
-  }
-  return end + 1;
-}
-
-/** Index of `close` (`>`, or the `?` of `?>`) from `from` on, outside quoted values; -1 when there is none. */
-function tagEnd(xml: string, from: number, close: number): number {
-  let quote = 0;
-  for (let i = from; i < xml.length; i++) {
-    const code = xml.charCodeAt(i);
-    if (quote !== 0) {
-      quote = code === quote ? 0 : quote;
-    } else if (QUOTES.has(code)) {
-      quote = code;
-    } else if (code === close && (close !== CODE.question || xml.charCodeAt(i + 1) === CODE.greaterThan)) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-interface OpeningTag {
-  readonly name: string;
-  /** The attribute expression, or undefined when the tag has none. */
-  readonly attributes: string | undefined;
-  readonly isSelfClosing: boolean;
-}
-
-/** fast-xml-parser's readTagExp and its self-closing check, on the text between `<` and `>`. */
-function splitTag(expression: string): OpeningTag | undefined {
-  const separator = expression.search(WHITESPACE);
-  let name = separator < 0 ? expression : expression.slice(0, separator);
-  let rest = separator < 0 ? expression : expression.slice(separator + 1).trimStart();
-  const isSelfClosing = rest.length > 0 && rest.lastIndexOf('/') === rest.length - 1;
-  if (isSelfClosing && name.endsWith('/')) {
-    name = name.slice(0, -1);
-    rest = name;
-  } else if (isSelfClosing) {
-    rest = rest.slice(0, -1);
-  }
-  if (GUARDED_NAMES.has(name) || name.startsWith('#')) {
-    return undefined;
-  }
-  return { name, attributes: name === rest ? undefined : rest, isSelfClosing };
-}
-
-/** The attributes with a quoted value, entities decoded; undefined when one leaves the plain subset. */
-function readAttributes(expression: string | undefined): ReadonlyMap<string, string> | undefined {
-  if (expression === undefined) {
-    return NO_ATTRIBUTES;
-  }
-  const attributes = new Map<string, string>();
-  ATTRIBUTE.lastIndex = 0;
-  for (let match = ATTRIBUTE.exec(expression); match !== null; match = ATTRIBUTE.exec(expression)) {
-    const [, name = '', , , raw] = match;
-    const value = raw === undefined ? '' : decodeEntities(raw);
-    if (GUARDED_NAMES.has(name) || value === undefined) {
-      return undefined;
-    }
-    if (raw !== undefined) {
-      attributes.set(name, value);
-    }
-  }
-  return attributes.size === 0 ? NO_ATTRIBUTES : attributes;
-}
-
-/** Whether any attribute name in the expression is one fast-xml-parser guards against. */
-function hasGuardedName(expression: string): boolean {
-  ATTRIBUTE.lastIndex = 0;
-  for (let match = ATTRIBUTE.exec(expression); match !== null; match = ATTRIBUTE.exec(expression)) {
-    if (GUARDED_NAMES.has(match[1] ?? '')) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** The five XML entities decoded; undefined when any other `&` (a character reference, a bare ampersand) is there. */
-function decodeEntities(text: string): string | undefined {
-  let ampersand = text.indexOf('&');
-  if (ampersand < 0) {
-    return text;
-  }
-  let out = '';
-  let from = 0;
-  while (ampersand >= 0) {
-    const semicolon = text.indexOf(';', ampersand);
-    const value = semicolon < 0 ? undefined : XML_ENTITIES.get(text.slice(ampersand + 1, semicolon));
-    if (value === undefined) {
-      return undefined;
-    }
-    out += text.slice(from, ampersand) + value;
-    from = semicolon + 1;
-    ampersand = text.indexOf('&', from);
-  }
-  return out + text.slice(from);
 }
