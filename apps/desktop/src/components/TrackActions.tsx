@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import type { TrackPanelActions } from '../hooks/use-track-manager';
@@ -19,7 +20,7 @@ const BUTTON_SIZE = 18;
  * The tracks panel's track buttons (Guitar Pro 8's + of the Global View and its ▲ ▼): add a track, duplicate, delete,
  * move up and down the selected one — what the Track menu does.
  */
-export function TrackActions({ palette, trackCount, selectedTrackIndex, actions }: TrackActionsProps) {
+function TrackActionsView({ palette, trackCount, selectedTrackIndex, actions }: TrackActionsProps) {
   const t = useT();
   const button = (label: string, tooltip: string, onPress: () => void, isEnabled = true) => (
     <ChromeButton palette={palette} label={label} tooltip={tooltip} width={BUTTON_SIZE + 2} height={BUTTON_SIZE} fontSize={11} isEnabled={isEnabled} onPress={onPress} />
@@ -42,6 +43,9 @@ export function TrackActions({ palette, trackCount, selectedTrackIndex, actions 
     </View>
   );
 }
+
+/** Memoised: the tracks panel redraws on every edit, its buttons only when the track count or the shown track change. */
+export const TrackActions = memo(TrackActionsView);
 
 const styles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', marginRight: 6 },

@@ -229,7 +229,7 @@ interface TrackTableBandProps {
 }
 
 /** "Tracks" over the table, Multitrack, and the mixer columns named, as tall as the bar numbers beside it. */
-export function TrackTableHeader({ palette, isMultitrack = false, onToggleMultitrack }: TrackTableBandProps) {
+function TrackTableHeaderView({ palette, isMultitrack = false, onToggleMultitrack }: TrackTableBandProps) {
   const t = useT();
   const caption = [styles.caption, { color: palette.chromeMuted }];
   return (
@@ -254,6 +254,9 @@ export function TrackTableHeader({ palette, isMultitrack = false, onToggleMultit
     </View>
   );
 }
+
+/** Memoised: the table's header stays while the song is edited. */
+export const TrackTableHeader = memo(TrackTableHeaderView);
 
 interface TrackTableFooterProps extends TrackTableBandProps {
   /** The track buttons (+, duplicate, delete, move up / down), beside "+ Audio Track". */
