@@ -6,8 +6,6 @@ import { type MessageKey, currentLanguage, isMessageKey, memoByLanguage, t, tran
 import { KEYS, type KeyCommand, type KeyPress } from './key-commands';
 import { paletteToolCommands } from './palette-commands';
 
-export type { Command, CommandActions, CommandState } from './command-types';
-
 /** Where a registry command lives: a menu (File, Edit, View, Tools, Track, Help) or a part of the editor. */
 type GroupId = 'app' | 'file' | 'edit' | 'view' | 'tools' | 'track' | 'note' | 'beat' | 'go' | 'playback' | 'help';
 
