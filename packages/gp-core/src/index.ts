@@ -244,6 +244,16 @@ export { setSongInfo } from './edit/song-info';
 export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionName } from './formats/common/channels';
 export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';
 export { toggleDrumNote } from './edit/drum-notes';
+export {
+  DRUM_KIT_NOTATIONS,
+  type DrumNotation,
+  type DrumNotehead,
+  type DrumNoteheads,
+  type DrumTechnique,
+  type DrumTechniquePlacement,
+  type DrumTechniqueSymbol,
+  drumNotation,
+} from './formats/common/drum-notation';
 export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore } from './edit/pitch-entry';
 export {
   type RepeatChange,
