@@ -16,7 +16,6 @@ import {
   type AudioTrack,
   type Beat,
   type Bend,
-  type BendPoint,
   type Channel,
   type Chord,
   type Duration,

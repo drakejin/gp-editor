@@ -163,7 +163,7 @@ function roundFloatRatio(a: number, b: number): number {
 }
 
 /** One division's nearest list: the shortest duration rounded into `time`, powers of two merged, longest first. */
-function combinationOf(time: number, division: Tuplet, shortestBase: number, max: number): Duration[] {
+function combinationOf(time: number, shortestBase: number, max: number): Duration[] {
   const durations: Duration[] = [];
   let base = shortestBase;
   // a -1 offset: Math.round(1.5) is 2, and better a bit too short than too long
@@ -197,7 +197,7 @@ function closestCombination(time: number, maxTime: number, limits: Required<Spli
     if (base > maxBase) {
       break;
     }
-    const durations = combinationOf(time, division, base, max);
+    const durations = combinationOf(time, base, max);
     const error = Math.abs(time - durations.reduce((total, duration) => total + preciseTimeOf(duration), 0));
     if (approximate.length === 0 || error <= bestError) {
       approximate = durations;
