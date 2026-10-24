@@ -1,5 +1,4 @@
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
-import type { PaperId } from '../export/paper';
 import { type ExportMode, buildPdfDocument, exportBaseName, exportStaves, pdfFileName } from '../export/pdf-document';
 import { type PngOptions, pngFileNames, pngSavedHint } from '../export/png-export';
 import { errorMessage } from '../lib/errors';
@@ -25,16 +24,13 @@ export interface PdfExport {
   /** File ▸ Export PNG…: the panel for PNG images. Does nothing without a document. */
   readonly openPng: () => void;
   readonly close: () => void;
-  /** Asks where to save, then writes the PDF of the shown track (tracks); the panel closes once it is saved. */
-  readonly save: (mode: ExportMode, paper: PaperId) => void;
+  /** Asks where to save, then writes the PDF of the shown track (tracks) on the stylesheet's page; the panel closes once it is saved. */
+  readonly save: (mode: ExportMode) => void;
   /** Asks where to save, then writes the same pages as PNG images, one per page; the hint strip says where they went. */
-  readonly savePng: (mode: ExportMode, paper: PaperId, png: PngOptions) => void;
-  /** File ▸ Print… (⌘P): the system print panel for the shown track (tracks) as the view shows it (A4 pages, fitted to the paper). */
+  readonly savePng: (mode: ExportMode, png: PngOptions) => void;
+  /** File ▸ Print… (⌘P): the system print panel for the shown track (tracks) as the view shows it (the stylesheet's pages, fitted to the paper). */
   readonly print: () => void;
 }
-
-/** Pages printing lays out; the print panel fits them to the chosen paper. */
-const PRINT_PAPER: PaperId = 'a4';
 
 /** Runs one save at a time; `write` resolves whether it saved (false: the save panel was cancelled). */
 function useSaveRun(onSaved: () => void, onFailed: (message: string) => void): { readonly isSaving: boolean; readonly run: (write: () => Promise<boolean>) => void } {
@@ -95,12 +91,12 @@ export function usePdfExport(
   const { isSaving, run } = useSaveRun(close, onFailed);
 
   const save = useCallback(
-    (exportMode: ExportMode, paper: PaperId) => {
+    (exportMode: ExportMode) => {
       if (document !== undefined) {
         run(async () => {
           const printed = exportStaves(staves, exportMode);
           const trackMode = exportMode === 'asShown' ? mode : exportMode;
-          const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { paper, fileName: document.fileName, chordDisplay, staves: printed });
+          const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
           return (await savePdf(pdf, pdfFileName(document.song, trackIndex, trackMode, document.fileName, printed))) !== null;
         });
       }
@@ -109,12 +105,12 @@ export function usePdfExport(
   );
 
   const savePng = useCallback(
-    (exportMode: ExportMode, paper: PaperId, png: PngOptions) => {
+    (exportMode: ExportMode, png: PngOptions) => {
       if (document !== undefined) {
         run(async () => {
           const printed = exportStaves(staves, exportMode);
           const trackMode = exportMode === 'asShown' ? mode : exportMode;
-          const pages = buildPdfDocument(document.song, trackIndex, trackMode, { paper, fileName: document.fileName, chordDisplay, staves: printed });
+          const pages = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
           const names = pngFileNames(exportBaseName(document.song, trackIndex, trackMode, document.fileName, printed), pages.pages.length);
           const saved = await savePngs(pages, names, png);
           if (saved !== null) {
@@ -132,7 +128,7 @@ export function usePdfExport(
       return;
     }
     const printed = exportStaves(staves, 'asShown');
-    const pdf = buildPdfDocument(document.song, trackIndex, mode, { paper: PRINT_PAPER, fileName: document.fileName, chordDisplay, staves: printed });
+    const pdf = buildPdfDocument(document.song, trackIndex, mode, { fileName: document.fileName, chordDisplay, staves: printed });
     printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
   }, [document, trackIndex, mode, staves, dispatch, chordDisplay]);
   useEffect(() => subscribePrintRequests(print), [print]);

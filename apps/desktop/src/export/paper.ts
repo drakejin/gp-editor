@@ -1,6 +1,6 @@
 import { CHROME, type Palette } from '../theme';
 
-/** Paper sizes the PDF export offers. */
+/** Paper sizes a PDF can be asked for in place of the stylesheet's page format (`PdfOptions.paper`). */
 export type PaperId = 'a4' | 'letter';
 
 /** A page size in points (1/72 inch). */
@@ -16,14 +16,9 @@ export const PAPER_SIZES: Readonly<Record<PaperId, PaperSize>> = {
   letter: { name: 'US Letter', width: 612, height: 792 },
 };
 
-/** Paper sizes in the order the export panel shows them. */
-export const PAPER_IDS: readonly PaperId[] = ['a4', 'letter'];
-
-export const DEFAULT_PAPER: PaperId = 'a4';
-
 /** Page layout, in points. */
 export const PAGE = {
-  /** On all four sides. */
+  /** The default stylesheet's margin on all four sides (12.7 mm); the stylesheet sets each side's. */
   margin: 36,
   /** Band above the bottom margin that holds the footer ("<title> — <page> / <pages>"). */
   footerHeight: 18,

@@ -21,6 +21,10 @@ const FILE_ROWS: readonly Command[] = [
   row('file.exportMusicXml', 'File', 'Export MusicXML…', (a) => a.exportMusicXml(), { keywords: ['xml', 'musescore', 'sibelius', 'finale'] }),
   row('file.exportCompressedMusicXml', 'File', 'Export Compressed MusicXML…', (a) => a.exportCompressedMusicXml(), { keywords: ['mxl', 'xml', 'zip'] }),
   row('file.exportAudio', 'File', 'Export Audio…', (a) => a.exportAudio(), { keywords: ['wav', 'aiff', 'flac', 'mp3', 'ogg', 'vorbis', 'render', 'bounce', 'stems', 'sound'] }),
+  row('file.stylesheet', 'File', 'Stylesheet…', (a) => a.openStylesheet(), {
+    shortcut: 'F7',
+    keywords: ['page', 'paper', 'format', 'margins', 'fonts', 'text', 'spacing', 'scale', 'bars per system', 'lyrics', 'bar numbers', 'style', 'layout'],
+  }),
   row('file.print', 'File', 'Print…', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
   row('file.closeTab', 'File', 'Close Tab', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
   row('file.nextTab', 'File', 'Next Tab', (a) => a.cycleTab(1), { when: 'tabs', shortcut: '⌃⇥', keywords: ['document', 'switch'] }),
@@ -58,6 +62,8 @@ const VIEW_ROWS: readonly Command[] = [
   ...PANEL_ROWS.map(([panel, name, keywords]) => row(`view.panel.${panel}`, 'View', `Show or Hide the ${name}`, (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
   editorRow('view.multitrack', 'View', 'Multitrack', { type: 'toggleMultitrack' }, { shortcut: 'F3', keywords: ['all tracks', 'tracks', 'staves', 'system', 'show'] }),
   row('view.focus', 'View', 'Focus / Unfocus', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide panels', 'score only', 'distraction'] }),
+  editorRow('view.designMode', 'View', 'Design Mode', { type: 'toggleDesignMode' }, { keywords: ['layout', 'beat position', 'bar width', 'spacing', 'systems', 'guideline', 'drag'] }),
+  editorRow('view.resetPositions', 'View', 'Reset Positions', { type: 'resetPositions' }, { keywords: ['design mode', 'spacing tools', 'layout', 'bar width', 'beat position', 'systems'] }),
 ];
 
 const TOOLS_ROWS: readonly Command[] = [

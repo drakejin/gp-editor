@@ -32,6 +32,8 @@ export interface CommandActions {
   /** File ▸ Export Audio…: the audio export panel. */
   readonly exportAudio: () => void;
   readonly print: () => void;
+  /** File ▸ Stylesheet… (F7): the stylesheet dialog. */
+  readonly openStylesheet: () => void;
   readonly closeTab: () => void;
   readonly cycleTab: (step: 1 | -1) => void;
   readonly openRecentFiles: () => void;

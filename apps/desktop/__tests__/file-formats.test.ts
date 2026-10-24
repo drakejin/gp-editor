@@ -1,5 +1,5 @@
-import { DEFAULT_MASTER, buildAudioTrack, buildEffect, readSong, setMasterMix, setNoteFret, setTrackEffects, writeSong } from '@gp-editor/core';
-import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../src/lib/file-formats';
+import { DEFAULT_MASTER, DEFAULT_STYLESHEET, buildAudioTrack, buildEffect, readSong, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackEffects, writeSong } from '@gp-editor/core';
+import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, hasOwnLayout, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
 describe('SAVE_FORMATS', () => {
@@ -22,7 +22,7 @@ describe('SAVE_FORMATS', () => {
 
     // Assert
     expect(notes[0]).toBeUndefined();
-    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits and the audio track.*RSE.*not kept/);
+    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits, the audio track, and the stylesheet and Design Mode layout.*RSE.*not kept/);
     expect(notes[2]).toMatch(/^Guitar Pro 4 keeps one voice per bar/);
     expect(notes[3]).toMatch(/^Guitar Pro 3 keeps one voice per bar.*no lyrics/);
   });
@@ -107,6 +107,19 @@ describe('saveHint', () => {
     expect(saveHint(format('gp4'), inVoice3)).toBe(format('gp4').note);
     expect(format('gp4').note).toContain('voices 2, 3 and 4 join voice 1');
     expect(format('gp3').note).toContain('voices 2, 3 and 4 join voice 1');
+  });
+
+  it('says that GP5, GP4 and GP3 leave out a stylesheet or a Design Mode layout, only when the song has one', () => {
+    // Arrange
+    const styled = setStylesheet(song, { ...DEFAULT_STYLESHEET, scale: 1.2 });
+    const designed = setBeatOffset(song, 0, 0, 5);
+
+    // Act / Assert
+    expect(hasOwnLayout(song)).toBe(false);
+    expect(hasOwnLayout(setStylesheet(song, DEFAULT_STYLESHEET))).toBe(false);
+    expect(saveHint(format('gp5'), styled)).toBe('Guitar Pro 5 keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp3'), designed)).toContain('Guitar Pro 3 keeps no stylesheet or Design Mode layout');
+    expect(saveHint(format('gp'), styled)).toBe(format('gp').note);
   });
 
   it('says that GP5, GP4 and GP3 leave the audio track out', () => {

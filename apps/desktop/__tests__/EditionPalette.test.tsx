@@ -179,10 +179,27 @@ describe('EditionPalette edits', () => {
     expect(palette.onAction).toHaveBeenCalledWith({ type: 'toggleMultivoice' });
   });
 
-  it('keeps the Voice group on one row: four voices, ⇄ and multivoice', () => {
+  it('turns Design Mode on, lit while it is on', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    const onAction = jest.fn();
+
+    // Act
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<EditionPalette palette={PALETTE} song={SONG} cursor={ON_NOTE} isDesignMode onEdit={jest.fn()} onAction={onAction} onOpenPanel={jest.fn()} />);
+    });
+    const tool = renderer.root.findAllByType(ChromeButton).find((button) => button.props.testID === 'palette-designMode');
+    ReactTestRenderer.act(() => tool?.props.onPress());
+
+    // Assert
+    expect(tool?.props.isActive).toBe(true);
+    expect(onAction).toHaveBeenCalledWith({ type: 'toggleDesignMode' });
+  });
+
+  it('keeps the Voice group on one row: four voices, ⇄, multivoice and Design Mode (Guitar Pro 8’s, right of the voices)', () => {
     const group = PALETTE_GROUPS.find((candidate) => candidate.title === 'Voice');
-    expect(group?.tools.map((tool) => tool.id)).toEqual(['voice1', 'voice2', 'voice3', 'voice4', 'moveVoice', 'multivoice']);
-    expect((group?.toolWidth ?? 0) * 6 + 2 * 6).toBeLessThanOrEqual(198);
+    expect(group?.tools.map((tool) => tool.id)).toEqual(['voice1', 'voice2', 'voice3', 'voice4', 'moveVoice', 'multivoice', 'designMode']);
+    expect((group?.toolWidth ?? 0) * 7 + 2 * 7).toBeLessThanOrEqual(198);
   });
 
   it('lights the cursor’s voice and keeps the beat’s tools on in voice 3 of a beat read with one voice slot', () => {

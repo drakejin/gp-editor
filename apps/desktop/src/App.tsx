@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import { type Effect, type MasterMix, type PlayedNote, type Song, type TrackIndexMap, findNote } from '@gp-editor/core';
+import { type Effect, type MasterMix, type PlayedNote, type Song, type TrackIndexMap, findNote, stylesheetOf } from '@gp-editor/core';
 import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
@@ -30,6 +30,8 @@ import { ShortcutSheet } from './components/ShortcutSheet';
 import { SaveChangesPanel } from './components/SaveChangesPanel';
 import { TabStrip } from './components/TabStrip';
 import { TransposePanel } from './components/TransposePanel';
+import { DesignModeBar } from './components/stylesheet/DesignModeBar';
+import { StylesheetPanel } from './components/stylesheet/StylesheetPanel';
 import { SongWriterPanel } from './components/song-writer/SongWriterPanel';
 import { TunerPanel } from './components/tuner/TunerPanel';
 import { LineInPanel } from './components/effects/LineInPanel';
@@ -48,6 +50,7 @@ import { useLyricsEditor } from './hooks/use-lyrics-editor';
 import { useMidiInput } from './hooks/use-midi-input';
 import { useNotePreview } from './hooks/use-note-preview';
 import { useScales } from './hooks/use-scales';
+import { useScoreDesign } from './hooks/use-score-design';
 import { usePlayback } from './hooks/use-playback';
 import { usePdfExport } from './hooks/use-pdf-export';
 import { usePdfImport } from './hooks/use-pdf-import';
@@ -162,6 +165,9 @@ export default function App() {
   const transposePanel = useTransposePanel(document !== undefined);
   const commandPalette = useCommandPalette(focusScore);
   const { isOpen: isTransposeOpen, close: closeTranspose } = transposePanel;
+  // File ▸ Stylesheet… (F7), View ▸ Design Mode, View ▸ Reset Positions.
+  const scoreDesign = useScoreDesign(document !== undefined, dispatch, focusScore);
+  const { isStylesheetOpen, closeStylesheet } = scoreDesign;
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette, open: openCommandPalette } = commandPalette;
   const openExpressionText = useCallback(() => openCommandPalette('expression'), [openCommandPalette]);
   // Effects (View ▸ Mixer, the Track inspector) heard live, and Tools ▸ Line In… (a card beside the score).
@@ -186,6 +192,7 @@ export default function App() {
       [isLyricsOpen, closeLyricsPanel],
       [isScalesOpen, closeScales],
       [isTransposeOpen, closeTranspose],
+      [isStylesheetOpen, closeStylesheet],
       [isCommandPaletteOpen, closeCommandPalette],
       [isLineInOpen, closeLineIn],
       [isTrackPanelOpen, closeTrackPanel],
@@ -196,13 +203,13 @@ export default function App() {
       focusScore();
     }
     return open !== undefined;
-  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn, isTrackPanelOpen, closeTrackPanel]);
+  }, [isTunerOpen, closeTuner, isSongWriterOpen, closeSongWriter, isImportPanelOpen, isExportPanelOpen, closeExportPanel, isAudioExportOpen, closeAudioExport, isRecentFilesOpen, closeRecentFiles, isLyricsOpen, closeLyricsPanel, isScalesOpen, closeScales, isTransposeOpen, closeTranspose, isCommandPaletteOpen, closeCommandPalette, focusScore, isLineInOpen, closeLineIn, isTrackPanelOpen, closeTrackPanel, isStylesheetOpen, closeStylesheet]);
   // Esc answers the save question first (Cancel), then closes a panel, then the chrome's overlays.
   const closeOverlay = useCallback(() => cancelClose() || closePanel() || closeChromeOverlay(), [cancelClose, closePanel, closeChromeOverlay]);
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isAudioExportOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen || isStylesheetOpen;
   // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -377,6 +384,7 @@ export default function App() {
     exportCompressedMusicXml: songExport.exportCompressedMusicXml,
     exportAudio: audioExport.open,
     print: pdfExport.print,
+    openStylesheet: scoreDesign.openStylesheet,
     closeTab: () => activeTabId !== undefined && tabs.requestClose(activeTabId),
     cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
     openRecentFiles: recentFiles.openPanel,
@@ -472,6 +480,7 @@ export default function App() {
           onSave={pdfExport.save}
           onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
+          onOpenStylesheet={scoreDesign.openStylesheet}
         />
       ) : null}
       {audioExport.isOpen && document !== undefined ? (
@@ -500,6 +509,10 @@ export default function App() {
           }}
         />
       ) : null}
+      {isStylesheetOpen && document !== undefined ? (
+        <StylesheetPanel palette={chromePalette} sheet={stylesheetOf(document.song)} onChange={(stylesheet) => dispatch({ type: 'setStylesheet', stylesheet })} onClose={closeStylesheet} />
+      ) : null}
+      {state.isDesignMode === true && document !== undefined ? <DesignModeBar palette={chromePalette} song={document.song} cursorMeasureIndex={cursor?.measureIndex} onAction={actAtCursor} /> : null}
       {isRecentFilesOpen ? (
         <RecentFilesPanel
           palette={chromePalette}
@@ -531,7 +544,7 @@ export default function App() {
         <DocumentLayout
           left={
             chrome.panels.palette ? (
-              <EditionPalette palette={palette} song={document.song} cursor={cursor} isMultivoice={state.isMultivoice} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel}
+              <EditionPalette palette={palette} song={document.song} cursor={cursor} isMultivoice={state.isMultivoice} isDesignMode={state.isDesignMode} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel}
                 onOpenExpressionText={openExpressionText} isExpressionTextOpen={isCommandPaletteOpen && commandPalette.session.initialQuery !== ''} />
             ) : null
           }
@@ -553,6 +566,8 @@ export default function App() {
               header={<SongHeader song={document.song} trackIndex={trackIndex} fileName={document.fileName} palette={palette} />}
               onPressBeat={commands.onPressBeat}
               onDragBeat={commands.onDragBeat}
+              isDesignMode={state.isDesignMode}
+              onLayoutEdit={dispatch}
             />
           }
           right={

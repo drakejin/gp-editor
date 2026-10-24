@@ -33,6 +33,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     exportCompressedMusicXml: jest.fn(),
     exportAudio: jest.fn(),
     print: jest.fn(),
+    openStylesheet: jest.fn(),
     closeTab: jest.fn(),
     cycleTab: jest.fn(),
     openRecentFiles: jest.fn(),
@@ -53,6 +54,24 @@ function mockActions(): jest.Mocked<CommandActions> {
     togglePreviewOnHover: jest.fn(),
   };
 }
+
+describe('command registry: stylesheet and Design Mode', () => {
+  it('opens the stylesheet (F7) and turns Design Mode on, and resets the positions it set', () => {
+    // Arrange
+    const actions = mockActions();
+
+    // Act
+    find('file.stylesheet').run(actions);
+    find('view.designMode').run(actions);
+    find('view.resetPositions').run(actions);
+
+    // Assert
+    expect(find('file.stylesheet').shortcut).toBe('F7');
+    expect(actions.openStylesheet).toHaveBeenCalledTimes(1);
+    expect(actions.runCommand).toHaveBeenNthCalledWith(1, { type: 'toggleDesignMode' });
+    expect(actions.runCommand).toHaveBeenNthCalledWith(2, { type: 'resetPositions' });
+  });
+});
 
 describe('command registry: voices', () => {
   it('lists Edit Voice 1 to 4 with ⌘1 to ⌘4 once, the palette’s Voice buttons being the same commands', () => {

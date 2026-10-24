@@ -1,4 +1,5 @@
 import ReactTestRenderer from 'react-test-renderer';
+import { DEFAULT_STYLESHEET, setStylesheet } from '@gp-editor/core';
 import type { PdfDocument } from '../src/export/pdf-document';
 import type { PngOptions } from '../src/export/png-export';
 import { type PdfExport, usePdfExport } from '../src/hooks/use-pdf-export';
@@ -46,6 +47,8 @@ jest.mock('../src/native/pdf-export', () => ({
 }));
 
 const DOCUMENT: OpenDocument = { fileName: 'Song.gp5', path: '/Song.gp5', song: makeSong([[beat(960, [note(1, 3)])]]) };
+/** DOCUMENT with a stylesheet printing on US Letter. */
+const ON_LETTER: OpenDocument = { ...DOCUMENT, song: setStylesheet(DOCUMENT.song, { ...DEFAULT_STYLESHEET, page: { ...DEFAULT_STYLESHEET.page, format: 'letter' } }) };
 
 function renderHook(document: OpenDocument | undefined, staves?: readonly StaffSpec[]): { current: () => PdfExport; dispatch: jest.Mock } {
   const dispatch = jest.fn();
@@ -140,14 +143,14 @@ describe('usePdfExport', () => {
     expect(hook.current().isOpen).toBe(false);
   });
 
-  it('saves the PDF of the chosen mode and paper under the file name, then closes the panel', async () => {
+  it('saves the PDF of the chosen mode on the stylesheet’s page under the file name, then closes the panel', async () => {
     // Arrange
     mockSavePdf.mockResolvedValueOnce({ name: 'Song (Tab).pdf', path: '/Song (Tab).pdf' });
-    const hook = renderHook(DOCUMENT);
+    const hook = renderHook(ON_LETTER);
     chooseExportPdf();
 
     // Act
-    ReactTestRenderer.act(() => hook.current().save('tab', 'letter'));
+    ReactTestRenderer.act(() => hook.current().save('tab'));
     expect(hook.current().isSaving).toBe(true);
     await settle();
 
@@ -168,10 +171,10 @@ describe('usePdfExport', () => {
 
     // Act
     ReactTestRenderer.act(() => {
-      hook.current().save('tab', 'a4');
-      hook.current().save('tab', 'a4');
+      hook.current().save('tab');
+      hook.current().save('tab');
     });
-    ReactTestRenderer.act(() => hook.current().save('tab', 'a4'));
+    ReactTestRenderer.act(() => hook.current().save('tab'));
     await ReactTestRenderer.act(async () => {
       finish(null);
       await Promise.resolve();
@@ -186,7 +189,7 @@ describe('usePdfExport', () => {
     mockSavePdf.mockResolvedValueOnce(null);
     const hook = renderHook(DOCUMENT);
     chooseExportPdf();
-    ReactTestRenderer.act(() => hook.current().save('notationAndTab', 'a4'));
+    ReactTestRenderer.act(() => hook.current().save('notationAndTab'));
     await settle();
     expect(hook.current()).toMatchObject({ isOpen: true, isSaving: false });
   });
@@ -198,7 +201,7 @@ describe('usePdfExport', () => {
     chooseExportPdf();
 
     // Act
-    ReactTestRenderer.act(() => hook.current().save('notation', 'a4'));
+    ReactTestRenderer.act(() => hook.current().save('notation'));
     await settle();
 
     // Assert
@@ -219,7 +222,7 @@ describe('usePdfExport in the multitrack view', () => {
     chooseExportPdf();
 
     // Act
-    ReactTestRenderer.act(() => hook.current().save('asShown', 'a4'));
+    ReactTestRenderer.act(() => hook.current().save('asShown'));
     await settle();
     ReactTestRenderer.act(() => mockPrintRequests.handler?.());
     await settle();
@@ -260,14 +263,14 @@ describe('usePdfExport PNG images', () => {
     expect(hook.current().isOpen).toBe(false);
   });
 
-  it('saves one image per page of the chosen mode and paper, then closes the panel and says where they went', async () => {
+  it('saves one image per page of the chosen mode on the stylesheet’s page, then closes the panel and says where they went', async () => {
     // Arrange
     mockSavePngs.mockResolvedValueOnce({ folder: '/Exports', folderName: 'Exports', names: ['Song (Tab).png'] });
-    const hook = renderHook(DOCUMENT);
+    const hook = renderHook(ON_LETTER);
     chooseExportPng();
 
     // Act
-    ReactTestRenderer.act(() => hook.current().savePng('tab', 'letter', PNG));
+    ReactTestRenderer.act(() => hook.current().savePng('tab', PNG));
     expect(hook.current().isSaving).toBe(true);
     await settle();
 
@@ -285,7 +288,7 @@ describe('usePdfExport PNG images', () => {
     mockSavePngs.mockResolvedValueOnce(null);
     const hook = renderHook(DOCUMENT);
     chooseExportPng();
-    ReactTestRenderer.act(() => hook.current().savePng('notation', 'a4', PNG));
+    ReactTestRenderer.act(() => hook.current().savePng('notation', PNG));
     await settle();
     expect(hook.current()).toMatchObject({ isOpen: true, isSaving: false });
     expect(hook.dispatch).not.toHaveBeenCalled();
@@ -298,7 +301,7 @@ describe('usePdfExport PNG images', () => {
     chooseExportPng();
 
     // Act
-    ReactTestRenderer.act(() => hook.current().savePng('notation', 'a4', PNG));
+    ReactTestRenderer.act(() => hook.current().savePng('notation', PNG));
     await settle();
 
     // Assert
@@ -314,8 +317,8 @@ describe('usePdfExport PNG images', () => {
 
     // Act
     ReactTestRenderer.act(() => {
-      hook.current().save('tab', 'a4');
-      hook.current().savePng('tab', 'a4', PNG);
+      hook.current().save('tab');
+      hook.current().savePng('tab', PNG);
     });
     await ReactTestRenderer.act(async () => {
       finish(null);

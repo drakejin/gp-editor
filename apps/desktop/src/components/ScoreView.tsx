@@ -1,19 +1,23 @@
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
 import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
+import { useDesignDrag } from '../hooks/use-design-drag';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
 import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { ROW } from '../score/geometry';
+import type { DesignHandle } from '../score/design-handles';
 import type { RowHit } from '../score/hit-test';
 import type { PlayingBeat } from '../score/row';
 import type { StaffSpec } from '../score/score-layout';
 import { type BeatRange, clipRange } from '../score/selection-tint';
 import { staffDecor } from '../score/system-staff';
 import { editedVoiceOf } from '../score/voices';
+import type { LayoutAction } from '../state/layout-edits';
 import type { Palette } from '../theme';
 import { ScoreRow } from './ScoreRow';
+import { SystemDesignButtons } from './SystemDesignButtons';
 
 interface ScoreViewProps {
   readonly song: Song;
@@ -41,6 +45,10 @@ interface ScoreViewProps {
   readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
   /** A drag reached another beat. */
   readonly onDragBeat: (hit: RowHit) => void;
+  /** Design Mode: handles to drag beats, bar lines and spaces, and each system's + − × (View ▸ Design Mode). */
+  readonly isDesignMode?: boolean;
+  /** A Design Mode drag or button: one undo step. */
+  readonly onLayoutEdit?: (action: LayoutAction) => void;
 }
 
 /** Rows rendered at once and kept around the viewport. */
@@ -56,7 +64,10 @@ const PAGE_FOOT = 48;
  * picked in the bar map), are scrolled into view.
  */
 export function ScoreView(props: ScoreViewProps) {
-  const { song, trackIndex, staves, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, playingTracks, selection, palette, header } = props;
+  const { trackIndex, staves, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, playingTracks, selection, palette, header, isDesignMode = false, onLayoutEdit } = props;
+  // A Design Mode drag shows its edit on the score before it becomes one.
+  const designDrag = useDesignDrag(props.song, onLayoutEdit);
+  const { song, guide } = designDrag;
   // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
   const zoom = props.zoom * stylesheetOf(song).scale;
   const [width, setWidth] = useState(0);
@@ -77,6 +88,12 @@ export function ScoreView(props: ScoreViewProps) {
     setHeight(event.nativeEvent.layout.height);
   }, []);
   const onViewableItemsChanged = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight: height, topMargin: DESK_MARGIN, cursor, playing });
+  const { onPress: pressDesign } = designDrag;
+  const onDesignPress = useCallback(
+    (systemIndex: number, handle: DesignHandle, x: number, y: number) => pressDesign({ handle, systemIndex, pointerX: x, pointerY: y, song, layout, rowWidth }),
+    [pressDesign, song, layout, rowWidth],
+  );
+  const designEdit = useCallback((action: LayoutAction) => onLayoutEdit?.(action), [onLayoutEdit]);
 
   const renderLine = useCallback(
     ({ item }: ListRenderItemInfo<ScoreLine>) => {
@@ -90,8 +107,21 @@ export function ScoreView(props: ScoreViewProps) {
       const playingBeat = isSelectedTrack ? playing : playingTracks?.[staff.trackIndex];
       const firstBar = row.measures[0]?.measureIndex ?? 0;
       const lastBar = row.measures[row.measures.length - 1]?.measureIndex ?? 0;
+      const design = isDesignMode
+        ? { isTop: item.staffIndex === 0, isLast: item.staffIndex === layout.staves.length - 1, guideX: guide?.systemIndexes.includes(item.systemIndex) === true ? guide.x : undefined }
+        : undefined;
       return (
         <View style={[styles.pageRow, { backgroundColor: palette.paper }]}>
+          {isDesignMode && item.staffIndex === 0 ? (
+            <SystemDesignButtons
+              palette={palette}
+              firstMeasureIndex={firstBar}
+              barCount={row.measures.length}
+              hasBarsAfter={lastBar < song.measureHeaders.length - 1}
+              isDesigned={song.measureHeaders.slice(firstBar, lastBar + 1).some((each) => each.design !== undefined)}
+              onEdit={designEdit}
+            />
+          ) : null}
           <ScoreRow
             song={song}
             trackIndex={staff.trackIndex}
@@ -112,11 +142,15 @@ export function ScoreView(props: ScoreViewProps) {
             rowIndex={item.systemIndex}
             onPress={onPressRow}
             onDrag={onDragRow}
+            design={design}
+            onDesignPress={onDesignPress}
+            onDesignMove={designDrag.onMove}
+            onDesignRelease={designDrag.onRelease}
           />
         </View>
       );
     },
-    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow],
+    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, isDesignMode, guide, designEdit, onDesignPress, designDrag.onMove, designDrag.onRelease],
   );
 
   return (

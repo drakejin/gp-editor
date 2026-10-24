@@ -121,4 +121,10 @@ FOUNDATION_EXPORT NSString *const GPEditorAddAudioTrackCommandNotification;
  */
 FOUNDATION_EXPORT NSString *const GPEditorTrackCommandNotification;
 
+/**
+ * File ▸ Stylesheet… (F7) / View ▸ Design Mode / View ▸ Reset Positions was chosen; GPStylesheet.m forwards it to JS
+ * as "layoutCommandRequested". Object: NSString "stylesheet", "designMode" or "resetPositions".
+ */
+FOUNDATION_EXPORT NSString *const GPEditorLayoutCommandNotification;
+
 NS_ASSUME_NONNULL_END

@@ -1,4 +1,4 @@
-import { type Song, readSong, renderMidi, writeAsciiTab, writeMusicXml } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Song, readSong, renderMidi, setStylesheet, writeAsciiTab, writeMusicXml } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type SongExport, asciiTabTrackIndexes, useSongExport } from '../src/hooks/use-song-export';
 import { base64ToBytes } from '../src/lib/base64';
@@ -177,6 +177,20 @@ describe('useSongExport: Export MusicXML… and Export Compressed MusicXML…', 
     // Assert
     expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Song.musicxml', formats: [MUSICXML_FILE], formatId: 'musicxml' });
     expect(mockFiles.writeTextFile).toHaveBeenCalledWith('/out/Song.musicxml', writeMusicXml(SONG));
+  });
+
+  it('says in the hint strip that MusicXML keeps no stylesheet, when the song has one', async () => {
+    // Arrange
+    const styled = setStylesheet(SONG, { ...DEFAULT_STYLESHEET, lyrics: 'above' });
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml' });
+    const hook = renderHook({ ...DOCUMENT, song: styled });
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportMusicXmlRequested());
+
+    // Assert
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'MusicXML keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.' });
   });
 
   it('saves compressed MusicXML (.mxl) that reads back as the song', async () => {
