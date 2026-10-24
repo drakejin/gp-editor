@@ -1,0 +1,2 @@
+/* English is the source language: GPLocalizedString (GPAppStrings.m) shows the English text itself. This table is
+   empty on purpose; the folder makes English one of the bundle's localizations. */

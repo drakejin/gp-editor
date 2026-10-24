@@ -6,7 +6,7 @@ import SwiftUI
 final class RecentFilesModel: ObservableObject {
   struct Item: Identifiable, Equatable {
     let path: String
-    /// The file name; with its folder when another listed file has the same name; "(missing)" when it is gone.
+    /// The file name; with its folder when another listed file has the same name (the menu adds "(missing)" when it is gone).
     let title: String
     let isPinned: Bool
     let isMissing: Bool
@@ -41,7 +41,7 @@ final class RecentFilesModel: ObservableObject {
     return files.map { file in
       let folder = ((file.path as NSString).deletingLastPathComponent as NSString).lastPathComponent
       let name = (nameCounts[file.name] ?? 0) > 1 ? "\(file.name) — \(folder)" : file.name
-      return Item(path: file.path, title: file.isMissing ? "\(name) (missing)" : name, isPinned: file.isPinned, isMissing: file.isMissing)
+      return Item(path: file.path, title: name, isPinned: file.isPinned, isMissing: file.isMissing)
     }
   }
 }
@@ -49,11 +49,12 @@ final class RecentFilesModel: ObservableObject {
 /// File ▸ Open Recent (pinned files, a divider, the others; Clear Menu keeps the pinned ones) and File ▸ Recent Files….
 struct RecentFilesCommands: View {
   @ObservedObject var model: RecentFilesModel
+  @ObservedObject var strings: AppLanguageModel
 
   var body: some View {
     let pinned = model.items.filter(\.isPinned)
     let others = model.items.filter { !$0.isPinned }
-    Menu("Open Recent") {
+    Menu(strings("Open Recent")) {
       ForEach(pinned) { item in openButton(item) }
       if !pinned.isEmpty && !others.isEmpty {
         Divider()
@@ -62,18 +63,18 @@ struct RecentFilesCommands: View {
       if !model.items.isEmpty {
         Divider()
       }
-      Button("Clear Menu") {
+      Button(strings("Clear Menu")) {
         NotificationCenter.default.post(name: .GPEditorClearRecentCommand, object: nil)
       }
       .disabled(others.isEmpty)
     }
-    Button("Recent Files…") {
+    Button(strings("Recent Files…")) {
       NotificationCenter.default.post(name: .GPEditorRecentFilesCommand, object: nil)
     }
   }
 
   private func openButton(_ item: RecentFilesModel.Item) -> some View {
-    Button(item.title) {
+    Button(item.isMissing ? String(format: strings("%@ (missing)"), item.title) : item.title) {
       NotificationCenter.default.post(name: .GPEditorOpenRecentCommand, object: item.path as NSString)
     }
     .disabled(item.isMissing)

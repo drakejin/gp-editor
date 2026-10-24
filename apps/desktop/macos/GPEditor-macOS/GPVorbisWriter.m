@@ -1,4 +1,5 @@
 #import "GPVorbisWriter.h"
+#import "GPAppStrings.h"
 
 #import <ogg/ogg.h>
 #import <vorbis/vorbisenc.h>
@@ -23,7 +24,7 @@ static const float kQualityScale = 10;
     if (vorbis_encode_init_vbr(&_info, 2, (long)sampleRate, (float)quality / kQualityScale) != 0) {
       vorbis_info_clear(&_info);
       if (error != NULL) {
-        *error = GPAudioExportError(4, @"The Ogg Vorbis encoder does not take these settings");
+        *error = GPAudioExportError(4, GPLocalizedString(@"The Ogg Vorbis encoder does not take these settings"));
       }
       return nil;
     }
@@ -36,7 +37,7 @@ static const float kQualityScale = 10;
     _file = fopen(url.fileSystemRepresentation, "wb");
     if (_file == NULL || ![self writeHeaders]) {
       if (error != NULL) {
-        *error = GPAudioExportFileError(@"The Ogg Vorbis file could not be created");
+        *error = GPAudioExportFileError(GPLocalizedString(@"The Ogg Vorbis file could not be created"));
       }
       return nil;
     }
@@ -111,7 +112,7 @@ static const float kQualityScale = 10;
   vorbis_analysis_wrote(&_dsp, frames);
   if (![self drain]) {
     if (error != NULL) {
-      *error = GPAudioExportFileError(@"The Ogg Vorbis file could not be written");
+      *error = GPAudioExportFileError(GPLocalizedString(@"The Ogg Vorbis file could not be written"));
     }
     return NO;
   }
@@ -131,7 +132,7 @@ static const float kQualityScale = 10;
   _file = NULL;
   if (!isWritten || !isClosed) {
     if (error != NULL) {
-      *error = GPAudioExportFileError(@"The Ogg Vorbis file could not be finished");
+      *error = GPAudioExportFileError(GPLocalizedString(@"The Ogg Vorbis file could not be finished"));
     }
     return NO;
   }

@@ -13,6 +13,7 @@
 #import "GPAudioAssets.h"
 #import "GPEditorNotifications.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 static NSString *const kAddAudioTrackRequestedEvent = @"addAudioTrackRequested";
 static NSString *const kTrackCommandRequestedEvent = @"trackCommandRequested";
@@ -98,14 +99,14 @@ RCT_EXPORT_METHOD(loadData : (NSString *)base64 extension : (NSString *)extensio
 {
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
   if (data == nil) {
-    reject(@"bad_audio", @"The audio data is not valid base64", nil);
+    reject(@"bad_audio", GPLocalizedString(@"The audio data is not valid base64"), nil);
     return;
   }
   NSError *error = nil;
   NSString *assetId = [GPAudioAssets storeData:data extension:extension error:&error];
   NSDictionary *info = assetId == nil ? nil : [GPAudioAssets infoForAssetId:assetId];
   if (info == nil) {
-    RejectWith(reject, @"audio_unreadable", error, @"This audio file cannot be played");
+    RejectWith(reject, @"audio_unreadable", error, GPLocalizedString(@"This audio file cannot be played"));
     return;
   }
   resolve(info);
@@ -118,7 +119,7 @@ RCT_EXPORT_METHOD(data : (NSString *)assetId resolve : (RCTPromiseResolveBlock)r
   NSError *error = nil;
   NSData *data = url == nil ? nil : [NSData dataWithContentsOfURL:url options:NSDataReadingMappedIfSafe error:&error];
   if (data == nil) {
-    RejectWith(reject, @"no_audio", error, @"The audio track's file is not loaded");
+    RejectWith(reject, @"no_audio", error, GPLocalizedString(@"The audio track's file is not loaded"));
     return;
   }
   resolve([data base64EncodedStringWithOptions:0]);
@@ -130,7 +131,7 @@ RCT_EXPORT_METHOD(peaks : (NSString *)assetId resolve : (RCTPromiseResolveBlock)
   NSError *error = nil;
   NSDictionary *peaks = [GPAudioAssets peaksForAssetId:assetId error:&error];
   if (peaks == nil) {
-    RejectWith(reject, @"no_peaks", error, @"The audio track's waveform could not be read");
+    RejectWith(reject, @"no_peaks", error, GPLocalizedString(@"The audio track's waveform could not be read"));
     return;
   }
   resolve(peaks);
@@ -160,7 +161,7 @@ RCT_EXPORT_METHOD(chooseFile : (BOOL)isReplacing resolve : (RCTPromiseResolveBlo
   NSString *assetId = [GPAudioAssets storeFileAtURL:url error:&error];
   NSDictionary *info = assetId == nil ? nil : [GPAudioAssets infoForAssetId:assetId];
   if (info == nil) {
-    RejectWith(reject, @"audio_unreadable", error, @"This audio file cannot be played");
+    RejectWith(reject, @"audio_unreadable", error, GPLocalizedString(@"This audio file cannot be played"));
     return;
   }
   NSMutableDictionary *result = [info mutableCopy];
@@ -191,17 +192,17 @@ RCT_EXPORT_METHOD(chooseFile : (BOOL)isReplacing resolve : (RCTPromiseResolveBlo
     }
   }
   panel.allowedContentTypes = types;
-  panel.message = @"Choose a recording to play with the score (WAV, AIFF, MP3, AAC/M4A, FLAC, Ogg, CAF)";
+  panel.message = GPLocalizedString(@"Choose a recording to play with the score (WAV, AIFF, MP3, AAC/M4A, FLAC, Ogg, CAF)");
   return [panel runModal] == NSModalResponseOK ? panel.URL : nil;
 }
 
 + (BOOL)confirmReplace
 {
   NSAlert *alert = [NSAlert new];
-  alert.messageText = @"Replace the audio track?";
-  alert.informativeText = @"The song keeps one audio track: the new file takes its place, and its sync points are removed. Undo brings the old one back.";
-  [alert addButtonWithTitle:@"Replace"];
-  [alert addButtonWithTitle:@"Cancel"];
+  alert.messageText = GPLocalizedString(@"Replace the audio track?");
+  alert.informativeText = GPLocalizedString(@"The song keeps one audio track: the new file takes its place, and its sync points are removed. Undo brings the old one back.");
+  [alert addButtonWithTitle:GPLocalizedString(@"Replace")];
+  [alert addButtonWithTitle:GPLocalizedString(@"Cancel")];
   return [alert runModal] == NSAlertFirstButtonReturn;
 }
 

@@ -8,6 +8,7 @@
 
 #import "GPCommandPainter.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 @interface GPPdfExport : NSObject <RCTBridgeModule>
 @end
@@ -85,7 +86,7 @@ RCT_EXPORT_METHOD(savePdf : (NSString *)documentJson suggestedName : (NSString *
 {
   NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
   if (document == nil) {
-    reject(@"bad_document", @"Nothing to export", nil);
+    reject(@"bad_document", GPLocalizedString(@"Nothing to export"), nil);
     return;
   }
   NSURL *destination = [GPPdfExport destinationFor:suggestedName];
@@ -95,7 +96,7 @@ RCT_EXPORT_METHOD(savePdf : (NSString *)documentJson suggestedName : (NSString *
   }
   NSError *error = nil;
   if (![[GPPdfExport pdfDataFor:document] writeToURL:destination options:NSDataWritingAtomic error:&error]) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not save the PDF", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not save the PDF"), error);
     return;
   }
   resolve(@{@"name" : destination.lastPathComponent, @"path" : destination.path});
@@ -106,14 +107,14 @@ RCT_EXPORT_METHOD(printPdf : (NSString *)documentJson resolve : (RCTPromiseResol
 {
   NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
   if (document == nil) {
-    reject(@"bad_document", @"Nothing to print", nil);
+    reject(@"bad_document", GPLocalizedString(@"Nothing to print"), nil);
     return;
   }
   PDFDocument *pdf = [[PDFDocument alloc] initWithData:[GPPdfExport pdfDataFor:document]];
   NSPrintInfo *info = [[NSPrintInfo sharedPrintInfo] copy];
   NSPrintOperation *operation = [pdf printOperationForPrintInfo:info scalingMode:kPDFPrintPageScaleToFit autoRotate:YES];
   if (operation == nil) {
-    reject(@"print_failed", @"Could not print the score", nil);
+    reject(@"print_failed", GPLocalizedString(@"Could not print the score"), nil);
     return;
   }
   NSString *title = document[@"title"];

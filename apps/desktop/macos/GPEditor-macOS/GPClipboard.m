@@ -34,7 +34,7 @@ RCT_EXPORT_METHOD(writeBeats : (NSString *)json summary : (NSString *)summary re
   if (isWritten) {
     resolve(nil);
   } else {
-    reject(@"clipboard", @"The beats could not be put on the clipboard.", nil);
+    reject(@"clipboard", GPLocalizedString(@"The beats could not be put on the clipboard."), nil);
   }
 }
 
@@ -45,3 +45,4 @@ RCT_EXPORT_METHOD(readBeats : (RCTPromiseResolveBlock)resolve reject : (RCTPromi
 }
 
 @end
+#import "GPAppStrings.h"

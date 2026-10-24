@@ -12,7 +12,8 @@
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
 //          {"menu": ["File", "Open Recent"]} (logs the items), {"menu": ["File", "Open Recent", "Song.gp5"]} (chooses it),
-//          {"quit": true}]}
+//          {"snapshotModal": "/abs/panel.png"} (a save panel or alert running modally: its texts logged, its content to PNG),
+//          {"cancelModal": true} (aborts it), {"quit": true}]}
 // Coordinates are points in the window's content view, origin top-left. Progress goes to "<script>.log".
 
 #import <AppKit/AppKit.h>
@@ -163,6 +164,15 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"snapshot"] != nil) {
     [self snapshot:window to:step[@"snapshot"]];
     return 0.1;
+  }
+  if (step[@"snapshotModal"] != nil) {
+    [self snapshotModalTo:step[@"snapshotModal"]];
+    return 0.1;
+  }
+  if (step[@"cancelModal"] != nil) {
+    [self log:[NSString stringWithFormat:@"cancelModal: %@", NSApp.modalWindow]];
+    [NSApp abortModal];
+    return 0.5;
   }
   if (step[@"quit"] != nil) {
     [NSApp terminate:nil];
@@ -407,6 +417,29 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     [queue addObjectsFromArray:view.subviews];
   }
   [self log:[NSString stringWithFormat:@"inspect: firstResponder=%@ focusable=%@", window.firstResponder, focusable]];
+}
+
+/** The modal window (a save panel, an alert): the texts of its labels and buttons logged, its content saved as PNG. */
+- (void)snapshotModalTo:(NSString *)path
+{
+  NSWindow *modal = NSApp.modalWindow;
+  if (modal == nil) {
+    [self log:@"snapshotModal: no modal window"];
+    return;
+  }
+  NSMutableArray<NSString *> *texts = [NSMutableArray array];
+  NSMutableArray<NSView *> *queue = [NSMutableArray arrayWithObject:modal.contentView];
+  while (queue.count > 0) {
+    NSView *view = queue.firstObject;
+    [queue removeObjectAtIndex:0];
+    NSString *text = [view isKindOfClass:[NSButton class]] ? ((NSButton *)view).title : [view isKindOfClass:[NSTextField class]] ? ((NSTextField *)view).stringValue : nil;
+    if (text.length > 0) {
+      [texts addObject:text];
+    }
+    [queue addObjectsFromArray:view.subviews];
+  }
+  [self log:[NSString stringWithFormat:@"snapshotModal texts: %@", [texts componentsJoinedByString:@" | "]]];
+  [self snapshot:modal to:path];
 }
 
 - (void)snapshot:(NSWindow *)window to:(NSString *)path

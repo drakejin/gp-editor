@@ -5,6 +5,7 @@
 #import <stdatomic.h>
 
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 static const double kMinGainDb = -24;
 static const double kMaxGainDb = 24;
@@ -213,7 +214,7 @@ static AVAudioSourceNode *QAToneNode(double hz)
   AVAudioFormat *format = [input outputFormatForBus:0];
   if (status != noErr || format.channelCount == 0 || format.sampleRate <= 0) {
     if (error != NULL) {
-      *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status ?: kAudioHardwareBadDeviceError userInfo:@{NSLocalizedDescriptionKey : @"That audio input could not be opened"}];
+      *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status ?: kAudioHardwareBadDeviceError userInfo:@{NSLocalizedDescriptionKey : GPLocalizedString(@"That audio input could not be opened")}];
     }
     return nil;
   }

@@ -1,0 +1,7 @@
+/* Info.plist의 한국어: 마이크 권한을 물을 때와 Finder의 문서 종류. */
+"NSMicrophoneUsageDescription" = "튜너(도구 ▸ 튜너…)와 라인 입력(도구 ▸ 라인 입력…)은 열려 있는 동안 마이크나 오디오 입력으로 악기 소리를 듣습니다. 아무것도 녹음하거나 다른 곳으로 보내지 않습니다.";
+"Guitar Pro tablature" = "Guitar Pro 타브 악보";
+"Power Tab tablature" = "Power Tab 타브 악보";
+"TablEdit tablature" = "TablEdit 타브 악보";
+"Standard MIDI file" = "표준 MIDI 파일";
+"MusicXML score" = "MusicXML 악보";

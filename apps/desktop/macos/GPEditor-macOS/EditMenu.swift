@@ -72,14 +72,15 @@ final class EditMenuModel: ObservableObject {
 /// Edit ▸ Undo and Redo, in place of SwiftUI's (CommandGroup(replacing: .undoRedo)).
 struct UndoRedoCommands: View {
   @ObservedObject var model: EditMenuModel
+  @ObservedObject var strings: AppLanguageModel
 
   var body: some View {
-    Button("Undo") {
+    Button(strings("Undo")) {
       EditMenuModel.perform(Selector(("undo:")), score: .GPEditorUndoCommand)
     }
     .keyboardShortcut("z")
     .disabled(!model.canUndo && !model.isEditingText)
-    Button("Redo") {
+    Button(strings("Redo")) {
       EditMenuModel.perform(Selector(("redo:")), score: .GPEditorRedoCommand)
     }
     .keyboardShortcut("z", modifiers: [.command, .shift])

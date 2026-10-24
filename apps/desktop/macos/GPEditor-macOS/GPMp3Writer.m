@@ -1,4 +1,5 @@
 #import "GPMp3Writer.h"
+#import "GPAppStrings.h"
 
 #import <lame/lame.h>
 
@@ -19,7 +20,7 @@ static const float kVbrQuality = 2;
     _lame = lame_init();
     if (_lame == NULL) {
       if (error != NULL) {
-        *error = GPAudioExportError(2, @"The MP3 encoder could not start");
+        *error = GPAudioExportError(2, GPLocalizedString(@"The MP3 encoder could not start"));
       }
       return nil;
     }
@@ -40,14 +41,14 @@ static const float kVbrQuality = 2;
     }
     if (lame_init_params(_lame) < 0) {
       if (error != NULL) {
-        *error = GPAudioExportError(2, @"The MP3 encoder does not take these settings");
+        *error = GPAudioExportError(2, GPLocalizedString(@"The MP3 encoder does not take these settings"));
       }
       return nil;
     }
     _file = fopen(url.fileSystemRepresentation, "wb");
     if (_file == NULL) {
       if (error != NULL) {
-        *error = GPAudioExportFileError(@"The MP3 file could not be created");
+        *error = GPAudioExportFileError(GPLocalizedString(@"The MP3 file could not be created"));
       }
       return nil;
     }
@@ -70,13 +71,13 @@ static const float kVbrQuality = 2;
 {
   if (count < 0) {
     if (error != NULL) {
-      *error = GPAudioExportError(3, [NSString stringWithFormat:@"The MP3 encoder failed (%d)", count]);
+      *error = GPAudioExportError(3, [NSString stringWithFormat:GPLocalizedString(@"The MP3 encoder failed (%d)"), count]);
     }
     return NO;
   }
   if (count > 0 && fwrite(_output.bytes, 1, (size_t)count, _file) != (size_t)count) {
     if (error != NULL) {
-      *error = GPAudioExportFileError(@"The MP3 file could not be written");
+      *error = GPAudioExportFileError(GPLocalizedString(@"The MP3 file could not be written"));
     }
     return NO;
   }
@@ -109,7 +110,7 @@ static const float kVbrQuality = 2;
   _file = NULL;
   if (!isTagged || !isClosed) {
     if (error != NULL) {
-      *error = GPAudioExportFileError(@"The MP3 file could not be finished");
+      *error = GPAudioExportFileError(GPLocalizedString(@"The MP3 file could not be finished"));
     }
     return NO;
   }
