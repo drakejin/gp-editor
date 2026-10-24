@@ -1,4 +1,4 @@
-import { type DurationTuplets, NO_STROKE, NO_TUPLETS, QUARTER, durationTicks, hasSameTuplets } from '../model/defaults';
+import { type DurationTuplets, EMPTY_VOICE, MAX_VOICES, NO_STROKE, NO_TUPLETS, durationTicks, hasSameTuplets } from '../model/defaults';
 import type { Beat, Chord, Duration, Hairpin, Measure, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import { restDurations } from './rests';
 
@@ -28,9 +28,6 @@ export interface MeasureVoices {
   readonly voiceCount: number;
   readonly voices: readonly VoiceEvents[];
 }
-
-/** Readers fill unused voice slots with the same shape. */
-const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 
 export function eventTicks(event: VoiceEvent): number {
   return durationTicks(event.voice.duration);
@@ -147,7 +144,9 @@ function appendEvent(split: Split, voiceIndex: number, beatStart: number, event:
  * moving one.
  */
 export function toMeasureVoices(measure: Measure, start: number, movingVoiceIndex?: number): MeasureVoices | undefined {
-  const voiceCount = Math.max(1, ...measure.beats.map((beat) => beat.voices.length));
+  // A voice the beats have no slot for yet (voice 3 or 4 of a bar read from a GP3–GP5 file) gets one.
+  const movingSlots = movingVoiceIndex === undefined || movingVoiceIndex >= MAX_VOICES ? 0 : movingVoiceIndex + 1;
+  const voiceCount = Math.max(1, movingSlots, ...measure.beats.map((beat) => beat.voices.length));
   const split: Split = {
     voices: Array.from({ length: voiceCount }, () => []),
     ends: Array.from({ length: voiceCount }, () => start),

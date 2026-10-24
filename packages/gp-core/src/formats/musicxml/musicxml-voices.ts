@@ -1,11 +1,11 @@
 // MusicXML voices as the model's voices (no TuxGuitar reader exists): notes grouped by voice and position, gaps filled with rests.
 import { restDurations } from '../../edit/rests';
-import { durationTicks } from '../../model/defaults';
+import { MAX_VOICES, durationTicks } from '../../model/defaults';
 import type { Duration } from '../../model/song';
 import { type RawNote, durationOfTicks } from './musicxml-note';
 
-/** Guitar Pro 6+ voices per beat (GPIF's MAX_VOICES): more MusicXML voices than that are left out. */
-export const MAX_VOICES = 4;
+/** Guitar Pro 6+ voices per beat (the model's MAX_VOICES): more MusicXML voices than that are left out. */
+export { MAX_VOICES };
 
 /** One voice's event: what starts at `tick`, with the grace notes written before it. */
 export interface VoiceEventDraft {

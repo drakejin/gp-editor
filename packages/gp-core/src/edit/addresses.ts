@@ -1,3 +1,4 @@
+import { EMPTY_VOICE, MAX_VOICES } from '../model/defaults';
 import type { Beat, Measure, MeasureHeader, Note, Song, Track, Voice } from '../model/song';
 
 /** One voice of one beat — where the editor cursor sits, without the string. */
@@ -26,12 +27,25 @@ export interface VoiceLocation {
   readonly voice: Voice;
 }
 
+/** True for voice 1–4's index (0–3). */
+export function isVoiceIndex(voiceIndex: number): boolean {
+  return Number.isInteger(voiceIndex) && voiceIndex >= 0 && voiceIndex < MAX_VOICES;
+}
+
+/**
+ * The beat's voice `voiceIndex`; a slot the beat lacks (voices 3 and 4 of a beat read from a GP3–GP5 file) is an empty
+ * voice, which an edit can fill. Undefined past the fourth voice.
+ */
+export function voiceOf(beat: Beat, voiceIndex: number): Voice | undefined {
+  return beat.voices[voiceIndex] ?? (isVoiceIndex(voiceIndex) ? EMPTY_VOICE : undefined);
+}
+
 export function locateVoice(song: Song, at: BeatAddress): VoiceLocation | undefined {
   const track = song.tracks[at.trackIndex];
   const header = song.measureHeaders[at.measureIndex];
   const measure = track?.measures[at.measureIndex];
   const beat = measure?.beats[at.beatIndex];
-  const voice = beat?.voices[at.voiceIndex];
+  const voice = beat === undefined ? undefined : voiceOf(beat, at.voiceIndex);
   if (track === undefined || header === undefined || measure === undefined || beat === undefined || voice === undefined) {
     return undefined;
   }
@@ -39,7 +53,8 @@ export function locateVoice(song: Song, at: BeatAddress): VoiceLocation | undefi
 }
 
 export function findVoice(song: Song, at: BeatAddress): Voice | undefined {
-  return song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.voices[at.voiceIndex];
+  const beat = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex];
+  return beat === undefined ? undefined : voiceOf(beat, at.voiceIndex);
 }
 
 /** The note on the addressed string, if there is one. */
