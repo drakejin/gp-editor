@@ -85,9 +85,10 @@ function AudioStrip({ palette, audioTrack, onSetMix }: AudioStripProps) {
 }
 
 /**
- * View ▸ Mixer: a strip per track and the master strip, across the bottom of the window. A strip's effects switch on and
- * off from it; the selected strip's chain (or the master) is edited on the right — add, remove, reorder, presets, and
- * every value, heard while it is dragged.
+ * View ▸ Mixer: a strip per track and the master strip, across the bottom of the window. The track strips scroll
+ * sideways; the audio track's strip and the master strip stay in view after them, however many tracks the song has. A
+ * strip's effects switch on and off from it; the selected strip's chain (or the master) is edited on the right — add,
+ * remove, reorder, presets, and every value, heard while it is dragged.
  */
 export function MixerPanel(props: MixerPanelProps) {
   const { palette, song, selectedTrackIndex } = props;
@@ -113,6 +114,8 @@ export function MixerPanel(props: MixerPanelProps) {
             onToggle={(index) => props.onSetTrackEffects(trackIndex, toggleEffect(each.effects ?? [], index))}
           />
         ))}
+      </ScrollView>
+      <View testID="mixer-pinned-strips" style={[styles.pinned, { borderLeftColor: palette.chromeBorder }]}>
         {song.audioTrack === undefined || props.onSetAudioTrackMix === undefined ? null : (
           <AudioStrip palette={palette} audioTrack={song.audioTrack} onSetMix={props.onSetAudioTrackMix} />
         )}
@@ -125,7 +128,7 @@ export function MixerPanel(props: MixerPanelProps) {
           onSelect={() => setIsMasterSelected(true)}
           onToggle={(index) => props.onSetMasterMix({ ...master, effects: toggleEffect(master.effects, index) })}
         />
-      </ScrollView>
+      </View>
       <View style={[styles.editorPane, { borderLeftColor: palette.chromeBorder }]}>
         <View style={styles.editorHeader}>
           <Text numberOfLines={1} style={[styles.editorTitle, { color: palette.chromeText }]}>
@@ -156,6 +159,7 @@ const styles = StyleSheet.create({
   panel: { height: MIXER_PANEL.height, flexDirection: 'row', borderTopWidth: 1 },
   strips: { flex: 1 },
   stripsContent: { padding: 8 },
+  pinned: { flexDirection: 'row', paddingVertical: 8, paddingLeft: 8, paddingRight: 2, borderLeftWidth: StyleSheet.hairlineWidth },
   strip: { width: MIXER_PANEL.stripWidth, marginRight: 6, borderWidth: 1, borderRadius: 6, padding: 4 },
   audioStrip: { width: MIXER_PANEL.audioStripWidth },
   stripHeader: { flexDirection: 'row', alignItems: 'center', height: 24, marginBottom: 4 },

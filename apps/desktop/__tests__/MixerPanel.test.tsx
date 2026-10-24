@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { type AudioTrackMix, DEFAULT_MASTER, type Effect, type MasterMix, buildAudioTrack, buildEffect, setTrackEffects } from '@gp-editor/core';
 import { MixerPanel } from '../src/components/effects/MixerPanel';
@@ -99,6 +99,31 @@ describe('MixerPanel', () => {
     // Assert
     expect(renderer.root.findAllByProps({ testID: 'mixer-audio-strip' }).length).toBeGreaterThan(0);
     expect(onSetAudioTrackMix.mock.calls).toEqual([[{ solo: false }], [{ detuneCents: 100 }]]);
+  });
+
+  it('keeps the audio track’s strip and the master strip in view, outside the track strips’ scroll', () => {
+    // Arrange
+    const many = { ...song, tracks: Array.from({ length: 9 }, (_, index) => ({ ...song.tracks[0]!, number: index + 1, name: `Track ${index + 1}` })) };
+    const withAudio = { ...many, audioTrack: buildAudioTrack({ assetId: 'take' }) };
+
+    // Act
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <MixerPanel palette={PALETTE} song={withAudio} selectedTrackIndex={0} onSelectTrack={jest.fn()} onSetTrackEffects={jest.fn()} onSetMasterMix={jest.fn()} onPreview={jest.fn()} onClose={jest.fn()} onSetAudioTrackMix={jest.fn()} />,
+      );
+    });
+    const strips = renderer.root.findAllByType(ScrollView).find((scroll) => scroll.props.horizontal === true);
+    const labelsIn = (node: ReactTestRenderer.ReactTestInstance) =>
+      node.findAll((each) => typeof each.props.accessibilityLabel === 'string').map((each) => each.props.accessibilityLabel as string);
+
+    // Assert
+    expect(strips).toBeDefined();
+    expect(labelsIn(strips!)).toContain('Edit the effects of 9. Track 9');
+    expect(strips!.findAllByProps({ testID: 'mixer-audio-strip' })).toHaveLength(0);
+    expect(labelsIn(strips!)).not.toContain('Edit the effects of Master');
+    expect(renderer.root.findAllByProps({ testID: 'mixer-audio-strip' }).length).toBeGreaterThan(0);
+    expect(labelsIn(renderer.root)).toContain('Edit the effects of Master');
   });
 
   it('has no audio strip without an audio track', () => {

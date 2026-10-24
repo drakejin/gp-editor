@@ -412,7 +412,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   combo, 4x12 closed back, 4x10 bass) —, each on or off, with a few parameters and presets, and whole-chain presets
   (Clean, Crunch, Lead, Metal, Bass DI, Bass amp, Acoustic, Ambient). Edit them in the Track inspector's *EFFECTS* or in
   View ▸ Mixer (a strip per track and a *Master* strip — EQ, compressor, reverb, limiter and output gain — at the
-  bottom); values are heard while a slider is dragged, and one release is one undo step. A track's first effect (or
+  bottom; the track strips scroll sideways, the audio track's strip and the master stay in view); values are heard while a slider is dragged, and one release is one undo step. A track's first effect (or
   its last removed) restarts playback at the bar being played. Effects are saved in Guitar Pro 7/8 (`.gp`) files
   (our own entry in the zip, which Guitar Pro ignores); GP5, GP4 and GP3 cannot keep them, and saving one says so.
   Tracks without effects sound exactly as before.
