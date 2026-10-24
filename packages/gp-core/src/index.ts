@@ -156,6 +156,9 @@ export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
 export { MAX_CAPO, setTrackCapo, setTrackName } from './edit/track-properties';
+export { MAX_NEW_TRACK_STRINGS, type NewTrack, addTrack, deleteTrack, duplicateTrack, hasTrackNotes, moveTrack } from './edit/tracks';
+export { TRACK_KINDS, type TrackKind, type TrackKindSpec, type TrackTuningChoice, trackKindSpec, trackTuningChoices } from './edit/track-kinds';
+export { type TrackIndexMap, matchTrackIndexes, remapTrackIndex, remapTrackIndexes } from './edit/track-index-map';
 export { setMasterMix, setTrackEffects } from './edit/track-effects';
 export {
   CABINET_MODELS,

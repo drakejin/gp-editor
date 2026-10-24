@@ -25,7 +25,7 @@ function newHeader(neighbour: MeasureHeader, start: number): MeasureHeader {
 }
 
 /** A measure holding only rests in its first voice, with the neighbour's clef and key. */
-function restMeasure(track: Track, neighbourIndex: number, header: MeasureHeader, headerIndex: number): Measure {
+export function restMeasure(track: Track, neighbourIndex: number, header: MeasureHeader, headerIndex: number): Measure {
   const neighbour = track.measures[neighbourIndex];
   const voiceCount = voiceCountNear(track, neighbourIndex);
   const rests = restEvents(headerTicks(header)) ?? [];
