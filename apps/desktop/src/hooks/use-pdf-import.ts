@@ -68,33 +68,58 @@ function importDeps(path: string, project: ImportProject): ImportDeps {
   };
 }
 
-/**
- * PDF → tab: every import is a project folder in Documents/GP Editor Projects, transcribed page by page by Claude
- * (runImport). When a song is built, `onSongReady` gets its path to open it.
- */
-export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey: () => void): PdfImport {
-  const [current, setCurrent] = useState<PdfImport['current']>(undefined);
-  const [isRunning, setIsRunning] = useState(false);
-  const [projects, setProjects] = useState<readonly ProjectSummary[]>([]);
-  const [hasKey, setHasKey] = useState<boolean | undefined>(undefined);
-  const [model, setModel] = useState(DEFAULT_TRANSCRIPTION_MODEL);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const isCancelled = useRef(false);
-  // Set from the moment an import or resume is asked for (key check, open panel…) until its run ends.
-  const isBusy = useRef(false);
+type SetError = (error: string | undefined) => void;
 
+/** The import projects in Documents/GP Editor Projects, listed at once and after each run. */
+function useProjects(setError: SetError) {
+  const [projects, setProjects] = useState<readonly ProjectSummary[]>([]);
   const refreshProjects = useCallback(() => {
     listProjects()
       .then((entries) => setProjects(entries.map(toSummary)))
       .catch((reason: unknown) => setError(errorMessage(reason)));
-  }, []);
-
+  }, [setError]);
   useEffect(() => {
     refreshProjects();
+  }, [refreshProjects]);
+  return { projects, refreshProjects };
+}
+
+/** The API key (whether one is set; never its text) and the model, kept by the native side. */
+function useImportSettings(setError: SetError, onNeedsKey: () => void) {
+  const [hasKey, setHasKey] = useState<boolean | undefined>(undefined);
+  const [model, setModel] = useState(DEFAULT_TRANSCRIPTION_MODEL);
+  useEffect(() => {
     hasApiKey().then(setHasKey).catch(() => setHasKey(false));
     savedModel().then((saved) => saved !== null && setModel(saved)).catch(() => undefined);
-  }, [refreshProjects]);
+  }, []);
+  // Asks the native side each time: a PDF handed over at launch arrives before the first check has answered.
+  const ensureKey = useCallback(async () => {
+    const isKeySet = await hasApiKey().catch(() => false);
+    setHasKey(isKeySet);
+    if (!isKeySet) {
+      onNeedsKey();
+    }
+    return isKeySet;
+  }, [onNeedsKey]);
+  const saveKey = useCallback(async (key: string) => {
+    await setApiKey(key);
+    setHasKey(true);
+  }, []);
+  const removeKey = useCallback(() => {
+    clearApiKey().then(() => setHasKey(false)).catch((reason: unknown) => setError(errorMessage(reason)));
+  }, [setError]);
+  const chooseModel = useCallback((next: string) => {
+    setModel(next);
+    saveModel(next).catch(() => undefined);
+  }, []);
+  return { hasKey, model, ensureKey, saveKey, removeKey, chooseModel };
+}
 
+/** One import run at a time: its project as it goes, Cancel, and the song opened when it is built. */
+function useImportRun(onSongReady: (songPath: string) => void, refreshProjects: () => void, setError: SetError) {
+  const [current, setCurrent] = useState<PdfImport['current']>(undefined);
+  const [isRunning, setIsRunning] = useState(false);
+  const isCancelled = useRef(false);
   const run = useCallback(
     async (path: string, project: ImportProject) => {
       isCancelled.current = false;
@@ -116,60 +141,75 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
         refreshProjects();
       }
     },
-    [onSongReady, refreshProjects],
+    [onSongReady, refreshProjects, setError],
   );
-
-  // Asks the native side each time: a PDF handed over at launch arrives before the first check has answered.
-  const ensureKey = useCallback(async () => {
-    const isKeySet = await hasApiKey().catch(() => false);
-    setHasKey(isKeySet);
-    if (!isKeySet) {
-      onNeedsKey();
-    }
-    return isKeySet;
-  }, [onNeedsKey]);
-
-  /** Runs one import job at a time: a job asked for while another runs is refused with a message. */
-  const exclusive = useCallback((job: () => Promise<void>) => {
-    if (isBusy.current) {
-      setError(t('window.pdfImport.busy'));
-      return;
-    }
-    isBusy.current = true;
-    job()
-      .catch((reason: unknown) => setError(errorMessage(reason)))
-      .finally(() => {
-        isBusy.current = false;
-      });
+  const cancel = useCallback(() => {
+    isCancelled.current = true;
   }, []);
+  return { current, setCurrent, isRunning, run, cancel };
+}
 
+/** Runs one import job at a time: a job asked for while another runs is refused with a message. */
+function useExclusive(setError: SetError): (job: () => Promise<void>) => void {
+  // Set from the moment an import or resume is asked for (key check, open panel…) until its run ends.
+  const isBusy = useRef(false);
+  return useCallback(
+    (job: () => Promise<void>) => {
+      if (isBusy.current) {
+        setError(t('window.pdfImport.busy'));
+        return;
+      }
+      isBusy.current = true;
+      job()
+        .catch((reason: unknown) => setError(errorMessage(reason)))
+        .finally(() => {
+          isBusy.current = false;
+        });
+    },
+    [setError],
+  );
+}
+
+/** A new project for the PDF `pick` gives (after the key check), transcribed at once. */
+async function importNewProject(pick: () => Promise<string | null>, model: string, run: (path: string, project: ImportProject) => Promise<void>): Promise<void> {
+  const pdfPath = await pick();
+  if (pdfPath === null) {
+    return;
+  }
+  const created = await createProject(pdfPath);
+  const project = newImportProject(created, model, new Date());
+  await writeProjectText(created.path, PROJECT_FILE, serializeImportProject(project));
+  await run(created.path, project);
+}
+
+/**
+ * PDF → tab: every import is a project folder in Documents/GP Editor Projects, transcribed page by page by Claude
+ * (runImport). When a song is built, `onSongReady` gets its path to open it.
+ */
+export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey: () => void): PdfImport {
+  const [error, setError] = useState<string | undefined>(undefined);
+  const { projects, refreshProjects } = useProjects(setError);
+  const settings = useImportSettings(setError, onNeedsKey);
+  const { current, setCurrent, isRunning, run, cancel } = useImportRun(onSongReady, refreshProjects, setError);
+  const exclusive = useExclusive(setError);
+  const { ensureKey, model } = settings;
   const importFrom = useCallback(
-    (pick: () => Promise<string | null>) => {
+    (pick: () => Promise<string | null>) =>
       exclusive(async () => {
         try {
-          if (!(await ensureKey())) {
-            return;
+          if (await ensureKey()) {
+            await importNewProject(pick, model, run);
           }
-          const pdfPath = await pick();
-          if (pdfPath === null) {
-            return;
-          }
-          const created = await createProject(pdfPath);
-          const project = newImportProject(created, model, new Date());
-          await writeProjectText(created.path, PROJECT_FILE, serializeImportProject(project));
-          await run(created.path, project);
         } catch (reason: unknown) {
           setError(errorMessage(reason));
         }
-      });
-    },
+      }),
     [exclusive, ensureKey, model, run],
   );
   const start = useCallback(() => importFrom(async () => (await choosePdf())?.path ?? null), [importFrom]);
   const importPath = useCallback((pathOrUrl: string) => importFrom(async () => pathOrUrl), [importFrom]);
-
   const resume = useCallback(
-    (path: string) => {
+    (path: string) =>
       exclusive(async () => {
         if (!(await ensureKey())) {
           return;
@@ -180,32 +220,16 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
           return;
         }
         await run(path, { ...project, model });
-      });
-    },
+      }),
     [exclusive, ensureKey, model, run],
   );
-
-  const saveKey = useCallback(async (key: string) => {
-    await setApiKey(key);
-    setHasKey(true);
-  }, []);
-  const removeKey = useCallback(() => {
-    clearApiKey().then(() => setHasKey(false)).catch((reason: unknown) => setError(errorMessage(reason)));
-  }, []);
-  const chooseModel = useCallback((next: string) => {
-    setModel(next);
-    saveModel(next).catch(() => undefined);
-  }, []);
-  const cancel = useCallback(() => {
-    isCancelled.current = true;
-  }, []);
   const reveal = useCallback((path: string) => {
     revealProject(path).catch((reason: unknown) => setError(errorMessage(reason)));
   }, []);
   const dismiss = useCallback(() => {
     setError(undefined);
     setCurrent(undefined);
-  }, []);
-
+  }, [setCurrent]);
+  const { hasKey, saveKey, removeKey, chooseModel } = settings;
   return { current, isRunning, projects, hasKey, model, error, start, importPath, resume, cancel, reveal, saveKey, removeKey, chooseModel, dismiss };
 }

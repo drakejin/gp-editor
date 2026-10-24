@@ -55,18 +55,9 @@ interface Latest {
   readonly shownTrackIndex: number;
 }
 
-/**
- * The track commands of the shown tab: each edit is one editor action (one undo step); deleting a track with notes asks
- * first.
- */
-export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClosed, onTracksRemapped }: TrackManagerSources): TrackManager {
-  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<PendingDelete | undefined>(undefined);
-  const latest = useRef<Latest>({ song, shownTrackIndex });
-  latest.current = { song, shownTrackIndex };
-  const hasSong = song !== undefined;
-
-  const panelActions = useMemo<TrackPanelActions>(
+/** The tracks panel's buttons and drags: add (the panel), duplicate, delete (asked first when it has notes), move. */
+function usePanelActions(latest: { readonly current: Latest }, dispatch: Dispatch<EditorAction>, setIsAddPanelOpen: (isOpen: boolean) => void, setPendingDelete: (pending: PendingDelete) => void): TrackPanelActions {
+  return useMemo<TrackPanelActions>(
     () => ({
       onAddTrack: () => setIsAddPanelOpen(latest.current.song !== undefined),
       onDuplicateTrack: (trackIndex) => dispatch({ type: 'duplicateTrack', trackIndex }),
@@ -81,9 +72,12 @@ export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClos
       },
       onMoveTrack: (fromIndex, toIndex) => dispatch({ type: 'moveTrack', fromIndex, toIndex }),
     }),
-    [dispatch],
+    [latest, dispatch, setIsAddPanelOpen, setPendingDelete],
   );
+}
 
+/** Track ▸ Add Track…, Duplicate, Delete, Move Up / Down (and the command palette's), on the shown track. */
+function useTrackMenu(latest: { readonly current: Latest }, dispatch: Dispatch<EditorAction>, panelActions: TrackPanelActions): (command: TrackMenuCommand) => void {
   const runTrackCommand = useCallback(
     (command: TrackMenuCommand) => {
       const { song: shown, shownTrackIndex: index } = latest.current;
@@ -104,11 +98,25 @@ export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClos
         panelActions.onDeleteTrack(index);
       }
     },
-    [dispatch, panelActions],
+    [latest, dispatch, panelActions],
   );
   useEffect(() => subscribeTrackMenuCommands(runTrackCommand), [runTrackCommand]);
-  useTrackRemaps(song, tabId, onTracksRemapped);
+  return runTrackCommand;
+}
 
+/**
+ * The track commands of the shown tab: each edit is one editor action (one undo step); deleting a track with notes asks
+ * first.
+ */
+export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClosed, onTracksRemapped }: TrackManagerSources): TrackManager {
+  const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | undefined>(undefined);
+  const latest = useRef<Latest>({ song, shownTrackIndex });
+  latest.current = { song, shownTrackIndex };
+  const hasSong = song !== undefined;
+  const panelActions = usePanelActions(latest, dispatch, setIsAddPanelOpen, setPendingDelete);
+  const runTrackCommand = useTrackMenu(latest, dispatch, panelActions);
+  useTrackRemaps(song, tabId, onTracksRemapped);
   const addTrack = useCallback(
     (track: NewTrack) => {
       dispatch({ type: 'addTrack', track });
@@ -126,7 +134,6 @@ export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClos
     setPendingDelete(undefined);
     onClosed();
   }, [dispatch, pendingDelete, onClosed]);
-  const isOpen = (isAddPanelOpen && hasSong) || pendingDelete !== undefined;
   const close = useCallback(() => {
     if (!isAddPanelOpen && pendingDelete === undefined) {
       return false;
@@ -136,5 +143,6 @@ export function useTrackManager({ song, shownTrackIndex, tabId, dispatch, onClos
     onClosed();
     return true;
   }, [isAddPanelOpen, pendingDelete, onClosed]);
+  const isOpen = (isAddPanelOpen && hasSong) || pendingDelete !== undefined;
   return { isAddPanelOpen: isAddPanelOpen && hasSong, addTrack, pendingDelete, confirmDelete, panelActions, runTrackCommand, isOpen, close };
 }

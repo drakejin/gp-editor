@@ -74,71 +74,11 @@ function cancelRestart(timer: { current: ReturnType<typeof setTimeout> | undefin
 }
 
 /**
- * Plays the whole song (all tracks, honouring mute/solo) from a measure, or the practice loop pass after pass, at the
- * practice tempo, and follows it on the given track (and on the shown tracks of the multitrack view).
+ * A track's instrument, volume or pan changed (same bars): sent live on its MIDI channels, heard at once; a restart
+ * only when the MIDI channels themselves changed (e.g. the track got a channel of its own), a track was muted or
+ * soloed, or a track got its first effect or lost its last. Effect values are sent live by useMixSync.
  */
-export function usePlayback(song: Song | undefined, trackIndex: number, shownTrackIndexes?: readonly number[]): Playback {
-  const [state, setState] = useState<PlaybackState>({ isPlaying: false });
-  const [practice, setPractice] = useState<PracticeSettings>(INITIAL_PRACTICE);
-  const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const generation = useRef(0);
-  const follow = useRef<Follow>({ song, trackIndex, practice, timeline: [], measureIndex: 0 });
-  follow.current = { ...follow.current, song, trackIndex, shownTrackIndexes, practice };
-  const session = useMemo<PlayerSession>(() => ({ timer, generation, follow, setState }), []);
-
-  // Restarts are coalesced: a run of clicks (instruments, sound banks) restarts once, after the last.
-  const restartTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const isPlayingNow = useRef(false);
-  isPlayingNow.current = state.isPlaying;
-
-  const stop = useCallback(() => {
-    cancelRestart(restartTimer);
-    stopPlayer(session);
-  }, [session]);
-  // The count-in plays when playback starts, not when a bar button moves playing playback.
-  const start = useCallback(
-    (fromMeasureIndex: number, fromTick?: number) => {
-      const { practice: current } = follow.current;
-      const withCountIn = current.isCountInOn && !isPlayingNow.current;
-      launchPlayer(session, { measureIndex: fromMeasureIndex, tick: fromTick, withCountIn });
-    },
-    [session],
-  );
-  const { isPlaying } = state;
-  const changePractice = useCallback(
-    (action: PracticeAction) => {
-      const previous = follow.current.practice;
-      const next = practiceReducer(previous, action);
-      if (next === previous) {
-        return;
-      }
-      follow.current = { ...follow.current, practice: next };
-      setPractice(next);
-      if (!isPlaying) {
-        return;
-      }
-      // The metronome is a track of the render: turning it on or off mutes it in place, without a gap.
-      if (needsNewRender(previous, next)) {
-        resumePlayer(session);
-      } else if (previous.isMetronomeOn !== next.isMetronomeOn) {
-        applyMetronome(session);
-      }
-    },
-    [session, isPlaying],
-  );
-  const dismissError = useCallback(() => setState((previous) => ({ ...previous, error: undefined })), []);
-  const restart = useCallback(() => {
-    cancelRestart(restartTimer);
-    restartTimer.current = setTimeout(() => {
-      if (isPlayingNow.current) {
-        resumePlayer(session);
-      }
-    }, RESTART_DELAY_MS);
-  }, [session]);
-
-  // A track's instrument, volume or pan changed (same bars): sent live on its MIDI channels, heard at once; a restart
-  // only when the MIDI channels themselves changed (e.g. the track got a channel of its own), a track was muted or
-  // soloed, or a track got its first effect or lost its last. Effect values are sent live by useMixSync.
+function useLiveChannels(song: Song | undefined, isPlaying: boolean, restart: () => void): void {
   const followedSong = useRef(song);
   useEffect(() => {
     const previous = followedSong.current;
@@ -161,8 +101,10 @@ export function usePlayback(song: Song | undefined, trackIndex: number, shownTra
     }
     changes.forEach(sendLiveChange);
   }, [song, isPlaying, restart]);
+}
 
-  // The audio track: another file, mute or solo restart playback; its volume and detune are heard at once.
+/** The audio track: another file, mute or solo restart playback; its volume and detune are heard at once. */
+function useLiveAudioTrack(song: Song | undefined, isPlaying: boolean, restart: () => void): void {
   const followedAudio = useRef(song);
   useEffect(() => {
     const previous = followedAudio.current;
@@ -177,9 +119,13 @@ export function usePlayback(song: Song | undefined, trackIndex: number, shownTra
       setAudioTrackMix(audioGain(song.audioTrack.volume), song.audioTrack.detuneCents).catch(() => undefined);
     }
   }, [song, isPlaying, restart]);
+}
 
-  // Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow
-  // (and later loop) the wrong bars.
+/**
+ * Bars added or deleted while playing move every bar index the timeline and the loop hold: stop rather than follow
+ * (and later loop) the wrong bars.
+ */
+function useStopOnBarChanges(song: Song | undefined, isPlaying: boolean, session: PlayerSession): void {
   const measureCount = song?.measureHeaders.length ?? 0;
   const followedMeasureCount = useRef(measureCount);
   useEffect(() => {
@@ -190,7 +136,22 @@ export function usePlayback(song: Song | undefined, trackIndex: number, shownTra
       }
     }
   }, [measureCount, isPlaying, session]);
+}
 
+/** Restarts are coalesced: a run of clicks (instruments, sound banks) restarts once, after the last. */
+function useCoalescedRestart(session: PlayerSession, isPlaying: boolean) {
+  const restartTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const isPlayingNow = useRef(false);
+  isPlayingNow.current = isPlaying;
+  const restart = useCallback(() => {
+    cancelRestart(restartTimer);
+    restartTimer.current = setTimeout(() => {
+      if (isPlayingNow.current) {
+        resumePlayer(session);
+      }
+    }, RESTART_DELAY_MS);
+  }, [session]);
+  const cancel = useCallback(() => cancelRestart(restartTimer), []);
   useEffect(
     () => () => {
       cancelRestart(restartTimer);
@@ -198,7 +159,69 @@ export function usePlayback(song: Song | undefined, trackIndex: number, shownTra
     },
     [session],
   );
+  return { restart, cancel, isPlayingNow };
+}
 
+/**
+ * The practice settings; while playing, a change restarts playback at the current bar with them (the metronome's
+ * toggle is heard at once, without a restart).
+ */
+function usePractice(session: PlayerSession, isPlaying: boolean) {
+  const [practice, setPractice] = useState<PracticeSettings>(INITIAL_PRACTICE);
+  const changePractice = useCallback(
+    (action: PracticeAction) => {
+      const previous = session.follow.current.practice;
+      const next = practiceReducer(previous, action);
+      if (next === previous) {
+        return;
+      }
+      session.follow.current = { ...session.follow.current, practice: next };
+      setPractice(next);
+      if (!isPlaying) {
+        return;
+      }
+      // The metronome is a track of the render: turning it on or off mutes it in place, without a gap.
+      if (needsNewRender(previous, next)) {
+        resumePlayer(session);
+      } else if (previous.isMetronomeOn !== next.isMetronomeOn) {
+        applyMetronome(session);
+      }
+    },
+    [session, isPlaying],
+  );
+  return { practice, changePractice };
+}
+
+/**
+ * Plays the whole song (all tracks, honouring mute/solo) from a measure, or the practice loop pass after pass, at the
+ * practice tempo, and follows it on the given track (and on the shown tracks of the multitrack view).
+ */
+export function usePlayback(song: Song | undefined, trackIndex: number, shownTrackIndexes?: readonly number[]): Playback {
+  const [state, setState] = useState<PlaybackState>({ isPlaying: false });
+  const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const generation = useRef(0);
+  const follow = useRef<Follow>({ song, trackIndex, practice: INITIAL_PRACTICE, timeline: [], measureIndex: 0 });
+  const session = useMemo<PlayerSession>(() => ({ timer, generation, follow, setState }), []);
+  const { isPlaying } = state;
+  const { practice, changePractice } = usePractice(session, isPlaying);
+  follow.current = { ...follow.current, song, trackIndex, shownTrackIndexes, practice };
+  const { restart, cancel: cancelRestartTimer, isPlayingNow } = useCoalescedRestart(session, isPlaying);
+  const stop = useCallback(() => {
+    cancelRestartTimer();
+    stopPlayer(session);
+  }, [session, cancelRestartTimer]);
+  // The count-in plays when playback starts, not when a bar button moves playing playback.
+  const start = useCallback(
+    (fromMeasureIndex: number, fromTick?: number) => {
+      const withCountIn = follow.current.practice.isCountInOn && !isPlayingNow.current;
+      launchPlayer(session, { measureIndex: fromMeasureIndex, tick: fromTick, withCountIn });
+    },
+    [session, isPlayingNow],
+  );
+  const dismissError = useCallback(() => setState((previous) => ({ ...previous, error: undefined })), []);
+  useLiveChannels(song, isPlaying, restart);
+  useLiveAudioTrack(song, isPlaying, restart);
+  useStopOnBarChanges(song, isPlaying, session);
   const audioNow = useCallback(() => audioSecondsNow(session), [session]);
   return { ...state, practice, start, stop, dismissError, changePractice, restart, audioSecondsNow: audioNow };
 }
