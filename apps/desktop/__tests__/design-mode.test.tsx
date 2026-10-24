@@ -1,5 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { type Song, setBarWidthScale, setBeatOffset, stylesheetOf } from '@gp-editor/core';
+import { SystemDesignButtons } from '../src/components/SystemDesignButtons';
 import { type DesignDrag, useDesignDrag } from '../src/hooks/use-design-drag';
 import { type DesignDragStart, SNAP_DISTANCE, designDragStep } from '../src/lib/design-drag';
 import { DEFAULT_CHORD_DISPLAY } from '../src/score/chords';
@@ -181,5 +182,45 @@ describe('useDesignDrag', () => {
     ReactTestRenderer.act(() => current().onPress(startOf(song, layout, handlesOf(song, layout)[0]!)));
     ReactTestRenderer.act(() => current().onRelease());
     expect(edits).toEqual([]);
+  });
+});
+
+describe('SystemDesignButtons', () => {
+  it('takes a bar in (+), gives one away (−) and resets the system (×), each enabled when it can act', () => {
+    // Arrange: a system of bars 3–4 in six bars, bar 4 widened
+    const song = setBarWidthScale(songOfBars(6), 3, 1.5);
+    const edits: LayoutAction[] = [];
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<SystemDesignButtons palette={PALETTE} song={song} firstMeasureIndex={2} barCount={2} onEdit={(action) => edits.push(action)} />);
+    });
+    const tooltips = new Set<string>();
+    const buttons = renderer.root.findAll((node) => typeof node.props.onPress === 'function' && typeof node.props.tooltip === 'string').filter((node) => {
+      const isNew = !tooltips.has(node.props.tooltip as string);
+      tooltips.add(node.props.tooltip as string);
+      return isNew;
+    });
+
+    // Act
+    buttons.forEach((button) => ReactTestRenderer.act(() => button.props.onPress()));
+
+    // Assert
+    expect(buttons.map((button) => button.props.accessibilityState?.disabled === true)).toEqual([false, false, false]);
+    expect(edits).toEqual([
+      { type: 'setSystemSize', measureIndex: 2, bars: 3 },
+      { type: 'setSystemSize', measureIndex: 2, bars: 1 },
+      { type: 'resetPositions', measureIndexes: [2, 3] },
+    ]);
+  });
+});
+
+describe('SystemDesignButtons at the end of the song', () => {
+  it('cannot take a bar in after the last bar, nor reset a system laid out as it is', () => {
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<SystemDesignButtons palette={PALETTE} song={songOfBars(6)} firstMeasureIndex={4} barCount={2} onEdit={() => undefined} />);
+    });
+    const states = renderer.root.findAll((node) => typeof node.props.tooltip === 'string' && node.props.accessibilityState !== undefined).map((node) => [node.props.tooltip as string, node.props.accessibilityState?.disabled === true]);
+    expect(Object.fromEntries(states)).toEqual({ 'One more bar in this system': true, 'One bar less in this system': false, 'Reset this system: bar widths, beat positions and bars as laid out': true });
   });
 });

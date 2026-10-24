@@ -83,18 +83,20 @@ function rowHandles(props: ScoreRowProps, height: number): DesignHandle[] {
   return designHandles({ song, trackIndex, row, barsX: headerWidth + namesWidth, namesWidth, geometry, height, isTop: design.isTop, isLast: design.isLast, headingHeight: ROW.heading });
 }
 
-function ScoreRowView(props: ScoreRowProps) {
-  const { row, headerWidth, geometry, width, zoom, rowIndex, trackIndex, decor, design, onPress, onDrag } = props;
+interface RowPointer {
+  readonly onPressIn: (event: GestureResponderEvent) => void;
+  readonly onPressMove: (event: GestureResponderEvent) => void;
+  readonly onPressOut: () => void;
+}
+
+/** The row's press, drag and release: a Design Mode handle first (it is dragged), else a beat (and a selection drag). */
+function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): RowPointer {
+  const { row, headerWidth, geometry, zoom, rowIndex, trackIndex, decor, onPress, onDrag } = props;
   const dragStart = useRef<DragStart | undefined>(undefined);
   // A press on a Design Mode handle drags the handle, not a selection.
   const isDesignDrag = useRef(false);
-  const height = decor?.height ?? geometry.height;
-  const handles = rowHandles(props, height);
-  // The row only re-renders when isSameRow says its content changed, so engrave directly.
-  const engraved = [...(decor === undefined ? engraveRow(props) : engraveSystemStaff(props, decor)), ...(design === undefined ? [] : engraveDesign(handles, props.palette, height, design.guideX))];
-  const commands = zoom === 1 ? engraved : scaleCommands(engraved, zoom);
   const stringCount = props.song.tracks[trackIndex]?.strings.length ?? 6;
-  const handlePressIn = (event: GestureResponderEvent) => {
+  const onPressIn = (event: GestureResponderEvent) => {
     const { locationX, locationY, pageX, pageY, shiftKey } = event.nativeEvent;
     dragStart.current = { x: locationX, y: locationY, pageX, pageY };
     const handle = hitTestDesign(handles, locationX / zoom, locationY / zoom);
@@ -109,7 +111,7 @@ function ScoreRowView(props: ScoreRowProps) {
     }
   };
   // Measured from where the mouse went down, in window points, so the pointer can be followed into other rows.
-  const handlePressMove = (event: GestureResponderEvent) => {
+  const onPressMove = (event: GestureResponderEvent) => {
     const start = dragStart.current;
     if (start !== undefined) {
       const { pageX, pageY } = event.nativeEvent;
@@ -121,17 +123,29 @@ function ScoreRowView(props: ScoreRowProps) {
       }
     }
   };
+  const onPressOut = () => {
+    dragStart.current = undefined;
+    if (isDesignDrag.current) {
+      isDesignDrag.current = false;
+      props.onDesignRelease?.();
+    }
+  };
+  return { onPressIn, onPressMove, onPressOut };
+}
+
+function ScoreRowView(props: ScoreRowProps) {
+  const { geometry, width, zoom, decor, design } = props;
+  const height = decor?.height ?? geometry.height;
+  const handles = rowHandles(props, height);
+  const pointer = useRowPointer(props, handles);
+  // The row only re-renders when isSameRow says its content changed, so engrave directly.
+  const engraved = [...(decor === undefined ? engraveRow(props) : engraveSystemStaff(props, decor)), ...(design === undefined ? [] : engraveDesign(handles, props.palette, height, design.guideX))];
+  const commands = zoom === 1 ? engraved : scaleCommands(engraved, zoom);
   return (
     <Pressable
-      onPressIn={handlePressIn}
-      onPressMove={handlePressMove}
-      onPressOut={() => {
-        dragStart.current = undefined;
-        if (isDesignDrag.current) {
-          isDesignDrag.current = false;
-          props.onDesignRelease?.();
-        }
-      }}
+      onPressIn={pointer.onPressIn}
+      onPressMove={pointer.onPressMove}
+      onPressOut={pointer.onPressOut}
       pressRetentionOffset={DRAG_RETENTION}
       style={{ width: width * zoom, height: height * zoom }}
     >

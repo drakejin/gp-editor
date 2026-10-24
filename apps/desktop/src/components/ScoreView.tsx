@@ -2,6 +2,7 @@ import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
 import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
 import { useDesignDrag } from '../hooks/use-design-drag';
+import type { DesignGuide } from '../lib/design-drag';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
 import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';
@@ -16,7 +17,7 @@ import { staffDecor } from '../score/system-staff';
 import { editedVoiceOf } from '../score/voices';
 import type { LayoutAction } from '../state/layout-edits';
 import type { Palette } from '../theme';
-import { ScoreRow } from './ScoreRow';
+import { type RowDesign, ScoreRow } from './ScoreRow';
 import { SystemDesignButtons } from './SystemDesignButtons';
 
 interface ScoreViewProps {
@@ -49,6 +50,12 @@ interface ScoreViewProps {
   readonly isDesignMode?: boolean;
   /** A Design Mode drag or button: one undo step. */
   readonly onLayoutEdit?: (action: LayoutAction) => void;
+}
+
+/** A canvas's place in its system for Design Mode, with the guideline when the drag snapped in its system. */
+function rowDesign(item: ScoreLine, staffCount: number, guide: DesignGuide | undefined): RowDesign {
+  const guideX = guide?.systemIndexes.includes(item.systemIndex) === true ? guide.x : undefined;
+  return { isTop: item.staffIndex === 0, isLast: item.staffIndex === staffCount - 1, guideX };
 }
 
 /** Rows rendered at once and kept around the viewport. */
@@ -107,21 +114,10 @@ export function ScoreView(props: ScoreViewProps) {
       const playingBeat = isSelectedTrack ? playing : playingTracks?.[staff.trackIndex];
       const firstBar = row.measures[0]?.measureIndex ?? 0;
       const lastBar = row.measures[row.measures.length - 1]?.measureIndex ?? 0;
-      const design = isDesignMode
-        ? { isTop: item.staffIndex === 0, isLast: item.staffIndex === layout.staves.length - 1, guideX: guide?.systemIndexes.includes(item.systemIndex) === true ? guide.x : undefined }
-        : undefined;
+      const design = isDesignMode ? rowDesign(item, layout.staves.length, guide) : undefined;
       return (
         <View style={[styles.pageRow, { backgroundColor: palette.paper }]}>
-          {isDesignMode && item.staffIndex === 0 ? (
-            <SystemDesignButtons
-              palette={palette}
-              firstMeasureIndex={firstBar}
-              barCount={row.measures.length}
-              hasBarsAfter={lastBar < song.measureHeaders.length - 1}
-              isDesigned={song.measureHeaders.slice(firstBar, lastBar + 1).some((each) => each.design !== undefined)}
-              onEdit={designEdit}
-            />
-          ) : null}
+          {design?.isTop === true ? <SystemDesignButtons palette={palette} song={song} firstMeasureIndex={firstBar} barCount={row.measures.length} onEdit={designEdit} /> : null}
           <ScoreRow
             song={song}
             trackIndex={staff.trackIndex}

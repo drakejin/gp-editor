@@ -1,17 +1,15 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { Song } from '@gp-editor/core';
 import type { LayoutAction } from '../state/layout-edits';
 import type { Palette } from '../theme';
 
 interface SystemDesignButtonsProps {
   readonly palette: Palette;
+  readonly song: Song;
   /** The system's first bar and how many bars it holds. */
   readonly firstMeasureIndex: number;
   readonly barCount: number;
-  /** Bars after the system (+ takes the next one in). */
-  readonly hasBarsAfter: boolean;
-  /** A bar of the system was laid out by hand (× is lit). */
-  readonly isDesigned: boolean;
   readonly onEdit: (action: LayoutAction) => void;
 }
 
@@ -42,8 +40,11 @@ function SmallButton({ palette, label, tooltip, isEnabled, isLit = false, onPres
  * Guitar Pro 8's Design Mode buttons beside a system: + takes the next system's first bar into it, − gives its last bar
  * to the next system (both fix the system's bars), × puts its bars back as the layout lays them out.
  */
-function SystemDesignButtonsView({ palette, firstMeasureIndex, barCount, hasBarsAfter, isDesigned, onEdit }: SystemDesignButtonsProps) {
+function SystemDesignButtonsView({ palette, song, firstMeasureIndex, barCount, onEdit }: SystemDesignButtonsProps) {
   const measureIndexes = Array.from({ length: barCount }, (_, i) => firstMeasureIndex + i);
+  // + takes the next system's first bar in; × is lit while a bar of the system was laid out by hand.
+  const hasBarsAfter = firstMeasureIndex + barCount < song.measureHeaders.length;
+  const isDesigned = measureIndexes.some((index) => song.measureHeaders[index]?.design !== undefined);
   return (
     <View style={styles.column}>
       <SmallButton palette={palette} label="+" tooltip="One more bar in this system" isEnabled={hasBarsAfter} onPress={() => onEdit({ type: 'setSystemSize', measureIndex: firstMeasureIndex, bars: barCount + 1 })} />
