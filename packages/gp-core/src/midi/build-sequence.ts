@@ -10,7 +10,6 @@ import {
   type SequenceEvent,
   toDataValue,
 } from './midi-events';
-import { appendAll } from './append';
 import { buildNoteEvents } from './note-events';
 import { type TrackContext, buildPlaybackBeats } from './note-search';
 import { pedalEvents } from './pedals';
@@ -105,6 +104,16 @@ function channelSetup(channel: Channel, track: Track, tick: number): SequenceEve
     { type: 'programChange', tick, channelId: channel.id, program: toDataValue(channel.program) },
     { type: 'trackName', tick, name: track.name },
   ];
+}
+
+/**
+ * Pushes `items` onto the end of `target` one by one: `target.push(...items)` copies `items` into an argument list
+ * (Hermes runs it through array helpers) and fails on very long arrays.
+ */
+function appendAll<T>(target: T[], items: readonly T[]): void {
+  for (const item of items) {
+    target.push(item);
+  }
 }
 
 /** addBeats / addNotes for one played measure: every struck note of every beat and voice, added to `events`. */

@@ -7,25 +7,27 @@ const REPLACEMENT_CHARACTER = 0xfffd;
 /** Standard MIDI File variable-length quantity (7 bits per byte, most significant first). */
 export function variableLength(value: number): number[] {
   const bytes: number[] = [];
-  pushVariableLength(bytes, value);
+  writeVariableLength(bytes, 0, value);
   return bytes;
 }
 
-/** variableLength's bytes added to the end of `target`, without an array of their own (a MIDI track writes one per event). */
-export function pushVariableLength(target: number[], value: number): void {
-  if ((value & SEVEN_BITS) === value) {
-    // One byte: most delta times of a track.
-    target.push(value);
-    return;
-  }
-  let groups = 1;
+/** How many bytes variableLength(value) takes. */
+export function variableLengthSize(value: number): number {
+  let size = 1;
   for (let rest = Math.floor(value / 128); rest > 0; rest = Math.floor(rest / 128)) {
-    groups++;
+    size++;
   }
-  for (let group = groups - 1; group > 0; group--) {
-    target.push((Math.floor(value / 128 ** group) & SEVEN_BITS) | CONTINUATION);
+  return size;
+}
+
+/** variableLength's bytes written into `bytes` from `offset`, without an array of their own; the offset after them. */
+export function writeVariableLength(bytes: Uint8Array | number[], offset: number, value: number): number {
+  let at = offset;
+  for (let group = variableLengthSize(value) - 1; group > 0; group--) {
+    bytes[at++] = (Math.floor(value / 128 ** group) & SEVEN_BITS) | CONTINUATION;
   }
-  target.push(value & SEVEN_BITS);
+  bytes[at++] = value & SEVEN_BITS;
+  return at;
 }
 
 function codePointBytes(codePoint: number): number[] {
