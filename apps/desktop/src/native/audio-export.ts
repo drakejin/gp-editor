@@ -1,5 +1,6 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import type { AudioFileSettings } from '../export/audio-formats';
+import type { AudioPlayback } from '../lib/audio-track';
 import type { MixLayout } from '../lib/mix';
 
 /** One file to render and write: its MIDI (base64, gp-core's renderMidi), the song's length, the path chosen. */
@@ -7,6 +8,8 @@ export interface AudioExportJobFile {
   readonly midi: string;
   readonly seconds: number;
   readonly path: string;
+  /** The audio track under it (GPAudioTrackPlayer's playback dictionary); absent without one. */
+  readonly audio?: AudioPlayback;
 }
 
 export interface AudioExportJob {

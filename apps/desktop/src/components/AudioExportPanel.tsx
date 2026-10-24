@@ -15,6 +15,7 @@ import {
   sampleRateLabel,
 } from '../export/audio-formats';
 import type { AudioExportStatus } from '../hooks/use-audio-export';
+import { isAudioLoaded } from '../native/audio-track';
 import type { LoopRange } from '../state/practice';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -110,7 +111,9 @@ function overallFraction(status: AudioExportStatus): number {
  */
 export function AudioExportPanel({ palette, song, fileName, loop, options, status, onChangeOptions, onExport, onCancel, onClose }: AudioExportPanelProps) {
   // A render of the song: again only for another song or range, not for another format.
-  const seconds = useMemo(() => audioExportSeconds(song, options.range, loop), [song, options.range, loop]);
+  // The length at the audio track's pace when it plays (its file loaded), as the export renders it.
+  const hasAudio = song.audioTrack !== undefined && isAudioLoaded(song.audioTrack.assetId);
+  const seconds = useMemo(() => audioExportSeconds(song, options.range, loop, hasAudio), [song, options.range, loop, hasAudio]);
   const summary = audioExportSummary(song, fileName, options, loop, seconds);
   const hasFiles = useMemo(() => planAudioExport(song, fileName, options, loop).length > 0, [song, fileName, options, loop]);
   const isIdle = status.kind === 'idle';
