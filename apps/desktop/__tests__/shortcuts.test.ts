@@ -23,6 +23,8 @@ describe('the shortcut sheet', () => {
   it('lists Guitar Pro 8’s voice keys ⌘1 to ⌘4', () => {
     const shortcut = SHORTCUT_GROUPS.flatMap((group) => group.shortcuts).find((candidate) => candidate.keys === '⌘1 – ⌘4');
     expect(shortcut).toMatchObject({ action: 'Edit voice 1, 2, 3 or 4 (the palette’s Voice buttons)', press: { key: '1', metaKey: true } });
+    const move = SHORTCUT_GROUPS.flatMap((group) => group.shortcuts).find((candidate) => candidate.keys === '⌥1 – ⌥4');
+    expect(move).toMatchObject({ action: 'Move the note (or the selected beats) to voice 1, 2, 3 or 4', press: { key: '2', altKey: true } });
   });
 
   it('lists the practice keys and View ▸ Focus', () => {

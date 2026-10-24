@@ -21,6 +21,8 @@ export interface EditionPaletteProps {
   readonly palette: Palette;
   readonly song: Song;
   readonly cursor?: StringAddress;
+  /** Multivoice edition is on: its palette button is lit. */
+  readonly isMultivoice?: boolean;
   readonly onEdit: (edit: SongEdit) => void;
   readonly onAction: (action: EditorAction) => void;
   /** The bend and vibrato tools open the same panels as C and B. */
@@ -35,8 +37,8 @@ export interface EditionPaletteProps {
  * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
  * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, onEdit, onAction, onOpenPanel, onOpenChordPanel }: EditionPaletteProps) {
-  const context = paletteContext(song, cursor);
+function EditionPaletteView({ palette, song, cursor, isMultivoice = false, onEdit, onAction, onOpenPanel, onOpenChordPanel }: EditionPaletteProps) {
+  const context = { ...paletteContext(song, cursor), isMultivoice };
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
   const press = (tool: PaletteTool) => {

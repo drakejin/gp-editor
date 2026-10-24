@@ -510,7 +510,7 @@ export default function App() {
         <DocumentLayout
           left={
             chrome.panels.palette ? (
-              <EditionPalette palette={palette} song={document.song} cursor={cursor} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel} />
+              <EditionPalette palette={palette} song={document.song} cursor={cursor} isMultivoice={state.isMultivoice} onEdit={editAtCursor} onAction={actAtCursor} onOpenPanel={openNotePanel} onOpenChordPanel={openChordPanel} />
             ) : null
           }
           center={
@@ -522,6 +522,7 @@ export default function App() {
               mode={state.mode}
               chordDisplay={state.chordDisplay}
               cursor={cursor}
+              isMultivoice={state.isMultivoice}
               playing={playback.playing}
               selection={selection}
               palette={palette}

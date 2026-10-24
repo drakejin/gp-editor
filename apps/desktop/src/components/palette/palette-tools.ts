@@ -15,6 +15,8 @@ export interface PaletteContext {
   readonly keySignature: number;
   /** The cursor's measure (its sustain pedal marks). */
   readonly measure?: Measure;
+  /** Multivoice edition is on (the editor's, not the cursor's). */
+  readonly isMultivoice?: boolean;
 }
 
 export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {

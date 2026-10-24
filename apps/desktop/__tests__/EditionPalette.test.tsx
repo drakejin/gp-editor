@@ -14,7 +14,7 @@ const ON_NOTE: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, v
 const ON_EMPTY_STRING: StringAddress = { ...ON_NOTE, string: 4 };
 
 /** `null`: no cursor. */
-function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
+function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
   const onOpenPanel = jest.fn();
@@ -22,7 +22,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
+      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} isMultivoice={isMultivoice} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
     );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
@@ -144,7 +144,7 @@ describe('EditionPalette edits', () => {
 
   it('offers voices 1 to 4 in one row, each in its voice’s colour, with its key in the tooltip', () => {
     // Arrange / Act
-    const voices = PALETTE_GROUPS.find((group) => group.title === 'Voice')?.tools ?? [];
+    const voices = PALETTE_GROUPS.find((group) => group.title === 'Voice')?.tools.slice(0, 4) ?? [];
     const palette = render();
 
     // Assert
@@ -157,6 +157,32 @@ describe('EditionPalette edits', () => {
     ]);
     expect(voices.map((tool) => tool.tint?.(PALETTE))).toEqual([0, 1, 2, 3].map((index) => voiceTint(index, PALETTE)));
     expect(palette.tool('voice3').findAllByProps({ testID: 'palette-voice3-tint' })).not.toHaveLength(0);
+  });
+
+  it('moves the note to another voice from the ⇄ tool’s options', () => {
+    // Arrange
+    const palette = render();
+
+    // Act
+    palette.press('moveVoice');
+    palette.pressTooltip('Move the note (or the selected beats) to voice 3 (⌥3)');
+
+    // Assert
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'moveToVoice', voiceIndex: 2 });
+  });
+
+  it('turns multivoice on and off, lit while it is on', () => {
+    expect(render().tool('multivoice').props.isActive).toBe(false);
+    const palette = render(ON_NOTE, SONG, true);
+    expect(palette.tool('multivoice').props.isActive).toBe(true);
+    palette.press('multivoice');
+    expect(palette.onAction).toHaveBeenCalledWith({ type: 'toggleMultivoice' });
+  });
+
+  it('keeps the Voice group on one row: four voices, ⇄ and multivoice', () => {
+    const group = PALETTE_GROUPS.find((candidate) => candidate.title === 'Voice');
+    expect(group?.tools.map((tool) => tool.id)).toEqual(['voice1', 'voice2', 'voice3', 'voice4', 'moveVoice', 'multivoice']);
+    expect((group?.toolWidth ?? 0) * 6 + 2 * 6).toBeLessThanOrEqual(198);
   });
 
   it('lights the cursor’s voice and keeps the beat’s tools on in voice 3 of a beat read with one voice slot', () => {

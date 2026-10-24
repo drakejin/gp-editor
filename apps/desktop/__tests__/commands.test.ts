@@ -63,6 +63,13 @@ describe('command registry: voices', () => {
     expect(COMMANDS.some((command) => command.id === 'palette.voice3')).toBe(false);
     expect(voices.every((command) => command.isEnabled(ON_NOTE))).toBe(true);
   });
+
+  it('lists Move to Voice 1 to 4 with ⌥1 to ⌥4 and Multivoice, once each', () => {
+    const moves = [1, 2, 3, 4].map((number) => find(`edit.moveToVoice${number}`));
+    expect(moves.map((command) => [command.title, command.shortcut])).toEqual([1, 2, 3, 4].map((number) => [`Move to Voice ${number}`, `⌥${number}`]));
+    expect(COMMANDS.filter((command) => JSON.stringify(command.command) === JSON.stringify(moves[2]?.command))).toHaveLength(1);
+    expect(COMMANDS.filter((command) => JSON.stringify(command.command) === JSON.stringify({ type: 'toggleMultivoice' }))).toHaveLength(1);
+  });
 });
 
 describe('command registry', () => {

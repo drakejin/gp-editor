@@ -299,6 +299,66 @@ describe('editorReducer: song information', () => {
   });
 });
 
+describe('editorReducer: multivoice and moving notes between voices', () => {
+  /** Bar 1: voice 1 a chord (strings 1 and 6) then three quarters. */
+  function chordState(): EditorState {
+    const song = makeSong([[beat(960, [note(1, 3), note(6, 0)]), beat(1920, [note(2, 5)]), beat(2880, [note(3, 2)]), beat(3840, [note(4, 7)])]]);
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } });
+  }
+
+  it('moves the note at the cursor to voice 2 in one undo step, the cursor staying in voice 1', () => {
+    // Arrange
+    const state = editorReducer(chordState(), { type: 'moveCursorString', delta: 5 });
+
+    // Act
+    const moved = editorReducer(state, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 1 } });
+
+    // Assert
+    expect(findNote(song(moved), { ...at(moved), voiceIndex: 1 })?.fret).toBe(0);
+    expect(at(moved)).toEqual(at(state));
+    expect(moved.past).toHaveLength(1);
+  });
+
+  it('moves the selected beats, the selection ending', () => {
+    // Arrange: beats 2 to 4 selected
+    let state = editorReducer(chordState(), { type: 'moveCursorBeat', step: 1 });
+    state = editorReducer(editorReducer(state, { type: 'extendSelection', step: 1 }), { type: 'extendSelection', step: 1 });
+
+    // Act
+    const moved = editorReducer(state, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 3 } });
+
+    // Assert
+    const voice4 = song(moved).tracks[0]!.measures[0]!.beats.flatMap((b) => b.voices[3]?.notes.map((n) => n.fret) ?? []);
+    expect(voice4).toEqual([5, 2, 7]);
+    expect(moved.selectionAnchor).toBeUndefined();
+  });
+
+  it('says why a move did nothing', () => {
+    const state = chordState();
+    const refused = editorReducer(state, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 0 } });
+    expect(refused.hint).toBe('The notes are in voice 1 already.');
+    expect(song(refused)).toBe(song(state));
+  });
+
+  it('turns multivoice on and off; with it on, a click on a note puts the cursor in that note’s voice', () => {
+    // Arrange: the chord's low note moved to voice 2, the cursor back on voice 1
+    const moved = editorReducer(editorReducer(chordState(), { type: 'moveCursorString', delta: 5 }), { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 1 } });
+
+    // Act
+    const multivoice = editorReducer(moved, { type: 'toggleMultivoice' });
+    const clicked = editorReducer(multivoice, { type: 'placeCursor', cursor: { ...at(moved), string: 6 } });
+    const onEmptyString = editorReducer(multivoice, { type: 'placeCursor', cursor: { ...at(moved), string: 4 } });
+    const single = editorReducer(moved, { type: 'placeCursor', cursor: { ...at(moved), string: 6 } });
+
+    // Assert
+    expect(multivoice.isMultivoice).toBe(true);
+    expect(editorReducer(multivoice, { type: 'toggleMultivoice' }).isMultivoice).toBe(false);
+    expect(at(clicked)).toMatchObject({ string: 6, voiceIndex: 1 });
+    expect(at(onEmptyString)).toMatchObject({ string: 4, voiceIndex: 0 });
+    expect(at(single)).toMatchObject({ string: 6, voiceIndex: 0 });
+  });
+});
+
 describe('editorReducer: second voice', () => {
   const EMPTY_VOICE = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' } as const;
 

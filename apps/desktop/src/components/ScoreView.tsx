@@ -25,6 +25,8 @@ interface ScoreViewProps {
   /** What the score shows of its chords (names, diagrams); both by default. */
   readonly chordDisplay?: ChordDisplay;
   readonly cursor?: StringAddress;
+  /** Multivoice edition: no voice faded (else every voice but the cursor's). */
+  readonly isMultivoice?: boolean;
   readonly playing?: PlayingBeat;
   /** Selected beats of the shown track (selectionRange), tinted; keep it the same object while it does not change. */
   readonly selection?: BeatRange;
@@ -52,7 +54,7 @@ const SCROLL_POSITION = 0.25;
  * The score as one page on Guitar Pro's grey desk: the title block, then the rows of the shown track, zoomed. The
  * playing row, and the cursor's row when it leaves the view (a bar picked in the bar map), are scrolled into view.
  */
-export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, playing, selection, palette, zoom, header, onPressBeat, onDragBeat }: ScoreViewProps) {
+export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD_DISPLAY, cursor, isMultivoice, playing, selection, palette, zoom, header, onPressBeat, onDragBeat }: ScoreViewProps) {
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -142,7 +144,7 @@ export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD
             playing={inRow(playing?.measureIndex) ? playing : undefined}
             selection={clipRange(selection, item.measures[0]?.measureIndex ?? 0, item.measures[item.measures.length - 1]?.measureIndex ?? 0)}
             markLanes={markLanes}
-            editedVoiceIndex={cursor?.voiceIndex}
+            editedVoiceIndex={isMultivoice === true ? undefined : cursor?.voiceIndex}
             zoom={zoom}
             rowIndex={index}
             onPress={onPressRow}
@@ -151,7 +153,7 @@ export function ScoreView({ song, trackIndex, mode, chordDisplay = DEFAULT_CHORD
         </View>
       );
     },
-    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, playing, selection, markLanes, zoom, onPressRow, onDragRow],
+    [song, trackIndex, rowWidth, headerWidth, mode, geometry, palette, cursor, isMultivoice, playing, selection, markLanes, zoom, onPressRow, onDragRow],
   );
 
   return (

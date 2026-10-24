@@ -82,8 +82,13 @@ const HARMONICS: readonly (readonly [HarmonicType, string, string])[] = [
 ];
 
 const VOICE_ORDINALS = ['first', 'second', 'third', 'fourth'] as const;
+/** Six tools on one row: the four voices, Move Voice and Multivoice. */
+const VOICE_TOOL_WIDTH = 30;
 
-/** Guitar Pro 8's four voices, each button in its voice's colour; ⌘1–⌘4 do the same. */
+/**
+ * Guitar Pro 8's voices: the four, each in its voice's colour (⌘1–⌘4), Move Voice (⌥1–⌥4) and Multivoice (every
+ * voice edited at once, none faded).
+ */
 function voiceGroup(): PaletteGroup {
   const voiceTool = (ordinal: string, voiceIndex: number): PaletteTool => ({
     id: `voice${voiceIndex + 1}`,
@@ -94,7 +99,27 @@ function voiceGroup(): PaletteGroup {
     isActive: (context) => context.cursor?.voiceIndex === voiceIndex,
     tint: (palette) => voiceTint(voiceIndex, palette),
   });
-  return { title: 'Voice', tools: VOICE_ORDINALS.map(voiceTool) };
+  const moves: readonly PaletteOption[] = VOICE_ORDINALS.map((_, voiceIndex) => ({
+    label: `→ ${voiceIndex + 1}`,
+    tooltip: `Move the note (or the selected beats) to voice ${voiceIndex + 1} (⌥${voiceIndex + 1})`,
+    edit: { type: 'moveToVoice', voiceIndex },
+  }));
+  return {
+    title: 'Voice',
+    toolWidth: VOICE_TOOL_WIDTH,
+    tools: [
+      ...VOICE_ORDINALS.map(voiceTool),
+      { id: 'moveVoice', face: '⇄', tooltip: 'Move Voice: the note at the cursor, or the selected beats, to another voice (⌥1–⌥4)', scope: 'beat', run: { kind: 'options', options: moves } },
+      {
+        id: 'multivoice',
+        face: '1–4',
+        tooltip: 'Multivoice: edit every voice at once — none faded, a click on a note picks its voice',
+        scope: 'beat',
+        run: { kind: 'action', action: { type: 'toggleMultivoice' } },
+        isActive: (context) => context.isMultivoice === true,
+      },
+    ],
+  };
 }
 
 function barGroup(): PaletteGroup {

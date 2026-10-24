@@ -32,6 +32,7 @@ import { type BarEdit, applyBarEdit } from './bar-edits';
 import { type MarkEdit, applyMarkEdit } from './mark-edits';
 import { type NotationEdit, applyNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
+import { type VoiceEdit, applyVoiceEdit } from './voice-edits';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
 type DurationEdit =
@@ -65,6 +66,7 @@ export type SongEdit =
   | BarEdit
   | MarkEdit
   | NotationEdit
+  | VoiceEdit
   | { readonly type: 'insertMeasure' }
   | { readonly type: 'deleteMeasure' }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
@@ -139,6 +141,8 @@ export function applySongEdit(
     case 'setRasgueado':
     case 'togglePedal':
       return applyMarkEdit(song, cursor, edit);
+    case 'moveToVoice':
+      return applyVoiceEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);
   }

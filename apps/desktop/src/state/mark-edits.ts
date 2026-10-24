@@ -33,9 +33,12 @@ export function isMarkEdit(edit: { readonly type: string }): edit is MarkEdit {
   return Object.prototype.hasOwnProperty.call(MARK_EDIT_TYPES, edit.type);
 }
 
-/** A hairpin goes over the selection: the edit gets where the selection starts (other edits are left as they are). */
+/**
+ * A hairpin goes over the selection, and Move Voice moves its beats: the edit gets where the selection starts (other
+ * edits are left as they are).
+ */
 export function withSelectionStart<T extends { readonly type: string }>(edit: T, anchor: StringAddress | undefined): T {
-  if (anchor === undefined || edit.type !== 'toggleHairpin') {
+  if (anchor === undefined || (edit.type !== 'toggleHairpin' && edit.type !== 'moveToVoice')) {
     return edit;
   }
   return { ...edit, from: { measureIndex: anchor.measureIndex, beatIndex: anchor.beatIndex } };

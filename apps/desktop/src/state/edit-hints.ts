@@ -1,6 +1,7 @@
 import { type Song, type StringAddress, findNote } from '@gp-editor/core';
 import { needsNote } from './note-edits';
 import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
+import { voiceMoveHint } from './voice-edits';
 
 /** The note values a time signature's beat can be, in order (÷ steps through them). */
 const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32, 64];
@@ -15,6 +16,9 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
   }
   if (edit.type === 'setInnerTuplet' || edit.type === 'toggleInnerTriplet') {
     return innerTupletHint(song, cursor);
+  }
+  if (edit.type === 'moveToVoice') {
+    return voiceMoveHint(song, cursor, edit);
   }
   if (edit.type !== 'shiftTimeSignature') {
     return undefined;

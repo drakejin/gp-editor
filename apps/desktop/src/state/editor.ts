@@ -39,6 +39,7 @@ import {
   adjacentString,
   clampCursor,
   firstCursor,
+  voiceWithNoteAt,
 } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
@@ -93,6 +94,8 @@ export interface EditorState {
   readonly notice?: string;
   /** Why the last edit at the cursor changed nothing (e.g. a shorter time signature for a full bar). */
   readonly hint?: string;
+  /** Guitar Pro 8's multivoice edition: no voice faded, and a click on a note puts the cursor in that note's voice. */
+  readonly isMultivoice?: boolean;
 }
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
@@ -147,6 +150,7 @@ export type EditorAction =
   | { readonly type: 'moveCursorString'; readonly delta: number }
   /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
   | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
@@ -246,7 +250,7 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
 function cursorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'placeCursor':
-      return withCursor(state, () => action.cursor);
+      return withCursor(state, (song) => (state.isMultivoice === true ? voiceWithNoteAt(song, action.cursor) : action.cursor));
     case 'moveCursorBeat':
       return withCursor(state, (song, cursor) =>
         adjacentBeat(song, cursor, action.step),
@@ -257,6 +261,8 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       );
     case 'selectVoice':
       return selectVoice(state, action.voiceIndex);
+    case 'toggleMultivoice':
+      return { ...state, isMultivoice: state.isMultivoice !== true };
     case 'extendSelection':
       return extendSelection(state, action.step);
     case 'selectTo':
