@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { setNoteFret } from '../src/edit/edit-song';
-import { matchTrackIndexes, remapTrackIndex, remapTrackIndexes } from '../src/edit/track-index-map';
+import { isIdentityTrackMap, matchTrackIndexes, remapTrackIndex, remapTrackIndexes } from '../src/edit/track-index-map';
 import { addTrack, deleteTrack, duplicateTrack, moveTrack } from '../src/edit/tracks';
 import type { Song } from '../src/model/song';
 import { buildSong, deepFreeze, n, play } from './helpers/edit-songs';
@@ -24,6 +24,15 @@ describe('remapTrackIndexes', () => {
     expect(remapTrackIndexes([2, 0, 1], [0, 2])).toEqual([1, 2]);
     expect(remapTrackIndexes([0, undefined, 1], [2, 1, 0])).toEqual([0, 1]);
     expect(remapTrackIndexes([0, 1], [])).toEqual([]);
+  });
+});
+
+describe('isIdentityTrackMap', () => {
+  it('tells a map that moves nothing from one that adds, deletes or moves a track', () => {
+    expect(isIdentityTrackMap([0, 1, 2], 3)).toBe(true);
+    expect(isIdentityTrackMap([0, 1, 2], 4)).toBe(false);
+    expect(isIdentityTrackMap([0, undefined, 1], 2)).toBe(false);
+    expect(isIdentityTrackMap([1, 0], 2)).toBe(false);
   });
 });
 

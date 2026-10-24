@@ -45,6 +45,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
     addAudioTrack: jest.fn(),
+    runTrackCommand: jest.fn(),
     togglePanel: jest.fn(),
     toggleLoop: jest.fn(),
     toggleFocus: jest.fn(),
@@ -251,5 +252,18 @@ describe('command registry: running', () => {
     expect(actions.runCommand.mock.calls).toEqual([[{ type: 'setAudioTrack', audioTrack: undefined }], [{ type: 'markSyncPoint' }], [{ type: 'setTempoFromAudio' }]]);
     expect(find('track.syncBar').shortcut).toBe('Y');
     expect(find('track.addAudioTrack').isEnabled(NO_DOCUMENT)).toBe(false);
+  });
+
+  it('adds, duplicates, deletes and moves tracks through the Track menu’s handler, with Guitar Pro 8’s keys', () => {
+    // Arrange
+    const actions = mockActions();
+
+    // Act
+    ['track.add', 'track.duplicate', 'track.delete', 'track.moveUp', 'track.moveDown'].forEach((id) => find(id).run(actions));
+
+    // Assert
+    expect(actions.runTrackCommand.mock.calls).toEqual([['add'], ['duplicate'], ['delete'], ['moveUp'], ['moveDown']]);
+    expect([find('track.add').shortcut, find('track.delete').shortcut]).toEqual(['⌥⌘N', '⌥⌘R']);
+    expect(find('track.add').isEnabled(NO_DOCUMENT)).toBe(false);
   });
 });

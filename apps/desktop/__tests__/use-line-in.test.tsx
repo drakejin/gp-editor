@@ -91,6 +91,23 @@ describe('useLineIn', () => {
     expect(mockNative.stop).toHaveBeenCalled();
   });
 
+  it('keeps the lock on its track when tracks move, and lets go when its track is deleted', () => {
+    // Arrange
+    const hook = renderHook(2);
+    ReactTestRenderer.act(() => hook.current().toggleLock());
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().remapTrack([1, 2, 0]));
+    const moved = hook.current().lockedTrackIndex;
+    ReactTestRenderer.act(() => hook.current().remapTrack([undefined, 0, 1]));
+
+    // Assert
+    expect(moved).toBe(0);
+    expect(hook.current().lockedTrackIndex).toBeUndefined();
+    expect(hook.current().trackIndex).toBe(2);
+    hook.unmount();
+  });
+
   it('sends a new gain and monitoring at once, and reads the level while on', async () => {
     // Arrange
     const hook = renderHook(0);

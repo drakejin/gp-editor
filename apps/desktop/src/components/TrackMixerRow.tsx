@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Channel, Track } from '@gp-editor/core';
 import { ScoreCanvas } from '../native/score-canvas';
@@ -14,6 +14,7 @@ import {
 } from '../score/panel-icons';
 import type { Palette } from '../theme';
 import { MIXER, MixerSlider } from './MixerSlider';
+import { useTrackRowDrag } from './track-row-drag';
 
 /** Columns of the track table, left of the bar map; rows are as tall as the bar map's (BAR_MAP.rowHeight). */
 export const TRACK_TABLE = {
@@ -44,6 +45,14 @@ export interface TrackMixerRowProps {
   readonly onSetTrackVolume: (trackIndex: number, volume: number) => void;
   readonly onSetTrackBalance: (trackIndex: number, balance: number) => void;
   readonly onEditInstrument: (trackIndex: number) => void;
+  /** Tracks in the table: how far a drag of the name can move the track. */
+  readonly trackCount?: number;
+  /** The row being dragged to another place (drawn dimmed). */
+  readonly isDragged?: boolean;
+  /** While the name is dragged: where the track would go (undefined when the drag ends). */
+  readonly onDragTrack?: (fromIndex: number, toIndex: number | undefined) => void;
+  /** The name was dragged to another row: the track moves there (one undo step). */
+  readonly onMoveTrack?: (fromIndex: number, toIndex: number) => void;
 }
 
 /** One track of the table: instrument icon, "1. Name", show / mute / solo, volume and pan. */
@@ -53,8 +62,11 @@ function TrackMixerRowView(props: TrackMixerRowProps) {
   const name = track.name.trim() === '' ? 'Untitled' : track.name;
   const isDrums = props.iconKind === 'drums';
   const instrumentIcon = useMemo(() => engraveInstrumentIcon(props.iconKind, visibleTrackColor(track.color)), [props.iconKind, track.color]);
+  const drag = useTrackRowDrag(trackIndex, props.trackCount ?? 1, { onSelect: props.onSelectTrack, onDragOver: props.onDragTrack, onDrop: props.onMoveTrack });
   return (
-    <View style={[styles.row, { borderBottomColor: palette.chromeBorder }, isSelected ? { backgroundColor: selectedRowColor(palette) } : null]}>
+    <View
+      style={[styles.row, { borderBottomColor: palette.chromeBorder }, isSelected ? { backgroundColor: selectedRowColor(palette) } : null, props.isDragged === true ? styles.dragged : null]}
+    >
       <PanelIconButton
         commands={instrumentIcon}
         size={TRACK_TABLE.instrumentBox}
@@ -65,8 +77,8 @@ function TrackMixerRowView(props: TrackMixerRowProps) {
         onPress={() => props.onEditInstrument(trackIndex)}
       />
       <Pressable
-        onPress={() => props.onSelectTrack(trackIndex)}
-        tooltip={props.instrumentName === undefined ? name : `${name}: ${props.instrumentName}`}
+        {...drag}
+        tooltip={`${props.instrumentName === undefined ? name : `${name}: ${props.instrumentName}`}${props.onMoveTrack === undefined ? '' : ' (drag up or down to move the track)'}`}
         accessibilityRole="button"
         accessibilityLabel={`Track ${number}: ${name}`}
         style={styles.name}
@@ -204,11 +216,17 @@ export function TrackTableHeader({ palette }: TrackTableBandProps) {
   );
 }
 
-/** Beside the sections row of the bar map; "+ Audio Track" while the song has none. */
-export function TrackTableFooter({ palette, onAddAudioTrack }: TrackTableBandProps) {
+interface TrackTableFooterProps extends TrackTableBandProps {
+  /** The track buttons (+, duplicate, delete, move up / down), beside "+ Audio Track". */
+  readonly trackActions?: ReactNode;
+}
+
+/** Beside the sections row of the bar map: the track buttons, and "+ Audio Track" while the song has none. */
+export function TrackTableFooter({ palette, onAddAudioTrack, trackActions }: TrackTableFooterProps) {
   return (
     <View style={[styles.band, { height: BAR_MAP.sectionsHeight, backgroundColor: palette.chromeDeep }]}>
       <Text style={[styles.caption, styles.sections, { color: palette.chromeMuted }]}>Sections</Text>
+      {trackActions}
       {onAddAudioTrack === undefined ? null : (
         <Pressable
           testID="tracks-panel-add-audio-track"
@@ -239,6 +257,7 @@ const styles = StyleSheet.create({
   name: { flex: 1, height: BAR_MAP.rowHeight, justifyContent: 'center', marginLeft: 6, marginRight: 4 },
   nameText: { fontSize: 12 },
   selectedName: { fontWeight: '700' },
+  dragged: { opacity: 0.45 },
   toggles: { flexDirection: 'row', gap: TRACK_TABLE.toggleGap, marginRight: TRACK_TABLE.columnGap },
   gap: { width: TRACK_TABLE.columnGap },
   iconButton: { alignItems: 'center', justifyContent: 'center', borderRadius: 4 },

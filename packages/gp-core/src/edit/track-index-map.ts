@@ -16,6 +16,11 @@ export function remapTrackIndexes(map: TrackIndexMap, trackIndexes: readonly num
   return trackIndexes.flatMap((trackIndex) => remapTrackIndex(map, trackIndex) ?? []).sort((a, b) => a - b);
 }
 
+/** True when `map` leaves every one of `trackCount` tracks where it was (nothing added, deleted or moved). */
+export function isIdentityTrackMap(map: TrackIndexMap, trackCount: number): boolean {
+  return map.length === trackCount && map.every((trackIndex, oldIndex) => trackIndex === oldIndex);
+}
+
 /**
  * How the tracks of `before` map onto those of `after`, one step of the undo history apart. Track edits keep a track's
  * list of measures (the same array object) wherever the track goes, while a new or duplicated track gets a new one; so a

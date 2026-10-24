@@ -1,5 +1,5 @@
 import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
-import type { Lyrics, Song } from '@gp-editor/core';
+import { type Lyrics, type Song, matchTrackIndexes, remapTrackIndex } from '@gp-editor/core';
 import { type LyricsDraft, draftLyrics, effectiveLyrics, initialLyricsDraft, isSameLyrics, trackLyricsDraft } from '../lib/lyrics-draft';
 import type { EditorAction } from '../state/editor';
 import type { WorkspaceAction } from '../state/workspace';
@@ -65,9 +65,11 @@ export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number,
       if (pending.current !== undefined) {
         clearTimeout(pending.current.timer);
       }
+      // The waiting draft is read when the time comes: its track may have moved meanwhile (useFollowSong).
       const timer = setTimeout(() => {
+        const waiting = pending.current;
         pending.current = undefined;
-        apply(next, tabId);
+        apply(waiting?.draft ?? next, tabId);
       }, LYRICS_APPLY_DELAY);
       pending.current = { draft: next, tabId, timer };
     },
@@ -118,22 +120,34 @@ interface FollowSong {
   readonly tabId: string | undefined;
   readonly draft: LyricsDraft | undefined;
   readonly draftTab: { current: string | undefined };
-  readonly pending: { readonly current: Pending | undefined };
-  readonly known: { readonly current: Lyrics | undefined };
+  readonly pending: { current: Pending | undefined };
+  readonly known: { current: Lyrics | undefined };
   readonly flush: () => void;
   readonly show: (next: LyricsDraft | undefined, from: Song | undefined) => void;
 }
 
+/** Where the draft's track went when the song's tracks were added, deleted or moved; undefined when it was deleted. */
+function followDraftTrack(before: Song | undefined, song: Song, trackIndex: number): number | undefined {
+  return before === undefined || before.tracks === song.tracks ? trackIndex : remapTrackIndex(matchTrackIndexes(before, song), trackIndex);
+}
+
 /**
  * Keeps the open panel on the song shown: another tab's lyrics when the tab changes (what was typed still goes to its
- * own tab), the song's lyrics after an undo or redo, closed without a song.
+ * own tab), its track wherever a track edit moves it (the shown track's lyrics when it was deleted), the song's lyrics
+ * after an undo or redo, closed without a song.
  */
 function useFollowSong({ song, shownTrackIndex, tabId, draft, draftTab, pending, known, flush, show }: FollowSong): void {
+  const followed = useRef(song);
   useEffect(() => {
+    const before = followed.current;
+    followed.current = song;
     if (draft === undefined) {
       return;
     }
-    if (song === undefined) {
+    const trackIndex = song === undefined || draftTab.current !== tabId ? draft.trackIndex : followDraftTrack(before, song, draft.trackIndex);
+    if (song !== undefined && trackIndex !== draft.trackIndex) {
+      retargetDraft({ song, shownTrackIndex, draft, pending, known, show }, trackIndex);
+    } else if (song === undefined) {
       flush();
       show(undefined, undefined);
     } else if (draftTab.current !== tabId) {
@@ -147,4 +161,27 @@ function useFollowSong({ song, shownTrackIndex, tabId, draft, draftTab, pending,
       }
     }
   }, [song, shownTrackIndex, tabId, draft, draftTab, pending, known, flush, show]);
+}
+
+/** The draft (and the typing still waiting) on its track's new index; its track deleted, the shown track's lyrics. */
+function retargetDraft(
+  { song, shownTrackIndex, draft, pending, known, show }: Pick<FollowSong, 'shownTrackIndex' | 'pending' | 'known' | 'show'> & { readonly song: Song; readonly draft: LyricsDraft },
+  trackIndex: number | undefined,
+): void {
+  const waiting = pending.current;
+  if (trackIndex === undefined) {
+    if (waiting !== undefined) {
+      clearTimeout(waiting.timer);
+    }
+    pending.current = undefined;
+    show(initialLyricsDraft(song, shownTrackIndex), song);
+    return;
+  }
+  // What was typed and is still waiting stays what the panel knows of the track's lyrics.
+  const typed = known.current;
+  pending.current = waiting === undefined ? undefined : { ...waiting, draft: { ...waiting.draft, trackIndex } };
+  show({ ...draft, trackIndex }, song);
+  if (waiting !== undefined) {
+    known.current = typed;
+  }
 }
