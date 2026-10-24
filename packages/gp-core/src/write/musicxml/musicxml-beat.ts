@@ -118,10 +118,12 @@ function graceElements(context: PartContext, event: VoiceEvent, staff: StaffSpec
   const graced = event.voice.notes.flatMap((note) => (note.effect.grace === undefined ? [] : [{ note, grace: note.effect.grace }]));
   return graced.map(({ note, grace }, index) => {
     const pitch = openString(context.track, note.string) + context.track.offset + grace.fret;
+    const { sound, instrument } = soundOf(context, grace.fret, pitch, keySignature);
     return noteElement({
       grace: element('grace', { slash: grace.onBeat ? undefined : 'yes' }),
       isChord: index > 0,
-      ...soundOf(context, grace.fret, pitch, keySignature),
+      sound,
+      instrument,
       voice: voiceNumber(event.voiceIndex, staff),
       graceType: GRACE_TYPES[grace.duration] ?? GRACE_TYPES[3],
       hasStem: !staff.isTab,
@@ -205,15 +207,28 @@ function noteheadOf(note: Note): XmlNode | undefined {
   return note.effect.deadNote ? textElement('notehead', 'x') : undefined;
 }
 
+type TieTypes = readonly ('start' | 'stop')[];
+/** A note's `<tie>`s by whether it ends a tie and starts one. */
+const TIES: Readonly<Record<'none' | 'stop' | 'start' | 'both', TieTypes>> = { none: [], stop: ['stop'], start: ['start'], both: ['stop', 'start'] };
+
+function tiesOf(isTieEnd: boolean, isTieStart: boolean): TieTypes {
+  if (isTieEnd) {
+    return isTieStart ? TIES.both : TIES.stop;
+  }
+  return isTieStart ? TIES.start : TIES.none;
+}
+
 function mainNote(input: MainNoteInput, note: Note, index: number): XmlNode {
   const { context, event, staff } = input;
   const next = context.flow.next.get(noteKey(event, note.string));
+  const { sound, instrument } = soundOf(context, note.fret, soundingPitch(context.track, note, staff.isTab), input.keySignature);
   return noteElement({
     attributes: { dynamics: dynamicsPercent(note.velocity) },
     isChord: index > 0,
-    ...soundOf(context, note.fret, soundingPitch(context.track, note, staff.isTab), input.keySignature),
+    sound,
+    instrument,
     ticks: durationTicks(event.voice.duration) / context.unit,
-    ties: [...(note.isTied ? ['stop' as const] : []), ...(next?.isTied === true ? ['start' as const] : [])],
+    ties: tiesOf(note.isTied, next?.isTied === true),
     voice: voiceNumber(event.voiceIndex, staff),
     duration: event.voice.duration,
     hasStem: !staff.isTab,

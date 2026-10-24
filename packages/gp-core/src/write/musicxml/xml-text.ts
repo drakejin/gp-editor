@@ -36,19 +36,36 @@ function withoutLoneSurrogates(value: string): string {
   return out;
 }
 
+/** Any character escapeXml changes: most values (numbers, names) have none and are returned as they are. */
+const NEEDS_ESCAPING = /[&<>"'\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/;
+
 /** Text or an attribute value as XML: markup characters escaped, characters XML cannot hold dropped or replaced. */
 export function escapeXml(value: string): string {
+  if (!NEEDS_ESCAPING.test(value)) {
+    return value;
+  }
   return withoutLoneSurrogates(value)
     .replace(FORBIDDEN_CHARACTERS, '')
     .replace(/[&<>"']/g, (character) => ESCAPES[character] ?? character);
 }
 
+const NO_ATTRIBUTES: XmlNode['attributes'] = [];
+const NO_CHILDREN: readonly XmlNode[] = [];
+
 function toAttributes(attributes: XmlAttributes): XmlNode['attributes'] {
-  return Object.entries(attributes).flatMap(([name, value]): (readonly [string, string])[] => (value === undefined ? [] : [[name, String(value)]]));
+  let pairs: (readonly [string, string])[] | undefined;
+  for (const name of Object.keys(attributes)) {
+    const value = attributes[name];
+    if (value !== undefined) {
+      pairs = pairs ?? [];
+      pairs.push([name, String(value)]);
+    }
+  }
+  return pairs ?? NO_ATTRIBUTES;
 }
 
 function present(children: readonly XmlChild[]): readonly XmlNode[] {
-  return children.filter((child): child is XmlNode => child !== undefined && child !== false);
+  return children.length === 0 ? NO_CHILDREN : children.filter((child): child is XmlNode => child !== undefined && child !== false);
 }
 
 /** addNode(parent, name) with its attributes and children. */
@@ -58,7 +75,7 @@ export function element(name: string, attributes: XmlAttributes = {}, children: 
 
 /** addNode(parent, name, content). */
 export function textElement(name: string, text: string | number, attributes: XmlAttributes = {}): XmlNode {
-  return { name, attributes: toAttributes(attributes), children: [], text: String(text) };
+  return { name, attributes: toAttributes(attributes), children: NO_CHILDREN, text: String(text) };
 }
 
 /** An element only when it has children (removeNodeIfNoChildren). */
@@ -68,19 +85,34 @@ export function elementIfAny(name: string, children: readonly XmlChild[], attrib
 }
 
 function openTag(node: XmlNode): string {
-  const attributes = node.attributes.map(([name, value]) => ` ${name}="${escapeXml(value)}"`).join('');
-  return `<${node.name}${attributes}`;
+  let tag = `<${node.name}`;
+  for (const [name, value] of node.attributes) {
+    tag += ` ${name}="${escapeXml(value)}"`;
+  }
+  return tag;
+}
+
+/** INDENT repeated, by depth. */
+const INDENTS: string[] = [''];
+
+function indentAt(depth: number): string {
+  for (let known = INDENTS.length; known <= depth; known++) {
+    INDENTS.push(INDENT.repeat(known));
+  }
+  return INDENTS[depth] ?? '';
 }
 
 function serializeNode(node: XmlNode, depth: number, lines: string[]): void {
-  const indent = INDENT.repeat(depth);
+  const indent = indentAt(depth);
   if (node.text !== undefined) {
     lines.push(`${indent}${openTag(node)}>${escapeXml(node.text)}</${node.name}>`);
   } else if (node.children.length === 0) {
     lines.push(`${indent}${openTag(node)}/>`);
   } else {
     lines.push(`${indent}${openTag(node)}>`);
-    node.children.forEach((child) => serializeNode(child, depth + 1, lines));
+    for (const child of node.children) {
+      serializeNode(child, depth + 1, lines);
+    }
     lines.push(`${indent}</${node.name}>`);
   }
 }
