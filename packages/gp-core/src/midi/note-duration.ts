@@ -2,7 +2,7 @@
 import { durationTicks } from '../model/defaults';
 import type { Note, Voice } from '../model/song';
 import { fromMidiTicks, truncToMidiTicks } from './midi-ticks';
-import { beatsAfter, type PlacedNote, type PlayedBeat, type TrackContext, voiceAt } from './note-search';
+import { type PlacedNote, type PlayedBeat, type TrackContext, nextBeatPosition, voiceAt } from './note-search';
 
 /** DEFAULT_DURATION_DEAD / DEFAULT_DURATION_PM: MIDI file ticks at 60 BPM, scaled with the tempo so they last the same time. */
 export const DEAD_NOTE_DURATION = 30;
@@ -93,9 +93,11 @@ export function realNoteDuration(context: TrackContext, placed: PlacedNote, dura
     lastEnd: placed.beat.start + durationTicks(placed.voice.duration) + placed.move,
     isLetRing: placed.note.effect.letRing,
   };
-  for (const next of beatsAfter(context, placed.playedIndex, placed.beatIndex)) {
-    const voice = voiceAt(next.beat, placed.voiceIndex);
-    if (voice !== undefined) {
+  const { beats } = context.playback;
+  for (let position = nextBeatPosition(context, placed.playedIndex, placed.beatIndex); position < beats.length; position++) {
+    const next = beats[position];
+    const voice = next === undefined ? undefined : voiceAt(next.beat, placed.voiceIndex);
+    if (next !== undefined && voice !== undefined) {
       const step = scanBeat(placed, next, voice, scan);
       if (step.isDone) {
         return applyDurationEffects(placed.note, tempo, step.duration);

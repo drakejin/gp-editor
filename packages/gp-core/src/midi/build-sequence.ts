@@ -11,7 +11,7 @@ import {
   toDataValue,
 } from './midi-events';
 import { buildNoteEvents } from './note-events';
-import type { TrackContext } from './note-search';
+import { type TrackContext, buildPlaybackBeats } from './note-search';
 import { pedalEvents } from './pedals';
 import { type PlayedMeasure, playedTempo, playedTempoPieces } from './playback-order';
 import { usqFromTempo } from './timeline';
@@ -131,14 +131,13 @@ function measureEvents(context: TrackContext, playedIndex: number): SequenceEven
 
 /** addTrack: the channel setup, then the notes when the track is played. A track without channel stays silent. */
 export function buildTrackEvents(
-  context: Omit<TrackContext, 'channel'>,
+  context: Omit<TrackContext, 'channel' | 'playback'>,
   channel: Channel | undefined,
   isPlayed: boolean,
 ): SequenceEvent[] {
   if (channel === undefined) {
     return [];
   }
-  const full: TrackContext = { ...context, channel };
   const setup = [
     pitchBendEvent({ channelId: channel.id, bendMode: false }, context.origin, DEFAULT_BEND),
     ...channelSetup(channel, context.track, context.origin),
@@ -146,5 +145,6 @@ export function buildTrackEvents(
   if (!isPlayed) {
     return setup;
   }
+  const full: TrackContext = { ...context, channel, playback: buildPlaybackBeats(context.track, context.played) };
   return [...setup, ...pedalEvents(full), ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
 }
