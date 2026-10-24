@@ -1,4 +1,4 @@
-import { type Song, renderMidi } from '@gp-editor/core';
+import { type Song, buildAudioTrack, renderMidi } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { DEFAULT_AUDIO_EXPORT, audioFormat } from '../src/export/audio-formats';
 import { type AudioExport, useAudioExport } from '../src/hooks/use-audio-export';
@@ -30,6 +30,13 @@ jest.mock('../src/native/audio-export', () => ({
       mockNative.progress = undefined;
     };
   },
+}));
+
+/** The audio track files the native side keeps (native/audio-track's isAudioLoaded). */
+const mockLoadedAudio = new Set<string>();
+
+jest.mock('../src/native/audio-track', () => ({
+  isAudioLoaded: (assetId: string) => mockLoadedAudio.has(assetId),
 }));
 
 jest.mock('../src/native/gp-files', () => ({
@@ -71,6 +78,7 @@ async function settle(action: () => void): Promise<void> {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockLoadedAudio.clear();
   mockNative.progress = undefined;
   mockNative.menu = undefined;
 });
@@ -123,6 +131,26 @@ describe('useAudioExport: one file', () => {
     expect(hook.dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'Saved Take.mp3 (00:07, MP3, 256 kbps, 44.1 kHz) in “Music”.' });
     expect(hook.current().isOpen).toBe(false);
     expect(hook.current().status.kind).toBe('idle');
+  });
+
+  it('renders the song with its audio track under it, at the audio’s pace, when its file is loaded', async () => {
+    // Arrange
+    const song: Song = { ...SONG, audioTrack: buildAudioTrack({ assetId: 'take', syncPoints: [{ measureIndex: 1, occurrence: 0, position: 0, seconds: 2.5 }] }) };
+    mockLoadedAudio.add('take');
+    mockNative.showSavePanel.mockResolvedValueOnce({ name: 'Song.wav', path: '/Music/Song.wav', formatId: 'wav' });
+    mockNative.exportAudio.mockResolvedValueOnce({ files: [{ name: 'Song.wav', path: '/Music/Song.wav', seconds: 9 }] });
+    const hook = renderHook({ ...DOCUMENT, song });
+    await settle(() => hook.current().open());
+
+    // Act
+    await settle(() => hook.current().start());
+
+    // Assert
+    const expected = renderMidi(song, { syncToAudioTrack: true });
+    const file = mockNative.exportAudio.mock.calls[0]?.[0]?.files[0];
+    expect(base64ToBytes(file?.midi ?? '')).toEqual(expected.bytes);
+    expect(file?.audio?.assetId).toBe('take');
+    expect(file?.audio?.runs).toEqual(expected.audioRuns);
   });
 
   it('renders nothing when the save panel is cancelled', async () => {

@@ -1,5 +1,5 @@
 // File ▸ Export Audio…: one file of a song (gp-core's renderMidi, as playback plays it) rendered offline through the
-// playback graph — GPMixRenderer: the sound bank, the instruments, the tracks' effects, the master — and written as it
+// playback graph — GPMixRenderer: the sound bank, the instruments, the tracks' effects, the audio track, the master — and written as it
 // renders (GPAudioFileWriter), as fast as the CPU allows. After the song a tail lets reverbs and delays ring out: the
 // render goes on until half a second is silent (below −90 dBFS), at most `GPAudioExportMaxTailSeconds`.
 // Runs on the caller's queue; one export per call, nothing shared.
@@ -27,6 +27,17 @@ FOUNDATION_EXPORT const NSTimeInterval GPAudioExportMaxTailSeconds;
 + (AVAudioFramePosition)exportMidi:(NSData *)midi
                            seconds:(NSTimeInterval)seconds
                                mix:(NSDictionary *)mix
+                           bankURL:(nullable NSURL *)bankURL
+                          settings:(GPAudioFileSettings *)settings
+                               url:(NSURL *)url
+                          progress:(BOOL (^)(double fraction))progress
+                             error:(NSError **)error;
+
+/** The same with the song's audio track under it: GPAudioTrackPlayer's playback dictionary (nil: none). */
++ (AVAudioFramePosition)exportMidi:(NSData *)midi
+                           seconds:(NSTimeInterval)seconds
+                               mix:(NSDictionary *)mix
+                        audioTrack:(nullable NSDictionary *)audioTrack
                            bankURL:(nullable NSURL *)bankURL
                           settings:(GPAudioFileSettings *)settings
                                url:(NSURL *)url

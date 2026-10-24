@@ -48,6 +48,19 @@ static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *
                           progress:(BOOL (^)(double fraction))progress
                              error:(NSError **)error
 {
+  return [self exportMidi:midi seconds:seconds mix:mix audioTrack:nil bankURL:bankURL settings:settings url:url progress:progress error:error];
+}
+
++ (AVAudioFramePosition)exportMidi:(NSData *)midi
+                           seconds:(NSTimeInterval)seconds
+                               mix:(NSDictionary *)mix
+                        audioTrack:(nullable NSDictionary *)audioTrack
+                           bankURL:(nullable NSURL *)bankURL
+                          settings:(GPAudioFileSettings *)settings
+                               url:(NSURL *)url
+                          progress:(BOOL (^)(double fraction))progress
+                             error:(NSError **)error
+{
   id<GPAudioFileWriter> writer = GPCreateAudioFileWriter(settings, url, error);
   if (writer == nil) {
     [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
@@ -58,7 +71,7 @@ static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *
   AVAudioFramePosition silenceFrames = (AVAudioFramePosition)llround(kSilenceSeconds * rate);
   GPExportRun *run = [GPExportRun new];
   NSError *renderError = nil;
-  BOOL isRendered = [GPMixRenderer renderMidi:midi bankURL:bankURL mix:mix seconds:MAX(0, seconds) + GPAudioExportMaxTailSeconds sampleRate:rate error:&renderError chunk:^(AVAudioPCMBuffer *buffer, BOOL *stop) {
+  BOOL isRendered = [GPMixRenderer renderMidi:midi bankURL:bankURL mix:mix audioTrack:audioTrack seconds:MAX(0, seconds) + GPAudioExportMaxTailSeconds sampleRate:rate error:&renderError chunk:^(AVAudioPCMBuffer *buffer, BOOL *stop) {
     NSError *writeError = nil;
     if (![writer writeBuffer:buffer error:&writeError]) {
       run.failure = writeError;
