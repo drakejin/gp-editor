@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../../hooks/use-i18n';
 import type { Palette } from '../../theme';
 import { NoteInspector, type NoteInspectorProps } from './NoteInspector';
 import { SongInspector, type SongInspectorProps } from './SongInspector';
@@ -9,7 +10,6 @@ export type InspectorTab = 'song' | 'track' | 'note';
 
 export type InspectorProps = SongInspectorProps & TrackInspectorProps & NoteInspectorProps;
 
-const TAB_LABELS: Readonly<Record<InspectorTab, string>> = { song: 'SONG', track: 'TRACK', note: 'NOTE' };
 
 export const INSPECTOR_WIDTH = 268;
 
@@ -17,11 +17,12 @@ export const INSPECTOR_WIDTH = 268;
 function InspectorView(props: InspectorProps) {
   const { palette } = props;
   const [tab, setTab] = useState<InspectorTab>('track');
+  const t = useT();
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
       <View style={[styles.tabs, { backgroundColor: palette.chromeDeep }]}>
         {(['song', 'track', 'note'] as const).map((id) => (
-          <TabButton key={id} palette={palette} label={TAB_LABELS[id]} isActive={tab === id} onPress={() => setTab(id)} />
+          <TabButton key={id} palette={palette} label={t(`tools.inspector.tab.${id}`)} isActive={tab === id} onPress={() => setTab(id)} />
         ))}
       </View>
       <ScrollView style={styles.body}>
@@ -34,10 +35,11 @@ function InspectorView(props: InspectorProps) {
 }
 
 function TabButton({ palette, label, isActive, onPress }: { readonly palette: Palette; readonly label: string; readonly isActive: boolean; readonly onPress: () => void }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
-      tooltip={`${label} settings`}
+      tooltip={t('tools.inspector.tabTooltip', { tab: label })}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
       style={[styles.tab, isActive ? { backgroundColor: palette.chromeAccent } : null]}

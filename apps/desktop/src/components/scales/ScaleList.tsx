@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SCALES, type ScaleChoice, type ScaleMatch, scaleTitle, searchScales } from '@gp-editor/core';
+import { type Translate, useT } from '../../hooks/use-i18n';
 import type { Palette } from '../../theme';
 import { TextField } from '../TextField';
 
@@ -43,18 +44,19 @@ interface ScaleListProps {
 /** A search field over TuxGuitar's scales (any words of the name, in any case), then the scales it finds. */
 export function ScaleList({ palette, query, onChangeQuery, selectedScaleIndex, onChooseScale }: ScaleListProps) {
   const found = useMemo(() => searchScales(query), [query]);
+  const t = useT();
   return (
     <View>
       <TextField
-        accessibilityLabel="Search scales"
+        accessibilityLabel={t('tools.scales.search')}
         value={query}
         onChangeText={onChangeQuery}
-        placeholder={`Search ${SCALES.length} scales (e.g. “minor penta”)`}
+        placeholder={t('tools.scales.searchPlaceholder', { count: SCALES.length })}
         placeholderTextColor={palette.chromeMuted}
         style={[styles.search, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
       />
       <ScrollView style={[styles.list, { borderColor: palette.chromeBorder }]}>
-        {found.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>No scale has these words in its name.</Text> : null}
+        {found.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>{t('tools.scales.noScale')}</Text> : null}
         {found.map((scaleIndex) => (
           <ScaleListRow key={scaleIndex} palette={palette} label={SCALES[scaleIndex]?.name ?? ''} isSelected={scaleIndex === selectedScaleIndex} onPress={() => onChooseScale(scaleIndex)} />
         ))}
@@ -70,21 +72,22 @@ interface MatchListProps {
   readonly onChoose: (choice: ScaleChoice) => void;
 }
 
-/** "fills it · root 33%", "2 notes unused · root 0% · also Aeolian Mode". */
-function matchDetail(match: ScaleMatch): string {
-  const fit = match.unusedNotes === 0 ? 'every note used' : `${match.unusedNotes} ${match.unusedNotes === 1 ? 'note' : 'notes'} unused`;
-  const aliases = match.aliases.length === 0 ? '' : ` · also ${match.aliases.slice(0, 2).join(', ')}${match.aliases.length > 2 ? '…' : ''}`;
-  return `${fit} · root ${Math.round(match.rootShare * 100)}%${aliases}`;
+/** "every note used · root 33%", "2 notes unused · root 0% · also Aeolian Mode" (scale names as TuxGuitar writes them). */
+function matchDetail(match: ScaleMatch, t: Translate): string {
+  const fit = match.unusedNotes === 0 ? t('tools.scales.everyNote') : t('tools.scales.unused', { count: match.unusedNotes });
+  const aliases = match.aliases.length === 0 ? '' : t('tools.scales.also', { names: `${match.aliases.slice(0, 2).join(', ')}${match.aliases.length > 2 ? '…' : ''}` });
+  return t('tools.scales.matchDetail', { fit, percent: Math.round(match.rootShare * 100), aliases });
 }
 
 /** The scale finder's answer: the scales and keys that hold the notes, best first. */
 export function MatchList({ palette, matches, choice, onChoose }: MatchListProps) {
+  const t = useT();
   return (
     <ScrollView style={[styles.list, styles.matches, { borderColor: palette.chromeBorder }]}>
       {matches.map((match) => {
         const isSelected = choice?.rootIndex === match.choice.rootIndex && choice.scaleIndex === match.choice.scaleIndex;
         const key = `${match.choice.rootIndex}:${match.choice.scaleIndex}`;
-        return <ScaleListRow key={key} palette={palette} label={scaleTitle(match.choice)} detail={matchDetail(match)} isSelected={isSelected} onPress={() => onChoose(match.choice)} />;
+        return <ScaleListRow key={key} palette={palette} label={scaleTitle(match.choice)} detail={matchDetail(match, t)} isSelected={isSelected} onPress={() => onChoose(match.choice)} />;
       })}
     </ScrollView>
   );

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import type { Palette } from '../theme';
 import { ChromeButton } from './chrome/ChromeButton';
 
@@ -13,16 +14,17 @@ interface DeleteTrackPanelProps {
 
 /** Asked before a track with notes is deleted (Track ▸ Delete Track, the tracks panel's −): a small dark panel. */
 export function DeleteTrackPanel({ palette, trackLabel, onDelete, onCancel }: DeleteTrackPanelProps) {
+  const t = useT();
   return (
     <View style={styles.overlay}>
       <Pressable testID="delete-track-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onCancel} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Delete track">
-        <Text style={[styles.title, { color: palette.chromeText }]}>{`Delete track “${trackLabel}”?`}</Text>
-        <Text style={[styles.message, { color: palette.chromeMuted }]}>Its notes go with it. Edit ▸ Undo (⌘Z) brings it back.</Text>
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('window.deleteTrack.accessibility')}>
+        <Text style={[styles.title, { color: palette.chromeText }]}>{t('window.deleteTrack.title', { track: trackLabel })}</Text>
+        <Text style={[styles.message, { color: palette.chromeMuted }]}>{t('window.deleteTrack.message')}</Text>
         <View style={styles.buttons}>
           <View style={styles.gap} />
-          <ChromeButton palette={palette} label="Cancel" tooltip="Keep the track (Esc)" minWidth={72} onPress={onCancel} />
-          <ChromeButton palette={palette} label="Delete" tooltip="Delete the track and its notes" minWidth={72} isActive onPress={onDelete} />
+          <ChromeButton palette={palette} label={t('common.cancel')} tooltip={t('window.deleteTrack.cancelTooltip')} minWidth={72} onPress={onCancel} />
+          <ChromeButton palette={palette} label={t('common.delete')} tooltip={t('window.deleteTrack.deleteTooltip')} minWidth={72} isActive onPress={onDelete} />
         </View>
       </View>
     </View>

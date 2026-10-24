@@ -1,4 +1,5 @@
 import type { Track } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { TAB } from '../lib/layout';
 import { diagramHeight } from './chord-diagram';
 import { NOTATION, notationBandHeight } from './notation';
@@ -9,11 +10,17 @@ export type ScoreMode = 'notationAndTab' | 'notation' | 'tab';
 
 export const SCORE_MODES: readonly ScoreMode[] = ['notationAndTab', 'notation', 'tab'];
 
-/** Names of the modes on buttons and menus. */
+/** Names of the modes on buttons and menus, read in the language shown when they are read (getters). */
 export const SCORE_MODE_LABELS: Readonly<Record<ScoreMode, string>> = {
-  notationAndTab: 'Score + Tab',
-  notation: 'Score',
-  tab: 'Tab',
+  get notationAndTab() {
+    return t('palette.score.mode.notationAndTab');
+  },
+  get notation() {
+    return t('palette.score.mode.notation');
+  },
+  get tab() {
+    return t('palette.score.mode.tab');
+  },
 };
 
 /** A score mode from outside (a native event); anything unknown is the default, score + tab. */

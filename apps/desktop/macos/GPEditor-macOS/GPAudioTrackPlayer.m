@@ -1,6 +1,7 @@
 #import "GPAudioTrackPlayer.h"
 
 #import "GPAudioAssets.h"
+#import "GPAppStrings.h"
 
 /** AVAudioUnitTimePitch's rate range is 1/32…32; the practice speeds stay well inside 0.1…10. */
 static const double kMinRate = 0.1;
@@ -119,7 +120,7 @@ static NSArray<GPAudioRun *> *RunsOf(NSDictionary *playback)
   NSURL *url = [GPAudioAssets URLForAssetId:assetId];
   if (url == nil) {
     if (error != NULL) {
-      *error = [NSError errorWithDomain:@"GPAudioTrackPlayer" code:1 userInfo:@{NSLocalizedDescriptionKey : @"The audio track's file is not loaded"}];
+      *error = [NSError errorWithDomain:@"GPAudioTrackPlayer" code:1 userInfo:@{NSLocalizedDescriptionKey : GPLocalizedString(@"The audio track's file is not loaded")}];
     }
     return NO;
   }

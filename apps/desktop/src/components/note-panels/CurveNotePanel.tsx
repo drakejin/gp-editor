@@ -12,6 +12,8 @@ import {
   removeDraftPoint,
   stepDraftPoint,
 } from '../../lib/curve-draft';
+import { useT } from '../../hooks/use-i18n';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import type { NoteEdit } from '../../state/note-edits';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -32,12 +34,12 @@ export interface CurveNotePanelProps {
   readonly onClose: () => void;
 }
 
-const TITLES: Readonly<Record<CurveEffect, string>> = { bend: 'Bend (choking)', tremoloBar: 'Tremolo bar (whammy bar)' };
-const NOUNS: Readonly<Record<CurveEffect, string>> = { bend: 'bend', tremoloBar: 'whammy bar' };
+const TITLES: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.bendTitle', tremoloBar: 'tools.notePanels.tremoloBarTitle' };
+const REMOVE_TOOLTIPS: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.removeBend', tremoloBar: 'tools.notePanels.removeTremoloBar' };
+const APPLY_TOOLTIPS: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.applyBend', tremoloBar: 'tools.notePanels.applyTremoloBar' };
 /** The readout and the .gp note take two lines of 11-point text whatever they say. */
 const LINE_HEIGHT = 15;
 const TWO_LINES = LINE_HEIGHT * 2;
-const GPIF_HINT = 'A .gp file (Guitar Pro 7/8) keeps a simpler curve: a start, one middle value and an end. A .gp5 file keeps every point.';
 
 /** The note edit that puts `curve` (undefined: none) on the note as its bend or tremolo bar. */
 export function curveEdit(effect: CurveEffect, curve: Bend | undefined): NoteEdit {
@@ -50,6 +52,7 @@ export function curveEdit(effect: CurveEffect, curve: Bend | undefined): NoteEdi
  * step), Done leaves the note as it was.
  */
 export function CurveNotePanel({ palette, effect, note, renderPresets, onEdit, onPreview, onClose }: CurveNotePanelProps) {
+  const t = useT();
   const original = note.effect[effect];
   const [draft, setDraft] = useState(() => draftFromCurve(effect, original));
   const change = useCallback((next: CurveDraft) => setDraft((current) => (isSameDraft(current, next) ? current : next)), []);
@@ -64,17 +67,17 @@ export function CurveNotePanel({ palette, effect, note, renderPresets, onEdit, o
     onClose();
   };
   return (
-    <NotePanelFrame palette={palette} title={TITLES[effect]} subtitle={`String ${note.string} · fret ${note.fret}`} closeTooltip="Close without changing the note" onClose={onClose}>
+    <NotePanelFrame palette={palette} title={t(TITLES[effect])} subtitle={t('tools.notePanels.noteAt', { string: note.string, fret: note.fret })} closeTooltip={t('tools.notePanels.closeTooltip')} onClose={onClose}>
       {renderPresets(draft, (preset) => change(loadDraftCurve(draft, preset)))}
       <CurveEditor palette={palette} draft={draft} onChange={change} />
       <PointControls palette={palette} draft={draft} onChange={change} />
       {/* Always there, two lines high: the panel keeps its size, so the grid stays under the pointer while a drag changes the curve. */}
       <Text testID="curve-gpif-hint" numberOfLines={2} style={[styles.hint, { color: palette.chromeMuted }]}>
-        {curve !== undefined && !canGpifHoldCurve(effect, curve) ? GPIF_HINT : ''}
+        {curve !== undefined && !canGpifHoldCurve(effect, curve) ? t('tools.notePanels.gpifHint') : ''}
       </Text>
       <View style={styles.footer}>
-        <ChromeButton testID="curve-remove" palette={palette} label="Remove" tooltip={`Take the ${NOUNS[effect]} off the note`} isEnabled={original !== undefined} onPress={() => apply(undefined)} />
-        <ChromeButton testID="curve-apply" palette={palette} label="Apply" tooltip={`Put this ${NOUNS[effect]} on the note`} isActive isEnabled={isChanged} onPress={() => apply(curve)} />
+        <ChromeButton testID="curve-remove" palette={palette} label={t('common.remove')} tooltip={t(REMOVE_TOOLTIPS[effect])} isEnabled={original !== undefined} onPress={() => apply(undefined)} />
+        <ChromeButton testID="curve-apply" palette={palette} label={t('common.apply')} tooltip={t(APPLY_TOOLTIPS[effect])} isActive isEnabled={isChanged} onPress={() => apply(curve)} />
       </View>
     </NotePanelFrame>
   );
@@ -90,16 +93,17 @@ interface PointControlsProps {
 function PointControls({ palette, draft, onChange }: PointControlsProps) {
   const isSelected = draft.selectedIndex !== undefined;
   const step = (positionStep: number, valueStep: number) => onChange(stepDraftPoint(draft, positionStep, valueStep));
+  const t = useT();
   return (
     <View style={styles.points}>
       <Text testID="curve-readout" numberOfLines={2} style={[styles.readout, { color: palette.chromeText }]}>
         {describeDraftPoint(draft)}
       </Text>
-      <ChromeButton palette={palette} label="◀" tooltip="Move the point earlier" isEnabled={isSelected} onPress={() => step(-1, 0)} />
-      <ChromeButton palette={palette} label="▶" tooltip="Move the point later" isEnabled={isSelected} onPress={() => step(1, 0)} />
-      <ChromeButton palette={palette} label="▼" tooltip="A quarter tone lower" isEnabled={isSelected} onPress={() => step(0, -1)} />
-      <ChromeButton palette={palette} label="▲" tooltip="A quarter tone higher" isEnabled={isSelected} onPress={() => step(0, 1)} />
-      <ChromeButton testID="curve-delete-point" palette={palette} label="Delete" tooltip="Remove the selected point" isEnabled={isSelected} onPress={() => onChange(removeDraftPoint(draft))} />
+      <ChromeButton palette={palette} label="◀" tooltip={t('tools.notePanels.pointEarlier')} isEnabled={isSelected} onPress={() => step(-1, 0)} />
+      <ChromeButton palette={palette} label="▶" tooltip={t('tools.notePanels.pointLater')} isEnabled={isSelected} onPress={() => step(1, 0)} />
+      <ChromeButton palette={palette} label="▼" tooltip={t('tools.notePanels.pointLower')} isEnabled={isSelected} onPress={() => step(0, -1)} />
+      <ChromeButton palette={palette} label="▲" tooltip={t('tools.notePanels.pointHigher')} isEnabled={isSelected} onPress={() => step(0, 1)} />
+      <ChromeButton testID="curve-delete-point" palette={palette} label={t('common.delete')} tooltip={t('tools.notePanels.deletePointTooltip')} isEnabled={isSelected} onPress={() => onChange(removeDraftPoint(draft))} />
     </View>
   );
 }

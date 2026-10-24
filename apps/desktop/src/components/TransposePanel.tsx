@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { type Translate, useT } from '../hooks/use-i18n';
 import {
   type TranspositionDraft,
   type TranspositionTarget,
@@ -26,14 +27,14 @@ interface TransposePanelProps {
 
 const TARGETS: readonly TranspositionTarget[] = ['selection', 'track', 'song'];
 
-function targetLabel(target: TranspositionTarget, trackName: string): string {
+function targetLabel(target: TranspositionTarget, trackName: string, t: Translate): string {
   switch (target) {
     case 'selection':
-      return 'Selection';
+      return t('window.transpose.selection');
     case 'track':
-      return trackName === '' ? 'Track' : `Track “${trackName}”`;
+      return trackName === '' ? t('common.track') : t('window.export.whatTrack', { name: trackName });
     case 'song':
-      return 'Whole song';
+      return t('common.wholeSong');
   }
 }
 
@@ -61,6 +62,7 @@ function Stepper({ palette, label, onStep, children }: StepperProps) {
  * (Guitar Pro's "keep the frets" has no place here: a note's pitch is its string and fret — the capo does that.)
  */
 export function TransposePanel({ palette, trackName, selection, onTranspose, onClose }: TransposePanelProps) {
+  const t = useT();
   const [draft, setDraft] = useState<TranspositionDraft>(() => initialTranspositionDraft(selection !== undefined));
   const [amountText, setAmountText] = useState(String(draft.amount));
   const change = (patch: Partial<TranspositionDraft>) => setDraft((current) => ({ ...current, ...patch }));
@@ -72,16 +74,16 @@ export function TransposePanel({ palette, trackName, selection, onTranspose, onC
   const isChromatic = draft.mode === 'chromatic';
   const how = describeTransposition(toTranspositionOptions(draft));
   return (
-    <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel="Transpose">
+    <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel={t('window.transpose.title')}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: palette.text }]}>Transpose</Text>
-        <Text style={[styles.hint, { color: palette.muted }]}>Notes keep their string while the new fret is on the neck; drum tracks never move.</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{t('window.transpose.title')}</Text>
+        <Text style={[styles.hint, { color: palette.muted }]}>{t('window.transpose.note')}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>By</Text>
-        <BarButton label="Semitones" palette={palette} isActive={isChromatic} onPress={() => change({ mode: 'chromatic' })} />
-        <BarButton label="Scale steps" palette={palette} isActive={!isChromatic} onPress={() => change({ mode: 'diatonic' })} />
-        <Stepper palette={palette} label="Amount" onStep={stepAmount}>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.transpose.by')}</Text>
+        <BarButton label={t('window.transpose.semitones')} palette={palette} isActive={isChromatic} onPress={() => change({ mode: 'chromatic' })} />
+        <BarButton label={t('window.transpose.scaleSteps')} palette={palette} isActive={!isChromatic} onPress={() => change({ mode: 'diatonic' })} />
+        <Stepper palette={palette} label={t('window.transpose.amount')} onStep={stepAmount}>
           <TextField
             testID="transpose-amount"
             value={amountText}
@@ -92,16 +94,16 @@ export function TransposePanel({ palette, trackName, selection, onTranspose, onC
             style={[styles.field, { color: palette.text, borderColor: palette.border }]}
           />
         </Stepper>
-        <Stepper palette={palette} label="Octaves" onStep={(delta) => change({ octaves: clampTransposeOctaves(draft.octaves + delta) })}>
+        <Stepper palette={palette} label={t('window.transpose.octaves')} onStep={(delta) => change({ octaves: clampTransposeOctaves(draft.octaves + delta) })}>
           <Text style={[styles.value, { color: palette.text }]}>{draft.octaves}</Text>
         </Stepper>
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>Apply to</Text>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.transpose.applyTo')}</Text>
         {TARGETS.map((target) => (
           <BarButton
             key={target}
-            label={targetLabel(target, trackName)}
+            label={targetLabel(target, trackName, t)}
             palette={palette}
             isActive={draft.target === target}
             isEnabled={target !== 'selection' || selection !== undefined}
@@ -109,13 +111,13 @@ export function TransposePanel({ palette, trackName, selection, onTranspose, onC
           />
         ))}
         <View style={styles.spaced} />
-        <BarButton label="Chords only" palette={palette} isActive={draft.isChordsOnly} onPress={() => change({ isChordsOnly: !draft.isChordsOnly })} />
+        <BarButton label={t('window.transpose.chordsOnly')} palette={palette} isActive={draft.isChordsOnly} onPress={() => change({ isChordsOnly: !draft.isChordsOnly })} />
       </View>
       <View style={styles.row}>
-        <BarButton label="Transpose" palette={palette} isAccent onPress={() => onTranspose(draft)} />
-        <BarButton label="Close" palette={palette} onPress={onClose} />
+        <BarButton label={t('window.transpose.title')} palette={palette} isAccent onPress={() => onTranspose(draft)} />
+        <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
         <Text style={[styles.hint, { color: palette.muted }]}>
-          {`${how.charAt(0).toUpperCase()}${how.slice(1)}${draft.isChordsOnly ? ', chord names and diagrams only' : ''}${draft.target === 'selection' && selection !== undefined ? ` · ${selection}` : ''}`}
+          {`${how.charAt(0).toUpperCase()}${how.slice(1)}${draft.isChordsOnly ? t('window.transpose.chordsOnlySuffix') : ''}${draft.target === 'selection' && selection !== undefined ? ` · ${selection}` : ''}`}
         </Text>
       </View>
     </View>

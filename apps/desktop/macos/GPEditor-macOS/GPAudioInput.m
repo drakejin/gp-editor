@@ -17,6 +17,7 @@
 #import "GPAudioInput.h"
 #import "GPEditorNotifications.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 static NSString *const kTunerRequestedEvent = @"tunerRequested";
 static NSString *const kAudioFrameEvent = @"audioFrame";
@@ -146,7 +147,7 @@ RCT_EXPORT_METHOD(start : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRe
       [self askForMicrophoneResolve:resolve reject:reject];
       break;
     default:
-      reject(@"denied", @"Microphone access is off.", nil);
+      reject(@"denied", GPLocalizedString(@"Microphone access is off."), nil);
       break;
   }
 }
@@ -165,9 +166,9 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRej
                            completionHandler:^(BOOL granted) {
                              dispatch_async(self->_queue, ^{
                                if (!granted) {
-                                 reject(@"denied", @"Microphone access is off.", nil);
+                                 reject(@"denied", GPLocalizedString(@"Microphone access is off."), nil);
                                } else if (self->_session != session) {
-                                 reject(@"stopped", @"The tuner was closed.", nil);
+                                 reject(@"stopped", GPLocalizedString(@"The tuner was closed."), nil);
                                } else {
                                  [self startEngineResolve:resolve reject:reject];
                                }
@@ -181,7 +182,7 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRej
   AVAudioInputNode *input = engine.inputNode;
   AVAudioFormat *format = [input outputFormatForBus:0];
   if (format.sampleRate <= 0 || format.channelCount == 0) {
-    reject(@"no_input", @"No microphone was found.", nil);
+    reject(@"no_input", GPLocalizedString(@"No microphone was found."), nil);
     return;
   }
   [self prepareDecimatorForRate:format.sampleRate];
@@ -198,11 +199,11 @@ RCT_EXPORT_METHOD(stop : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRej
     [engine prepare];
     if (![engine startAndReturnError:&error]) {
       [input removeTapOnBus:0];
-      reject(@"start_failed", error.localizedDescription ?: @"The microphone could not start.", error);
+      reject(@"start_failed", error.localizedDescription ?: GPLocalizedString(@"The microphone could not start."), error);
       return;
     }
   } @catch (NSException *exception) {
-    reject(@"start_failed", exception.reason ?: @"The microphone could not start.", nil);
+    reject(@"start_failed", exception.reason ?: GPLocalizedString(@"The microphone could not start."), nil);
     return;
   }
   _engine = engine;

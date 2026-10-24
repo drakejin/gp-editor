@@ -3,6 +3,7 @@
 #import <Accelerate/Accelerate.h>
 
 #import "GPMixRenderer.h"
+#import "GPAppStrings.h"
 
 const NSInteger GPAudioExportCancelledCode = 100;
 const NSTimeInterval GPAudioExportMaxTailSeconds = 10;
@@ -89,7 +90,7 @@ static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *
       *stop = YES;
     }
   }];
-  NSError *failure = !isRendered ? (renderError ?: GPAudioExportError(5, @"The song could not be rendered")) : run.failure;
+  NSError *failure = !isRendered ? (renderError ?: GPAudioExportError(5, GPLocalizedString(@"The song could not be rendered"))) : run.failure;
   return Conclude(writer, run, failure, url, error);
 }
 
@@ -105,7 +106,7 @@ static AVAudioFramePosition Conclude(id<GPAudioFileWriter> writer, GPExportRun *
   }
   [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
   if (error != NULL) {
-    *error = failure ?: GPAudioExportError(GPAudioExportCancelledCode, @"The export was cancelled");
+    *error = failure ?: GPAudioExportError(GPAudioExportCancelledCode, GPLocalizedString(@"The export was cancelled"));
   }
   return -1;
 }

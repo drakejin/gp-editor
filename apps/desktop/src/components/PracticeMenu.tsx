@@ -1,3 +1,4 @@
+import { useT } from '../hooks/use-i18n';
 import { METRONOME_VOLUME_STEP, type PracticeAction, type PracticeSettings } from '../state/practice';
 import type { Palette } from '../theme';
 import { MenuHeading, MenuItem, MenuSeparator, MenuStepper } from './chrome/ChromeMenu';
@@ -19,39 +20,40 @@ export interface PracticeMenuProps {
  */
 export function PracticeMenu({ palette, practice, writtenTempo, onChangePractice }: PracticeMenuProps) {
   const { lockedTempo } = practice;
+  const t = useT();
   return (
     <>
-      <MenuHeading palette={palette} label="Metronome" />
-      <MenuItem palette={palette} label="Metronome (⌥M)" isChecked={practice.isMetronomeOn} onPress={() => onChangePractice({ type: 'toggleMetronome' })} />
+      <MenuHeading palette={palette} label={t('common.metronome')} />
+      <MenuItem palette={palette} label={t('window.practiceMenu.metronome')} isChecked={practice.isMetronomeOn} onPress={() => onChangePractice({ type: 'toggleMetronome' })} />
       <MenuStepper
         palette={palette}
-        label="Volume"
+        label={t('common.volume')}
         value={`${practice.metronomeVolume}%`}
-        tooltip="Metronome volume"
+        tooltip={t('window.practiceMenu.metronomeVolume')}
         onDecrease={() => onChangePractice({ type: 'shiftMetronomeVolume', delta: -METRONOME_VOLUME_STEP })}
         onIncrease={() => onChangePractice({ type: 'shiftMetronomeVolume', delta: METRONOME_VOLUME_STEP })}
       />
-      <MenuItem palette={palette} label="Count-in before playback (⌥C)" isChecked={practice.isCountInOn} onPress={() => onChangePractice({ type: 'toggleCountIn' })} />
+      <MenuItem palette={palette} label={t('window.practiceMenu.countIn')} isChecked={practice.isCountInOn} onPress={() => onChangePractice({ type: 'toggleCountIn' })} />
       <MenuSeparator palette={palette} />
-      <MenuHeading palette={palette} label="Tempo" />
+      <MenuHeading palette={palette} label={t('common.tempo')} />
       <MenuItem
         palette={palette}
-        label="Tempo lock: one tempo (⌥L)"
+        label={t('window.practiceMenu.tempoLock')}
         isChecked={lockedTempo !== undefined}
         onPress={() => onChangePractice({ type: 'toggleTempoLock', writtenTempo })}
       />
       <MenuStepper
         palette={palette}
-        label="Locked tempo"
+        label={t('window.practiceMenu.lockedTempo')}
         value={`♩ ${lockedTempo ?? writtenTempo}`}
-        tooltip="Locked tempo"
+        tooltip={t('window.practiceMenu.lockedTempo')}
         onDecrease={() => onChangePractice({ type: 'setLockedTempo', tempo: (lockedTempo ?? writtenTempo) - LOCKED_TEMPO_STEP })}
         onIncrease={() => onChangePractice({ type: 'setLockedTempo', tempo: (lockedTempo ?? writtenTempo) + LOCKED_TEMPO_STEP })}
       />
       <MenuSeparator palette={palette} />
       <MenuItem
         palette={palette}
-        label="Preview notes on hover"
+        label={t('window.practiceMenu.previewOnHover')}
         isChecked={practice.isPreviewOnHover}
         onPress={() => onChangePractice({ type: 'togglePreviewOnHover' })}
       />

@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n/i18n';
 import { CHROME, type Palette } from '../theme';
 
 /** Paper sizes a PDF can be asked for in place of the stylesheet's page format (`PdfOptions.paper`). */
@@ -13,7 +14,13 @@ export interface PaperSize {
 
 export const PAPER_SIZES: Readonly<Record<PaperId, PaperSize>> = {
   a4: { name: 'A4', width: 595, height: 842 },
-  letter: { name: 'US Letter', width: 612, height: 792 },
+  letter: {
+    get name() {
+      return t('window.export.usLetter');
+    },
+    width: 612,
+    height: 792,
+  },
 };
 
 /** Page layout, in points. */

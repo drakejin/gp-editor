@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n/i18n';
 import type { ScoreMode } from '../score/geometry';
 import type { StaffSpec } from '../score/score-layout';
 
@@ -22,7 +23,9 @@ export interface TrackDisplay {
 export const INITIAL_TRACK_DISPLAY: TrackDisplay = { isMultitrack: false, hiddenTrackIndexes: [], trackModes: {} };
 
 /** The hint when the selected track's eye is clicked: it cannot be hidden. */
-export const SELECTED_TRACK_SHOWN_HINT = 'The selected track is always shown. Select another track to hide this one.';
+export function selectedTrackShownHint(): string {
+  return t('palette.hint.selectedTrackShown');
+}
 
 /** The tracks the score shows, in track order: the selected one always, with Multitrack the ones not hidden too. */
 export function shownTrackIndexes(display: TrackDisplay, trackCount: number, selectedTrackIndex: number): number[] {

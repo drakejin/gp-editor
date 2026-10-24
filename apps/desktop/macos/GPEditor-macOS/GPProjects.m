@@ -10,6 +10,8 @@
 #import <sys/resource.h>
 #import <unistd.h>
 
+#import "GPAppStrings.h"
+
 static NSString *const kProjectsFolder = @"Documents/GP Editor Projects";
 /** Every page is one paid request: a PDF longer than this is refused (split it). */
 static const NSUInteger kMaxImportPages = 60;
@@ -109,7 +111,7 @@ RCT_EXPORT_METHOD(choosePdf : (RCTPromiseResolveBlock)resolve reject : (RCTPromi
   panel.canChooseDirectories = NO;
   panel.allowsMultipleSelection = NO;
   panel.allowedContentTypes = @[ UTTypePDF ];
-  panel.message = @"Import a PDF of sheet music or tab — it becomes a project in Documents/GP Editor Projects";
+  panel.message = GPLocalizedString(@"Import a PDF of sheet music or tab — it becomes a project in Documents/GP Editor Projects");
   if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
     resolve([NSNull null]);
     return;
@@ -125,23 +127,23 @@ RCT_EXPORT_METHOD(createProject : (NSString *)pdfPathOrURL resolve : (RCTPromise
   NSNumber *size = nil;
   [pdf getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
   if (size.unsignedLongLongValue > kMaxImportBytes) {
-    reject(@"too_large", @"The PDF is larger than 100 MB", nil);
+    reject(@"too_large", GPLocalizedString(@"The PDF is larger than 100 MB"), nil);
     return;
   }
   PDFDocument *document = [[PDFDocument alloc] initWithURL:pdf];
   if (document == nil || document.isLocked || document.pageCount == 0) {
-    reject(@"bad_pdf", @"The file is not a readable PDF, or it is password protected", nil);
+    reject(@"bad_pdf", GPLocalizedString(@"The file is not a readable PDF, or it is password protected"), nil);
     return;
   }
   if (document.pageCount > kMaxImportPages) {
-    NSString *message = [NSString stringWithFormat:@"The PDF has %lu pages; at most %lu can be imported at once (each page is one request to Claude) — split it",
+    NSString *message = [NSString stringWithFormat:GPLocalizedString(@"The PDF has %lu pages; at most %lu can be imported at once (each page is one request to Claude) — split it"),
                                                    (unsigned long)document.pageCount, (unsigned long)kMaxImportPages];
     reject(@"too_many_pages", message, nil);
     return;
   }
   NSURL *root = [GPProjects projectsRoot];
   if (root == nil) {
-    reject(@"no_projects_folder", @"Could not create Documents/GP Editor Projects", nil);
+    reject(@"no_projects_folder", GPLocalizedString(@"Could not create Documents/GP Editor Projects"), nil);
     return;
   }
   NSString *name = pdf.lastPathComponent.stringByDeletingPathExtension;
@@ -151,7 +153,7 @@ RCT_EXPORT_METHOD(createProject : (NSString *)pdfPathOrURL resolve : (RCTPromise
   NSFileManager *files = [NSFileManager defaultManager];
   if (![files createDirectoryAtURL:folder withIntermediateDirectories:NO attributes:nil error:&error] ||
       ![files copyItemAtURL:pdf toURL:[folder URLByAppendingPathComponent:sourceFile] error:&error]) {
-    reject(@"create_failed", error.localizedDescription ?: @"Could not create the project", error);
+    reject(@"create_failed", error.localizedDescription ?: GPLocalizedString(@"Could not create the project"), error);
     return;
   }
   resolve(@{@"path" : folder.path, @"name" : folder.lastPathComponent, @"sourceFile" : sourceFile, @"pageCount" : @(document.pageCount)});
@@ -165,7 +167,7 @@ RCT_EXPORT_METHOD(pdfPages : (NSString *)projectPath file : (NSString *)file fir
   NSInteger firstIndex = (NSInteger)first - 1;
   NSInteger lastIndex = (NSInteger)last - 1;
   if (source == nil || firstIndex < 0 || lastIndex < firstIndex || lastIndex >= (NSInteger)source.pageCount) {
-    reject(@"bad_pages", @"Those pages are not in the project's PDF", nil);
+    reject(@"bad_pages", GPLocalizedString(@"Those pages are not in the project's PDF"), nil);
     return;
   }
   PDFDocument *extract = [PDFDocument new];
@@ -175,7 +177,7 @@ RCT_EXPORT_METHOD(pdfPages : (NSString *)projectPath file : (NSString *)file fir
   }
   NSData *data = [extract dataRepresentation];
   if (data == nil) {
-    reject(@"bad_pages", @"Could not extract the pages", nil);
+    reject(@"bad_pages", GPLocalizedString(@"Could not extract the pages"), nil);
     return;
   }
   resolve([data base64EncodedStringWithOptions:0]);
@@ -195,13 +197,13 @@ RCT_EXPORT_METHOD(writeBase64 : (NSString *)projectPath file : (NSString *)file 
 {
   NSURL *url = [GPProjects fileURLInProject:projectPath relativePath:file];
   if (url == nil || data == nil) {
-    reject(@"bad_path", @"Can only write files inside a project", nil);
+    reject(@"bad_path", GPLocalizedString(@"Can only write files inside a project"), nil);
     return;
   }
   NSError *error = nil;
   [[NSFileManager defaultManager] createDirectoryAtURL:url.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
   if (![data writeToURL:url options:NSDataWritingAtomic error:&error]) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not write the file"), error);
     return;
   }
   resolve(url.path);
@@ -212,7 +214,7 @@ RCT_EXPORT_METHOD(readText : (NSString *)projectPath file : (NSString *)file res
 {
   NSURL *url = [GPProjects fileURLInProject:projectPath relativePath:file];
   if (url == nil) {
-    reject(@"bad_path", @"Can only read files inside a project", nil);
+    reject(@"bad_path", GPLocalizedString(@"Can only read files inside a project"), nil);
     return;
   }
   NSString *text = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];
@@ -253,7 +255,7 @@ RCT_EXPORT_METHOD(revealProject : (NSString *)projectPath resolve : (RCTPromiseR
 {
   NSURL *project = [GPProjects projectURL:projectPath];
   if (project == nil) {
-    reject(@"bad_path", @"Not a project folder", nil);
+    reject(@"bad_path", GPLocalizedString(@"Not a project folder"), nil);
     return;
   }
   [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[ project ]];

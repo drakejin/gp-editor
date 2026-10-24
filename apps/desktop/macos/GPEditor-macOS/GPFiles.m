@@ -18,6 +18,7 @@
 #import "GPEditorNotifications.h"
 #import "GPRecentFiles.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 static NSString *const kNewRequestedEvent = @"newRequested";
 static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
@@ -116,7 +117,7 @@ static NSMutableArray<NSString *> *pendingPaths;
   [popup selectItemAtIndex:(NSInteger)selectedIndex];
   popup.target = self;
   popup.action = @selector(formatChosen:);
-  NSStackView *row = [NSStackView stackViewWithViews:@[ [NSTextField labelWithString:@"Format:"], popup ]];
+  NSStackView *row = [NSStackView stackViewWithViews:@[ [NSTextField labelWithString:GPLocalizedString(@"Format:")], popup ]];
   row.edgeInsets = NSEdgeInsetsMake(12, 20, 12, 20);
   [row setFrameSize:row.fittingSize];
   return row;
@@ -505,7 +506,7 @@ RCT_EXPORT_METHOD(showOpenDialog : (RCTPromiseResolveBlock)resolve reject : (RCT
     panel.canChooseDirectories = NO;
     panel.allowsMultipleSelection = NO;
     panel.allowedContentTypes = [GPFiles guitarProTypes];
-    panel.message = @"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef), MIDI (.mid) or MusicXML file (.musicxml, .xml, .mxl)";
+    panel.message = GPLocalizedString(@"Open a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3, .gtp), a Power Tab (.ptb), TablEdit (.tef), MIDI (.mid) or MusicXML file (.musicxml, .xml, .mxl)");
     if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
       resolve([NSNull null]);
       return;
@@ -513,7 +514,7 @@ RCT_EXPORT_METHOD(showOpenDialog : (RCTPromiseResolveBlock)resolve reject : (RCT
     NSError *error = nil;
     NSDictionary *payload = [GPFiles payloadForPath:panel.URL.path error:&error];
     if (payload == nil) {
-      reject(@"read_failed", error.localizedDescription ?: @"Could not read the file", error);
+      reject(@"read_failed", error.localizedDescription ?: GPLocalizedString(@"Could not read the file"), error);
       return;
     }
     resolve(payload);
@@ -527,7 +528,7 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
   NSError *error = nil;
   NSDictionary *payload = [GPFiles payloadForPath:path error:&error];
   if (payload == nil) {
-    reject(@"read_failed", error.localizedDescription ?: @"Could not read the file", error);
+    reject(@"read_failed", error.localizedDescription ?: GPLocalizedString(@"Could not read the file"), error);
     return;
   }
   resolve(payload);
@@ -539,7 +540,7 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
   if (data == nil) {
     if (error != NULL) {
-      *error = [NSError errorWithDomain:@"GPFiles" code:1 userInfo:@{NSLocalizedDescriptionKey : @"The file data is not valid base64"}];
+      *error = [NSError errorWithDomain:@"GPFiles" code:1 userInfo:@{NSLocalizedDescriptionKey : GPLocalizedString(@"The file data is not valid base64")}];
     }
     return nil;
   }
@@ -590,7 +591,7 @@ RCT_EXPORT_METHOD(showSavePanel : (NSDictionary *)options resolve : (RCTPromiseR
 {
   NSArray<NSDictionary *> *formats = [GPFiles formatsFrom:options[@"formats"]];
   if (formats.count == 0) {
-    reject(@"no_format", @"No file format to save in", nil);
+    reject(@"no_format", GPLocalizedString(@"No file format to save in"), nil);
     return;
   }
   NSString *suggestedName = [options[@"suggestedName"] isKindOfClass:[NSString class]] ? options[@"suggestedName"] : @"";
@@ -622,7 +623,7 @@ RCT_EXPORT_METHOD(writeFile : (NSString *)path base64 : (NSString *)base64 resol
   NSError *error = nil;
   NSDictionary *saved = [GPFiles writeBase64:base64 toPath:path error:&error];
   if (saved == nil) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not write the file"), error);
     return;
   }
   resolve(saved);
@@ -633,7 +634,7 @@ RCT_EXPORT_METHOD(writeTextFile : (NSString *)path text : (NSString *)text resol
 {
   NSError *error = nil;
   if (![text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not write the file", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not write the file"), error);
     return;
   }
   resolve(@{@"name" : path.lastPathComponent, @"path" : path});

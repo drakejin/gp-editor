@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { type GestureResponderEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { useBarInView } from '../hooks/use-bar-in-view';
+import { useLanguage, useT } from '../hooks/use-i18n';
 import { trackInstrument } from '../lib/instruments';
 import { ScoreCanvas } from '../native/score-canvas';
 import { BAR_MAP, barMapHeight, barMapWidth, engraveBarMap, hitTestBarMap } from '../score/bar-map';
@@ -52,6 +53,8 @@ export interface TracksPanelProps {
  */
 function TracksPanelView(props: TracksPanelProps) {
   const { song, selectedTrackIndex, palette, trackActions, shownTrackIndexes = [selectedTrackIndex] } = props;
+  // The instrument names are in the shown language: the rows are rebuilt when it changes.
+  const language = useLanguage();
   // A track's name being dragged: where it would go.
   const [drag, setDrag] = useState<{ readonly fromIndex: number; readonly toIndex: number } | undefined>(undefined);
   const onDragTrack = useCallback((fromIndex: number, toIndex: number | undefined) => setDrag(toIndex === undefined ? undefined : { fromIndex, toIndex }), []);
@@ -62,7 +65,8 @@ function TracksPanelView(props: TracksPanelProps) {
         instrumentName: trackInstrument(song, trackIndex)?.name,
         iconKind: instrumentIconKind(song, trackIndex),
       })),
-    [song],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` is read by trackInstrument's names (global t)
+    [song, language],
   );
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
@@ -119,6 +123,7 @@ export const TracksPanel = memo(TracksPanelView);
 
 /** The bar map on the native canvas, in a horizontal scroll view that keeps the playing (else the cursor's) bar in view. */
 function BarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette, onSelectBar }: TracksPanelProps) {
+  const t = useT();
   const commands = useMemo(
     () => engraveBarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette }),
     [song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette],
@@ -136,10 +141,10 @@ function BarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIn
       <Pressable
         testID="tracks-panel-bar-map"
         onPress={handlePress}
-        tooltip="Filled bars hold notes. Click a bar to go there."
+        tooltip={t('window.tracks.barMapTooltip')}
         accessibilityRole="button"
-        accessibilityLabel="Bar map"
-        accessibilityHint="Goes to the clicked track and bar"
+        accessibilityLabel={t('window.tracks.barMap')}
+        accessibilityHint={t('window.tracks.barMapHint')}
         style={size}
       >
         <ScoreCanvas commands={commands} style={size} />

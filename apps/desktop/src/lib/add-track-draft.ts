@@ -9,6 +9,7 @@ import {
   trackKindSpec,
   trackTuningChoices,
 } from '@gp-editor/core';
+import { gmProgramName, trackKindName } from './instruments';
 
 /** What the Add Track panel (Track ▸ Add Track…) has chosen so far. */
 export interface AddTrackDraft {
@@ -84,10 +85,9 @@ export function shiftDraftCapo(draft: AddTrackDraft, delta: number): AddTrackDra
   return { ...draft, capo: Math.min(MAX_CAPO, Math.max(0, draft.capo + delta)) };
 }
 
-/** The name the track gets while none is typed: the kind's, an "other" track's General MIDI instrument. */
+/** The name the track gets while none is typed: the kind's, an "other" track's General MIDI instrument (in the shown language). */
 export function defaultTrackName(draft: AddTrackDraft): string {
-  const spec = trackKindSpec(draft.kind);
-  return draft.kind === 'other' ? (GM_INSTRUMENT_NAMES[draft.program] ?? spec?.name ?? '') : (spec?.name ?? '');
+  return draft.kind === 'other' ? gmProgramName(draft.program) : trackKindSpec(draft.kind) === undefined ? '' : trackKindName(draft.kind);
 }
 
 /** gp-core's NewTrack for the draft. */

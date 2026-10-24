@@ -1,13 +1,24 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { TextField } from '../TextField';
+import { useT } from '../../hooks/use-i18n';
 import type { SongWriterDraft } from '../../hooks/use-song-writer';
+import type { MessageKey } from '../../lib/i18n/i18n';
 import { lengthLabel } from '../../song-writer/request';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 
-/** Genres offered as one-click choices; any other can be typed. */
-const GENRES: readonly string[] = ['Pop', 'Rock', 'Ballad', 'Blues', 'Folk', 'Metal', 'Jazz', 'Funk'];
+/** Genres offered as one-click choices, named in the shown language (Claude reads either); any other can be typed. */
+const GENRES: readonly MessageKey[] = [
+  'tools.songWriter.genre.pop',
+  'tools.songWriter.genre.rock',
+  'tools.songWriter.genre.ballad',
+  'tools.songWriter.genre.blues',
+  'tools.songWriter.genre.folk',
+  'tools.songWriter.genre.metal',
+  'tools.songWriter.genre.jazz',
+  'tools.songWriter.genre.funk',
+];
 
 /** Song lengths, in seconds: −/+ steps of LENGTH_STEP between the two bounds. */
 const MIN_LENGTH = 20;
@@ -51,44 +62,45 @@ function Field({ palette, label, value, placeholder, lines = 1, onChange }: { re
 
 /** The song the user asks for: title, genre, length, lyrics, description, and whether to build on the open score. */
 export function SongWriterFields({ palette, draft, onChangeDraft, reference }: SongWriterFieldsProps) {
+  const t = useT();
   const step = (delta: number) => onChangeDraft({ lengthSeconds: Math.min(MAX_LENGTH, Math.max(MIN_LENGTH, draft.lengthSeconds + delta)) });
   return (
     <>
-      <Row palette={palette} label="Title">
-        <Field palette={palette} label="Title" value={draft.title} placeholder="Leave empty and Claude names it" onChange={(title) => onChangeDraft({ title })} />
+      <Row palette={palette} label={t('common.title')}>
+        <Field palette={palette} label={t('common.title')} value={draft.title} placeholder={t('tools.songWriter.titlePlaceholder')} onChange={(title) => onChangeDraft({ title })} />
       </Row>
-      <Row palette={palette} label="Genre">
-        <Field palette={palette} label="Genre" value={draft.genre} placeholder="e.g. Indie folk, 80s hard rock" onChange={(genre) => onChangeDraft({ genre })} />
+      <Row palette={palette} label={t('tools.songWriter.genre')}>
+        <Field palette={palette} label={t('tools.songWriter.genre')} value={draft.genre} placeholder={t('tools.songWriter.genrePlaceholder')} onChange={(genre) => onChangeDraft({ genre })} />
         <View style={styles.choices}>
-          {GENRES.map((genre) => (
-            <ChromeButton key={genre} palette={palette} label={genre} tooltip={`Genre: ${genre}`} fontSize={11} isActive={draft.genre === genre} onPress={() => onChangeDraft({ genre })} />
+          {GENRES.map((key) => t(key)).map((genre) => (
+            <ChromeButton key={genre} palette={palette} label={genre} tooltip={t('tools.songWriter.genreTooltip', { name: genre })} fontSize={11} isActive={draft.genre === genre} onPress={() => onChangeDraft({ genre })} />
           ))}
         </View>
       </Row>
-      <Row palette={palette} label="Length">
+      <Row palette={palette} label={t('tools.songWriter.length')}>
         <View style={styles.choices}>
-          <ChromeButton palette={palette} label="−" tooltip="Shorter" isEnabled={draft.lengthSeconds > MIN_LENGTH} onPress={() => step(-LENGTH_STEP)} />
+          <ChromeButton palette={palette} label="−" tooltip={t('tools.songWriter.shorter')} isEnabled={draft.lengthSeconds > MIN_LENGTH} onPress={() => step(-LENGTH_STEP)} />
           <Text style={[styles.length, { color: palette.chromeText }]}>{lengthLabel(draft.lengthSeconds)}</Text>
-          <ChromeButton palette={palette} label="+" tooltip="Longer" isEnabled={draft.lengthSeconds < MAX_LENGTH} onPress={() => step(LENGTH_STEP)} />
+          <ChromeButton palette={palette} label="+" tooltip={t('tools.songWriter.longer')} isEnabled={draft.lengthSeconds < MAX_LENGTH} onPress={() => step(LENGTH_STEP)} />
         </View>
       </Row>
-      <Row palette={palette} label="Lyrics">
-        <Field palette={palette} label="Lyrics" value={draft.lyrics} placeholder="Sung as written, in order; leave empty and Claude writes them" lines={7} onChange={(lyrics) => onChangeDraft({ lyrics })} />
+      <Row palette={palette} label={t('common.lyrics')}>
+        <Field palette={palette} label={t('common.lyrics')} value={draft.lyrics} placeholder={t('tools.songWriter.lyricsPlaceholder')} lines={7} onChange={(lyrics) => onChangeDraft({ lyrics })} />
       </Row>
-      <Row palette={palette} label="About">
-        <Field palette={palette} label="Description" value={draft.description} placeholder="Mood, story, instruments, references…" lines={3} onChange={(description) => onChangeDraft({ description })} />
+      <Row palette={palette} label={t('tools.songWriter.about')}>
+        <Field palette={palette} label={t('tools.songWriter.description')} value={draft.description} placeholder={t('tools.songWriter.descriptionPlaceholder')} lines={3} onChange={(description) => onChangeDraft({ description })} />
       </Row>
-      <Row palette={palette} label="Reference">
+      <Row palette={palette} label={t('tools.songWriter.reference')}>
         <View style={styles.choices}>
           <ChromeButton
             palette={palette}
-            label={`${draft.usesReference && reference !== undefined ? '☑' : '☐'} Build on the open score`}
-            tooltip="Build on the open score: its notes, melody and rhythm"
+            label={`${draft.usesReference && reference !== undefined ? '☑' : '☐'} ${t('tools.songWriter.buildOn')}`}
+            tooltip={t('tools.songWriter.buildOnTooltip')}
             fontSize={11}
             isEnabled={reference !== undefined}
             onPress={() => onChangeDraft({ usesReference: !draft.usesReference })}
           />
-          <Text style={[styles.note, { color: palette.chromeMuted }]}>{reference ?? 'Open a score to build on its melody and rhythm'}</Text>
+          <Text style={[styles.note, { color: palette.chromeMuted }]}>{reference ?? t('tools.songWriter.openScore')}</Text>
         </View>
       </Row>
     </>

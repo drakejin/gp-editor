@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { type KeyEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { type Translate, useLanguage, useT } from '../hooks/use-i18n';
 import { type CommandMatch, moveHighlight, searchCommands, visibleRows } from '../lib/command-search';
 import type { Command, CommandState } from '../lib/command-types';
 import { expressionQuery, isExpressionQuery, searchExpressionCommands } from '../lib/expression-commands';
-import { plural } from '../lib/wording';
+import { KEYS } from '../lib/key-commands';
 import type { Palette } from '../theme';
 import { TextField } from './TextField';
 
@@ -20,16 +21,13 @@ interface CommandPaletteProps {
   readonly initialQuery?: string;
 }
 
-/** What Expression Text reads, under its field. */
-const EXPRESSION_HINT = 'Chords (G maj, Am7) · dynamics (ff) · keys (E minor, 3 flats) · octave signs (8va, loco) · clefs (bass clef) · directions (D.S. al Coda)';
-
 /** Rows shown at once; ↑ and ↓ move the window along the list. */
 const VISIBLE_ROWS = 12;
 /**
  * Keys the list takes from the field: ↑ and ↓ move the highlighted row, ↩ runs it. The field is a multi-line one kept to
  * one line, because only that kind hands every key to JS on react-native-macos (a single-line field keeps the arrows).
  */
-const LIST_KEYS = [{ key: 'ArrowUp' }, { key: 'ArrowDown' }, { key: 'Enter' }];
+const LIST_KEYS = [{ key: KEYS.arrowUp }, { key: KEYS.arrowDown }, { key: KEYS.enter }];
 
 interface CommandRowProps {
   readonly palette: Palette;
@@ -42,6 +40,7 @@ function CommandRow({ palette, match, isHighlighted, onRun }: CommandRowProps) {
   const { command, isEnabled } = match;
   return (
     <Pressable
+      // i18n-exempt: a test id
       testID={`command-${command.id}`}
       disabled={!isEnabled}
       onPress={() => onRun(command)}
@@ -69,24 +68,26 @@ interface MatchListProps {
 
 /** The rows in view around the highlighted one (or why there are none), and what the keys do. */
 function MatchList({ palette, matches, highlighted, query, isExpression, onRun }: MatchListProps) {
+  const t = useT();
   const { start, end } = visibleRows(matches.length, highlighted, VISIBLE_ROWS);
-  const count = plural(matches.length, isExpression ? 'expression' : 'command');
+  const count = t(isExpression ? 'commands.palette.expressionCount' : 'commands.palette.count', { count: matches.length });
+  const enter = t(isExpression ? 'commands.palette.footerPut' : 'commands.palette.footerRun');
   return (
     <>
       <View style={styles.list}>
         {matches.slice(start, end).map((match, i) => (
           <CommandRow key={match.command.id} palette={palette} match={match} isHighlighted={start + i === highlighted} onRun={onRun} />
         ))}
-        {matches.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>{emptyText(query, isExpression)}</Text> : null}
+        {matches.length === 0 ? <Text style={[styles.empty, { color: palette.chromeMuted }]}>{emptyText(t, query, isExpression)}</Text> : null}
       </View>
-      <Text style={[styles.footer, { color: palette.chromeMuted }]}>{`${count} · ↑ ↓ choose · ${isExpression ? '↩ put it at the cursor' : '↩ run'} · Esc close`}</Text>
+      <Text style={[styles.footer, { color: palette.chromeMuted }]}>{t('commands.palette.footer', { count, enter })}</Text>
     </>
   );
 }
 
 /** Nothing found: what was typed, said for commands or for Expression Text. */
-function emptyText(query: string, isExpression: boolean): string {
-  return isExpression ? `Nothing matches “${expressionQuery(query)}”: type a chord, a dynamic, a key, an octave sign, a clef or a direction.` : `No command matches “${query}”.`;
+function emptyText(t: Translate, query: string, isExpression: boolean): string {
+  return isExpression ? t('commands.palette.noExpression', { query: expressionQuery(query) }) : t('commands.palette.noCommand', { query });
 }
 
 /**
@@ -96,12 +97,16 @@ function emptyText(query: string, isExpression: boolean): string {
  * Expression Text…), Guitar Pro 8's Expression Text: a chord, dynamic, key, octave sign, clef or direction by name.
  */
 export function CommandPalette({ palette, commands, state, recentIds, onRun, onClose, initialQuery = '' }: CommandPaletteProps) {
+  const t = useT();
+  // Expression Text's titles are built in the shown language: a change lists them again.
+  const language = useLanguage();
   const [query, setQuery] = useState(initialQuery);
   const [highlighted, setHighlighted] = useState(0);
   const isExpression = isExpressionQuery(query);
   const matches = useMemo(
     () => (isExpression ? searchExpressionCommands(query, state) : searchCommands(commands, query, state, recentIds)),
-    [isExpression, commands, query, state, recentIds],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` rebuilds the expressions' titles
+    [isExpression, commands, query, state, recentIds, language],
   );
   const current = Math.min(highlighted, Math.max(0, matches.length - 1));
   const runMatch = (match: CommandMatch | undefined) => {
@@ -120,8 +125,8 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
   return (
     <View style={styles.overlay}>
       <Pressable testID="command-palette-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={isExpression ? 'Expression Text' : 'Command palette'}>
-        {isExpression ? <Text style={[styles.heading, { color: palette.chromeText }]}>Expression Text</Text> : null}
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t(isExpression ? 'commands.expression.title' : 'commands.palette.accessibility')}>
+        {isExpression ? <Text style={[styles.heading, { color: palette.chromeText }]}>{t('commands.expression.title')}</Text> : null}
         <TextField
           testID="command-palette-field"
           value={query}
@@ -129,7 +134,7 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
             setQuery(text.replace(/\n/g, ''));
             setHighlighted(0);
           }}
-          placeholder="Type a command (e.g. exp pdf, transpose)"
+          placeholder={t('commands.palette.placeholder')}
           placeholderTextColor={palette.chromeMuted}
           autoFocus
           multiline
@@ -138,7 +143,7 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
           onKeyDown={onKeyDown}
           style={[styles.field, { color: palette.chromeText, backgroundColor: palette.chromeRaised, borderColor: palette.chromeBorder }]}
         />
-        {isExpression ? <Text style={[styles.hint, { color: palette.chromeMuted }]}>{EXPRESSION_HINT}</Text> : null}
+        {isExpression ? <Text style={[styles.hint, { color: palette.chromeMuted }]}>{t('commands.expression.hint')}</Text> : null}
         <MatchList palette={palette} matches={matches} highlighted={current} query={query} isExpression={isExpression} onRun={onRun} />
       </View>
     </View>

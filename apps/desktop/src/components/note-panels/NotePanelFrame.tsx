@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../../hooks/use-i18n';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 
@@ -7,7 +8,7 @@ interface NotePanelFrameProps {
   readonly palette: Palette;
   readonly title: string;
   readonly subtitle: string;
-  /** What Done says on hover; "Close" by default. */
+  /** What Done says on hover; "Close" (common.close) by default. */
   readonly closeTooltip?: string;
   readonly onClose: () => void;
   readonly children: ReactNode;
@@ -18,10 +19,11 @@ export function NotePanelFrame({
   palette,
   title,
   subtitle,
-  closeTooltip = 'Close',
+  closeTooltip,
   onClose,
   children,
 }: NotePanelFrameProps) {
+  const t = useT();
   return (
     <View style={styles.overlay}>
       <Pressable
@@ -50,8 +52,8 @@ export function NotePanelFrame({
           </View>
           <ChromeButton
             palette={palette}
-            label="Done"
-            tooltip={closeTooltip}
+            label={t('common.done')}
+            tooltip={closeTooltip ?? t('common.close')}
             onPress={onClose}
           />
         </View>

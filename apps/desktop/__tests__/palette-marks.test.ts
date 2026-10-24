@@ -1,5 +1,5 @@
 import { QUARTER_TIME } from '@gp-editor/core';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from '../src/components/palette/palette-marks';
 import { type PaletteContext, type PaletteTool, paletteContext } from '../src/components/palette/palette-tools';
 import { beat, header, makeSong, note } from '../test-support/songs';
@@ -14,7 +14,7 @@ function context(): PaletteContext {
   return paletteContext(pedalled, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 });
 }
 
-const toolIn = (title: string, id: string): PaletteTool | undefined => PALETTE_GROUPS.find((group) => group.title === title)?.tools.find((tool) => tool.id === id);
+const toolIn = (title: string, id: string): PaletteTool | undefined => paletteGroups().find((group) => group.title === title)?.tools.find((tool) => tool.id === id);
 const options = (tool: PaletteTool) => (tool.run.kind === 'options' ? tool.run.options : []);
 
 describe('palette: notation marks', () => {
@@ -22,7 +22,7 @@ describe('palette: notation marks', () => {
     expect([toolIn('Bar', 'directions'), toolIn('Dynamics', 'crescendo'), toolIn('Dynamics', 'decrescendo'), toolIn('Techniques', 'fadeOut'), toolIn('Techniques', 'volumeSwell')]).not.toContain(undefined);
     // The Beat group ends with the rasgueado and pedal tools, then the slash and beam tools (palette-notation.ts); the
     // Expression Text and octave sign tools (palette-expression.ts) go between and after them.
-    const beatTools = PALETTE_GROUPS.find((group) => group.title === 'Beat')?.tools.map((tool) => tool.id).filter((id) => id !== 'expressionText' && id !== 'ottava') ?? [];
+    const beatTools = paletteGroups().find((group) => group.title === 'Beat')?.tools.map((tool) => tool.id).filter((id) => id !== 'expressionText' && id !== 'ottava') ?? [];
     expect(beatTools.slice(-7)).toEqual(['rasgueado', 'pedalDown', 'pedalUp', 'slash', 'breakBeam', 'joinBeam', 'breakSecondaryBeam']);
   });
 

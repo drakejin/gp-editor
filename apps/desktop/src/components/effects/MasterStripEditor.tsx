@@ -4,7 +4,8 @@ import type { Palette } from '../../theme';
 import { EffectChainEditor } from './EffectChainEditor';
 import { PARAM_SLIDER, ParamSlider } from './ParamSlider';
 
-/** The master's output gain as a slider parameter. */
+/** The master's output gain as a slider parameter (its English label names it: effectParamLabel). */
+// i18n-exempt: the English name, shown through effectParamLabel
 export const OUTPUT_GAIN: EffectParamSpec = { id: 'gainDb', label: 'Output', min: MASTER_GAIN.min, max: MASTER_GAIN.max, defaultValue: 0, unit: 'dB', step: 0.5 };
 const SLIDER_MARGIN = PARAM_SLIDER.labelWidth + PARAM_SLIDER.valueWidth + 16;
 

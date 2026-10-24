@@ -2,7 +2,8 @@ import ReactTestRenderer from 'react-test-renderer';
 import { Text, TextInput } from 'react-native';
 import { CommandPalette } from '../src/components/CommandPalette';
 import type { Command, CommandState } from '../src/lib/command-types';
-import { COMMANDS } from '../src/lib/commands';
+import { allCommands } from '../src/lib/commands';
+import { setLanguage } from '../src/lib/i18n/i18n';
 import { paletteContext } from '../src/components/palette/palette-tools';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -21,7 +22,7 @@ function render(recentIds: readonly string[] = [], state: CommandState = STATE, 
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <CommandPalette palette={PALETTE} commands={COMMANDS} state={state} recentIds={recentIds} onRun={onRun} onClose={onClose} initialQuery={initialQuery} />,
+      <CommandPalette palette={PALETTE} commands={allCommands()} state={state} recentIds={recentIds} onRun={onRun} onClose={onClose} initialQuery={initialQuery} />,
     );
   });
   return { renderer, onRun, onClose };
@@ -157,5 +158,36 @@ describe('CommandPalette: Expression Text', () => {
     // Assert
     expect(rendered.onRun).not.toHaveBeenCalled();
     expect(texts(rendered).some((text) => text.startsWith('Nothing matches “banana”'))).toBe(true);
+  });
+});
+
+describe('CommandPalette in Korean', () => {
+  beforeEach(() => ReactTestRenderer.act(() => setLanguage('ko')));
+  afterEach(() => ReactTestRenderer.act(() => setLanguage('en')));
+  const shown = ({ renderer }: Rendered): string[] => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
+
+  it('lists Korean titles, finds them by 초성 and by English, and says what the keys do in Korean', () => {
+    // Arrange
+    const rendered = render();
+
+    // Act
+    type(rendered, 'ㅌㄴ');
+    const byInitials = rows(rendered)[0];
+    type(rendered, 'transpose');
+    const byEnglish = rows(rendered)[0];
+    type(rendered, '바나나');
+
+    // Assert
+    expect([byInitials, byEnglish]).toEqual(['>튜너…', '>조옮김…']);
+    expect(field(rendered).props.placeholder).toBe('명령을 입력하세요 (예: pdf 내보내기, 조옮김, ㅈㅇㄱ)');
+    expect(shown(rendered)).toEqual(expect.arrayContaining(['“바나나”에 맞는 명령이 없습니다.', '명령 0개 · ↑ ↓ 고르기 · ↩ 실행 · Esc 닫기']));
+  });
+
+  it('names Expression Text and its kinds in Korean', () => {
+    const rendered = render([], STATE, '>');
+
+    type(rendered, '>낮은음');
+
+    expect(shown(rendered)).toEqual(expect.arrayContaining(['표현 텍스트', '낮은음자리표 (F)', '음자리표']));
   });
 });

@@ -11,6 +11,7 @@ import {
   stylesheetOf,
   trackTuning,
 } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { neckTitleFor } from '../lib/tuning-hint';
 import type { DrawAlign, DrawCommand, TextCommand } from '../score/draw';
 import { isSameTextStyle, styleText } from '../score/text-styles';
@@ -72,9 +73,9 @@ export function creditParts(info: SongInfo, shown: Readonly<Record<HeaderElement
   const music = shown.music ? info.music : '';
   const authors: readonly CreditPart[] =
     words !== '' && words === music
-      ? [{ element: 'music', text: `Words & Music: ${words}` }]
-      : [...(music === '' ? [] : [{ element: 'music' as const, text: `Music: ${music}` }]), ...(words === '' ? [] : [{ element: 'words' as const, text: `Words: ${words}` }])];
-  const tab = shown.tabber && info.transcriber !== '' ? [{ element: 'tabber' as const, text: `Tab: ${info.transcriber}` }] : [];
+      ? [{ element: 'music', text: t('window.credits.wordsAndMusic', { name: words }) }]
+      : [...(music === '' ? [] : [{ element: 'music' as const, text: t('window.credits.music', { name: music }) }]), ...(words === '' ? [] : [{ element: 'words' as const, text: t('window.credits.words', { name: words }) }])];
+  const tab = shown.tabber && info.transcriber !== '' ? [{ element: 'tabber' as const, text: t('window.credits.tab', { name: info.transcriber }) }] : [];
   return [...authors, ...tab];
 }
 
@@ -102,7 +103,7 @@ export function titleBlockLines(song: Song, trackIndex: number, title: string): 
 
 /** "Lead — Guitar · 6 strings · Drop D (D A D G B E) · capo 2"; a drum track shows only its name. */
 function trackLine(song: Song, track: Track): string {
-  const name = track.name || `Track ${track.number}`;
+  const name = track.name || t('common.trackNumber', { number: track.number });
   const instrument = resolveTrackInstrument(track, song.channels);
   if (instrument === 'percussion') {
     return name;

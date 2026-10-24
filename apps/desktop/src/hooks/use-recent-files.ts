@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import {
   type RecentFile,
   type RecentFileRef,
@@ -60,7 +61,7 @@ export function useRecentFiles(now: () => number = Date.now): RecentFiles {
     }
     latest.current = next;
     setFiles(next);
-    saveRecentFiles(next, touchedPath).catch((reason: unknown) => setError(errorMessage(reason, 'The recent files could not be kept')));
+    saveRecentFiles(next, touchedPath).catch((reason: unknown) => setError(errorMessage(reason, t('window.recentFiles.keepFailed'))));
   }, []);
   const update = useCallback(
     (change: RecentChange, touchedPath = '') => {
@@ -84,7 +85,7 @@ export function useRecentFiles(now: () => number = Date.now): RecentFiles {
     loadRecentFiles()
       .then(start)
       .catch((reason: unknown) => {
-        setError(errorMessage(reason, 'The recent files could not be read'));
+        setError(errorMessage(reason, t('window.recentFiles.readFailed')));
         start([]);
       });
   }, [apply]);

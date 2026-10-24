@@ -1,6 +1,6 @@
 import { QUARTER, type Song, findNote } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { DRONE_FRET_HINT, playedNotesHint, storedFret } from '../src/state/note-entry';
+import { droneFretHint, playedNotesHint, storedFret } from '../src/state/note-entry';
 import { beat, makeSong, note, onStrings } from '../test-support/songs';
 
 const OPEN_G = [62, 59, 55, 50, 67];
@@ -45,7 +45,7 @@ describe('typing a fret on a banjo', () => {
     const state = opened(onStrings(FOUR_BEATS, OPEN_G), 5);
     const refused = editorReducer(state, { type: 'setNoteFret', fret: 3 });
     expect(refused.document).toBe(state.document);
-    expect(refused.hint).toBe(DRONE_FRET_HINT);
+    expect(refused.hint).toBe(droneFretHint());
     expect(editorReducer(refused, { type: 'setNoteFret', fret: 12 }).hint).toBeUndefined();
   });
 });

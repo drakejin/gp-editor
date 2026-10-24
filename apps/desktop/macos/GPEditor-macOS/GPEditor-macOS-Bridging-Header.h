@@ -2,3 +2,4 @@
 #import "GPEditorNotifications.h"
 #import "GPAudioInput.h"
 #import "GPRecentFiles.h"
+#import "GPAppStrings.h"

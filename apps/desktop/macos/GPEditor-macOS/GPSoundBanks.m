@@ -1,4 +1,5 @@
 #import "GPSoundBanks.h"
+#import "GPAppStrings.h"
 
 static NSString *const kBundledBankId = @"generaluser";
 static NSString *const kSystemBankId = @"macos";
@@ -114,7 +115,7 @@ static NSString *const kSystemBankPath = @"/System/Library/Components/CoreAudio.
   NSURL *folder = [self userBankFolder];
   if (![self isBankFile:url] || folder == nil) {
     if (error != NULL) {
-      *error = [self errorWithMessage:folder == nil ? @"The sound bank folder could not be created" : @"Choose a SoundFont (.sf2) or DLS (.dls) file"];
+      *error = [self errorWithMessage:folder == nil ? GPLocalizedString(@"The sound bank folder could not be created") : GPLocalizedString(@"Choose a SoundFont (.sf2) or DLS (.dls) file")];
     }
     return nil;
   }
@@ -141,7 +142,7 @@ static NSString *const kSystemBankPath = @"/System/Library/Components/CoreAudio.
     }
   }
   if (error != NULL) {
-    *error = [self errorWithMessage:@"Only sound banks you added can be removed"];
+    *error = [self errorWithMessage:GPLocalizedString(@"Only sound banks you added can be removed")];
   }
   return NO;
 }

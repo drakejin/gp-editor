@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import { type AccessibilityActionEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { EffectParamSpec } from '@gp-editor/core';
-import { formatEffectValue, paramFromPosition, positionOfParam, stepChoice } from '../../lib/effect-values';
+import { useLanguage, useT } from '../../hooks/use-i18n';
+import { effectParamLabel, formatEffectValue, paramFromPosition, positionOfParam, stepChoice } from '../../lib/effect-values';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { DRAG_RETENTION, useSliderDrag } from '../slider-drag';
@@ -32,13 +33,15 @@ function valueAtX(spec: EffectParamSpec, x: number, width: number): number {
 
 /** A choice (reverb room, cabinet …): its name between previous and next buttons. */
 function ChoiceStepper({ palette, spec, value, width, onChange }: ParamSliderProps) {
+  const t = useT();
+  const name = effectParamLabel(spec).toLowerCase();
   return (
     <View style={[styles.stepper, { width }]}>
-      <ChromeButton palette={palette} label="‹" tooltip={`Previous ${spec.label.toLowerCase()}`} minWidth={20} onPress={() => onChange(stepChoice(spec, value, -1))} />
+      <ChromeButton palette={palette} label="‹" tooltip={t('tools.effects.previousChoice', { name })} minWidth={20} onPress={() => onChange(stepChoice(spec, value, -1))} />
       <Text numberOfLines={1} style={[styles.choice, { color: palette.chromeText }]}>
         {formatEffectValue(spec, value)}
       </Text>
-      <ChromeButton palette={palette} label="›" tooltip={`Next ${spec.label.toLowerCase()}`} minWidth={20} onPress={() => onChange(stepChoice(spec, value, 1))} />
+      <ChromeButton palette={palette} label="›" tooltip={t('tools.effects.nextChoice', { name })} minWidth={20} onPress={() => onChange(stepChoice(spec, value, 1))} />
     </View>
   );
 }
@@ -51,6 +54,7 @@ function RangeSlider({ palette, spec, value, width, onChange, onPreview }: Param
   });
   const shown = dragValue ?? value;
   const text = formatEffectValue(spec, shown);
+  const label = effectParamLabel(spec);
   const x = thumbX(spec, shown, width);
   const onAccessibilityAction = (event: AccessibilityActionEvent) => {
     const step = event.nativeEvent.actionName === 'increment' ? ACCESSIBILITY_STEP : -ACCESSIBILITY_STEP;
@@ -63,10 +67,10 @@ function RangeSlider({ palette, spec, value, width, onChange, onPreview }: Param
     <>
       <Pressable
         style={[styles.slider, { width }]}
-        tooltip={`${spec.label}: ${text}`}
+        tooltip={`${label}: ${text}`}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={spec.label}
+        accessibilityLabel={label}
         accessibilityValue={{ text }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={onAccessibilityAction}
@@ -87,10 +91,12 @@ function RangeSlider({ palette, spec, value, width, onChange, onPreview }: Param
 /** One effect parameter: its label, then a slider and its value, or a stepper for a choice. */
 function ParamSliderView(props: ParamSliderProps) {
   const { palette, spec } = props;
+  // A memoised row: the language is a dependency of its names (effectParamLabel, the choices' names).
+  useLanguage();
   return (
     <View style={styles.row}>
       <Text numberOfLines={1} style={[styles.label, { color: palette.chromeMuted }]}>
-        {spec.label}
+        {effectParamLabel(spec)}
       </Text>
       {spec.choices === undefined ? <RangeSlider {...props} /> : <ChoiceStepper {...props} width={props.width + PARAM_SLIDER.valueWidth} />}
     </View>

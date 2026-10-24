@@ -1,5 +1,5 @@
 import { readSong } from '@gp-editor/core';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { type PaletteContext, isToolEnabled, paletteContext } from '../src/components/palette/palette-tools';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
@@ -31,7 +31,7 @@ const asEdit = (edit: SongEdit): EditorAction => ({ type: 'edit', edit });
 
 /** Every button the palette shows, as "group / tool [/ option]" with what pressing it dispatches. */
 function everyPress(): readonly { readonly name: string; readonly action: EditorAction; readonly isAlreadySo: boolean }[] {
-  return PALETTE_GROUPS.flatMap((group) => [
+  return paletteGroups().flatMap((group) => [
     ...group.tools.flatMap((tool) => {
       const name = `${group.title} / ${tool.id}`;
       const isActive = tool.isActive?.(CONTEXT) ?? false;
@@ -65,7 +65,7 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
 
 describe('edition palette: every button does something on a real note', () => {
   it('has every tool enabled with the cursor on a note', () => {
-    const disabled = PALETTE_GROUPS.flatMap((group) => group.tools).filter((tool) => !isToolEnabled(tool, CONTEXT)).map((tool) => tool.id);
+    const disabled = paletteGroups().flatMap((group) => group.tools).filter((tool) => !isToolEnabled(tool, CONTEXT)).map((tool) => tool.id);
     expect(disabled).toEqual([]);
   });
 

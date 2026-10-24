@@ -19,6 +19,7 @@
 #import "GPLineIn.h"
 #import "GPMidiEngine.h"
 #import "GPSoundBanks.h"
+#import "GPAppStrings.h"
 
 static NSString *const kMixerRequestedEvent = @"mixerRequested";
 static NSString *const kLineInRequestedEvent = @"lineInRequested";
@@ -103,13 +104,13 @@ RCT_EXPORT_METHOD(play : (NSString *)base64 fromSeconds : (double)seconds audio 
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
   if (data == nil) {
     [self.engine stop];
-    reject(@"bad_midi", @"The MIDI data is not valid base64", nil);
+    reject(@"bad_midi", GPLocalizedString(@"The MIDI data is not valid base64"), nil);
     return;
   }
   NSError *error = nil;
   NSDictionary *audioTrack = [audio isKindOfClass:[NSDictionary class]] ? audio : nil;
   if (![self.engine playData:data fromSeconds:seconds bankURL:[GPSoundBanks selectedBankURL] audio:audioTrack error:&error]) {
-    reject(@"player_failed", error.localizedDescription ?: @"Could not play the song", error);
+    reject(@"player_failed", error.localizedDescription ?: GPLocalizedString(@"Could not play the song"), error);
     return;
   }
   resolve(nil);
@@ -180,7 +181,7 @@ RCT_EXPORT_METHOD(previewNote : (NSDictionary *)note resolve : (RCTPromiseResolv
   BOOL isValid = channel >= 0 && channel <= 15 && program >= 0 && program <= 127 && key >= 0 && key <= 127 && velocity >= 1 && velocity <= 127 &&
                  trackIndex >= 0 && trackIndex <= kMaxTrackIndex;
   if (!isValid) {
-    reject(@"bad_note", @"The note to preview is out of range", nil);
+    reject(@"bad_note", GPLocalizedString(@"The note to preview is out of range"), nil);
     return;
   }
   NSTimeInterval seconds = MIN(5, MAX(0.02, durationMs / 1000));
@@ -193,7 +194,7 @@ RCT_EXPORT_METHOD(previewNote : (NSDictionary *)note resolve : (RCTPromiseResolv
                    forSeconds:seconds
                       bankURL:[GPSoundBanks selectedBankURL]
                         error:&error]) {
-    reject(@"preview_failed", error.localizedDescription ?: @"Could not preview the note", error);
+    reject(@"preview_failed", error.localizedDescription ?: GPLocalizedString(@"Could not preview the note"), error);
     return;
   }
   os_log(OS_LOG_DEFAULT, "GPPlayer: preview note %d on channel %d, program %d, track %d", (int)key, (int)channel, (int)program, (int)trackIndex);
@@ -217,7 +218,7 @@ RCT_EXPORT_METHOD(soundBanks : (RCTPromiseResolveBlock)resolve reject : (RCTProm
 RCT_EXPORT_METHOD(selectSoundBank : (NSString *)bankId resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   if (![GPSoundBanks selectBankWithId:bankId]) {
-    reject(@"no_bank", @"That sound bank is no longer available", nil);
+    reject(@"no_bank", GPLocalizedString(@"That sound bank is no longer available"), nil);
     return;
   }
   resolve([GPSoundBanks state]);
@@ -245,14 +246,14 @@ RCT_EXPORT_METHOD(addSoundBank : (RCTPromiseResolveBlock)resolve reject : (RCTPr
     }
   }
   panel.allowedContentTypes = types;
-  panel.message = @"Add a SoundFont (.sf2) or DLS sound bank for playback";
+  panel.message = GPLocalizedString(@"Add a SoundFont (.sf2) or DLS sound bank for playback");
   if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
     resolve([NSNull null]);
     return;
   }
   NSError *error = nil;
   if ([GPSoundBanks addBankFromURL:panel.URL error:&error] == nil) {
-    reject(@"add_failed", error.localizedDescription ?: @"Could not add the sound bank", error);
+    reject(@"add_failed", error.localizedDescription ?: GPLocalizedString(@"Could not add the sound bank"), error);
     return;
   }
   resolve([GPSoundBanks state]);
@@ -262,7 +263,7 @@ RCT_EXPORT_METHOD(removeSoundBank : (NSString *)bankId resolve : (RCTPromiseReso
 {
   NSError *error = nil;
   if (![GPSoundBanks removeBankWithId:bankId error:&error]) {
-    reject(@"remove_failed", error.localizedDescription ?: @"Could not remove the sound bank", error);
+    reject(@"remove_failed", error.localizedDescription ?: GPLocalizedString(@"Could not remove the sound bank"), error);
     return;
   }
   resolve([GPSoundBanks state]);
@@ -292,14 +293,14 @@ RCT_EXPORT_METHOD(startLineIn : (NSDictionary *)settings resolve : (RCTPromiseRe
   [GPLineIn requestAccess:^(BOOL isGranted) {
     dispatch_async(self->_queue, ^{
       if (!isGranted) {
-        reject(@"no_access", @"GP Editor may not use the audio input: allow it in System Settings ▸ Privacy & Security ▸ Microphone", nil);
+        reject(@"no_access", GPLocalizedString(@"GP Editor may not use the audio input: allow it in System Settings ▸ Privacy & Security ▸ Microphone"), nil);
         return;
       }
       NSError *error = nil;
       NSString *deviceId = [settings[@"deviceId"] isKindOfClass:[NSString class]] && [settings[@"deviceId"] length] > 0 ? settings[@"deviceId"] : nil;
       if (![self.engine startLineInWithDevice:deviceId trackIndex:[settings[@"trackIndex"] integerValue] gainDb:[settings[@"gainDb"] doubleValue]
                                  isMonitoring:[settings[@"isMonitoring"] boolValue] error:&error]) {
-        reject(@"line_in_failed", error.localizedDescription ?: @"The audio input could not be started", error);
+        reject(@"line_in_failed", error.localizedDescription ?: GPLocalizedString(@"The audio input could not be started"), error);
         return;
       }
       resolve(nil);

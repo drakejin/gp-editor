@@ -127,4 +127,10 @@ FOUNDATION_EXPORT NSString *const GPEditorTrackCommandNotification;
  */
 FOUNDATION_EXPORT NSString *const GPEditorLayoutCommandNotification;
 
+/** GP Editor ▸ Settings… (⌘,) was chosen; GPAppSettings.m forwards it to JS as "settingsRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorSettingsCommandNotification;
+
+/** JS applied Settings ▸ Language (GPAppSettings.m): the menus and native panels show GPCurrentLanguage() now. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorLanguageChangedNotification;
+
 NS_ASSUME_NONNULL_END

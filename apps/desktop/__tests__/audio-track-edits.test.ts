@@ -1,5 +1,5 @@
 import { buildAudioTrack } from '@gp-editor/core';
-import { SYNC_ORDER_HINT, TWO_SYNC_POINTS_HINT } from '../src/state/audio-track-edits';
+import { syncOrderHint, twoSyncPointsHint } from '../src/state/audio-track-edits';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { makeSong } from '../test-support/songs';
 
@@ -60,10 +60,10 @@ describe('audio track edits', () => {
 
     // Assert
     expect(marked.document?.song.audioTrack?.syncPoints.map((point) => point.seconds)).toEqual([1, 5]);
-    expect(refused.hint).toBe(SYNC_ORDER_HINT);
+    expect(refused.hint).toBe(syncOrderHint());
     expect(refused.document?.song).toBe(marked.document?.song);
     expect(moved.document?.song.audioTrack?.syncPoints[1]?.seconds).toBe(6);
-    expect(badMove.hint).toBe(SYNC_ORDER_HINT);
+    expect(badMove.hint).toBe(syncOrderHint());
     expect(deleted.document?.song.audioTrack?.syncPoints.map((point) => point.measureIndex)).toEqual([2]);
   });
 
@@ -92,7 +92,7 @@ describe('audio track edits', () => {
     const tempo = run(state, { type: 'setTempoFromAudio' });
 
     // Assert
-    expect(tempo.hint).toBe(TWO_SYNC_POINTS_HINT);
+    expect(tempo.hint).toBe(twoSyncPointsHint());
     expect(tempo.document?.song).toBe(state.document?.song);
   });
 });

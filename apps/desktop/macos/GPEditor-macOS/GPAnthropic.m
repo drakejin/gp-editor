@@ -6,6 +6,7 @@
 #import <React/RCTBridgeModule.h>
 
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 static NSString *const kMessagesURL = @"https://api.anthropic.com/v1/messages";
 static NSString *const kApiVersion = @"2023-06-01";
@@ -83,7 +84,7 @@ RCT_EXPORT_METHOD(setApiKey : (NSString *)key resolve : (RCTPromiseResolveBlock)
   NSString *trimmed = [key stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
   NSURL *url = [GPAnthropic keyURL];
   if (trimmed.length == 0 || url == nil) {
-    reject(@"bad_key", @"Enter an Anthropic API key", nil);
+    reject(@"bad_key", GPLocalizedString(@"Enter an Anthropic API key"), nil);
     return;
   }
   NSFileManager *files = [NSFileManager defaultManager];
@@ -91,7 +92,7 @@ RCT_EXPORT_METHOD(setApiKey : (NSString *)key resolve : (RCTPromiseResolveBlock)
   NSError *error = nil;
   if (![trimmed writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:&error] ||
       ![files setAttributes:@{NSFilePosixPermissions : @0600} ofItemAtPath:url.path error:&error]) {
-    reject(@"save_failed", error.localizedDescription ?: @"Could not save the key", error);
+    reject(@"save_failed", error.localizedDescription ?: GPLocalizedString(@"Could not save the key"), error);
     return;
   }
   resolve(nil);
@@ -123,7 +124,7 @@ RCT_EXPORT_METHOD(send : (NSString *)body resolve : (RCTPromiseResolveBlock)reso
 {
   NSString *key = [GPAnthropic apiKey];
   if (key == nil) {
-    reject(@"no_key", @"No Anthropic API key — add one in the import settings", nil);
+    reject(@"no_key", GPLocalizedString(@"No Anthropic API key — add one in the import settings"), nil);
     return;
   }
   NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[GPAnthropic messagesURL]];

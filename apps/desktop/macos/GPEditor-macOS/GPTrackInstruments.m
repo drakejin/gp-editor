@@ -1,4 +1,5 @@
 #import "GPTrackInstruments.h"
+#import "GPAppStrings.h"
 
 #import <AudioToolbox/AudioToolbox.h>
 
@@ -73,7 +74,7 @@ static AVBeatRange WholeTrack(AVMusicTrack *track)
     OSStatus status = AudioUnitSetProperty(synth.audioUnit, kMusicDeviceProperty_SoundBankURL, kAudioUnitScope_Global, 0, &url, sizeof(url));
     if (status != noErr) {
       if (error != NULL) {
-        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:@{NSLocalizedDescriptionKey : @"The sound bank could not be loaded"}];
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:@{NSLocalizedDescriptionKey : GPLocalizedString(@"The sound bank could not be loaded")}];
       }
       return NO;
     }

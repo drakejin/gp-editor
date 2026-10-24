@@ -1,4 +1,5 @@
 #import "GPAudioAssets.h"
+#import "GPAppStrings.h"
 
 #import <Accelerate/Accelerate.h>
 #import <CommonCrypto/CommonDigest.h>
@@ -69,7 +70,7 @@ static AVAudioFile *OpenFile(NSURL *url, NSError **error)
   AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:error];
   if (file != nil && file.length <= 0) {
     if (error != NULL) {
-      *error = AssetError(@"The audio file holds no sound");
+      *error = AssetError(GPLocalizedString(@"The audio file holds no sound"));
     }
     return nil;
   }
@@ -80,7 +81,7 @@ static AVAudioFile *OpenFile(NSURL *url, NSError **error)
 {
   if (data.length == 0 || data.length > kMaxFileBytes) {
     if (error != NULL) {
-      *error = AssetError(data.length == 0 ? @"The audio file is empty" : @"The audio file is larger than 1 GB");
+      *error = AssetError(data.length == 0 ? GPLocalizedString(@"The audio file is empty") : GPLocalizedString(@"The audio file is larger than 1 GB"));
     }
     return nil;
   }
@@ -93,7 +94,7 @@ static AVAudioFile *OpenFile(NSURL *url, NSError **error)
   if (![data writeToURL:url options:NSDataWritingAtomic error:&failure] || OpenFile(url, &failure) == nil) {
     [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
     if (error != NULL) {
-      *error = AssetError([NSString stringWithFormat:@"This audio file cannot be played: %@", failure.localizedDescription ?: @"unknown format"]);
+      *error = AssetError([NSString stringWithFormat:GPLocalizedString(@"This audio file cannot be played: %@"), failure.localizedDescription ?: GPLocalizedString(@"unknown format")]);
     }
     return nil;
   }
@@ -192,7 +193,7 @@ static NSData *ComputePeaks(AVAudioFile *file, NSError **error)
   AVAudioFile *file = url == nil ? nil : OpenFile(url, error);
   if (file == nil) {
     if (url == nil && error != NULL) {
-      *error = AssetError(@"The audio track's file is not loaded");
+      *error = AssetError(GPLocalizedString(@"The audio track's file is not loaded"));
     }
     return nil;
   }

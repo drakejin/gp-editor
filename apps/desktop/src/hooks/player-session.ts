@@ -18,6 +18,7 @@ import { type PlayerPosition, playMidi, playerPosition, setClickTracks, setMuted
 import type { PlayingBeat } from '../score/row';
 import type { PracticeSettings } from '../state/practice';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 
 /** How often the player position is read while playing. */
 const POLL_INTERVAL_MS = 40;
@@ -177,13 +178,13 @@ export function launchPlayer(session: PlayerSession, request: PlayRequest): void
       .then(() => startPolling(session, startedGeneration))
       .catch((error: unknown) => {
         if (session.generation.current === startedGeneration) {
-          session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
+          session.setState({ isPlaying: false, error: errorMessage(error, t('window.error.playbackFailed')) });
         }
       });
   } catch (error: unknown) {
     // A restart can fail while the previous render still sounds.
     releasePlayer(session);
-    session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
+    session.setState({ isPlaying: false, error: errorMessage(error, t('window.error.playbackFailed')) });
   }
 }
 
@@ -202,7 +203,7 @@ async function pollPlayer(session: PlayerSession): Promise<void> {
   } catch (error: unknown) {
     if (session.generation.current === polledGeneration) {
       releasePlayer(session);
-      session.setState({ isPlaying: false, error: errorMessage(error, 'Playback failed') });
+      session.setState({ isPlaying: false, error: errorMessage(error, t('window.error.playbackFailed')) });
     }
     return;
   }

@@ -9,6 +9,7 @@ import {
   parseTranscriptionPage,
 } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { NO_USAGE, type TokenUsage, type ToolAnswer, type ToolAnswerWording, addUsage, readToolAnswer } from '../lib/tool-answer';
 import type { ApiResponse } from '../native/anthropic';
 import { type SongIdea, buildPlanRequest, buildSectionRequest } from './request';
@@ -34,7 +35,6 @@ const MAX_ATTEMPTS = 3;
 const FIRST_RETRY_DELAY_MS = 2000;
 /** Sections written at the same time, as the PDF import does pages. */
 const CONCURRENT_SECTIONS = 3;
-const CANCELLED = 'Cancelled';
 
 type Asked<T> =
   | { readonly isOk: true; readonly value: T; readonly usage: TokenUsage }
@@ -46,7 +46,7 @@ async function askTool<T>(deps: SongWriterDeps, body: string, tool: string, word
   let message = '';
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     if (deps.isCancelled()) {
-      return { isOk: false, isFatal: true, message: CANCELLED, usage };
+      return { isOk: false, isFatal: true, message: t('tools.songWriter.cancelled'), usage };
     }
     if (attempt > 0) {
       await deps.wait(FIRST_RETRY_DELAY_MS * 2 ** (attempt - 1));
@@ -66,18 +66,19 @@ async function askTool<T>(deps: SongWriterDeps, body: string, tool: string, word
     try {
       return { isOk: true, value: parse(answer.input), usage };
     } catch (error: unknown) {
-      message = `The answer did not fit the format: ${errorMessage(error)}`;
+      message = t('tools.songWriter.didNotFit', { detail: errorMessage(error) });
     }
   }
   return { isOk: false, isFatal: false, message, usage };
 }
 
-const PLAN_WORDING: ToolAnswerWording = { tooLong: 'The plan was too long for one answer', what: 'a plan' };
-const SECTION_WORDING: ToolAnswerWording = { tooLong: 'The section was too long for one answer', what: 'the section' };
+/** How the answers' messages name a plan and a section, in the shown language. */
+const planWording = (): ToolAnswerWording => ({ tooLong: t('tools.songWriter.planTooLong'), what: t('tools.songWriter.aPlan') });
+const sectionWording = (): ToolAnswerWording => ({ tooLong: t('tools.songWriter.sectionTooLong'), what: t('tools.songWriter.theSection') });
 
 /** A section that could not be written: its bars as rests, so the song keeps its length, and why (the build names the section). */
 function restSection(bars: number, message: string): TranscriptionPage {
-  return { measures: Array.from({ length: bars }, () => ({ parts: [] })), warnings: [`could not be written (${message}); its bars are rests`] };
+  return { measures: Array.from({ length: bars }, () => ({ parts: [] })), warnings: [t('tools.songWriter.sectionAsRests', { detail: message })] };
 }
 
 interface Written {
@@ -96,7 +97,7 @@ async function writeSections(idea: SongIdea, model: string, plan: SongPlan, deps
     const batch = plan.sections.slice(start, start + CONCURRENT_SECTIONS);
     onStep({ kind: 'writing', written: start, total, writing: batch.map((section) => section.name) });
     const answers = await Promise.all(
-      batch.map((_, offset) => askTool(deps, JSON.stringify(buildSectionRequest(model, idea, plan, start + offset)), WRITE_SECTION_TOOL.name, SECTION_WORDING, parseTranscriptionPage)),
+      batch.map((_, offset) => askTool(deps, JSON.stringify(buildSectionRequest(model, idea, plan, start + offset)), WRITE_SECTION_TOOL.name, sectionWording(), parseTranscriptionPage)),
     );
     usage = answers.reduce((sum, answer) => addUsage(sum, answer.usage), usage);
     const fatal = answers.find((answer) => !answer.isOk && answer.isFatal);
@@ -119,7 +120,7 @@ async function writeSections(idea: SongIdea, model: string, plan: SongPlan, deps
  */
 export async function writeSong(idea: SongIdea, model: string, deps: SongWriterDeps, onStep: (step: SongWriterStep) => void): Promise<SongWriterResult> {
   onStep({ kind: 'planning' });
-  const planned = await askTool(deps, JSON.stringify(buildPlanRequest(model, idea)), PLAN_SONG_TOOL.name, PLAN_WORDING, parseSongPlan);
+  const planned = await askTool(deps, JSON.stringify(buildPlanRequest(model, idea)), PLAN_SONG_TOOL.name, planWording(), parseSongPlan);
   if (!planned.isOk) {
     return { isOk: false, message: planned.message, usage: planned.usage };
   }
@@ -132,6 +133,6 @@ export async function writeSong(idea: SongIdea, model: string, deps: SongWriterD
     const built = buildComposedSong(planned.value, written.pages, { genre: idea.genre, description: idea.description });
     return { isOk: true, song: built.song, plan: planned.value, warnings: built.warnings, usage };
   } catch (error: unknown) {
-    return { isOk: false, message: `The song could not be built: ${errorMessage(error)}`, usage };
+    return { isOk: false, message: t('tools.songWriter.buildFailed', { detail: errorMessage(error) }), usage };
   }
 }

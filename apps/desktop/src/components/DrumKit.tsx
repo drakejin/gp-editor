@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { type GestureResponderEvent, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { useLanguage, useT } from '../hooks/use-i18n';
 import { ScoreCanvas } from '../native/score-canvas';
 import { drumKitHeight, engraveDrumKit, hitTestDrumKit } from '../score/drum-kit';
 import type { Palette } from '../theme';
@@ -18,7 +19,11 @@ const SIDE_PADDING = 24;
 export function DrumKit({ keys, palette, onHit }: DrumKitProps) {
   const [width, setWidth] = useState(0);
   const onLayout = useCallback((event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width - SIDE_PADDING * 2), []);
-  const commands = useMemo(() => (width > 0 ? engraveDrumKit({ width, keys, palette }) : []), [width, keys, palette]);
+  const t = useT();
+  const language = useLanguage();
+  // The drums' names are drawn in the shown language: drawn again when it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => (width > 0 ? engraveDrumKit({ width, keys, palette }) : []), [width, keys, palette, language]);
   const height = drumKitHeight(Math.max(0, width));
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
@@ -31,7 +36,7 @@ export function DrumKit({ keys, palette, onHit }: DrumKitProps) {
   );
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} onLayout={onLayout}>
-      <Pressable onPressIn={handlePress} tooltip="Click a drum to enter it at the cursor" accessibilityLabel="Drum kit" style={{ width: Math.max(0, width), height }}>
+      <Pressable onPressIn={handlePress} tooltip={t('window.drumKit.tooltip')} accessibilityLabel={t('window.drumKit.title')} style={{ width: Math.max(0, width), height }}>
         <ScoreCanvas commands={commands} style={{ width: Math.max(0, width), height }} />
       </Pressable>
     </View>

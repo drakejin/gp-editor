@@ -12,6 +12,7 @@
 #import "GPAudioExporter.h"
 #import "GPSandbox.h"
 #import "GPSoundBanks.h"
+#import "GPAppStrings.h"
 
 static NSString *const kProgressEvent = @"audioExportProgress";
 /** Stems of a song with many tracks, at most. */
@@ -135,7 +136,7 @@ RCT_EXPORT_MODULE();
       if (error.code == GPAudioExportCancelledCode) {
         resolve([NSNull null]);
       } else {
-        reject(@"export_failed", error.localizedDescription ?: @"The audio file could not be written", error);
+        reject(@"export_failed", error.localizedDescription ?: GPLocalizedString(@"The audio file could not be written"), error);
       }
       return;
     }
@@ -156,12 +157,12 @@ RCT_EXPORT_METHOD(exportAudio : (NSDictionary *)job resolve : (RCTPromiseResolve
   NSArray<GPAudioExportFile *> *files = settings == nil ? nil : [GPAudioExport filesFrom:job[@"files"] extension:settings.format];
   NSDictionary *mix = [job[@"mix"] isKindOfClass:[NSDictionary class]] ? job[@"mix"] : @{};
   if (files == nil) {
-    reject(@"bad_export", error.localizedDescription ?: @"Nothing to export", error);
+    reject(@"bad_export", error.localizedDescription ?: GPLocalizedString(@"Nothing to export"), error);
     return;
   }
   bool isIdle = false;
   if (!atomic_compare_exchange_strong(&_isRunning, &isIdle, true)) {
-    reject(@"busy", @"An audio export is already running", nil);
+    reject(@"busy", GPLocalizedString(@"An audio export is already running"), nil);
     return;
   }
   atomic_store(&_isCancelled, false);
@@ -205,11 +206,11 @@ RCT_EXPORT_METHOD(cancelAudioExport : (RCTPromiseResolveBlock)resolve reject : (
     return YES;
   }
   NSAlert *alert = [NSAlert new];
-  alert.messageText = existing == 1 ? [NSString stringWithFormat:@"Replace a file in “%@”?", folder.lastPathComponent]
-                                    : [NSString stringWithFormat:@"Replace %lu files in “%@”?", (unsigned long)existing, folder.lastPathComponent];
-  alert.informativeText = @"Audio files with these names are already in the folder. Replacing them overwrites them.";
-  [alert addButtonWithTitle:@"Replace"];
-  [alert addButtonWithTitle:@"Cancel"];
+  alert.messageText = existing == 1 ? [NSString stringWithFormat:GPLocalizedString(@"Replace a file in “%@”?"), folder.lastPathComponent]
+                                    : [NSString stringWithFormat:GPLocalizedString(@"Replace %lu files in “%@”?"), (unsigned long)existing, folder.lastPathComponent];
+  alert.informativeText = GPLocalizedString(@"Audio files with these names are already in the folder. Replacing them overwrites them.");
+  [alert addButtonWithTitle:GPLocalizedString(@"Replace")];
+  [alert addButtonWithTitle:GPLocalizedString(@"Cancel")];
   return [alert runModal] == NSAlertFirstButtonReturn;
 }
 
@@ -220,7 +221,7 @@ RCT_EXPORT_METHOD(cancelAudioExport : (RCTPromiseResolveBlock)resolve reject : (
 RCT_EXPORT_METHOD(chooseFolder : (NSArray *)fileNames resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   if (![GPAudioExport arePlainNames:fileNames]) {
-    reject(@"bad_names", @"Nothing to export", nil);
+    reject(@"bad_names", GPLocalizedString(@"Nothing to export"), nil);
     return;
   }
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -234,8 +235,8 @@ RCT_EXPORT_METHOD(chooseFolder : (NSArray *)fileNames resolve : (RCTPromiseResol
       panel.canChooseDirectories = YES;
       panel.canCreateDirectories = YES;
       panel.allowsMultipleSelection = NO;
-      panel.prompt = @"Export";
-      panel.message = [NSString stringWithFormat:@"Choose a folder for the %lu audio files, one per track: %@ … %@", (unsigned long)fileNames.count, fileNames.firstObject, fileNames.lastObject];
+      panel.prompt = GPLocalizedString(@"Export");
+      panel.message = [NSString stringWithFormat:GPLocalizedString(@"Choose a folder for the %lu audio files, one per track: %@ … %@"), (unsigned long)fileNames.count, fileNames.firstObject, fileNames.lastObject];
       BOOL isChosen = [panel runModal] == NSModalResponseOK && panel.URL != nil && [GPAudioExport mayReplaceIn:panel.URL names:fileNames];
       folder = isChosen ? panel.URL : nil;
     }

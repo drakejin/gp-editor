@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type GestureResponderEvent, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { type AudioSyncPoint, type SecondsRange, type SyncMap, audioSecondsAt, playedBarIndex } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import type { AudioPeaks } from '../../lib/audio-track';
 import { ScoreCanvas } from '../../native/score-canvas';
 import { AUDIO_LANE, draggedSeconds, engraveAudioLane, hitTestAudioLane, laneWidth, laneWindow, laneX, scrollToShow } from '../../score/audio-lane';
@@ -67,6 +68,7 @@ export function AudioWaveform(props: AudioWaveformProps) {
   const { map, pixelsPerSecond, palette } = props;
   const scrollRef = useRef<ScrollView>(null);
   const scroll = useRef(0);
+  const t = useT();
   const [scrollX, setScrollX] = useState(0);
   const [viewport, setViewport] = useState(0);
   const [drag, setDrag] = useState<Drag | undefined>(undefined);
@@ -130,9 +132,9 @@ export function AudioWaveform(props: AudioWaveformProps) {
         onPressMove={onPressMove}
         onPressOut={onPressOut}
         pressRetentionOffset={DRAG_RETENTION}
-        tooltip="Drag a sync point to the moment its bar starts in the recording. Click elsewhere to go to the bar heard there."
+        tooltip={t('tools.audioTrack.waveformTooltip')}
         accessibilityRole="adjustable"
-        accessibilityLabel="Audio track waveform"
+        accessibilityLabel={t('tools.audioTrack.waveform')}
       >
         <View style={[styles.window, { left: fromX, width: toX - fromX }]}>
           <ScoreCanvas commands={commands} style={styles.canvas} />

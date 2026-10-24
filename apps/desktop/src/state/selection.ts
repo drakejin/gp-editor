@@ -1,6 +1,6 @@
 import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
-import { plural } from '../lib/wording';
+import { t } from '../lib/i18n/i18n';
 import type { BeatRange } from '../score/selection-tint';
 import type { EditorAction, EditorState } from './editor';
 import type { LoopRange } from './practice';
@@ -60,7 +60,8 @@ export function selectionSummary(state: SelectionState, fragment: BeatFragment):
   const anchorBar = state.selectionAnchor === undefined ? cursorBar : state.selectionAnchor.measureIndex + 1;
   const first = Math.min(cursorBar, anchorBar);
   const last = Math.max(cursorBar, anchorBar);
-  return `${plural(fragment.items.length, 'beat')} from ${first === last ? `bar ${first}` : `bars ${first}–${last}`}`;
+  const count = fragment.items.length;
+  return first === last ? t('palette.selection.oneBar', { count, bar: first }) : t('palette.selection.bars', { count, first, last });
 }
 
 /** Shift-←/→: the cursor a beat further (as moveCursorBeat), the selection anchored where it started. */
@@ -130,7 +131,7 @@ export function pasteRefusal(song: Song, cursor: StringAddress, fragment: BeatFr
   if (track === undefined || track.isPercussion === fragment.isPercussion) {
     return undefined;
   }
-  return fragment.isPercussion ? 'Beats copied from a drum track paste into drum tracks only.' : 'Only beats copied from a drum track paste into a drum track.';
+  return t(fragment.isPercussion ? 'palette.hint.pasteDrumsOnly' : 'palette.hint.pasteIntoDrums');
 }
 
 /** ⌘V: the beats inserted at the cursor, what follows moved on; the cursor on the first pasted beat. */

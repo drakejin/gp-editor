@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { type ScaleChoice, type Track, scaleBoxes, scaleNoteNames, scalePitchClasses } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { ScoreCanvas } from '../../native/score-canvas';
 import { engraveScaleDiagram, scaleDiagramHeight } from '../../score/scale-diagram';
 import type { Palette } from '../../theme';
@@ -25,6 +26,7 @@ export function ScaleBoxes({ palette, track, choice, width }: ScaleBoxesProps) {
   const boxes = useMemo(() => scaleBoxes(choice, track.strings), [choice, track.strings]);
   const names = useMemo(() => spelledNames(choice), [choice]);
   const [boxIndex, setBoxIndex] = useState(0);
+  const t = useT();
   const shown = Math.min(boxIndex, Math.max(0, boxes.length - 1));
   const box = boxes[shown];
   const commands = useMemo(() => (box === undefined ? [] : engraveScaleDiagram({ box, strings: track.strings, width, names })), [box, track.strings, width, names]);
@@ -34,9 +36,9 @@ export function ScaleBoxes({ palette, track, choice, width }: ScaleBoxesProps) {
   return (
     <View>
       <View style={styles.stepper}>
-        <ChromeButton palette={palette} label="◀" tooltip="Previous position" isEnabled={shown > 0} onPress={() => setBoxIndex(shown - 1)} />
-        <Text style={[styles.position, { color: palette.chromeText }]}>{`Position ${shown + 1} of ${boxes.length} · frets ${box.firstFret}–${box.lastFret}`}</Text>
-        <ChromeButton palette={palette} label="▶" tooltip="Next position" isEnabled={shown < boxes.length - 1} onPress={() => setBoxIndex(shown + 1)} />
+        <ChromeButton palette={palette} label="◀" tooltip={t('tools.scales.previousPosition')} isEnabled={shown > 0} onPress={() => setBoxIndex(shown - 1)} />
+        <Text style={[styles.position, { color: palette.chromeText }]}>{t('tools.scales.position', { number: shown + 1, count: boxes.length, first: box.firstFret, last: box.lastFret })}</Text>
+        <ChromeButton palette={palette} label="▶" tooltip={t('tools.scales.nextPosition')} isEnabled={shown < boxes.length - 1} onPress={() => setBoxIndex(shown + 1)} />
       </View>
       <ScoreCanvas commands={commands} style={{ width, height: scaleDiagramHeight(track.strings.length) }} />
     </View>

@@ -4,6 +4,7 @@
 
 #import "GPMp3Writer.h"
 #import "GPVorbisWriter.h"
+#import "GPAppStrings.h"
 
 NSErrorDomain const GPAudioExportErrorDomain = @"GPAudioExport";
 
@@ -51,7 +52,7 @@ static NSInteger IntegerIn(NSDictionary *settings, NSString *key, NSArray<NSNumb
   NSInteger oggQuality = IntegerIn(settings, @"oggQuality", @[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10 ], 6);
   if (sampleRate == NSIntegerMin || bitDepth == NSIntegerMin || mp3Bitrate == NSIntegerMin || oggQuality == NSIntegerMin) {
     if (error != NULL) {
-      *error = GPAudioExportError(1, @"These export settings are not offered");
+      *error = GPAudioExportError(1, GPLocalizedString(@"These export settings are not offered"));
     }
     return nil;
   }
@@ -115,7 +116,7 @@ static NSError *StatusError(OSStatus status, NSString *message)
     }
     if (status != noErr) {
       if (error != NULL) {
-        *error = StatusError(status, [NSString stringWithFormat:@"The %@ file could not be created", settings.format.uppercaseString]);
+        *error = StatusError(status, [NSString stringWithFormat:GPLocalizedString(@"The %@ file could not be created"), settings.format.uppercaseString]);
       }
       return nil;
     }
@@ -140,7 +141,7 @@ static NSError *StatusError(OSStatus status, NSString *message)
   }
   OSStatus status = ExtAudioFileWrite(_file, buffer.frameLength, list);
   if (status != noErr && error != NULL) {
-    *error = StatusError(status, @"The audio file could not be written");
+    *error = StatusError(status, GPLocalizedString(@"The audio file could not be written"));
   }
   return status == noErr;
 }
@@ -150,7 +151,7 @@ static NSError *StatusError(OSStatus status, NSString *message)
   OSStatus status = ExtAudioFileDispose(_file);
   _file = NULL;
   if (status != noErr && error != NULL) {
-    *error = StatusError(status, @"The audio file could not be finished");
+    *error = StatusError(status, GPLocalizedString(@"The audio file could not be finished"));
   }
   return status == noErr;
 }

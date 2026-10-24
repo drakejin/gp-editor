@@ -2,6 +2,7 @@ import { type ReactElement, memo } from 'react';
 import { StyleSheet, Text, type TextStyle, View } from 'react-native';
 import { DEFAULT_STYLESHEET, type Song, type TextElement, type TextStyle as SheetTextStyle, stylesheetOf } from '@gp-editor/core';
 import { type TitleLine, titleBlockLines, titleLineElement } from '../export/title-block';
+import { useLanguage } from '../hooks/use-i18n';
 import { isSameTextStyle } from '../score/text-styles';
 import type { Palette } from '../theme';
 
@@ -40,6 +41,8 @@ function creditSpans(line: TitleLine, texts: Readonly<Record<TextElement, SheetT
  * the stylesheet shows, in its fonts.
  */
 function SongHeaderView({ song, trackIndex, fileName, palette }: SongHeaderProps) {
+  // The credits' words ("Music:", "작곡:") follow the language.
+  useLanguage();
   const lines = titleBlockLines(song, trackIndex, song.info.title || fileName);
   const { texts } = stylesheetOf(song);
   return (

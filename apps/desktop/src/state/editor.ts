@@ -40,6 +40,7 @@ import {
   firstCursor,
   voiceWithNoteAt,
 } from '../lib/navigation';
+import { t } from '../lib/i18n/i18n';
 import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
@@ -49,7 +50,7 @@ import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisp
 import { INITIAL_TRACK_DISPLAY, type TrackDisplay, setTrackMode } from './track-display';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { withSelectionStart } from './mark-edits';
-import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
+import { droneFretHint, playedNotesHint, storedFret } from './note-entry';
 import { refusalHint } from './edit-hints';
 import { transpositionHint } from './transposition';
 import { type TrackAction, applyTrackAction } from './track-edits';
@@ -68,8 +69,10 @@ import {
 export const HISTORY_LIMIT = 200;
 /** A new drum track's staves: standard notation only, as Guitar Pro adds one (no tab of drum key numbers). */
 const DRUM_TRACK_MODE: ScoreMode = 'notation';
-/** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"). */
-export const NEW_DOCUMENT_NAME = 'Untitled';
+/** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"), in the language shown when it is made. */
+export function newDocumentName(): string {
+  return t('common.untitled');
+}
 
 export interface OpenDocument {
   readonly fileName: string;
@@ -226,17 +229,17 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return openDocument(action.document, state.mode);
     case 'created':
       return openDocument(
-        { fileName: NEW_DOCUMENT_NAME, path: '', song: buildNewSong() },
+        { fileName: newDocumentName(), path: '', song: buildNewSong() },
         action.mode,
       );
     case 'saved':
       return markSaved(state, action.fileName, action.path, action.song);
     case 'saveFailed':
-      return { ...state, error: `Could not save: ${action.message}` };
+      return { ...state, error: t('palette.error.save', { message: action.message }) };
     case 'exportFailed':
-      return { ...state, error: `Could not export ${action.what ?? 'the PDF'}: ${action.message}` };
+      return { ...state, error: t('palette.error.export', { what: action.what ?? t('palette.error.thePdf'), message: action.message }) };
     case 'clipboardFailed':
-      return { ...state, error: `Could not use the clipboard: ${action.message}` };
+      return { ...state, error: t('palette.error.clipboard', { message: action.message }) };
     case 'loadFailed':
       return {
         ...state,
@@ -432,10 +435,10 @@ function typeFret(state: EditorState, typed: number): EditorState {
   const { document, cursor } = state;
   const fret = document === undefined || cursor === undefined ? typed : storedFret(document.song, cursor, typed);
   if (fret === undefined) {
-    return { ...state, hint: DRONE_FRET_HINT };
+    return { ...state, hint: droneFretHint() };
   }
   const typedState = followBeatStart(state, applyEdit(state, (song, at) => setNoteFret(song, at, fret)));
-  return typedState.hint === DRONE_FRET_HINT ? { ...typedState, hint: undefined } : typedState;
+  return typedState.hint === droneFretHint() ? { ...typedState, hint: undefined } : typedState;
 }
 
 /** MIDI step entry at the cursor: the played notes become its beat, then the cursor steps on; a hint names what was left out. */
@@ -702,7 +705,7 @@ function redo(state: EditorState): EditorState {
 
 /** The error banner's text for a file that could not be opened. */
 export function openFailedMessage(message: string): string {
-  return `Could not open the file: ${message}`;
+  return t('palette.error.open', { message });
 }
 
 /** True when the open song differs from the one last opened or saved. */

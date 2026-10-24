@@ -42,6 +42,7 @@ const native = NativeModules.GPFiles as GPFilesModule | undefined;
 
 function requireNative(): GPFilesModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPFiles native module is not available on this platform');
   }
   return native;
@@ -57,7 +58,9 @@ export function readFile(pathOrUrl: string): Promise<OpenedFile> {
 
 /** Asks where to save (and in which format); null when cancelled. Write the file with writeFile / writeTextFile. */
 export function showSavePanel(options: SavePanelOptions): Promise<ChosenFile | null> {
-  return requireNative().showSavePanel(options);
+  // Plain copies: a format's label and note are getters in the shown language, read here once.
+  const formats = options.formats.map(({ id, label, extension, note }) => ({ id, label, extension, ...(note === undefined ? {} : { note }) }));
+  return requireNative().showSavePanel({ ...options, formats });
 }
 
 /** Write (or overwrite) a file the user opened or chose in a save panel in this session. */

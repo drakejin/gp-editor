@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../hooks/use-i18n';
 import { TAB_STRIP, scrollOffsetToShowTab, tabWidth } from '../lib/tab-strip';
 import type { TabLabel } from '../state/workspace';
 import type { Palette } from '../theme';
@@ -63,6 +64,7 @@ function TabButton({ palette, tab, width, isActive, onSelect, onClose }: TabButt
   const background = isActive ? palette.chromeRaised : isHovered ? palette.chrome : 'transparent';
   const color = isActive ? palette.chromeText : palette.chromeMuted;
   const lit = isActive ? palette.chromeAccent : 'transparent';
+  const t = useT();
   return (
     <Pressable
       testID={`tab-${tab.id}`}
@@ -70,7 +72,7 @@ function TabButton({ palette, tab, width, isActive, onSelect, onClose }: TabButt
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
       tooltip={tab.fileName}
-      accessibilityLabel={tab.isEdited ? `${tab.title}, edited` : tab.title}
+      accessibilityLabel={tab.isEdited ? t('window.tabs.edited', { title: tab.title }) : tab.title}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
       style={[styles.tab, { width, backgroundColor: background, borderColor: palette.chromeBorder }]}
@@ -96,14 +98,15 @@ interface CloseButtonProps {
 function CloseButton({ palette, title, onPress, testID }: CloseButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   const background = isHovered ? palette.chromeDeep : 'transparent';
+  const t = useT();
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
-      tooltip={`Close “${title}” (⌘W)`}
-      accessibilityLabel={`Close ${title}`}
+      tooltip={t('window.tabs.closeTooltip', { title })}
+      accessibilityLabel={t('window.tabs.closeAccessibility', { title })}
       accessibilityRole="button"
       style={[styles.close, { backgroundColor: background }]}
     >

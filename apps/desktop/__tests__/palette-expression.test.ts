@@ -1,4 +1,4 @@
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import {
   clefTool,
   expressionTextTool,
@@ -9,7 +9,7 @@ import {
   type PaletteTool,
   paletteContext,
 } from '../src/components/palette/palette-tools';
-import { PALETTE_COMMANDS } from '../src/lib/palette-commands';
+import { paletteToolCommands } from '../src/lib/palette-commands';
 import { beat, makeSong, note } from '../test-support/songs';
 
 /** Bar 1 in the treble clef, bar 2 in the bass clef under an 8vb; the cursor on `measureIndex`'s first beat. */
@@ -43,7 +43,7 @@ function context(measureIndex: number): PaletteContext {
 const options = (tool: PaletteTool) =>
   tool.run.kind === 'options' ? tool.run.options : [];
 const toolIds = (title: string) =>
-  PALETTE_GROUPS.find(group => group.title === title)?.tools.map(
+  paletteGroups().find(group => group.title === title)?.tools.map(
     tool => tool.id,
   ) ?? [];
 
@@ -124,7 +124,7 @@ describe('palette: Expression Text, octave signs and clefs', () => {
   });
 
   it('lists the octave signs and clefs in the command palette, but not the Expression Text button (Tools has it)', () => {
-    const ids = PALETTE_COMMANDS.map(command => command.id);
+    const ids = paletteToolCommands().map(command => command.id);
     expect(
       ids.filter(
         id =>

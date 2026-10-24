@@ -16,6 +16,7 @@ import { DEFAULT_TRANSCRIPTION_MODEL } from '../pdf-import/request';
 import { runImport } from '../pdf-import/run-import';
 import type { ImportDeps } from '../pdf-import/transcribe-page';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 
 /** A project folder and what its project.json says (undefined when it has none, e.g. made by hand). */
 export interface ProjectSummary {
@@ -47,8 +48,6 @@ export interface PdfImport {
   readonly chooseModel: (model: string) => void;
   readonly dismiss: () => void;
 }
-
-const BUSY_MESSAGE = 'An import is already running; cancel it or wait for it to finish';
 
 function toSummary(entry: ProjectEntry): ProjectSummary {
   return { path: entry.path, name: entry.name, modified: entry.modified, project: parseImportProject(entry.project) };
@@ -133,7 +132,7 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
   /** Runs one import job at a time: a job asked for while another runs is refused with a message. */
   const exclusive = useCallback((job: () => Promise<void>) => {
     if (isBusy.current) {
-      setError(BUSY_MESSAGE);
+      setError(t('window.pdfImport.busy'));
       return;
     }
     isBusy.current = true;
@@ -177,7 +176,7 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
         }
         const project = parseImportProject(await readProjectText(path, PROJECT_FILE).catch(() => null));
         if (project === undefined) {
-          setError('This folder has no readable project.json');
+          setError(t('window.pdfImport.noProject'));
           return;
         }
         await run(path, { ...project, model });

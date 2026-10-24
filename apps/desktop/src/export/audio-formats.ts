@@ -1,4 +1,5 @@
 import type { FileFormat } from '../lib/file-formats';
+import { t } from '../lib/i18n/i18n';
 
 /**
  * File ▸ Export Audio…'s formats and settings. The native side (macos/GPEditor-macOS/GPAudioFileWriter.m) writes WAV,
@@ -24,11 +25,16 @@ export interface AudioFormat extends FileFormat {
 }
 
 export const AUDIO_FORMATS: readonly [AudioFormat, ...AudioFormat[]] = [
-  { id: 'wav', name: 'WAV', label: 'WAV (.wav)', extension: 'wav', isLossless: true, note: 'Uncompressed PCM, for any audio program.' },
-  { id: 'aiff', name: 'AIFF', label: 'AIFF (.aiff)', extension: 'aiff', isLossless: true, note: 'Uncompressed PCM, as Logic and GarageBand keep it.' },
-  { id: 'flac', name: 'FLAC', label: 'FLAC (.flac)', extension: 'flac', isLossless: true, note: 'Lossless and about half the size of WAV.' },
-  { id: 'mp3', name: 'MP3', label: 'MP3 (.mp3)', extension: 'mp3', isLossless: false, note: 'Compressed by LAME; plays everywhere.' },
-  { id: 'ogg', name: 'Ogg Vorbis', label: 'Ogg Vorbis (.ogg)', extension: 'ogg', isLossless: false, note: 'Compressed by libvorbis; open and free.' },
+  // The notes are getters: the save panel's message in the language shown when it opens. i18n-exempt: format names
+  { id: 'wav', name: 'WAV', label: 'WAV (.wav)', extension: 'wav', isLossless: true, get note() { return t('window.audioFormat.wav.note'); } },
+  // i18n-exempt: format names
+  { id: 'aiff', name: 'AIFF', label: 'AIFF (.aiff)', extension: 'aiff', isLossless: true, get note() { return t('window.audioFormat.aiff.note'); } },
+  // i18n-exempt: format names
+  { id: 'flac', name: 'FLAC', label: 'FLAC (.flac)', extension: 'flac', isLossless: true, get note() { return t('window.audioFormat.flac.note'); } },
+  // i18n-exempt: format names
+  { id: 'mp3', name: 'MP3', label: 'MP3 (.mp3)', extension: 'mp3', isLossless: false, get note() { return t('window.audioFormat.mp3.note'); } },
+  // i18n-exempt: format names
+  { id: 'ogg', name: 'Ogg Vorbis', label: 'Ogg Vorbis (.ogg)', extension: 'ogg', isLossless: false, get note() { return t('window.audioFormat.ogg.note'); } },
 ];
 
 export const SAMPLE_RATES: readonly SampleRate[] = [44100, 48000];
@@ -89,6 +95,11 @@ export function mp3BitrateLabel(bitrate: Mp3Bitrate): string {
   return bitrate === 0 ? 'VBR' : `${bitrate} kbps`;
 }
 
+/** "16-bit". */
+export function bitDepthLabel(bitDepth: BitDepth): string {
+  return t('window.audioFormat.bitDepthValue', { bits: bitDepth });
+}
+
 /** "Q6". */
 export function oggQualityLabel(quality: OggQuality): string {
   return `Q${quality}`;
@@ -97,11 +108,11 @@ export function oggQualityLabel(quality: OggQuality): string {
 function qualityOf(options: AudioExportOptions): string {
   switch (options.formatId) {
     case 'mp3':
-      return options.mp3Bitrate === 0 ? 'VBR (V2, about 190 kbps)' : mp3BitrateLabel(options.mp3Bitrate);
+      return options.mp3Bitrate === 0 ? t('window.audioFormat.vbr') : mp3BitrateLabel(options.mp3Bitrate);
     case 'ogg':
-      return `quality ${options.oggQuality} (about ${OGG_KBPS[options.oggQuality]} kbps)`;
+      return t('window.audioFormat.oggQuality', { quality: options.oggQuality, kbps: OGG_KBPS[options.oggQuality] });
     default:
-      return `${options.bitDepth}-bit`;
+      return bitDepthLabel(options.bitDepth);
   }
 }
 

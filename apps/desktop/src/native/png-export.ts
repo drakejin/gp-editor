@@ -21,6 +21,7 @@ const native = NativeModules.GPPngExport as GPPngExportModule | undefined;
 
 function requireNative(): GPPngExportModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPPngExport native module is not available on this platform');
   }
   return native;

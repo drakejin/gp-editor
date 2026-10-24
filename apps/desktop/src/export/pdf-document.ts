@@ -1,5 +1,6 @@
 import { type PageSetup, type Song, millimetresToPoints, pageSize, stylesheetOf } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
+import { t } from '../lib/i18n/i18n';
 import { squeezeRow } from '../lib/layout';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
@@ -78,7 +79,6 @@ export function exportStaves(staves: readonly StaffSpec[], mode: ExportMode): re
   return mode === 'asShown' ? staves : staves.map((staff) => ({ ...staff, mode }));
 }
 
-const UNTITLED = 'Untitled';
 /** Characters a file name cannot hold on macOS (the save panel would take "/" for a folder). */
 const FILE_NAME_SEPARATORS = /[/:]/g;
 /** Leading dots, which would hide the exported file. */
@@ -86,7 +86,7 @@ const HIDDEN_PREFIX = /^\.+/;
 
 /** The song's title, else the file name without its extension, else "Untitled". */
 export function pdfTitle(song: Song, fileName = ''): string {
-  return song.info.title || withoutExtension(fileName) || UNTITLED;
+  return song.info.title || withoutExtension(fileName) || t('common.untitled');
 }
 
 /**
@@ -98,7 +98,7 @@ export function exportBaseName(song: Song, trackIndex: number, mode: ScoreMode, 
   const isMultitrack = staves.length > 1;
   const trackName = song.tracks.length > 1 && !isMultitrack ? song.tracks[trackIndex]?.name ?? '' : '';
   const name = trackName === '' ? base : `${base} - ${trackName}`;
-  return `${name.replace(FILE_NAME_SEPARATORS, '-').replace(HIDDEN_PREFIX, '')} (${isMultitrack ? 'Multitrack' : SCORE_MODE_LABELS[mode]})`;
+  return `${name.replace(FILE_NAME_SEPARATORS, '-').replace(HIDDEN_PREFIX, '')} (${isMultitrack ? t('window.export.multitrack') : SCORE_MODE_LABELS[mode]})`;
 }
 
 /** Name the save panel suggests: "Song (Tab).pdf", with the track for a song of several tracks ("Song - Bass (Tab).pdf"). */

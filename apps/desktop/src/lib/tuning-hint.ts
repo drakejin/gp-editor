@@ -1,11 +1,11 @@
 import { NECK_FRETS, type PresetFit, type Track, type TuningAdvice, type TuningChange, type TuningPreset, trackTuning } from '@gp-editor/core';
+import { t } from './i18n/i18n';
+import { tuningName } from './instruments';
 import { pitchName, tuningLabel } from './pitch';
-import { plural } from './wording';
 
 /** Suggested presets the hint offers as buttons. */
 export const HINT_SUGGESTIONS = 3;
 
-const INSTRUMENT_TITLES: Readonly<Record<TuningAdvice['instrument'], string>> = { guitar: 'Guitar', bass: 'Bass', banjo: 'Banjo', percussion: 'Drums' };
 
 /** Why the neck settings need the user, and the presets offered as one-click buttons. */
 export interface TuningHint {
@@ -25,10 +25,10 @@ export function neckTitle(advice: TuningAdvice, track: Track): string {
 export function neckTitleFor(instrument: TuningAdvice['instrument'], current: TuningPreset | undefined, track: Track): string {
   const notes = tuningLabel(trackTuning(track));
   return [
-    INSTRUMENT_TITLES[instrument],
-    plural(track.strings.length, 'string'),
-    current === undefined ? notes : `${current.name} (${notes})`,
-    ...(track.offset > 0 ? [`capo ${track.offset}`] : []),
+    t(`tools.tuning.instrument.${instrument}`),
+    t('common.strings', { count: track.strings.length }),
+    current === undefined ? notes : `${tuningName(current)} (${notes})`,
+    ...(track.offset > 0 ? [t('tools.tuning.capo', { fret: track.offset })] : []),
   ].join(' · ');
 }
 
@@ -39,11 +39,11 @@ function standardProblem(advice: TuningAdvice, standard: TuningPreset, track: Tr
   const highestNote = Math.max(...standard.tuning) + NECK_FRETS;
   const reason =
     range !== undefined && range.lowest < lowestOpen
-      ? `lowest note ${pitchName(range.lowest)}`
+      ? t('tools.tuning.lowestNote', { name: pitchName(range.lowest) })
       : range !== undefined && range.highest > highestNote
-      ? `highest note ${pitchName(range.highest)}`
-      : 'some notes need the same string at once';
-  return `Standard ${advice.instrument} tuning can't play this track (${reason}).`;
+      ? t('tools.tuning.highestNote', { name: pitchName(range.highest) })
+      : t('tools.tuning.sameString');
+  return t('tools.tuning.standardCannot', { instrument: t(`tools.tuning.inSentence.${advice.instrument}`), reason });
 }
 
 function trackProblem(advice: TuningAdvice, track: Track, standard: PresetFit): string {
@@ -51,12 +51,13 @@ function trackProblem(advice: TuningAdvice, track: Track, standard: PresetFit): 
     return standardProblem(advice, standard.preset, track);
   }
   if (advice.current !== undefined) {
-    return `${advice.current.name} can't play every note of this track on a ${NECK_FRETS}-fret neck.`;
+    return t('tools.tuning.presetCannot', { name: tuningName(advice.current), frets: NECK_FRETS });
   }
   const stringCount = standard.preset.tuning.length;
+  const instrument = t(`tools.tuning.inSentence.${advice.instrument}`);
   return track.strings.length === stringCount
-    ? `This tuning (${tuningLabel(trackTuning(track))}) isn't a ${advice.instrument} preset.`
-    : `This track has ${track.strings.length} strings; the ${advice.instrument} neck has ${stringCount}.`;
+    ? t('tools.tuning.notPreset', { notes: tuningLabel(trackTuning(track)), instrument })
+    : t('tools.tuning.stringCount', { count: track.strings.length, instrument, expected: stringCount });
 }
 
 /**
@@ -70,21 +71,21 @@ export function tuningHint(advice: TuningAdvice, track: Track): TuningHint | und
   }
   const message = trackProblem(advice, track, standard);
   if (advice.suggested.length > 0) {
-    return { message, lead: 'Suggested:', presets: advice.suggested.slice(0, HINT_SUGGESTIONS) };
+    return { message, lead: t('tools.tuning.suggested'), presets: advice.suggested.slice(0, HINT_SUGGESTIONS) };
   }
   const closest = advice.closest ?? standard;
   if (closest.preset.id === advice.current?.id) {
-    return { message, lead: `No preset plays every note within ${NECK_FRETS} frets.`, presets: [] };
+    return { message, lead: t('tools.tuning.noneWithin', { frets: NECK_FRETS }), presets: [] };
   }
-  const lead = `No preset plays every note; the closest leaves ${plural(closest.unplayableNotes, 'note')} out of reach:`;
+  const lead = t('tools.tuning.closest', { notes: t('common.notes', { count: closest.unplayableNotes }) });
   return { message, lead, presets: [closest.preset] };
 }
 
 /** What a retune could not keep, for the notice under the neck settings; undefined when every note kept its pitch. */
 export function retuneNotice(change: Pick<TuningChange, 'octaveShifted' | 'removed'>): string | undefined {
   const parts = [
-    ...(change.octaveShifted > 0 ? [`${plural(change.octaveShifted, 'note')} moved by an octave to fit the new tuning`] : []),
-    ...(change.removed > 0 ? [`${plural(change.removed, 'note')} left out (more notes at once than strings)`] : []),
+    ...(change.octaveShifted > 0 ? [t('tools.tuning.octaveMoved', { notes: t('common.notes', { count: change.octaveShifted }) })] : []),
+    ...(change.removed > 0 ? [t('tools.tuning.leftOut', { notes: t('common.notes', { count: change.removed }) })] : []),
   ];
-  return parts.length === 0 ? undefined : `Retuned: ${parts.join('; ')}. ⌘Z restores the old tuning.`;
+  return parts.length === 0 ? undefined : t('tools.tuning.retuned', { parts: parts.join('; ') });
 }

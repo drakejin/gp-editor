@@ -1,5 +1,19 @@
 import { type Song, type WritableFormat, hasBarDesign, isDefaultMaster, isDefaultStylesheet } from '@gp-editor/core';
 import { withoutExtension } from './file-name';
+import { type MessageKey, t } from './i18n/i18n';
+
+/**
+ * A format with its note read when it is shown (a getter, so the save panel's message and the hint come in the language
+ * shown then; a spread copy keeps the text of that moment).
+ */
+function withNote<T extends object>(format: T, key: MessageKey): T & { readonly note: string } {
+  return Object.defineProperty({ ...format }, 'note', { enumerable: true, get: () => t(key) }) as T & { readonly note: string };
+}
+
+/** A format whose popup label has words to translate ("ASCII tab (.txt)"), read the same way. */
+function withLabel<T extends object>(format: T, key: MessageKey): T & { readonly label: string } {
+  return Object.defineProperty({ ...format }, 'label', { enumerable: true, get: () => t(key) }) as T & { readonly label: string };
+}
 
 /** A kind of file a save panel offers: the popup's label and the extension the file gets. */
 export interface FileFormat {
@@ -24,59 +38,29 @@ export interface SaveFormat extends FileFormat {
  * learns to write is one more row.
  */
 export const SAVE_FORMATS: readonly [SaveFormat, ...SaveFormat[]] = [
+  // i18n-exempt: format names
   { id: 'gp5', label: 'Guitar Pro 5 (.gp5)', extension: 'gp5' },
-  {
-    id: 'gp',
-    label: 'Guitar Pro 7/8 (.gp)',
-    extension: 'gp',
-    note: 'Guitar Pro 7/8 keeps what the editor edits, the audio track, and the stylesheet and Design Mode layout (for GP Editor: Guitar Pro reads its own); Guitar Pro’s sound settings (RSE) are not kept, nor cautionary and forced accidentals.',
-  },
-  {
-    id: 'gp4',
-    label: 'Guitar Pro 4 (.gp4)',
-    extension: 'gp4',
-    note: 'Guitar Pro 4 keeps one voice per bar (voices 2, 3 and 4 join voice 1) and one triplet feel; heavy accents, directions, hairpins, fade outs, volume swells, the sustain pedal, rhythm slashes, beaming, shown accidentals and octave signs are left out.',
-  },
-  {
-    id: 'gp3',
-    label: 'Guitar Pro 3 (.gp3)',
-    extension: 'gp3',
-    note:
-      'Guitar Pro 3 keeps one voice per bar (voices 2, 3 and 4 join voice 1), one triplet feel and no lyrics; palm mutes, accents, staccato, trills, tremolo picking, directions, hairpins, fade outs, volume swells, rasgueado, the sustain pedal, rhythm slashes, beaming, shown accidentals and octave signs are left out.',
-  },
+  // i18n-exempt: format names
+  withNote<SaveFormat>({ id: 'gp', label: 'Guitar Pro 7/8 (.gp)', extension: 'gp' }, 'window.format.gp.note'),
+  // i18n-exempt: format names
+  withNote<SaveFormat>({ id: 'gp4', label: 'Guitar Pro 4 (.gp4)', extension: 'gp4' }, 'window.format.gp4.note'),
+  // i18n-exempt: format names
+  withNote<SaveFormat>({ id: 'gp3', label: 'Guitar Pro 3 (.gp3)', extension: 'gp3' }, 'window.format.gp3.note'),
 ];
 
 /** File ▸ Export MIDI…: a Standard MIDI File of the song as playback plays it. */
-export const MIDI_FILE: FileFormat = {
-  id: 'mid',
-  label: 'MIDI (.mid)',
-  extension: 'mid',
-  note: 'The song as played: repeats unfolded, at its own tempo (not the practice speed); muted tracks are left out, and only solo tracks play when one is solo.',
-};
+// i18n-exempt: format names
+export const MIDI_FILE: FileFormat = withNote({ id: 'mid', label: 'MIDI (.mid)', extension: 'mid' }, 'window.format.midi.note');
 
 /** File ▸ Export ASCII Tab…: plain UTF-8 text. */
-export const ASCII_TAB_FILE: FileFormat = {
-  id: 'txt',
-  label: 'ASCII tab (.txt)',
-  extension: 'txt',
-  note: 'The fretted tracks as ASCII tab; drum tracks are left out.',
-};
+export const ASCII_TAB_FILE: FileFormat = withLabel(withNote({ id: 'txt', extension: 'txt' }, 'window.format.asciiTab.note'), 'window.format.asciiTab.label');
 
 /** File ▸ Export MusicXML…: MusicXML 4.0 as UTF-8 text, for other notation programs. */
-export const MUSICXML_FILE: FileFormat = {
-  id: 'musicxml',
-  label: 'MusicXML (.musicxml)',
-  extension: 'musicxml',
-  note: 'Each track as a notation staff and a tab staff; bends, slides, vibrato and the other guitar effects as MusicXML marks them.',
-};
+// i18n-exempt: format names
+export const MUSICXML_FILE: FileFormat = withNote({ id: 'musicxml', label: 'MusicXML (.musicxml)', extension: 'musicxml' }, 'window.format.musicXml.note');
 
 /** File ▸ Export Compressed MusicXML…: the same score zipped. */
-export const MXL_FILE: FileFormat = {
-  id: 'mxl',
-  label: 'Compressed MusicXML (.mxl)',
-  extension: 'mxl',
-  note: 'MusicXML zipped: smaller, and opened by the same programs.',
-};
+export const MXL_FILE: FileFormat = withLabel(withNote({ id: 'mxl', extension: 'mxl' }, 'window.format.mxl.note'), 'window.format.mxl.label');
 
 /** Only .gp files keep the app's playback effects (gp-core's songEffectsToJson, an entry of the zip). */
 function hasEffects(song: Song): boolean {
@@ -90,7 +74,7 @@ export function hasOwnLayout(song: Song): boolean {
 
 /** What a file without the stylesheet leaves out ("Guitar Pro 5 keeps no stylesheet …"); undefined when nothing is lost. */
 export function layoutLeftOut(name: string, song: Song): string | undefined {
-  return hasOwnLayout(song) ? `${name} keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
+  return hasOwnLayout(song) ? t('window.saveHint.layout', { format: name }) : undefined;
 }
 
 /** A track whose clef changes somewhere (GP3–GP5 files hold one clef per track, from its tuning). */
@@ -103,13 +87,13 @@ function playsPastTwoVoices(song: Song): boolean {
   return song.tracks.some((track) => track.measures.some((measure) => measure.beats.some((beat) => beat.voices.slice(2).some((voice) => voice.notes.length > 0))));
 }
 
-/** What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track and clefs it leaves out. */
+/** What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track, clefs and layout it leaves out. */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const name = format.label.replace(/ \(.*\)$/, '');
-  const voices = format.id === 'gp5' && playsPastTwoVoices(song) ? `${name} keeps two voices: the notes of voices 3 and 4 are left out; save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
-  const effects = format.id !== 'gp' && hasEffects(song) ? `${name} keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.` : undefined;
-  const audio = format.id !== 'gp' && song.audioTrack !== undefined ? `${name} keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.` : undefined;
-  const clefs = format.id !== 'gp' && hasClefChanges(song) ? `${name} keeps one clef per track (from its tuning): save as Guitar Pro 7/8 (.gp) to keep the clef changes.` : undefined;
+  const voices = format.id === 'gp5' && playsPastTwoVoices(song) ? t('window.saveHint.voices', { format: name }) : undefined;
+  const effects = format.id !== 'gp' && hasEffects(song) ? t('window.saveHint.effects', { format: name }) : undefined;
+  const audio = format.id !== 'gp' && song.audioTrack !== undefined ? t('window.saveHint.audio', { format: name }) : undefined;
+  const clefs = format.id !== 'gp' && hasClefChanges(song) ? t('window.saveHint.clefs', { format: name }) : undefined;
   const layout = format.id === 'gp' ? undefined : layoutLeftOut(name, song);
   const parts = [format.note, voices, effects, audio, clefs, layout].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');

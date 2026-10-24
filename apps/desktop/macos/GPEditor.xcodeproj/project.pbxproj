@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5584DBE284B9C5D86E3EEC68 /* GPAppStrings.m in Sources */ = {isa = PBXBuildFile; fileRef = 4572E68AF53B1E0703D33656 /* GPAppStrings.m */; };
+		3CA275B482454FEDFF4A0819 /* GPAppSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = F3A3A5C31D1676E2DB493C57 /* GPAppSettings.m */; };
+		5F6B5B6A3550C7646937F95F /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E917F33BA5DB0D35F4363F /* AppLanguage.swift */; };
+		5FA3BE0E6EB51B504C62C4AB /* en.lproj in Resources */ = {isa = PBXBuildFile; fileRef = F48FF74CE4D3F0CB287FADCB /* en.lproj */; };
+		B7AD97ECC8F22B649E8202E4 /* ko.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 86C204F9D5D3B602840FD483 /* ko.lproj */; };
 		111DFCEBDBD7BB7A3DBE48F0 /* GPAudioExport.m in Sources */ = {isa = PBXBuildFile; fileRef = 7026FC00E27E09D3B8037E34 /* GPAudioExport.m */; };
 		0BB148E12360621964A9B321 /* GPAudioExporter.m in Sources */ = {isa = PBXBuildFile; fileRef = C95C7205331A786A07D997A7 /* GPAudioExporter.m */; };
 		8E917393848649A8388AEE31 /* GPAudioFileWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 69A85486FFD214358AAA766B /* GPAudioFileWriter.m */; };
@@ -60,6 +65,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		8F778497CFAC9ACE36EAE323 /* GPAppStrings.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAppStrings.h; sourceTree = "<group>"; };
+		4572E68AF53B1E0703D33656 /* GPAppStrings.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAppStrings.m; sourceTree = "<group>"; };
+		F3A3A5C31D1676E2DB493C57 /* GPAppSettings.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAppSettings.m; sourceTree = "<group>"; };
+		A5E917F33BA5DB0D35F4363F /* AppLanguage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		F48FF74CE4D3F0CB287FADCB /* en.lproj */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = en.lproj; sourceTree = "<group>"; };
+		86C204F9D5D3B602840FD483 /* ko.lproj */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = ko.lproj; sourceTree = "<group>"; };
 		5290612ABC55FDF88BA921D1 /* GPAudioExporter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioExporter.h; sourceTree = "<group>"; };
 		495482B719AE11C62FF31F5B /* GPAudioFileWriter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioFileWriter.h; sourceTree = "<group>"; };
 		7010D29551E58D3795714ED8 /* GPMp3Writer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMp3Writer.h; sourceTree = "<group>"; };
@@ -245,6 +256,12 @@
 				2FF206889FFAD422198373AE /* GPSandbox.m */,
 				9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */,
 				45ED85928E66648C64309C86 /* GPMidiInput.m */,
+				8F778497CFAC9ACE36EAE323 /* GPAppStrings.h */,
+				4572E68AF53B1E0703D33656 /* GPAppStrings.m */,
+				F3A3A5C31D1676E2DB493C57 /* GPAppSettings.m */,
+				A5E917F33BA5DB0D35F4363F /* AppLanguage.swift */,
+				F48FF74CE4D3F0CB287FADCB /* en.lproj */,
+				86C204F9D5D3B602840FD483 /* ko.lproj */,
 			);
 			path = "GPEditor-macOS";
 			sourceTree = "<group>";
@@ -370,6 +387,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ko,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
@@ -401,6 +419,8 @@
 				BA2F55F9E25B75DA36564224 /* Bravura-OFL.txt in Resources */,
 				23A0CD49FA7AE1D518E89E54 /* SoundFonts in Resources */,
 				A0B6EE78EE70979B1D7F9947 /* Licenses in Resources */,
+				5FA3BE0E6EB51B504C62C4AB /* en.lproj in Resources */,
+				B7AD97ECC8F22B649E8202E4 /* ko.lproj in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -553,6 +573,9 @@
 				ED260FB28ECF0EEE744B62ED /* GPPngExport.m in Sources */,
 				C94A2C43599FD106BA5C3883 /* GPRecentFiles.m in Sources */,
 				3E7A873DFC82AB94648513BE /* RecentFilesMenu.swift in Sources */,
+				5584DBE284B9C5D86E3EEC68 /* GPAppStrings.m in Sources */,
+				3CA275B482454FEDFF4A0819 /* GPAppSettings.m in Sources */,
+				5F6B5B6A3550C7646937F95F /* AppLanguage.swift in Sources */,
 				AC3A1E89DE1E050C8942502E /* EditMenu.swift in Sources */,
 				94B025C4435659814E45E541 /* GPSandbox.m in Sources */,
 				50CD74E4F95D9A34937FA1EF /* GPClipboard.m in Sources */,

@@ -100,6 +100,8 @@ export interface PaletteStepper {
 }
 
 export interface PaletteGroup {
+  /** Stable whatever the language (the command palette's ids, React keys). */
+  readonly id: string;
   readonly title: string;
   readonly tools: readonly PaletteTool[];
   /** Every tool this wide, for an even grid (tools with a key need the room); default: as narrow as the face. */

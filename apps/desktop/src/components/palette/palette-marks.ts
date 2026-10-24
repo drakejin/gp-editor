@@ -1,4 +1,5 @@
 import { type DirectionJump, type Hairpin, MUSICAL_DIRECTIONS, type MusicalDirection, type PedalAction, RASGUEADO_PATTERNS, durationTicks, measureTicks } from '@gp-editor/core';
+import { type MessageKey, t } from '../../lib/i18n/i18n';
 import { DIRECTION_TEXTS } from '../../score/directions';
 import { MARK_GLYPHS } from '../../score/symbols/smufl';
 import { rasgueadoFingers } from '../../score/symbols/rasgueado-label';
@@ -6,39 +7,45 @@ import type { PaletteContext, PaletteOption, PaletteTool } from './palette-tools
 
 /** The palette's notation marks: directions (bar), hairpins (dynamics), fades (techniques), rasgueado and pedal (beat). */
 
-/** Labels and tooltips of the targets and of the jumps to a coda; the other jumps are made from DIRECTION_TEXTS. */
-const NAMED: Readonly<Partial<Record<MusicalDirection, readonly [string, string]>>> = {
-  segno: ['Segno', 'Segno: where a D.S. jump goes back to'],
-  segnoSegno: ['Segno Segno', 'Segno segno: where a D.S.S. jump goes back to'],
-  coda: ['Coda', 'Coda: where playback goes on from the Da Coda after a jump al Coda'],
-  doubleCoda: ['Double Coda', 'Double coda: where playback goes on from the Da Double Coda after a jump al Double Coda'],
-  fine: ['Fine', 'Fine: where playback ends after a jump al Fine'],
-  daCoda: ['Da Coda', 'Da Coda (“To Coda”): after a jump al Coda, on to the coda from the end of this bar'],
-  daDoubleCoda: ['Da Double Coda', 'Da Double Coda (“To Double Coda”): after a jump al Double Coda, on to the double coda from the end of this bar'],
+/**
+ * Labels (the marks' own words, as the score writes them in every language) and tooltip keys of the targets and of the
+ * jumps to a coda; the other jumps are made from DIRECTION_TEXTS.
+ */
+const NAMED: Readonly<Partial<Record<MusicalDirection, readonly [string, MessageKey]>>> = {
+  segno: ['Segno', 'palette.direction.segno'], // i18n-exempt: notation
+  segnoSegno: ['Segno Segno', 'palette.direction.segnoSegno'], // i18n-exempt: notation
+  coda: ['Coda', 'palette.direction.coda'], // i18n-exempt: notation
+  doubleCoda: ['Double Coda', 'palette.direction.doubleCoda'], // i18n-exempt: notation
+  fine: ['Fine', 'palette.direction.fine'], // i18n-exempt: notation
+  daCoda: ['Da Coda', 'palette.direction.daCoda'], // i18n-exempt: notation
+  daDoubleCoda: ['Da Double Coda', 'palette.direction.daDoubleCoda'], // i18n-exempt: notation
 };
 
-const JUMP_FROM: readonly (readonly [string, string])[] = [
-  ['daSegnoSegno', 'back to the segno segno'],
-  ['daSegno', 'back to the segno'],
-  ['daCapo', 'back to the start'],
+const JUMP_FROM: readonly (readonly [string, MessageKey])[] = [
+  ['daSegnoSegno', 'palette.direction.from.segnoSegno'],
+  ['daSegno', 'palette.direction.from.segno'],
+  ['daCapo', 'palette.direction.from.start'],
 ];
 
-const JUMP_ENDS: readonly (readonly [string, string])[] = [
-  ['AlDoubleCoda', ', then from the Da Double Coda on to the double coda'],
-  ['AlCoda', ', then from the Da Coda on to the coda'],
-  ['AlFine', ', then on to the fine'],
+/** By the jump's id suffix (daCapoAlCoda …), not text. */
+const JUMP_ENDS: readonly (readonly [string, MessageKey])[] = [
+  ['AlDoubleCoda', 'palette.direction.end.doubleCoda'], // i18n-exempt: an id suffix
+  ['AlCoda', 'palette.direction.end.coda'], // i18n-exempt: an id suffix
+  ['AlFine', 'palette.direction.end.fine'], // i18n-exempt: an id suffix
 ];
 
 /** A jump back: its words and what it does ("D.S. al Coda: back to the segno, then from the Da Coda on to the coda"). */
 function jumpName(jump: DirectionJump): readonly [string, string] {
-  const from = JUMP_FROM.find(([prefix]) => jump.startsWith(prefix))?.[1] ?? '';
-  const end = JUMP_ENDS.find(([suffix]) => jump.endsWith(suffix))?.[1] ?? ', then on to the end';
-  return [DIRECTION_TEXTS[jump], `${DIRECTION_TEXTS[jump]}: ${from}${end}`];
+  const from = JUMP_FROM.find(([prefix]) => jump.startsWith(prefix))?.[1];
+  const end = JUMP_ENDS.find(([suffix]) => jump.endsWith(suffix))?.[1] ?? 'palette.direction.end.end';
+  const label = DIRECTION_TEXTS[jump];
+  return [label, t('palette.direction.jump', { label, from: from === undefined ? '' : t(from), end: t(end) })];
 }
 
 /** A direction's label and what it does, as the palette and Expression Text name it ("D.S. al Coda", "Segno"). */
 export function directionName(direction: MusicalDirection): readonly [string, string] {
-  return NAMED[direction] ?? jumpName(direction as DirectionJump);
+  const named = NAMED[direction];
+  return named === undefined ? jumpName(direction as DirectionJump) : [named[0], t(named[1])];
 }
 
 function directionOption(direction: MusicalDirection): PaletteOption {
@@ -58,7 +65,7 @@ export function directionsTool(): PaletteTool {
     id: 'directions',
     face: MARK_GLYPHS.segno.text,
     glyph: 'mark',
-    tooltip: 'Directions on this bar: segno, coda, fine and the jumps (D.C., D.S. al Coda …), which playback follows',
+    tooltip: t('palette.tool.directions'),
     scope: 'bar',
     run: { kind: 'options', options: DIRECTION_ORDER.map(directionOption) },
     isActive: (c) => (c.header?.directions?.length ?? 0) > 0,
@@ -71,7 +78,7 @@ function hairpinTool(hairpin: Hairpin): PaletteTool {
     id: hairpin,
     face: (isCrescendo ? MARK_GLYPHS.dynamicCrescendoHairpin : MARK_GLYPHS.dynamicDiminuendoHairpin).text,
     glyph: 'dynamic',
-    tooltip: `${isCrescendo ? 'Crescendo: louder' : 'Decrescendo: softer'} over the selected beats (or the beat), to the dynamic after it`,
+    tooltip: t(isCrescendo ? 'palette.tool.crescendo' : 'palette.tool.decrescendo'),
     scope: 'beat',
     run: { kind: 'edit', edit: { type: 'toggleHairpin', hairpin } },
     isActive: (c) => c.beat?.hairpin === hairpin,
@@ -93,21 +100,26 @@ export function fadeTools(): readonly PaletteTool[] {
     run: { kind: 'edit', edit: { type: 'toggleEffect', effect: id } },
     isActive: (c) => c.note?.effect[id] === true,
   });
-  return [fade('fadeOut', 'F.Out', 'Fade out'), fade('volumeSwell', 'Swell', 'Volume swell: louder, then softer')];
+  return [fade('fadeOut', t('palette.face.fadeOut'), t('palette.tool.fadeOut')), fade('volumeSwell', t('palette.face.volumeSwell'), t('palette.tool.volumeSwell'))];
 }
 
 /** Rasgueado with Guitar Pro's 18 patterns (the Beat group). */
 export function rasgueadoTool(): PaletteTool {
   const options: readonly PaletteOption[] = [
-    { label: 'None', tooltip: 'No rasgueado', edit: { type: 'setRasgueado', pattern: 'none' }, isActive: (c) => c.beat !== undefined && c.beat.rasgueado === undefined },
+    { label: t('common.none'), tooltip: t('palette.option.noRasgueado'), edit: { type: 'setRasgueado', pattern: 'none' }, isActive: (c) => c.beat !== undefined && c.beat.rasgueado === undefined },
     ...RASGUEADO_PATTERNS.map(({ pattern, fingers, rhythm }) => ({
       label: rasgueadoFingers(pattern),
-      tooltip: `Rasgueado ${fingers.split('').join('-')}${rhythm === 'anapaest' ? ', anapaest (short, short, long)' : pattern.endsWith('Triplet') ? ', triplet' : ''}`,
+      tooltip: t('palette.option.rasgueado', {
+        fingers: fingers.split('').join('-'),
+        // i18n-exempt: a pattern id ('…Triplet'), not text
+        rhythm: rhythm === 'anapaest' ? t('palette.option.rasgueado.anapaest') : pattern.endsWith('Triplet') ? t('palette.option.rasgueado.triplet') : '',
+      }),
       edit: { type: 'setRasgueado', pattern } as const,
       isActive: (c: PaletteContext) => c.beat?.rasgueado === pattern,
     })),
   ];
-  return { id: 'rasgueado', face: 'Rasg.', tooltip: 'Rasgueado: the beat strummed by each finger in turn', scope: 'beat', run: { kind: 'options', options }, isActive: (c) => c.beat?.rasgueado !== undefined };
+  // i18n-exempt: the score's mark (rasg.)
+  return { id: 'rasgueado', face: 'Rasg.', tooltip: t('palette.tool.rasgueado'), scope: 'beat', run: { kind: 'options', options }, isActive: (c) => c.beat?.rasgueado !== undefined };
 }
 
 /** Where the cursor's beat starts ('down') or ends ('up') in its bar, in ticks; undefined without a beat. */
@@ -127,7 +139,7 @@ function pedalTool(action: PedalAction): PaletteTool {
     id: isDown ? 'pedalDown' : 'pedalUp',
     face: (isDown ? MARK_GLYPHS.keyboardPedalPed : MARK_GLYPHS.keyboardPedalUp).text,
     glyph: 'mark',
-    tooltip: isDown ? 'Sustain pedal down (Ped.) where the beat starts' : 'Sustain pedal up (✱) where the beat ends',
+    tooltip: t(isDown ? 'palette.tool.pedalDown' : 'palette.tool.pedalUp'),
     scope: 'beat',
     run: { kind: 'edit', edit: { type: 'togglePedal', action } },
     isActive: (c) => {

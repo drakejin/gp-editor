@@ -3,6 +3,7 @@ import { type Song, renderMidi, writeAsciiTab, writeMusicXml, writeMusicXmlArchi
 import { bytesToBase64 } from '../lib/base64';
 import { errorMessage } from '../lib/errors';
 import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn, layoutLeftOut } from '../lib/file-formats';
+import { t } from '../lib/i18n/i18n';
 import { type SavedFile, showSavePanel, subscribeSongExportRequests, writeFile, writeTextFile } from '../native/gp-files';
 import type { EditorAction, OpenDocument } from '../state/editor';
 
@@ -38,26 +39,34 @@ export function asciiTabTrackIndexes(song: Song): readonly number[] {
 
 const MIDI_EXPORT: ExportKind = {
   file: MIDI_FILE,
-  what: 'the MIDI file',
+  get what() {
+    return t('window.exportWhat.midi');
+  },
   write: (song, path) => writeFile(path, bytesToBase64(renderMidi(song).bytes)),
 };
 
 const ASCII_TAB_EXPORT: ExportKind = {
   file: ASCII_TAB_FILE,
-  what: 'the ASCII tab',
+  get what() {
+    return t('window.exportWhat.asciiTab');
+  },
   write: (song, path) => writeTextFile(path, writeAsciiTab(song, { trackIndexes: asciiTabTrackIndexes(song) })),
 };
 
 const MUSICXML_EXPORT: ExportKind = {
   file: MUSICXML_FILE,
-  what: 'the MusicXML file',
+  get what() {
+    return t('window.exportWhat.musicXml');
+  },
   write: (song, path) => writeTextFile(path, writeMusicXml(song)),
   leftOut: (song) => layoutLeftOut('MusicXML', song),
 };
 
 const MXL_EXPORT: ExportKind = {
   file: MXL_FILE,
-  what: 'the MusicXML file',
+  get what() {
+    return t('window.exportWhat.musicXml');
+  },
   write: (song, path) => writeFile(path, bytesToBase64(writeMusicXmlArchive(song))),
   leftOut: (song) => layoutLeftOut('MusicXML', song),
 };

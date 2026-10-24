@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { type Song, stylesheetOf } from '@gp-editor/core';
 import type { ChordDisplay } from '../score/chords';
+import { useLanguage } from './use-i18n';
 import { type MeasureCache, type PlanCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans } from '../score/score-layout';
 
 /** `value` while `key` stays the same: the rows compare geometries by identity, so an edit keeping them redraws nothing. */
@@ -36,6 +37,9 @@ export function useScoreLayout(song: Song, specs: readonly StaffSpec[], chordDis
     cache.current = { song, trackIndexes, chordDisplay, measures: laidOut };
     return laidOut;
   }, [song, shown, chordDisplay]);
-  const systems = useMemo(() => scoreSystems(song, staves, measures, rowWidth), [song, staves, measures, rowWidth]);
+  // The systems' staff labels name an unnamed track in the shown language ("Track 2" / "트랙 2").
+  const language = useLanguage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` is read by scoreSystems' labels (global t)
+  const systems = useMemo(() => scoreSystems(song, staves, measures, rowWidth), [song, staves, measures, rowWidth, language]);
   return useMemo(() => ({ staves, systemHeight: staves.reduce((sum, staff) => sum + staff.height, 0), ...systems }), [staves, systems]);
 }

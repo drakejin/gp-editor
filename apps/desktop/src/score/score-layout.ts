@@ -1,5 +1,6 @@
 import { type Song, type Stylesheet, type Track, type TrackNameFormat, stylesheetOf } from '@gp-editor/core';
 import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
+import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { withBeatOffsets } from '../lib/system-design';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
@@ -201,7 +202,7 @@ function nameFormat(sheet: Stylesheet, isFirstSystem: boolean): TrackNameFormat 
 
 /** What a staff is labelled with: the track's name in full or short (the stylesheet's `format`), '' when hidden. */
 export function staffLabel(track: Pick<Track, 'name' | 'number'>, isFirstSystem: boolean, format: TrackNameFormat = isFirstSystem ? 'full' : 'short'): string {
-  const name = track.name.trim() === '' ? `Track ${track.number}` : track.name.trim();
+  const name = track.name.trim() === '' ? t('common.trackNumber', { number: track.number }) : track.name.trim();
   return format === 'hidden' ? '' : format === 'full' ? name : shortTrackName(name);
 }
 

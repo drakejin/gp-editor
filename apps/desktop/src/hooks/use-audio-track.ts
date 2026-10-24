@@ -10,6 +10,7 @@ import {
 } from '@gp-editor/core';
 import { type AudioPeaks, newAudioTrackFields, parseAudioPeaks, syncPointAt } from '../lib/audio-track';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { audioPeaks, chooseAudioFile, isAudioLoaded, subscribeAddAudioTrackRequests } from '../native/audio-track';
 import { AUDIO_LANE } from '../score/audio-lane';
 import type { EditorAction } from '../state/editor';
@@ -47,9 +48,6 @@ export interface AudioTrackSources {
   readonly audioSecondsNow: () => Promise<number | undefined>;
 }
 
-export const MARK_SYNC_HINT = 'Play the song with its audio track, then press Y when the cursor’s bar starts in the recording.';
-export const NO_AUDIO_TRACK_HINT = 'Add an audio track first: Track ▸ Add Audio Track….';
-const NOT_LOADED = 'The recording is not loaded';
 
 /** Waveforms fetched in this run, by asset id (each is computed once natively, and small). */
 const peaksCache = new Map<string, AudioPeaks>();
@@ -59,7 +57,7 @@ function usePeaks(assetId: string | undefined): { readonly peaks?: AudioPeaks; r
   const [state, setState] = useState<{ readonly assetId?: string; readonly peaks?: AudioPeaks; readonly error?: string }>({});
   useEffect(() => {
     if (assetId === undefined || !isAudioLoaded(assetId)) {
-      setState({ assetId, error: assetId === undefined ? undefined : NOT_LOADED });
+      setState({ assetId, error: assetId === undefined ? undefined : t('tools.audioTrack.notLoaded') });
       return;
     }
     const cached = peaksCache.get(assetId);
@@ -75,12 +73,12 @@ function usePeaks(assetId: string | undefined): { readonly peaks?: AudioPeaks; r
           peaksCache.set(assetId, parsed);
         }
         if (isCurrent) {
-          setState(parsed === undefined ? { assetId, error: 'The waveform could not be read' } : { assetId, peaks: parsed });
+          setState(parsed === undefined ? { assetId, error: t('tools.audioTrack.waveformFailed') } : { assetId, peaks: parsed });
         }
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          setState({ assetId, error: errorMessage(error, NOT_LOADED) });
+          setState({ assetId, error: errorMessage(error, t('tools.audioTrack.notLoaded')) });
         }
       });
     return () => {
@@ -118,7 +116,7 @@ function useAddAudioTrack(latest: { readonly current: Song | undefined }, dispat
           dispatch({ type: 'setAudioTrack', audioTrack: buildAudioTrack(newAudioTrackFields(file)) });
         }
       })
-      .catch((error: unknown) => dispatch({ type: 'showHint', hint: `Could not add the audio track: ${errorMessage(error, 'unknown error')}.` }));
+      .catch((error: unknown) => dispatch({ type: 'showHint', hint: t('tools.audioTrack.addFailed', { detail: errorMessage(error, t('tools.audioTrack.unknownError')) }) }));
   }, [latest, dispatch]);
   useEffect(() => subscribeAddAudioTrackRequests(addAudioTrack), [addAudioTrack]);
   return addAudioTrack;
@@ -129,14 +127,14 @@ function useMarkSyncPoint(sources: AudioTrackSources, latest: { readonly current
   const { cursor, dispatch, audioSecondsNow } = sources;
   return useCallback(() => {
     if (latest.current?.audioTrack === undefined) {
-      dispatch({ type: 'showHint', hint: NO_AUDIO_TRACK_HINT });
+      dispatch({ type: 'showHint', hint: t('tools.audioTrack.noAudioTrack') });
       return;
     }
     audioSecondsNow()
       .then((seconds) => {
         const song = latest.current;
         if (seconds === undefined || song === undefined) {
-          dispatch({ type: 'showHint', hint: MARK_SYNC_HINT });
+          dispatch({ type: 'showHint', hint: t('tools.audioTrack.markSyncHint') });
           return;
         }
         const measureIndex = cursor?.measureIndex ?? 0;
@@ -145,7 +143,7 @@ function useMarkSyncPoint(sources: AudioTrackSources, latest: { readonly current
           dispatch({ type: 'placeCursor', cursor: { ...cursor, measureIndex: measureIndex + 1, beatIndex: 0 } });
         }
       })
-      .catch(() => dispatch({ type: 'showHint', hint: MARK_SYNC_HINT }));
+      .catch(() => dispatch({ type: 'showHint', hint: t('tools.audioTrack.markSyncHint') }));
   }, [latest, cursor, dispatch, audioSecondsNow]);
 }
 

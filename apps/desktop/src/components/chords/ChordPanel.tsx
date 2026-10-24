@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Chord, type NoteSpelling, type Song, type StringAddress, chordLabel } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { type ChordDraft, MAX_FIRST_FRET, draftChord, draftFromChord, draftFromNotes, renameDraft, shiftDraftWindow, toggleDraftString } from '../../lib/chord-grid';
 import { cursorVoice } from '../../state/song-edits';
 import type { Palette } from '../../theme';
@@ -29,6 +30,7 @@ const MAX_NAME_LENGTH = 40;
  * Apply puts the chord on the beat, and its notes too when asked.
  */
 export function ChordPanel({ palette, song, cursor, onApply, onRemove, onClose }: ChordPanelProps) {
+  const t = useT();
   const track = song.tracks[cursor.trackIndex];
   const tuning = useMemo(() => (track?.strings ?? []).map((string) => string.tuning), [track?.strings]);
   const spelling: NoteSpelling = (track?.measures[cursor.measureIndex]?.keySignature ?? 0) < 0 ? 'flat' : 'sharp';
@@ -41,13 +43,13 @@ export function ChordPanel({ palette, song, cursor, onApply, onRemove, onClose }
   return (
     <View style={styles.overlay}>
       <Pressable testID="chord-panel-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Chord diagram">
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.chords.title')}>
         <View style={[styles.header, { borderColor: palette.chromeBorder }]}>
           <View style={styles.titles}>
-            <Text style={[styles.title, { color: palette.chromeText }]}>Chord diagram</Text>
-            <Text style={[styles.subtitle, { color: palette.chromeMuted }]}>{`Bar ${cursor.measureIndex + 1} · beat ${cursor.beatIndex + 1} · ${track?.name ?? ''}`}</Text>
+            <Text style={[styles.title, { color: palette.chromeText }]}>{t('tools.chords.title')}</Text>
+            <Text style={[styles.subtitle, { color: palette.chromeMuted }]}>{t('tools.chords.subtitle', { bar: cursor.measureIndex + 1, beat: cursor.beatIndex + 1, track: track?.name ?? '' })}</Text>
           </View>
-          <ChromeButton palette={palette} label="Done" tooltip="Close without changing the beat" onPress={onClose} />
+          <ChromeButton palette={palette} label={t('common.done')} tooltip={t('tools.chords.doneTooltip')} onPress={onClose} />
         </View>
         <View style={styles.body}>
           <ChordEditor palette={palette} draft={draft} tuning={tuning} spelling={spelling} notesCount={notes.length} withNotes={withNotes} onChange={setDraft} onUseNotes={() => setDraft(draftFromNotes(notes, tuning, spelling))} onWithNotes={setWithNotes} />
@@ -64,9 +66,9 @@ export function ChordPanel({ palette, song, cursor, onApply, onRemove, onClose }
           />
         </View>
         <View style={[styles.footer, { borderColor: palette.chromeBorder }]}>
-          <Text style={[styles.status, { color: palette.chromeMuted }]}>{beat?.chord === undefined ? 'The beat has no chord yet.' : `The beat’s chord: ${chordLabel(beat.chord) || 'no name'}`}</Text>
-          <ChromeButton testID="chord-remove" palette={palette} label="Remove" tooltip="Take the chord off the beat" isEnabled={beat?.chord !== undefined} onPress={onRemove} />
-          <ChromeButton testID="chord-apply" palette={palette} label="Apply" tooltip="Put the chord on the beat" isActive isEnabled={canApply} onPress={() => onApply(chord, withNotes)} />
+          <Text style={[styles.status, { color: palette.chromeMuted }]}>{beat?.chord === undefined ? t('tools.chords.noChordYet') : t('tools.chords.beatChord', { name: chordLabel(beat.chord) || t('tools.chords.noName') })}</Text>
+          <ChromeButton testID="chord-remove" palette={palette} label={t('common.remove')} tooltip={t('tools.chords.removeTooltip')} isEnabled={beat?.chord !== undefined} onPress={onRemove} />
+          <ChromeButton testID="chord-apply" palette={palette} label={t('common.apply')} tooltip={t('tools.chords.applyTooltip')} isActive isEnabled={canApply} onPress={() => onApply(chord, withNotes)} />
         </View>
       </View>
     </View>
@@ -88,17 +90,18 @@ interface ChordEditorProps {
 
 function ChordEditor({ palette, draft, tuning, spelling, notesCount, withNotes, onChange, onUseNotes, onWithNotes }: ChordEditorProps) {
   const shift = (delta: number) => onChange(shiftDraftWindow(draft, delta, tuning, spelling));
+  const t = useT();
   return (
     <View style={styles.editor}>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.chromeMuted }]}>NAME</Text>
+        <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.chords.name')}</Text>
         <TextField
           testID="chord-name"
-          accessibilityLabel="Chord name"
+          accessibilityLabel={t('tools.chords.nameLabel')}
           value={draft.name}
           maxLength={MAX_NAME_LENGTH}
           onChangeText={(name) => onChange(renameDraft(draft, name))}
-          placeholder="Named from the grid"
+          placeholder={t('tools.chords.namedFromGrid')}
           placeholderTextColor={palette.chromeMuted}
           autoCorrect={false}
           style={[styles.field, { color: palette.chromeText, backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}
@@ -106,20 +109,20 @@ function ChordEditor({ palette, draft, tuning, spelling, notesCount, withNotes, 
       </View>
       <ChordGrid palette={palette} draft={draft} onToggle={(string, fret) => onChange(toggleDraftString(draft, string, fret, tuning, spelling))} />
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.chromeMuted }]}>FRET</Text>
-        <ChromeButton palette={palette} label="−" tooltip="Move the grid and its fingers a fret down" isEnabled={draft.firstFret > 1} onPress={() => shift(-1)} />
+        <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.chords.fret')}</Text>
+        <ChromeButton palette={palette} label="−" tooltip={t('tools.chords.fretDown')} isEnabled={draft.firstFret > 1} onPress={() => shift(-1)} />
         <Text style={[styles.fret, { color: palette.chromeText }]}>{draft.firstFret}</Text>
-        <ChromeButton palette={palette} label="+" tooltip="Move the grid and its fingers a fret up" isEnabled={draft.firstFret < MAX_FIRST_FRET} onPress={() => shift(1)} />
+        <ChromeButton palette={palette} label="+" tooltip={t('tools.chords.fretUp')} isEnabled={draft.firstFret < MAX_FIRST_FRET} onPress={() => shift(1)} />
       </View>
       <View style={styles.row}>
-        <ChromeButton testID="chord-use-notes" palette={palette} label="Notes of the beat" tooltip="Fill the grid from the beat’s notes" fontSize={11} isEnabled={notesCount > 0} onPress={onUseNotes} />
-        <ChromeButton palette={palette} label="Clear" tooltip="Empty the grid" fontSize={11} onPress={() => onChange(draftFromChord(undefined, tuning))} />
+        <ChromeButton testID="chord-use-notes" palette={palette} label={t('tools.chords.notesOfBeat')} tooltip={t('tools.chords.notesOfBeatTooltip')} fontSize={11} isEnabled={notesCount > 0} onPress={onUseNotes} />
+        <ChromeButton palette={palette} label={t('common.clear')} tooltip={t('tools.chords.clearTooltip')} fontSize={11} onPress={() => onChange(draftFromChord(undefined, tuning))} />
       </View>
       <ChromeButton
         testID="chord-with-notes"
         palette={palette}
-        label={`${withNotes ? '☑' : '☐'} Write the notes into the beat`}
-        tooltip="Apply also replaces the beat’s notes with the chord’s"
+        label={`${withNotes ? '☑' : '☐'} ${t('tools.chords.writeNotes')}`}
+        tooltip={t('tools.chords.writeNotesTooltip')}
         fontSize={11}
         isActive={withNotes}
         onPress={() => onWithNotes(!withNotes)}

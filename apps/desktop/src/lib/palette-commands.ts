@@ -1,8 +1,9 @@
-import { PALETTE_GROUPS } from '../components/palette/palette-groups';
+import { paletteGroups } from '../components/palette/palette-groups';
 import type { PaletteGroup, PaletteOption, PaletteStepper, PaletteTool } from '../components/palette/palette-tools';
 import type { AppCommand } from '../state/app-command';
 import type { SongEdit } from '../state/song-edits';
 import { type Command, editorRow, isRequirementMet } from './command-types';
+import { currentLanguage, memoByLanguage } from './i18n/i18n';
 import type { KeyCommand } from './key-commands';
 
 /** A tooltip without the key it names at the end: "Tie to the previous note (T)" → "Tie to the previous note". */
@@ -32,9 +33,20 @@ function faceKeywords(tool: PaletteTool): readonly string[] {
 
 const edit = (songEdit: SongEdit): AppCommand => ({ type: 'edit', edit: songEdit });
 
-/** A palette command: it needs what its tool needs (a note, a beat, a bar). */
+/** The words of an id, which are English in every language: "palette.tremoloPicking.2" → ["tremolo", "picking"]. */
+export function idWords(id: string): readonly string[] {
+  return id
+    .replace(/^palette\./, '')
+    .split(/[.\d]+/)
+    .flatMap((part) => part.split(/(?=[A-Z])/))
+    .map((word) => word.toLowerCase())
+    .filter((word) => word.length > 1);
+}
+
+/** A palette command: it needs what its tool needs (a note, a beat, a bar); outside English its id's words find it too. */
 function paletteRow(id: string, group: PaletteGroup, title: string, command: AppCommand | KeyCommand, scope: PaletteTool['scope'], keywords: readonly string[]): Command {
-  return editorRow(id, group.title, title, command, { when: scope, keywords: [...keywords, 'palette'] });
+  const english = currentLanguage() === 'en' ? [] : idWords(id);
+  return editorRow(id, group.title, title, command, { when: scope, keywords: [...keywords, ...english, 'palette'] });
 }
 
 function toolCommands(group: PaletteGroup, tool: PaletteTool): readonly Command[] {
@@ -78,4 +90,5 @@ export function paletteCommands(groups: readonly PaletteGroup[]): readonly Comma
   return groups.flatMap((group) => [...group.tools.flatMap((tool) => toolCommands(group, tool)), ...(group.steppers ?? []).flatMap((stepper) => stepperCommands(group, stepper))]);
 }
 
-export const PALETTE_COMMANDS: readonly Command[] = paletteCommands(PALETTE_GROUPS);
+/** The edition palette's tools as commands, in the shown language (built again after a language change). */
+export const paletteToolCommands = memoByLanguage(() => paletteCommands(paletteGroups()));

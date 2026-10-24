@@ -5,6 +5,8 @@
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
 
+#import "GPAppStrings.h"
+
 static NSPasteboardType const kBeatsType = @"com.drakejin.gpeditor.beats";
 
 @interface GPClipboard : NSObject <RCTBridgeModule>
@@ -34,7 +36,7 @@ RCT_EXPORT_METHOD(writeBeats : (NSString *)json summary : (NSString *)summary re
   if (isWritten) {
     resolve(nil);
   } else {
-    reject(@"clipboard", @"The beats could not be put on the clipboard.", nil);
+    reject(@"clipboard", GPLocalizedString(@"The beats could not be put on the clipboard."), nil);
   }
 }
 

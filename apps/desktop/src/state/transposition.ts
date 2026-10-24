@@ -1,5 +1,5 @@
 import type { Transposition, TranspositionMode, TranspositionOptions, TranspositionScope } from '@gp-editor/core';
-import { plural } from '../lib/wording';
+import { t } from '../lib/i18n/i18n';
 import type { EditorState } from './editor';
 
 /** What Tools ▸ Transpose… moves: the selected beats (in the cursor's voice), the shown track, or every track. */
@@ -21,7 +21,9 @@ export const MAX_TRANSPOSE_AMOUNT = 24;
 export const MAX_TRANSPOSE_OCTAVES = 4;
 
 /** Transposing the selection with none: the hint strip says how to make one. */
-export const NO_SELECTION_HINT = 'Select the beats to transpose first: drag across the score, or ⇧← / ⇧→.';
+export function noSelectionHint(): string {
+  return t('palette.hint.noSelection');
+}
 
 const SEMITONES_PER_OCTAVE = 12;
 const STEPS_PER_OCTAVE = 7;
@@ -78,17 +80,17 @@ export function describeTransposition(options: TranspositionOptions): string {
   const perOctave = isChromatic ? SEMITONES_PER_OCTAVE : STEPS_PER_OCTAVE;
   const total = options.amount + (options.octaves ?? 0) * perOctave;
   if (total === 0) {
-    return 'by nothing';
+    return t('palette.transpose.byNothing');
   }
   const size = Math.abs(total);
-  const amount = size % perOctave === 0 ? plural(size / perOctave, 'octave') : plural(size, isChromatic ? 'semitone' : 'scale step');
-  return `${total > 0 ? 'up' : 'down'} ${amount}`;
+  const amount = size % perOctave === 0 ? t('palette.transpose.octaves', { count: size / perOctave }) : t(isChromatic ? 'common.semitones' : 'palette.transpose.scaleSteps', { count: size });
+  return t(total > 0 ? 'palette.transpose.up' : 'palette.transpose.down', { amount });
 }
 
 /** What could not move, as sentences for the hint strip; '' when everything moved. */
 function leftOutText(result: Transposition): string {
-  const notes = result.unplaced === 0 ? '' : ` ${plural(result.unplaced, 'note')} did not fit on the neck at the new pitch and stayed as ${result.unplaced === 1 ? 'it was' : 'they were'}.`;
-  const chords = result.unplacedChords === 0 ? '' : ` ${plural(result.unplacedChords, 'chord diagram')} did not fit on the neck and stayed as ${result.unplacedChords === 1 ? 'it was' : 'they were'}.`;
+  const notes = result.unplaced === 0 ? '' : ` ${t('palette.transpose.unplacedNotes', { count: result.unplaced })}`;
+  const chords = result.unplacedChords === 0 ? '' : ` ${t('palette.transpose.unplacedChords', { count: result.unplacedChords })}`;
   return `${notes}${chords}`;
 }
 
@@ -96,13 +98,13 @@ function leftOutText(result: Transposition): string {
 export function transpositionHint(result: Transposition, options: TranspositionOptions): string {
   const how = describeTransposition(options);
   if (options.isChordsOnly === true) {
-    const moved = result.chords === 0 ? 'No chord names or diagrams to move here.' : `Moved ${plural(result.chords, 'chord')} ${how}; the notes stayed.`;
+    const moved = result.chords === 0 ? t('palette.transpose.noChords') : t('palette.transpose.movedChords', { count: result.chords, how });
     return `${moved}${leftOutText(result)}`;
   }
   if (result.moved === 0 && result.unplaced === 0) {
-    return 'No notes to transpose here (drum tracks never move).';
+    return t('palette.transpose.noNotes');
   }
-  const moved = result.moved === 0 ? 'No notes moved.' : `Transposed ${plural(result.moved, 'note')} ${how}.`;
-  const chords = result.chords === 0 ? '' : ` ${plural(result.chords, 'chord')} moved with them.`;
+  const moved = result.moved === 0 ? t('palette.transpose.noneMoved') : t('palette.transpose.movedNotes', { count: result.moved, how });
+  const chords = result.chords === 0 ? '' : ` ${t('palette.transpose.chordsWith', { count: result.chords })}`;
   return `${moved}${chords}${leftOutText(result)}`;
 }

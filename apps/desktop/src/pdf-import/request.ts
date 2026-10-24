@@ -1,3 +1,4 @@
+// i18n-exempt-file: prompts and requests sent to Claude (never shown), and the models' product names
 import { TRANSCRIPTION_TOOL, type TranscribedMeasure, type TranscriptionPage } from '@gp-editor/core';
 import { plural } from '../lib/wording';
 

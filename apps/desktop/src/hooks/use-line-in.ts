@@ -1,6 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { type TrackIndexMap, remapTrackIndex } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { LINE_IN_GAIN, type LineInDevices, NO_LINE_IN_DEVICES, hasFeedbackRisk, lineInTrackIndex, parseLineInDevices } from '../lib/line-in';
 import { type LineInSettings, lineInLevel, loadLineInDevices, startLineIn, stopLineIn, updateLineIn } from '../native/audio-effects';
 
@@ -77,7 +78,7 @@ function usePower(current: MutableRefObject<LineInSettings>) {
         .then(() => setIsOn(true))
         .catch((reason: unknown) => {
           setIsOn(false);
-          setError(errorMessage(reason, 'The line in could not start'));
+          setError(errorMessage(reason, t('tools.lineIn.startFailed')));
         });
     },
     [current],
@@ -113,7 +114,7 @@ function useSettings(current: MutableRefObject<LineInSettings>, onError: (messag
           setSettings((previous) => ({ ...previous, isMonitoring: false }));
         }
       })
-      .catch((reason: unknown) => onError(errorMessage(reason, 'The audio inputs could not be listed')));
+      .catch((reason: unknown) => onError(errorMessage(reason, t('tools.lineIn.listFailed'))));
   }, [current, onError]);
   const change = useCallback((patch: Partial<Settings>) => setSettings((previous) => ({ ...previous, ...patch })), []);
   return { isOpen, setIsOpen, devices, settings, setSettings, change, open };

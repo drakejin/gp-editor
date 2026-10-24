@@ -1,12 +1,13 @@
 import { memo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
-import { PALETTE_GROUPS } from './palette-groups';
+import { paletteGroups } from './palette-groups';
 import { MusicIcon } from './MusicIcon';
 import { PaletteOptionStrip, PaletteTextField } from './PaletteStrips';
 import { type PaletteContext, type PaletteGroup, type PaletteStepper, type PaletteTool, isToolEnabled, paletteContext } from './palette-tools';
@@ -43,6 +44,8 @@ export interface EditionPaletteProps {
  * note, beat or bar has.
  */
 function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDesignMode = false, onEdit, onAction, onOpenPanel, onOpenChordPanel, onOpenExpressionText, isExpressionTextOpen = false }: EditionPaletteProps) {
+  // The groups' texts are built in the shown language (useT re-renders the palette when it changes).
+  useT();
   const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode };
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
@@ -68,9 +71,9 @@ function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDes
   };
   return (
     <ScrollView style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
-      {PALETTE_GROUPS.map((group) => (
+      {paletteGroups().map((group) => (
         // The > tool is lit while Expression Text is open.
-        <GroupView key={group.title} palette={palette} group={group} context={context} openToolId={isExpressionTextOpen ? 'expressionText' : openToolId} onPress={press} onChoose={choose} onEdit={onEdit} />
+        <GroupView key={group.id} palette={palette} group={group} context={context} openToolId={isExpressionTextOpen ? 'expressionText' : openToolId} onPress={press} onChoose={choose} onEdit={onEdit} />
       ))}
     </ScrollView>
   );
@@ -122,6 +125,13 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
   );
 }
 
+/** Hangul syllables a keyed face shows at the usual size; a longer word (슬라이드, 비브라토) is set smaller to fit beside its key. */
+const KEYED_FACE_SYLLABLES = 3;
+
+function isLongHangulFace(face: string): boolean {
+  return (face.match(/[\uAC00-\uD7A3]/g)?.length ?? 0) > KEYED_FACE_SYLLABLES;
+}
+
 /** A music glyph, or (for a tool with a key) the face with its key in the corner; undefined for a plain text face. */
 function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
   const color = isActive ? palette.chromeAccentText : palette.chromeText;
@@ -135,7 +145,7 @@ function toolIcon(palette: Palette, tool: PaletteTool, isActive: boolean) {
   return (
     <View style={styles.keyedFace}>
       {face ?? (
-        <Text numberOfLines={1} style={[styles.faceText, { color }]}>
+        <Text numberOfLines={1} style={[styles.faceText, isLongHangulFace(tool.face) ? styles.longFaceText : null, { color }]}>
           {tool.face}
         </Text>
       )}
@@ -205,20 +215,21 @@ function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { rea
 }
 
 function StepperControl({ palette, stepper, context, onEdit, onType }: StepperProps & { readonly stepper: PaletteStepper; readonly onType: () => void }) {
+  const t = useT();
   const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
   const { typed } = stepper;
   const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
   return (
     <>
-      <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
+      <ChromeButton palette={palette} label="−" tooltip={t('palette.stepper.less', { tooltip: stepper.tooltip })} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
       {typed === undefined ? (
         value
       ) : (
-        <Pressable testID={`palette-value-${stepper.id}`} tooltip={`${typed.placeholder}: click to type`} disabled={!isEnabled} onPress={onType} style={styles.stepperPress}>
+        <Pressable testID={`palette-value-${stepper.id}`} tooltip={t('palette.stepper.clickToType', { placeholder: typed.placeholder })} disabled={!isEnabled} onPress={onType} style={styles.stepperPress}>
           {value}
         </Pressable>
       )}
-      <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
+      <ChromeButton palette={palette} label="+" tooltip={t('palette.stepper.more', { tooltip: stepper.tooltip })} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
     </>
   );
 }
@@ -234,6 +245,7 @@ const styles = StyleSheet.create({
   tintedFace: { alignItems: 'center' },
   tintStrip: { width: 14, height: 3, borderRadius: 1.5, marginTop: 1 },
   faceText: { fontSize: 10.5, fontWeight: '600' },
+  longFaceText: { fontSize: 9 },
   /** The key, small and raised like an exponent. */
   keyBadge: { fontSize: 8, fontWeight: '700', marginLeft: 2, alignSelf: 'flex-start', marginTop: 1 },
   /** A glyph sits low in its 24-point box: the key goes level with its top. */

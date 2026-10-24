@@ -2,6 +2,7 @@ import { type PaletteContext, isToolEnabled } from '../components/palette/palett
 import type { AppCommand } from '../state/app-command';
 import type { TrackMenuCommand } from '../native/track-menu';
 import type { PanelId } from '../state/panels';
+import { t } from './i18n/i18n';
 import { type KeyCommand, type KeyPress, keyCommand } from './key-commands';
 
 /** What a command's `isEnabled` reads: the document, the selection, history and tabs, and the cursor's note, beat and bar. */
@@ -39,6 +40,8 @@ export interface CommandActions {
   readonly openRecentFiles: () => void;
   readonly openSongWriter: () => void;
   readonly openShortcuts: () => void;
+  /** GP Editor ▸ Settings… (⌘,). */
+  readonly openSettings: () => void;
   readonly openTranspose: () => void;
   readonly openTuner: () => void;
   readonly openScales: () => void;
@@ -60,7 +63,7 @@ export interface CommandActions {
   readonly togglePreviewOnHover: () => void;
 }
 
-/** One row of the command palette (⇧⌘P). A new feature's command is one more row in COMMANDS (commands.ts). */
+/** One row of the command palette (⇧⌘P). A new feature's command is one more row of the registry (commands.ts) and its title in the catalogues. */
 export interface Command {
   readonly id: string;
   readonly title: string;
@@ -113,15 +116,14 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   ArrowRight: '→',
   Backspace: '⌫',
   Delete: '⌦',
-  Escape: 'Esc',
+  Escape: 'Esc', // i18n-exempt: the key cap as the Mac keyboard prints it
   Enter: '↩',
-  ' ': 'Space',
 };
 
-/** A key press as macOS menus write it: "⇧⌘Z", "⌥↑", "R". */
+/** A key press as macOS menus write it: "⇧⌘Z", "⌥↑", "R" ("Space" in the shown language). */
 export function pressLabel(keyPress: KeyPress): string {
   const modifiers = MODIFIER_SYMBOLS.filter(([flag]) => keyPress[flag]).map(([, symbol]) => symbol).join('');
-  const name = KEY_NAMES[keyPress.key] ?? (keyPress.key.length === 1 ? keyPress.key.toUpperCase() : keyPress.key);
+  const name = keyPress.key === ' ' ? t('commands.key.space') : (KEY_NAMES[keyPress.key] ?? (keyPress.key.length === 1 ? keyPress.key.toUpperCase() : keyPress.key));
   return `${modifiers}${name}`;
 }
 
@@ -150,6 +152,7 @@ export function editorRow(id: string, group: string, title: string, command: App
 export function keyRow(id: string, group: string, title: string, keyPress: KeyPress, spec: RowSpec = {}): Command {
   const command = keyCommand(keyPress, { current: undefined }, 0);
   if (command === undefined) {
+    // i18n-exempt: a programming error, never shown
     throw new Error(`No key command for ${pressLabel(keyPress)}`);
   }
   return editorRow(id, group, title, command, { ...spec, shortcut: pressLabel(keyPress) });

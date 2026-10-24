@@ -500,6 +500,13 @@ Guitar Pro's own files differently are listed, with that evidence, in
   length), a start offset (a share of its beat) and a velocity change. Playback only; GP5 files keep the duration,
   `.gp`, GP4 and GP3 files leave them out.
 - **View ▸ Focus / Unfocus** (⇧⌘F): only the score and the top bar; Unfocus brings back the panels that were shown.
+- **Settings** (GP Editor ▸ Settings…, ⌘,): *Language* — the system's, English or 한국어 (Korean): the window, panels,
+  palette, inspector, shortcut sheet, command palette, hints and errors change at once, and so do the menus and the save
+  panels; macOS's own menu items (Services, Window, Quit …) follow at the next start. In Korean the command palette finds
+  Korean titles, their initial consonants (ㅌㄴ → 튜너) and still the English names. Notation on the score (P.M., let
+  ring, 8va, dynamics, chords) stays as notation writes it. *Interface contrast* — Standard or High (darker panels,
+  brighter text and borders) — and *Score paper* — light, dark or following the system; every text colour reads at WCAG
+  AA. The settings are kept for the next start.
 
 ## License
 

@@ -3,6 +3,7 @@ import type { Song } from '@gp-editor/core';
 import { type AudioExportFile, audioSavedHint, planAudioExport, renderAudioFile } from '../export/audio-export-plan';
 import { type AudioExportOptions, DEFAULT_AUDIO_EXPORT, audioFileSettings, audioFormat } from '../export/audio-formats';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { mixOf } from '../lib/mix';
 import { cancelAudioExport, chooseAudioFolder, exportAudio, subscribeAudioExportProgress } from '../native/audio-export';
 import { isAudioLoaded } from '../native/audio-track';
@@ -126,13 +127,13 @@ export function useAudioExport(document: OpenDocument | undefined, practice: Pra
       }
       setStatus({ kind: 'rendering', fileIndex: 0, fileCount: files.length, fraction: 0 });
       const hint = await runExport(current.song, files, chosen, destination);
-      dispatch({ type: 'showHint', hint: hint ?? 'The audio export was cancelled.' });
+      dispatch({ type: 'showHint', hint: hint ?? t('window.audioExport.cancelled') });
       if (hint !== undefined) {
         setIsOpen(false);
       }
     };
     run()
-      .catch((error: unknown) => dispatch({ type: 'exportFailed', what: chosen.isPerTrack ? 'the audio files' : 'the audio file', message: errorMessage(error) }))
+      .catch((error: unknown) => dispatch({ type: 'exportFailed', what: chosen.isPerTrack ? t('window.exportWhat.audioFiles') : t('window.exportWhat.audioFile'), message: errorMessage(error) }))
       .finally(() => {
         isRunning.current = false;
         setStatus(IDLE);
