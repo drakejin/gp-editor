@@ -50,4 +50,17 @@ describe('moving notes to another voice (Guitar Pro 8’s Move Voice)', () => {
     const rest = applySongEdit(SONG, onSecondBeat, { type: 'makeRest' });
     expect(refusalHint(rest, onSecondBeat, { type: 'moveToVoice', voiceIndex: 1 })).toBe('No note to move: the cursor’s beat is a rest.');
   });
+
+  it('moves the selected beats all together or not at all, and says so', () => {
+    // Arrange: voice 2 holds a whole note from beat 1; beats 2 to 4 selected
+    const wholeNote = applySongEdit(applySongEdit(SONG, ON_CHORD, { type: 'moveToVoice', voiceIndex: 1 }), { ...ON_CHORD, voiceIndex: 1 }, { type: 'setNoteValue', value: 1 });
+    const edit = { type: 'moveToVoice', voiceIndex: 1, from: { measureIndex: 0, beatIndex: 1 } } as const;
+    const cursor = { ...ON_CHORD, beatIndex: 3, string: 1 };
+
+    // Act / Assert
+    expect(applySongEdit(wholeNote, cursor, edit)).toBe(wholeNote);
+    expect(refusalHint(wholeNote, cursor, edit)).toBe('Voice 2 plays something else there: nothing moved.');
+    const rests = [1, 2, 3].reduce((song, beatIndex) => applySongEdit(song, { ...cursor, beatIndex }, { type: 'makeRest' }), SONG);
+    expect(refusalHint(rests, cursor, edit)).toBe('No note to move in the selected beats.');
+  });
 });

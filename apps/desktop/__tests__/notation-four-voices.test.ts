@@ -72,6 +72,15 @@ describe('four voices on the staff', () => {
     expect(fourth).toBeGreaterThanOrEqual(second! + 3 * SPACE);
   });
 
+  it('stacks a voice 3 rest above voice 1’s rest where that rest moved up over voice 2’s notes', () => {
+    // Act: voice 2 plays D5 (position 6), voices 1 and 3 rest
+    const commands = engrave([voicesBeat(voice([]), voice([note(2, 3)]), voice([]))]);
+
+    // Assert
+    const [first, third] = glyphs(commands, SMUFL.restQuarter).map((rest) => rest.y);
+    expect(third).toBeLessThanOrEqual(first! - 3 * SPACE);
+  });
+
   it('keeps a voice 3 rest clear of voice 1’s notes above it', () => {
     // Act: voice 1 plays G5 (position 9) where voice 3 rests
     const commands = engrave([voicesBeat(voice([note(1, 3)]), undefined, voice([]))]);
@@ -137,6 +146,16 @@ describe('the voice being edited', () => {
     expect(placeholders).toHaveLength(1);
     expect(placeholders[0]!.color.startsWith(VOICED.voices[2]!)).toBe(true);
     expect(placeholders[0]!.color).toHaveLength(9);
+  });
+
+  it('puts voice 3’s placeholder above voice 1’s whole rest, apart from it', () => {
+    // Act: voice 1 rests the whole bar, voice 2 plays, voice 3 is edited
+    const whole: Duration = { ...QUARTER, value: 1 };
+    const commands = engrave([voicesBeat(voice([], whole), voice([note(6, 0)], whole))], { palette: VOICED, editedVoiceIndex: 2 });
+
+    // Assert: a whole rest is a space tall, hanging from its line; two spaces keep them apart
+    const [rest, placeholder] = glyphs(commands, SMUFL.restWhole);
+    expect(placeholder!.y).toBeLessThanOrEqual(rest!.y - 2 * SPACE);
   });
 
   it('shows no placeholder where the edited voice plays', () => {

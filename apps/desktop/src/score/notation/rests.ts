@@ -57,7 +57,8 @@ const EMPTY_VOICE_ALPHA = '66';
 
 /**
  * A bar whose voice being edited has nothing in it: that voice's whole rest, faint, at its side of the staff (centred at
- * `x`, in `tint`, the voice's colour) — where typing a fret starts the voice.
+ * `x`, in `tint`, the voice's colour) — where typing a fret starts the voice; voice 3's and 4's beyond voice 1's and
+ * 2's, so a whole rest of those stays clear.
  */
 export function emptyVoiceRest(
   x: number,
@@ -65,8 +66,9 @@ export function emptyVoiceRest(
   voiceIndex: number,
   tint: string,
 ): TextCommand {
+  const shift = voiceIndex >= 2 ? 2 * VOICE_SHIFT : VOICE_SHIFT;
   const position =
-    WHOLE_REST_POSITION + (isUpperVoice(voiceIndex) ? VOICE_SHIFT : -VOICE_SHIFT);
+    WHOLE_REST_POSITION + (isUpperVoice(voiceIndex) ? shift : -shift);
   return musicGlyph(
     x,
     positionY(top, position),

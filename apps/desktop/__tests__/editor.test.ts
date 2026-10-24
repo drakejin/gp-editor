@@ -333,6 +333,23 @@ describe('editorReducer: multivoice and moving notes between voices', () => {
     expect(moved.selectionAnchor).toBeUndefined();
   });
 
+  it('keeps the cursor on the moved beat when the rests the move adds before it shift the beat indexes', () => {
+    // Arrange: voice 1 = half, dotted quarter, eighth; the cursor on the eighth
+    const dottedQuarter = { ...QUARTER, dotted: true };
+    const beats = [beat(960, [note(1, 0)], { ...QUARTER, value: 2 }), beat(2880, [note(1, 2)], dottedQuarter), beat(4320, [note(1, 3)], { ...QUARTER, value: 8 })];
+    let state = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: makeSong([beats]) } });
+    state = editorReducer(editorReducer(state, { type: 'moveCursorBeat', step: 1 }), { type: 'moveCursorBeat', step: 1 });
+    const start = song(state).tracks[0]!.measures[0]!.beats[at(state).beatIndex]!.start;
+
+    // Act
+    const moved = editorReducer(state, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 1 } });
+
+    // Assert
+    const movedBeat = song(moved).tracks[0]!.measures[0]!.beats[at(moved).beatIndex];
+    expect(movedBeat?.start).toBe(start);
+    expect(movedBeat?.voices[1]?.notes.map((n) => n.fret)).toEqual([3]);
+  });
+
   it('says why a move did nothing', () => {
     const state = chordState();
     const refused = editorReducer(state, { type: 'edit', edit: { type: 'moveToVoice', voiceIndex: 0 } });

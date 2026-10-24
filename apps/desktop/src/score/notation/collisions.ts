@@ -77,10 +77,14 @@ function headShift(event: VoiceEvent, others: readonly VoiceEvent[]): number {
   return pastLower + (touchesSameSide(event, others) ? 1 : 0);
 }
 
+/** Rest positions already moved, by event: a later voice's rest stacks beyond where an earlier one went. */
+type MovedRests = ReadonlyMap<VoiceEvent, number>;
+
 /** The staff positions a rest must clear: other voices' notes, and the rests of same-side voices before it (stacked). */
 function restObstacles(
   rest: VoiceEvent,
   others: readonly VoiceEvent[],
+  moved: MovedRests,
 ): number[] {
   const isUp = isUpperVoice(rest.voiceIndex);
   const notes = others.flatMap(positions);
@@ -93,7 +97,7 @@ function restObstacles(
     )
     .map(
       other =>
-        restPosition(other, true) +
+        (moved.get(other) ?? restPosition(other, true)) +
         (isUp ? REST_STACK - REST_CLEARANCE : REST_CLEARANCE - REST_STACK),
     );
   return [...notes, ...rests];
@@ -102,8 +106,9 @@ function restObstacles(
 function clearRest(
   rest: VoiceEvent,
   others: readonly VoiceEvent[],
+  moved: MovedRests,
 ): number | undefined {
-  const obstacles = restObstacles(rest, others);
+  const obstacles = restObstacles(rest, others, moved);
   if (obstacles.length === 0) {
     return undefined;
   }
@@ -116,18 +121,37 @@ function clearRest(
   return needed < usual ? Math.max(REST_RANGE.lowest, needed) : undefined;
 }
 
+function othersOnBeat(
+  events: readonly VoiceEvent[],
+  event: VoiceEvent,
+): VoiceEvent[] {
+  return events.filter(
+    other =>
+      other.beatIndex === event.beatIndex &&
+      other.voiceIndex !== event.voiceIndex,
+  );
+}
+
+/** Where each rest moves, placed in voice order (voice 3's beyond voice 1's as moved). */
+function movedRests(events: readonly VoiceEvent[]): MovedRests {
+  const rests = events
+    .filter(event => event.notes.length === 0)
+    .sort((a, b) => a.voiceIndex - b.voiceIndex);
+  return rests.reduce<Map<VoiceEvent, number>>((moved, rest) => {
+    const position = clearRest(rest, othersOnBeat(events, rest), moved);
+    return position === undefined ? moved : new Map([...moved, [rest, position]]);
+  }, new Map());
+}
+
 export function separateVoices(events: readonly VoiceEvent[]): VoiceEvent[] {
+  const rests = movedRests(events);
   return events.map(event => {
-    const others = events.filter(
-      other =>
-        other.beatIndex === event.beatIndex &&
-        other.voiceIndex !== event.voiceIndex,
-    );
+    const others = othersOnBeat(events, event);
     if (others.length === 0) {
       return event;
     }
     if (event.notes.length === 0) {
-      const position = clearRest(event, others);
+      const position = rests.get(event);
       return position === undefined
         ? event
         : { ...event, restPosition: position };

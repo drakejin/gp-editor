@@ -508,9 +508,13 @@ function shiftNoteString(state: EditorState, delta: number): EditorState {
     : { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
 }
 
-/** A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions. */
+/**
+ * A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions, and stays on
+ * its beat where notes moved to another voice, or a chord into an empty voice, add rests before it.
+ */
 function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
-  const edited = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  const applied = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  const edited = edit.type === 'moveToVoice' || (edit.type === 'setBeatChord' && edit.withNotes === true) ? followBeatStart(state, applied) : applied;
   if (edited === state) {
     const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(state.document.song, state.cursor, edit);
     return hint === state.hint ? state : { ...state, hint };
