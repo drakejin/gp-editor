@@ -1,5 +1,5 @@
 import type { MeasureHeader, Track } from '@gp-editor/core';
-import { type MeasureLayout, justifyScale, stretchMeasure } from './layout';
+import { MIN_SQUEEZE, type MeasureLayout, compressMeasure, justifyScale, stretchMeasure } from './layout';
 
 /** How the bars break into systems besides their widths: the stylesheet's bars per system and Design Mode's bars. */
 export interface SystemRules {
@@ -10,9 +10,6 @@ export interface SystemRules {
 }
 
 export const NO_SYSTEM_RULES: SystemRules = { barsPerSystem: 0 };
-
-/** The closest a fixed system moves its beats together, as a share of their natural distance (as squeezeRow). */
-const MIN_COMPRESSION = 0.25;
 
 /** One system: how many bars, and whether Design Mode fixed that number (it holds them even when they do not fit). */
 export interface SystemSpan {
@@ -65,14 +62,10 @@ function compressBars(bars: readonly (readonly MeasureLayout[])[], width: number
   if (spread <= 0) {
     return bars.map((staves) => [...staves]);
   }
-  const k = Math.max(MIN_COMPRESSION, 1 - (natural - width) / spread);
+  const k = Math.max(MIN_SQUEEZE, 1 - (natural - width) / spread);
   return bars.map((staves, i) => {
     const { anchor, spread: barSpread } = spans[i] ?? { anchor: 0, spread: 0 };
-    return staves.map((measure) => ({
-      ...measure,
-      width: measure.width - barSpread * (1 - k),
-      beats: measure.beats.map((beat) => ({ ...beat, x: anchor + (beat.x - anchor) * k })),
-    }));
+    return staves.map((measure) => compressMeasure(measure, anchor, barSpread, k));
   });
 }
 

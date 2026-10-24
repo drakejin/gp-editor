@@ -34,8 +34,8 @@ export const BEND_MOVE_WIDTH = 16;
 const BEND_PADDING = 20;
 /** The last row is stretched to the full width only when it is at least this full. */
 const JUSTIFY_THRESHOLD = 0.75;
-/** The closest squeezeRow moves beats together, as a share of their natural distance. */
-const MIN_SQUEEZE = 0.25;
+/** The closest beats are moved together to fit a line (squeezeRow, a fixed system), as a share of their natural distance. */
+export const MIN_SQUEEZE = 0.25;
 
 export interface BeatLayout {
   readonly beatIndex: number;
@@ -221,12 +221,15 @@ function beatSpread(measure: MeasureLayout): number {
 }
 
 function squeezeMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
-  const firstX = measure.beats[0]?.x ?? 0;
-  return {
-    ...measure,
-    width: measure.width - beatSpread(measure) * (1 - scale),
-    beats: measure.beats.map((beat) => ({ ...beat, x: firstX + (beat.x - firstX) * scale })),
-  };
+  return compressMeasure(measure, measure.beats[0]?.x ?? 0, beatSpread(measure), scale);
+}
+
+/**
+ * The measure with its beats moved towards `anchor` to `scale` of their distance from it, narrower by what `spread`
+ * (the beats' span it is squeezed for) loses; the room before its first beat and after its last keeps its size.
+ */
+export function compressMeasure(measure: MeasureLayout, anchor: number, spread: number, scale: number): MeasureLayout {
+  return { ...measure, width: measure.width - spread * (1 - scale), beats: measure.beats.map((beat) => ({ ...beat, x: anchor + (beat.x - anchor) * scale })) };
 }
 
 function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {
