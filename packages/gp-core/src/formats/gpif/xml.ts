@@ -1,6 +1,6 @@
 // Port of the DOM helpers of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentReader (LGPL-2.1).
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import { GpFormatError } from '../../errors';
+import { GpFormatError, errorMessage } from '../../errors';
 import { readXmlTree } from './xml-tree';
 
 /** A parsed XML element. `text` is the element's own text and CDATA (GPIF values are leaf elements). */
@@ -64,8 +64,7 @@ function parseWithParser(source: string, parser: XMLParser, kind: string): XmlEl
   try {
     nodes = parser.parse(source);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`Invalid ${kind} document: ${reason}`, { cause: error });
+    throw new GpFormatError(`Invalid ${kind} document: ${errorMessage(error)}`, { cause: error });
   }
   const root = toElements(nodes)[0];
   if (root === undefined) {

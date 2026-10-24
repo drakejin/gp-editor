@@ -1,5 +1,5 @@
 // Text encoding for Guitar Pro 3–5 strings (not in TuxGuitar, which encodes with one configured charset).
-import { decodeUtf8Strict } from '../io/text';
+import { decodeUtf8Strict, utf8Length, writeUtf8 } from '../io/text';
 
 /**
  * Text encoding for Guitar Pro 3–5 strings, built so that `readSong`'s default 'auto' charset reads
@@ -71,32 +71,15 @@ function isReadAsOtherUtf8(bytes: Uint8Array): boolean {
   return bytes.some((byte) => byte >= 0x80) && decodeUtf8Strict(bytes) !== undefined;
 }
 
-function utf8Bytes(codePoint: number): number[] {
-  if (codePoint < 0x80) {
-    return [codePoint];
-  }
-  if (codePoint < 0x800) {
-    return [0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f)];
-  }
-  if (codePoint < 0x10000) {
-    return [0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f)];
-  }
-  return [
-    0xf0 | (codePoint >> 18),
-    0x80 | ((codePoint >> 12) & 0x3f),
-    0x80 | ((codePoint >> 6) & 0x3f),
-    0x80 | (codePoint & 0x3f),
-  ];
-}
-
+/** UTF-8 bytes of the code points, at most `maxBytes`: the first that does not fit and those after it are left out. */
 function encodeUtf8(codePoints: readonly number[], maxBytes: number): Uint8Array {
-  const bytes: number[] = [];
+  const bytes = new Uint8Array(codePoints.reduce((sum, codePoint) => sum + utf8Length(codePoint), 0));
+  let length = 0;
   for (const codePoint of codePoints) {
-    const encoded = utf8Bytes(codePoint);
-    if (bytes.length + encoded.length > maxBytes) {
+    if (length + utf8Length(codePoint) > maxBytes) {
       break;
     }
-    bytes.push(...encoded);
+    length = writeUtf8(codePoint, bytes, length);
   }
-  return Uint8Array.from(bytes);
+  return bytes.slice(0, length);
 }

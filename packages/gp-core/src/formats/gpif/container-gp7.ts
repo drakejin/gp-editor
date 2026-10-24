@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.v7.GPXFileSystem (LGPL-2.1).
 import { unzipSync } from 'fflate';
-import { GpFormatError } from '../../errors';
+import { GpFormatError, errorMessage } from '../../errors';
 import { decodeUtf8Lenient } from '../../io/text';
 import { GP7_PART_CONFIGURATION_ENTRY } from './part-configuration';
 
@@ -73,7 +73,6 @@ function unzip(bytes: Uint8Array, isWanted: (name: string) => boolean): Readonly
   try {
     return unzipSync(bytes, { filter: (file) => isWanted(file.name) });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`Corrupt Guitar Pro 7/8 file: invalid zip archive (${reason})`, { cause: error });
+    throw new GpFormatError(`Corrupt Guitar Pro 7/8 file: invalid zip archive (${errorMessage(error)})`, { cause: error });
   }
 }

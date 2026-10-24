@@ -5,6 +5,7 @@ import {
   DEFAULT_CHANNEL,
   EMPTY_NOTE_EFFECT,
   EMPTY_SONG_INFO,
+  EMPTY_VOICE,
   NORMAL_TUPLET,
   NO_STROKE,
   RED,
@@ -42,7 +43,6 @@ import { TICKS_PER_PRECISE, preciseTime, splitPreciseDuration, wholePreciseLengt
 import { normalizeSong } from './normalize';
 import {
   clefFromTuning,
-  EMPTY_VOICE,
   parseRepeatAlternative,
   skipVersion,
   withContext,

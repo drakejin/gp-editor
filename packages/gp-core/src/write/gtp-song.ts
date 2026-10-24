@@ -1,5 +1,5 @@
 // Port of TuxGuitar GTPOutputStream / GP5OutputStream song-level helpers (LGPL-2.1): what every GP3–GP5 writer derives from the song.
-import { EMPTY_VOICE } from '../formats/gtp/shared';
+import { EMPTY_VOICE } from '../model/defaults';
 import type { Beat, GuitarString, Lyrics, Measure, Note, Song, Track, Voice } from '../model/song';
 
 /** GP3–GP5 tracks have at most seven strings. */

@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream/GP4InputStream/GP5InputStream shared parts (LGPL-2.1).
-import { GpFormatError } from '../../errors';
+import { GpFormatError, errorMessage } from '../../errors';
 import type { ByteReader } from '../../io/byte-reader';
 import {
   DEFAULT_PERCUSSION_BANK,
@@ -7,7 +7,6 @@ import {
   measureTicks,
   NORMAL_TUPLET,
   plainDuration,
-  QUARTER,
   toNoteValue,
 } from '../../model/defaults';
 import { QUARTER_TIME } from '../../model/song';
@@ -36,7 +35,6 @@ import type {
   TremoloPicking,
   Trill,
   Tuplet,
-  Voice,
 } from '../../model/song';
 import { bendPositionFromGp } from '../common/bend-units';
 import { createChannelName } from '../common/channels';
@@ -54,16 +52,12 @@ const STRING_SLOTS = 7;
 /** Strings tuned at or below this MIDI pitch get a bass clef (GP3/GP4). */
 const BASS_CLEF_TUNING = 34;
 
-/** Second voice of a beat that does not use it (TGBeat always holds MAX_VOICES = 2 voices). */
-export const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
-
 /** Wraps any failure of `read` in a GpFormatError that says where it happened. */
 export function withContext<T>(context: string, read: () => T): T {
   try {
     return read();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`${context}: ${message}`, { cause: error });
+    throw new GpFormatError(`${context}: ${errorMessage(error)}`, { cause: error });
   }
 }
 

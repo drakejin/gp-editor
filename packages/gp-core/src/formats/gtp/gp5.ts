@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP5InputStream (LGPL-2.1).
 import { ByteReader } from '../../io/byte-reader';
-import { DEFAULT_NOTE_AUDIO, durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteAudio, toNoteValue } from '../../model/defaults';
+import { DEFAULT_NOTE_AUDIO, durationTicks, EMPTY_NOTE_EFFECT, EMPTY_VOICE, NO_STROKE, toNoteAudio, toNoteValue } from '../../model/defaults';
 import type {
   BeamLink,
   Beat,
@@ -32,7 +32,6 @@ import {
   type HeaderDraft,
   buildChord,
   type ChannelSlot,
-  EMPTY_VOICE,
   findTiedFret,
   GRACE_TRANSITIONS,
   type HeaderRead,

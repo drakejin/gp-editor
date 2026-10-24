@@ -171,22 +171,38 @@ export function encodeUtf8(text: string): Uint8Array {
       continue;
     }
     const codePoint = codePointAt(text, i);
-    if (codePoint >= 0x10000) {
+    if (codePoint >= SUPPLEMENTARY_START) {
       i++;
     }
-    if (codePoint < 0x800) {
-      bytes[length++] = 0xc0 | (codePoint >> 6);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    } else if (codePoint < 0x10000) {
-      bytes[length++] = 0xe0 | (codePoint >> 12);
-      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    } else {
-      bytes[length++] = 0xf0 | (codePoint >> 18);
-      bytes[length++] = 0x80 | ((codePoint >> 12) & 0x3f);
-      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    }
+    length = writeUtf8(codePoint, bytes, length);
   }
   return bytes.slice(0, length);
+}
+
+/** Bytes UTF-8 takes for a code point. */
+export function utf8Length(codePoint: number): number {
+  if (codePoint < 0x80) {
+    return 1;
+  }
+  if (codePoint < 0x800) {
+    return 2;
+  }
+  return codePoint < SUPPLEMENTARY_START ? 3 : 4;
+}
+
+/** The first byte's marker of a UTF-8 sequence, by its length. */
+const UTF8_LEADS: readonly number[] = [0, 0, 0xc0, 0xe0, 0xf0];
+
+/** Writes a code point's UTF-8 bytes into `bytes` at `at`; returns the index after them. */
+export function writeUtf8(codePoint: number, bytes: Uint8Array, at: number): number {
+  const length = utf8Length(codePoint);
+  if (length === 1) {
+    bytes[at] = codePoint;
+    return at + 1;
+  }
+  bytes[at] = (UTF8_LEADS[length] ?? 0) | (codePoint >> (6 * (length - 1)));
+  for (let k = 1; k < length; k++) {
+    bytes[at + k] = 0x80 | ((codePoint >> (6 * (length - 1 - k))) & 0x3f);
+  }
+  return at + length;
 }

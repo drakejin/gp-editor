@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream (LGPL-2.1).
 import { ByteReader } from '../../io/byte-reader';
-import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../model/defaults';
+import { durationTicks, EMPTY_NOTE_EFFECT, EMPTY_VOICE, NO_STROKE, toNoteValue } from '../../model/defaults';
 import type { Beat, Chord, Grace, Note, NoteEffect, Song, TimeSignature, TripletFeel } from '../../model/song';
 import { BEND_MAX_POSITION, bendValueFromGp, tremoloBarValueFromGp } from '../common/bend-units';
 import { artificialHarmonicOffset } from '../common/harmonics';
@@ -14,7 +14,6 @@ import {
   type ChannelRegistry,
   type ChannelSlot,
   clefFromTuning,
-  EMPTY_VOICE,
   findTiedFret,
   GRACE_TRANSITIONS,
   type HeaderDraft,

@@ -1,6 +1,6 @@
 // Compressed MusicXML (.mxl; no TuxGuitar reader exists): a zip whose META-INF/container.xml names the score.
 import { unzipSync } from 'fflate';
-import { GpFormatError } from '../../errors';
+import { GpFormatError, errorMessage } from '../../errors';
 import { attribute, child, children } from '../gpif/xml';
 import { decodeMusicXml, parseMusicXmlContainer } from './musicxml-document';
 
@@ -38,8 +38,7 @@ function unzipEntries(bytes: Uint8Array, wanted: (name: string) => boolean): Rea
   try {
     return unzipSync(bytes, { filter: (file) => wanted(file.name) && file.originalSize <= MAX_ENTRY_BYTES });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`Corrupt compressed MusicXML file: invalid zip archive (${reason})`, { cause: error });
+    throw new GpFormatError(`Corrupt compressed MusicXML file: invalid zip archive (${errorMessage(error)})`, { cause: error });
   }
 }
 

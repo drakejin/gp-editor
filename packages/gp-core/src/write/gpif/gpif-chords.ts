@@ -1,4 +1,5 @@
 // Chord collections of a GPIF staff (no TuxGuitar counterpart): the inverse of the reader's readChords / buildChord.
+import { hasChordDiagram } from '../../chords/shape';
 import type { Chord, Track } from '../../model/song';
 import { type XmlNode, xmlElement } from './xml-writer';
 
@@ -22,10 +23,6 @@ export function chordIdsOf(track: Track): ReadonlyMap<string, number> {
     }
   }
   return ids;
-}
-
-function hasDiagram(chord: Chord): boolean {
-  return chord.frets.some((fret) => fret >= 0);
 }
 
 const ACCIDENTALS: Readonly<Record<string, string>> = { '#': 'Sharp', b: 'Flat', '': 'Natural' };
@@ -80,7 +77,7 @@ function diagramNode(chord: Chord): XmlNode {
 }
 
 function itemNode(chord: Chord, id: number): XmlNode {
-  const diagram = hasDiagram(chord) ? diagramNode(chord) : undefined;
+  const diagram = hasChordDiagram(chord) ? diagramNode(chord) : undefined;
   return xmlElement('Item', [diagram, chordDetailsNode(chord.name)], { id, name: chord.name });
 }
 
@@ -101,9 +98,9 @@ export function chordPropertiesOf(track: Track, chordIds: ReadonlyMap<string, nu
   }
   const items = [...chords.entries()].map(([key, chord]) => ({ chord, id: chordIds.get(key) ?? 0 }));
   return [
-    collection('ChordCollection', items.filter(({ chord }) => !hasDiagram(chord)).map(({ chord, id }) => itemNode(chord, id))),
+    collection('ChordCollection', items.filter(({ chord }) => !hasChordDiagram(chord)).map(({ chord, id }) => itemNode(chord, id))),
     collection('ChordWorkingSet', []),
-    collection('DiagramCollection', items.filter(({ chord }) => hasDiagram(chord)).map(({ chord, id }) => itemNode(chord, id))),
+    collection('DiagramCollection', items.filter(({ chord }) => hasChordDiagram(chord)).map(({ chord, id }) => itemNode(chord, id))),
     collection('DiagramWorkingSet', []),
   ];
 }
