@@ -126,6 +126,7 @@ export function ScoreView(props: ScoreViewProps) {
             headerWidth={layout.clefWidth}
             mode={staff.mode}
             geometry={staff.geometry}
+            height={staff.height}
             palette={palette}
             cursor={cursor?.trackIndex === staff.trackIndex && inRow(cursor.measureIndex) ? cursor : undefined}
             playing={inRow(playingBeat?.measureIndex) ? playingBeat : undefined}

@@ -37,6 +37,8 @@ export interface ScoreRowProps {
   readonly hasHeading?: boolean;
   /** In a multitrack system: the names column, the track's label, the bracket and the bar lines through the system. */
   readonly decor?: StaffDecor;
+  /** The canvas's height when it is not its geometry's: the staff's room in its system, with the space under the system. */
+  readonly height?: number;
   /** Screen points per layout point (the score zoom); `width` and the geometry are in layout points. */
   readonly zoom: number;
   /** This row's place in the score (its system's, in a multitrack score), for drags that run into other rows. */
@@ -135,7 +137,7 @@ function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): 
 
 function ScoreRowView(props: ScoreRowProps) {
   const { geometry, width, zoom, decor, design } = props;
-  const height = decor?.height ?? geometry.height;
+  const height = props.height ?? decor?.height ?? geometry.height;
   const handles = rowHandles(props, height);
   const pointer = useRowPointer(props, handles);
   // The row only re-renders when isSameRow says its content changed, so engrave directly.
@@ -161,7 +163,7 @@ function ScoreRowView(props: ScoreRowProps) {
  */
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
-    a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth ||
+    a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth || a.height !== b.height ||
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.rowIndex !== b.rowIndex ||
     !sameLanes(a.markLanes, b.markLanes) || a.editedVoiceIndex !== b.editedVoiceIndex || a.hasHeading !== b.hasHeading || !sameDecor(a.decor, b.decor) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
