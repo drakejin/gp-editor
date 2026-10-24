@@ -8,8 +8,8 @@ import type {
   PolygonCommand,
   TextCommand,
 } from '../src/score/draw';
-import { FRET_BOX } from '../src/score/symbols/tab-geometry';
-import { type TabContext, engraveTabMeasure, stringY } from '../src/score/tab';
+import { FRET_BOX, tabStringY } from '../src/score/symbols/tab-geometry';
+import { type TabContext, engraveTabMeasure } from '../src/score/tab';
 import { PALETTE, allFinite } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -72,7 +72,7 @@ describe('hammer-ons and pull-offs', () => {
 
     // Assert
     const [arc] = ofKind(commands, 'curve');
-    const y = stringY(TOP, 3);
+    const y = tabStringY(TOP, 3);
     expect(arc).toMatchObject({
       x1: beatX(context, 0),
       x2: beatX(context, 1),
@@ -154,7 +154,7 @@ describe('slides', () => {
     expect(slide!.x1).toBeGreaterThan(beatX(context, 0));
     expect(slide!.x2).toBeLessThan(beatX(context, 1));
     expect(slide!.y2).toBeLessThan(slide!.y1);
-    expect((slide!.y1 + slide!.y2) / 2).toBeCloseTo(stringY(TOP, 2));
+    expect((slide!.y1 + slide!.y2) / 2).toBeCloseTo(tabStringY(TOP, 2));
   });
 
   it('slopes down towards a lower fret and adds a slur for a legato slide', () => {
@@ -220,7 +220,7 @@ describe('bends, grace notes, trills and strokes', () => {
     const [curve] = ofKind(commands, 'curve') as CurveCommand[];
     const [head] = ofKind(commands, 'polygon') as PolygonCommand[];
     expect(curve!.x1).toBeGreaterThan(beatX(context, 0));
-    expect(curve!.y1).toBe(stringY(TOP, 3));
+    expect(curve!.y1).toBe(tabStringY(TOP, 3));
     expect(head!.points[1]).toBeLessThan(TOP);
     expect(head!.points[0]).toBeLessThan(beatX(context, 1));
     expect(labelled(commands, 'full')).toHaveLength(1);
@@ -246,7 +246,7 @@ describe('bends, grace notes, trills and strokes', () => {
     // Assert
     const [small] = labelled(commands, '3');
     expect(small!.x).toBeLessThan(beatX(context, 0) - FRET_BOX.width / 2);
-    expect(small!.y).toBe(stringY(TOP, 2));
+    expect(small!.y).toBe(tabStringY(TOP, 2));
     expect(small!.size).toBeLessThan(11);
     const box = ofKind(commands, 'rect').find(
       r =>
@@ -263,7 +263,7 @@ describe('bends, grace notes, trills and strokes', () => {
     const { commands, context } = engrave([at(4800, [note(1, 5, { trill })])]);
     const [fret] = labelled(commands, '(7)');
     expect(fret!.x).toBeGreaterThan(beatX(context, 0));
-    expect(fret!.y).toBe(stringY(TOP, 1));
+    expect(fret!.y).toBe(tabStringY(TOP, 1));
   });
 
   it('draws a stroke as an arrow beside the chord pointing the way of the stroke', () => {
@@ -284,8 +284,8 @@ describe('bends, grace notes, trills and strokes', () => {
     expect(upHead!.points[0]).toBeLessThan(
       beatX(up.context, 0) - FRET_BOX.width / 2,
     );
-    expect(upHead!.points[1]).toBeLessThan(stringY(TOP, 1));
-    expect(downHead!.points[1]).toBeGreaterThan(stringY(TOP, 4));
+    expect(upHead!.points[1]).toBeLessThan(tabStringY(TOP, 1));
+    expect(downHead!.points[1]).toBeGreaterThan(tabStringY(TOP, 4));
   });
 
   it('keeps every number finite for a measure full of techniques', () => {

@@ -2,9 +2,9 @@ import { type Measure, QUARTER, type Song, readSong } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import { type DrawCommand, SMUFL } from '../src/score/draw';
 import { ROW } from '../src/score/geometry';
-import { TAB_MARKS } from '../src/score/symbols/tab-geometry';
+import { TAB_MARKS, tabStringY } from '../src/score/symbols/tab-geometry';
 import { tabMarkLanes } from '../src/score/symbols/tab-marks';
-import { engraveTabMeasure, engraveTabRowHeader, stringY } from '../src/score/tab';
+import { engraveTabMeasure, engraveTabRowHeader } from '../src/score/tab';
 import { listFixtures, readFixture } from '../test-support/fixtures';
 import { beat, header, makeSong, note } from '../test-support/songs';
 import { PALETTE, allFinite, texts, textValues } from '../test-support/score-helpers';
@@ -41,7 +41,7 @@ describe('engraveTabMeasure', () => {
 
   it('puts fret numbers on their string lines', () => {
     const five = texts(engraveTabMeasure(context())).find((t) => t.text === '5');
-    expect(five?.y).toBe(stringY(60, 2));
+    expect(five?.y).toBe(tabStringY(60, 2));
   });
 
   it('numbers a banjo’s short 5th string from the main nut, as Guitar Pro shows it: stored 2 is fret 7, the open drone 0', () => {
@@ -54,7 +54,7 @@ describe('engraveTabMeasure', () => {
     const commands = engraveTabMeasure({ ...context(), track: banjo, measure: banjo.measures[0]!, layout: layoutMeasure(banjoSong, 0, 0), cursor: { beatIndex: 0, string: 5 } });
 
     // Assert: the drone's frets (the cursor box draws its note again); the 4th string's fret 2 stays 2.
-    const onString = (string: number) => texts(commands).filter((t) => t.font === 'mono' && t.y === stringY(60, string)).map((t) => t.text);
+    const onString = (string: number) => texts(commands).filter((t) => t.font === 'mono' && t.y === tabStringY(60, string)).map((t) => t.text);
     expect(onString(5).sort()).toEqual(['0', '7', '7']);
     expect(onString(4)).toEqual(['2']);
   });
@@ -120,7 +120,7 @@ describe('tab fixture sweep', () => {
       });
       count += commands.length;
       const top = marksY - ROW.marks / 2 - Math.max(0, markLanes.length - 1) * TAB_MARKS.laneHeight - MARGIN_Y;
-      const bottom = stringY(0, track.strings.length) + ROW.rhythm + MARGIN_Y;
+      const bottom = tabStringY(0, track.strings.length) + ROW.rhythm + MARGIN_Y;
       const outside = commands.filter((c) => !allFinite([c]) || pointsOf(c).some(([x, y]) => x < -MARGIN_X || x > layout.width + MARGIN_X || y < top || y > bottom));
       return outside.map((c) => `${name} track ${trackIndex} measure ${measureIndex}: ${JSON.stringify(c)}`);
     });

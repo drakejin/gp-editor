@@ -5,7 +5,7 @@ import { translateCommands } from '../src/score/draw';
 import { type RowContext, engraveRow, placeRow } from '../src/score/row';
 import { type ScoreLayout, layoutScore } from '../src/score/score-layout';
 import { type StaffDecor, engraveSystemStaff, staffDecor } from '../src/score/system-staff';
-import { stringY } from '../src/score/tab';
+import { tabStringY } from '../src/score/symbols/tab-geometry';
 import { PALETTE, allFinite, textValues } from '../test-support/score-helpers';
 import { beat, header, makeSong, note, withTrack } from '../test-support/songs';
 
@@ -74,7 +74,7 @@ describe('engraveSystemStaff', () => {
     const [, second] = placeRow(contextTop.row, layout.clefWidth);
     const barLineX = decorTop.namesWidth + second!.x + second!.layout.width;
     const bassTabTop = layout.staves[1]!.geometry.tabTop!;
-    const guitarTabBottom = stringY(layout.staves[0]!.geometry.tabTop!, 6);
+    const guitarTabBottom = tabStringY(layout.staves[0]!.geometry.tabTop!, 6);
 
     // Act
     const top = verticalAt(engraveSystemStaff(contextTop, decorTop), barLineX);
@@ -83,7 +83,7 @@ describe('engraveSystemStaff', () => {
     // Assert
     expect(top).toEqual(expect.arrayContaining([expect.objectContaining({ y1: guitarTabBottom, y2: decorTop.height })]));
     expect(below).toEqual(expect.arrayContaining([expect.objectContaining({ y1: 0, y2: bassTabTop })]));
-    expect(below.some((line) => line.y2 > stringY(bassTabTop, 4))).toBe(false);
+    expect(below.some((line) => line.y2 > tabStringY(bassTabTop, 4))).toBe(false);
   });
 
   it('joins the staves with a bracket left of them, its ends on the first and last staff', () => {

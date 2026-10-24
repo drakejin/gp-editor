@@ -3,7 +3,7 @@ import type { RectCommand } from '../src/score/draw';
 import { rowGeometry } from '../src/score/geometry';
 import { engraveRow } from '../src/score/row';
 import { type BeatRange, clipRange, engraveSelection, isSameRange } from '../src/score/selection-tint';
-import { stringY } from '../src/score/tab';
+import { tabStringY } from '../src/score/symbols/tab-geometry';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -56,7 +56,7 @@ describe('engraveSelection', () => {
     const notation = tint(selection, 0, 'notation');
 
     // Assert
-    expect(tabOnly).toMatchObject({ y: tabGeometry.tabTop! - 10, height: stringY(tabGeometry.tabTop!, 6) - tabGeometry.tabTop! + 20 });
+    expect(tabOnly).toMatchObject({ y: tabGeometry.tabTop! - 10, height: tabStringY(tabGeometry.tabTop!, 6) - tabGeometry.tabTop! + 20 });
     expect(both?.y).toBe(bothGeometry.notationTop! - 10);
     expect(notation?.height).toBe(32 + 20);
   });

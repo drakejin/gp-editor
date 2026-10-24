@@ -58,23 +58,15 @@ const MUSIC_SIZE = 32;
 /** A slash on the tab staff, smaller than on the five-line staff: two string gaps tall. */
 const SLASH_SIZE = MUSIC_SIZE * 0.75;
 
-export function stringY(top: number, stringNumber: number): number {
-  return tabStringY(top, stringNumber);
-}
-
-export function tabStaffHeight(stringCount: number): number {
-  return Math.max(1, (stringCount - 1) * TAB.stringGap);
-}
-
 export function engraveTabMeasure(context: TabContext): DrawCommand[] {
   const { layout, track, top, palette } = context;
-  const bottom = stringY(top, track.strings.length);
+  const bottom = tabStringY(top, track.strings.length);
   const commands: DrawCommand[] = [];
   if (context.playingBeatIndex !== undefined) {
     commands.push(...playingColumn(context, context.playingBeatIndex, top, bottom));
   }
   track.strings.forEach((guitarString) => {
-    const y = stringY(top, guitarString.number);
+    const y = tabStringY(top, guitarString.number);
     commands.push({ kind: 'line', x1: 0, y1: y, x2: layout.width, y2: y, width: 1, color: palette.line });
   });
   commands.push(...barLines(context, top, bottom));
@@ -179,7 +171,7 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
       return;
     }
     voice.notes.forEach((note) => {
-      const y = stringY(top, note.string);
+      const y = tabStringY(top, note.string);
       commands.push(
         { kind: 'rect', x: x - FRET_BOX.width / 2, y: y - FRET_BOX.height / 2, width: FRET_BOX.width, height: FRET_BOX.height, color: palette.paper, radius: 3 },
         { kind: 'text', x, y, text: fretLabel(note, tabFretOf(context.track, note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true },
@@ -206,7 +198,7 @@ function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
     return [];
   }
   const voiceIndex = cursor.voiceIndex ?? 0;
-  const y = stringY(context.top, cursor.string);
+  const y = tabStringY(context.top, cursor.string);
   const notes = (context.measure.beats[cursor.beatIndex]?.voices ?? []).flatMap((voice, index) =>
     isSlashedVoice(context.track, voice) ? [] : voice.notes.filter((n) => n.string === cursor.string).map((note) => ({ note, index })),
   );
@@ -279,7 +271,7 @@ function beamLines(beams: BeamLayout, top: number, palette: Palette): DrawComman
 
 /** "TAB" clef at the start of a row. */
 export function engraveTabRowHeader(track: Track, top: number, palette: Palette): DrawCommand[] {
-  const bottom = stringY(top, track.strings.length);
+  const bottom = tabStringY(top, track.strings.length);
   const glyph = track.strings.length <= 4 ? SMUFL.fourStringTabClef : SMUFL.sixStringTabClef;
   return [{ kind: 'text', x: 4, y: (top + bottom) / 2 + 12, text: glyph, size: MUSIC_SIZE, color: palette.text, font: 'music', align: 'left' }];
 }

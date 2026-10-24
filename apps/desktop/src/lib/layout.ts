@@ -4,12 +4,6 @@ import { directionsWidth } from '../score/directions';
 /** Tab staff geometry, in points. */
 export const TAB = {
   stringGap: 13,
-  /** Space above the top string: measure number, marker, tempo, endings, then the effect marks row. */
-  top: 54,
-  /** Top of the effect marks row, clear of the fret numbers on the top string. */
-  marksTop: 36,
-  /** Space under the bottom string: rhythm stems. */
-  bottom: 30,
   padLeft: 12,
   padRight: 8,
   timeSignatureWidth: 22,
@@ -20,7 +14,6 @@ export const TAB = {
   clefChangeWidth: 22,
   repeatWidth: 10,
   emptyMeasureWidth: 48,
-  rowGap: 18,
 } as const;
 
 /** Natural width of a beat by its shortest note value. */
@@ -61,14 +54,6 @@ export interface MeasureLayout {
 
 export interface RowLayout {
   readonly measures: readonly MeasureLayout[];
-}
-
-export function staffHeight(stringCount: number): number {
-  return TAB.top + Math.max(0, stringCount - 1) * TAB.stringGap + TAB.bottom;
-}
-
-export function stringY(stringNumber: number): number {
-  return TAB.top + (stringNumber - 1) * TAB.stringGap;
 }
 
 /** The voice used for rhythm display: the first voice that has a beat. */
