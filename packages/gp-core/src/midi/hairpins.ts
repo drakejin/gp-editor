@@ -53,8 +53,9 @@ function targetVelocity(context: TrackContext, run: HairpinRun, start: number, h
 
 /** The first struck beat's velocity from `position` of the playback's beats on. */
 function firstVelocityFrom(beats: readonly PlayedBeat[], position: number): number | undefined {
-  for (const played of beats.slice(position)) {
-    const velocity = beatVelocity(played.beat);
+  for (let index = position; index < beats.length; index++) {
+    const played = beats[index];
+    const velocity = played === undefined ? undefined : beatVelocity(played.beat);
     if (velocity !== undefined) {
       return velocity;
     }
