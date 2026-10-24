@@ -64,14 +64,7 @@ function Stepper({ palette, label, onStep, children }: StepperProps) {
 export function TransposePanel({ palette, trackName, selection, onTranspose, onClose }: TransposePanelProps) {
   const t = useT();
   const [draft, setDraft] = useState<TranspositionDraft>(() => initialTranspositionDraft(selection !== undefined));
-  const [amountText, setAmountText] = useState(String(draft.amount));
   const change = (patch: Partial<TranspositionDraft>) => setDraft((current) => ({ ...current, ...patch }));
-  const stepAmount = (delta: -1 | 1) => {
-    const amount = clampTransposeAmount(draft.amount + delta);
-    change({ amount });
-    setAmountText(String(amount));
-  };
-  const isChromatic = draft.mode === 'chromatic';
   const how = describeTransposition(toTranspositionOptions(draft));
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel={t('window.transpose.title')}>
@@ -79,25 +72,7 @@ export function TransposePanel({ palette, trackName, selection, onTranspose, onC
         <Text style={[styles.title, { color: palette.text }]}>{t('window.transpose.title')}</Text>
         <Text style={[styles.hint, { color: palette.muted }]}>{t('window.transpose.note')}</Text>
       </View>
-      <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>{t('window.transpose.by')}</Text>
-        <BarButton label={t('window.transpose.semitones')} palette={palette} isActive={isChromatic} onPress={() => change({ mode: 'chromatic' })} />
-        <BarButton label={t('window.transpose.scaleSteps')} palette={palette} isActive={!isChromatic} onPress={() => change({ mode: 'diatonic' })} />
-        <Stepper palette={palette} label={t('window.transpose.amount')} onStep={stepAmount}>
-          <TextField
-            testID="transpose-amount"
-            value={amountText}
-            onChangeText={(text) => {
-              setAmountText(text);
-              change({ amount: parseTransposeAmount(text, draft.amount) });
-            }}
-            style={[styles.field, { color: palette.text, borderColor: palette.border }]}
-          />
-        </Stepper>
-        <Stepper palette={palette} label={t('window.transpose.octaves')} onStep={(delta) => change({ octaves: clampTransposeOctaves(draft.octaves + delta) })}>
-          <Text style={[styles.value, { color: palette.text }]}>{draft.octaves}</Text>
-        </Stepper>
-      </View>
+      <AmountRow palette={palette} draft={draft} onChange={change} />
       <View style={styles.row}>
         <Text style={[styles.label, { color: palette.text }]}>{t('window.transpose.applyTo')}</Text>
         {TARGETS.map((target) => (
@@ -120,6 +95,45 @@ export function TransposePanel({ palette, trackName, selection, onTranspose, onC
           {`${how.charAt(0).toUpperCase()}${how.slice(1)}${draft.isChordsOnly ? t('window.transpose.chordsOnlySuffix') : ''}${draft.target === 'selection' && selection !== undefined ? ` · ${selection}` : ''}`}
         </Text>
       </View>
+    </View>
+  );
+}
+
+interface AmountRowProps {
+  readonly palette: Palette;
+  readonly draft: TranspositionDraft;
+  readonly onChange: (patch: Partial<TranspositionDraft>) => void;
+}
+
+/** By semitones or scale steps; the amount (stepped or typed) and the octaves. */
+function AmountRow({ palette, draft, onChange }: AmountRowProps) {
+  const t = useT();
+  const [amountText, setAmountText] = useState(String(draft.amount));
+  const stepAmount = (delta: -1 | 1) => {
+    const amount = clampTransposeAmount(draft.amount + delta);
+    onChange({ amount });
+    setAmountText(String(amount));
+  };
+  const isChromatic = draft.mode === 'chromatic';
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.transpose.by')}</Text>
+      <BarButton label={t('window.transpose.semitones')} palette={palette} isActive={isChromatic} onPress={() => onChange({ mode: 'chromatic' })} />
+      <BarButton label={t('window.transpose.scaleSteps')} palette={palette} isActive={!isChromatic} onPress={() => onChange({ mode: 'diatonic' })} />
+      <Stepper palette={palette} label={t('window.transpose.amount')} onStep={stepAmount}>
+        <TextField
+          testID="transpose-amount"
+          value={amountText}
+          onChangeText={(text) => {
+            setAmountText(text);
+            onChange({ amount: parseTransposeAmount(text, draft.amount) });
+          }}
+          style={[styles.field, { color: palette.text, borderColor: palette.border }]}
+        />
+      </Stepper>
+      <Stepper palette={palette} label={t('window.transpose.octaves')} onStep={(delta) => onChange({ octaves: clampTransposeOctaves(draft.octaves + delta) })}>
+        <Text style={[styles.value, { color: palette.text }]}>{draft.octaves}</Text>
+      </Stepper>
     </View>
   );
 }

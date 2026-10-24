@@ -24,16 +24,6 @@ export interface ImportPanelProps {
  */
 export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, onChooseModel, onStart, onClose }: ImportPanelProps) {
   const t = useT();
-  const [draft, setDraft] = useState('');
-  const [message, setMessage] = useState<string | undefined>(undefined);
-  const save = () => {
-    onSaveKey(draft)
-      .then(() => {
-        setDraft('');
-        setMessage(t('window.import.keySaved'));
-      })
-      .catch((reason: unknown) => setMessage(errorMessage(reason)));
-  };
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
@@ -42,27 +32,7 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
           {t('window.import.intro')}
         </Text>
       </View>
-      <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>{t('window.import.apiKey')}</Text>
-        {hasKey === true ? (
-          <>
-            <Text style={[styles.hint, { color: palette.muted }]}>{t('window.import.keyStored')}</Text>
-            <BarButton label={t('window.import.removeKey')} palette={palette} onPress={onRemoveKey} />
-          </>
-        ) : null}
-        <TextField
-          value={draft}
-          onChangeText={setDraft}
-          autoCorrect={false}
-          spellCheck={false}
-          // i18n-exempt: the start of an Anthropic key, as the key is written
-          placeholder={hasKey === true ? t('window.import.replaceKey') : 'sk-ant-…'}
-          placeholderTextColor={palette.muted}
-          style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.paper }]}
-        />
-        <BarButton label={t('window.import.saveKey')} palette={palette} isEnabled={draft.trim().length > 0} onPress={save} />
-        {message === undefined ? null : <Text style={[styles.hint, { color: palette.muted }]}>{message}</Text>}
-      </View>
+      <KeyRow palette={palette} hasKey={hasKey} onSaveKey={onSaveKey} onRemoveKey={onRemoveKey} />
       <View style={styles.row}>
         <Text style={[styles.label, { color: palette.text }]}>{t('window.import.model')}</Text>
         {TRANSCRIPTION_MODELS.map((candidate) => (
@@ -79,6 +49,44 @@ export function ImportPanel({ palette, hasKey, model, onSaveKey, onRemoveKey, on
         <BarButton label={t('window.import.choosePdf')} palette={palette} isAccent isEnabled={hasKey === true} onPress={onStart} />
         <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
       </View>
+    </View>
+  );
+}
+
+/** The API key: stored or not (never shown again), a field to type a new one, Save, and what happened. */
+function KeyRow({ palette, hasKey, onSaveKey, onRemoveKey }: Pick<ImportPanelProps, 'palette' | 'hasKey' | 'onSaveKey' | 'onRemoveKey'>) {
+  const t = useT();
+  const [draft, setDraft] = useState('');
+  const [message, setMessage] = useState<string | undefined>(undefined);
+  const save = () => {
+    onSaveKey(draft)
+      .then(() => {
+        setDraft('');
+        setMessage(t('window.import.keySaved'));
+      })
+      .catch((reason: unknown) => setMessage(errorMessage(reason)));
+  };
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.import.apiKey')}</Text>
+      {hasKey === true ? (
+        <>
+          <Text style={[styles.hint, { color: palette.muted }]}>{t('window.import.keyStored')}</Text>
+          <BarButton label={t('window.import.removeKey')} palette={palette} onPress={onRemoveKey} />
+        </>
+      ) : null}
+      <TextField
+        value={draft}
+        onChangeText={setDraft}
+        autoCorrect={false}
+        spellCheck={false}
+        // i18n-exempt: the start of an Anthropic key, as the key is written
+        placeholder={hasKey === true ? t('window.import.replaceKey') : 'sk-ant-…'}
+        placeholderTextColor={palette.muted}
+        style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.paper }]}
+      />
+      <BarButton label={t('window.import.saveKey')} palette={palette} isEnabled={draft.trim().length > 0} onPress={save} />
+      {message === undefined ? null : <Text style={[styles.hint, { color: palette.muted }]}>{message}</Text>}
     </View>
   );
 }

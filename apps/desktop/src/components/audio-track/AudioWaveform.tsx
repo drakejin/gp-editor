@@ -61,27 +61,14 @@ function useFollow(props: AudioWaveformProps, scroll: { readonly current: number
 }
 
 /**
- * The lane's waveform in a horizontal scroll view, drawn a few screens at a time: a click on a marker selects it and a
- * drag moves it (the bars follow while dragging); a click elsewhere goes to the bar heard there.
+ * A click on a marker selects it and a drag moves it (the lane shows the bars following it until the mouse goes up);
+ * a click elsewhere goes to the bar heard there.
  */
-export function AudioWaveform(props: AudioWaveformProps) {
-  const { map, pixelsPerSecond, palette } = props;
-  const scrollRef = useRef<ScrollView>(null);
-  const scroll = useRef(0);
-  const t = useT();
-  const [scrollX, setScrollX] = useState(0);
-  const [viewport, setViewport] = useState(0);
+function useMarkerDrag(props: AudioWaveformProps) {
+  const { map, pixelsPerSecond } = props;
   const [drag, setDrag] = useState<Drag | undefined>(undefined);
   const [dragSeconds, setDragSeconds] = useState<number | undefined>(undefined);
-  useFollow(props, scroll, viewport, scrollRef);
   const shownMap = useMemo(() => previewMap(map, drag?.pointIndex, dragSeconds), [map, drag?.pointIndex, dragSeconds]);
-  const { points, peaks, durationSeconds, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds } = props;
-  const width = laneWidth(map, durationSeconds, pixelsPerSecond);
-  const { fromX, toX } = laneWindow(scrollX, viewport, width);
-  const commands = useMemo(
-    () => engraveAudioLane({ map: shownMap, points, peaks, durationSeconds, pixelsPerSecond, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds, fromX, toX, palette }),
-    [shownMap, points, peaks, durationSeconds, pixelsPerSecond, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds, fromX, toX, palette],
-  );
   const xOf = (event: GestureResponderEvent): number => (drag === undefined ? event.nativeEvent.locationX : drag.x + event.nativeEvent.pageX - drag.pageX);
   const onPressIn = (event: GestureResponderEvent) => {
     const hit = hitTestAudioLane(map, pixelsPerSecond, event.nativeEvent.locationX);
@@ -112,19 +99,32 @@ export function AudioWaveform(props: AudioWaveformProps) {
       props.onSelectBar(hit.measureIndex);
     }
   };
+  return { shownMap, onPressIn, onPressMove, onPressOut };
+}
+
+/** The lane's waveform in a horizontal scroll view, drawn a few screens at a time (useMarkerDrag: clicks and drags). */
+export function AudioWaveform(props: AudioWaveformProps) {
+  const { map, pixelsPerSecond, palette } = props;
+  const scrollRef = useRef<ScrollView>(null);
+  const scroll = useRef(0);
+  const t = useT();
+  const [scrollX, setScrollX] = useState(0);
+  const [viewport, setViewport] = useState(0);
+  useFollow(props, scroll, viewport, scrollRef);
+  const { shownMap, onPressIn, onPressMove, onPressOut } = useMarkerDrag(props);
+  const { points, peaks, durationSeconds, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds } = props;
+  const width = laneWidth(map, durationSeconds, pixelsPerSecond);
+  const { fromX, toX } = laneWindow(scrollX, viewport, width);
+  const commands = useMemo(
+    () => engraveAudioLane({ map: shownMap, points, peaks, durationSeconds, pixelsPerSecond, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds, fromX, toX, palette }),
+    [shownMap, points, peaks, durationSeconds, pixelsPerSecond, barNumbers, cursorMeasureIndex, selectedPointIndex, playingSeconds, fromX, toX, palette],
+  );
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scroll.current = event.nativeEvent.contentOffset.x;
     setScrollX(scroll.current);
   };
   return (
-    <ScrollView
-      horizontal
-      ref={scrollRef}
-      style={styles.scroll}
-      onLayout={(event: LayoutChangeEvent) => setViewport(event.nativeEvent.layout.width)}
-      onScroll={onScroll}
-      scrollEventThrottle={32}
-    >
+    <ScrollView horizontal ref={scrollRef} style={styles.scroll} onLayout={(event: LayoutChangeEvent) => setViewport(event.nativeEvent.layout.width)} onScroll={onScroll} scrollEventThrottle={32}>
       <Pressable
         testID="audio-lane-waveform"
         style={{ width, height: AUDIO_LANE.height }}

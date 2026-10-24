@@ -29,30 +29,13 @@ interface TextsTabProps extends StylesheetTabProps {
 export function TextsTab({ palette, sheet, onChange, families }: TextsTabProps) {
   const t = useT();
   const [element, setElement] = useState<TextElement>('title');
-  const [filter, setFilter] = useState('');
   const style = sheet.texts[element];
-  const shown = matchingFamilies(families, filter, style.family, SHOWN_FAMILIES);
   return (
     <>
       <ControlRow>
         <Choice palette={palette} label={t('stylesheet.texts.text')} options={TEXT_ELEMENTS.map((each) => [each, textElementName(each)] as const)} value={element} onChoose={setElement} />
       </ControlRow>
-      <ControlRow>
-        <ControlLabel palette={palette} text={t('stylesheet.texts.font')} />
-        <BarButton label={t('stylesheet.texts.systemFont')} palette={palette} isActive={style.family === ''} onPress={() => onChange(withText(sheet, element, { family: '' }))} />
-        {shown.map((family) => (
-          <BarButton key={family} label={family} palette={palette} isActive={family === style.family} onPress={() => onChange(withText(sheet, element, { family }))} />
-        ))}
-        <TextField
-          testID="stylesheet-font-filter"
-          value={filter}
-          placeholder={t('stylesheet.texts.findFont')}
-          placeholderTextColor={palette.muted}
-          onChangeText={setFilter}
-          accessibilityLabel={t('stylesheet.texts.findFont')}
-          style={[styles.field, { color: palette.text, borderColor: palette.border }]}
-        />
-      </ControlRow>
+      <FontRow palette={palette} sheet={sheet} onChange={onChange} families={families} element={element} />
       <ControlRow>
         <Stepper palette={palette} label={t('stylesheet.texts.size')} isSpaced={false} value={`${style.size} pt`} onStep={(delta) => onChange(withText(sheet, element, { size: stepNumber(style.size, delta, 1, STYLESHEET_LIMITS.textSize, 1) }))} />
         <Spacer />
@@ -60,34 +43,68 @@ export function TextsTab({ palette, sheet, onChange, families }: TextsTabProps) 
         <Toggle palette={palette} label={t('stylesheet.texts.italic')} isOn={style.isItalic} onToggle={(isItalic) => onChange(withText(sheet, element, { isItalic }))} />
         <ControlHint palette={palette} text={t('stylesheet.texts.style', { element: textElementName(element), style: textStyleText(style) })} />
       </ControlRow>
-      <ControlRow>
-        <Choice
-          palette={palette}
-          label={t('stylesheet.texts.lyrics')}
-          options={[
-            ['below', t('stylesheet.texts.lyrics.below')],
-            ['above', t('stylesheet.texts.lyrics.above')],
-            ['hidden', t('stylesheet.texts.lyrics.hidden')],
-          ]}
-          value={sheet.lyrics}
-          onChoose={(lyrics) => onChange({ ...sheet, lyrics })}
-        />
-        <Choice
-          palette={palette}
-          label={t('stylesheet.texts.barNumbers')}
-          options={[
-            ['all', t('stylesheet.texts.barNumbers.all')],
-            ['systemStart', t('stylesheet.texts.barNumbers.systemStart')],
-            ['hidden', t('stylesheet.texts.barNumbers.hidden')],
-          ]}
-          value={sheet.barNumbers}
-          onChoose={(barNumbers) => onChange({ ...sheet, barNumbers })}
-          isSpaced
-        />
-        <Spacer />
-        <Toggle palette={palette} label={t('stylesheet.texts.tempoDecimals')} isOn={sheet.notation.showsTempoDecimals} onToggle={(isOn) => onChange(withNotation(sheet, { showsTempoDecimals: isOn }))} />
-      </ControlRow>
+      <PlacementRow palette={palette} sheet={sheet} onChange={onChange} />
     </>
+  );
+}
+
+/** The chosen text's font: the system font, the installed families matching the filter (the chosen one kept in view). */
+function FontRow({ palette, sheet, onChange, families, element }: TextsTabProps & { readonly element: TextElement }) {
+  const t = useT();
+  const [filter, setFilter] = useState('');
+  const style = sheet.texts[element];
+  const shown = matchingFamilies(families, filter, style.family, SHOWN_FAMILIES);
+  return (
+    <ControlRow>
+      <ControlLabel palette={palette} text={t('stylesheet.texts.font')} />
+      <BarButton label={t('stylesheet.texts.systemFont')} palette={palette} isActive={style.family === ''} onPress={() => onChange(withText(sheet, element, { family: '' }))} />
+      {shown.map((family) => (
+        <BarButton key={family} label={family} palette={palette} isActive={family === style.family} onPress={() => onChange(withText(sheet, element, { family }))} />
+      ))}
+      <TextField
+        testID="stylesheet-font-filter"
+        value={filter}
+        placeholder={t('stylesheet.texts.findFont')}
+        placeholderTextColor={palette.muted}
+        onChangeText={setFilter}
+        accessibilityLabel={t('stylesheet.texts.findFont')}
+        style={[styles.field, { color: palette.text, borderColor: palette.border }]}
+      />
+    </ControlRow>
+  );
+}
+
+/** Where the lyrics and the bar numbers go, and the tempo's decimals. */
+function PlacementRow({ palette, sheet, onChange }: StylesheetTabProps) {
+  const t = useT();
+  return (
+    <ControlRow>
+      <Choice
+        palette={palette}
+        label={t('stylesheet.texts.lyrics')}
+        options={[
+          ['below', t('stylesheet.texts.lyrics.below')],
+          ['above', t('stylesheet.texts.lyrics.above')],
+          ['hidden', t('stylesheet.texts.lyrics.hidden')],
+        ]}
+        value={sheet.lyrics}
+        onChoose={(lyrics) => onChange({ ...sheet, lyrics })}
+      />
+      <Choice
+        palette={palette}
+        label={t('stylesheet.texts.barNumbers')}
+        options={[
+          ['all', t('stylesheet.texts.barNumbers.all')],
+          ['systemStart', t('stylesheet.texts.barNumbers.systemStart')],
+          ['hidden', t('stylesheet.texts.barNumbers.hidden')],
+        ]}
+        value={sheet.barNumbers}
+        onChoose={(barNumbers) => onChange({ ...sheet, barNumbers })}
+        isSpaced
+      />
+      <Spacer />
+      <Toggle palette={palette} label={t('stylesheet.texts.tempoDecimals')} isOn={sheet.notation.showsTempoDecimals} onToggle={(isOn) => onChange(withNotation(sheet, { showsTempoDecimals: isOn }))} />
+    </ControlRow>
   );
 }
 

@@ -93,31 +93,13 @@ function AudioStrip({ palette, audioTrack, onSetMix }: AudioStripProps) {
  * remove, reorder, presets, and every value, heard while it is dragged.
  */
 export function MixerPanel(props: MixerPanelProps) {
-  const { palette, song, selectedTrackIndex } = props;
+  const { palette, song } = props;
   const t = useT();
   const [isMasterSelected, setIsMasterSelected] = useState(false);
   const master = song.master ?? DEFAULT_MASTER;
-  const track = song.tracks[selectedTrackIndex];
-  const trackEffects = track?.effects ?? [];
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
-      <ScrollView horizontal style={styles.strips} contentContainerStyle={styles.stripsContent}>
-        {song.tracks.map((each, trackIndex) => (
-          <Strip
-            key={trackIndex}
-            palette={palette}
-            title={t('common.trackNumbered', { number: each.number, name: each.name })}
-            color={`rgb(${each.color.r},${each.color.g},${each.color.b})`}
-            effects={each.effects ?? []}
-            isSelected={!isMasterSelected && trackIndex === selectedTrackIndex}
-            onSelect={() => {
-              setIsMasterSelected(false);
-              props.onSelectTrack(trackIndex);
-            }}
-            onToggle={(index) => props.onSetTrackEffects(trackIndex, toggleEffect(each.effects ?? [], index))}
-          />
-        ))}
-      </ScrollView>
+      <TrackStrips {...props} isMasterSelected={isMasterSelected} onSelectTrackStrip={() => setIsMasterSelected(false)} />
       <View testID="mixer-pinned-strips" style={[styles.pinned, { borderLeftColor: palette.chromeBorder }]}>
         {song.audioTrack === undefined || props.onSetAudioTrackMix === undefined ? null : (
           <AudioStrip palette={palette} audioTrack={song.audioTrack} onSetMix={props.onSetAudioTrackMix} />
@@ -132,28 +114,61 @@ export function MixerPanel(props: MixerPanelProps) {
           onToggle={(index) => props.onSetMasterMix({ ...master, effects: toggleEffect(master.effects, index) })}
         />
       </View>
-      <View style={[styles.editorPane, { borderLeftColor: palette.chromeBorder }]}>
-        <View style={styles.editorHeader}>
-          <Text numberOfLines={1} style={[styles.editorTitle, { color: palette.chromeText }]}>
-            {isMasterSelected ? t('tools.mixer.masterTitle') : t('tools.mixer.effectsOf', { name: track?.name ?? '' })}
-          </Text>
-          <ChromeButton palette={palette} label="✕" tooltip={t('tools.mixer.close')} onPress={props.onClose} />
-        </View>
-        <ScrollView style={styles.editorScroll}>
-          {isMasterSelected ? (
-            <MasterStripEditor palette={palette} master={master} width={MIXER_PANEL.editorWidth - 20} onChange={props.onSetMasterMix} onPreview={(next) => props.onPreview(next === undefined ? undefined : { master: next })} />
-          ) : (
-            <EffectChainEditor
-              key={selectedTrackIndex}
-              palette={palette}
-              effects={trackEffects}
-              width={MIXER_PANEL.editorWidth - 20}
-              onChange={(effects) => props.onSetTrackEffects(selectedTrackIndex, effects)}
-              onPreview={(effects) => props.onPreview(effects === undefined ? undefined : { trackIndex: selectedTrackIndex, effects })}
-            />
-          )}
-        </ScrollView>
+      <EditorPane {...props} isMasterSelected={isMasterSelected} master={master} />
+    </View>
+  );
+}
+
+/** The tracks' strips, scrolling sideways. */
+function TrackStrips({ palette, song, selectedTrackIndex, isMasterSelected, onSelectTrack, onSelectTrackStrip, onSetTrackEffects }: MixerPanelProps & { readonly isMasterSelected: boolean; readonly onSelectTrackStrip: () => void }) {
+  const t = useT();
+  return (
+    <ScrollView horizontal style={styles.strips} contentContainerStyle={styles.stripsContent}>
+      {song.tracks.map((each, trackIndex) => (
+        <Strip
+          key={trackIndex}
+          palette={palette}
+          title={t('common.trackNumbered', { number: each.number, name: each.name })}
+          color={`rgb(${each.color.r},${each.color.g},${each.color.b})`}
+          effects={each.effects ?? []}
+          isSelected={!isMasterSelected && trackIndex === selectedTrackIndex}
+          onSelect={() => {
+            onSelectTrackStrip();
+            onSelectTrack(trackIndex);
+          }}
+          onToggle={(index) => onSetTrackEffects(trackIndex, toggleEffect(each.effects ?? [], index))}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+/** The selected strip's chain (or the master's), edited on the right. */
+function EditorPane({ palette, song, selectedTrackIndex, isMasterSelected, master, onSetMasterMix, onSetTrackEffects, onPreview, onClose }: MixerPanelProps & { readonly isMasterSelected: boolean; readonly master: MasterMix }) {
+  const t = useT();
+  const track = song.tracks[selectedTrackIndex];
+  return (
+    <View style={[styles.editorPane, { borderLeftColor: palette.chromeBorder }]}>
+      <View style={styles.editorHeader}>
+        <Text numberOfLines={1} style={[styles.editorTitle, { color: palette.chromeText }]}>
+          {isMasterSelected ? t('tools.mixer.masterTitle') : t('tools.mixer.effectsOf', { name: track?.name ?? '' })}
+        </Text>
+        <ChromeButton palette={palette} label="✕" tooltip={t('tools.mixer.close')} onPress={onClose} />
       </View>
+      <ScrollView style={styles.editorScroll}>
+        {isMasterSelected ? (
+          <MasterStripEditor palette={palette} master={master} width={MIXER_PANEL.editorWidth - 20} onChange={onSetMasterMix} onPreview={(next) => onPreview(next === undefined ? undefined : { master: next })} />
+        ) : (
+          <EffectChainEditor
+            key={selectedTrackIndex}
+            palette={palette}
+            effects={track?.effects ?? []}
+            width={MIXER_PANEL.editorWidth - 20}
+            onChange={(effects) => onSetTrackEffects(selectedTrackIndex, effects)}
+            onPreview={(effects) => onPreview(effects === undefined ? undefined : { trackIndex: selectedTrackIndex, effects })}
+          />
+        )}
+      </ScrollView>
     </View>
   );
 }
