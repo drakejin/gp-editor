@@ -59,7 +59,6 @@ export function SettingsPanel({ palette, snapshot, onChange, onClose }: Settings
           <View style={styles.gap} />
           <ChromeButton palette={palette} label={t('common.close')} tooltip={t('settings.closeTooltip')} minWidth={64} onPress={onClose} />
         </View>
-        <Text style={[styles.section, { color: palette.chromeMuted }]}>{t('settings.section.language')}</Text>
         <ChoiceRow
           palette={palette}
           label={t('settings.language')}

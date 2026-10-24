@@ -255,7 +255,7 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.chords.applyTooltip': '박에 코드를 넣습니다',
   'tools.chords.name': '이름',
   'tools.chords.nameLabel': '코드 이름',
-  'tools.chords.namedFromGrid': '그리드를 보고 이름을 붙입니다',
+  'tools.chords.namedFromGrid': '그리드에서 자동으로',
   'tools.chords.fret': '프렛',
   'tools.chords.fretDown': '그리드와 손가락을 한 프렛 내립니다',
   'tools.chords.fretUp': '그리드와 손가락을 한 프렛 올립니다',
