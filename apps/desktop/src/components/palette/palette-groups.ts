@@ -16,6 +16,7 @@ import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
+import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool, isSameBend } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
@@ -138,10 +139,11 @@ function barGroup(): PaletteGroup {
         isActive: (c) => c.header?.marker !== undefined,
       },
       directionsTool(),
+      beamGroupingTool(),
     ],
     steppers: [
-      { id: 'numerator', label: 'Beats', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
-      { id: 'denominator', label: 'Beat value', tooltip: 'Time signature: the beat’s note value', value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 } },
+      { id: 'numerator', label: 'Time', tooltip: 'Time signature: beats per bar', value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
+      { id: 'denominator', label: 'Beat value', tooltip: 'Time signature: the beat’s note value', value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 }, isBesidePrevious: true },
       { id: 'tempo', label: 'Tempo', tooltip: 'Written tempo from this bar (5 BPM steps)', value: (c) => `♩ ${c.header?.tempo ?? '–'}`, minus: { type: 'shiftTempo', delta: -5 }, plus: { type: 'shiftTempo', delta: 5 } },
       { id: 'key', label: 'Key', tooltip: 'Key signature from this bar', value: (c) => (c.keySignature === 0 ? 'C / Am' : `${Math.abs(c.keySignature)}${c.keySignature > 0 ? '♯' : '♭'}`), minus: { type: 'shiftKeySignature', delta: -1 }, plus: { type: 'shiftKeySignature', delta: 1 } },
       { id: 'repeats', label: 'Repeats', tooltip: 'Times the repeat is played', value: (c) => ((c.header?.repeatClose ?? 0) > 0 ? `×${c.header?.repeatClose}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },
@@ -191,6 +193,8 @@ function noteGroup(): PaletteGroup {
       { id: 'stringUp', face: 'Str ↑', tooltip: 'Move the note to the string above (⌥↑)', scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: -1 } } },
       { id: 'stringDown', face: 'Str ↓', tooltip: 'Move the note to the string below (⌥↓)', scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: 1 } } },
       { id: 'deleteNote', face: 'Delete', tooltip: 'Delete the note (⌫)', scope: 'note', run: { kind: 'action', action: { type: 'deleteNote' } } },
+      ...fingeringTools(),
+      accidentalTool(),
     ],
   };
 }
@@ -324,6 +328,7 @@ function strokeGroup(): PaletteGroup {
       { id: 'chord', face: 'Chord', key: 'K', tooltip: withKey('Chord diagram: grid, name and chord library', 'K'), scope: 'beat', run: { kind: 'chordPanel' }, isActive: (c) => c.beat?.chord !== undefined },
       rasgueadoTool(),
       ...pedalTools(),
+      ...beatMarkTools(),
     ],
   };
 }

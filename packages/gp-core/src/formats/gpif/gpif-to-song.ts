@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser (LGPL-2.1).
+import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
 import { RED, isNoteValue, measureTicks } from '../../model/defaults';
 import {
   type MeasureHeader,
@@ -14,18 +15,20 @@ import { directionFromGpif, sortDirections } from '../common/directions';
 import type { GpifAutomation, GpifDocument, GpifMasterBar, GpifScore } from './gpif-document';
 import { buildMeasure } from './gpif-measure';
 import { buildTracks } from './gpif-song-tracks';
+import type { TrackView } from './part-configuration';
 
 const DEFAULT_TEMPO = 120;
 const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 const MAX_ALTERNATE_ENDING = 31;
 
-/** Build the song model from a GPIF document. */
-export function gpifToSong(doc: GpifDocument, source: SourceInfo): Song {
+/** Build the song model from a GPIF document and, when the container has one, its PartConfiguration's track views. */
+export function gpifToSong(doc: GpifDocument, source: SourceInfo, trackViews: readonly TrackView[] = []): Song {
   const headers = buildHeaders(doc);
-  const { channels, tracks } = buildTracks(doc, (layout) =>
+  const built = buildTracks(doc, (layout) =>
     headers.map((header, index) => buildMeasure(doc, header, index, layout)),
   );
-  return { source, info: buildInfo(doc.score), channels, measureHeaders: headers, tracks };
+  const tracks = built.tracks.map((track, index) => (trackViews[index]?.hasSlash === true ? { ...track, hasSlashNotation: true } : track));
+  return { source, info: buildInfo(doc.score), channels: built.channels, measureHeaders: headers, tracks };
 }
 
 /**
@@ -62,17 +65,21 @@ function buildHeaders(doc: GpifDocument): MeasureHeader[] {
 
 function buildHeader(masterBar: GpifMasterBar, index: number, start: number, tempo: number): MeasureHeader {
   const marker = masterBar.markerText;
+  const timeSignature = timeSignatureOf(masterBar.time);
+  const grouping = masterBar.beamUnit === undefined ? undefined : parseBeamGrouping(masterBar.beamUnit, masterBar.beamGroups);
+  const beamGrouping = normalizeBeamGrouping(grouping, timeSignature);
   const directions = directionsOf(masterBar);
   return {
     number: index + 1,
     start,
-    timeSignature: timeSignatureOf(masterBar.time),
+    timeSignature,
     tempo,
     ...(marker === undefined || marker === '' ? {} : { marker: { title: marker, color: RED } }),
     repeatOpen: masterBar.repeatStart,
     repeatClose: masterBar.repeatCount,
     repeatAlternative: alternativeMask(masterBar.alternateEndings),
     tripletFeel: tripletFeelOf(masterBar.tripletFeel),
+    ...(beamGrouping === undefined ? {} : { beamGrouping }),
     ...(directions.length === 0 ? {} : { directions }),
   };
 }
