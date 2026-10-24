@@ -203,7 +203,13 @@ Guitar Pro's own files differently are listed, with that evidence, in
     ⌥↑/⌥↓ move the note to the neighbouring string
   - erase: ⌫ or ⌦ turns the note into a rest; on a rest it removes the rest (the beats after it move up and the bar
     ends with a rest again)
-  - voices: the palette's 1 / 2 (Guitar Pro 5 files hold two); typing a fret on voice 2 starts that voice there
+  - voices (as in Guitar Pro 8): the palette's 1–4 or ⌘1–⌘4; typing a fret in an empty voice starts it there (rests to
+    the bar lines). ⌥1–⌥4 (the palette's ⇄) move the note at the cursor — the beat's notes on an empty string, every
+    note of the selected beats — to another voice; *1–4* (Multivoice) edits every voice at once, a click on a note
+    taking the cursor to its voice. Voices 1 and 3 are stemmed up and 2 and 4 down, their rests above and below; the
+    voice being edited is drawn in ink and the others faded, the cursor in its voice's colour (2 green, 3 pink, 4
+    purple — the tab's frets of voices 2–4 too), and a bar where it has nothing shows its faint whole rest. The LCD
+    names the voice; Guitar Pro 5 files hold two voices (a GP5 save says when voices 3 and 4 are left out)
   - duration: ⌥`[` longer, ⌥`]` shorter, `.` dot, `/` triplet, or the palette's Rhythm: whole to 64th, dot, tuplets
     (3, 5, 6, 7, 9, 10, 11, 12), rest, tie
   - a tuplet inside a tuplet (as Guitar Pro 7 and 8 write them): ⌥`/` puts a triplet inside the beat's tuplet, or the
@@ -269,7 +275,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   Guitar Pro 5 (`.gp5`, chosen first unless the file is one of the others), Guitar Pro 7/8 (`.gp`), Guitar Pro 4
   (`.gp4`) or Guitar Pro 3 (`.gp3`); the extension follows the choice. A `.gp` keeps everything the editor edits
   (voices 1–4, nested tuplets …) and the audio track, but not Guitar Pro's own sound settings (RSE) or stylesheet. GP4 and GP3
-  keep one voice per bar (voice 2 joins voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
+  keep one voice per bar (voices 2–4 join voice 1) and one triplet feel, and GP3 holds no lyrics and fewer effects: the
   save panel and the hint strip say what is left out when one is written. Saved as GP5, GP6–GP8 files lose what GP5
   cannot hold (voices 3–4, strings past the 7th, double dots, RSE settings, hairpins, fade outs, volume swells, the
   sustain pedal, a rasgueado's pattern, the audio track; a direction stays on its first bar only).
