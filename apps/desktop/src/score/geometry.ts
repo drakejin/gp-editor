@@ -126,6 +126,8 @@ export interface RowBands {
   readonly hasDirections: boolean;
   /** The track has sustain pedal marks (`hasPedals`): their band under the dynamics. */
   readonly hasPedals: boolean;
+  /** The heading band's height: ROW.heading, or a staff's room under the one above it in a multitrack system. */
+  readonly headingHeight: number;
 }
 
 const PLAIN_ROW: RowBands = {
@@ -137,6 +139,7 @@ const PLAIN_ROW: RowBands = {
   hasChordDiagrams: false,
   hasDirections: false,
   hasPedals: false,
+  headingHeight: ROW.heading,
 };
 
 type ChordBand = Pick<RowGeometry, 'chordNamesY' | 'chordDiagramsTop'> & { readonly bottom: number };
@@ -155,9 +158,9 @@ function chordBand(top: number, hasNames: boolean, hasDiagrams: boolean): ChordB
 }
 
 export function rowGeometry(mode: ScoreMode, stringCount: number, bands: Partial<RowBands> = {}): RowGeometry {
-  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams, hasDirections, hasPedals } = { ...PLAIN_ROW, ...bands };
-  const directionsY = hasDirections ? ROW.heading + ROW.directionsBaseline : undefined;
-  const { bottom: chordsBottom, ...chords } = chordBand(ROW.heading + (hasDirections ? ROW.directions : 0), hasChordNames, hasChordDiagrams);
+  const { markLaneCount, hasDynamics, hasBends, hasLyrics, hasChordNames, hasChordDiagrams, hasDirections, hasPedals, headingHeight } = { ...PLAIN_ROW, ...bands };
+  const directionsY = hasDirections ? headingHeight + ROW.directionsBaseline : undefined;
+  const { bottom: chordsBottom, ...chords } = chordBand(headingHeight + (hasDirections ? ROW.directions : 0), hasChordNames, hasChordDiagrams);
   const top = { ...chords, directionsY };
   let y = chordsBottom;
   let notationTop: number | undefined;

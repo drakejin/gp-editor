@@ -54,6 +54,7 @@ import { useSongExport } from './hooks/use-song-export';
 import { useSongWriter, writtenSummary } from './hooks/use-song-writer';
 import { useSoundBanks } from './hooks/use-sound-banks';
 import { useTabs } from './hooks/use-tabs';
+import { useTrackDisplay } from './hooks/use-track-display';
 import { useTuner } from './hooks/use-tuner';
 import { useAudioExport } from './hooks/use-audio-export';
 import { useAudioTools } from './hooks/use-audio-tools';
@@ -93,7 +94,9 @@ export default function App() {
   const keyboardView = useRef<View>(null);
   const { document, cursor, trackIndex } = state;
   const song = document?.song;
-  const playback = usePlayback(song, trackIndex);
+  // The tracks the score shows (View ▸ Multitrack, the tracks panel's eyes), each in its own staves.
+  const trackView = useTrackDisplay(state, dispatch);
+  const playback = usePlayback(song, trackIndex, trackView.shownTrackIndexes);
   const sound = useSoundBanks(playback.restart);
   const chrome = useWindowChrome();
   const [windowWidth, setWindowWidth] = useState(0);
@@ -112,7 +115,7 @@ export default function App() {
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
   // Export button and File ▸ Export PDF… (⌘P) open the same panel; File ▸ Export PNG… opens it for PNG images.
-  const pdfExport = usePdfExport(document, trackIndex, state.mode, dispatch, state.chordDisplay);
+  const pdfExport = usePdfExport(document, trackIndex, trackView.selectedMode, dispatch, state.chordDisplay, trackView.staves);
   // File ▸ Export MIDI… and Export ASCII Tab….
   const songExport = useSongExport(document, dispatch);
   // File ▸ Export Audio…: the song rendered with its sounds and effects, as playback plays it.
@@ -443,8 +446,9 @@ export default function App() {
           palette={chromePalette}
           song={document.song}
           trackIndex={trackIndex}
+          staves={trackView.staves}
           fileName={document.fileName}
-          mode={state.mode}
+          mode={trackView.selectedMode}
           chordDisplay={state.chordDisplay}
           format={pdfExport.format}
           isSaving={pdfExport.isSaving}
@@ -519,10 +523,11 @@ export default function App() {
               key={activeTabId}
               song={draftPreview.song ?? document.song}
               trackIndex={trackIndex}
-              mode={state.mode}
+              staves={trackView.staves}
               chordDisplay={state.chordDisplay}
               cursor={cursor}
               playing={playback.playing}
+              playingTracks={playback.playingTracks}
               selection={selection}
               palette={palette}
               zoom={chrome.zoom}
@@ -549,7 +554,7 @@ export default function App() {
                 palette={palette}
                 song={document.song}
                 trackIndex={trackIndex}
-                mode={state.mode}
+                mode={trackView.selectedMode}
                 notice={state.notice}
                 soundBanks={sound.soundBanks}
                 onChangeMode={(mode) => dispatch({ type: 'setMode', mode })}
@@ -591,6 +596,10 @@ export default function App() {
                 <TracksPanel
                   song={document.song}
                   selectedTrackIndex={trackIndex}
+                  shownTrackIndexes={trackView.shownTrackIndexes}
+                  isMultitrack={trackView.isMultitrack}
+                  onToggleMultitrack={trackView.toggleMultitrack}
+                  onToggleTrackShown={trackView.toggleTrackShown}
                   cursorMeasureIndex={cursor?.measureIndex}
                   playingMeasureIndex={playback.playing?.measureIndex}
                   palette={palette}

@@ -7,6 +7,7 @@
 // writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
 // File ▸ Export Audio… comes here as an event too; its single file's place is chosen with showSavePanel.
 // Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P) come here as events too.
+// So do View ▸ Multitrack (F3), Previous Track and Next Track.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -41,6 +42,9 @@ static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompres
 static NSString *const kExportAudioRequestedEvent = @"exportAudioRequested";
 static NSString *const kTransposeRequestedEvent = @"transposeRequested";
 static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
+static NSString *const kMultitrackRequestedEvent = @"multitrackRequested";
+static NSString *const kPreviousTrackRequestedEvent = @"previousTrackRequested";
+static NSString *const kNextTrackRequestedEvent = @"nextTrackRequested";
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -203,6 +207,9 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onExportAudioCommand:) name:GPEditorExportAudioCommandNotification object:nil];
     [center addObserver:self selector:@selector(onTransposeCommand:) name:GPEditorTransposeCommandNotification object:nil];
     [center addObserver:self selector:@selector(onCommandPaletteCommand:) name:GPEditorCommandPaletteCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onMultitrackCommand:) name:GPEditorMultitrackCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onPreviousTrackCommand:) name:GPEditorPreviousTrackCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onNextTrackCommand:) name:GPEditorNextTrackCommandNotification object:nil];
   }
   return self;
 }
@@ -219,7 +226,8 @@ RCT_EXPORT_MODULE();
     kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
     kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent, kExportAudioRequestedEvent,
-    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent
+    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent,
+    kMultitrackRequestedEvent, kPreviousTrackRequestedEvent, kNextTrackRequestedEvent
   ];
 }
 
@@ -280,6 +288,28 @@ RCT_EXPORT_MODULE();
 }
 
 /** View ▸ Focus / Unfocus. */
+/** View ▸ Multitrack, Previous Track, Next Track. */
+- (void)onMultitrackCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kMultitrackRequestedEvent body:@{}];
+  }
+}
+
+- (void)onPreviousTrackCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kPreviousTrackRequestedEvent body:@{}];
+  }
+}
+
+- (void)onNextTrackCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kNextTrackRequestedEvent body:@{}];
+  }
+}
+
 - (void)onFocusCommand:(NSNotification *)note
 {
   if (hasListeners) {

@@ -3,8 +3,10 @@ import type { PdfDocument } from '../src/export/pdf-document';
 import type { PngOptions } from '../src/export/png-export';
 import { type PdfExport, usePdfExport } from '../src/hooks/use-pdf-export';
 import type { SavedPngs } from '../src/native/png-export';
+import type { StaffSpec } from '../src/score/score-layout';
 import type { OpenDocument } from '../src/state/editor';
-import { beat, makeSong, note } from '../test-support/songs';
+import { textValues } from '../test-support/score-helpers';
+import { beat, makeSong, note, withTrack } from '../test-support/songs';
 
 const mockExportRequests: { handler?: () => void } = {};
 const mockPrintRequests: { handler?: () => void } = {};
@@ -45,11 +47,11 @@ jest.mock('../src/native/pdf-export', () => ({
 
 const DOCUMENT: OpenDocument = { fileName: 'Song.gp5', path: '/Song.gp5', song: makeSong([[beat(960, [note(1, 3)])]]) };
 
-function renderHook(document: OpenDocument | undefined): { current: () => PdfExport; dispatch: jest.Mock } {
+function renderHook(document: OpenDocument | undefined, staves?: readonly StaffSpec[]): { current: () => PdfExport; dispatch: jest.Mock } {
   const dispatch = jest.fn();
   let latest: PdfExport | undefined;
   function Probe() {
-    latest = usePdfExport(document, 0, 'tab', dispatch);
+    latest = usePdfExport(document, 0, 'tab', dispatch, undefined, staves);
     return null;
   }
   ReactTestRenderer.act(() => {
@@ -202,6 +204,31 @@ describe('usePdfExport', () => {
     // Assert
     expect(hook.dispatch).toHaveBeenCalledWith({ type: 'exportFailed', message: 'disk full' });
     expect(hook.current().isSaving).toBe(false);
+  });
+});
+
+describe('usePdfExport in the multitrack view', () => {
+  const duet: OpenDocument = { ...DOCUMENT, song: withTrack(DOCUMENT.song, [[beat(960, [note(2, 5)])]], { name: 'Bass' }) };
+  const staves: readonly StaffSpec[] = [{ trackIndex: 0, mode: 'tab' }, { trackIndex: 1, mode: 'notation' }];
+
+  it('saves and prints the shown tracks, named after the multitrack view', async () => {
+    // Arrange
+    mockSavePdf.mockResolvedValueOnce({ name: 'Song (Multitrack).pdf', path: '/Song (Multitrack).pdf' });
+    mockPrintPdf.mockResolvedValue(true);
+    const hook = renderHook(duet, staves);
+    chooseExportPdf();
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().save('asShown', 'a4'));
+    await settle();
+    ReactTestRenderer.act(() => mockPrintRequests.handler?.());
+    await settle();
+
+    // Assert
+    const [pdf, name] = mockSavePdf.mock.calls[0] ?? [];
+    expect(name).toBe('Song (Multitrack).pdf');
+    expect(textValues(pdf?.pages[0]?.commands ?? [])).toContain('Bass');
+    expect(textValues(mockPrintPdf.mock.calls[0]?.[0].pages[0]?.commands ?? [])).toContain('Bass');
   });
 });
 

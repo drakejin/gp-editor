@@ -1,16 +1,12 @@
 import type { Song } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
-import { type RowLayout, layoutMeasure, layoutRows, squeezeRow } from '../lib/layout';
-import { type ChordDisplay, DEFAULT_CHORD_DISPLAY, chordBands, chordBeatWidth } from '../score/chords';
+import { squeezeRow } from '../lib/layout';
+import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
-import { hasDirections } from '../score/directions';
-import { hasDynamicChanges } from '../score/dynamics';
-import { type RowGeometry, SCORE_MODE_LABELS, type ScoreMode, rowGeometry } from '../score/geometry';
-import { engraveRow, rowHeaderWidth } from '../score/row';
-import { hasLyrics } from '../score/lyrics';
-import { hasPedals } from '../score/pedals';
-import { hasBends } from '../score/symbols/bends';
-import { type TabMarkKind, tabMarkLanes } from '../score/tab';
+import { SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
+import { type RowContext, engraveRow } from '../score/row';
+import { type ScoreLayout, type StaffSpec, layoutScore } from '../score/score-layout';
+import { engraveSystemStaff, staffDecor } from '../score/system-staff';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE, type PaperId, type PaperSize } from './paper';
 import { type TitleBlock, engraveTitleBlock, fitFontSize } from './title-block';
 
@@ -36,25 +32,36 @@ export interface PdfOptions {
   readonly fileName?: string;
   /** What the score shows of its chords, as on screen; names and diagrams by default. */
   readonly chordDisplay?: ChordDisplay;
+  /** The multitrack view's staves: with several, each system prints them all (the track and mode arguments are not used). */
+  readonly staves?: readonly StaffSpec[];
 }
 
-/** Everything the pages are made from, before engraving the rows. */
+/** Everything the pages are made from, before engraving the systems. */
 interface PdfPlan {
   readonly song: Song;
-  readonly trackIndex: number;
-  readonly mode: ScoreMode;
   readonly title: string;
   readonly paper: PaperSize;
   readonly titleBlock: TitleBlock;
-  readonly headerWidth: number;
-  readonly geometry: RowGeometry;
-  readonly markLanes: readonly TabMarkKind[];
+  readonly layout: ScoreLayout;
   /** Width of a row at screen size: the printable width divided by PRINT_SCALE. */
   readonly rowWidth: number;
-  /** Height of a printed row; every row of a track has the same. */
+  /** Height of a printed system; every system has the same. */
   readonly rowHeight: number;
-  /** The rows of each page, top to bottom. */
-  readonly pages: readonly (readonly RowLayout[])[];
+  /** Where the systems end on a page. */
+  readonly bottom: number;
+  /** The systems of each page (their indexes), top to bottom. */
+  readonly pages: readonly (readonly number[])[];
+}
+
+/** The export panel's Show choice: a score mode, or (in the multitrack view) every track in its own staves. */
+export type ExportMode = ScoreMode | 'asShown';
+
+/** The staves an export prints for the multitrack view's `staves`: as shown, or all in one mode; undefined for one track. */
+export function exportStaves(staves: readonly StaffSpec[], mode: ExportMode): readonly StaffSpec[] | undefined {
+  if (staves.length < 2) {
+    return undefined;
+  }
+  return mode === 'asShown' ? staves : staves.map((staff) => ({ ...staff, mode }));
 }
 
 const UNTITLED = 'Untitled';
@@ -68,17 +75,21 @@ export function pdfTitle(song: Song, fileName = ''): string {
   return song.info.title || withoutExtension(fileName) || UNTITLED;
 }
 
-/** An export's name without extension: "Song (Tab)", with the track for a song of several tracks ("Song - Bass (Tab)"). */
-export function exportBaseName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string): string {
+/**
+ * An export's name without extension: "Song (Tab)", with the track for a song of several tracks ("Song - Bass (Tab)"),
+ * "Song (Multitrack)" for several shown tracks (`staves`).
+ */
+export function exportBaseName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string, staves: readonly StaffSpec[] = []): string {
   const base = withoutExtension(fileName) || pdfTitle(song);
-  const trackName = song.tracks.length > 1 ? song.tracks[trackIndex]?.name ?? '' : '';
+  const isMultitrack = staves.length > 1;
+  const trackName = song.tracks.length > 1 && !isMultitrack ? song.tracks[trackIndex]?.name ?? '' : '';
   const name = trackName === '' ? base : `${base} - ${trackName}`;
-  return `${name.replace(FILE_NAME_SEPARATORS, '-').replace(HIDDEN_PREFIX, '')} (${SCORE_MODE_LABELS[mode]})`;
+  return `${name.replace(FILE_NAME_SEPARATORS, '-').replace(HIDDEN_PREFIX, '')} (${isMultitrack ? 'Multitrack' : SCORE_MODE_LABELS[mode]})`;
 }
 
 /** Name the save panel suggests: "Song (Tab).pdf", with the track for a song of several tracks ("Song - Bass (Tab).pdf"). */
-export function pdfFileName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string): string {
-  return `${exportBaseName(song, trackIndex, mode, fileName)}.pdf`;
+export function pdfFileName(song: Song, trackIndex: number, mode: ScoreMode, fileName: string, staves?: readonly StaffSpec[]): string {
+  return `${exportBaseName(song, trackIndex, mode, fileName, staves)}.pdf`;
 }
 
 /**
@@ -94,46 +105,64 @@ export function packRows<T>(rows: readonly T[], rowHeight: number, firstTop: num
   return [rows.slice(0, firstCapacity), ...following];
 }
 
+/** The staves printed: the multitrack view's when it shows several, else the track in `mode`. */
+function printedStaves(trackIndex: number, mode: ScoreMode, options: PdfOptions): readonly StaffSpec[] {
+  return options.staves !== undefined && options.staves.length > 1 ? options.staves : [{ trackIndex, mode }];
+}
+
+/**
+ * The score as the screen lays it out, at screen size across the printable width, to print at PRINT_SCALE; a single
+ * track's measure too wide for a line is squeezed instead of running off the page.
+ */
+function printedLayout(song: Song, staves: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
+  const layout = layoutScore(song, staves, chordDisplay, rowWidth);
+  if (layout.staves.length !== 1) {
+    return layout;
+  }
+  return { ...layout, systems: layout.systems.map((system) => ({ ...system, rows: system.rows.map((row) => squeezeRow(row, rowWidth - system.headerWidth)) })) };
+}
+
 function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOptions): PdfPlan {
   const paper = PAPER_SIZES[options.paper];
   const title = pdfTitle(song, options.fileName);
   const printWidth = paper.width - 2 * PAGE.margin;
-  const titleBlock = engraveTitleBlock(song, trackIndex, title, printWidth, PRINT_PALETTE);
-  const track = song.tracks[trackIndex];
-  // Lanes and the dynamics, bend, lyrics and chord bands of the whole track, so every row has one height, as on screen.
-  const trackMeasures = track?.measures ?? [];
-  const markLanes = tabMarkLanes(trackMeasures);
-  const chordDisplay = options.chordDisplay ?? DEFAULT_CHORD_DISPLAY;
-  const geometry = rowGeometry(mode, track?.strings.length ?? 6, {
-    markLaneCount: markLanes.length,
-    hasDynamics: hasDynamicChanges(trackMeasures),
-    hasBends: hasBends(trackMeasures),
-    hasLyrics: hasLyrics(track),
-    ...chordBands(trackMeasures, chordDisplay),
-    hasDirections: hasDirections(song),
-    hasPedals: hasPedals(trackMeasures),
-  });
-  const headerWidth = track === undefined ? 0 : rowHeaderWidth(mode, track);
-  // Rows are laid out at screen size across the printable width, then printed at PRINT_SCALE; a measure too wide for
-  // a line is squeezed instead of running off the page.
-  const measures = track === undefined ? [] : song.measureHeaders.map((_, i) => layoutMeasure(song, trackIndex, i, (beat) => chordBeatWidth(beat, chordDisplay)));
+  const staves = printedStaves(trackIndex, mode, options);
+  // Several tracks are named on their staves, not under the title.
+  const titleBlock = engraveTitleBlock(song, staves.length > 1 ? -1 : trackIndex, title, printWidth, PRINT_PALETTE);
   const rowWidth = printWidth / PRINT_SCALE;
-  const rows = layoutRows(measures, rowWidth - headerWidth).map((row) => squeezeRow(row, rowWidth - headerWidth));
-  const rowHeight = geometry.height * PRINT_SCALE;
+  const layout = printedLayout(song, staves, options.chordDisplay ?? DEFAULT_CHORD_DISPLAY, rowWidth);
+  const rowHeight = layout.systemHeight * PRINT_SCALE;
   const bottom = paper.height - PAGE.margin - PAGE.footerHeight;
-  const pages = packRows(rows, rowHeight, PAGE.margin + titleBlock.height, PAGE.margin, bottom);
-  return { song, trackIndex, mode, title, paper, titleBlock, headerWidth, geometry, markLanes, rowWidth, rowHeight, pages };
+  const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, PAGE.margin + titleBlock.height, PAGE.margin, bottom);
+  return { song, title, paper, titleBlock, layout, rowWidth, rowHeight, bottom, pages };
+}
+
+/** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the system's top. */
+function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: number): DrawCommand[] {
+  const { song, layout } = plan;
+  const staff = layout.staves[staffIndex];
+  const row = layout.systems[systemIndex]?.rows[staffIndex];
+  if (staff === undefined || row === undefined) {
+    return [];
+  }
+  const context: RowContext = {
+    song, trackIndex: staff.trackIndex, row, headerWidth: layout.clefWidth, mode: staff.mode, geometry: staff.geometry, palette: PRINT_PALETTE,
+    markLanes: staff.markLanes, hasHeading: staff.hasHeading,
+  };
+  const decor = staffDecor(song, layout, systemIndex, staffIndex);
+  return translateCommands(decor === undefined ? engraveRow(context) : engraveSystemStaff(context, decor), 0, staff.top);
 }
 
 /**
- * One row as the screen engraves it (no cursor, nothing playing), in print colours, scaled and placed with its top at
- * `y`. A row still too wide once squeezed (a bar denser than squeezeRow can fit) is printed smaller to stay on the page.
+ * One system scaled and placed with its top at `y`. A system still too wide once squeezed (a bar denser than
+ * squeezeRow can fit), or taller than the room under `y` (many tracks), is printed smaller to stay on the page.
  */
-function engravePrintedRow(plan: PdfPlan, row: RowLayout, y: number): DrawCommand[] {
-  const { song, trackIndex, headerWidth, mode, geometry, markLanes } = plan;
-  const commands = engraveRow({ song, trackIndex, row, headerWidth, mode, geometry, palette: PRINT_PALETTE, markLanes });
-  const width = row.measures.reduce((sum, measure) => sum + measure.width, headerWidth);
-  const fit = Math.min(1, plan.rowWidth / width);
+function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): DrawCommand[] {
+  const { layout } = plan;
+  const system = layout.systems[systemIndex];
+  const commands = layout.staves.flatMap((_, staffIndex) => engraveSystemPart(plan, systemIndex, staffIndex));
+  const width = (system?.rows[0]?.measures ?? []).reduce((sum, measure) => sum + measure.width, system?.headerWidth ?? 0);
+  const fit = Math.min(1, plan.rowWidth / width, (plan.bottom - y) / plan.rowHeight);
   return translateCommands(scaleCommands(commands, PRINT_SCALE * fit), PAGE.margin, y);
 }
 
@@ -147,7 +176,7 @@ function engraveFooter(plan: PdfPlan, pageNumber: number): DrawCommand {
   };
 }
 
-function buildPage(plan: PdfPlan, rows: readonly RowLayout[], pageIndex: number): PdfPage {
+function buildPage(plan: PdfPlan, systems: readonly number[], pageIndex: number): PdfPage {
   const { paper, titleBlock, rowHeight } = plan;
   const isFirst = pageIndex === 0;
   const top = isFirst ? PAGE.margin + titleBlock.height : PAGE.margin;
@@ -158,19 +187,20 @@ function buildPage(plan: PdfPlan, rows: readonly RowLayout[], pageIndex: number)
     commands: [
       background,
       ...(isFirst ? translateCommands(titleBlock.commands, PAGE.margin, PAGE.margin) : []),
-      ...rows.flatMap((row, i) => engravePrintedRow(plan, row, top + i * rowHeight)),
+      ...systems.flatMap((systemIndex, i) => engravePrintedSystem(plan, systemIndex, top + i * rowHeight)),
       engraveFooter(plan, pageIndex + 1),
     ],
   };
 }
 
 /**
- * The PDF of one track in a score mode: a title block on the first page, then every row of the score engraved as on
- * screen, packed onto pages top to bottom, with a numbered footer on each page. An empty song is one page.
+ * The PDF of one track in a score mode (or of the multitrack view's tracks, `options.staves`): a title block on the
+ * first page, then every row or system of the score engraved as on screen, packed onto pages top to bottom, with a
+ * numbered footer on each page. An empty song is one page.
  */
 export function buildPdfDocument(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOptions): PdfDocument {
   const plan = planPdf(song, trackIndex, mode, options);
-  return { title: plan.title, pages: plan.pages.map((rows, pageIndex) => buildPage(plan, rows, pageIndex)) };
+  return { title: plan.title, pages: plan.pages.map((systems, pageIndex) => buildPage(plan, systems, pageIndex)) };
 }
 
 /** How many pages buildPdfDocument makes, without engraving them. */

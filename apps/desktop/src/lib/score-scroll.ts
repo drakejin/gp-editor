@@ -14,6 +14,11 @@ export interface PageTop {
  * rows it shows.
  */
 export function isRowOnFirstScreen(rowIndex: number, page: PageTop): boolean {
-  const rowTop = page.topMargin + page.headerHeight + rowIndex * page.rowHeight;
-  return page.viewportHeight > 0 && rowTop + page.rowHeight / 2 <= page.viewportHeight;
+  return isLineOnFirstScreen({ top: rowIndex * page.rowHeight, height: page.rowHeight }, page);
+}
+
+/** As isRowOnFirstScreen, for a line of the page (a staff of a multitrack system) `top` points under the title block. */
+export function isLineOnFirstScreen(line: { readonly top: number; readonly height: number }, page: PageTop): boolean {
+  const lineTop = page.topMargin + page.headerHeight + line.top;
+  return page.viewportHeight > 0 && lineTop + line.height / 2 <= page.viewportHeight;
 }

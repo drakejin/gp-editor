@@ -130,3 +130,13 @@ describe('keyCommand', () => {
     expect(keyCommand(press('v', { metaKey: true }), digit, 0)).toEqual({ type: 'paste' });
   });
 });
+
+describe('keyCommand tracks', () => {
+  it('goes to the previous and next track with ⌘↑ and ⌘↓, as Guitar Pro 8 does (and claims the keys)', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('ArrowUp', { metaKey: true }), digit, 0)).toEqual({ type: 'moveCursorTrack', step: -1 });
+    expect(keyCommand(press('ArrowDown', { metaKey: true }), digit, 0)).toEqual({ type: 'moveCursorTrack', step: 1 });
+    expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowUp', metaKey: true });
+    expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowDown', metaKey: true });
+  });
+});

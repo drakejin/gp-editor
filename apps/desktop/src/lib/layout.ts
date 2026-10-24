@@ -103,9 +103,25 @@ export type BeatRoom = (beat: Beat) => number;
 const NO_ROOM: BeatRoom = () => 0;
 
 export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): MeasureLayout {
+  const frame = measureFrame(song, trackIndex, measureIndex);
+  let x = frame.beatsX;
+  const beatLayouts = beatWidths(song, trackIndex, measureIndex, beatRoom).map((width, beatIndex) => {
+    const layout = { beatIndex, x: x + width / 2 };
+    x += width;
+    return layout;
+  });
+  return closeMeasure(song, measureIndex, frame, beatLayouts, beatLayouts.length === 0 ? undefined : x);
+}
+
+/** A measure's room before its first beat (padding, repeat sign, key change, time signature) and the marks it shows. */
+export interface MeasureFrame extends Pick<MeasureLayout, 'showTimeSignature' | 'showTempo' | 'showTripletFeel' | 'keySignatureX' | 'timeSignatureX'> {
+  /** Where the first beat's room starts. */
+  readonly beatsX: number;
+}
+
+export function measureFrame(song: Song, trackIndex: number, measureIndex: number): MeasureFrame {
   const header = song.measureHeaders[measureIndex];
   const track = song.tracks[trackIndex];
-  const beats = track?.measures[measureIndex]?.beats ?? [];
   const showTimeSignature = changed(song.measureHeaders, measureIndex, (h) => `${h.timeSignature.numerator}/${h.timeSignature.denominator}`);
   const showTempo = changed(song.measureHeaders, measureIndex, (h) => String(h.tempo));
   const showTripletFeel = header !== undefined && header.tripletFeel !== (song.measureHeaders[measureIndex - 1]?.tripletFeel ?? 'none');
@@ -115,17 +131,24 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   x += keyAccidentals > 0 ? keyAccidentals * TAB.keyAccidentalWidth + TAB.keySignaturePadding : 0;
   const timeSignatureX = showTimeSignature ? x : undefined;
   x += showTimeSignature ? TAB.timeSignatureWidth : 0;
-  const beatLayouts = beats.map((beat, beatIndex) => {
-    const width = Math.max(beatWidth(beat), beatRoom(beat));
-    const layout = { beatIndex, x: x + width / 2 };
-    x += width;
-    return layout;
-  });
+  return { beatsX: x, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
+}
+
+/** The room each beat of the track's measure takes: its notes', or `beatRoom`'s when wider. */
+export function beatWidths(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): number[] {
+  const beats = song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? [];
+  return beats.map((beat) => Math.max(beatWidth(beat), beatRoom(beat)));
+}
+
+/** The measure's layout once its beats are placed; `beatsEnd` is where the last beat's room ends (undefined: no beats). */
+export function closeMeasure(song: Song, measureIndex: number, frame: MeasureFrame, beats: readonly BeatLayout[], beatsEnd: number | undefined): MeasureLayout {
+  const header = song.measureHeaders[measureIndex];
   const closeWidth = header !== undefined && header.repeatClose > 0 ? TAB.repeatWidth : 0;
-  const natural = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
+  const natural = beatsEnd === undefined ? frame.beatsX + TAB.emptyMeasureWidth : beatsEnd + TAB.padRight + closeWidth;
   // A bar with directions is wide enough for its signs and words side by side.
   const width = Math.max(natural, directionsWidth(header));
-  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
+  const { showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX } = frame;
+  return { measureIndex, width, beats, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
 }
 
 /** Accidentals drawn for a key change: the new key's, or naturals cancelling the old one when changing to C. */
@@ -136,13 +159,22 @@ function keyChangeAccidentals(previous: number | undefined, current: number | un
   return current === 0 ? Math.abs(previous) : Math.abs(current);
 }
 
-/** Greedy line breaking. Every row but the last is stretched to `availableWidth`; the last one only when mostly full. */
-export function layoutRows(measures: readonly MeasureLayout[], availableWidth: number): RowLayout[] {
+/**
+ * Greedy line breaking. Every row but the last is stretched to `availableWidth` (the first to `firstRowWidth`: the
+ * multitrack view's first system has the tracks' full names); the last one only when mostly full.
+ */
+export function layoutRows(measures: readonly MeasureLayout[], availableWidth: number, firstRowWidth = availableWidth): RowLayout[] {
+  const rows = breakRows(measures, availableWidth, firstRowWidth);
+  return rows.map((row, index) => ({ measures: justify(row, index === 0 ? firstRowWidth : availableWidth, index === rows.length - 1) }));
+}
+
+/** The measures of each row, as greedy line breaking puts them (layoutRows, before stretching). */
+export function breakRows(measures: readonly MeasureLayout[], availableWidth: number, firstRowWidth = availableWidth): MeasureLayout[][] {
   const rows: MeasureLayout[][] = [];
   let current: MeasureLayout[] = [];
   let currentWidth = 0;
   for (const measure of measures) {
-    if (current.length > 0 && currentWidth + measure.width > availableWidth) {
+    if (current.length > 0 && currentWidth + measure.width > (rows.length === 0 ? firstRowWidth : availableWidth)) {
       rows.push(current);
       current = [];
       currentWidth = 0;
@@ -153,7 +185,7 @@ export function layoutRows(measures: readonly MeasureLayout[], availableWidth: n
   if (current.length > 0) {
     rows.push(current);
   }
-  return rows.map((row, index) => ({ measures: justify(row, availableWidth, index === rows.length - 1) }));
+  return rows;
 }
 
 /**
@@ -189,15 +221,20 @@ function squeezeMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
 }
 
 function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {
+  const scale = justifyScale(row, availableWidth, isLastRow);
+  return scale === undefined ? row : row.map((measure) => stretchMeasure(measure, scale));
+}
+
+/** How much a row is stretched to fill `availableWidth`; undefined when it is left as it is. */
+export function justifyScale(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): number | undefined {
   const natural = row.reduce((sum, measure) => sum + measure.width, 0);
   if (natural <= 0 || natural > availableWidth || (isLastRow && natural < availableWidth * JUSTIFY_THRESHOLD)) {
-    return row;
+    return undefined;
   }
-  const scale = availableWidth / natural;
-  return row.map((measure) => ({
-    ...measure,
-    width: measure.width * scale,
-    beats: measure.beats.map((beat) => ({ ...beat, x: beat.x * scale })),
-    // Prefix glyphs keep their size; only the beat area stretches.
-  }));
+  return availableWidth / natural;
+}
+
+/** The measure stretched by `scale`; prefix glyphs keep their size, only the beat area stretches. */
+export function stretchMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
+  return { ...measure, width: measure.width * scale, beats: measure.beats.map((beat) => ({ ...beat, x: beat.x * scale })) };
 }

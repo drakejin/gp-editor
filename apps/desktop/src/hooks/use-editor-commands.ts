@@ -154,7 +154,8 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   const onPressBeat = useCallback(
     (hit: RowHit, isExtending: boolean) => {
       const string = hit.string ?? cursor?.string ?? 1;
-      const at = { trackIndex, measureIndex: hit.measureIndex, beatIndex: hit.beatIndex, voiceIndex: cursor?.voiceIndex ?? 0, string };
+      // A staff of another track (the multitrack view): the cursor goes there and that track is selected.
+      const at = { trackIndex: hit.trackIndex ?? trackIndex, measureIndex: hit.measureIndex, beatIndex: hit.beatIndex, voiceIndex: cursor?.voiceIndex ?? 0, string };
       dispatch(isExtending ? { type: 'selectTo', cursor: at } : { type: 'placeCursor', cursor: at });
       focusView(keyboardView.current);
     },

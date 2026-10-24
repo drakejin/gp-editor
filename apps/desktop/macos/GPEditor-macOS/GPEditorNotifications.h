@@ -92,6 +92,13 @@ FOUNDATION_EXPORT NSString *const GPEditorNextTabCommandNotification;
 /** File ▸ Previous Tab (⌃⇧Tab) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorPreviousTabCommandNotification;
 
+/** View ▸ Multitrack (F3) was chosen; GPFiles.m forwards it to JS as "multitrackRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorMultitrackCommandNotification;
+
+/** View ▸ Previous Track / Next Track; GPFiles.m forwards them to JS as "previousTrackRequested" / "nextTrackRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorPreviousTrackCommandNotification;
+FOUNDATION_EXPORT NSString *const GPEditorNextTrackCommandNotification;
+
 /** View ▸ Mixer was chosen; GPPlayer.m forwards it to JS as "mixerRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMixerCommandNotification;
 

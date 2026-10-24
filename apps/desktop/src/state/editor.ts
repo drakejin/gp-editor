@@ -35,7 +35,6 @@ import {
 } from '@gp-editor/core';
 import {
   adjacentBeat,
-  adjacentString,
   clampCursor,
   firstCursor,
 } from '../lib/navigation';
@@ -43,6 +42,8 @@ import { retuneNotice } from '../lib/tuning-hint';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { type AudioTrackAction, applyAudioTrackAction } from './audio-track-edits';
+import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
+import { INITIAL_TRACK_DISPLAY, type TrackDisplay } from './track-display';
 import { type SongEdit, applySongEdit } from './song-edits';
 import { withSelectionStart } from './mark-edits';
 import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
@@ -86,6 +87,8 @@ export interface EditorState {
    */
   readonly selectionAnchor?: StringAddress;
   readonly mode: ScoreMode;
+  /** The tracks the score shows (View ▸ Multitrack, the tracks panel's eyes) and their staves in the multitrack view. */
+  readonly trackDisplay: TrackDisplay;
   /** What this score shows of its chords (the track inspector's Chords toggles); names and diagrams for a new score. */
   readonly chordDisplay: ChordDisplay;
   readonly isLoading: boolean;
@@ -122,6 +125,7 @@ type SongAction =
 export type EditorAction =
   | SongAction
   | AudioTrackAction
+  | TrackDisplayAction
   | { readonly type: 'loadStarted' }
   | { readonly type: 'loadCancelled' }
   | { readonly type: 'loaded'; readonly document: OpenDocument }
@@ -187,6 +191,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
   future: [],
   trackIndex: 0,
   mode: 'notationAndTab',
+  trackDisplay: INITIAL_TRACK_DISPLAY,
   chordDisplay: DEFAULT_CHORD_DISPLAY,
   isLoading: false,
 };
@@ -236,7 +241,11 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
     case 'selectTrack':
       return selectTrack(state, action.trackIndex);
     case 'setMode':
-      return { ...state, mode: action.mode };
+      return setScoreMode(state, action.mode);
+    case 'toggleMultitrack':
+    case 'toggleTrackShown':
+    case 'moveCursorTrack':
+      return reduceTrackDisplay(state, action);
     case 'setChordDisplay':
       return { ...state, chordDisplay: action.display };
     default:
@@ -247,15 +256,13 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
 function cursorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'placeCursor':
-      return withCursor(state, () => action.cursor);
+      return placeCursor(state, action.cursor);
     case 'moveCursorBeat':
       return withCursor(state, (song, cursor) =>
         adjacentBeat(song, cursor, action.step),
       );
     case 'moveCursorString':
-      return withCursor(state, (song, cursor) =>
-        adjacentString(song, cursor, action.delta),
-      );
+      return moveCursorString(state, action.delta);
     case 'selectVoice':
       return selectVoice(state, action.voiceIndex);
     case 'extendSelection':

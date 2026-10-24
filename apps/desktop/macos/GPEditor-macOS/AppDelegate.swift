@@ -115,6 +115,18 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorFocusCommand, object: nil)
         }
         .keyboardShortcut("f", modifiers: [.command, .shift])
+        // Guitar Pro 8's Multitrack (F3): every track the tracks panel's eyes show, one staff group each. Previous / Next
+        // Track move the cursor (⌘↑ / ⌘↓ on the score, kept off the menu so text fields keep those keys).
+        Button("Multitrack") {
+          NotificationCenter.default.post(name: .GPEditorMultitrackCommand, object: nil)
+        }
+        .keyboardShortcut(KeyEquivalent(Character(Unicode.Scalar(UInt32(NSF3FunctionKey))!)), modifiers: [])
+        Button("Previous Track") {
+          NotificationCenter.default.post(name: .GPEditorPreviousTrackCommand, object: nil)
+        }
+        Button("Next Track") {
+          NotificationCenter.default.post(name: .GPEditorNextTrackCommand, object: nil)
+        }
         Divider()
       }
       // Tools: the microphone tuner (GPAudioInput.m), the scale panel (scale finder, boxes; the scale is marked on the

@@ -10,6 +10,7 @@ import { dynamicBefore } from '../score/dynamics';
 import { type RowHit, hitTestRow } from '../score/hit-test';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
 import { type BeatRange, isSameRange } from '../score/selection-tint';
+import { type StaffDecor, engraveSystemStaff } from '../score/system-staff';
 import type { TabMarkKind } from '../score/tab';
 import type { Palette } from '../theme';
 
@@ -29,14 +30,18 @@ export interface ScoreRowProps {
   /** The selected beats inside this row (clipRange), tinted. */
   readonly selection?: BeatRange;
   readonly markLanes?: readonly TabMarkKind[];
+  /** Bar numbers, tempo and markers over the staves (all but the top staff of a multitrack system leave them out). */
+  readonly hasHeading?: boolean;
+  /** In a multitrack system: the names column, the track's label, the bracket and the bar lines through the system. */
+  readonly decor?: StaffDecor;
   /** Screen points per layout point (the score zoom); `width` and the geometry are in layout points. */
   readonly zoom: number;
-  /** This row's place in the score, for drags that run into other rows. */
+  /** This row's place in the score (its system's, in a multitrack score), for drags that run into other rows. */
   readonly rowIndex: number;
-  /** The mouse went down on a beat; `isExtending` when shift was held. */
+  /** The mouse went down on a beat (the hit names this row's track); `isExtending` when shift was held. */
   readonly onPress: (hit: RowHit, isExtending: boolean) => void;
   /** A drag that began in this row moved: the pointer in layout points from this row's top left (it may leave the row). */
-  readonly onDrag: (rowIndex: number, x: number, y: number) => void;
+  readonly onDrag: (rowIndex: number, x: number, y: number, trackIndex: number) => void;
 }
 
 /** A drag keeps going wherever the pointer goes, even far outside the row. */
@@ -50,18 +55,19 @@ interface DragStart {
 }
 
 function ScoreRowView(props: ScoreRowProps) {
-  const { row, headerWidth, geometry, width, zoom, rowIndex, onPress, onDrag } = props;
+  const { row, headerWidth, geometry, width, zoom, rowIndex, trackIndex, decor, onPress, onDrag } = props;
   const dragStart = useRef<DragStart | undefined>(undefined);
   // The row only re-renders when isSameRow says its content changed, so engrave directly.
-  const engraved = engraveRow(props);
+  const engraved = decor === undefined ? engraveRow(props) : engraveSystemStaff(props, decor);
   const commands = zoom === 1 ? engraved : scaleCommands(engraved, zoom);
-  const stringCount = props.song.tracks[props.trackIndex]?.strings.length ?? 6;
+  const stringCount = props.song.tracks[trackIndex]?.strings.length ?? 6;
+  const height = decor?.height ?? geometry.height;
   const handlePressIn = (event: GestureResponderEvent) => {
     const { locationX, locationY, pageX, pageY, shiftKey } = event.nativeEvent;
     dragStart.current = { x: locationX, y: locationY, pageX, pageY };
-    const hit = hitTestRow(placeRow(row, headerWidth), geometry, stringCount, locationX / zoom, locationY / zoom);
+    const hit = hitTestRow(placeRow(row, headerWidth + (decor?.namesWidth ?? 0)), geometry, stringCount, locationX / zoom, locationY / zoom);
     if (hit !== undefined) {
-      onPress(hit, shiftKey === true);
+      onPress({ ...hit, trackIndex }, shiftKey === true);
     }
   };
   // Measured from where the mouse went down, in window points, so the pointer can be followed into other rows.
@@ -69,7 +75,7 @@ function ScoreRowView(props: ScoreRowProps) {
     const start = dragStart.current;
     if (start !== undefined) {
       const { pageX, pageY } = event.nativeEvent;
-      onDrag(rowIndex, (start.x + pageX - start.pageX) / zoom, (start.y + pageY - start.pageY) / zoom);
+      onDrag(rowIndex, (start.x + pageX - start.pageX) / zoom, (start.y + pageY - start.pageY) / zoom, trackIndex);
     }
   };
   return (
@@ -80,9 +86,9 @@ function ScoreRowView(props: ScoreRowProps) {
         dragStart.current = undefined;
       }}
       pressRetentionOffset={DRAG_RETENTION}
-      style={{ width: width * zoom, height: geometry.height * zoom }}
+      style={{ width: width * zoom, height: height * zoom }}
     >
-      <ScoreCanvas commands={commands} style={{ width: width * zoom, height: geometry.height * zoom }} />
+      <ScoreCanvas commands={commands} style={{ width: width * zoom, height: height * zoom }} />
     </Pressable>
   );
 }
@@ -96,7 +102,7 @@ export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth ||
     a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.rowIndex !== b.rowIndex ||
-    !sameLanes(a.markLanes, b.markLanes) ||
+    !sameLanes(a.markLanes, b.markLanes) || a.hasHeading !== b.hasHeading || !sameDecor(a.decor, b.decor) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
     !isSameRange(a.selection, b.selection)
   ) {
@@ -139,6 +145,14 @@ function sameLayout(a: MeasureLayout, b: MeasureLayout): boolean {
 function sameDynamicBefore(props: ScoreRowProps, trackA: Track, trackB: Track): boolean {
   const first = props.row.measures[0]?.measureIndex ?? 0;
   return props.geometry.dynamicsY === undefined || dynamicBefore(trackA.measures, first) === dynamicBefore(trackB.measures, first);
+}
+
+function sameDecor(a: StaffDecor | undefined, b: StaffDecor | undefined): boolean {
+  return (
+    a === b ||
+    (a !== undefined && b !== undefined && a.namesWidth === b.namesWidth && a.label === b.label && a.isFirstStaff === b.isFirstStaff &&
+      a.isLastStaff === b.isLastStaff && a.height === b.height)
+  );
 }
 
 /** Lanes are rebuilt from the whole track on every edit; only their kinds matter. */

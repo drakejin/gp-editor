@@ -47,6 +47,8 @@ function render(overrides: Partial<TracksPanelProps> = {}) {
     onSetTrackVolume: jest.fn(),
     onSetTrackBalance: jest.fn(),
     onEditInstrument: jest.fn(),
+    onToggleTrackShown: jest.fn(),
+    onToggleMultitrack: jest.fn(),
     ...overrides,
   };
   let renderer!: ReactTestRenderer.ReactTestRenderer;
@@ -88,7 +90,7 @@ describe('TracksPanel table', () => {
     expect(panel.texts()).toEqual(expect.arrayContaining(['Tracks', '1. Guitar', '2. Bass']));
   });
 
-  it('selects a track by its name or its eye', () => {
+  it('selects a track by its name and shows or hides it by its eye', () => {
     // Arrange
     const panel = render();
 
@@ -97,15 +99,34 @@ describe('TracksPanel table', () => {
     panel.press('Show track 2 in the score');
 
     // Assert
-    expect(panel.props.onSelectTrack).toHaveBeenCalledTimes(2);
-    expect(panel.props.onSelectTrack).toHaveBeenNthCalledWith(1, 1);
-    expect(panel.props.onSelectTrack).toHaveBeenNthCalledWith(2, 1);
+    expect(panel.props.onSelectTrack).toHaveBeenCalledTimes(1);
+    expect(panel.props.onSelectTrack).toHaveBeenCalledWith(1);
+    expect(panel.props.onToggleTrackShown).toHaveBeenCalledWith(1);
   });
 
-  it('marks the shown track’s eye as on', () => {
-    const panel = render({ selectedTrackIndex: 1 });
-    expect(panel.control('Show track 2 in the score').props.accessibilityState).toEqual(expect.objectContaining({ checked: true }));
-    expect(panel.control('Show track 1 in the score').props.accessibilityState).toEqual(expect.objectContaining({ checked: false }));
+  it('marks the shown tracks’ eyes as on: the selected one alone, or those the multitrack view shows', () => {
+    // Act
+    const single = render({ selectedTrackIndex: 1 });
+    const multitrack = render({ selectedTrackIndex: 1, shownTrackIndexes: [0, 1], isMultitrack: true });
+
+    // Assert
+    expect(single.control('Show track 2 in the score').props.accessibilityState).toEqual(expect.objectContaining({ checked: true }));
+    expect(single.control('Show track 1 in the score').props.accessibilityState).toEqual(expect.objectContaining({ checked: false }));
+    expect(multitrack.control('Show track 1 in the score').props.accessibilityState).toEqual(expect.objectContaining({ checked: true }));
+  });
+
+  it('turns the multitrack view on and off from the lit Multitrack button over the table', () => {
+    // Arrange
+    const off = render();
+    const on = render({ isMultitrack: true });
+
+    // Act
+    off.press('Multitrack: every track in the score (F3)');
+
+    // Assert
+    expect(off.props.onToggleMultitrack).toHaveBeenCalledTimes(1);
+    expect(off.control('Multitrack: every track in the score (F3)').props.accessibilityState).toEqual(expect.objectContaining({ selected: false }));
+    expect(on.control('Multitrack: every track in the score (F3)').props.accessibilityState).toEqual(expect.objectContaining({ selected: true }));
   });
 
   it('toggles mute and solo from the track’s current state', () => {
@@ -140,13 +161,13 @@ describe('TracksPanel table', () => {
     // Act
     const panel = render();
 
-    // Assert: per track its name, eye, mute, solo, instrument, volume and pan, then the bar map
+    // Assert: per track its name, eye, mute, solo, instrument, volume and pan, then Multitrack and the bar map
     const controls = panel.renderer.root.findAll(
       (node) => typeof node.props.onPress === 'function' || typeof node.props.onPressIn === 'function',
     );
     const labels = new Set(controls.map((node) => node.props.accessibilityLabel));
     expect(labels.has(undefined)).toBe(false);
-    expect(labels.size).toBe(2 * 7 + 1);
+    expect(labels.size).toBe(2 * 7 + 2);
     expect(controls.filter((node) => typeof node.props.tooltip !== 'string' || node.props.tooltip.length === 0)).toEqual([]);
   });
 });

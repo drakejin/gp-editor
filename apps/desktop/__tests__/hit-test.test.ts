@@ -49,3 +49,24 @@ describe('hitTestDrag', () => {
     expect(hitTestDrag([], 0, geometry, 6, 95, 30)).toBeUndefined();
   });
 });
+
+describe('hitTestDrag in a multitrack score', () => {
+  // Staff 2 of each system: 120 points from the system's top; systems are 500 points apart.
+  const rowA = [measure(0, 40, [20, 60]), measure(1, 140, [20, 60])];
+  const rowB = [measure(2, 40, [20, 60]), measure(3, 140, [20, 60])];
+  const staff = { pitch: 500, top: 120 };
+
+  it('stays on the staff of the track the drag began on, over the other tracks’ staves of its system', () => {
+    // Act: the pointer 100 points above the staff (on the staff of the track above) and 300 below it
+    const above = hitTestDrag([rowA, rowB], 0, geometry, 6, 95, -100, staff);
+    const below = hitTestDrag([rowA, rowB], 0, geometry, 6, 95, 300, staff);
+
+    // Assert
+    expect(above).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+    expect(below).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+  });
+
+  it('reaches the same track’s staff in the next system a system’s height further', () => {
+    expect(hitTestDrag([rowA, rowB], 0, geometry, 6, 95, 500 + 100 + TAB.stringGap, staff)).toMatchObject({ measureIndex: 2, beatIndex: 1, string: 2 });
+  });
+});

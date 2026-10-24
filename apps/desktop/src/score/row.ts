@@ -47,6 +47,8 @@ export interface RowContext {
   readonly selection?: BeatRange;
   /** Effect-mark lanes of the track (`tabMarkLanes`), so every row stacks marks the same way. */
   readonly markLanes?: readonly TabMarkKind[];
+  /** Bar numbers, markers, tempo and endings over the staves; only the top staff of a multitrack system has them. */
+  readonly hasHeading?: boolean;
 }
 
 /** Clef (+ key signature) column at the start of every row, wide enough for the track's largest key signature. */
@@ -129,7 +131,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
   const notation = engraveNotation(context, scope);
   const { chordNamesY, chordDiagramsTop } = context.geometry;
   const commands = [
-    ...engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header)),
+    ...(context.hasHeading === false ? [] : engraveHeading(header, layout, context.palette, isMeasureOverfull(measure, header))),
     ...engraveChords({ measure, layout, namesY: chordNamesY, diagramsTop: chordDiagramsTop, palette: context.palette }),
     ...(notation ?? []),
     ...engraveMeasureDynamics(context, scope, notation),

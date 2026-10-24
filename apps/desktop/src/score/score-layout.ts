@@ -1,0 +1,200 @@
+import type { Song, Track } from '@gp-editor/core';
+import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
+import type { MeasureLayout, RowLayout } from '../lib/layout';
+import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
+import { hasDirections } from './directions';
+import { hasDynamicChanges } from './dynamics';
+import { ROW, type RowBands, type RowGeometry, type ScoreMode, rowGeometry } from './geometry';
+import { hasLyrics } from './lyrics';
+import { hasPedals } from './pedals';
+import { rowHeaderWidth } from './row';
+import { hasBends } from './symbols/bends';
+import { textWidth } from './symbols/shapes';
+import { type TabMarkKind, tabMarkLanes } from './tab';
+
+/** A multitrack system's spacing, names and bracket, in points. */
+export const SYSTEM = {
+  /** Room over a track's staves under another track's (in place of the heading band). */
+  staffSpacing: 10,
+  /** Under a system's last staves, before the next system. */
+  gap: 18,
+  nameSize: 10,
+  /** The longest name drawn; longer ones are cut with an ellipsis. */
+  maxNameWidth: 120,
+  /** Between a name and the bracket. */
+  nameGap: 6,
+  /** From the bracket's thick line to the staves. */
+  bracketGap: 7,
+  /** Left of the names. */
+  margin: 4,
+} as const;
+
+/** A shown track and the staves it is drawn with. */
+export interface StaffSpec {
+  readonly trackIndex: number;
+  readonly mode: ScoreMode;
+}
+
+/** A shown track's staves, the same in every system. */
+export interface ScoreStaff extends StaffSpec {
+  readonly geometry: RowGeometry;
+  readonly markLanes: readonly TabMarkKind[];
+  /** Bar numbers, tempo and markers over it: the top staff only. */
+  readonly hasHeading: boolean;
+  /** From the system's top. */
+  readonly top: number;
+  /** Its geometry's height, and the gap before the next system under the last staff of a multitrack system. */
+  readonly height: number;
+}
+
+/** One line of the score: the same bars on every staff. */
+export interface ScoreSystem {
+  /** One row per staff (the staves' order), sharing their bar widths. */
+  readonly rows: readonly RowLayout[];
+  /** The track names left of the staves; 0 with one track. */
+  readonly namesWidth: number;
+  /** Where the bars start: the names, then the clef column. */
+  readonly headerWidth: number;
+}
+
+export interface ScoreLayout {
+  readonly staves: readonly ScoreStaff[];
+  readonly systems: readonly ScoreSystem[];
+  /** The clef (+ key signature) column, as wide as the widest staff needs. */
+  readonly clefWidth: number;
+  readonly systemHeight: number;
+}
+
+/** A staff before it is stacked: what its geometry is made from. */
+export interface StaffPlan extends StaffSpec {
+  readonly stringCount: number;
+  readonly bands: RowBands;
+  readonly markLanes: readonly TabMarkKind[];
+}
+
+/** The bands a track's staves make room for, in every system; the top staff has the heading and the directions. */
+function staffBands(song: Song, track: Track, markLaneCount: number, isTop: boolean, chordDisplay: ChordDisplay): RowBands {
+  const { measures } = track;
+  return {
+    markLaneCount,
+    hasDynamics: hasDynamicChanges(measures),
+    hasBends: hasBends(measures),
+    hasLyrics: hasLyrics(track),
+    ...chordBands(measures, chordDisplay),
+    hasDirections: isTop && hasDirections(song),
+    hasPedals: hasPedals(measures),
+    headingHeight: isTop ? ROW.heading : SYSTEM.staffSpacing,
+  };
+}
+
+export function staffPlans(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay): StaffPlan[] {
+  return specs.flatMap((spec, staffIndex) => {
+    const track = song.tracks[spec.trackIndex];
+    if (track === undefined) {
+      return [];
+    }
+    const markLanes = tabMarkLanes(track.measures);
+    const bands = staffBands(song, track, markLanes.length, staffIndex === 0, chordDisplay);
+    return [{ ...spec, stringCount: track.strings.length, bands, markLanes }];
+  });
+}
+
+/** The staves one under the other; the last one of several keeps the gap before the next system. */
+export function stackStaves(plans: readonly StaffPlan[]): ScoreStaff[] {
+  let top = 0;
+  return plans.map((plan, staffIndex) => {
+    const geometry = rowGeometry(plan.mode, plan.stringCount, plan.bands);
+    const isLastOfSeveral = plans.length > 1 && staffIndex === plans.length - 1;
+    const staff: ScoreStaff = {
+      trackIndex: plan.trackIndex, mode: plan.mode, geometry, markLanes: plan.markLanes, hasHeading: staffIndex === 0, top,
+      height: geometry.height + (isLastOfSeveral ? SYSTEM.gap : 0),
+    };
+    top += staff.height;
+    return staff;
+  });
+}
+
+/** The bars of the last layout, kept to reuse those an edit left alone (an edit keeps untouched measures identical). */
+export interface MeasureCache {
+  readonly song: Song;
+  readonly trackIndexes: readonly number[];
+  readonly chordDisplay: ChordDisplay;
+  readonly measures: readonly (readonly MeasureLayout[])[];
+}
+
+/** A bar's layout depends on its header and measures and the ones before them (signatures and key changes shown). */
+function isSameBar(previous: Song, song: Song, trackIndexes: readonly number[], measureIndex: number): boolean {
+  const isSame = (index: number) =>
+    previous.measureHeaders[index] === song.measureHeaders[index] &&
+    trackIndexes.every((trackIndex) => previous.tracks[trackIndex]?.measures[index] === song.tracks[trackIndex]?.measures[index]);
+  return isSame(measureIndex) && isSame(measureIndex - 1);
+}
+
+/** Every bar laid out for the shown tracks together, `[measureIndex][staffIndex]`; `cache`'s bars reused where they still hold. */
+export function scoreMeasures(song: Song, trackIndexes: readonly number[], chordDisplay: ChordDisplay, cache?: MeasureCache): (readonly MeasureLayout[])[] {
+  // A beat with a chord is as wide as its diagram or name, so neighbouring chords do not overlap.
+  const beatRoom = (beat: Parameters<typeof chordBeatWidth>[0]) => chordBeatWidth(beat, chordDisplay);
+  const reusable =
+    cache !== undefined && cache.chordDisplay === chordDisplay && cache.trackIndexes.join() === trackIndexes.join() ? cache : undefined;
+  return song.measureHeaders.map((_, measureIndex) => {
+    const kept = reusable?.measures[measureIndex];
+    return kept !== undefined && reusable !== undefined && isSameBar(reusable.song, song, trackIndexes, measureIndex)
+      ? kept
+      : layoutAlignedMeasures(song, trackIndexes, measureIndex, beatRoom);
+  });
+}
+
+/** Guitar Pro's short name for a track: words over five letters cut to four and a dot ("Dist. Guit."). */
+export function shortTrackName(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== '')
+    .map((word) => (word.length > 5 ? `${word.slice(0, 4)}.` : word))
+    .join(' ');
+}
+
+/** What a staff is labelled with: the track's name on the first system, its short name on the others. */
+export function staffLabel(track: Pick<Track, 'name' | 'number'>, isFirstSystem: boolean): string {
+  const name = track.name.trim() === '' ? `Track ${track.number}` : track.name.trim();
+  return isFirstSystem ? name : shortTrackName(name);
+}
+
+/** The names column: the longest label (at most SYSTEM.maxNameWidth), the gap and the bracket; none for one track. */
+export function namesColumnWidth(song: Song, staves: readonly StaffSpec[], isFirstSystem: boolean): number {
+  if (staves.length < 2) {
+    return 0;
+  }
+  const widths = staves.map((staff) => {
+    const track = song.tracks[staff.trackIndex];
+    return track === undefined ? 0 : textWidth(staffLabel(track, isFirstSystem), SYSTEM.nameSize);
+  });
+  return SYSTEM.margin + Math.min(SYSTEM.maxNameWidth, Math.max(0, ...widths)) + SYSTEM.nameGap + SYSTEM.bracketGap;
+}
+
+/** The systems across `rowWidth` (layout points): the first one with the full names, the others with short ones. */
+export function scoreSystems(song: Song, staves: readonly ScoreStaff[], measures: readonly (readonly MeasureLayout[])[], rowWidth: number): Pick<ScoreLayout, 'systems' | 'clefWidth'> {
+  const clefWidth = Math.max(0, ...staves.map((staff) => {
+    const track = song.tracks[staff.trackIndex];
+    return track === undefined ? 0 : rowHeaderWidth(staff.mode, track);
+  }));
+  const firstNames = namesColumnWidth(song, staves, true);
+  const otherNames = namesColumnWidth(song, staves, false);
+  const rows = rowWidth > 0 ? layoutAlignedRows(measures, rowWidth - clefWidth - otherNames, rowWidth - clefWidth - firstNames) : [];
+  const systems = rows.map((staffRows, systemIndex): ScoreSystem => {
+    const namesWidth = systemIndex === 0 ? firstNames : otherNames;
+    return { rows: staffRows, namesWidth, headerWidth: namesWidth + clefWidth };
+  });
+  return { systems, clefWidth };
+}
+
+/**
+ * The score's layout: a staff group per shown track (in the order given), the bars broken into systems across
+ * `rowWidth`. With one track it is the single-track score: no names, no bracket, the rows as layoutRows makes them.
+ */
+export function layoutScore(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
+  const staves = stackStaves(staffPlans(song, specs, chordDisplay));
+  const measures = scoreMeasures(song, staves.map((staff) => staff.trackIndex), chordDisplay);
+  const systemHeight = staves.reduce((sum, staff) => sum + staff.height, 0);
+  return { staves, systemHeight, ...scoreSystems(song, staves, measures, rowWidth) };
+}
