@@ -1,3 +1,4 @@
+import { FINGERS } from '../formats/common/fingering';
 import { MAX_VELOCITY } from '../formats/common/velocity';
 import { NO_STROKE, STROKE_VALUES } from '../model/defaults';
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
@@ -7,6 +8,7 @@ import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
 import { MAX_FRET } from './edit-song';
+import { ACCIDENTAL_DISPLAYS } from './notation-marks';
 import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
 import { sortByString } from './song-paths';
 
@@ -25,15 +27,36 @@ export function serializeBeatFragment(fragment: BeatFragment): string {
   return JSON.stringify({ format: FRAGMENT_FORMAT, version: FRAGMENT_VERSION, isPercussion: fragment.isPercussion, items: fragment.items });
 }
 
+/** A note's optional marks, each absent or one of `allowed`; `null` when one holds anything else. */
+function parseNoteMarks(value: Readonly<Record<string, unknown>>): Pick<Note, 'leftFinger' | 'rightFinger' | 'accidentalDisplay'> | null {
+  const pick = <T extends string>(key: string, allowed: readonly T[]): { readonly ok: boolean; readonly found?: T } => {
+    const raw = value[key];
+    const found = allowed.find((candidate) => candidate === raw);
+    return { ok: raw === undefined || found !== undefined, ...(found === undefined ? {} : { found }) };
+  };
+  const left = pick('leftFinger', FINGERS);
+  const right = pick('rightFinger', FINGERS);
+  const display = pick('accidentalDisplay', ACCIDENTAL_DISPLAYS);
+  if (!left.ok || !right.ok || !display.ok) {
+    return null;
+  }
+  return {
+    ...(left.found === undefined ? {} : { leftFinger: left.found }),
+    ...(right.found === undefined ? {} : { rightFinger: right.found }),
+    ...(display.found === undefined ? {} : { accidentalDisplay: display.found }),
+  };
+}
+
 function parseNote(value: unknown, maxFret: number): Note | undefined {
   if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_STRINGS) || !isIntegerIn(value.fret, 0, maxFret)) {
     return undefined;
   }
   const effect = parseNoteEffect(value.effect, maxFret);
-  if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined) {
+  const marks = parseNoteMarks(value);
+  if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined || marks === null) {
     return undefined;
   }
-  return { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect };
+  return { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect, ...marks };
 }
 
 /** Up to one note per string, ordered by string. */

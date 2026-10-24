@@ -1,3 +1,4 @@
+import { DEFAULT_CHANNEL } from '@gp-editor/core';
 import { isSameRow, type ScoreRowProps } from '../src/components/ScoreRow';
 import { layoutMeasure } from '../src/lib/layout';
 import { rowGeometry } from '../src/score/geometry';
@@ -83,3 +84,18 @@ describe('isSameRow', () => {
     expect(isSameRow(before, same)).toBe(true);
   });
 });
+
+describe('isSameRow: notation marks of the track', () => {
+  it('redraws a row when the track goes into slash notation or onto a keyboard instrument', () => {
+    // Arrange
+    const before = rowProps();
+    const [track] = before.song.tracks;
+    const slashed = { ...before.song, tracks: [{ ...track!, hasSlashNotation: true }] };
+    const piano = { ...before.song, channels: [{ ...DEFAULT_CHANNEL, id: track!.channelId, program: 0 }] };
+
+    // Act / Assert
+    expect(isSameRow(before, { ...before, song: slashed })).toBe(false);
+    expect(isSameRow(before, { ...before, song: piano })).toBe(false);
+  });
+});
+

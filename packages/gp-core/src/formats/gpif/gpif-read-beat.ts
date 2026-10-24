@@ -13,6 +13,10 @@ import {
 
 export const XPROPERTY_BRUSH_DURATION = '687935489';
 export const XPROPERTY_TRILL_DURATION = '688062467';
+/** A beat's beam to the next beat: 1 joined, 2 broken (0 or none: by the bar's grouping). */
+export const XPROPERTY_BEAM_MODE = '1124204546';
+/** 1: the secondary beams break before the next beat. */
+export const XPROPERTY_SECONDARY_BEAM_BREAK = '1124204552';
 /** The GPIF vibrato strength that is wide (lower-cased); the other one is Slight. */
 const WIDE_VIBRATO = 'wide';
 
@@ -33,7 +37,7 @@ function propertyMap(node: XmlElement): ReadonlyMap<string, XmlElement> {
   return map;
 }
 
-function xPropertyInt(node: XmlElement, id: string): number | undefined {
+export function xPropertyInt(node: XmlElement, id: string): number | undefined {
   const xProperty = childList(node, 'XProperties', 'XProperty').find((p) => attribute(p, 'id') === id);
   const value = childText(xProperty, 'Int');
   return value === undefined ? undefined : parseJavaInt(value, 0);
@@ -103,6 +107,9 @@ export function readBeat(node: XmlElement): GpifBeat {
     whammyBarEnabled: whammy !== undefined || isEnabled(props.get('WhammyBar')),
     whammyBar: whammy !== undefined ? readWhammyElement(whammy) : readCurve(props, 'WhammyBar'),
     vibrato: parseVibrato(whammyVibrato, childText(whammyVibrato, 'Strength')),
+    slashed: child(node, 'Slashed') !== undefined,
+    beamMode: xPropertyInt(node, XPROPERTY_BEAM_MODE),
+    secondaryBeamBreak: xPropertyInt(node, XPROPERTY_SECONDARY_BEAM_BREAK),
   };
 }
 
@@ -153,5 +160,7 @@ export function readNote(node: XmlElement): GpifNote {
     palmMuted: isEnabled(props.get('PalmMuted')),
     harmonicFret: intProperty(props, 'HarmonicFret', 'HFret'),
     harmonicType: harmonicType === undefined ? '' : (childText(harmonicType, 'HType') ?? ''),
+    leftFingering: childText(node, 'LeftFingering'),
+    rightFingering: childText(node, 'RightFingering'),
   };
 }

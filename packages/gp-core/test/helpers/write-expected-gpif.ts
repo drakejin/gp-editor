@@ -36,6 +36,7 @@ import {
   type Voice,
 } from '../../src/model/song';
 import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
+import { normalizeBeamGrouping } from '../../src/model/beaming';
 import { expectedCurve } from './write-expected-curves';
 
 /*
@@ -63,7 +64,9 @@ import { expectedCurve } from './write-expected-curves';
  *   same place;
  * - effects: bend and whammy curves as the reader can read them back (write-expected-curves.ts); tremolo picking at
  *   8/16/32; trill speeds as plain durations; slides in flag order; artificial harmonics on the harmonic table's frets,
- *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot.
+ *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot;
+ * - notation marks: no cautionary or forced accidental (accidentalDisplay); a bar's beam grouping only when it is not
+ *   the time signature's own; a track's slash notation only when on.
  */
 
 const CONTROL_CHARACTERS = /[\ud800-\udbff][\udc00-\udfff]|[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udfff]/g;
@@ -147,12 +150,14 @@ function expectedChannels(song: Song): ChannelPlan {
 }
 
 function expectedHeader(header: MeasureHeader, start: number): MeasureHeader {
-  const { marker, directions, ...rest } = header;
+  const { marker, directions, beamGrouping: grouping, ...rest } = header;
   const title = marker === undefined ? '' : sanitized(marker.title).replaceAll('\n', '').trim();
   const sorted = MUSICAL_DIRECTIONS.filter((direction) => directions?.includes(direction) === true);
+  const beamGrouping = normalizeBeamGrouping(grouping, header.timeSignature);
   return {
     ...rest,
     ...(sorted.length === 0 ? {} : { directions: sorted }),
+    ...(beamGrouping === undefined ? {} : { beamGrouping }),
     start,
     tempo: Math.max(1, Math.round(header.tempo)),
     repeatAlternative: header.repeatAlternative & 0x7fffffff,
@@ -273,7 +278,8 @@ interface TrackRules {
 function expectedNote(note: Note, shared: VoiceShared, rules: TrackRules): Note {
   const tuning = rules.isPercussion ? 0 : (rules.track.strings.find((s) => s.number === note.string)?.tuning ?? 0);
   const capo = rules.isPercussion ? 0 : rules.track.offset;
-  return { ...note, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
+  const { accidentalDisplay: _dropped, ...kept } = note;
+  return { ...kept, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
 }
 
 function isNormal(tuplet: Tuplet): boolean {
@@ -300,6 +306,8 @@ function expectedVoice(voice: Voice | undefined, rules: TrackRules): Voice {
     notes: voice.notes.map((note) => expectedNote(note, shared, rules)),
     isEmpty: false,
     direction: 'none',
+    ...(voice.isSlashed === true ? { isSlashed: true } : {}),
+    ...(voice.beamToNext === undefined ? {} : { beamToNext: voice.beamToNext }),
   };
 }
 
@@ -377,10 +385,11 @@ function expectedTrack(track: Track, song: Song, plan: ChannelPlan, keys: readon
   const channelId = plan.ids.get(track.channelId) ?? track.channelId;
   const isPercussion = plan.channels.find((channel) => channel.id === channelId)?.isPercussion ?? false;
   const rules: TrackRules = { track, isPercussion };
-  const { lyrics, ...rest } = track;
+  const { lyrics, hasSlashNotation, ...rest } = track;
   const lyricsText = lyrics === undefined ? '' : sanitized(lyrics.text);
   return {
     ...rest,
+    ...(hasSlashNotation === true ? { hasSlashNotation } : {}),
     name: sanitized(track.name).replaceAll('\n', '').trim(),
     channelId,
     isPercussion,

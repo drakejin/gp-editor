@@ -1,4 +1,5 @@
 // Port of TuxGuitar GP3/GP4/GP5OutputStream#writeNote helpers (LGPL-2.1): what the three note layouts share.
+import { gpFingerByte } from '../formats/common/fingering';
 import { DEFAULT_VELOCITY } from '../formats/common/velocity';
 import type { Grace, Note, Trill } from '../model/song';
 import type { ByteWriter } from './byte-writer';
@@ -30,6 +31,18 @@ export function writeDynamicAndFret(writer: ByteWriter, note: Note, flags: numbe
     writer.writeByte(dynamicFromVelocity(note.velocity));
   }
   writer.writeByte(clampFret(note.fret));
+}
+
+/** Note flag 0x80: the note has a left- or right-hand finger. */
+export function fingeringFlag(note: Note): number {
+  return note.leftFinger !== undefined || note.rightFinger !== undefined ? 0x80 : 0;
+}
+
+/** The fingering bytes (flag 0x80, after the fret): left hand, right hand, -1 for none. */
+export function writeFingers(writer: ByteWriter, note: Note, flags: number): void {
+  if ((flags & 0x80) !== 0) {
+    writer.writeByte(gpFingerByte(note.leftFinger)).writeByte(gpFingerByte(note.rightFinger));
+  }
 }
 
 /** GP3/GP4 grace note: fret (255 = dead), dynamic, transition, duration. */
