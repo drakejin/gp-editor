@@ -331,7 +331,10 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     };
   });
   NSArray *mapped = special[key];
-  NSString *characters = mapped != nil ? mapped[0] : key;
+  // Shift writes a letter's capital, as a real key press reports it even in charactersIgnoringModifiers (so ⇧⌘Z finds
+  // the menu's Redo).
+  BOOL isShiftedLetter = mapped == nil && key.length == 1 && [modifiers containsObject:@"shift"];
+  NSString *characters = mapped != nil ? mapped[0] : (isShiftedLetter ? key.uppercaseString : key);
   unsigned short keyCode = mapped != nil ? [mapped[1] unsignedShortValue] : 0;
   NSEventModifierFlags flags = 0;
   flags |= [modifiers containsObject:@"cmd"] ? NSEventModifierFlagCommand : 0;

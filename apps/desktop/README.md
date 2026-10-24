@@ -104,7 +104,7 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"hover": {"x": 300, "y": 200}}` the mouse entering the views at a point (each view there with a tracking area gets
   `mouseEntered:` — a Pressable's `onHoverIn`; synthetic mouse moves never reach tracking areas)
 - `{"key": "z", "modifiers": ["cmd", "shift", "alt", "ctrl"]}` — ArrowUp/Down/Left/Right, Backspace, Delete, Escape,
-  Enter, Tab, else the character
+  Enter, Tab, else the character (with shift a letter is sent as its capital, as a real key press reports it)
 - `{"resize": {"width": 1100, "height": 760}}` · `{"appearance": "dark"}` (anything else is light)
 - `{"menu": ["File", "Open Recent"]}` logs the items of a menu-bar menu; `{"menu": ["File", "Open Recent", "Song.gp5"]}`
   chooses the item, as a click in the menu does
