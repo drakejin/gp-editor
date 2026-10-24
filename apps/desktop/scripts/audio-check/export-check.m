@@ -2,13 +2,15 @@
 // each format and reads every file back (AVAudioFile for WAV, AIFF, FLAC and MP3; libvorbisfile for Ogg Vorbis): the
 // sample rate and channels asked for, the length written (the song plus a tail that ends in silence), a level that is
 // the playback render's (exactly for PCM, within half a dB for the lossy formats). Also checks that a reverb's tail is
-// kept, and that a cancelled export leaves no file. Prints PASS / FAIL lines; exits 1 when a check fails.
+// kept, that a cancelled export leaves no file, and that the song's audio track is in the file. Prints PASS / FAIL lines;
+// exits 1 when a check fails.
 // Usage: export-check <bank.sf2> <song.mid> <song seconds> <out dir>
 
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>
 #import <vorbis/vorbisfile.h>
 
+#import "GPAudioAssets.h"
 #import "GPAudioExporter.h"
 #import "GPMixRenderer.h"
 #import "audio-measures.h"
@@ -196,6 +198,37 @@ static void CheckCancel(NSData *midi, double seconds, NSString *folder)
   Check(written == -1 && error.code == GPAudioExportCancelledCode && isGone, @"cancel", [NSString stringWithFormat:@"stopped at a quarter: %@, file %@", error.localizedDescription, isGone ? @"removed" : @"left behind"]);
 }
 
+/** A 440 Hz sine as the audio track under a song without notes: the file holds the sine, at the track's gain. */
+static void CheckAudioTrack(NSString *folder)
+{
+  const double rate = 44100, seconds = 2;
+  AVAudioFormat *format = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:rate channels:1];
+  AVAudioPCMBuffer *sine = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)(rate * seconds)];
+  for (AVAudioFrameCount index = 0; index < sine.frameCapacity; index++) {
+    sine.floatChannelData[0][index] = (float)(0.5 * sin(2 * M_PI * 440 * index / rate));
+  }
+  sine.frameLength = sine.frameCapacity;
+  NSURL *source = [NSURL fileURLWithPath:[folder stringByAppendingPathComponent:@"audio-track-sine.wav"]];
+  AVAudioFile *file = [[AVAudioFile alloc] initForWriting:source settings:@{AVFormatIDKey : @(kAudioFormatLinearPCM), AVSampleRateKey : @(rate), AVNumberOfChannelsKey : @1} error:nil];
+  [file writeFromBuffer:sine error:nil];
+  file = nil;
+  NSString *assetId = [GPAudioAssets storeFileAtURL:source error:nil];
+  NSDictionary *audio = @{@"assetId" : assetId ?: @"", @"runs" : @[ @{@"atSeconds" : @0, @"fromSeconds" : @0, @"toSeconds" : @(seconds), @"rate" : @1} ], @"gain" : @1, @"detuneCents" : @0};
+  GPAudioFileSettings *settings = [GPAudioFileSettings settingsFrom:@{@"format" : @"wav", @"sampleRate" : @44100, @"bitDepth" : @16} error:nil];
+  NSURL *url = [NSURL fileURLWithPath:[folder stringByAppendingPathComponent:@"audio-track.wav"]];
+  NSError *error = nil;
+  AVAudioFramePosition written = [GPAudioExporter exportMidi:ChordMidi(0, @[]) seconds:seconds mix:@{} audioTrack:audio bankURL:bankURL settings:settings url:url progress:^BOOL(double fraction) {
+    return YES;
+  } error:&error];
+  AVAudioFile *exported = written > 0 ? [[AVAudioFile alloc] initForReading:url commonFormat:AVAudioPCMFormatFloat32 interleaved:NO error:&error] : nil;
+  AVAudioPCMBuffer *buffer = exported == nil ? nil : [[AVAudioPCMBuffer alloc] initWithPCMFormat:exported.processingFormat frameCapacity:(AVAudioFrameCount)exported.length];
+  BOOL isRead = buffer != nil && [exported readIntoBuffer:buffer error:&error];
+  double peakHz = isRead ? DominantFrequency(buffer, 0.5) : 0;
+  double level = isRead ? Db(Power(buffer, 0.5, 1.5)) / 2 : -200;
+  Check(isRead && fabs(peakHz - 440) < 6 && level > -20, @"audio track",
+        [NSString stringWithFormat:@"a 440 Hz sine under a song without notes: %.1f Hz, %.1f dB in the file%@", peakHz, level, isRead ? @"" : [@", " stringByAppendingString:error.localizedDescription ?: @"not written"]]);
+}
+
 static void CheckSettings(void)
 {
   NSError *error = nil;
@@ -237,6 +270,7 @@ int main(int argc, const char *argv[])
     }
     CheckTail(folder);
     CheckCancel(song, seconds, folder);
+    CheckAudioTrack(folder);
     printf("%s: %d failed (files in %s)\n", failures == 0 ? "OK" : "FAILED", failures, folder.UTF8String);
   }
   return failures == 0 ? 0 : 1;

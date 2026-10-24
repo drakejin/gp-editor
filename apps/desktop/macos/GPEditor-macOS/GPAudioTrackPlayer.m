@@ -138,8 +138,9 @@ static NSArray<GPAudioRun *> *RunsOf(NSDictionary *playback)
   [self connectForFormat:_file.processingFormat];
   [self setGain:NumberIn(playback, @"gain", 1) detuneCents:NumberIn(playback, @"detuneCents", 0)];
   _runs = RunsOf(playback);
+  // The time-pitch unit's latency depends on its rate: the start's rate is set before the latency is read.
+  _timePitch.rate = (float)[self rateAtRenderSeconds:MAX(0, fromSeconds)];
   _origin = MAX(0, fromSeconds) + self.latency;
-
   _timePitch.rate = (float)[self rateAtRenderSeconds:_origin];
   for (GPAudioRun *run in _runs) {
     [self scheduleRun:run];
@@ -199,6 +200,11 @@ static NSArray<GPAudioRun *> *RunsOf(NSDictionary *playback)
   }
   AVAudioTime *when = [AVAudioTime timeWithSampleTime:(AVAudioFramePosition)llround([self fileSecondsPlayedTo:startAt] * fileRate) atRate:fileRate];
   [_player scheduleSegment:_file startingFrame:first frameCount:(AVAudioFrameCount)(last - first) atTime:when completionHandler:nil];
+}
+
+- (void)reset
+{
+  [_timePitch reset];
 }
 
 - (void)startAtHostTime:(uint64_t)hostTime

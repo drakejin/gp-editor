@@ -21,11 +21,13 @@ static const NSTimeInterval kMaxSeconds = 7200;
 /** Progress events at most this often. */
 static const NSTimeInterval kProgressInterval = 0.1;
 
-/** One file to export, checked: its MIDI, the song's length, where it goes. */
+/** One file to export, checked: its MIDI, the song's length, where it goes, the audio track under it. */
 @interface GPAudioExportFile : NSObject
 @property (nonatomic, strong) NSData *midi;
 @property (nonatomic) NSTimeInterval seconds;
 @property (nonatomic, strong) NSURL *url;
+/** The audio track under it (GPAudioTrackPlayer checks the runs); nil without one. */
+@property (nonatomic, strong, nullable) NSDictionary *audio;
 @end
 
 @implementation GPAudioExportFile
@@ -99,6 +101,7 @@ RCT_EXPORT_MODULE();
     checked.midi = midi;
     checked.seconds = seconds;
     checked.url = [NSURL fileURLWithPath:path isDirectory:NO];
+    checked.audio = [file[@"audio"] isKindOfClass:[NSDictionary class]] ? file[@"audio"] : nil;
     [files addObject:checked];
   }
   return files;
@@ -120,7 +123,7 @@ RCT_EXPORT_MODULE();
     GPAudioExportFile *file = files[index];
     __block CFAbsoluteTime lastSent = 0;
     NSError *error = nil;
-    AVAudioFramePosition frames = [GPAudioExporter exportMidi:file.midi seconds:file.seconds mix:mix bankURL:bankURL settings:settings url:file.url progress:^BOOL(double fraction) {
+    AVAudioFramePosition frames = [GPAudioExporter exportMidi:file.midi seconds:file.seconds mix:mix audioTrack:file.audio bankURL:bankURL settings:settings url:file.url progress:^BOOL(double fraction) {
       CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
       if (now - lastSent >= kProgressInterval) {
         lastSent = now;
@@ -143,7 +146,7 @@ RCT_EXPORT_MODULE();
 }
 
 /**
- * `{ files: [{ midi (base64), seconds, path }], mix: { tracks, master }, settings: { format, sampleRate, … } }` →
+ * `{ files: [{ midi (base64), seconds, path, audio? }], mix: { tracks, master }, settings: { format, sampleRate, … } }` →
  * `{ files: [{ name, path, seconds }] }` once every file is written, or null when cancelled. One export at a time.
  */
 RCT_EXPORT_METHOD(exportAudio : (NSDictionary *)job resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
