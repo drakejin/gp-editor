@@ -15,7 +15,7 @@ export interface LcdInfo {
   readonly timeSignature: string;
   /** "00:22 / 02:00" at the playback speed, played straight through. */
   readonly clock: string;
-  /** "♩ = 104" or "♩ = 92.5", with the playback speed when it is not 100% and "· locked" with the tempo lock on. */
+  /** "♩ = 104" or "♩ = 92.5", with the playback speed when it is not 100% and a padlock with the tempo lock on. */
   readonly tempo: string;
   /** The tempo typing in the LCD starts from: the locked tempo with the tempo lock on, else the playback tempo. */
   readonly tempoBpm: number;
@@ -43,8 +43,12 @@ function positionText(song: Song, cursor: StringAddress | undefined): string {
   return `Voice ${cursor.voiceIndex + 1} · Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
 }
 
+/** The tempo lock's mark after the tempo (the LCD tempo's tooltip names it). */
+export const TEMPO_LOCK_MARK = '🔒';
+
 function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined, isLocked: boolean): string {
-  const lock = isLocked ? ' · locked' : '';
+  // A padlock, not a word: the tempo, speed, beat dots and count-in fit the LCD at a 1280 pt window.
+  const lock = isLocked ? ` ${TEMPO_LOCK_MARK}` : '';
   if (loopPass !== undefined) {
     return `♩ = ${loopPass.tempo} · pass ${loopPass.passIndex + 1}${lock}`;
   }

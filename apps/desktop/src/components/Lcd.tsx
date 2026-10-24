@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { LcdInfo } from '../lib/lcd';
+import { type LcdInfo, TEMPO_LOCK_MARK } from '../lib/lcd';
 import type { MetronomeBeat } from '../lib/metronome-beat';
 import { parseTempoText } from '../lib/practice-tempo';
 import { MONO_FONT, type Palette } from '../theme';
@@ -62,7 +62,7 @@ function LcdTempo({ info, palette, onSetTempo }: { readonly info: LcdInfo; reado
   }
   if (draft === undefined) {
     return (
-      <Pressable testID="lcd-tempo" tooltip="Click to type the tempo (decimals allowed, e.g. 92.5)" onPress={() => setDraft(String(info.tempoBpm))} style={styles.tempo}>
+      <Pressable testID="lcd-tempo" tooltip={`Click to type the tempo (decimals allowed, e.g. 92.5)${info.tempo.endsWith(TEMPO_LOCK_MARK) ? `; ${TEMPO_LOCK_MARK} = tempo locked (⌥L)` : ''}`} onPress={() => setDraft(String(info.tempoBpm))} style={styles.tempo}>
         <Text numberOfLines={1} style={styles.digits}>{info.tempo}</Text>
       </Pressable>
     );

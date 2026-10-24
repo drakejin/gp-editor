@@ -57,14 +57,14 @@ describe('lcdInfo', () => {
     expect(lcdInfo({ song, trackIndex: 0, cursor: CURSOR, practice: INITIAL_PRACTICE }).tempo).toBe('♩ = 92.5');
   });
 
-  it('shows the locked tempo, and counts the time at it', () => {
+  it('shows the locked tempo with a padlock (short enough for the LCD at 1280 pt), and counts the time at it', () => {
     // Act: 120 BPM bars locked at 60 (4 s a bar), then played at 50%
     const locked = lcdInfo({ song: SONG, trackIndex: 0, cursor: CURSOR, practice: { ...INITIAL_PRACTICE, lockedTempo: 60 } });
     const slower = lcdInfo({ song: SONG, trackIndex: 0, cursor: CURSOR, practice: { ...INITIAL_PRACTICE, lockedTempo: 60, tempoScale: 0.5 } });
 
     // Assert
-    expect(locked).toMatchObject({ tempo: '♩ = 60 · locked', clock: '00:04 / 00:12', tempoBpm: 60 });
-    expect(slower).toMatchObject({ tempo: '♩ = 30 (50%) · locked', tempoBpm: 60 });
+    expect(locked).toMatchObject({ tempo: '♩ = 60 🔒', clock: '00:04 / 00:12', tempoBpm: 60 });
+    expect(slower).toMatchObject({ tempo: '♩ = 30 (50%) 🔒', tempoBpm: 60 });
   });
 
   it('says when the cursor is on an empty string or a rest', () => {

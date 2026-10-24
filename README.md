@@ -460,7 +460,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
     from that bar's beginning (a loop from its first bar); as in Guitar Pro, only when playback starts — not before
     every loop pass. The LCD's dots count it in orange.
   - *Tempo lock* (practice menu, ⌥L): the whole song at one tempo (its tempo changes ignored), the speed still applied;
-    the LCD shows *· locked*. Click the LCD's tempo to type a tempo (decimals allowed): the locked tempo, or else the
+    the LCD shows a padlock (🔒) after the tempo. Click the LCD's tempo to type a tempo (decimals allowed): the locked tempo, or else the
     playback tempo.
   - *Preview notes on hover* (practice menu): a piano key or fret the mouse enters plays with the track's sound.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
