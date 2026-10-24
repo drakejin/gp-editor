@@ -3,7 +3,7 @@ import { type BeamLayout, beamGroupBoundsOf, flagCount, layoutBeams } from '../l
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
 import { fretLabel, tabFretOf } from '../lib/notation';
 import type { Palette } from '../theme';
-import { type DrawCommand, SMUFL } from './draw';
+import { type DrawCommand, SMUFL, restGlyph } from './draw';
 import { SLASH_GLYPHS } from './symbols/smufl';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
 import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
@@ -189,7 +189,7 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
   const voice = primaryVoice(beat);
   if (voice !== undefined && context.showRhythm) {
     if (voice.notes.length === 0) {
-      commands.push(restGlyph(voice, x, (top + bottom) / 2, palette.text));
+      commands.push(rhythmRest(voice, x, (top + bottom) / 2, palette.text));
     }
     commands.push(...rhythmStem(voice, x, bottom + STEM_GAP, isBeamed, palette));
   }
@@ -220,18 +220,8 @@ function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
   return commands;
 }
 
-const REST_GLYPHS: Readonly<Record<number, string>> = {
-  1: SMUFL.restWhole,
-  2: SMUFL.restHalf,
-  4: SMUFL.restQuarter,
-  8: SMUFL.rest8th,
-  16: SMUFL.rest16th,
-  32: SMUFL.rest32nd,
-  64: SMUFL.rest64th,
-};
-
-function restGlyph(voice: Voice, x: number, middle: number, color: string): DrawCommand {
-  return { kind: 'text', x, y: middle + 4, text: REST_GLYPHS[voice.duration.value] ?? SMUFL.restQuarter, size: MUSIC_SIZE * 0.75, color, font: 'music', align: 'center' };
+function rhythmRest(voice: Voice, x: number, middle: number, color: string): DrawCommand {
+  return { kind: 'text', x, y: middle + 4, text: restGlyph(voice.duration.value), size: MUSIC_SIZE * 0.75, color, font: 'music', align: 'center' };
 }
 
 function rhythmStem(voice: Voice, x: number, top: number, beamed: boolean, palette: Palette): DrawCommand[] {

@@ -220,3 +220,18 @@ export const SMUFL = {
   rest32nd: '',
   rest64th: '',
 } as const;
+
+const REST_GLYPHS: Readonly<Record<number, string>> = {
+  1: SMUFL.restWhole,
+  2: SMUFL.restHalf,
+  4: SMUFL.restQuarter,
+  8: SMUFL.rest8th,
+  16: SMUFL.rest16th,
+  32: SMUFL.rest32nd,
+  64: SMUFL.rest64th,
+};
+
+/** The rest of a note value (1 = whole … 64); a quarter rest for any other. */
+export function restGlyph(noteValue: number): string {
+  return REST_GLYPHS[noteValue] ?? SMUFL.restQuarter;
+}
