@@ -3,14 +3,21 @@ import { musicGlyph } from './glyphs';
 import { positionY } from './metrics';
 import type { ClefKind, PitchedClef } from './pitch';
 
-/** Staff positions of the key signature's sharps (F C G D A E B) and flats (B E A D G C F). */
+/**
+ * Staff positions of the key signature's sharps (F C G D A E B) and flats (B E A D G C F). The tenor clef's sharps start
+ * low (F on the second line), as engravers write them, so none goes above the staff.
+ */
 const SHARP_POSITIONS: Readonly<Record<PitchedClef, readonly number[]>> = {
   treble: [8, 5, 9, 6, 3, 7, 4],
   bass: [6, 3, 7, 4, 1, 5, 2],
+  alto: [7, 4, 8, 5, 2, 6, 3],
+  tenor: [2, 6, 3, 7, 4, 8, 5],
 };
 const FLAT_POSITIONS: Readonly<Record<PitchedClef, readonly number[]>> = {
   treble: [4, 7, 3, 6, 2, 5, 1],
   bass: [2, 5, 1, 4, 0, 3, -1],
+  alto: [3, 6, 2, 5, 1, 4, 0],
+  tenor: [5, 8, 4, 7, 3, 6, 2],
 };
 
 export interface KeyPlacement {

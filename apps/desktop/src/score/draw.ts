@@ -176,6 +176,7 @@ export const SMUFL = {
   gClef8vb: '',
   fClef: '',
   fClef8vb: '',
+  cClef8vb: '',
   unpitchedPercussionClef: '',
   sixStringTabClef: '',
   fourStringTabClef: '',

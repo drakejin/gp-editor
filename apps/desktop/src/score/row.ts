@@ -109,6 +109,7 @@ interface MeasureScope {
   readonly nextMeasure?: Measure;
   readonly cursor?: StringAddress;
   readonly playingBeatIndex?: number;
+  readonly isRowStart: boolean;
 }
 
 function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure, isRowStart: boolean): DrawCommand[] {
@@ -125,6 +126,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     nextMeasure: track.measures[layout.measureIndex + 1],
     cursor: context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined,
     playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
+    isRowStart,
   };
   const notation = engraveNotation(context, scope);
   const { chordNamesY, chordDiagramsTop } = context.geometry;
@@ -149,11 +151,11 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   const { cursor, playingBeatIndex } = scope;
   const highlight =
     playingBeatIndex !== undefined ? { beatIndex: playingBeatIndex } : cursor !== undefined ? { beatIndex: cursor.beatIndex, string: cursor.string } : undefined;
-  const { track, header, measure, layout, previousMeasure, nextMeasure } = scope;
+  const { track, header, measure, layout, previousMeasure, nextMeasure, isRowStart } = scope;
   // Pick strokes go over the tab when it is shown, else over the notation.
   const showsPickStrokes = !showsTab(context.mode);
   const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard });
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */

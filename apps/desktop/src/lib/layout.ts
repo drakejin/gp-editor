@@ -16,6 +16,8 @@ export const TAB = {
   /** Per accidental of a key signature drawn where the key changes inside a row. */
   keyAccidentalWidth: 7,
   keySignaturePadding: 6,
+  /** A clef drawn where the clef changes inside a row (cue size), with its padding. */
+  clefChangeWidth: 22,
   repeatWidth: 10,
   emptyMeasureWidth: 48,
   rowGap: 18,
@@ -49,6 +51,8 @@ export interface MeasureLayout {
   readonly showTempo: boolean;
   /** The triplet feel differs from the previous bar's (on bar 1: it is not straight). */
   readonly showTripletFeel: boolean;
+  /** Left edge of the clef when the track's clef changes at this measure (not at the first measure: the row header has it). */
+  readonly clefChangeX?: number;
   /** Left edge of the key signature when the key changes at this measure (not at the first measure: the row header has it). */
   readonly keySignatureX?: number;
   /** Left edge of the time signature when it is shown. */
@@ -110,7 +114,11 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   const showTempo = changed(song.measureHeaders, measureIndex, (h) => String(h.tempo));
   const showTripletFeel = header !== undefined && header.tripletFeel !== (song.measureHeaders[measureIndex - 1]?.tripletFeel ?? 'none');
   const keyAccidentals = keyChangeAccidentals(track?.measures[measureIndex - 1]?.keySignature, track?.measures[measureIndex]?.keySignature);
+  const previousClef = track?.measures[measureIndex - 1]?.clef;
+  const hasClefChange = previousClef !== undefined && previousClef !== track?.measures[measureIndex]?.clef;
   let x = TAB.padLeft + (header?.repeatOpen ? TAB.repeatWidth : 0);
+  const clefChangeX = hasClefChange ? x : undefined;
+  x += hasClefChange ? TAB.clefChangeWidth : 0;
   const keySignatureX = keyAccidentals > 0 ? x : undefined;
   x += keyAccidentals > 0 ? keyAccidentals * TAB.keyAccidentalWidth + TAB.keySignaturePadding : 0;
   const timeSignatureX = showTimeSignature ? x : undefined;
@@ -125,7 +133,7 @@ export function layoutMeasure(song: Song, trackIndex: number, measureIndex: numb
   const natural = beats.length === 0 ? x + TAB.emptyMeasureWidth : x + TAB.padRight + closeWidth;
   // A bar with directions is wide enough for its signs and words side by side.
   const width = Math.max(natural, directionsWidth(header));
-  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, showTripletFeel, keySignatureX, timeSignatureX };
+  return { measureIndex, width, beats: beatLayouts, showTimeSignature, showTempo, showTripletFeel, ...(clefChangeX === undefined ? {} : { clefChangeX }), keySignatureX, timeSignatureX };
 }
 
 /** Accidentals drawn for a key change: the new key's, or naturals cancelling the old one when changing to C. */

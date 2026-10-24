@@ -62,10 +62,10 @@ describe('staff positions and clefs', () => {
     expect(writtenMidi(GUITAR, note(9, 0))).toBe(60 + 12); // unknown string falls back to middle C
   });
 
-  it('chooses treble, bass or percussion staves', () => {
+  it('chooses treble, bass, C clef or percussion staves', () => {
     expect(clefKind(GUITAR, 'treble')).toBe('treble');
-    expect(clefKind(GUITAR, 'tenor')).toBe('treble');
-    expect(clefKind(GUITAR, 'alto')).toBe('treble');
+    expect(clefKind(GUITAR, 'tenor')).toBe('tenor');
+    expect(clefKind(GUITAR, 'alto')).toBe('alto');
     expect(clefKind(GUITAR, 'bass')).toBe('bass');
     expect(clefKind(GUITAR, 'neutral')).toBe('percussion');
     expect(clefKind({ ...GUITAR, isPercussion: true }, 'treble')).toBe(

@@ -54,6 +54,8 @@ export interface VoicesContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track: fingers are written 1–5 (piano fingering). */
   readonly isKeyboard?: boolean;
+  /** The measure starts its row: an octave sign running into it is named again. */
+  readonly isRowStart?: boolean;
 }
 
 function isHighlighted(
@@ -159,7 +161,7 @@ export function engraveVoices(
       tupletMarks(group, layout, beamed),
     ),
     ...ties(layout),
-    ...ottavaMarks(events, chords, context.top, ink),
+    ...ottavaMarks(events, chords, context.top, ink, context),
     ...techniques(layout),
     ...fingerings(layout, context.isKeyboard === true),
     ...(context.showsPickStrokes === true ? pickStrokes(layout) : []),
