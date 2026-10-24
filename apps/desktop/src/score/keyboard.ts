@@ -2,7 +2,7 @@ import type { Note, Track } from '@gp-editor/core';
 import { pitchName } from '../lib/pitch';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
-import { neckFret } from './fretboard';
+import { type PitchRegion, neckFret } from './fretboard';
 import { type ScaleHighlight, scaleMarkColor } from './scale-marks';
 
 /** An 88-key piano, A0 (MIDI 21) to C8 (108); sizes in points. */
@@ -61,6 +61,13 @@ export function pianoKey(width: number, pitch: number): PianoKey | undefined {
   }
   const blackWidth = whiteWidth * PIANO.blackWidth;
   return { pitch, x: whitesBelow * whiteWidth - blackWidth / 2, width: blackWidth, isBlack: true };
+}
+
+/** Every key's area (canvas points) with its pitch, white keys first so the black ones, listed after, lie on top. */
+export function keyboardHoverRegions(width: number): PitchRegion[] {
+  const keys = PITCHES.flatMap((pitch) => pianoKey(width, pitch) ?? []);
+  const region = (key: PianoKey): PitchRegion => ({ pitch: key.pitch, x: key.x, y: PIANO.padding, width: key.width, height: keyHeight(key) });
+  return [...keys.filter((key) => !key.isBlack).map(region), ...keys.filter((key) => key.isBlack).map(region)];
 }
 
 export function keyboardHeight(): number {

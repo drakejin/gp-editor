@@ -221,6 +221,24 @@ describe('EditionPalette edits', () => {
     expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setSection', title: 'Chorus 1' });
   });
 
+  it('types the bar’s tempo with decimals: a click on the tempo opens a field', () => {
+    // Arrange
+    const palette = render();
+    const value = palette.renderer.root.findByProps({ testID: 'palette-value-tempo' });
+    ReactTestRenderer.act(() => value.props.onPress());
+    const field = () => palette.renderer.root.findByType(TextInput);
+
+    // Act
+    const initial = field().props.value;
+    ReactTestRenderer.act(() => field().props.onChangeText('92,5'));
+    ReactTestRenderer.act(() => field().props.onSubmitEditing());
+
+    // Assert
+    expect(initial).toBe('120');
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setTempo', tempo: 92.5 });
+    expect(palette.renderer.root.findAllByType(TextInput)).toHaveLength(0);
+  });
+
   it('steps the bar’s tempo, and only steps repeats on a bar that closes a repeat', () => {
     const palette = render();
     palette.pressTooltip('Written tempo from this bar (5 BPM steps): more');

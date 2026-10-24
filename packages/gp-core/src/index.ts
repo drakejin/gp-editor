@@ -21,6 +21,7 @@ export {
   isPedalDownBefore,
   isSameTuplet,
   measureTicks,
+  roundTempo,
   toNoteValue,
   tupletOf,
   vibratoOf,
@@ -149,6 +150,8 @@ export {
 } from './edit/curve-points';
 export { canGpifHoldCurve, toGpifCurve } from './write/gpif/gpif-curves';
 export { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from './edit/ornaments';
+export { setNoteAudio } from './edit/note-audio';
+export { DEFAULT_NOTE_AUDIO, NOTE_AUDIO_LIMITS, toNoteAudio } from './model/defaults';
 export { deleteMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
@@ -203,6 +206,7 @@ export {
   setTimeSignature,
   setTripletFeel,
 } from './edit/measure-headers';
+export { CLICK_KEYS, type ClickOptions, type MeterBeats, meterBeats } from './midi/index';
 export {
   ACCIDENTAL_DISPLAYS,
   BEAM_LINKS,

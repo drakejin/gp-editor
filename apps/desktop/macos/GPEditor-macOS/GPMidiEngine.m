@@ -1,6 +1,7 @@
 #import "GPMidiEngine.h"
 
 #import <AVFoundation/AVFoundation.h>
+#import <os/log.h>
 
 #import "GPLineIn.h"
 #import "GPMixGraph.h"
@@ -23,6 +24,13 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   NSUInteger _generation;
   /** The engine opened an audio input: release it as soon as neither playback nor the line in needs it. */
   BOOL _hasOpenedInput;
+  /** Tracks of the MIDI file kept silent (setMutedTrackIndexes:), and those always on the shared synth (the clicks). */
+  NSIndexSet *_mutedTracks;
+  NSIndexSet *_clickTracks;
+  /** MIDI file tracks the sequencer has no track for (file track i is sequencer track i - _trackOffset). */
+  NSUInteger _trackOffset;
+  /** The sequencer's tracks before routing appended split ones: the file's tracks. */
+  NSUInteger _fileTrackCount;
 }
 
 - (instancetype)initWithQueue:(dispatch_queue_t)queue
@@ -30,6 +38,8 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   if ((self = [super init])) {
     _queue = queue;
     _mix = @{};
+    _mutedTracks = [NSIndexSet indexSet];
+    _clickTracks = [NSIndexSet indexSet];
   }
   return self;
 }
@@ -87,7 +97,17 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   if (![sequencer loadFromData:midi options:AVMusicSequenceLoadSMF_PreserveTracks error:error]) {
     return NO;
   }
-  [_instruments routeSequencer:sequencer];
+  // With PreserveTracks every file track is a sequencer track; should the first (tempo) one be folded into the tempo
+  // track, the indexes shift by one. Routing may append tracks (a strip's channels): those come after the file's.
+  NSUInteger fileTracks = SmfTrackCount(midi);
+  _fileTrackCount = sequencer.tracks.count;
+  _trackOffset = fileTracks > _fileTrackCount ? fileTracks - _fileTrackCount : 0;
+  NSIndexSet *clickTracks = [self sequencerIndexes:_clickTracks];
+  [_instruments routeSequencer:sequencer clickTracks:clickTracks];
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: %lu file tracks, %lu sequencer tracks, %lu muted, %lu clicks", (unsigned long)fileTracks,
+         (unsigned long)_fileTrackCount, (unsigned long)_mutedTracks.count, (unsigned long)_clickTracks.count);
+  LogDestinations(sequencer, clickTracks);
+  [self applyMutedTracksTo:sequencer];
   NSTimeInterval length = 0;
   for (AVMusicTrack *track in sequencer.tracks) {
     length = MAX(length, track.lengthInSeconds);
@@ -99,6 +119,112 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
   }
   _sequencer = sequencer;
   _length = length;
+  return YES;
+}
+
+/** Track count in a Standard MIDI File's header (MThd: bytes 10–11, big-endian); 0 when it has none. */
+static NSUInteger SmfTrackCount(NSData *midi)
+{
+  if (midi.length < 12) {
+    return 0;
+  }
+  const uint8_t *bytes = midi.bytes;
+  return ((NSUInteger)bytes[10] << 8) | bytes[11];
+}
+
+/** Logs which instrument each sequence track plays on (the shared synth or a strip's sampler), click tracks marked. */
+static void LogDestinations(AVAudioSequencer *sequencer, NSIndexSet *clickTracks)
+{
+  NSMutableArray<NSString *> *destinations = [NSMutableArray array];
+  [sequencer.tracks enumerateObjectsUsingBlock:^(AVMusicTrack *track, NSUInteger index, BOOL *stop) {
+    BOOL isSampler = [track.destinationAudioUnit isKindOfClass:[AVAudioUnitSampler class]];
+    [destinations addObject:[NSString stringWithFormat:@"%lu%@:%@", (unsigned long)index, [clickTracks containsIndex:index] ? @"(click)" : @"", isSampler ? @"strip" : @"synth"]];
+  }];
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: routes %{public}@", [destinations componentsJoinedByString:@" "]);
+}
+
+/** File track indexes as the playing sequencer's track indexes. */
+- (NSIndexSet *)sequencerIndexes:(NSIndexSet *)fileIndexes
+{
+  NSMutableIndexSet *indexes = [NSMutableIndexSet indexSet];
+  NSUInteger offset = _trackOffset;
+  [fileIndexes enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+    if (index >= offset) {
+      [indexes addIndex:index - offset];
+    }
+  }];
+  return indexes;
+}
+
+/** Logs a track being muted with its first note (key and MIDI channel), so QA can tell which track went silent. */
+static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
+{
+  __block int key = -1;
+  __block int channel = -1;
+  [track enumerateEventsInRange:AVMakeBeatRange(0, track.lengthInBeats + 1)
+                     usingBlock:^(AVMusicEvent *event, AVMusicTimeStamp *timeStamp, BOOL *removeEvent) {
+                       if (key < 0 && [event isKindOfClass:[AVMIDINoteEvent class]]) {
+                         key = (int)((AVMIDINoteEvent *)event).key;
+                         channel = (int)((AVMIDINoteEvent *)event).channel;
+                       }
+                     }];
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: muted sequencer track %lu (first note %d on channel %d)", (unsigned long)index, key, channel);
+}
+
+/** Mutes the file's tracks that are in _mutedTracks, unmutes the others (tracks routing appended are left alone). */
+- (void)applyMutedTracksTo:(AVAudioSequencer *)sequencer
+{
+  NSIndexSet *muted = [self sequencerIndexes:_mutedTracks];
+  NSArray<AVMusicTrack *> *tracks = sequencer.tracks;
+  for (NSUInteger index = 0; index < MIN(_fileTrackCount, tracks.count); index++) {
+    AVMusicTrack *track = tracks[index];
+    BOOL isMuted = [muted containsIndex:index];
+    if (isMuted && !track.muted) {
+      LogFirstNote(track, index);
+    }
+    track.muted = isMuted;
+  }
+}
+
+- (void)setMutedTrackIndexes:(NSIndexSet *)indexes
+{
+  _mutedTracks = [indexes copy];
+  if (_sequencer != nil) {
+    [self applyMutedTracksTo:_sequencer];
+  }
+}
+
+- (void)setClickTrackIndexes:(NSIndexSet *)indexes
+{
+  _clickTracks = [indexes copy];
+}
+
+- (BOOL)playNote:(UInt8)key
+        velocity:(UInt8)velocity
+         program:(UInt8)program
+       onChannel:(UInt8)channel
+      trackIndex:(NSInteger)trackIndex
+      forSeconds:(NSTimeInterval)seconds
+         bankURL:(nullable NSURL *)bankURL
+           error:(NSError **)error
+{
+  if (key > 127 || velocity > 127 || program > 127 || channel > 15) {
+    return YES;
+  }
+  BOOL isIdle = _sequencer == nil;
+  if (_engine == nil) {
+    [self buildEngine];
+  }
+  if (isIdle && (![_instruments prepareBank:bankURL error:error] || ![self startEngine:error])) {
+    return NO;
+  }
+  AVAudioUnitMIDIInstrument *instrument = [_instruments startPreviewNote:key velocity:velocity program:program onChannel:channel trackIndex:trackIndex];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), _queue, ^{
+    [instrument stopNote:key onChannel:channel];
+  });
+  if (isIdle) {
+    [self scheduleIdleRelease];
+  }
   return YES;
 }
 
@@ -121,6 +247,12 @@ static const NSTimeInterval kIdleReleaseSeconds = 60;
 - (void)stop
 {
   [self stopSequencer];
+  [self scheduleIdleRelease];
+}
+
+/** Releases the engine a minute from now unless something plays before (at once when it had opened an input). */
+- (void)scheduleIdleRelease
+{
   _generation += 1;
   if (_hasOpenedInput && !_lineIn.isConnected) {
     [self releaseEngine];

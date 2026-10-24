@@ -19,6 +19,10 @@ export type KeyCommand =
   | { readonly type: 'togglePlayback' }
   | { readonly type: 'stopPlayback' }
   | { readonly type: 'shiftPlaybackTempo'; readonly delta: number }
+  /** ⌥- / ⌥=: the playback speed, in percent of the written tempo. */
+  | { readonly type: 'shiftPlaybackSpeed'; readonly delta: number }
+  /** ⌥M metronome, ⌥C count-in, ⌥L tempo lock. */
+  | { readonly type: 'togglePractice'; readonly practice: PracticeToggle }
   | { readonly type: 'goToBar'; readonly jump: BarJump }
   | { readonly type: 'zoom'; readonly direction: 1 | -1 }
   | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
@@ -30,6 +34,14 @@ export type KeyCommand =
 
 /** ] and [ : the playback tempo, in BPM. */
 const PLAYBACK_TEMPO_STEP = 5;
+/** ⌥= and ⌥- : the playback speed, in percent (Guitar Pro's relative speed). */
+const PLAYBACK_SPEED_STEP = 5;
+
+/** Practice settings a key turns on and off. */
+export type PracticeToggle = 'metronome' | 'countIn' | 'tempoLock';
+
+/** ⌥ + a letter: the practice toggles (M and C alone are palm mute and the bend panel). */
+const PRACTICE_KEYS: Readonly<Record<string, PracticeToggle>> = { m: 'metronome', c: 'countIn', l: 'tempoLock' };
 
 export interface KeyPress {
   readonly key: string;
@@ -64,6 +76,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: '[', altKey: true },
   { key: ']', altKey: true },
   { key: '/', altKey: true },
+  ...[...Object.keys(PRACTICE_KEYS), '-', '='].map((key) => ({ key, altKey: true })),
   ...['c', 'x', 'v'].map((key) => ({ key, metaKey: true })),
   { key: ' ' },
   { key: 'Escape' },
@@ -116,13 +129,22 @@ const SIMPLE_KEYS: Readonly<Record<string, KeyCommand>> = {
   End: { type: 'goToBar', jump: 'last' },
 };
 
+/** ⌥M ⌥C ⌥L toggle the metronome, count-in and tempo lock; ⌥- ⌥= step the playback speed. */
+function practiceKey(key: string): KeyCommand | undefined {
+  if (key === '-' || key === '=') {
+    return { type: 'shiftPlaybackSpeed', delta: key === '=' ? PLAYBACK_SPEED_STEP : -PLAYBACK_SPEED_STEP };
+  }
+  const practice = Object.prototype.hasOwnProperty.call(PRACTICE_KEYS, key.toLowerCase()) ? PRACTICE_KEYS[key.toLowerCase()] : undefined;
+  return practice === undefined ? undefined : { type: 'togglePractice', practice };
+}
+
 /**
  * The editor's keys: arrows move the cursor (↑/↓ between strings, ←/→ between beats), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's
  * tuplet), I inserts a beat, Space plays,
- * [ ] change the playback tempo, ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
+ * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */
@@ -141,6 +163,12 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
   }
   if (press.altKey && press.key === '/') {
     return { type: 'edit', edit: { type: 'toggleInnerTriplet' } };
+  }
+  if (press.altKey) {
+    const command = practiceKey(press.key);
+    if (command !== undefined) {
+      return command;
+    }
   }
   if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
     return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };

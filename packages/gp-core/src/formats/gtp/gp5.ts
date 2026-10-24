@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP5InputStream (LGPL-2.1).
 import { ByteReader } from '../../io/byte-reader';
-import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../model/defaults';
+import { DEFAULT_NOTE_AUDIO, durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteAudio, toNoteValue } from '../../model/defaults';
 import type {
   BeamLink,
   Beat,
@@ -9,6 +9,7 @@ import type {
   Grace,
   Harmonic,
   Note,
+  NoteAudio,
   NoteEffect,
   SlideType,
   Song,
@@ -342,14 +343,31 @@ function readNoteGp5(reader: ByteReader, context: NoteContext): Note {
   const velocity = (flags & 0x10) !== 0 ? velocityFromGp(reader.readByte()) : DEFAULT_VELOCITY;
   const fret = (flags & 0x20) !== 0 ? resolveFret(reader.readByte(), isTied, context.tiedFret) : 0;
   const fingers = (flags & 0x80) !== 0 ? readFingers(reader) : {};
-  if ((flags & 0x01) !== 0) {
-    reader.skip(8); // duration percent (double)
-  }
+  // Duration percent (a double, 1 = as written): TuxGuitar skips it; it is the note's play duration.
+  const durationPercent = (flags & 0x01) !== 0 ? reader.readDouble() * 100 : undefined;
   reader.skip(1); // second flags byte (accidental spelling)
   if ((flags & 0x08) !== 0) {
     effect = readNoteEffectsGp5(reader, effect);
   }
-  return { fret, velocity, string: context.string, isTied, effect, ...fingers };
+  const note = { fret, velocity, string: context.string, isTied, effect, ...fingers };
+  const audio = durationPercent === undefined ? undefined : audioOf(durationPercent, effect);
+  return audio === undefined ? note : { ...note, audio };
+}
+
+/**
+ * The play duration Guitar Pro 5 writes by itself for a staccato (50 %) or palm-muted (75 %) note, as the real files
+ * show; 100 for any other note. renderMidi already shortens those notes for the effect.
+ */
+export function impliedDurationPercent(effect: NoteEffect): number {
+  if (effect.staccato) {
+    return 50;
+  }
+  return effect.palmMute ? 75 : 100;
+}
+
+/** A note's audio settings from its duration percent; none when the percent is only what its effect implies. */
+function audioOf(durationPercent: number, effect: NoteEffect): NoteAudio | undefined {
+  return Math.round(durationPercent) === impliedDurationPercent(effect) ? undefined : toNoteAudio({ ...DEFAULT_NOTE_AUDIO, durationPercent });
 }
 
 function readNoteEffectsGp5(reader: ByteReader, effect: NoteEffect): NoteEffect {

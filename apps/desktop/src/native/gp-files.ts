@@ -225,6 +225,15 @@ export function subscribeHelpRequests(onHelpRequested: () => void): () => void {
   return () => subscription.remove();
 }
 
+/** View ▸ Focus / Unfocus (⇧⌘F): only the score and the transport, or the panels back. */
+export function subscribeFocusRequests(onFocusRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('focusRequested', onFocusRequested);
+  return () => subscription.remove();
+}
+
 export interface TabEventHandlers {
   /** File ▸ Close Tab (⌘W). */
   readonly onCloseTabRequested: () => void;

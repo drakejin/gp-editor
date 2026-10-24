@@ -3,6 +3,8 @@
 // -position to follow the playing beat, and changes a channel's program live when a track's instrument changes.
 // The song's effects (setMix) and the line in (Tools ▸ Line In) live on the same engine. View ▸ Mixer and
 // Tools ▸ Line In… (GPEditorNotifications.h) are forwarded to JS as "mixerRequested" / "lineInRequested".
+// It mutes the metronome's track while the metronome is off (-setMutedTracks:), keeps the click tracks on the shared
+// synth (-setClickTracks:) and plays a single note for the hover preview (-previewNote:).
 // Methods run on a serial queue of their own, so loading a bank never blocks the window; only the open panel of
 // -addSoundBank goes to the main queue.
 
@@ -10,6 +12,7 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <os/log.h>
 
 #import "GPEditorNotifications.h"
 #import "GPLineIn.h"
@@ -126,6 +129,71 @@ RCT_EXPORT_METHOD(setProgram : (double)channel program : (double)program resolve
 RCT_EXPORT_METHOD(setController : (double)channel controller : (double)controller value : (double)value resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   [_engine setController:(UInt8)controller value:(UInt8)value onChannel:(UInt8)channel];
+  resolve(nil);
+}
+
+/** Highest MIDI file track index taken (renderMidi writes far fewer: the tracks, the metronome, the count-in). */
+static const NSInteger kMaxTrackIndex = 1024;
+
+/** Track indexes from JS: whole numbers 0…kMaxTrackIndex; anything else is left out. */
+static NSIndexSet *TrackIndexSet(NSArray *trackIndexes)
+{
+  NSMutableIndexSet *indexes = [NSMutableIndexSet indexSet];
+  for (id value in trackIndexes) {
+    if ([value isKindOfClass:[NSNumber class]] && [value integerValue] >= 0 && [value integerValue] <= kMaxTrackIndex) {
+      [indexes addIndex:(NSUInteger)[value integerValue]];
+    }
+  }
+  return indexes;
+}
+
+/** MIDI file tracks kept silent, now and in later songs (the metronome's track while the metronome is off). */
+RCT_EXPORT_METHOD(setMutedTracks : (NSArray *)trackIndexes resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [self.engine setMutedTrackIndexes:TrackIndexSet(trackIndexes)];
+  os_log(OS_LOG_DEFAULT, "GPPlayer: muted tracks %{public}@", [trackIndexes componentsJoinedByString:@","]);
+  resolve(nil);
+}
+
+/** MIDI file tracks that play on the shared synth whatever the mix (the metronome and count-in), for later songs. */
+RCT_EXPORT_METHOD(setClickTracks : (NSArray *)trackIndexes resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  [self.engine setClickTrackIndexes:TrackIndexSet(trackIndexes)];
+  resolve(nil);
+}
+
+/**
+ * One note now (a key or fret hovered with Preview on hover), with the sound of song track `trackIndex`: checked ranges,
+ * at most five seconds.
+ */
+RCT_EXPORT_METHOD(previewNote : (NSDictionary *)note resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  double channel = [note[@"midiChannel"] doubleValue];
+  double program = [note[@"program"] doubleValue];
+  double key = [note[@"key"] doubleValue];
+  double velocity = [note[@"velocity"] doubleValue];
+  double durationMs = [note[@"durationMs"] doubleValue];
+  double trackIndex = [note[@"trackIndex"] doubleValue];
+  BOOL isValid = channel >= 0 && channel <= 15 && program >= 0 && program <= 127 && key >= 0 && key <= 127 && velocity >= 1 && velocity <= 127 &&
+                 trackIndex >= 0 && trackIndex <= kMaxTrackIndex;
+  if (!isValid) {
+    reject(@"bad_note", @"The note to preview is out of range", nil);
+    return;
+  }
+  NSTimeInterval seconds = MIN(5, MAX(0.02, durationMs / 1000));
+  NSError *error = nil;
+  if (![self.engine playNote:(UInt8)key
+                     velocity:(UInt8)velocity
+                      program:(UInt8)program
+                    onChannel:(UInt8)channel
+                   trackIndex:(NSInteger)trackIndex
+                   forSeconds:seconds
+                      bankURL:[GPSoundBanks selectedBankURL]
+                        error:&error]) {
+    reject(@"preview_failed", error.localizedDescription ?: @"Could not preview the note", error);
+    return;
+  }
+  os_log(OS_LOG_DEFAULT, "GPPlayer: preview note %d on channel %d, program %d, track %d", (int)key, (int)channel, (int)program, (int)trackIndex);
   resolve(nil);
 }
 

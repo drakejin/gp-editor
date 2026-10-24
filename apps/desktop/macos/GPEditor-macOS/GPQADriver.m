@@ -8,6 +8,7 @@
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
 //          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}, {"rightClick": {"x": 300, "y": 200}}, {"controlClick": …},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
+//          {"hover": {"x": 300, "y": 200}} (the mouse entering the views there: onHoverIn),
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
 //          {"menu": ["File", "Open Recent"]} (logs the items), {"menu": ["File", "Open Recent", "Song.gp5"]} (chooses it),
@@ -120,6 +121,10 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   }
   if (step[@"controlClick"] != nil) {
     [self controlClickAt:[self windowPoint:step[@"controlClick"] in:window] window:window];
+    return 0.4;
+  }
+  if (step[@"hover"] != nil) {
+    [self hoverAt:[self windowPoint:step[@"hover"] in:window] window:window];
     return 0.4;
   }
   if (step[@"drag"] != nil) {
@@ -267,6 +272,32 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 {
   [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location flags:NSEventModifierFlagControl window:window] atStart:NO];
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location flags:NSEventModifierFlagControl window:window]];
+}
+
+/**
+ * The mouse entering the views at a point. Tracking areas only follow the real pointer, so every view there that tracks
+ * the mouse (react-native-macos views with onMouseEnter / a Pressable's onHoverIn) gets -mouseEntered: directly.
+ */
+- (void)hoverAt:(NSPoint)location window:(NSWindow *)window
+{
+  NSView *hit = [window.contentView.superview hitTest:location];
+  NSEvent *event = [NSEvent enterExitEventWithType:NSEventTypeMouseEntered
+                                          location:location
+                                     modifierFlags:0
+                                         timestamp:NSProcessInfo.processInfo.systemUptime
+                                      windowNumber:window.windowNumber
+                                           context:nil
+                                       eventNumber:0
+                                    trackingNumber:0
+                                          userData:NULL];
+  NSUInteger entered = 0;
+  for (NSView *view = hit; view != nil; view = view.superview) {
+    if (view.trackingAreas.count > 0) {
+      [view mouseEntered:event];
+      entered += 1;
+    }
+  }
+  [self log:[NSString stringWithFormat:@"hover %@: %lu views entered", NSStringFromPoint(location), (unsigned long)entered]];
 }
 
 /** Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. */

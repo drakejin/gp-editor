@@ -26,6 +26,23 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)routeSequencer:(AVAudioSequencer *)sequencer;
 
+/**
+ * The same, with `clickTracks` (sequence track indexes: renderMidi's metronome and count-in, after the song's tracks)
+ * always on the shared synth, its drum channel 10 — never taken for a song track and never through a strip.
+ */
+- (void)routeSequencer:(AVAudioSequencer *)sequencer clickTracks:(NSIndexSet *)clickTracks;
+
+/**
+ * Starts one note (the hover preview) on the sampler of song track `trackIndex`'s strip when it has effects — loaded
+ * with `program` from the bank, kept for the next play —, else on the shared synth with `program` on `channel`.
+ * Returns the instrument to stop it on; nil when nothing can play it.
+ */
+- (nullable AVAudioUnitMIDIInstrument *)startPreviewNote:(UInt8)key
+                                                velocity:(UInt8)velocity
+                                                 program:(UInt8)program
+                                               onChannel:(UInt8)channel
+                                              trackIndex:(NSInteger)trackIndex;
+
 /** A channel's program now, on the shared synth and on the samplers playing that channel. */
 - (void)setProgram:(UInt8)program onChannel:(UInt8)channel;
 

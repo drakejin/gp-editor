@@ -185,6 +185,18 @@ export function parseIntList(text: string | undefined, separator: string): numbe
     .map((part) => parseJavaInt(part, 0));
 }
 
+/** Like parseIntList, but every item keeps its fraction (a tempo automation's "92.5 2"); malformed items become 0. */
+export function parseNumberList(text: string | undefined, separator: string): number[] | undefined {
+  if (text === undefined) {
+    return undefined;
+  }
+  return text
+    .split(separator)
+    .flatMap((part) => part.split(/\s+/))
+    .filter((part) => part !== '')
+    .map((part) => parseFloatOr(part, 0));
+}
+
 /**
  * The value for a name read from the file in a table of known GPIF names, or undefined when the name is unknown.
  * Own properties only: a name such as "constructor" must not resolve to an inherited Object property.

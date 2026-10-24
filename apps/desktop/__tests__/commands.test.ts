@@ -46,6 +46,8 @@ function mockActions(): jest.Mocked<CommandActions> {
     pickInstrument: jest.fn(),
     togglePanel: jest.fn(),
     toggleLoop: jest.fn(),
+    toggleFocus: jest.fn(),
+    togglePreviewOnHover: jest.fn(),
   };
 }
 
@@ -201,6 +203,28 @@ describe('command registry: running', () => {
     expect(actions.pickInstrument).toHaveBeenCalled();
     expect(actions.openLineIn).toHaveBeenCalled();
     expect(actions.togglePanel).toHaveBeenCalledWith('mixer');
+  });
+
+  it('runs the practice keys, View ▸ Focus and the hover preview', () => {
+    // Arrange
+    const actions = mockActions();
+
+    // Act
+    for (const id of ['play.speedUp', 'play.speedDown', 'play.metronome', 'play.countIn', 'play.tempoLock', 'view.focus', 'play.previewOnHover']) {
+      find(id).run(actions);
+    }
+
+    // Assert
+    expect(actions.runCommand.mock.calls).toEqual([
+      [{ type: 'shiftPlaybackSpeed', delta: 5 }],
+      [{ type: 'shiftPlaybackSpeed', delta: -5 }],
+      [{ type: 'togglePractice', practice: 'metronome' }],
+      [{ type: 'togglePractice', practice: 'countIn' }],
+      [{ type: 'togglePractice', practice: 'tempoLock' }],
+    ]);
+    expect(actions.toggleFocus).toHaveBeenCalled();
+    expect(actions.togglePreviewOnHover).toHaveBeenCalled();
+    expect([find('play.metronome').shortcut, find('view.focus').shortcut]).toEqual(['⌥M', '⇧⌘F']);
   });
 
   it('hands editor commands to the editor’s own path', () => {

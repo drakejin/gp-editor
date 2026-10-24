@@ -8,7 +8,7 @@ import { writeMeasureGp5 } from './gp5-beats';
 import { writeDirectionsGp5 } from './gp5-directions';
 import { readOrderGp5 } from './gp5-voices';
 import { writeColor, writeLyrics, writeTrackBlock } from './gtp-blocks';
-import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings } from './gtp-song';
+import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings, writtenTempo } from './gtp-song';
 import { resolveKeptTies } from './gtp-ties';
 
 /** Version string of the files this writer produces (and of a new song, which is saved as one). */
@@ -55,7 +55,7 @@ export function writeGp5(song: Song): Uint8Array {
   writeLyrics(writer, song.tracks);
   writeRseMasterEffect(writer);
   writePageSetup(writer);
-  writer.writeInt(song.measureHeaders[0]?.tempo ?? 0).writeByte(0); // tempo, "hide tempo"
+  writer.writeInt(writtenTempo(song, 0) ?? 0).writeByte(0); // tempo, "hide tempo"
   writer.writeByte(keys[0] ?? 0).writeInt(0); // key signature, octave
   writeChannelTable(writer, channels);
   writeDirectionsGp5(writer, song.measureHeaders);

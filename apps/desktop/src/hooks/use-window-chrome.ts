@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { ChromeMenuId } from '../components/TopBar';
 import type { NotePanel } from '../lib/key-commands';
-import { INITIAL_PANELS, type PanelId, type PanelVisibility, togglePanel } from '../state/panels';
+import { INITIAL_PANELS, type PanelId, type PanelLayout, type PanelVisibility, isFocused, toggleFocus, togglePanel } from '../state/panels';
 
 export interface OpenMenu {
   readonly id: ChromeMenuId;
@@ -13,6 +13,9 @@ export interface OpenMenu {
 export interface WindowChrome {
   readonly panels: PanelVisibility;
   readonly togglePanel: (panel: PanelId) => void;
+  /** View ▸ Focus: every panel hidden (the score and the top bar stay); toggleFocus again (Unfocus) restores them. */
+  readonly isFocused: boolean;
+  readonly toggleFocus: () => void;
   readonly zoom: number;
   readonly setZoom: (zoom: number) => void;
   readonly menu?: OpenMenu;
@@ -39,7 +42,7 @@ export interface WindowChrome {
 }
 
 export function useWindowChrome(): WindowChrome {
-  const [panels, setPanels] = useState<PanelVisibility>(INITIAL_PANELS);
+  const [layout, setLayout] = useState<PanelLayout>({ panels: INITIAL_PANELS });
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<OpenMenu | undefined>(undefined);
   const [pickingTrackIndex, setPickingTrackIndex] = useState<number | undefined>(undefined);
@@ -64,8 +67,10 @@ export function useWindowChrome(): WindowChrome {
     return true;
   }, [pickingTrackIndex, notePanel, isChordPanelOpen, isShortcutSheetOpen, menu]);
   return {
-    panels,
-    togglePanel: useCallback((panel: PanelId) => setPanels((current) => togglePanel(current, panel)), []),
+    panels: layout.panels,
+    togglePanel: useCallback((panel: PanelId) => setLayout((current) => ({ ...current, panels: togglePanel(current.panels, panel) })), []),
+    isFocused: isFocused(layout),
+    toggleFocus: useCallback(() => setLayout(toggleFocus), []),
     zoom,
     setZoom,
     menu,

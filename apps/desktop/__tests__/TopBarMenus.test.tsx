@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ChromeMenu, MenuButton, MenuItem } from '../src/components/chrome/ChromeMenu';
+import { PracticeMenu, type PracticeMenuProps } from '../src/components/PracticeMenu';
 import { SpeedMenu, type SpeedMenuProps, ZoomMenu } from '../src/components/TopBarMenus';
 import { INITIAL_PRACTICE } from '../src/state/practice';
 import { PALETTE } from '../test-support/score-helpers';
@@ -33,7 +34,7 @@ describe('SpeedMenu', () => {
   it('lists Guitar Pro’s percentages, then tempos with the written one marked, and checks the current speed', () => {
     const menu = renderSpeed();
     expect(menu.items().map((item) => item.props.label)).toEqual([
-      '25%', '50%', '60%', '70%', '80%', '90%', '100%', '60 BPM', '90 BPM', '120 BPM', '130 BPM (written tempo)', '150 BPM',
+      '25%', '50%', '60%', '70%', '80%', '90%', '100%', '110%', '125%', '150%', '200%', '60 BPM', '90 BPM', '120 BPM', '130 BPM (written tempo)', '150 BPM',
     ]);
     expect(menu.item('100%')?.props.isChecked).toBe(true);
   });
@@ -83,6 +84,59 @@ describe('SpeedMenu', () => {
     // Assert
     expect(menu.texts()).toEqual(expect.arrayContaining(['2', '5', '+5 BPM']));
     expect(menu.props.onChangePractice).toHaveBeenCalledWith({ type: 'shiftTrainerStep', delta: 1 });
+  });
+});
+
+function renderPractice(overrides: Partial<PracticeMenuProps> = {}) {
+  const props: PracticeMenuProps = { palette: PALETTE, practice: INITIAL_PRACTICE, writtenTempo: 92.5, onChangePractice: jest.fn(), ...overrides };
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<PracticeMenu {...props} />);
+  });
+  const item = (label: string) => renderer.root.findAllByType(MenuItem).find((candidate) => candidate.props.label === label);
+  const pressItem = (label: string) => ReactTestRenderer.act(() => item(label)?.props.onPress());
+  const pressButton = (tooltip: string) =>
+    ReactTestRenderer.act(() => renderer.root.findAllByType(MenuButton).find((button) => button.props.tooltip === tooltip)?.props.onPress());
+  const texts = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
+  return { props, item, pressItem, pressButton, texts };
+}
+
+describe('PracticeMenu', () => {
+  it('toggles the metronome, count-in, tempo lock and hover preview, checked while on, without closing', () => {
+    // Arrange
+    const menu = renderPractice({ practice: { ...INITIAL_PRACTICE, isCountInOn: true } });
+
+    // Act
+    menu.pressItem('Metronome (⌥M)');
+    menu.pressItem('Count-in before playback (⌥C)');
+    menu.pressItem('Tempo lock: one tempo (⌥L)');
+    menu.pressItem('Preview notes on hover');
+
+    // Assert
+    expect(menu.item('Count-in before playback (⌥C)')?.props.isChecked).toBe(true);
+    expect(menu.item('Metronome (⌥M)')?.props.isChecked).toBe(false);
+    expect((menu.props.onChangePractice as jest.Mock).mock.calls).toEqual([
+      [{ type: 'toggleMetronome' }],
+      [{ type: 'toggleCountIn' }],
+      [{ type: 'toggleTempoLock', writtenTempo: 92.5 }],
+      [{ type: 'togglePreviewOnHover' }],
+    ]);
+  });
+
+  it('steps the metronome volume and the locked tempo', () => {
+    // Arrange
+    const menu = renderPractice({ practice: { ...INITIAL_PRACTICE, lockedTempo: 92.5 } });
+
+    // Act
+    menu.pressButton('Metronome volume: less');
+    menu.pressButton('Locked tempo: more');
+
+    // Assert
+    expect(menu.texts()).toEqual(expect.arrayContaining(['80%', '♩ 92.5']));
+    expect((menu.props.onChangePractice as jest.Mock).mock.calls).toEqual([
+      [{ type: 'shiftMetronomeVolume', delta: -10 }],
+      [{ type: 'setLockedTempo', tempo: 93.5 }],
+    ]);
   });
 });
 

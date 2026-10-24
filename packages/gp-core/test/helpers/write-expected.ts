@@ -3,6 +3,7 @@ import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
 import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
 import { DEFAULT_RASGUEADO } from '../../src/formats/common/rasgueado';
 import { velocityFromGp } from '../../src/formats/common/velocity';
+import { impliedDurationPercent } from '../../src/formats/gtp/gp5';
 import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
 import { normalizeBeamGrouping } from '../../src/model/beaming';
 import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
@@ -38,8 +39,10 @@ import type {
  *   one (else dropped, which moves the beats after them); a tuplet inside a tuplet (GP7/GP8) likewise: an equal length
  *   when there is one (a triplet in a triplet = 9:8), else only the outer tuplet; an anacrusis starts at the measure start;
  * - effects: artificial harmonics as AH12, trills at 16/32/64, tremolo picking at 8/16/32;
- * - measure headers: eight alternate endings at most; each musical direction on its first bar only; beam groups only as
- *   four groups of whole eighth notes;
+ * - note audio settings: the duration percent only (no start offset, no velocity change), none when it is what the
+ *   note's palm mute (75 %) or staccato (50 %) implies;
+ * - measure headers: eight alternate endings at most; each musical direction on its first bar only; tempos are whole
+ *   numbers (rounded); beam groups only as four groups of whole eighth notes;
  * - marks: no hairpins, fade outs, volume swells or sustain pedals; a rasgueado without its pattern (read back as the
  *   first pattern, DEFAULT_RASGUEADO);
  * - notation marks: no slashes (a beat's or a track's) and no cautionary or forced accidentals; the beam from a voice's
@@ -116,6 +119,24 @@ function withVoiceEffects(notes: readonly Note[]): Note[] {
   });
 }
 
+/**
+ * GP5 keeps a note's duration percent only (its start offset and velocity change are lost); the reader takes the
+ * percent a palm mute or staccato implies for no setting (GP5 writes those by itself).
+ */
+function withGp5Audio(note: Note): Note {
+  const { audio, ...rest } = note;
+  if (audio === undefined || audio.durationPercent === 100 || audio.durationPercent === impliedDurationPercent(note.effect)) {
+    return rest;
+  }
+  return { ...rest, audio: { durationPercent: audio.durationPercent, offsetPercent: 0, velocityOffset: 0 } };
+}
+
+/** GP3 and GP4 have no audio settings. */
+function withoutAudio(track: Track): Track {
+  const voice = (v: Voice): Voice => ({ ...v, notes: v.notes.map(({ audio: _dropped, ...note }) => note) });
+  return { ...track, measures: track.measures.map((m) => ({ ...m, beats: m.beats.map((b) => ({ ...b, voices: b.voices.map(voice) })) })) };
+}
+
 function expectedNotes(voice: Voice, stringCount: number): Note[] {
   const byString = new Map<number, Note>();
   for (const note of voice.notes) {
@@ -126,7 +147,7 @@ function expectedNotes(voice: Voice, stringCount: number): Note[] {
   const notes = [...byString.values()].sort((a, b) => a.string - b.string);
   return withVoiceEffects(
     notes.map((note) => ({
-      ...withoutAccidentalDisplay(note),
+      ...withGp5Audio(withoutAccidentalDisplay(note)),
       fret: Math.min(MAX_FRET, Math.max(0, note.fret)),
       velocity: dynamicVelocity(note.velocity),
       effect: expectedEffect(note.effect),
@@ -346,7 +367,7 @@ function expectedBeamGrouping(header: MeasureHeader): BeamGrouping | undefined {
 function expectedHeaderGp5(header: MeasureHeader): MeasureHeader {
   const { beamGrouping: _replaced, ...rest } = header;
   const beamGrouping = expectedBeamGrouping(header);
-  return { ...rest, repeatAlternative: header.repeatAlternative & 0xff, ...(beamGrouping === undefined ? {} : { beamGrouping }) };
+  return { ...rest, tempo: Math.round(header.tempo), repeatAlternative: header.repeatAlternative & 0xff, ...(beamGrouping === undefined ? {} : { beamGrouping }) };
 }
 
 /** GP3/GP4 hold no beam, slash or accidental display. */
@@ -369,21 +390,21 @@ function withEmptyMeasureRest(measure: Measure, start: number): Measure {
 
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
- * effects): channels as for GP5, the clef the GP3/GP4 readers derive from the tuning, a quarter rest in a measure
- * without beats, and no notation marks but fingering.
+ * effects): channels as for GP5, whole-number tempos, no note audio settings, the clef the GP3/GP4 readers derive from
+ * the tuning, a quarter rest in a measure without beats, and no notation marks but fingering.
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
   const { master: _master, ...rest } = song;
   const expected: Song = {
     ...rest,
     channels: expectedChannels(song.channels),
-    measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, ...header }) => header),
+    measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, ...header }) => ({ ...header, tempo: Math.round(header.tempo) })),
     tracks: song.tracks.map(({ hasSlashNotation: _slash, effects: _effects, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
-      return {
+      return withoutAudio({
         ...track,
         measures: track.measures.map((measure) => withEmptyMeasureRest({ ...withoutGp5Marks(measure), clef }, song.measureHeaders[measure.headerIndex]?.start ?? 0)),
-      };
+      });
     }),
   };
   return actual === undefined ? expected : withDroppedTies(expected, actual);

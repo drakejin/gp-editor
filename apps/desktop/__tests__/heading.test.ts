@@ -13,6 +13,13 @@ describe('engraveHeading', () => {
     expect(textValues(commands)).toEqual(['1', 'Intro', '♩ = 120', '1, 2.', 'x3']);
   });
 
+  it('writes a decimal tempo with its decimals and no trailing zero', () => {
+    const headers = [header(1, { tempo: 92.5 }), header(2, { tempo: 100 })];
+    const song = makeSong([[], []], headers);
+    expect(textValues(engraveHeading(headers[0]!, layoutMeasure(song, 0, 0), PALETTE))).toContain('♩ = 92.5');
+    expect(textValues(engraveHeading(headers[1]!, layoutMeasure(song, 0, 1), PALETTE))).toContain('♩ = 100');
+  });
+
   it('shortens markers that do not fit the measure', () => {
     const headers = [header(1, { marker: { title: 'A very long section name indeed', color: { r: 0, g: 0, b: 0 } } })];
     const song = makeSong([[]], headers);

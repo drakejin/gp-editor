@@ -23,6 +23,7 @@ export interface GpifAutomation {
   readonly barId: number;
   /** Position inside the bar, 0–1. */
   readonly position: number;
+  /** The numbers of `<Value>` (a tempo: "92.5 2" = 92.5 per quarter note), fractions kept. */
   readonly value: readonly number[] | undefined;
 }
 

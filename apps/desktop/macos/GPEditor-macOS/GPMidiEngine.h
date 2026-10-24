@@ -57,6 +57,32 @@ NS_ASSUME_NONNULL_BEGIN
 /** The line in's peak since the last call, in dBFS (−120: silence or off). */
 - (double)takeLineInLevel;
 
+/**
+ * Tracks of the MIDI file (0 = its first track) that stay silent: muted now in the playing song, and in every song
+ * played after until changed (the metronome's track while the metronome is off — a toggle without a restart).
+ */
+- (void)setMutedTrackIndexes:(NSIndexSet *)indexes;
+
+/**
+ * Tracks of the MIDI file that always play on the shared synth, never through a track's strip: renderMidi's metronome
+ * and count-in tracks (drum channel 10), which come after the song's tracks. Kept for every song played after.
+ */
+- (void)setClickTrackIndexes:(NSIndexSet *)indexes;
+
+/**
+ * Plays `key` now for `seconds` with `program` on `channel` — through the track's own strip when song track
+ * `trackIndex` has effects, else on the shared synth (a key or fret previewed on hover); with the bank at `bankURL`,
+ * starting the engine when it is not running (released a minute later when nothing plays).
+ */
+- (BOOL)playNote:(UInt8)key
+        velocity:(UInt8)velocity
+         program:(UInt8)program
+       onChannel:(UInt8)channel
+      trackIndex:(NSInteger)trackIndex
+      forSeconds:(NSTimeInterval)seconds
+         bankURL:(nullable NSURL *)bankURL
+           error:(NSError **)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

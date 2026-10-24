@@ -79,6 +79,8 @@ export interface PaletteStepper {
   readonly minus: SongEdit;
   readonly plus: SongEdit;
   readonly isEnabled?: (context: PaletteContext) => boolean;
+  /** A click on the value opens a text field to type it (the tempo, decimals allowed). */
+  readonly typed?: Omit<Extract<PaletteRun, { kind: 'text' }>, 'kind'>;
   /** Drawn on the previous stepper's row, without its label (the time signature's two numbers); the label stays a command keyword. */
   readonly isBesidePrevious?: boolean;
 }

@@ -40,15 +40,18 @@ function playedUsq(headers: readonly MeasureHeader[], measure: PlayedMeasure | u
   return header === undefined || measure === undefined ? undefined : usqFromTempo(playedTempo(header, measure));
 }
 
-/** addTimeSignature / addTempo: a meta event wherever a played measure changes them. */
-function measureChanges(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[]): SequenceEvent[] {
+/**
+ * addTimeSignature / addTempo: a meta event wherever a played measure changes them. The first played measure's go at
+ * `origin`, where the file starts (before that measure when a count-in plays first).
+ */
+function measureChanges(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[], origin: number): SequenceEvent[] {
   return played.flatMap((measure, index): SequenceEvent[] => {
     const header = headerOf(headers, measure);
     if (header === undefined) {
       return [];
     }
     const previous = headerOf(headers, played[index - 1]);
-    const tick = header.start + measure.move;
+    const tick = index === 0 ? origin : header.start + measure.move;
     const { numerator, denominator } = header.timeSignature;
     const isNewSignature =
       previous?.timeSignature.numerator !== numerator || previous.timeSignature.denominator !== denominator;
@@ -63,7 +66,7 @@ function measureChanges(headers: readonly MeasureHeader[], played: readonly Play
 
 /** The conductor track (TuxGuitar's info track): default controls, time signatures and tempos. */
 export function buildConductorEvents(song: Song, played: readonly PlayedMeasure[], origin: number): SequenceEvent[] {
-  return [...defaultControls(song.channels, origin), ...measureChanges(song.measureHeaders, played)];
+  return [...defaultControls(song.channels, origin), ...measureChanges(song.measureHeaders, played, origin)];
 }
 
 /**

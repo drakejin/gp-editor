@@ -44,6 +44,9 @@ export interface CommandActions {
   readonly pickInstrument: () => void;
   readonly togglePanel: (panel: PanelId) => void;
   readonly toggleLoop: () => void;
+  /** View ▸ Focus / Unfocus. */
+  readonly toggleFocus: () => void;
+  readonly togglePreviewOnHover: () => void;
 }
 
 /** One row of the command palette (⇧⌘P). A new feature's command is one more row in COMMANDS (commands.ts). */

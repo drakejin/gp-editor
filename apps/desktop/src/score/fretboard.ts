@@ -158,6 +158,34 @@ function noteNames(geometry: NeckGeometry, track: Track, palette: Palette, scale
   });
 }
 
+/** Where a pitch can be pointed at on an instrument view (canvas points): a key of the piano, a position of the neck. */
+export interface PitchRegion {
+  readonly pitch: number;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * Every position of every string as a cell around its note (the open string left of the nut), with the pitch it sounds
+ * as the names show it — for previewing notes on hover. A string that starts up the neck starts at its peg.
+ */
+export function fretboardHoverRegions(track: Track, width: number): PitchRegion[] {
+  const geometry = neckGeometry(width, track.strings.length);
+  const tuning = trackTuning(track);
+  return track.strings.flatMap((guitarString) => {
+    const start = stringStartFret(tuning, guitarString.number);
+    const y = stringY(guitarString.number) - FRETBOARD.stringGap / 2;
+    return Array.from({ length: FRETBOARD.frets + 1 - start }, (_, i): PitchRegion => {
+      const position = start + i;
+      const x = position === 0 ? 0 : geometry.nutX + (position - 1) * geometry.fretWidth;
+      const cellWidth = position === 0 ? geometry.nutX : geometry.fretWidth;
+      return { pitch: guitarString.tuning + i, x, y, width: cellWidth, height: FRETBOARD.stringGap };
+    });
+  });
+}
+
 function capo(geometry: NeckGeometry, track: Track, palette: Palette): DrawCommand[] {
   if (track.offset <= 0) {
     return [];

@@ -1,3 +1,5 @@
+import { roundTempo } from '@gp-editor/core';
+
 /** −/+ step of the playback tempo and of the trainer's top tempo, in BPM. */
 export const TEMPO_STEP = 5;
 /** The playback tempo stays between a quarter and three times the written tempo … */
@@ -27,9 +29,62 @@ function clampTempo(tempo: number, writtenTempo: number): number {
   return Math.min(max, Math.max(min, tempo));
 }
 
-/** The playback tempo shown for a bar (BPM, rounded): its written tempo times the tempo scale. */
+/** The playback tempo shown for a bar (BPM, two decimals at most): its written tempo times the tempo scale. */
 export function playbackTempo(writtenTempo: number, tempoScale: number): number {
-  return Math.round(writtenTempo * tempoScale);
+  return roundTempo(writtenTempo * tempoScale);
+}
+
+/** Lowest and highest tempo a field accepts (a written or locked tempo), as gp-core's setTempo. */
+const MIN_TYPED_TEMPO = 1;
+const MAX_TYPED_TEMPO = 999;
+const TEMPO_TEXT = /^\d+([.,]\d*)?$/;
+
+/** A typed tempo ("92.5", or "92,5" with a decimal comma) kept to two decimals; undefined unless it is 1–999. */
+export function parseTempoText(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (!TEMPO_TEXT.test(trimmed)) {
+    return undefined;
+  }
+  const tempo = roundTempo(Number(trimmed.replace(',', '.')));
+  return tempo >= MIN_TYPED_TEMPO && tempo <= MAX_TYPED_TEMPO ? tempo : undefined;
+}
+
+/** A tempo kept to two decimals and within 1–999. */
+export function clampTypedTempo(tempo: number): number {
+  return Math.min(MAX_TYPED_TEMPO, Math.max(MIN_TYPED_TEMPO, roundTempo(tempo)));
+}
+
+/** Relative speed (Guitar Pro's speed −/+): 5% steps between 25% and 200% of the written tempo. */
+export const SPEED_STEP_PERCENT = 5;
+export const MIN_SPEED_PERCENT = 25;
+export const MAX_SPEED_PERCENT = 200;
+const PERCENT = 100;
+
+/** How close a speed must be to a 5% step to count as on it (scales are floating-point). */
+const GRID_EPSILON = 1e-6;
+
+/**
+ * The tempo scale `delta` percent (a multiple of 5) up or down from `tempoScale`, on the 5% grid (a speed between two
+ * steps first goes to the step in that direction), within 25%–200%. A speed already past the end it moves towards
+ * stays as it is.
+ */
+export function shiftSpeedScale(tempoScale: number, delta: number): number {
+  const percent = tempoScale * PERCENT;
+  if ((delta > 0 && percent >= MAX_SPEED_PERCENT) || (delta < 0 && percent <= MIN_SPEED_PERCENT)) {
+    return tempoScale;
+  }
+  const units = percent / SPEED_STEP_PERCENT;
+  const nearest = Math.round(units);
+  const from = Math.abs(nearest - units) < GRID_EPSILON ? nearest : delta > 0 ? Math.floor(units) : Math.ceil(units);
+  const steps = Math.round(delta / SPEED_STEP_PERCENT);
+  return Math.min(MAX_SPEED_PERCENT, Math.max(MIN_SPEED_PERCENT, (from + steps) * SPEED_STEP_PERCENT)) / PERCENT;
+}
+
+const MAX_CLICK_VELOCITY = 127;
+
+/** The MIDI velocity of the metronome's accent at a volume of 0–100%; at least 1. */
+export function metronomeVelocity(volumePercent: number): number {
+  return Math.max(1, Math.min(MAX_CLICK_VELOCITY, Math.round((MAX_CLICK_VELOCITY * volumePercent) / PERCENT)));
 }
 
 /** The tempo scale as a percentage of the written tempo. */

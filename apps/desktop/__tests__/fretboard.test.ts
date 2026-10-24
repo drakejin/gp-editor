@@ -1,5 +1,5 @@
 import type { CircleCommand } from '../src/score/draw';
-import { engraveFretboard, FRETBOARD, fretboardHeight, fretX, neckFret } from '../src/score/fretboard';
+import { engraveFretboard, FRETBOARD, fretboardHeight, fretboardHoverRegions, fretX, neckFret } from '../src/score/fretboard';
 import { SCALE_COLORS } from '../src/score/scale-marks';
 import { makeSong, note } from '../test-support/songs';
 import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
@@ -99,5 +99,25 @@ describe('engraveFretboard', () => {
   it('outlines the cursor string at the nut', () => {
     const commands = engraveFretboard({ track: guitar, width: 800, palette: PALETTE, notes: [], cursorString: 3 });
     expect(commands.some((c) => c.kind === 'rect' && c.color === `${PALETTE.accent}40`)).toBe(true);
+  });
+});
+
+describe('fretboardHoverRegions', () => {
+  it('gives every position of every string its cell and the pitch it sounds', () => {
+    // Act
+    const regions = fretboardHoverRegions(guitar, 1000);
+    const lowE5 = regions.find((region) => region.x <= fretX(NECK_1000, 5) && region.x + region.width > fretX(NECK_1000, 5) && region.pitch === 45);
+
+    // Assert: six strings × 25 positions; the open high E is 64, the 12th fret of the low E is 52
+    expect(regions).toHaveLength(6 * (FRETBOARD.frets + 1));
+    expect(regions[0]).toEqual({ pitch: 64, x: 0, y: FRETBOARD.top - FRETBOARD.stringGap / 2, width: FRETBOARD.openWidth, height: FRETBOARD.stringGap });
+    expect(regions.some((region) => region.pitch === 52 && Math.abs(region.x + region.width / 2 - fretX(NECK_1000, 12)) < 1e-6)).toBe(true);
+    expect(lowE5).toBeDefined();
+  });
+
+  it('starts a banjo’s short string at its peg', () => {
+    const fifth = fretboardHoverRegions(banjo, 1000).filter((region) => region.y > FRETBOARD.top + 3 * FRETBOARD.stringGap);
+    expect(fifth).toHaveLength(FRETBOARD.frets + 1 - 5);
+    expect(fifth[0]?.pitch).toBe(67);
   });
 });

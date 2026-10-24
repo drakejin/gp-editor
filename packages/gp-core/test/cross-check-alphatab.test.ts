@@ -186,3 +186,31 @@ describe('alphaTab reads Guitar Pro’s own files the same way (evidence for eac
     expect(differences.map((difference) => [difference.path, explain(difference, context)])).toEqual([['score.title', ['text-outside-windows-1252']]]);
   });
 });
+
+describe('alphaTab reads the practice fields gp-core writes', () => {
+  it('reads a GP5 note’s duration percent (flag 0x01, a double) without losing its place in the file', () => {
+    // Arrange: the second note plays 60% of its length
+    const song = buildSong({
+      tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 3)]) }, { voice: buildVoice([buildNote(2, 5, { audio: { durationPercent: 60, offsetPercent: 0, velocityOffset: 0 } })]) }]] }],
+    });
+
+    // Act
+    const { context, unexplained } = compareReadings(writeSong(song, 'gp5'), 'gp5');
+
+    // Assert
+    expect(context.song.tracks[0]?.measures[0]?.beats[1]?.voices[0]?.notes[0]?.audio?.durationPercent).toBe(60);
+    expect(unexplained).toEqual([]);
+  });
+
+  it('reads a decimal tempo from a .gp file', () => {
+    // Arrange
+    const song = buildSong({ headers: [{ tempo: 92.5 }], tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 3)]) }]] }] });
+
+    // Act
+    const { context, unexplained } = compareReadings(writeSong(song, 'gp'), 'gp');
+
+    // Assert
+    expect(context.song.measureHeaders[0]?.tempo).toBe(92.5);
+    expect(unexplained).toEqual([]);
+  });
+});

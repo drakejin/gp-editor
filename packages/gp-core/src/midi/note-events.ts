@@ -5,11 +5,11 @@ import { type Grace, type Harmonic, type Note, QUARTER_TIME } from '../model/son
 import type { BeatTiming } from './beat-timing';
 import { fadeEvents } from './fades';
 import { type NoteOutput, noteEvents, type SequenceEvent } from './midi-events';
-import { MIDI_TICK, fromMidiTicks } from './midi-ticks';
+import { MIDI_TICK, fromMidiTicks, truncToMidiTicks } from './midi-ticks';
 import { DEAD_NOTE_DURATION, realNoteDuration, staticDuration } from './note-duration';
 import { findNextNote, type PlacedNote, type TrackContext } from './note-search';
 import { rasgueadoStrikes } from './rasgueado';
-import { VELOCITY_INCREMENT } from '../formats/common/velocity';
+import { MAX_VELOCITY, VELOCITY_INCREMENT } from '../formats/common/velocity';
 import { realVelocity, softer } from './note-velocity';
 import { curveEvents, slideEvents, vibratoEvents } from './pitch-bends';
 
@@ -143,6 +143,25 @@ function applyHarmonic(note: Note, harmonic: Harmonic, sound: Sound): { sound: S
   return { sound: { ...sound, key }, events: [...semi, ...below] };
 }
 
+/**
+ * The note's audio settings (not in TuxGuitar): its sounding length scaled by its duration percent, its start delayed
+ * by its offset (a share of the beat; the end stays), its velocity changed and kept within 1–127.
+ */
+function applyNoteAudio(placed: PlacedNote, sound: Sound): Sound {
+  const { audio } = placed.note;
+  if (audio === undefined) {
+    return sound;
+  }
+  const offset = truncToMidiTicks(durationTicks(placed.voice.duration) * audio.offsetPercent, 100);
+  const duration = Math.max(MIDI_TICK, truncToMidiTicks(sound.duration * audio.durationPercent, 100));
+  return {
+    ...sound,
+    start: sound.start + offset,
+    duration: duration > offset ? duration - offset : duration,
+    velocity: Math.min(MAX_VELOCITY, Math.max(1, sound.velocity + audio.velocityOffset)),
+  };
+}
+
 /** Everything one struck (not tied) note plays: the effects, then the note itself. */
 export function buildNoteEvents(
   context: TrackContext,
@@ -158,13 +177,13 @@ export function buildNoteEvents(
     return rasgueadoEvents(context, placed, timing, key);
   }
   const realDuration = realNoteDuration(context, placed, timing.duration);
-  const initial: Sound = {
+  const initial = applyNoteAudio(placed, {
     key,
     start: timing.start + placed.move + strokeDelay,
     duration: realDuration > strokeDelay ? realDuration - strokeDelay : realDuration,
     velocity: realVelocity(context, placed),
     output: { channelId: context.channel.id, bendMode: false },
-  };
+  });
   const fade = fadeEvents(placed.note.effect, { channelId: initial.output.channelId, start: initial.start, duration: initial.duration });
   return [...fade, ...effectEvents(context, placed, initial)];
 }

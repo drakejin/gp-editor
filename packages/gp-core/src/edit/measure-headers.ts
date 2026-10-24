@@ -1,7 +1,7 @@
 // Measure property edits after TuxGuitar's TGSongManager.changeTimeSignature / changeTempos / changeTripletFeel,
 // TGTrackManager.changeKeySignature and TGUpdateMarkerAction / TGSongManager.removeMarker (LGPL-2.1), propagated the way
 // Guitar Pro does.
-import { NOTE_VALUES, measureTicks } from '../model/defaults';
+import { NOTE_VALUES, measureTicks, roundTempo } from '../model/defaults';
 import type { Marker, Measure, MeasureHeader, NoteValue, Song, TimeSignature, TripletFeel } from '../model/song';
 import { headerTicks, relayoutMeasures } from './relayout';
 import { replaceAt, hasSameItems } from './song-paths';
@@ -134,14 +134,14 @@ function updateHeaderRun(
 
 /**
  * New song with the tempo of `measureIndex` and of the following measures that had the same tempo set, clamped to
- * 1…999. Same song when nothing changes.
+ * 1…999 and kept to two decimals. Same song when nothing changes.
  */
 export function setTempo(song: Song, measureIndex: number, tempo: number): Song {
   const header = song.measureHeaders[measureIndex];
   if (header === undefined || !Number.isFinite(tempo)) {
     return song;
   }
-  const next = clamp(tempo, MIN_TEMPO, MAX_TEMPO);
+  const next = clamp(roundTempo(tempo), MIN_TEMPO, MAX_TEMPO);
   if (next === header.tempo) {
     return song;
   }

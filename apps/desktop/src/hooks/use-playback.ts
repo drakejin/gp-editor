@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
 import { type LiveChange, hasSameMuteAndSolo, liveChannelChanges } from '../lib/live-channels';
+import type { MetronomeBeat } from '../lib/metronome-beat';
 import { hasSameEffectRouting } from '../lib/mix';
 import type { LoopPass } from '../lib/practice-plan';
 import { setMidiController, setMidiProgram } from '../native/player';
 import type { PlayingBeat } from '../score/row';
-import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, practiceReducer } from '../state/practice';
+import { INITIAL_PRACTICE, type PracticeAction, type PracticeSettings, needsNewRender, practiceReducer } from '../state/practice';
 import {
   type Follow,
   type PlaybackState,
   type PlayerSession,
+  applyMetronome,
   launchPlayer,
   releasePlayer,
   resumePlayer,
@@ -22,14 +24,22 @@ export interface Playback {
   readonly playing?: PlayingBeat;
   /** While a loop plays: the pass being played and its tempo. */
   readonly loopPass?: LoopPass;
+  /** The metronome's beat now, the count-in's too (the visual metronome). */
+  readonly beat?: MetronomeBeat;
   readonly error?: string;
-  /** Playback tempo, loop and speed trainer of this session (never saved to the file). */
+  /** Playback tempo, loop, speed trainer, metronome, count-in and tempo lock of this session (never saved to the file). */
   readonly practice: PracticeSettings;
-  /** Plays from a bar (from `fromTick` inside it, when given); when looping, plays the loop from its first bar until stopped. */
+  /**
+   * Plays from a bar (from `fromTick` inside it, when given); when looping, plays the loop from its first bar until
+   * stopped. With the count-in on, a bar of clicks comes first and playback starts at the bar's beginning.
+   */
   readonly start: (fromMeasureIndex: number, fromTick?: number) => void;
   readonly stop: () => void;
   readonly dismissError: () => void;
-  /** Changes the practice settings; while playing, playback restarts at the current bar with them. */
+  /**
+   * Changes the practice settings; while playing, playback restarts at the current bar with them (the metronome's
+   * toggle is heard at once, without a restart).
+   */
   readonly changePractice: (action: PracticeAction) => void;
   /** While playing, starts again at the current bar (after a new sound bank); does nothing when stopped. */
   readonly restart: () => void;
@@ -75,9 +85,13 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
     cancelRestart(restartTimer);
     stopPlayer(session);
   }, [session]);
+  // The count-in plays when playback starts, not when a bar button moves playing playback.
   const start = useCallback(
-    (fromMeasureIndex: number, fromTick?: number) =>
-      launchPlayer(session, follow.current.practice.isLooping ? {} : { measureIndex: fromMeasureIndex, tick: fromTick }),
+    (fromMeasureIndex: number, fromTick?: number) => {
+      const { practice: current } = follow.current;
+      const withCountIn = current.isCountInOn && !isPlayingNow.current;
+      launchPlayer(session, current.isLooping ? { withCountIn } : { measureIndex: fromMeasureIndex, tick: fromTick, withCountIn });
+    },
     [session],
   );
   const { isPlaying } = state;
@@ -90,8 +104,14 @@ export function usePlayback(song: Song | undefined, trackIndex: number): Playbac
       }
       follow.current = { ...follow.current, practice: next };
       setPractice(next);
-      if (isPlaying) {
+      if (!isPlaying) {
+        return;
+      }
+      // The metronome is a track of the render: turning it on or off mutes it in place, without a gap.
+      if (needsNewRender(previous, next)) {
         resumePlayer(session);
+      } else if (previous.isMetronomeOn !== next.isMetronomeOn) {
+        applyMetronome(session);
       }
     },
     [session, isPlaying],

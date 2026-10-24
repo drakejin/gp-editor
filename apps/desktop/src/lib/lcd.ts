@@ -15,8 +15,10 @@ export interface LcdInfo {
   readonly timeSignature: string;
   /** "00:22 / 02:00" at the playback speed, played straight through. */
   readonly clock: string;
-  /** "♩ = 104", with the playback speed when it is not 100%. */
+  /** "♩ = 104" or "♩ = 92.5", with the playback speed when it is not 100% and "· locked" with the tempo lock on. */
   readonly tempo: string;
+  /** The tempo typing in the LCD starts from: the locked tempo with the tempo lock on, else the playback tempo. */
+  readonly tempoBpm: number;
   /** What the cursor is on: "Beat 3 · String 2 · Fret 5". */
   readonly position: string;
 }
@@ -41,11 +43,12 @@ function positionText(song: Song, cursor: StringAddress | undefined): string {
   return `Beat ${cursor.beatIndex + 1} · String ${cursor.string} · ${what}`;
 }
 
-function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined): string {
+function tempoText(tempo: number, percent: number, loopPass: LoopPass | undefined, isLocked: boolean): string {
+  const lock = isLocked ? ' · locked' : '';
   if (loopPass !== undefined) {
-    return `♩ = ${loopPass.tempo} · pass ${loopPass.passIndex + 1}`;
+    return `♩ = ${loopPass.tempo} · pass ${loopPass.passIndex + 1}${lock}`;
   }
-  return percent === 100 ? `♩ = ${tempo}` : `♩ = ${tempo} (${percent}%)`;
+  return percent === 100 ? `♩ = ${tempo}${lock}` : `♩ = ${tempo} (${percent}%)${lock}`;
 }
 
 export function lcdInfo({ song, trackIndex, cursor, playing, practice, loopPass }: LcdSource): LcdInfo {
@@ -53,15 +56,17 @@ export function lcdInfo({ song, trackIndex, cursor, playing, practice, loopPass 
   const measureIndex = playing?.measureIndex ?? cursor?.measureIndex ?? 0;
   const measureHeader = song.measureHeaders[measureIndex];
   const scale = practice.tempoScale;
-  const start = measureStartSeconds(song, scale)[measureIndex] ?? 0;
-  const tempo = playbackTempo(measureHeader?.tempo ?? 0, scale);
+  const { lockedTempo } = practice;
+  const start = measureStartSeconds(song, scale, lockedTempo)[measureIndex] ?? 0;
+  const tempo = playbackTempo(lockedTempo ?? measureHeader?.tempo ?? 0, scale);
   const percent = tempoPercent(scale);
   return {
     track: track === undefined ? '' : `${track.number}. ${track.name || 'Untitled'}`,
     bar: `${measureIndex + 1}/${song.measureHeaders.length}`,
     timeSignature: measureHeader === undefined ? '' : `${measureHeader.timeSignature.numerator}/${measureHeader.timeSignature.denominator}`,
-    clock: `${formatClock(start)} / ${formatClock(songSeconds(song, scale))}`,
-    tempo: tempoText(tempo, percent, playing === undefined ? undefined : loopPass),
+    clock: `${formatClock(start)} / ${formatClock(songSeconds(song, scale, lockedTempo))}`,
+    tempo: tempoText(tempo, percent, playing === undefined ? undefined : loopPass, lockedTempo !== undefined),
+    tempoBpm: lockedTempo ?? tempo,
     position: positionText(song, cursor),
   };
 }

@@ -293,6 +293,19 @@ describe('GP4 and GP3 vibrato', () => {
 });
 
 describe('GP4 and GP3 losses', () => {
+  it('drops a note’s audio settings (GP3 and GP4 have no place for them)', () => {
+    // Arrange
+    const song = songWithNotes([buildNote(1, 1, { audio: { durationPercent: 60, offsetPercent: 10, velocityOffset: 5 } })]);
+
+    // Act / Assert
+    for (const format of ['gp3', 'gp4'] as const) {
+      const again = roundTrip(song, format);
+      expect(notesOf(again)[0]).not.toHaveProperty('audio');
+      expect(songDifference(expectedAfterGp34(song, again), again)).toBeUndefined();
+    }
+  });
+
+
   it('joins the second voice into the first, as TuxGuitar does', () => {
     // Arrange
     const song = buildSong({
@@ -354,6 +367,15 @@ describe('GP4 and GP3 losses', () => {
     expect([again.info.words, again.info.music]).toEqual(['Lyricist', 'Lyricist']);
     expect([again.tracks[0]?.solo, again.tracks[0]?.mute]).toEqual([false, false]);
     expect(notesOf(again)[0]?.effect.heavyAccentuatedNote).toBe(false);
+  });
+
+  it('rounds decimal tempos to whole numbers', () => {
+    // Arrange
+    const song = buildSong({ headers: [{ tempo: 92.5 }, { tempo: 80.4 }], tracks: [{ measures: [[{ voice: restVoice() }], [{ voice: restVoice() }]] }] });
+
+    // Act / Assert
+    expect(roundTrip(song, 'gp3').measureHeaders.map((header) => header.tempo)).toEqual([93, 80]);
+    expect(roundTrip(song, 'gp4').measureHeaders.map((header) => header.tempo)).toEqual([93, 80]);
   });
 
   it('writes the tempo change into the first track that has a beat in the measure (none: lost)', () => {

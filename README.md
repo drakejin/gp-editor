@@ -112,10 +112,11 @@ Guitar Pro's own files differently are listed, with that evidence, in
 
 - **Window** (Guitar Pro 8's layout): the **top bar** — the panel toggles (palette, tracks, inspector); zoom (50–200%, ⌘- / ⌘=); undo and redo; the transport (first, previous, play/stop,
   next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
-  length, tempo at the playback speed, the loop pass, and what the cursor is on); ⟲ Loop and the ♩ speed menu; the
+  length, tempo at the playback speed, the loop pass, and what the cursor is on; while playing, a dot per beat);
+  ⟲ Loop, Metronome, Count-in, the practice menu ▾ and − ♩ speed menu +; the
   piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
   Export MIDI, Export Audio, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
-  grey desk in the middle, the **inspector** (SONG / TRACK) on the right, and at the bottom the **piano keyboard**, the
+  grey desk in the middle, the **inspector** (SONG / TRACK / NOTE) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
   **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
   per bar and track, in the track's colour where it has notes, grey where it only rests, a dark square on the cursor's
@@ -259,7 +260,8 @@ Guitar Pro's own files differently are listed, with that evidence, in
     bar lines: a note that runs over a bar line becomes tied notes, and bars are added at the end when needed. Cut and
     paste are one undo step each; drum beats paste only into drum tracks.
 - **Keys everywhere**: Space play / stop; `]` / `[` the playback tempo 5 BPM up / down (the speed menu follows; the
-  song is not edited); Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
+  song is not edited); ⌥= / ⌥- the speed 5% up / down; ⌥M metronome, ⌥C count-in, ⌥L tempo lock; ⇧⌘F Focus / Unfocus;
+  Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous
   tab; ⌘P print; ⇧⌘P the command palette; ⌘H (Help ▸
   Keyboard Shortcuts, or the top bar's **?**) shows every shortcut on one sheet.
 - **Save**: ⌘S saves the shown tab in place, in its own format, when the app writes that format (`.gp5`, `.gp`,
@@ -395,7 +397,7 @@ Guitar Pro's own files differently are listed, with that evidence, in
   selected, from the selection's first beat, wherever the drag ended — with the selected
   sound bank; the score, the piano keyboard, the fretboard and the bar map follow the playing beat. Space or Esc stops. The top bar's ♩
   speed menu and ⟲ Loop set up practice playback for the session — none of it is saved in the file:
-  - *Speed*: 25%–100% of the written tempo, a tempo in BPM (60, 90, 120, 150 and the written one), or *Custom* −/+ in
+  - *Speed*: 25%–200% of the written tempo (also − / + beside the menu and ⌥- / ⌥=, 5% a step), a tempo in BPM (60, 90, 120, 150 and the written one), or *Custom* −/+ in
     5 BPM steps — also `]` / `[` on the keyboard — (25%–300% of the written tempo, never under 20 BPM). Every tempo of the song is scaled alike, so tempo
     changes keep their proportions; to change the written tempo use the palette's Tempo instead. The LCD shows the
     playing tempo and the percentage.
@@ -404,12 +406,30 @@ Guitar Pro's own files differently are listed, with that evidence, in
     plays those bars until stopped, straight through as written — repeat signs inside the loop are not followed.
   - *Speed trainer* (in the speed menu, while looping): `+n BPM` each pass (0 = off, up to 20), *Up to* ♩ M (default:
     the written tempo or 20 BPM above the playback tempo, whichever is higher). The LCD shows the pass and its tempo.
+  - *Metronome* (top bar, ⌥M): a click on every beat — the first of the bar on the high wood block, the others on the
+    low one (General MIDI keys 76 / 77 on the drum channel); 6/8, 9/8, 12/8 click the dotted beats. It follows tempo
+    changes, the speed, repeats and loops, and turns on and off at once while playing; its volume is in the practice
+    menu (▾). The LCD's beat dots show the beat whether it clicks or not.
+  - *Count-in* (top bar, ⌥C): one bar of clicks in the meter and tempo of the bar playback starts in, then playback
+    from that bar's beginning (a loop from its first bar); as in Guitar Pro, only when playback starts — not before
+    every loop pass. The LCD's dots count it in orange.
+  - *Tempo lock* (practice menu, ⌥L): the whole song at one tempo (its tempo changes ignored), the speed still applied;
+    the LCD shows *· locked*. Click the LCD's tempo to type a tempo (decimals allowed): the locked tempo, or else the
+    playback tempo.
+  - *Preview notes on hover* (practice menu): a piano key or fret the mouse enters plays with the track's sound.
   - Changing any of these while playing restarts playback at the bar being played, with the new settings (a loop
-    keeps its pass count). Adding or deleting a bar while playing stops playback.
+    keeps its pass count) — but the metronome and count-in toggles and the hover preview, which need none. Adding or
+    deleting a bar while playing stops playback.
   - Playback follows the musical directions as Guitar Pro does: a D.C. / D.S. / D.S.S. goes back once, then the bars
     play one after the other without repeats (the last ending) — to the end, to the fine, or to the Da Coda and on at
     the coda. A loop plays its bars as written. Fade out and volume swell play as volume envelopes, a rasgueado as a
     quick strum per finger, the sustain pedal as the MIDI damper pedal.
+- **Tempos with decimals** (92.5): read from Guitar Pro 7/8 files and saved in `.gp` files; GP5/GP4/GP3 files hold whole
+  numbers, so saving one rounds them. A click on the palette's tempo value types one.
+- **Note audio settings** (inspector, NOTE tab): how the note at the cursor plays back — its duration (1–200% of its
+  length), a start offset (a share of its beat) and a velocity change. Playback only; GP5 files keep the duration,
+  `.gp`, GP4 and GP3 files leave them out.
+- **View ▸ Focus / Unfocus** (⇧⌘F): only the score and the top bar; Unfocus brings back the panels that were shown.
 
 ## License
 

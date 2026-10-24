@@ -5,8 +5,8 @@ import { ZOOM_LEVELS } from '../state/panels';
 import type { Palette } from '../theme';
 import { MenuButton, MenuHeading, MenuItem, MenuSeparator, MenuStepper } from './chrome/ChromeMenu';
 
-/** Guitar Pro's speed menu: percentages of the written tempo, then tempos in BPM. */
-const SPEED_PERCENTS: readonly number[] = [25, 50, 60, 70, 80, 90, 100];
+/** Guitar Pro's speed menu: percentages of the written tempo (25%–200%), then tempos in BPM. */
+const SPEED_PERCENTS: readonly number[] = [25, 50, 60, 70, 80, 90, 100, 110, 125, 150, 200];
 const SPEED_TEMPOS: readonly number[] = [60, 90, 120, 150];
 
 export interface SpeedMenuProps {

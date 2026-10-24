@@ -48,10 +48,10 @@ export interface Timeline {
   readonly lastTempo: number;
 }
 
-/** One entry per played measure, in playback order; the first played measure starts at 0 s. */
-export function buildTimeline(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[]): Timeline {
+/** One entry per played measure, in playback order; the first played measure starts at `startSeconds` (after a count-in). */
+export function buildTimeline(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[], startSeconds = 0): Timeline {
   const entries: TimelineEntry[] = [];
-  let seconds = 0;
+  let seconds = startSeconds;
   let lastTempo = DEFAULT_TEMPO;
   for (const measure of played) {
     const header = headers[measure.headerIndex];

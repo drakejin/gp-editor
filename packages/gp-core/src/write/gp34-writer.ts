@@ -6,7 +6,7 @@ import { type Gp34Dialect, placementsGp34, singleVoiceBeats, writeMeasureGp34 } 
 import { GP3_DIALECT } from './gp3-dialect';
 import { GP4_DIALECT } from './gp4-dialect';
 import { writeColor, writeLyrics, writeTrackBlock } from './gtp-blocks';
-import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings } from './gtp-song';
+import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings, writtenTempo } from './gtp-song';
 import { resolveKeptTies } from './gtp-ties';
 
 const VERSION_BLOCK = 30;
@@ -33,7 +33,7 @@ function writeGp34(song: Song, dialect: Gp34Dialect): Uint8Array {
   if (dialect.hasLyrics) {
     writeLyrics(writer, song.tracks);
   }
-  writer.writeInt(song.measureHeaders[0]?.tempo ?? 0).writeInt(keys[0] ?? 0); // tempo, key signature
+  writer.writeInt(writtenTempo(song, 0) ?? 0).writeInt(keys[0] ?? 0); // tempo, key signature
   if (dialect.hasLyrics) {
     writer.writeByte(0); // GP4: octave
   }

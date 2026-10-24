@@ -23,16 +23,19 @@ interface InstrumentViewProps {
   readonly scale?: ScaleHighlight;
   /** A drum track's kit was clicked: the General MIDI key to enter at the cursor. */
   readonly onDrumHit?: (key: number) => void;
+  /** With "Preview on hover" on: the pitch of a piano key or fret the mouse enters, to play. */
+  readonly onHoverPitch?: (pitch: number) => void;
 }
 
 const NO_DRUM_HIT = (): void => undefined;
 
 /**
  * Guitar Pro's instrument view, above the tracks panel: a piano keyboard and the shown track's 24-fret neck, each
- * lighting the notes of the playing beat, else of the cursor's beat. A drum track shows a drum kit instead (when either
- * part is on), its drums lit the same way; a click on a drum enters it.
+ * lighting the notes of the playing beat, else of the cursor's beat; with "Preview on hover", a key or fret the mouse
+ * enters plays. A drum track shows a drum kit instead (when either part is on), its drums lit the same way; a click on
+ * a drum enters it.
  */
-function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT }: InstrumentViewProps) {
+function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT, onHoverPitch }: InstrumentViewProps) {
   const track = song.tracks[trackIndex];
   const shown = playing ?? cursor;
   const measureIndex = shown?.measureIndex;
@@ -56,8 +59,10 @@ function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, shows
   }
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
-      {showsKeyboard ? <Keyboard pitches={pitches} palette={chromePalette} scale={scale} /> : null}
-      {showsFretboard ? <Fretboard track={track} notes={notes} cursorString={playing === undefined ? cursor?.string : undefined} palette={chromePalette} scale={scale} /> : null}
+      {showsKeyboard ? <Keyboard pitches={pitches} palette={chromePalette} scale={scale} onHoverPitch={onHoverPitch} /> : null}
+      {showsFretboard ? (
+        <Fretboard track={track} notes={notes} cursorString={playing === undefined ? cursor?.string : undefined} palette={chromePalette} scale={scale} onHoverPitch={onHoverPitch} />
+      ) : null}
     </View>
   );
 }

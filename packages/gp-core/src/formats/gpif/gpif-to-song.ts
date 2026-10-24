@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser (LGPL-2.1).
 import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
-import { RED, isNoteValue, measureTicks } from '../../model/defaults';
+import { RED, isNoteValue, measureTicks, roundTempo } from '../../model/defaults';
 import {
   type MeasureHeader,
   type MusicalDirection,
@@ -160,18 +160,10 @@ function tempoOf(automation: GpifAutomation): number | undefined {
   return tempo > 0 ? tempo : undefined;
 }
 
-/** Reference: 1 = eighth, 2 = quarter, 3 = dotted quarter, 4 = half, 5 = dotted half. */
+/** Beats of each reference in quarter notes: 1 = eighth, 2 = quarter, 3 = dotted quarter, 4 = half, 5 = dotted half. */
+const REFERENCE_QUARTERS: Readonly<Record<number, number>> = { 1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3 };
+
+/** Quarter notes per minute of `value` beats of `reference` per minute, to two decimals (unknown reference: quarters). */
 function convertTempo(value: number, reference: number): number {
-  switch (reference) {
-    case 1:
-      return Math.trunc(value / 2);
-    case 3:
-      return value + Math.trunc(value / 2);
-    case 4:
-      return value * 2;
-    case 5:
-      return value * 3;
-    default:
-      return value;
-  }
+  return roundTempo(value * (REFERENCE_QUARTERS[reference] ?? 1));
 }

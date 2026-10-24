@@ -1,5 +1,6 @@
 import {
   type Bend,
+  DEFAULT_NOTE_AUDIO,
   DYNAMICS,
   type Duration,
   type DynamicName,
@@ -8,6 +9,7 @@ import {
   type HarmonicType,
   MAX_FRET,
   type Note,
+  type NoteAudio,
   type NoteValue,
   QUARTER,
   type SlideType,
@@ -18,6 +20,7 @@ import {
   type VibratoKind,
   buildHarmonic,
   findNote,
+  setNoteAudio,
   setNoteBend,
   setNoteGrace,
   setNoteHarmonic,
@@ -54,7 +57,15 @@ export type NoteEdit =
   | {
       readonly type: 'setTremoloPicking';
       readonly speed: 8 | 16 | 32 | 'none';
-    };
+    }
+  /** One audio setting (play duration %, start offset %, velocity change) moved by `delta`, clamped by setNoteAudio. */
+  | {
+      readonly type: 'shiftNoteAudio';
+      readonly setting: keyof NoteAudio;
+      readonly delta: number;
+    }
+  /** The note plays as written again. */
+  | { readonly type: 'resetNoteAudio' };
 
 /** Every note edit; a Record, so the compiler keeps it in step with NoteEdit. */
 const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
@@ -71,6 +82,8 @@ const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
   setGrace: true,
   setTrill: true,
   setTremoloPicking: true,
+  shiftNoteAudio: true,
+  resetNoteAudio: true,
 };
 
 /** Whether an edit sets something on the note at the cursor (a tie can also be typed on an empty string). */
@@ -159,6 +172,27 @@ function applyNoteDetail(
         cursor,
         edit.speed === 'none' ? undefined : { duration: plain(edit.speed) },
       );
+    default:
+      return applyNoteAudio(song, cursor, note, edit);
+  }
+}
+
+/** The note's audio settings (play duration, start offset, velocity change). */
+function applyNoteAudio(
+  song: Song,
+  cursor: StringAddress,
+  note: Note,
+  edit: NoteEdit,
+): Song {
+  const audio = note.audio ?? DEFAULT_NOTE_AUDIO;
+  switch (edit.type) {
+    case 'shiftNoteAudio':
+      return setNoteAudio(song, cursor, {
+        ...audio,
+        [edit.setting]: audio[edit.setting] + edit.delta,
+      });
+    case 'resetNoteAudio':
+      return setNoteAudio(song, cursor, DEFAULT_NOTE_AUDIO);
     default:
       return song;
   }

@@ -2,9 +2,13 @@ import {
   INITIAL_PRACTICE,
   type PracticeAction,
   type PracticeSettings,
+  needsNewRender,
+  playbackStartTempo,
   practiceReducer,
   resolveLoopRange,
+  typedTempoAction,
 } from '../src/state/practice';
+import { beat, header, makeSong } from '../test-support/songs';
 
 function run(actions: readonly PracticeAction[], from: PracticeSettings = INITIAL_PRACTICE): PracticeSettings {
   return actions.reduce(practiceReducer, from);
@@ -179,5 +183,107 @@ describe('practiceReducer speed trainer', () => {
     // Assert
     expect(raised.trainerMaxTempo).toBe(115);
     expect(capped.trainerMaxTempo).toBe(300);
+  });
+});
+
+describe('practiceReducer metronome, count-in and hover preview', () => {
+  it('turns the metronome, the count-in and the hover preview on and off, all off at first', () => {
+    // Act
+    const on = run([{ type: 'toggleMetronome' }, { type: 'toggleCountIn' }, { type: 'togglePreviewOnHover' }]);
+    const off = run([{ type: 'toggleMetronome' }, { type: 'toggleCountIn' }, { type: 'togglePreviewOnHover' }], on);
+
+    // Assert
+    expect([INITIAL_PRACTICE.isMetronomeOn, INITIAL_PRACTICE.isCountInOn, INITIAL_PRACTICE.isPreviewOnHover]).toEqual([false, false, false]);
+    expect([on.isMetronomeOn, on.isCountInOn, on.isPreviewOnHover]).toEqual([true, true, true]);
+    expect([off.isMetronomeOn, off.isCountInOn, off.isPreviewOnHover]).toEqual([false, false, false]);
+  });
+
+  it('steps the metronome volume by 10% between 10% and 100%', () => {
+    // Act
+    const softer = run([{ type: 'shiftMetronomeVolume', delta: -10 }, { type: 'shiftMetronomeVolume', delta: -10 }]);
+    const softest = run(Array.from({ length: 12 }, () => ({ type: 'shiftMetronomeVolume', delta: -10 } as const)));
+
+    // Assert
+    expect(INITIAL_PRACTICE.metronomeVolume).toBe(80);
+    expect(softer.metronomeVolume).toBe(60);
+    expect(softest.metronomeVolume).toBe(10);
+    expect(practiceReducer({ ...INITIAL_PRACTICE, metronomeVolume: 100 }, { type: 'shiftMetronomeVolume', delta: 10 }).metronomeVolume).toBe(100);
+  });
+});
+
+describe('practiceReducer relative speed', () => {
+  it('steps the speed by 5% of the written tempo, from 25% to 200%', () => {
+    // Act
+    const faster = run([{ type: 'shiftSpeed', delta: 5, writtenTempo: 120 }]);
+    const slowest = run(Array.from({ length: 30 }, () => ({ type: 'shiftSpeed', delta: -5, writtenTempo: 120 } as const)));
+    const fastest = run(Array.from({ length: 30 }, () => ({ type: 'shiftSpeed', delta: 5, writtenTempo: 120 } as const)));
+
+    // Assert
+    expect(faster.tempoScale).toBeCloseTo(1.05, 10);
+    expect(slowest.tempoScale).toBeCloseTo(0.25, 10);
+    expect(fastest.tempoScale).toBeCloseTo(2, 10);
+  });
+
+  it('lands on the 5% grid from a speed between steps, and never moves the other way past 200%', () => {
+    // Arrange: 83% (from BPM steps) and 250%
+    const between = { ...INITIAL_PRACTICE, tempoScale: 0.83 };
+    const beyond = { ...INITIAL_PRACTICE, tempoScale: 2.5 };
+
+    // Act / Assert
+    expect(practiceReducer(between, { type: 'shiftSpeed', delta: 5, writtenTempo: 120 }).tempoScale).toBeCloseTo(0.85, 10);
+    expect(practiceReducer(between, { type: 'shiftSpeed', delta: -5, writtenTempo: 120 }).tempoScale).toBeCloseTo(0.8, 10);
+    expect(practiceReducer(beyond, { type: 'shiftSpeed', delta: 5, writtenTempo: 120 })).toBe(beyond);
+  });
+});
+
+describe('practiceReducer tempo lock', () => {
+  it('locks the tempo at the start bar’s written tempo, and unlocks it', () => {
+    // Act
+    const locked = run([{ type: 'toggleTempoLock', writtenTempo: 92.5 }]);
+    const unlocked = practiceReducer(locked, { type: 'toggleTempoLock', writtenTempo: 120 });
+
+    // Assert
+    expect(INITIAL_PRACTICE.lockedTempo).toBeUndefined();
+    expect(locked.lockedTempo).toBe(92.5);
+    expect(unlocked.lockedTempo).toBeUndefined();
+  });
+
+  it('sets the locked tempo to two decimals within 1–999, and ignores what is not a tempo', () => {
+    // Arrange
+    const locked = run([{ type: 'toggleTempoLock', writtenTempo: 120 }]);
+
+    // Act / Assert
+    expect(practiceReducer(locked, { type: 'setLockedTempo', tempo: 92.456 }).lockedTempo).toBe(92.46);
+    expect(practiceReducer(locked, { type: 'setLockedTempo', tempo: 5000 }).lockedTempo).toBe(999);
+    expect(practiceReducer(locked, { type: 'setLockedTempo', tempo: Number.NaN })).toBe(locked);
+    expect(practiceReducer(INITIAL_PRACTICE, { type: 'setLockedTempo', tempo: 90 }).lockedTempo).toBe(90);
+  });
+
+  it('starts playback from the locked tempo instead of the written one', () => {
+    // Arrange
+    const song = makeSong([[beat(960, [])]], [header(1, { tempo: 120 })]);
+
+    // Act / Assert
+    expect(playbackStartTempo(song, { ...INITIAL_PRACTICE, lockedTempo: 75.5 }, 0)).toBe(75.5);
+    expect(playbackStartTempo(song, INITIAL_PRACTICE, 0)).toBe(120);
+  });
+});
+
+describe('typedTempoAction', () => {
+  it('sets the playback tempo, or the locked tempo while the tempo is locked', () => {
+    expect(typedTempoAction(INITIAL_PRACTICE, 92.5, 120)).toEqual({ type: 'setTempo', tempo: 92.5, writtenTempo: 120 });
+    expect(typedTempoAction({ ...INITIAL_PRACTICE, lockedTempo: 100 }, 92.5, 100)).toEqual({ type: 'setLockedTempo', tempo: 92.5 });
+  });
+});
+
+describe('needsNewRender', () => {
+  it('re-renders for what the MIDI file holds, not for the metronome toggle, count-in or hover preview', () => {
+    // Act / Assert
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, isMetronomeOn: true })).toBe(false);
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, isCountInOn: true })).toBe(false);
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, isPreviewOnHover: true })).toBe(false);
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, metronomeVolume: 50 })).toBe(true);
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, lockedTempo: 90 })).toBe(true);
+    expect(needsNewRender(INITIAL_PRACTICE, { ...INITIAL_PRACTICE, tempoScale: 0.5 })).toBe(true);
   });
 });

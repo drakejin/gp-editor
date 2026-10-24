@@ -6,7 +6,7 @@ import { focusView } from '../native/focus-view';
 import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
-import { playbackStartTempo } from '../state/practice';
+import { type PracticeAction, playbackStartTempo } from '../state/practice';
 import { selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
@@ -48,6 +48,23 @@ interface EditorCommandSources {
   readonly keyboardView: RefObject<View | null>;
 }
 
+type PracticeKeyCommand = Extract<KeyCommand, { readonly type: 'shiftPlaybackTempo' | 'shiftPlaybackSpeed' | 'togglePractice' }>;
+
+/** The practice change a key asks for; `writtenTempo` is the tempo of the bar playback starts from (playbackStartTempo). */
+function practiceAction(command: PracticeKeyCommand, writtenTempo: number): PracticeAction {
+  switch (command.type) {
+    case 'shiftPlaybackTempo':
+      return { type: 'shiftTempo', delta: command.delta, writtenTempo };
+    case 'shiftPlaybackSpeed':
+      return { type: 'shiftSpeed', delta: command.delta, writtenTempo };
+    case 'togglePractice':
+      if (command.practice === 'tempoLock') {
+        return { type: 'toggleTempoLock', writtenTempo };
+      }
+      return { type: command.practice === 'metronome' ? 'toggleMetronome' : 'toggleCountIn' };
+  }
+}
+
 /** Toolbar buttons, keys, score clicks and file drops, turned into editor actions and playback controls. */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
   const { dispatch, playback, create, openDialog, importPdf, exportPdf, openPath, save, onZoom, onNotePanel, onChordPanel, closeOverlay, clipboard, keyboardView } = sources;
@@ -70,11 +87,12 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
 
   const song = sources.state.document?.song;
   const { practice, changePractice } = playback;
-  // ] / [ : the playback tempo of the bar playback starts from, 5 BPM a press (the song is not edited).
-  const shiftPlaybackTempo = useCallback(
-    (delta: number) => {
+  // ] / [ : the playback tempo of the bar playback starts from, 5 BPM a press; ⌥= / ⌥- its speed, 5% a press; ⌥M ⌥C ⌥L
+  // the metronome, count-in and tempo lock (the song is not edited).
+  const runPractice = useCallback(
+    (command: PracticeKeyCommand) => {
       if (song !== undefined) {
-        changePractice({ type: 'shiftTempo', delta, writtenTempo: playbackStartTempo(song, practice, cursor?.measureIndex ?? 0) });
+        changePractice(practiceAction(command, playbackStartTempo(song, practice, cursor?.measureIndex ?? 0)));
       }
     },
     [song, practice, changePractice, cursor?.measureIndex],
@@ -95,8 +113,8 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         onNotePanel(command.panel);
       } else if (command.type === 'openChordPanel') {
         onChordPanel?.();
-      } else if (command.type === 'shiftPlaybackTempo') {
-        shiftPlaybackTempo(command.delta);
+      } else if (command.type === 'shiftPlaybackTempo' || command.type === 'shiftPlaybackSpeed' || command.type === 'togglePractice') {
+        runPractice(command);
       } else if (command.type === 'copy' || command.type === 'cut' || command.type === 'paste') {
         clipboard[command.type]();
       } else if (command.type === 'openFile') {
@@ -126,7 +144,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, closeOverlay, shiftPlaybackTempo, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, closeOverlay, runPractice, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
   );
 
   const onPressBeat = useCallback(

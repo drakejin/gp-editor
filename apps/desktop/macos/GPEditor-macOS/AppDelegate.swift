@@ -109,6 +109,14 @@ struct GPEditorApp: App {
           }
         }
       }
+      // View ▸ Focus / Unfocus: only the score and the transport (the panels come back the second time).
+      CommandGroup(before: .toolbar) {
+        Button("Focus / Unfocus") {
+          NotificationCenter.default.post(name: .GPEditorFocusCommand, object: nil)
+        }
+        .keyboardShortcut("f", modifiers: [.command, .shift])
+        Divider()
+      }
       // Tools: the microphone tuner (GPAudioInput.m), the scale panel (scale finder, boxes; the scale is marked on the
       // keyboard and the fretboard), Transpose… (notes and chords by semitones or scale steps) and the command palette,
       // which finds any command.

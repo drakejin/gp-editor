@@ -53,6 +53,7 @@ const VIEW_ROWS: readonly Command[] = [
   keyRow('view.zoomIn', 'View', 'Zoom In', press('=', { metaKey: true }), { keywords: ['bigger', 'larger'] }),
   keyRow('view.zoomOut', 'View', 'Zoom Out', press('-', { metaKey: true }), { keywords: ['smaller'] }),
   ...PANEL_ROWS.map(([panel, name, keywords]) => row(`view.panel.${panel}`, 'View', `Show or Hide the ${name}`, (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
+  row('view.focus', 'View', 'Focus / Unfocus', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide panels', 'score only', 'distraction'] }),
 ];
 
 const TOOLS_ROWS: readonly Command[] = [
@@ -111,6 +112,12 @@ const PLAYBACK_ROWS: readonly Command[] = [
   keyRow('play.faster', 'Playback', 'Playback Tempo +5 BPM', press(']'), { keywords: ['speed', 'faster'] }),
   keyRow('play.slower', 'Playback', 'Playback Tempo −5 BPM', press('['), { keywords: ['speed', 'slower'] }),
   row('play.loop', 'Playback', 'Loop On / Off', (a) => a.toggleLoop(), { keywords: ['repeat', 'practice', 'bars'] }),
+  keyRow('play.speedUp', 'Playback', 'Playback Speed +5%', press('=', { altKey: true }), { keywords: ['faster', 'percent', 'relative'] }),
+  keyRow('play.speedDown', 'Playback', 'Playback Speed −5%', press('-', { altKey: true }), { keywords: ['slower', 'percent', 'relative'] }),
+  keyRow('play.metronome', 'Playback', 'Metronome On / Off', press('m', { altKey: true }), { keywords: ['click', 'beat', 'practice'] }),
+  keyRow('play.countIn', 'Playback', 'Count-In On / Off', press('c', { altKey: true }), { keywords: ['click', 'bar', 'practice'] }),
+  keyRow('play.tempoLock', 'Playback', 'Tempo Lock On / Off', press('l', { altKey: true }), { keywords: ['fixed', 'one tempo', 'practice'] }),
+  row('play.previewOnHover', 'Playback', 'Preview Notes on Hover', (a) => a.togglePreviewOnHover(), { keywords: ['hear', 'piano', 'fretboard', 'sound'] }),
 ];
 
 const HELP_ROWS: readonly Command[] = [row('help.shortcuts', 'Help', 'Keyboard Shortcuts', (a) => a.openShortcuts(), { when: 'always', shortcut: '⌘H', keywords: ['keys', 'help', 'cheat sheet'] })];

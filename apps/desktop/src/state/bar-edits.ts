@@ -22,6 +22,8 @@ export type BarEdit =
       readonly delta: number;
     }
   | { readonly type: 'shiftTempo'; readonly delta: number }
+  /** A typed tempo (decimals kept to two places by setTempo). */
+  | { readonly type: 'setTempo'; readonly tempo: number }
   | { readonly type: 'shiftKeySignature'; readonly delta: number }
   | { readonly type: 'toggleRepeatOpen' }
   | { readonly type: 'toggleRepeatClose' }
@@ -60,6 +62,8 @@ export function applyBarEdit(
       );
     case 'shiftTempo':
       return setTempo(song, measureIndex, header.tempo + edit.delta);
+    case 'setTempo':
+      return setTempo(song, measureIndex, edit.tempo);
     case 'shiftKeySignature': {
       const keySignature =
         song.tracks[cursor.trackIndex]?.measures[measureIndex]?.keySignature ??

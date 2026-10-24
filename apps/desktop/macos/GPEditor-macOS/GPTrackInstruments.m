@@ -90,12 +90,18 @@ static AVBeatRange WholeTrack(AVMusicTrack *track)
 
 - (void)routeSequencer:(AVAudioSequencer *)sequencer
 {
+  [self routeSequencer:sequencer clickTracks:[NSIndexSet indexSet]];
+}
+
+- (void)routeSequencer:(AVAudioSequencer *)sequencer clickTracks:(NSIndexSet *)clickTracks
+{
   NSArray<AVMusicTrack *> *tracks = [sequencer.tracks copy];
   NSMutableSet<NSString *> *used = [NSMutableSet set];
   NSURL *bankURL = [_bank isKindOfClass:[NSURL class]] ? _bank : nil;
   for (NSUInteger index = 0; index < tracks.count; index++) {
     AVMusicTrack *track = tracks[index];
-    AVAudioMixerNode *head = index == 0 || bankURL == nil ? nil : [_graph stripInputForTrack:(NSInteger)index - 1];
+    BOOL isSongTrack = index > 0 && bankURL != nil && ![clickTracks containsIndex:index];
+    AVAudioMixerNode *head = isSongTrack ? [_graph stripInputForTrack:(NSInteger)index - 1] : nil;
     track.destinationAudioUnit = _synth;
     if (head != nil) {
       [self routeStripTrack:track ofSequencer:sequencer trackIndex:index - 1 head:head bankURL:bankURL conductor:tracks.firstObject used:used];
@@ -252,6 +258,27 @@ static AVBeatRange WholeTrack(AVMusicTrack *track)
     [_synth sendProgramChange:(uint8_t)change.programNumber onChannel:(uint8_t)change.channel];
   }
   [self setSynthPreload:NO];
+}
+
+- (nullable AVAudioUnitMIDIInstrument *)startPreviewNote:(UInt8)key
+                                                velocity:(UInt8)velocity
+                                                 program:(UInt8)program
+                                               onChannel:(UInt8)channel
+                                              trackIndex:(NSInteger)trackIndex
+{
+  NSURL *bankURL = [_bank isKindOfClass:[NSURL class]] ? _bank : nil;
+  AVAudioMixerNode *head = bankURL == nil || trackIndex < 0 ? nil : [_graph stripInputForTrack:trackIndex];
+  GPChannelSampler *entry = head == nil ? nil : [self samplerForTrack:(NSUInteger)trackIndex channel:channel head:head bankURL:bankURL program:program bank:0];
+  AVAudioUnitMIDIInstrument *instrument = entry != nil ? entry.sampler : _synth;
+  if (entry == nil && _synth != nil) {
+    // The program the song gives this channel (sent while it plays too, so playback does not change).
+    [self setSynthPreload:YES];
+    [_synth sendProgramChange:program onChannel:channel];
+    [self setSynthPreload:NO];
+    [_synth sendProgramChange:program onChannel:channel];
+  }
+  [instrument startNote:key withVelocity:velocity onChannel:channel];
+  return instrument;
 }
 
 - (void)setSynthPreload:(BOOL)isOn

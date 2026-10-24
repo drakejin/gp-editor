@@ -131,7 +131,7 @@ export interface MeasureHeader {
   /** Start position in ticks. */
   readonly start: number;
   readonly timeSignature: TimeSignature;
-  /** Quarter notes per minute. */
+  /** Quarter notes per minute, up to two decimals (roundTempo); GP3–GP5 files hold whole numbers. */
   readonly tempo: number;
   readonly marker?: Marker;
   readonly repeatOpen: boolean;
@@ -319,6 +319,21 @@ export interface Note {
   readonly rightFinger?: Finger;
   /** An accidental shown although the key and the bar do not call for one; no Guitar Pro file holds it. */
   readonly accidentalDisplay?: AccidentalDisplay;
+  /** How the note plays back apart from what is written; absent when it plays as written (DEFAULT_NOTE_AUDIO). */
+  readonly audio?: NoteAudio;
+}
+
+/**
+ * Guitar Pro 8's note "Audio" settings: they change playback only, never the notation. GP5 files keep the duration
+ * percent (note flag 0x01); GPIF and GP3/GP4 have no place for them, so they live in the model only.
+ */
+export interface NoteAudio {
+  /** Percentage of its length the note sounds, 1–200 (100 = as written). */
+  readonly durationPercent: number;
+  /** How much later than its beat the note starts, as a percentage of the beat's length, 0–99. */
+  readonly offsetPercent: number;
+  /** Added to the note's velocity when it plays, −127…127; the result is kept within 1–127. */
+  readonly velocityOffset: number;
 }
 
 /** A finger as Guitar Pro stores fingering (GPIF P I M A C, GP3–GP5 0–4), thumb first. */

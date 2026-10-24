@@ -1,52 +1,44 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { type Song, type StringAddress, TREMOLO_BAR_PRESETS, findNote } from '@gp-editor/core';
-import { type NotePreview, useNotePreview } from '../src/hooks/use-note-preview';
-import { beat, makeSong, note } from '../test-support/songs';
+import { DEFAULT_CHANNEL, type Song } from '@gp-editor/core';
+import { useNotePreview } from '../src/hooks/use-note-preview';
+import { PREVIEW_NOTE } from '../src/lib/note-preview';
+import { makeSong } from '../test-support/songs';
 
-const SONG = makeSong([[beat(960, [note(1, 5)]), beat(1920, [note(1, 7)])]]);
-const CURSOR: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 0, string: 1 };
+const mockPreviewNote = jest.fn((_note: object) => Promise.resolve());
 
-/** The hook's latest value, re-read after every act(). */
-function renderPreview(song: Song | undefined, cursor: StringAddress | undefined): () => NotePreview {
-  let preview: NotePreview | undefined;
+jest.mock('../src/native/player', () => ({
+  previewNote: (note: object) => mockPreviewNote(note),
+}));
+
+const base = makeSong([[]]);
+const SONG: Song = { ...base, channels: [{ ...DEFAULT_CHANNEL, id: 1, program: 27 }], tracks: [{ ...base.tracks[0]!, channelId: 1 }] };
+
+/** `null`: no song open. */
+function renderPreview(isEnabled: boolean, song: Song | null = SONG): ((pitch: number) => void) | undefined {
+  let latest: ((pitch: number) => void) | undefined;
   function Probe() {
-    preview = useNotePreview(song, cursor);
+    latest = useNotePreview(song ?? undefined, 0, isEnabled);
     return null;
   }
   ReactTestRenderer.act(() => {
     ReactTestRenderer.create(<Probe />);
   });
-  return () => {
-    if (preview === undefined) {
-      throw new Error('the hook did not run');
-    }
-    return preview;
-  };
+  return latest;
 }
 
+beforeEach(() => jest.clearAllMocks());
+
 describe('useNotePreview', () => {
-  it('shows the song as it is until a panel previews an edit', () => {
-    expect(renderPreview(SONG, CURSOR)().song).toBe(SONG);
-  });
-
-  it('shows the song with the panel’s edit at the cursor, and as it is again once the preview ends', () => {
-    // Arrange
-    const current = renderPreview(SONG, CURSOR);
-
+  it('plays a hovered pitch with the track’s program on its MIDI channel', () => {
     // Act
-    ReactTestRenderer.act(() => current().show({ type: 'setTremoloBar', tremoloBar: TREMOLO_BAR_PRESETS.dip }));
-    const previewed = current().song;
-    ReactTestRenderer.act(() => current().show(undefined));
+    renderPreview(true)?.(60);
 
     // Assert
-    expect(previewed === undefined ? undefined : findNote(previewed, CURSOR)?.effect.tremoloBar).toEqual(TREMOLO_BAR_PRESETS.dip);
-    expect(findNote(SONG, CURSOR)?.effect.tremoloBar).toBeUndefined();
-    expect(current().song).toBe(SONG);
+    expect(mockPreviewNote).toHaveBeenCalledWith({ midiChannel: 0, program: 27, key: 60, velocity: PREVIEW_NOTE.velocity, durationMs: PREVIEW_NOTE.durationMs, trackIndex: 0 });
   });
 
-  it('shows nothing to preview without a song or a cursor', () => {
-    const current = renderPreview(undefined, undefined);
-    ReactTestRenderer.act(() => current().show({ type: 'setTremoloBar', tremoloBar: TREMOLO_BAR_PRESETS.dip }));
-    expect(current().song).toBeUndefined();
+  it('gives nothing to hover while the setting is off, or without a song', () => {
+    expect(renderPreview(false)).toBeUndefined();
+    expect(renderPreview(true, null)).toBeUndefined();
   });
 });

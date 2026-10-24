@@ -42,7 +42,7 @@ function render(overrides: Partial<InspectorProps> = {}) {
   });
   const button = (tooltip: string) => renderer.root.findAllByType(ChromeButton).find((candidate) => candidate.props.tooltip === tooltip);
   const press = (tooltip: string) => ReactTestRenderer.act(() => button(tooltip)?.props.onPress());
-  const openTab = (label: 'SONG' | 'TRACK') =>
+  const openTab = (label: 'SONG' | 'TRACK' | 'NOTE') =>
     ReactTestRenderer.act(() =>
       renderer.root.findAll((node) => node.props.tooltip === `${label} settings` && typeof node.props.onPress === 'function')[0]?.props.onPress(),
     );
@@ -201,6 +201,39 @@ describe('Inspector SONG tab', () => {
     expect(inspector.texts()).toContain('MIDI INPUT');
     inspector.press('Enter notes at the cursor from a MIDI keyboard or MIDI guitar');
     expect(midiInput.changeSettings).toHaveBeenCalledWith({ isEnabled: true });
+  });
+});
+
+describe('Inspector NOTE tab', () => {
+  it('shows the cursor note’s audio settings and steps each of them', () => {
+    // Arrange
+    const onEditNote = jest.fn();
+    const inspector = render({ note: { ...note(1, 3), audio: { durationPercent: 80, offsetPercent: 10, velocityOffset: -5 } }, onEditNote });
+
+    // Act
+    inspector.openTab('NOTE');
+    inspector.press('Play duration: longer');
+    inspector.press('Start offset: earlier');
+    inspector.press('Velocity change: more');
+    inspector.press('Play the note as written');
+
+    // Assert
+    expect(inspector.texts()).toEqual(expect.arrayContaining(['AUDIO', '80%', '10%', '−5']));
+    expect(onEditNote.mock.calls).toEqual([
+      [{ type: 'shiftNoteAudio', setting: 'durationPercent', delta: 5 }],
+      [{ type: 'shiftNoteAudio', setting: 'offsetPercent', delta: -5 }],
+      [{ type: 'shiftNoteAudio', setting: 'velocityOffset', delta: 5 }],
+      [{ type: 'resetNoteAudio' }],
+    ]);
+  });
+
+  it('shows a note playing as written, and says when the cursor is on no note', () => {
+    const withNote = render({ note: note(1, 3), onEditNote: jest.fn() });
+    withNote.openTab('NOTE');
+    expect(withNote.texts()).toEqual(expect.arrayContaining(['100%', '0%', '+0']));
+    const without = render();
+    without.openTab('NOTE');
+    expect(without.texts()).toContain('Put the cursor on a note to set how it plays back.');
   });
 });
 

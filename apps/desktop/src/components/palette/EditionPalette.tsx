@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
@@ -145,24 +145,54 @@ interface StepperProps {
   readonly onEdit: (edit: SongEdit) => void;
 }
 
-/** One row: the first stepper's label, then each stepper's − value +. */
+/** One row: the first stepper's label, then each stepper's − value +; a value that can be typed (the tempo) opens a field under the row on a click. */
 function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { readonly steppers: readonly PaletteStepper[] }) {
+  const [typingId, setTypingId] = useState<string | undefined>(undefined);
+  const typed = steppers.find((stepper) => stepper.id === typingId)?.typed;
   return (
-    <View style={styles.stepper}>
-      <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{steppers[0]?.label}</Text>
-      {steppers.map((stepper) => (
-        <StepperControl key={stepper.id} palette={palette} stepper={stepper} context={context} onEdit={onEdit} />
-      ))}
-    </View>
+    <>
+      <View style={styles.stepper}>
+        <Text style={[styles.stepperLabel, { color: palette.chromeMuted }]}>{steppers[0]?.label}</Text>
+        {steppers.map((stepper) => (
+          <StepperControl
+            key={stepper.id}
+            palette={palette}
+            stepper={stepper}
+            context={context}
+            onEdit={onEdit}
+            onType={() => setTypingId(typingId === stepper.id ? undefined : stepper.id)}
+          />
+        ))}
+      </View>
+      {typed === undefined ? null : (
+        <PaletteTextField
+          palette={palette}
+          run={{ kind: 'text', ...typed }}
+          context={context}
+          onChoose={(edit) => {
+            setTypingId(undefined);
+            onEdit(edit);
+          }}
+        />
+      )}
+    </>
   );
 }
 
-function StepperControl({ palette, stepper, context, onEdit }: StepperProps & { readonly stepper: PaletteStepper }) {
+function StepperControl({ palette, stepper, context, onEdit, onType }: StepperProps & { readonly stepper: PaletteStepper; readonly onType: () => void }) {
   const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
+  const { typed } = stepper;
+  const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
   return (
     <>
       <ChromeButton palette={palette} label="−" tooltip={`${stepper.tooltip}: less`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
-      <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>
+      {typed === undefined ? (
+        value
+      ) : (
+        <Pressable testID={`palette-value-${stepper.id}`} tooltip={`${typed.placeholder}: click to type`} disabled={!isEnabled} onPress={onType} style={styles.stepperPress}>
+          {value}
+        </Pressable>
+      )}
       <ChromeButton palette={palette} label="+" tooltip={`${stepper.tooltip}: more`} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
     </>
   );
@@ -184,4 +214,5 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center' },
   stepperLabel: { width: 46, fontSize: 11 },
   stepperValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
+  stepperPress: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
 });

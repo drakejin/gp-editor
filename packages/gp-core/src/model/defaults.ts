@@ -3,6 +3,7 @@ import {
   type Duration,
   type Measure,
   type MeasureHeader,
+  type NoteAudio,
   type NoteEffect,
   type NoteValue,
   type PedalMark,
@@ -95,6 +96,35 @@ export const EMPTY_NOTE_EFFECT: NoteEffect = {
   letRing: false,
 };
 
+/** A note playing as written: Note.audio is left out for it. */
+export const DEFAULT_NOTE_AUDIO: NoteAudio = { durationPercent: 100, offsetPercent: 0, velocityOffset: 0 };
+
+/** The ranges of NoteAudio's settings (a velocity change spans the whole MIDI velocity range, 127). */
+export const NOTE_AUDIO_LIMITS = { minDurationPercent: 1, maxDurationPercent: 200, maxOffsetPercent: 99, maxVelocityOffset: 127 } as const;
+
+function clampRounded(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/** Same audio settings (undefined = the defaults are left out, so only undefined matches it). */
+export function isSameNoteAudio(a: NoteAudio | undefined, b: NoteAudio | undefined): boolean {
+  return a?.durationPercent === b?.durationPercent && a?.offsetPercent === b?.offsetPercent && a?.velocityOffset === b?.velocityOffset;
+}
+
+/** The settings rounded and clamped to NOTE_AUDIO_LIMITS; undefined for the defaults or a value that is not a number. */
+export function toNoteAudio(audio: NoteAudio): NoteAudio | undefined {
+  if (![audio.durationPercent, audio.offsetPercent, audio.velocityOffset].every(Number.isFinite)) {
+    return undefined;
+  }
+  const limits = NOTE_AUDIO_LIMITS;
+  const clamped: NoteAudio = {
+    durationPercent: clampRounded(audio.durationPercent, limits.minDurationPercent, limits.maxDurationPercent),
+    offsetPercent: clampRounded(audio.offsetPercent, 0, limits.maxOffsetPercent),
+    velocityOffset: clampRounded(audio.velocityOffset, -limits.maxVelocityOffset, limits.maxVelocityOffset),
+  };
+  return isSameNoteAudio(clamped, DEFAULT_NOTE_AUDIO) ? undefined : clamped;
+}
+
 /** The note's vibrato: wide wins should a note (against the model's rule) have both flags. */
 export function vibratoOf(effect: NoteEffect): VibratoKind {
   if (effect.wideVibrato) {
@@ -183,6 +213,14 @@ export function measureTicks(numerator: number, denominator: number): number {
 export function isMeasureOverfull(measure: Measure, header: MeasureHeader): boolean {
   const end = header.start + measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
   return measure.beats.some((beat) => beat.voices.some((voice) => !voice.isEmpty && beat.start + durationTicks(voice.duration) > end));
+}
+
+/** Hundredths of a beat per minute: tempos keep two decimals (Guitar Pro 7/8 hold e.g. 92.5). */
+const TEMPO_PRECISION = 100;
+
+/** A tempo (quarter notes per minute) rounded to two decimals, the precision MeasureHeader.tempo keeps. */
+export function roundTempo(tempo: number): number {
+  return Math.round(tempo * TEMPO_PRECISION) / TEMPO_PRECISION;
 }
 
 /** Every note value, longest (whole) first. */

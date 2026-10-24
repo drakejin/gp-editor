@@ -10,6 +10,7 @@ import {
   QUARTER,
   RED,
   STROKE_VALUES,
+  roundTempo,
 } from '../../src/model/defaults';
 import {
   type Beat,
@@ -53,7 +54,7 @@ import { expectedCurve } from './write-expected-curves';
  *   channels all play on MIDI channel 10, so they read back as one (program 0, bank 128); channels no track uses are gone;
  * - tracks: solo wins over mute; lyrics only with some text; the key signature is the measure header's (the first
  *   pitched track's, 0 on percussion tracks);
- * - measure headers: marker colours are red (GPIF sections have none); tempos are whole numbers;
+ * - measure headers: marker colours are red (GPIF sections have none); tempos keep two decimals, at least 1;
  * - beats: four voices, empty ones the reader's placeholder (an empty quarter); beats without a voice are gone; voice
  *   directions (stem orientations) are not read; strokes at 4…128 (32 for a stroke without speed); measure 1, when its
  *   voices do not fill it, is laid out against its end (the reader's anacrusis);
@@ -65,6 +66,7 @@ import { expectedCurve } from './write-expected-curves';
  * - effects: bend and whammy curves as the reader can read them back (write-expected-curves.ts); tremolo picking at
  *   8/16/32; trill speeds as plain durations; slides in flag order; artificial harmonics on the harmonic table's frets,
  *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot;
+ * - notes: no audio settings (play duration, start offset, velocity change: GPIF has no property for them).
  * - notation marks: no cautionary or forced accidental (accidentalDisplay); a bar's beam grouping only when it is not
  *   the time signature's own; a track's slash notation only when on.
  */
@@ -159,7 +161,7 @@ function expectedHeader(header: MeasureHeader, start: number): MeasureHeader {
     ...(sorted.length === 0 ? {} : { directions: sorted }),
     ...(beamGrouping === undefined ? {} : { beamGrouping }),
     start,
-    tempo: Math.max(1, Math.round(header.tempo)),
+    tempo: Math.max(1, roundTempo(header.tempo)),
     repeatAlternative: header.repeatAlternative & 0x7fffffff,
     ...(title === '' ? {} : { marker: { title, color: RED } }),
   };
@@ -278,7 +280,7 @@ interface TrackRules {
 function expectedNote(note: Note, shared: VoiceShared, rules: TrackRules): Note {
   const tuning = rules.isPercussion ? 0 : (rules.track.strings.find((s) => s.number === note.string)?.tuning ?? 0);
   const capo = rules.isPercussion ? 0 : rules.track.offset;
-  const { accidentalDisplay: _dropped, ...kept } = note;
+  const { audio: _audio, accidentalDisplay: _dropped, ...kept } = note;
   return { ...kept, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
 }
 

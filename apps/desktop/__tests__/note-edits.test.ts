@@ -168,3 +168,34 @@ describe('note edits at the cursor', () => {
     });
   });
 });
+
+describe('note audio settings at the cursor', () => {
+  it('steps the play duration, start offset and velocity change, one undo step each', () => {
+    // Arrange
+    const start = loaded();
+
+    // Act
+    const shorter = edit(start, { type: 'shiftNoteAudio', setting: 'durationPercent', delta: -10 });
+    const later = edit(shorter, { type: 'shiftNoteAudio', setting: 'offsetPercent', delta: 5 });
+    const louder = edit(later, { type: 'shiftNoteAudio', setting: 'velocityOffset', delta: 8 });
+
+    // Assert
+    expect(noteAt(louder).audio).toEqual({ durationPercent: 90, offsetPercent: 5, velocityOffset: 8 });
+    expect(louder.past).toHaveLength(3);
+  });
+
+  it('keeps each setting within its range and resets them all', () => {
+    // Arrange
+    const start = loaded();
+    const early = edit(start, { type: 'shiftNoteAudio', setting: 'offsetPercent', delta: -5 });
+
+    // Act
+    const changed = edit(start, { type: 'shiftNoteAudio', setting: 'durationPercent', delta: 500 });
+    const reset = edit(changed, { type: 'resetNoteAudio' });
+
+    // Assert
+    expect(early.past).toBe(start.past);
+    expect(noteAt(changed).audio?.durationPercent).toBe(200);
+    expect(noteAt(reset)).not.toHaveProperty('audio');
+  });
+});
