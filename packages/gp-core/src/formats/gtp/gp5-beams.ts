@@ -1,7 +1,7 @@
 // Guitar Pro 5 beaming (TuxGuitar's GP5InputStream skips it; GP5OutputStream#makeBeamEighthNoteBytes writes the
 // grouping): four "beam eighth notes by" bytes with each time signature, and per beat display flags.
 import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
-import type { BeamGrouping, BeamLink, TimeSignature } from '../../model/song';
+import type { BeamGrouping, BeamLink, Ottava, TimeSignature } from '../../model/song';
 
 /** Groups a GP5 measure header holds. */
 export const GP5_BEAM_GROUPS = 4;
@@ -16,6 +16,20 @@ export const GP5_BREAK_SECONDARY_BEAMS = 0x0800;
 const GP5_SECONDARY_COMPANION = 0x1000;
 /** The byte Guitar Pro writes after a secondary break: the primary beam goes on. */
 export const GP5_SECONDARY_BEAMS_KEPT = 1;
+
+/** Beat display flags: the octave sign the beat is written under (alphaTab's GP5 reader; TuxGuitar skips them). */
+const GP5_OTTAVA_FLAGS: Readonly<Record<Ottava, number>> = { '8va': 0x0010, '8vb': 0x0020, '15ma': 0x0040, '15mb': 0x0100 };
+const GP5_OTTAVAS = Object.entries(GP5_OTTAVA_FLAGS) as readonly (readonly [Ottava, number])[];
+
+/** The octave sign a beat's display flags hold; undefined for none. */
+export function ottavaFromGp5(flags: number): Ottava | undefined {
+  return GP5_OTTAVAS.find(([, flag]) => (flags & flag) !== 0)?.[0];
+}
+
+/** The display flag of an octave sign; 0 for none. */
+export function gp5OttavaFlag(ottava: Ottava | undefined): number {
+  return ottava === undefined ? 0 : GP5_OTTAVA_FLAGS[ottava];
+}
 
 /** The grouping as GP5's four eighth-note bytes; undefined when it has more groups or parts of an eighth. */
 export function gp5BeamBytes(grouping: BeamGrouping): readonly number[] | undefined {

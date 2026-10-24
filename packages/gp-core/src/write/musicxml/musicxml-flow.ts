@@ -1,6 +1,6 @@
 // Port of TuxGuitar TGTrackManager.isAnyTiedTo and MusicXMLWriter#writeBeats' previousNotesOnAllStrings (LGPL-2.1): what follows each note.
 import { type DynamicName, dynamicOf } from '../../formats/common/velocity';
-import type { Beat, Note, Track, Voice } from '../../model/song';
+import type { Beat, Note, Ottava, Track, Voice } from '../../model/song';
 
 /** One voice of one beat that is not empty (a rest or notes). */
 export interface VoiceEvent {
@@ -21,10 +21,17 @@ export interface TrackFlow {
   readonly dynamics: ReadonlyMap<string, DynamicName>;
   /** Events (eventKey) where palm muting starts in their voice. */
   readonly palmMuteStarts: ReadonlySet<string>;
+  /** Beats (beatKey) where an octave sign starts and where it ends (its last beat), with the sign. */
+  readonly ottavaStarts: ReadonlyMap<string, Ottava>;
+  readonly ottavaStops: ReadonlyMap<string, Ottava>;
 }
 
 /** The dynamic of an unmarked note (TGVelocities.DEFAULT). */
 const START_DYNAMIC: DynamicName = 'f';
+
+export function beatKey(measureIndex: number, beatIndex: number): string {
+  return `${measureIndex}/${beatIndex}`;
+}
 
 export function eventKey(measureIndex: number, beatIndex: number, voiceIndex: number): string {
   return `${measureIndex}/${beatIndex}/${voiceIndex}`;
@@ -84,6 +91,32 @@ function palmMuteStarts(voiceEvents: readonly VoiceEvent[]): readonly string[] {
   );
 }
 
+interface PlayedBeat {
+  readonly key: string;
+  readonly ottava: Ottava | undefined;
+}
+
+/** Runs of beats under one octave sign, across bar lines: the key of each run's first and last beat. */
+function ottavaRuns(track: Track): Pick<TrackFlow, 'ottavaStarts' | 'ottavaStops'> {
+  const beats = track.measures.flatMap((measure, measureIndex) =>
+    measure.beats.flatMap((beat, beatIndex): PlayedBeat[] => (beat.voices.every((voice) => voice.isEmpty) ? [] : [{ key: beatKey(measureIndex, beatIndex), ottava: beat.ottava }])),
+  );
+  const starts = new Map<string, Ottava>();
+  const stops = new Map<string, Ottava>();
+  beats.forEach(({ key, ottava }, index) => {
+    if (ottava === undefined) {
+      return;
+    }
+    if (beats[index - 1]?.ottava !== ottava) {
+      starts.set(key, ottava);
+    }
+    if (beats[index + 1]?.ottava !== ottava) {
+      stops.set(key, ottava);
+    }
+  });
+  return { ottavaStarts: starts, ottavaStops: stops };
+}
+
 export function buildTrackFlow(track: Track): TrackFlow {
   const events = voiceEventsOf(track);
   const voiceIndexes = [...new Set(events.map((event) => event.voiceIndex))];
@@ -95,5 +128,5 @@ export function buildTrackFlow(track: Track): TrackFlow {
     linkVoice(voiceEvents, next, previous);
     palmMuteStarts(voiceEvents).forEach((key) => starts.add(key));
   }
-  return { next, previous, dynamics: dynamicChanges(events), palmMuteStarts: starts };
+  return { next, previous, dynamics: dynamicChanges(events), palmMuteStarts: starts, ...ottavaRuns(track) };
 }

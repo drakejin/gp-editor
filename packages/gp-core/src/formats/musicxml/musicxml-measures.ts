@@ -5,6 +5,7 @@ import { type XmlElement, attribute, child, childText, children, lookupName } fr
 import { DYNAMICS } from '../common/velocity';
 import type { MusicXmlPart } from './musicxml-document';
 import { type NoteContext, type RawNote, readNote } from './musicxml-note';
+import { type OctaveShift, readOctaveShifts } from './musicxml-octave-shifts';
 import {
   MAX_DIVISIONS,
   MAX_MEASURES,
@@ -52,6 +53,7 @@ export interface PartMeasure {
   readonly notes: readonly RawNote[];
   readonly texts: readonly Timed<string>[];
   readonly dynamics: readonly Timed<number>[];
+  readonly octaveShifts: readonly Timed<OctaveShift>[];
 }
 
 /** What carries over from one measure to the next. */
@@ -74,6 +76,7 @@ interface MeasureDraft {
   readonly notes: RawNote[];
   readonly texts: Timed<string>[];
   readonly dynamics: Timed<number>[];
+  readonly octaveShifts: Timed<OctaveShift>[];
 }
 
 const MAX_ACCIDENTALS = 7;
@@ -175,6 +178,7 @@ function readDirection(direction: XmlElement, tick: number, draft: MeasureDraft)
   if (tempo !== undefined) {
     draft.tempos.push({ tick, value: tempo });
   }
+  draft.octaveShifts.push(...readOctaveShifts(direction).map((value) => ({ tick, value })));
   for (const type of types) {
     const rehearsal = readText(childText(type, 'rehearsal'));
     if (rehearsal !== '' && draft.rehearsal === undefined) {
@@ -208,7 +212,7 @@ function readBarline(barline: XmlElement, draft: MeasureDraft): void {
 }
 
 function newDraft(): MeasureDraft {
-  return { clefs: new Map(), tunings: [], tempos: [], isRepeatOpen: false, endings: [], notes: [], texts: [], dynamics: [] };
+  return { clefs: new Map(), tunings: [], tempos: [], isRepeatOpen: false, endings: [], notes: [], texts: [], dynamics: [], octaveShifts: [] };
 }
 
 /** One measure: the time cursor moves with notes, backups and forwards; positions past MAX_MEASURE_TICKS are dropped. */

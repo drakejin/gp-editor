@@ -1,6 +1,6 @@
 import { FINGERS } from '../formats/common/fingering';
 import { MAX_VELOCITY } from '../formats/common/velocity';
-import { NO_STROKE, STROKE_VALUES } from '../model/defaults';
+import { NO_STROKE, STROKE_VALUES, isOttava } from '../model/defaults';
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
 import type { Hairpin, Note, Stroke, StrokeDirection } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
@@ -104,13 +104,14 @@ function parseText(value: unknown): { readonly text?: string } | null {
 const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
 
 /** No mark, or a known one; `null` stands for invalid. */
-function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado'> | null {
+function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado' | 'ottava'> | null {
   const hairpin = HAIRPINS.find((known) => known === value.hairpin);
   const rasgueado = isRasgueadoPattern(value.rasgueado) ? value.rasgueado : undefined;
-  if ((value.hairpin !== undefined && hairpin === undefined) || (value.rasgueado !== undefined && rasgueado === undefined)) {
+  const ottava = isOttava(value.ottava) ? value.ottava : undefined;
+  if ((value.hairpin !== undefined && hairpin === undefined) || (value.rasgueado !== undefined && rasgueado === undefined) || (value.ottava !== undefined && ottava === undefined)) {
     return null;
   }
-  return { ...(hairpin === undefined ? {} : { hairpin }), ...(rasgueado === undefined ? {} : { rasgueado }) };
+  return { ...(hairpin === undefined ? {} : { hairpin }), ...(rasgueado === undefined ? {} : { rasgueado }), ...(ottava === undefined ? {} : { ottava }) };
 }
 
 function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefined {
@@ -134,7 +135,7 @@ function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefine
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
  * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
  * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
- * diagrams, texts up to 1024 characters, hairpins and rasgueado patterns. Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * diagrams, texts up to 1024 characters, hairpins, rasgueado patterns and octave signs. Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {

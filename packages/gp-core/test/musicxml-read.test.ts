@@ -317,6 +317,38 @@ describe('readMusicXml measure headers', () => {
   });
 });
 
+describe('readMusicXml octave signs', () => {
+  const shift = (type: string, size: number, staff = '') => `<direction><direction-type><octave-shift type="${type}" size="${size}"/></direction-type>${staff}</direction>`;
+  const signs = (measureIndex: number) => (song: ReturnType<typeof readXml>) => beatsOf(song, measureIndex).map((beat) => beat.ottava);
+
+  it('puts the beats from an octave-shift to its stop under the sign, across bar lines', () => {
+    // Arrange
+    const xml = onePart(
+      measureXml(DIVISIONS_1 + quarter('E4') + shift('down', 8) + quarter('F4') + quarter('G4') + shift('stop', 8) + shift('up', 15) + quarter('A4'), 1),
+      measureXml(quarter('B4') + shift('stop', 15) + quarter('C5') + shift('down', 15) + quarter('D5') + shift('up', 8) + quarter('E5'), 2),
+    );
+
+    // Act
+    const song = readXml(xml);
+
+    // Assert
+    assertSongInvariants(song);
+    expect(signs(0)(song)).toEqual([undefined, '8va', '8va', '15mb']);
+    expect(signs(1)(song)).toEqual(['15mb', undefined, '15ma', '8vb']);
+  });
+
+  it('ignores an octave-shift of another staff, an unknown size, and a stop with nothing to stop', () => {
+    // Arrange
+    const xml = onePart(measureXml(DIVISIONS_1 + shift('stop', 8) + shift('down', 8, '<staff>2</staff>') + quarter('E4') + shift('down', 22) + quarter('F4'), 1));
+
+    // Act
+    const song = readXml(xml);
+
+    // Assert
+    expect(signs(0)(song)).toEqual([undefined, undefined]);
+  });
+});
+
 describe('readMusicXml input checks', () => {
   it('refuses malformed XML', () => {
     // Arrange

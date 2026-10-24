@@ -153,6 +153,39 @@ describe('writeSong gp: slash notation of a track', () => {
   });
 });
 
+describe('writeSong gp: octave signs', () => {
+  /** Two voices: an 8va over both beats of voice 1 (voice 2 plays under the first), then a 15mb rest. */
+  function signedSong(): Song {
+    const half = plainDuration(2);
+    return buildSong({
+      tracks: [
+        {
+          measures: [
+            [
+              { voice: buildVoice([buildNote(1, 3)], half), voice2: buildVoice([buildNote(5, 2)], half), ottava: '8va' },
+              { voice: restVoice(half), ottava: '15mb' },
+            ],
+          ],
+        },
+      ],
+    });
+  }
+
+  it('writes each voice’s beat under the sign as <Ottavia> and reads the song back unchanged', () => {
+    // Arrange
+    const song = signedSong();
+
+    // Act
+    const again = roundTrip(song);
+    const written = childList(scoreXml(song), 'Beats', 'Beat').map((beat) => childText(beat, 'Ottavia'));
+
+    // Assert
+    expect(again.tracks[0]?.measures[0]?.beats.map((beat) => beat.ottava)).toEqual(['8va', '15mb']);
+    expect(written.filter((sign) => sign !== undefined).sort()).toEqual(['15mb', '8va', '8va']);
+    expect(songDifference(expectedAfterGp(song), again)).toBeUndefined();
+  });
+});
+
 describe('writeSong gp: what GPIF cannot hold', () => {
   it('drops a cautionary or forced accidental (no Guitar Pro file holds one)', () => {
     // Arrange

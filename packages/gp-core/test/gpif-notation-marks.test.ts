@@ -117,6 +117,33 @@ describe('GPIF slash notation', () => {
   });
 });
 
+describe('GPIF octave signs', () => {
+  /** The octave sign of every beat of a bar of track 1. */
+  const signs = (song: Song, measureIndex: number) => (song.tracks[0]?.measures[measureIndex]?.beats ?? []).map((beat) => beat.ottava);
+
+  it('ottavia.gp: the beats’ <Ottavia>, and none from the bars’ clef octaves', () => {
+    // Act
+    const song = read('guitarpro7', 'ottavia.gp');
+
+    // Assert
+    expect([0, 1, 2, 3].map((index) => signs(song, index))).toEqual([0, 1, 2, 3].map(() => [undefined, undefined, undefined, undefined]));
+    expect(signs(song, 4)).toEqual(['8va', '8vb', '15ma', '15mb']);
+    expect(signs(song, 5)).toEqual(['8va', '8va', '8va', '8va']);
+    expect(signs(song, 6)).toEqual([undefined, '8va', undefined, '8va']);
+    expect(signs(song, 12)).toEqual([undefined, '15mb', undefined, '15mb']);
+  });
+
+  it('takes the octave sign of a beat from any of its voices and ignores one it does not know', () => {
+    // Act
+    const known = toSong({ beats: '<Beat id="0"><Rhythm ref="0"/><Ottavia>15mb</Ottavia><Notes>0</Notes></Beat>' });
+    const unknown = toSong({ beats: '<Beat id="0"><Rhythm ref="0"/><Ottavia>Regular</Ottavia><Notes>0</Notes></Beat>' });
+
+    // Assert
+    expect(known.tracks[0]?.measures[0]?.beats[0]?.ottava).toBe('15mb');
+    expect(unknown.tracks[0]?.measures[0]?.beats[0]).not.toHaveProperty('ottava');
+  });
+});
+
 describe('readPartConfiguration', () => {
   it('reads the notation flags of the multi-track view, one per track', () => {
     // Arrange

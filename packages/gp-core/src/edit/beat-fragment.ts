@@ -1,5 +1,5 @@
 import { NO_STROKE } from '../model/defaults';
-import type { Beat, Chord, Duration, Hairpin, Note, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Beat, Chord, Duration, Hairpin, Note, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import type { VoiceEvent, VoiceEvents } from './timeline';
 
 /** One beat of a fragment: one voice's event with the marks of its beat. */
@@ -13,6 +13,7 @@ export interface BeatFragmentItem {
   readonly text?: string;
   readonly hairpin?: Hairpin;
   readonly rasgueado?: RasgueadoPattern;
+  readonly ottava?: Ottava;
 }
 
 /** A run of one voice's beats lifted out of their bars (copy, cut, paste). */
@@ -33,6 +34,7 @@ export function fragmentItem(voice: Voice, beat: Beat | undefined): BeatFragment
     ...(beat?.text === undefined ? {} : { text: beat.text }),
     ...(beat?.hairpin === undefined ? {} : { hairpin: beat.hairpin }),
     ...(beat?.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
+    ...(beat?.ottava === undefined ? {} : { ottava: beat.ottava }),
   };
 }
 
@@ -43,7 +45,8 @@ export function itemEvent(item: BeatFragmentItem): VoiceEvent {
   const text = item.text === undefined ? {} : { text: item.text };
   const hairpin = item.hairpin === undefined ? {} : { hairpin: item.hairpin };
   const rasgueado = item.rasgueado === undefined ? {} : { rasgueado: item.rasgueado };
-  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...chord, ...text, ...hairpin, ...rasgueado } };
+  const ottava = item.ottava === undefined ? {} : { ottava: item.ottava };
+  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...chord, ...text, ...hairpin, ...rasgueado, ...ottava } };
 }
 
 function untied(notes: readonly Note[], keepsTie: (note: Note) => boolean): readonly Note[] {

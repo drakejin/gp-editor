@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseBar / #fixFirstMeasureStartPositions (LGPL-2.1).
-import { NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
+import { NO_STROKE, QUARTER, durationTicks, isOttava, measureTicks } from '../../model/defaults';
 import type {
   Beat,
   Chord,
@@ -9,6 +9,7 @@ import type {
   Measure,
   MeasureHeader,
   Note,
+  Ottava,
   RasgueadoPattern,
   Stroke,
   BeamLink,
@@ -57,6 +58,7 @@ interface BeatDraft {
   text: string | undefined;
   hairpin: Hairpin | undefined;
   rasgueado: RasgueadoPattern | undefined;
+  ottava: Ottava | undefined;
 }
 
 export function buildMeasure(
@@ -180,6 +182,7 @@ function draftAt(drafts: Map<number, BeatDraft>, start: number): BeatDraft {
     text: undefined,
     hairpin: undefined,
     rasgueado: undefined,
+    ottava: undefined,
   };
   drafts.set(start, draft);
   return draft;
@@ -207,6 +210,8 @@ function applyBeatProperties(draft: BeatDraft, beat: GpifBeat, layout: TrackLayo
   }
   draft.hairpin ??= lookupName(HAIRPINS, beat.hairpin);
   draft.rasgueado ??= beat.rasgueado === undefined ? undefined : rasgueadoFromGpif(beat.rasgueado);
+  const ottava = beat.ottava?.trim();
+  draft.ottava ??= isOttava(ottava) ? ottava : undefined;
 }
 
 function strokeDirection(direction: string): StrokeDirection {
@@ -275,5 +280,6 @@ function toBeat(draft: BeatDraft, shift: number): Beat {
     ...(draft.text === undefined ? {} : { text: draft.text }),
     ...(draft.hairpin === undefined ? {} : { hairpin: draft.hairpin }),
     ...(draft.rasgueado === undefined ? {} : { rasgueado: draft.rasgueado }),
+    ...(draft.ottava === undefined ? {} : { ottava: draft.ottava }),
   };
 }

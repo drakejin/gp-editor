@@ -257,9 +257,18 @@ describe('fragment marks', () => {
     expect(reparse(swell)).toEqual(swell);
   });
 
+  it('keeps a beat’s octave sign', () => {
+    // Arrange
+    const signed = marked({ ottava: '15mb' });
+
+    // Act / Assert
+    expect(reparse(signed)).toEqual(signed);
+  });
+
   it.each([
     ['an unknown hairpin', { hairpin: 'swell' }],
     ['an unknown rasgueado', { rasgueado: 'ii_1' }],
+    ['an unknown octave sign', { ottava: '22ma' }],
   ])('rejects %s', (_label, extra) => {
     const raw = rawOf(marked({}));
     expect(parseBeatFragment({ ...raw, items: [{ ...raw.items[0], ...extra }] })).toBeUndefined();

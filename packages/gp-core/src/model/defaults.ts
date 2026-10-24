@@ -6,6 +6,7 @@ import {
   type NoteAudio,
   type NoteEffect,
   type NoteValue,
+  type Ottava,
   type PedalMark,
   QUARTER_TIME,
   type Rgb,
@@ -278,4 +279,18 @@ export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
     return a.offset - b.offset;
   }
   return a.action === b.action ? 0 : a.action === 'up' ? -1 : 1;
+}
+
+/** Guitar Pro's octave signs (GPIF's `<Ottavia>` values). */
+export const OTTAVAS: readonly Ottava[] = ['8va', '8vb', '15ma', '15mb'];
+
+const OTTAVA_OCTAVES: Readonly<Record<Ottava, number>> = { '8va': 1, '8vb': -1, '15ma': 2, '15mb': -2 };
+
+export function isOttava(value: unknown): value is Ottava {
+  return OTTAVAS.some((ottava) => ottava === value);
+}
+
+/** Octaves the notes sound above where an octave sign writes them (8vb, 15mb: below); 0 without a sign. */
+export function ottavaOctaves(ottava: Ottava | undefined): number {
+  return ottava === undefined ? 0 : OTTAVA_OCTAVES[ottava];
 }

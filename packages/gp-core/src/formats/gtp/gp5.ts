@@ -11,6 +11,7 @@ import type {
   Note,
   NoteAudio,
   NoteEffect,
+  Ottava,
   SlideType,
   Song,
   TimeSignature,
@@ -24,7 +25,7 @@ import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { readBeatEffectsGp45 } from './gp4';
-import { GP5_BEAM_GROUPS, GP5_BREAK_SECONDARY_BEAMS, beamGroupingFromGp5, beamLinkFromGp5 } from './gp5-beams';
+import { GP5_BEAM_GROUPS, GP5_BREAK_SECONDARY_BEAMS, beamGroupingFromGp5, beamLinkFromGp5, ottavaFromGp5 } from './gp5-beams';
 import { readDirectionsGp5, withDirections } from './gp5-directions';
 import {
   type BeatEffects,
@@ -262,7 +263,7 @@ function readBeatGp5(reader: ByteReader, beatJob: BeatJob): Gp5BeatRead {
   }
   // A voice without the "not empty" flag only counts when it has notes (TGVoice.addNote).
   const voice: Voice = { duration, notes, isEmpty: markedEmpty && notes.length === 0, direction: 'none' };
-  const placed = placeVoice(beats, beatJob, voice, { chord, text, effects });
+  const placed = placeVoice(beats, beatJob, voice, { chord, text, effects, ottava: voice.isEmpty ? undefined : ottavaFromGp5(display) });
   const beam = voice.isEmpty ? undefined : beamLinkFromGp5(display);
   const extras = { ...(tempo === undefined ? {} : { tempo }), ...(beam === undefined ? {} : { beamFromPrevious: beam }) };
   return { beats: placed, ticks: voice.isEmpty ? 0 : durationTicks(duration), ...extras };
@@ -272,6 +273,7 @@ interface BeatExtras {
   readonly chord: Chord | undefined;
   readonly text: string | undefined;
   readonly effects: BeatEffects;
+  readonly ottava: Ottava | undefined;
 }
 
 /** TuxGuitar's getBeat: reuse the beat starting at the same tick, else append a new one. */
@@ -291,6 +293,7 @@ function placeVoice(beats: readonly Beat[], beatJob: BeatJob, voice: Voice, extr
     ...(extras.chord === undefined ? {} : { chord: extras.chord }),
     ...(extras.text === undefined ? {} : { text: extras.text }),
     ...(extras.effects.isRasgueado === true ? { rasgueado: DEFAULT_RASGUEADO } : {}),
+    ...(base.ottava === undefined && extras.ottava !== undefined ? { ottava: extras.ottava } : {}),
   };
   return index >= 0 ? beats.map((current, i) => (i === index ? beat : current)) : [...beats, beat];
 }
