@@ -36,9 +36,17 @@ export function homeStrings(from: readonly number[], to: readonly number[]): rea
   );
 }
 
-/** Strings 1…count, nearest to `preferred` first (the higher string first on a tie). */
+/** Strings 1…count, nearest to `preferred` first (the higher string — the lower number — first on a tie). */
 function stringsByPreference(preferred: number, count: number): number[] {
-  return Array.from({ length: count }, (_, i) => i + 1).sort((a, b) => Math.abs(a - preferred) - Math.abs(b - preferred) || a - b);
+  const strings: number[] = [];
+  for (let distance = 0; strings.length < count; distance++) {
+    for (const string of distance === 0 ? [preferred] : [preferred - distance, preferred + distance]) {
+      if (string >= 1 && string <= count) {
+        strings.push(string);
+      }
+    }
+  }
+  return strings;
 }
 
 function fretOf(pitch: number, tuning: readonly number[], string: number): number {
@@ -120,6 +128,24 @@ function placeLeftover(note: NoteToPlace, tuning: readonly number[], neck: numbe
 }
 
 /**
+ * placeNotes' common case, without the matching: every note fits its own preferred string on the neck and no two
+ * prefer the same one, so each keeps it. Undefined otherwise.
+ */
+function placeOnPreferred(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number): StringPlacement[] | undefined {
+  const used = new Set<number>();
+  const placed: StringPlacement[] = [];
+  for (const note of notes) {
+    const string = note.preferredString;
+    if (!Number.isInteger(string) || string < 1 || string > tuning.length || used.has(string) || !fitsFrets(note.pitch, tuning, string, neck)) {
+      return undefined;
+    }
+    used.add(string);
+    placed.push(placement(note.pitch, tuning, string, 0));
+  }
+  return placed;
+}
+
+/**
  * Puts the notes of one beat (all voices) on separate strings of `tuning`, keeping each pitch where it can:
  * 1. on the neck (frets 0…neck): each note on its preferred string, else the nearest free string — earlier notes keep
  *    their preferred string, and as many notes as possible fit;
@@ -128,6 +154,10 @@ function placeLeftover(note: NoteToPlace, tuning: readonly number[], neck: numbe
  * undefined for a note left without a string (more notes than strings).
  */
 export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number): readonly (StringPlacement | undefined)[] {
+  const onPreferred = placeOnPreferred(notes, tuning, neck);
+  if (onPreferred !== undefined) {
+    return onPreferred;
+  }
   const owners = matchOnNeck(notes, tuning, neck);
   const placed = notes.map((note, noteIndex): StringPlacement | undefined => {
     const string = owners.indexOf(noteIndex) + 1;
