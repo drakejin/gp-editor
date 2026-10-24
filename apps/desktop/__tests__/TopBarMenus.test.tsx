@@ -61,16 +61,24 @@ describe('SpeedMenu', () => {
 
     // Act
     menu.pressButton('Playback tempo: less');
-    menu.pressButton('Last bar of the loop: more');
+    menu.pressButton('Last bar of the loop: less');
     menu.pressButton('Start the loop at the cursor’s bar');
 
-    // Assert
+    // Assert: no loop set yet is the whole song, so its last bar is bar 8
     expect((menu.props.onChangePractice as jest.Mock).mock.calls).toEqual([
       [{ type: 'shiftTempo', delta: -5, writtenTempo: 130 }],
-      [{ type: 'setLoopTo', measureIndex: 3, measureCount: 8, cursorMeasureIndex: 2 }],
-      [{ type: 'setLoopFrom', measureIndex: 2, measureCount: 8, cursorMeasureIndex: 2 }],
+      [{ type: 'setLoopTo', measureIndex: 6, measureCount: 8 }],
+      [{ type: 'setLoopFrom', measureIndex: 2, measureCount: 8 }],
     ]);
     expect(menu.props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows the whole song as the loop when none is set (Guitar Pro 8)', () => {
+    // Act
+    const menu = renderSpeed({ practice: { ...INITIAL_PRACTICE, isLooping: true } });
+
+    // Assert
+    expect(menu.texts()).toEqual(expect.arrayContaining(['1', '8']));
   });
 
   it('shows the loop bars 1-based and the speed trainer', () => {

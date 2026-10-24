@@ -7,7 +7,7 @@ import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
 import { type PracticeAction, playbackStartTempo } from '../state/practice';
-import { selectionStart } from '../state/selection';
+import { selectionBars, selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
 
@@ -102,6 +102,19 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
 
   const { document, selectionAnchor } = sources.state;
   const playFrom = useMemo(() => selectionStart({ document, cursor, selectionAnchor }), [document, cursor, selectionAnchor]);
+  // A selection plays from its first beat (wherever the drag ended) and, while the loop is on, becomes the loop (Guitar
+  // Pro 8 loops the selection); with none, playback starts at the cursor's bar.
+  const startPlayback = useCallback(() => {
+    const bars = selectionBars({ document, cursor, selectionAnchor });
+    if (practice.isLooping && bars !== undefined) {
+      changePractice({ type: 'setLoop', range: bars, measureCount });
+    }
+    if (playFrom === undefined) {
+      start(cursor?.measureIndex ?? 0);
+    } else {
+      start(playFrom.measureIndex, playFrom.tick);
+    }
+  }, [document, cursor, selectionAnchor, practice.isLooping, changePractice, measureCount, playFrom, start]);
 
   const runCommand = useCallback(
     (command: AppCommand | KeyCommand) => {
@@ -133,12 +146,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         if (isPlaying) {
           stop();
         } else {
-          // A selection plays from its first beat (wherever the drag ended); else from the cursor's bar.
-          if (playFrom === undefined) {
-            start(cursor?.measureIndex ?? 0);
-          } else {
-            start(playFrom.measureIndex, playFrom.tick);
-          }
+          startPlayback();
         }
       } else if (command.type === 'stopPlayback') {
         if (!closeOverlay()) {
@@ -148,7 +156,7 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
         dispatch(command);
       }
     },
-    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, onMarkSyncPoint, closeOverlay, runPractice, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, start, cursor?.measureIndex, playFrom, dispatch],
+    [create, mode, goToBar, onZoom, onNotePanel, onChordPanel, onMarkSyncPoint, closeOverlay, runPractice, clipboard, openDialog, importPdf, exportPdf, save, isPlaying, stop, startPlayback, dispatch],
   );
 
   const onPressBeat = useCallback(
