@@ -10,6 +10,7 @@ import {
   type SequenceEvent,
   toDataValue,
 } from './midi-events';
+import { appendAll } from './append';
 import { buildNoteEvents } from './note-events';
 import { type TrackContext, buildPlaybackBeats } from './note-search';
 import { pedalEvents } from './pedals';
@@ -106,25 +107,27 @@ function channelSetup(channel: Channel, track: Track, tick: number): SequenceEve
   ];
 }
 
-/** addBeats / addNotes for one played measure: every struck note of every beat and voice. */
-function measureEvents(context: TrackContext, playedIndex: number): SequenceEvent[] {
+/** addBeats / addNotes for one played measure: every struck note of every beat and voice, added to `events`. */
+function addMeasureEvents(context: TrackContext, playedIndex: number, events: SequenceEvent[]): void {
   const played = context.played[playedIndex];
   const header = headerOf(context.headers, played);
   const beats = played === undefined ? undefined : context.track.measures[played.headerIndex]?.beats;
   if (played === undefined || header === undefined || beats === undefined) {
-    return [];
+    return;
   }
   const tempo = playedTempo(header, played);
-  return beats.flatMap((beat, beatIndex) => {
+  beats.forEach((beat, beatIndex) => {
     const strokes = strokeOffsets(beat, context.track.strings.length);
-    return beat.voices.flatMap((voice, voiceIndex) => {
+    beat.voices.forEach((voice, voiceIndex) => {
+      const struck = voice.notes.filter((note) => !note.isTied);
+      if (struck.length === 0) {
+        return;
+      }
       const timing = tripletFeelTiming(beats, beatIndex, voiceIndex, header.tripletFeel);
-      return voice.notes
-        .filter((note) => !note.isTied)
-        .flatMap((note) => {
-          const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
-          return buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0);
-        });
+      for (const note of struck) {
+        const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
+        appendAll(events, buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0));
+      }
     });
   });
 }
@@ -146,5 +149,7 @@ export function buildTrackEvents(
     return setup;
   }
   const full: TrackContext = { ...context, channel, playback: buildPlaybackBeats(context.track, context.played) };
-  return [...setup, ...pedalEvents(full), ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
+  const events = [...setup, ...pedalEvents(full)];
+  context.played.forEach((_, playedIndex) => addMeasureEvents(full, playedIndex, events));
+  return events;
 }
