@@ -184,14 +184,34 @@ export function eventIndexOfBeat(events: VoiceEvents, beatIndex: number): number
 
 /** Attributes of the events meeting in one beat, field by field from the lowest voice that has the field. */
 function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttributes {
-  const all = events.flatMap((event) => (event?.attributes === undefined ? [] : [event.attributes]));
-  const stroke = all.find((attributes) => attributes.stroke.direction !== 'none')?.stroke ?? all[0]?.stroke ?? NO_STROKE;
-  const pickStroke = all.find((attributes) => attributes.pickStroke !== 'none')?.pickStroke ?? 'none';
-  const chord = all.find((attributes) => attributes.chord !== undefined)?.chord;
-  const text = all.find((attributes) => attributes.text !== undefined)?.text;
-  const hairpin = all.find((attributes) => attributes.hairpin !== undefined)?.hairpin;
-  const rasgueado = all.find((attributes) => attributes.rasgueado !== undefined)?.rasgueado;
-  const ottava = all.find((attributes) => attributes.ottava !== undefined)?.ottava;
+  // One pass (every rebuilt beat runs this): each field from the first attributes that have it.
+  let firstStroke: Stroke | undefined;
+  let stroke: Stroke | undefined;
+  let pickStroke: StrokeDirection = 'none';
+  let chord: Chord | undefined;
+  let text: string | undefined;
+  let hairpin: Hairpin | undefined;
+  let rasgueado: RasgueadoPattern | undefined;
+  let ottava: Ottava | undefined;
+  for (const event of events) {
+    const attributes = event?.attributes;
+    if (attributes !== undefined) {
+      firstStroke ??= attributes.stroke;
+      stroke ??= attributes.stroke.direction === 'none' ? undefined : attributes.stroke;
+      pickStroke = pickStroke === 'none' ? attributes.pickStroke : pickStroke;
+      chord ??= attributes.chord;
+      text ??= attributes.text;
+      hairpin ??= attributes.hairpin;
+      rasgueado ??= attributes.rasgueado;
+      ottava ??= attributes.ottava;
+    }
+  }
+  return mergedAttributes(stroke ?? firstStroke ?? NO_STROKE, pickStroke, { chord, text, hairpin, rasgueado, ottava });
+}
+
+/** The merged attributes with only the marks that are set. */
+function mergedAttributes(stroke: Stroke, pickStroke: StrokeDirection, marks: Omit<BeatAttributes, 'stroke' | 'pickStroke'>): BeatAttributes {
+  const { chord, text, hairpin, rasgueado, ottava } = marks;
   return {
     stroke,
     pickStroke,
@@ -239,9 +259,12 @@ export function toBeats(start: number, measureVoices: MeasureVoices, previous: r
   measureVoices.voices.forEach((events, voiceIndex) => {
     let position = start;
     for (const event of events) {
-      const atPosition = slots.get(position) ?? Array.from({ length: measureVoices.voiceCount }, () => undefined);
+      let atPosition = slots.get(position);
+      if (atPosition === undefined) {
+        atPosition = new Array<VoiceEvent | undefined>(measureVoices.voiceCount).fill(undefined);
+        slots.set(position, atPosition);
+      }
       atPosition[voiceIndex] = event;
-      slots.set(position, atPosition);
       position += eventTicks(event);
     }
   });
