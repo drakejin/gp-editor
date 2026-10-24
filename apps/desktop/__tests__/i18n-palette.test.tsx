@@ -22,7 +22,7 @@ afterEach(() => ReactTestRenderer.act(() => setLanguage('en')));
 const allTools = (): readonly PaletteTool[] => paletteGroups().flatMap((group) => group.tools);
 
 /** Faces that copy the score's marks or are numbers and symbols: the same in every language. */
-const NOTATION_FACES = new Set(['P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.', '( )', '(♯)', '/', '8va', '>', '1. 2.', 'A', '♪³', '⇄', '1–4', '1', '2', '3', '4']);
+const NOTATION_FACES = new Set(['P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.', '( )', '(♯)', '/', '8va', '>', '1. 2.', 'A', '♪³', '⇄', '1–4', '↔', '1', '2', '3', '4']);
 
 describe('the edition palette in Korean', () => {
   it('names the groups and word faces in Korean and keeps the score’s abbreviations', () => {

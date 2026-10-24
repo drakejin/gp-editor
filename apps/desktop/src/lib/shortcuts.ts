@@ -102,6 +102,7 @@ export const shortcutGroups = memoByLanguage((): readonly ShortcutGroup[] => [
       { keys: '⌘S / ⇧⌘S', action: t('commands.shortcuts.save') },
       { keys: '⌘P', action: t('commands.shortcuts.print') },
       { keys: '⇧⌘E', action: t('commands.shortcuts.exportPdf') },
+      { keys: 'F7', action: t('commands.shortcuts.stylesheet') },
       { keys: '⌘N / ⌘O / ⇧⌘I', action: t('commands.shortcuts.newOpen') },
       { keys: '⌘W', action: t('commands.shortcuts.closeTab') },
       { keys: '⌃⇥ / ⌃⇧⇥', action: t('commands.shortcuts.cycleTab') },

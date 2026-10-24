@@ -1,5 +1,6 @@
 import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
+import { DEFAULT_STYLESHEET } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { SaveChangesPanel } from '../src/components/SaveChangesPanel';
 import { TopBar, type TopBarProps } from '../src/components/TopBar';
@@ -7,10 +8,10 @@ import { ErrorBanner } from '../src/components/WindowOverlays';
 import { audioExportSummary, audioSavedHint } from '../src/export/audio-export-plan';
 import { DEFAULT_AUDIO_EXPORT } from '../src/export/audio-formats';
 import { pngSavedHint } from '../src/export/png-export';
+import { creditParts } from '../src/export/title-block';
 import { ASCII_TAB_FILE, SAVE_FORMATS, saveHint } from '../src/lib/file-formats';
 import { setLanguage } from '../src/lib/i18n/i18n';
 import { lcdInfo } from '../src/lib/lcd';
-import { authorshipCredits } from '../src/lib/song-credits';
 import { projectStatusText } from '../src/pdf-import/status';
 import { INITIAL_PANELS } from '../src/state/panels';
 import { INITIAL_PRACTICE } from '../src/state/practice';
@@ -142,7 +143,7 @@ describe('the window in Korean', () => {
     const info = { ...SONG.info, words: 'Kim', music: 'Lee', transcriber: 'Park' };
     const project = { pagesDone: [1, 2], pageCount: 5, status: 'transcribing' } as unknown as Parameters<typeof projectStatusText>[0];
 
-    expect(authorshipCredits(info)).toEqual(['작곡: Lee', '작사: Kim', '타브: Park']);
+    expect(creditParts(info, DEFAULT_STYLESHEET.header.shown).map((part) => part.text)).toEqual(['작곡: Lee', '작사: Kim', '타브: Park']);
     expect(projectStatusText(project)).toBe('채보 중 · 5쪽 중 2쪽');
   });
 });

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
+import { useT } from '../hooks/use-i18n';
 import type { LayoutAction } from '../state/layout-edits';
 import type { Palette } from '../theme';
 
@@ -41,15 +42,16 @@ function SmallButton({ palette, label, tooltip, isEnabled, isLit = false, onPres
  * to the next system (both fix the system's bars), × puts its bars back as the layout lays them out.
  */
 function SystemDesignButtonsView({ palette, song, firstMeasureIndex, barCount, onEdit }: SystemDesignButtonsProps) {
+  const t = useT();
   const measureIndexes = Array.from({ length: barCount }, (_, i) => firstMeasureIndex + i);
   // + takes the next system's first bar in; × is lit while a bar of the system was laid out by hand.
   const hasBarsAfter = firstMeasureIndex + barCount < song.measureHeaders.length;
   const isDesigned = measureIndexes.some((index) => song.measureHeaders[index]?.design !== undefined);
   return (
     <View style={styles.column}>
-      <SmallButton palette={palette} label="+" tooltip="One more bar in this system" isEnabled={hasBarsAfter} onPress={() => onEdit({ type: 'setSystemSize', measureIndex: firstMeasureIndex, bars: barCount + 1 })} />
-      <SmallButton palette={palette} label="−" tooltip="One bar less in this system" isEnabled={barCount > 1} onPress={() => onEdit({ type: 'setSystemSize', measureIndex: firstMeasureIndex, bars: barCount - 1 })} />
-      <SmallButton palette={palette} label="×" tooltip="Reset this system: bar widths, beat positions and bars as laid out" isEnabled={isDesigned} isLit={isDesigned} onPress={() => onEdit({ type: 'resetPositions', measureIndexes })} />
+      <SmallButton palette={palette} label="+" tooltip={t('stylesheet.design.moreBars')} isEnabled={hasBarsAfter} onPress={() => onEdit({ type: 'setSystemSize', measureIndex: firstMeasureIndex, bars: barCount + 1 })} />
+      <SmallButton palette={palette} label="−" tooltip={t('stylesheet.design.fewerBars')} isEnabled={barCount > 1} onPress={() => onEdit({ type: 'setSystemSize', measureIndex: firstMeasureIndex, bars: barCount - 1 })} />
+      <SmallButton palette={palette} label="×" tooltip={t('stylesheet.design.resetSystem')} isEnabled={isDesigned} isLit={isDesigned} onPress={() => onEdit({ type: 'resetPositions', measureIndexes })} />
     </View>
   );
 }

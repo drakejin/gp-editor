@@ -3,6 +3,7 @@ import { EN_COMMON } from './common';
 import { EN_INSTRUMENTS } from './instruments';
 import { EN_PALETTE } from './palette';
 import { EN_SETTINGS } from './settings';
+import { EN_STYLESHEET } from './stylesheet';
 import { EN_TOOLS } from './tools';
 import { EN_WINDOW } from './window';
 
@@ -18,6 +19,7 @@ export const EN = {
   ...EN_WINDOW,
   ...EN_TOOLS,
   ...EN_INSTRUMENTS,
+  ...EN_STYLESHEET,
 } as const;
 
 export type MessageKey = keyof typeof EN;
@@ -31,4 +33,5 @@ export const EN_FILES = {
   window: EN_WINDOW,
   tools: EN_TOOLS,
   instruments: EN_INSTRUMENTS,
+  stylesheet: EN_STYLESHEET,
 } as const;

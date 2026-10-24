@@ -234,6 +234,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.save': 'Save / save as',
   'commands.shortcuts.print': 'Print',
   'commands.shortcuts.exportPdf': 'Export PDF',
+  'commands.shortcuts.stylesheet': 'File ▸ Stylesheet…: the page, systems, texts and notation of the score',
   'commands.shortcuts.newOpen': 'New / open / import a PDF (each in a new tab)',
   'commands.shortcuts.closeTab': 'Close the tab (asks to save an edited one)',
   'commands.shortcuts.cycleTab': 'Next / previous tab',

@@ -53,7 +53,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.tool.voice4': '성부 4: 마디의 넷째 성부를 편집합니다 (⌘4)',
   'palette.tool.moveVoice': '성부 옮기기: 커서의 음이나 선택한 박을 다른 성부로 옮깁니다 (⌥1–⌥4)',
   'palette.tool.multivoice': '멀티 성부: 모든 성부를 한꺼번에 편집합니다 — 흐리게 보이는 성부가 없고, 음을 누르면 그 성부가 선택됩니다',
-  'palette.tool.designMode': '디자인 모드: 박, 세로줄, 단 사이 간격을 드래그하고, 단마다 옆에 있는 + − ×를 씁니다 (보기 ▸ 디자인 모드)',
+  'palette.tool.designMode': '디자인 모드: 박, 세로줄, 단 사이 간격을 드래그하고 단 옆의 + − ×로 마디 수를 바꿉니다 (보기 ▸ 디자인 모드)',
   'palette.tool.insertMeasure': '이 마디 뒤에 마디 넣기',
   'palette.tool.deleteMeasure': '이 마디 삭제',
   'palette.tool.repeatOpen': '도돌이표 시작',

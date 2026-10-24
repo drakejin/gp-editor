@@ -2,6 +2,7 @@ import {
   type HeaderElement,
   type NotationStyle,
   PAGE_FORMATS,
+  type PageFormatId,
   type PageMargins,
   type PageSetup,
   type Stylesheet,
@@ -11,36 +12,48 @@ import {
   type TextStyle,
   pageSize,
 } from '@gp-editor/core';
+import { type MessageKey, t } from './i18n/i18n';
 
-/** The Stylesheet dialog's tabs, as Guitar Pro 8 names them. */
+/** The Stylesheet dialog's tabs, in Guitar Pro 8's order (and by its names, `stylesheetTabName`). */
 export type StylesheetTab = 'page' | 'systems' | 'header' | 'texts' | 'notation';
 
-export const STYLESHEET_TABS: readonly (readonly [StylesheetTab, string])[] = [
-  ['page', 'Page & Score Format'],
-  ['systems', 'Systems & Staves'],
-  ['header', 'Header & Footer'],
-  ['texts', 'Texts & Styles'],
-  ['notation', 'Notation'],
-];
+export const STYLESHEET_TABS: readonly StylesheetTab[] = ['page', 'systems', 'header', 'texts', 'notation'];
 
-export const TEXT_ELEMENT_NAMES: Readonly<Record<TextElement, string>> = {
-  title: 'Title', subtitle: 'Subtitle', artist: 'Artist', album: 'Album', words: 'Words', music: 'Music', tabber: 'Tabber', copyright: 'Copyright',
-  tempo: 'Tempo', trackName: 'Track names', chordName: 'Chords', lyrics: 'Lyrics', barNumber: 'Bar numbers', freeText: 'Free text',
+const TAB_KEYS: Readonly<Record<StylesheetTab, MessageKey>> = {
+  page: 'stylesheet.tab.page', systems: 'stylesheet.tab.systems', header: 'stylesheet.tab.header', texts: 'stylesheet.tab.texts', notation: 'stylesheet.tab.notation',
 };
 
-export const HEADER_ELEMENT_NAMES: Readonly<Record<HeaderElement, string>> = {
-  title: 'Title', subtitle: 'Subtitle', artist: 'Artist', album: 'Album', words: 'Words', music: 'Music', tabber: 'Tabber', copyright: 'Copyright',
+const TEXT_ELEMENT_KEYS: Readonly<Record<TextElement, MessageKey>> = {
+  title: 'stylesheet.text.title', subtitle: 'stylesheet.text.subtitle', artist: 'stylesheet.text.artist', album: 'stylesheet.text.album', words: 'stylesheet.text.words',
+  music: 'stylesheet.text.music', tabber: 'stylesheet.text.tabber', copyright: 'stylesheet.text.copyright', tempo: 'stylesheet.text.tempo', trackName: 'stylesheet.text.trackName',
+  chordName: 'stylesheet.text.chordName', lyrics: 'stylesheet.text.lyrics', barNumber: 'stylesheet.text.barNumber', freeText: 'stylesheet.text.freeText',
 };
 
 /** Guitar Pro 8's names of the labels its Texts & Styles tab renames. */
-export const SYMBOL_LABEL_NAMES: Readonly<Record<SymbolLabel, string>> = {
-  letRing: 'Let Ring', palmMute: 'Palm Mute', hammerOn: 'Hammer-On', pullOff: 'Pull-Off', slide: 'Slide', tapping: 'Tapping', slap: 'Slap', pop: 'Pop',
-  rasgueado: 'Rasgueado', whammyBar: 'Whammy Bar',
+const SYMBOL_LABEL_KEYS: Readonly<Record<SymbolLabel, MessageKey>> = {
+  letRing: 'stylesheet.label.letRing', palmMute: 'stylesheet.label.palmMute', hammerOn: 'stylesheet.label.hammerOn', pullOff: 'stylesheet.label.pullOff', slide: 'stylesheet.label.slide',
+  tapping: 'stylesheet.label.tapping', slap: 'stylesheet.label.slap', pop: 'stylesheet.label.pop', rasgueado: 'stylesheet.label.rasgueado', whammyBar: 'stylesheet.label.whammyBar',
 };
+
+/** A tab's name in the shown language. */
+export function stylesheetTabName(tab: StylesheetTab): string {
+  return t(TAB_KEYS[tab]);
+}
+
+/** A text of the score (Texts & Styles) or of the header (Header & Footer: the song information) by its name. */
+export function textElementName(element: TextElement | HeaderElement): string {
+  return t(TEXT_ELEMENT_KEYS[element]);
+}
+
+export function symbolLabelName(label: SymbolLabel): string {
+  return t(SYMBOL_LABEL_KEYS[label]);
+}
 
 /** Families every Mac has, offered before the installed fonts are known (and in the tests). */
 export const COMMON_FONT_FAMILIES: readonly string[] = [
+  // i18n-exempt: font family names
   'Helvetica Neue', 'Avenir Next', 'Georgia', 'Times New Roman', 'Palatino', 'Baskerville', 'Futura', 'Gill Sans', 'Optima', 'Menlo', 'Courier New', 'American Typewriter',
+  // i18n-exempt: font family names
   'Marker Felt', 'Chalkboard SE', 'Apple SD Gothic Neo',
 ];
 
@@ -62,11 +75,16 @@ export function millimetresText(value: number): string {
   return `${Math.round(value * 10) / 10} mm`;
 }
 
+/** A page format's name: the paper's own ("A4", "US Letter"), or Custom in the shown language. */
+export function pageFormatName(format: PageFormatId): string {
+  return PAGE_FORMATS.find((each) => each.id === format)?.name ?? t('stylesheet.page.custom');
+}
+
 /** "A4 · portrait · 210 × 297 mm": the page the PDF, PNG and Print use. */
 export function pageSummary(page: PageSetup): string {
   const { width, height } = pageSize(page);
-  const name = PAGE_FORMATS.find((format) => format.id === page.format)?.name ?? 'Custom';
-  return `${name} · ${page.orientation} · ${Math.round(width * MM_PER_POINT)} × ${Math.round(height * MM_PER_POINT)} mm`;
+  const params = { format: pageFormatName(page.format), width: Math.round(width * MM_PER_POINT), height: Math.round(height * MM_PER_POINT) };
+  return t(page.orientation === 'landscape' ? 'stylesheet.page.summary.landscape' : 'stylesheet.page.summary.portrait', params);
 }
 
 export function withPage(sheet: Stylesheet, patch: Partial<PageSetup>): Stylesheet {
@@ -99,7 +117,8 @@ export function withLabel(sheet: Stylesheet, label: SymbolLabel, text: string): 
 
 /** A text style in words: "System font, 11 pt, bold". */
 export function textStyleText(style: TextStyle): string {
-  return [style.family === '' ? 'System font' : style.family, `${style.size} pt`, ...(style.isBold ? ['bold'] : []), ...(style.isItalic ? ['italic'] : [])].join(', ');
+  const family = style.family === '' ? t('stylesheet.texts.style.systemFont') : style.family;
+  return [family, `${style.size} pt`, ...(style.isBold ? [t('stylesheet.texts.style.bold')] : []), ...(style.isItalic ? [t('stylesheet.texts.style.italic')] : [])].join(', ');
 }
 
 /** The families whose name holds every word typed (any case), the chosen one first, at most `limit`. */

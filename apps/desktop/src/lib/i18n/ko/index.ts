@@ -5,6 +5,7 @@ import { KO_COMMON } from './common';
 import { KO_INSTRUMENTS } from './instruments';
 import { KO_PALETTE } from './palette';
 import { KO_SETTINGS } from './settings';
+import { KO_STYLESHEET } from './stylesheet';
 import { KO_TOOLS } from './tools';
 import { KO_WINDOW } from './window';
 
@@ -17,4 +18,5 @@ export const KO: Catalog<typeof EN> = {
   ...KO_WINDOW,
   ...KO_TOOLS,
   ...KO_INSTRUMENTS,
+  ...KO_STYLESHEET,
 };

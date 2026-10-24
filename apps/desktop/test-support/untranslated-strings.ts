@@ -24,7 +24,7 @@ export const SOURCE_ROOT = path.resolve(__dirname, '../src');
 const SKIPPED_FOLDERS = ['lib/i18n', 'native/specs'];
 
 /** JSX props whose string value is shown (or read by VoiceOver). */
-const TEXT_PROPS = new Set(['label', 'title', 'tooltip', 'placeholder', 'accessibilityLabel', 'accessibilityHint', 'heading', 'message', 'hint', 'caption', 'emptyText', 'prompt', 'description', 'subtitle']);
+const TEXT_PROPS = new Set(['label', 'text', 'title', 'tooltip', 'placeholder', 'accessibilityLabel', 'accessibilityHint', 'heading', 'message', 'hint', 'caption', 'emptyText', 'prompt', 'description', 'subtitle']);
 
 /** Calls whose string arguments are message keys or module names, not text. */
 const KEY_CALLS = new Set(['t', 'translate', 'isMessageKey', 'require']);

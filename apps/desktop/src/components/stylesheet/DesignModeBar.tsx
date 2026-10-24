@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import type { EditorAction } from '../../state/editor';
 import type { Palette } from '../../theme';
 import { BarButton } from '../BarButton';
@@ -17,25 +18,24 @@ interface DesignModeBarProps {
  * cursor's bar, Reset Positions (Guitar Pro 8's View ▸ Spacing Tools) and Done.
  */
 export function DesignModeBar({ palette, song, cursorMeasureIndex, onAction }: DesignModeBarProps) {
+  const t = useT();
   const header = cursorMeasureIndex === undefined ? undefined : song.measureHeaders[cursorMeasureIndex];
   const startsSystem = header?.design?.systemBars !== undefined;
   const isDesigned = song.measureHeaders.some((each) => each.design !== undefined);
   return (
-    <View style={[styles.bar, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel="Design Mode">
-      <Text style={[styles.title, { color: palette.text }]}>Design Mode</Text>
-      <Text style={[styles.hint, { color: palette.muted }]}>
-        Drag a beat’s dot or a bar line’s ▼ (a yellow guide snaps to the system above or below), the grips between staves and systems; + − × beside a system.
-      </Text>
+    <View style={[styles.bar, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel={t('stylesheet.design.title')}>
+      <Text style={[styles.title, { color: palette.text }]}>{t('stylesheet.design.title')}</Text>
+      <Text style={[styles.hint, { color: palette.muted }]}>{t('stylesheet.design.hint')}</Text>
       {cursorMeasureIndex === undefined ? null : (
         <BarButton
-          label={startsSystem ? `No system start at bar ${cursorMeasureIndex + 1}` : `New system at bar ${cursorMeasureIndex + 1}`}
+          label={t(startsSystem ? 'stylesheet.design.noSystemStart' : 'stylesheet.design.newSystem', { number: cursorMeasureIndex + 1 })}
           palette={palette}
           isActive={startsSystem}
           onPress={() => onAction({ type: 'toggleSystemStart', measureIndex: cursorMeasureIndex })}
         />
       )}
-      <BarButton label="Reset Positions" palette={palette} isEnabled={isDesigned} onPress={() => onAction({ type: 'resetPositions' })} />
-      <BarButton label="Done" palette={palette} isAccent onPress={() => onAction({ type: 'toggleDesignMode' })} />
+      <BarButton label={t('stylesheet.design.resetPositions')} palette={palette} isEnabled={isDesigned} onPress={() => onAction({ type: 'resetPositions' })} />
+      <BarButton label={t('common.done')} palette={palette} isAccent onPress={() => onAction({ type: 'toggleDesignMode' })} />
     </View>
   );
 }

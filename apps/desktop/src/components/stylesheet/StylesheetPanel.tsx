@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { DEFAULT_STYLESHEET, type Stylesheet, isDefaultStylesheet } from '@gp-editor/core';
-import { COMMON_FONT_FAMILIES, STYLESHEET_TABS, type StylesheetTab } from '../../lib/stylesheet-draft';
+import { useT } from '../../hooks/use-i18n';
+import { COMMON_FONT_FAMILIES, STYLESHEET_TABS, type StylesheetTab, stylesheetTabName } from '../../lib/stylesheet-draft';
 import { fontFamilies } from '../../native/stylesheet';
 import type { Palette } from '../../theme';
 import { BarButton } from '../BarButton';
@@ -41,15 +42,16 @@ function useFontFamilies(): readonly string[] {
  * once; the song keeps it (a .gp file saves it, GP3–GP5 and MusicXML cannot).
  */
 export function StylesheetPanel({ palette, sheet, onChange, onClose, initialTab = 'page' }: StylesheetPanelProps) {
+  const t = useT();
   const [tab, setTab] = useState<StylesheetTab>(initialTab);
   const families = useFontFamilies();
   const props = { palette, sheet, onChange };
   return (
-    <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel="Stylesheet">
+    <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} accessibilityLabel={t('stylesheet.title')}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: palette.text }]}>Stylesheet</Text>
-        {STYLESHEET_TABS.map(([id, name]) => (
-          <BarButton key={id} label={name} palette={palette} isActive={id === tab} onPress={() => setTab(id)} />
+        <Text style={[styles.title, { color: palette.text }]}>{t('stylesheet.title')}</Text>
+        {STYLESHEET_TABS.map((id) => (
+          <BarButton key={id} label={stylesheetTabName(id)} palette={palette} isActive={id === tab} onPress={() => setTab(id)} />
         ))}
       </View>
       {tab === 'page' ? <PageTab {...props} /> : null}
@@ -58,9 +60,9 @@ export function StylesheetPanel({ palette, sheet, onChange, onClose, initialTab 
       {tab === 'texts' ? <TextsTab {...props} families={families} /> : null}
       {tab === 'notation' ? <NotationTab {...props} /> : null}
       <View style={styles.row}>
-        <BarButton label="Default Stylesheet" palette={palette} isEnabled={!isDefaultStylesheet(sheet)} onPress={() => onChange(DEFAULT_STYLESHEET)} />
-        <BarButton label="Close" palette={palette} onPress={onClose} />
-        <Text style={[styles.hint, { color: palette.muted }]}>Each change is one undo step; the score, the PDF and print follow it. A .gp file keeps it.</Text>
+        <BarButton label={t('stylesheet.default')} palette={palette} isEnabled={!isDefaultStylesheet(sheet)} onPress={() => onChange(DEFAULT_STYLESHEET)} />
+        <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
+        <Text style={[styles.hint, { color: palette.muted }]}>{t('stylesheet.hint')}</Text>
       </View>
     </View>
   );

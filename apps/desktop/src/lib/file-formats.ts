@@ -87,9 +87,14 @@ function playsPastTwoVoices(song: Song): boolean {
   return song.tracks.some((track) => track.measures.some((measure) => measure.beats.some((beat) => beat.voices.slice(2).some((voice) => voice.notes.length > 0))));
 }
 
+/** A format's name without its extension: "Guitar Pro 5", "MusicXML". */
+export function formatName(format: FileFormat): string {
+  return format.label.replace(/ \(.*\)$/, '');
+}
+
 /** What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track, clefs and layout it leaves out. */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
-  const name = format.label.replace(/ \(.*\)$/, '');
+  const name = formatName(format);
   const voices = format.id === 'gp5' && playsPastTwoVoices(song) ? t('window.saveHint.voices', { format: name }) : undefined;
   const effects = format.id !== 'gp' && hasEffects(song) ? t('window.saveHint.effects', { format: name }) : undefined;
   const audio = format.id !== 'gp' && song.audioTrack !== undefined ? t('window.saveHint.audio', { format: name }) : undefined;

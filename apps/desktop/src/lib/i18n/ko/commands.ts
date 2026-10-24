@@ -231,6 +231,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.save': '저장 / 다른 이름으로 저장',
   'commands.shortcuts.print': '프린트',
   'commands.shortcuts.exportPdf': 'PDF로 내보내기',
+  'commands.shortcuts.stylesheet': '파일 ▸ 스타일시트…: 악보의 페이지, 단, 텍스트, 기보 설정',
   'commands.shortcuts.newOpen': '새로 만들기 / 열기 / PDF 가져오기 (각각 새 탭에서)',
   'commands.shortcuts.closeTab': '탭 닫기 (편집한 탭은 저장할지 묻습니다)',
   'commands.shortcuts.cycleTab': '다음 / 이전 탭',

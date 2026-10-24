@@ -122,6 +122,23 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | audio track (backing track), sync point | 오디오 트랙 (반주 트랙), 싱크 포인트 |
 | detune | 디튠 |
 
+## Stylesheet and Design Mode (스타일시트와 디자인 모드)
+
+| English | 한국어 | note |
+| --- | --- | --- |
+| stylesheet, default stylesheet | 스타일시트, 기본 스타일시트 | File ▸ Stylesheet… = `파일 ▸ 스타일시트…` |
+| Design Mode, Reset Positions | 디자인 모드, 위치 초기화 | |
+| Page & Score Format, Systems & Staves, Header & Footer, Texts & Styles, Notation | 페이지와 악보 형식, 단과 보표, 머리말과 꼬리말, 텍스트와 스타일, 기보 | the dialog's tabs |
+| page format, custom, orientation: portrait / landscape | 용지 크기, 사용자 지정, 방향: 세로 / 가로 | paper names (`A4`, `US Letter`) stay |
+| margins: top / bottom / left / right | 여백: 위쪽 / 아래쪽 / 왼쪽 / 오른쪽 | |
+| scale, rhythm (note) spacing | 배율, 음표 간격 | |
+| bars per system, auto | 한 단의 마디 수, 자동 | |
+| header, footer, page numbers | 머리말, 꼬리말, 페이지 번호 | |
+| font, system font, bold, italic | 서체, 시스템 서체, 볼드체, 이탤릭체 | macOS's words; font names stay |
+| free text (a beat's text) | 박 텍스트 | the palette's `박 위의 텍스트` |
+| bar numbers, label (a technique's written mark) | 마디 번호, 표기 | |
+| guide (the automatic guideline), grip | 안내선, 손잡이 | |
+
 ## App and files (앱과 파일)
 
 | English | 한국어 | note |

@@ -61,7 +61,7 @@ const fileRows = (): readonly Command[] => [
   appRow('file.exportAudio', 'file', (a) => a.exportAudio(), { keywords: ['wav', 'aiff', 'flac', 'mp3', 'ogg', 'vorbis', 'render', 'bounce', 'stems', 'sound'] }),
   appRow('file.stylesheet', 'file', (a) => a.openStylesheet(), {
     shortcut: 'F7',
-    keywords: ['page', 'paper', 'format', 'margins', 'fonts', 'text', 'spacing', 'scale', 'bars per system', 'lyrics', 'bar numbers', 'style', 'layout'],
+    keywords: ['page', 'paper', 'format', 'margins', 'fonts', 'text', 'spacing', 'scale', 'bars', 'system', 'lyrics', 'numbers', 'style', 'layout'],
   }),
   appRow('file.print', 'file', (a) => a.print(), { shortcut: '⌘P', keywords: ['printer', 'paper'] }),
   appRow('file.closeTab', 'file', (a) => a.closeTab(), { shortcut: '⌘W', keywords: ['document', 'close'] }),
@@ -101,8 +101,8 @@ const viewRows = (): readonly Command[] => [
   ...PANEL_ROWS.map(([panel, keywords]) => appRow(`view.panel.${panel}`, 'view', (a) => a.togglePanel(panel), { keywords: ['panel', 'toggle', ...keywords] })),
   appEditorRow('view.multitrack', 'view', { type: 'toggleMultitrack' }, { shortcut: 'F3', keywords: ['all', 'tracks', 'staves', 'system', 'show'] }),
   appRow('view.focus', 'view', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide', 'panels', 'score', 'only', 'distraction'] }),
-  appEditorRow('view.designMode', 'view', { type: 'toggleDesignMode' }, { keywords: ['layout', 'beat position', 'bar width', 'spacing', 'systems', 'guideline', 'drag'] }),
-  appEditorRow('view.resetPositions', 'view', { type: 'resetPositions' }, { keywords: ['design mode', 'spacing tools', 'layout', 'bar width', 'beat position', 'systems'] }),
+  appEditorRow('view.designMode', 'view', { type: 'toggleDesignMode' }, { keywords: ['layout', 'beat', 'position', 'bar', 'width', 'spacing', 'systems', 'guideline', 'drag'] }),
+  appEditorRow('view.resetPositions', 'view', { type: 'resetPositions' }, { keywords: ['design', 'spacing', 'tools', 'layout', 'bar', 'width', 'beat', 'position', 'systems'] }),
 ];
 
 const toolsRows = (): readonly Command[] => [

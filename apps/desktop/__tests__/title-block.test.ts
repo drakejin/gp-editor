@@ -1,6 +1,6 @@
-import type { Song } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, EMPTY_SONG_INFO, type Song } from '@gp-editor/core';
 import { PRINT_PALETTE } from '../src/export/paper';
-import { AVERAGE_CHAR_WIDTH, engraveTitleBlock, titleBlockLines } from '../src/export/title-block';
+import { AVERAGE_CHAR_WIDTH, creditParts, engraveTitleBlock, titleBlockLines } from '../src/export/title-block';
 import { texts } from '../test-support/score-helpers';
 import { makeSong, onStrings } from '../test-support/songs';
 
@@ -46,6 +46,21 @@ describe('titleBlockLines', () => {
 
   it('has only the title when the track does not exist', () => {
     expect(titleBlockLines(makeSong([]), 3, 'Test').map((line) => line.text)).toEqual(['Test']);
+  });
+});
+
+describe('creditParts', () => {
+  const shown = DEFAULT_STYLESHEET.header.shown;
+  const textsOf = (info: Partial<Song['info']>): string[] => creditParts({ ...EMPTY_SONG_INFO, ...info }, shown).map((part) => part.text);
+
+  it('credits one person who wrote words and music once (GP1–GP4 have one author field)', () => {
+    expect(textsOf({ words: 'Carulli', music: 'Carulli' })).toEqual(['Words & Music: Carulli']);
+    expect(textsOf({ words: 'Marco', music: 'Nightwish' })).toEqual(['Music: Nightwish', 'Words: Marco']);
+  });
+
+  it('adds the tab author and leaves empty credits out', () => {
+    expect(textsOf({ music: 'Nightwish', transcriber: 'Jin' })).toEqual(['Music: Nightwish', 'Tab: Jin']);
+    expect(textsOf({})).toEqual([]);
   });
 });
 

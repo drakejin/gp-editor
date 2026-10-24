@@ -2,7 +2,7 @@ import { type Dispatch, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Song, renderMidi, writeAsciiTab, writeMusicXml, writeMusicXmlArchive } from '@gp-editor/core';
 import { bytesToBase64 } from '../lib/base64';
 import { errorMessage } from '../lib/errors';
-import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn, layoutLeftOut } from '../lib/file-formats';
+import { ASCII_TAB_FILE, type FileFormat, MIDI_FILE, MUSICXML_FILE, MXL_FILE, fileNameIn, formatName, layoutLeftOut } from '../lib/file-formats';
 import { t } from '../lib/i18n/i18n';
 import { type SavedFile, showSavePanel, subscribeSongExportRequests, writeFile, writeTextFile } from '../native/gp-files';
 import type { EditorAction, OpenDocument } from '../state/editor';
@@ -59,7 +59,7 @@ const MUSICXML_EXPORT: ExportKind = {
     return t('window.exportWhat.musicXml');
   },
   write: (song, path) => writeTextFile(path, writeMusicXml(song)),
-  leftOut: (song) => layoutLeftOut('MusicXML', song),
+  leftOut: (song) => layoutLeftOut(formatName(MUSICXML_FILE), song),
 };
 
 const MXL_EXPORT: ExportKind = {
@@ -68,7 +68,7 @@ const MXL_EXPORT: ExportKind = {
     return t('window.exportWhat.musicXml');
   },
   write: (song, path) => writeFile(path, bytesToBase64(writeMusicXmlArchive(song))),
-  leftOut: (song) => layoutLeftOut('MusicXML', song),
+  leftOut: (song) => layoutLeftOut(formatName(MXL_FILE), song),
 };
 
 /**
