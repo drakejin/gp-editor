@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import type { Song } from '@gp-editor/core';
 import type { ChordDisplay } from '../score/chords';
-import { type MeasureCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans } from '../score/score-layout';
+import { type MeasureCache, type PlanCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans } from '../score/score-layout';
 
 /** `value` while `key` stays the same: the rows compare geometries by identity, so an edit keeping them redraws nothing. */
 function useStable<T>(value: T, key: string): T {
@@ -19,7 +19,13 @@ function useStable<T>(value: T, key: string): T {
  */
 export function useScoreLayout(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
   const shown = useStable(specs, specs.map((spec) => `${spec.trackIndex}:${spec.mode}`).join(','));
-  const plans = useMemo(() => staffPlans(song, shown, chordDisplay), [song, shown, chordDisplay]);
+  // The bands of the tracks an edit left alone are kept: scanning every track on each keystroke is what costs.
+  const planCache = useRef<PlanCache | undefined>(undefined);
+  const plans = useMemo(() => {
+    const made = staffPlans(song, shown, chordDisplay, planCache.current);
+    planCache.current = { song, chordDisplay, plans: made };
+    return made;
+  }, [song, shown, chordDisplay]);
   const stacked = useMemo(() => stackStaves(plans), [plans]);
   const staves = useStable(stacked, JSON.stringify(plans.map(({ trackIndex, mode, stringCount, bands, markLanes }) => [trackIndex, mode, stringCount, bands, markLanes])));
   const cache = useRef<MeasureCache | undefined>(undefined);

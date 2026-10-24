@@ -7,7 +7,7 @@ import { SCORE_MODES, rowGeometry } from '../src/score/geometry';
 import { hasLyrics } from '../src/score/lyrics';
 import { hasPedals } from '../src/score/pedals';
 import { rowHeaderWidth } from '../src/score/row';
-import { SYSTEM, layoutScore, scoreMeasures, shortTrackName, staffLabel } from '../src/score/score-layout';
+import { SYSTEM, layoutScore, scoreMeasures, shortTrackName, staffLabel, staffPlans } from '../src/score/score-layout';
 import { hasBends } from '../src/score/symbols/bends';
 import { tabMarkLanes } from '../src/score/tab';
 import { readFixture } from '../test-support/fixtures';
@@ -134,5 +134,30 @@ describe('scoreMeasures reusing the last layout', () => {
     const cache = { song, trackIndexes, chordDisplay: DEFAULT_CHORD_DISPLAY, measures: before };
     expect(scoreMeasures(song, [0, 1], DEFAULT_CHORD_DISPLAY, cache).some((bar, i) => bar === before[i])).toBe(false);
     expect(scoreMeasures(song, trackIndexes, { showsNames: false, showsDiagrams: false }, cache).some((bar, i) => bar === before[i])).toBe(false);
+  });
+});
+
+describe('staffPlans reusing the last layout', () => {
+  const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+  const specs = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+  it('keeps the plans of the tracks an edit left alone', () => {
+    // Arrange: track 3 edited
+    const before = staffPlans(song, specs, DEFAULT_CHORD_DISPLAY);
+    const edited = { ...song, tracks: song.tracks.map((track, i) => (i === 3 ? { ...track } : track)) };
+
+    // Act
+    const after = staffPlans(edited, specs, DEFAULT_CHORD_DISPLAY, { song, chordDisplay: DEFAULT_CHORD_DISPLAY, plans: before });
+
+    // Assert
+    expect(after.map((plan, i) => plan === before[i])).toEqual(specs.map((_, i) => i !== 3));
+    expect(after).toEqual(staffPlans(edited, specs, DEFAULT_CHORD_DISPLAY));
+  });
+
+  it('makes the top staff’s plan again when the bar headers change (its directions band)', () => {
+    const before = staffPlans(song, specs, DEFAULT_CHORD_DISPLAY);
+    const edited = { ...song, measureHeaders: [...song.measureHeaders] };
+    const after = staffPlans(edited, specs, DEFAULT_CHORD_DISPLAY, { song, chordDisplay: DEFAULT_CHORD_DISPLAY, plans: before });
+    expect(after.map((plan, i) => plan === before[i])).toEqual(specs.map((_, i) => i !== 0));
   });
 });

@@ -87,9 +87,30 @@ function staffBands(song: Song, track: Track, markLaneCount: number, isTop: bool
   };
 }
 
-export function staffPlans(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay): StaffPlan[] {
+/** The staves' plans of the last layout, to reuse those of the tracks an edit left alone (an edit keeps them identical). */
+export interface PlanCache {
+  readonly song: Song;
+  readonly chordDisplay: ChordDisplay;
+  readonly plans: readonly StaffPlan[];
+}
+
+/** A plan still holds when its staff shows the same track object, so drawn; the top staff's when the headers are the same too. */
+function isPlanKept(cache: PlanCache, song: Song, spec: StaffSpec, staffIndex: number): boolean {
+  const kept = cache.plans[staffIndex];
+  return (
+    kept !== undefined && kept.trackIndex === spec.trackIndex && kept.mode === spec.mode &&
+    cache.song.tracks[spec.trackIndex] === song.tracks[spec.trackIndex] && (staffIndex > 0 || cache.song.measureHeaders === song.measureHeaders)
+  );
+}
+
+export function staffPlans(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay, cache?: PlanCache): StaffPlan[] {
+  const reusable = cache !== undefined && cache.chordDisplay === chordDisplay ? cache : undefined;
   return specs.flatMap((spec, staffIndex) => {
     const track = song.tracks[spec.trackIndex];
+    const kept = reusable === undefined || !isPlanKept(reusable, song, spec, staffIndex) ? undefined : reusable.plans[staffIndex];
+    if (kept !== undefined) {
+      return [kept];
+    }
     if (track === undefined) {
       return [];
     }
