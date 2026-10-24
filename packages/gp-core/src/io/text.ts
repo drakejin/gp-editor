@@ -46,6 +46,19 @@ function decodeWithRuntime(bytes: Uint8Array, label: string): string | undefined
   }
 }
 
+/** windows-1252 bytes 0x80–0x9F by code point (CP1252_HIGH inverted; the other bytes equal their latin-1 code point). */
+const CP1252_HIGH_BYTES: ReadonlyMap<number, number> = new Map(
+  CP1252_HIGH.flatMap((codePoint, index): [number, number][] => (codePoint === REPLACEMENT ? [] : [[codePoint, 0x80 + index]])),
+);
+
+/** The windows-1252 byte of a code point, or undefined when windows-1252 has none. */
+export function windows1252Byte(codePoint: number): number | undefined {
+  if (codePoint < 0x80 || (codePoint >= 0xa0 && codePoint <= 0xff)) {
+    return codePoint;
+  }
+  return CP1252_HIGH_BYTES.get(codePoint);
+}
+
 export function decodeWindows1252(bytes: Uint8Array): string {
   const units = new Uint16Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) {
