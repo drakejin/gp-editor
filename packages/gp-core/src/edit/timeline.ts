@@ -64,6 +64,15 @@ export function restEvent(duration: Duration): VoiceEvent {
   return { voice: { duration, notes: [], isEmpty: false, direction: 'none' } };
 }
 
+/**
+ * Rests an edit adds after `before` (or in its place), under its octave sign when it has one: the sign's line runs on
+ * over them instead of breaking at the rest.
+ */
+export function signedRests(rests: VoiceEvents, before: VoiceEvent | undefined): VoiceEvents {
+  const ottava = before?.attributes?.ottava;
+  return ottava === undefined ? rests : rests.map((rest) => ({ ...rest, attributes: { stroke: NO_STROKE, pickStroke: 'none', ottava } }));
+}
+
 /** Rest events filling exactly `ticks` (see restDurations); undefined when that is impossible. */
 export function restEvents(ticks: number, preferred?: Duration, tuplets?: DurationTuplets): VoiceEvents | undefined {
   return restDurations(ticks, preferred, tuplets)?.map(restEvent);

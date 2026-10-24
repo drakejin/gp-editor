@@ -1,6 +1,6 @@
 import type { DurationTuplets } from '../model/defaults';
 import type { Duration } from '../model/song';
-import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, restEvents } from './timeline';
+import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, restEvents, signedRests } from './timeline';
 
 /**
  * How a voice may sit in its measure after a time-signature change, which refuses to push notes out of the measure
@@ -41,7 +41,7 @@ function cutRest(event: VoiceEvent, ticks: number, tuplets: DurationTuplets | un
   if (first === undefined) {
     return [];
   }
-  return [event.attributes === undefined ? first : { ...first, attributes: event.attributes }, ...others];
+  return [event.attributes === undefined ? first : { ...first, attributes: event.attributes }, ...signedRests(others, event)];
 }
 
 /** The events with the free rests after the last other event trimmed to end by `length` (removeVoicesOutOfTime). */
@@ -94,7 +94,7 @@ export function takeRestsAfter(events: VoiceEvents, index: number, ticks: number
       if (refill === undefined) {
         return undefined;
       }
-      kept.push(...refill);
+      kept.push(...signedRests(refill, event));
       needed = 0;
     }
   }

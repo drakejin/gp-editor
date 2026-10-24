@@ -37,15 +37,20 @@ export interface MeasureOttavas {
   readonly atEnd: Ottava | undefined;
 }
 
+/** At one place a stop goes before a start: voices write them in either order (the writer: each on its run's first voice). */
+function stopFirst(shift: Timed<OctaveShift>): number {
+  return shift.value.ottava === undefined ? 0 : 1;
+}
+
 /**
  * The signs over a measure's positions, from the sign running into it (`carried`) and its shifts on the track's
- * `staves` (or on no staff): a shift counts from its position on; at one position, in document order (a stop, then a start).
+ * `staves` (or on no staff): a shift counts from its position on; at one position, stops first, then in document order.
  */
 export function measureOttavas(shifts: readonly Timed<OctaveShift>[], staves: ReadonlySet<number>, carried: Ottava | undefined): MeasureOttavas {
   const own = shifts
     .map((shift, order) => ({ shift, order }))
     .filter(({ shift }) => shift.value.staff === undefined || staves.has(shift.value.staff))
-    .sort((a, b) => a.shift.tick - b.shift.tick || a.order - b.order)
+    .sort((a, b) => a.shift.tick - b.shift.tick || stopFirst(a.shift) - stopFirst(b.shift) || a.order - b.order)
     .map(({ shift }) => shift);
   const signAt = (tick: number): Ottava | undefined => own.reduce<Ottava | undefined>((sign, shift) => (shift.tick <= tick ? shift.value.ottava : sign), carried);
   return { at: signAt, atEnd: signAt(Number.POSITIVE_INFINITY) };

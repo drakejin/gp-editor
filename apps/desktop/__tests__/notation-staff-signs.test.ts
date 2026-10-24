@@ -202,6 +202,17 @@ describe('written octave signs', () => {
     expect(bracketLines(last).filter(c => c.x1 === c.x2)).toHaveLength(1);
   });
 
+  it('runs the mark on over a slashed beat under the sign', () => {
+    // Arrange: four signed beats, the second written as a rhythm slash
+    const beats = bar([0, 0, 0, 0], ['8va', '8va', '8va', '8va']).map((value, i) => (i === 1 ? { ...value, voices: value.voices.map((voice) => ({ ...voice, isSlashed: true })) } : value));
+
+    // Act
+    const commands = engrave([beats], 0);
+
+    // Assert
+    expect(texts(commands, '8va')).toHaveLength(1);
+  });
+
   it('draws the sign over rests under it too', () => {
     // Act
     const commands = engrave(

@@ -121,6 +121,14 @@ describe('searchExpressions: chords and key signatures', () => {
     expect(first('Bbm7').edit()).toMatchObject({ chord: { name: 'Bbm7' } });
   });
 
+  it('reads major and minor in any case, and spells a chord’s bass with the flat it was typed with', () => {
+    expect(search('G Major').find((match) => match.kind === 'keySignature')?.edit()).toEqual({ type: 'setKeySignature', keySignature: 1 });
+    expect(search('E MINOR').find((match) => match.kind === 'keySignature')?.edit()).toEqual({ type: 'setKeySignature', keySignature: 1 });
+    expect(search('CM').find((match) => match.kind === 'keySignature')?.edit()).toEqual({ type: 'setKeySignature', keySignature: 0 });
+    expect(first('C/Bb')).toMatchObject({ title: 'C/B♭' });
+    expect(first('C/Bb').edit()).toMatchObject({ chord: { name: 'C/Bb' } });
+  });
+
   it('leaves out keys beyond seven accidentals', () => {
     expect(
       search('G# major').some(match => match.kind === 'keySignature'),

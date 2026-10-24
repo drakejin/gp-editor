@@ -29,7 +29,7 @@ function withOttava(beat: Beat, ottava: Ottava | undefined): Beat {
 /**
  * New song with the octave sign `ottava` over the beats from `from` to `to` (either order, one track; rests too, so the
  * sign's line runs over them), or none (undefined). The voice does not matter: the sign is the beat's. Same song when
- * nothing changes or the sign is unknown.
+ * nothing changes, the sign is unknown or the track is a drum track (its staff has no pitches to move).
  */
 export function setOttava(song: Song, from: BeatAddress, to: BeatAddress, ottava: Ottava | undefined): Song {
   if (ottava !== undefined && !isOttava(ottava)) {
@@ -37,6 +37,9 @@ export function setOttava(song: Song, from: BeatAddress, to: BeatAddress, ottava
   }
   const [first, last] = isBefore(to, from) ? [to, from] : [from, to];
   return updateTrack(song, first.trackIndex, (track) => {
+    if (track.isPercussion) {
+      return track;
+    }
     const measures = track.measures.map((measure, measureIndex): Measure => {
       const beats = measure.beats.map((beat, beatIndex) => (isInRange(measureIndex, beatIndex, first, last) ? withOttava(beat, ottava) : beat));
       return beats.every((beat, index) => beat === measure.beats[index]) ? measure : { ...measure, beats };

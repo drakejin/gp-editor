@@ -180,7 +180,8 @@ function asSlash(event: VoiceEvent): VoiceEvent {
     effect: first.effect,
     isSlash: true,
   };
-  return { ...event, notes: [slash], ottava: 0 };
+  // A written sign stays the event's, so the sign's mark runs on over the slash; the engraver's own shift does not.
+  return { ...event, notes: [slash], ottava: event.isWrittenOttava === true ? event.ottava : 0 };
 }
 
 function shiftNote(note: StaffNote, shift: number): StaffNote {

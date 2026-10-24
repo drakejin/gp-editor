@@ -337,6 +337,24 @@ describe('readMusicXml octave signs', () => {
     expect(signs(1)(song)).toEqual(['15mb', undefined, '15ma', '8vb']);
   });
 
+  it('ends a sign before starting the next one at the same place, whatever their order in the file', () => {
+    // Arrange: voice 2 starts the 8vb at beat 2 before voice 1's section has stopped the 8va there
+    const voice2 = '<note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>quarter</type></note>';
+    const xml = onePart(
+      measureXml(
+        DIVISIONS_1 + shift('down', 8) + quarter('E4') + '<backup><duration>1</duration></backup><forward><duration>1</duration></forward>' + shift('up', 8) + voice2 +
+          '<backup><duration>2</duration></backup><forward><duration>1</duration></forward>' + shift('stop', 8) + quarter('F4'),
+        1,
+      ),
+    );
+
+    // Act
+    const song = readXml(xml);
+
+    // Assert
+    expect(signs(0)(song)).toEqual(['8va', '8vb']);
+  });
+
   it('ignores an octave-shift of another staff, an unknown size, and a stop with nothing to stop', () => {
     // Arrange
     const xml = onePart(measureXml(DIVISIONS_1 + shift('stop', 8) + shift('down', 8, '<staff>2</staff>') + quarter('E4') + shift('down', 22) + quarter('F4'), 1));

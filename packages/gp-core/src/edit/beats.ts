@@ -12,6 +12,7 @@ import {
   eventsTicks,
   restEvent,
   restEvents,
+  signedRests,
   isSameDuration,
   hasSameEvents,
   toBeats,
@@ -134,7 +135,7 @@ export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration)
 /** The events with rests of `ticks` (preferably `preferred`) put right after `index`; undefined when they cannot be written. */
 function restAfter(events: VoiceEvents, index: number, ticks: number, preferred: Duration): VoiceEvents | undefined {
   const fill = restEvents(ticks, preferred);
-  return fill === undefined ? undefined : [...events.slice(0, index + 1), ...fill, ...events.slice(index + 1)];
+  return fill === undefined ? undefined : [...events.slice(0, index + 1), ...signedRests(fill, events[index]), ...events.slice(index + 1)];
 }
 
 /**
@@ -156,7 +157,7 @@ export function insertBeat(song: Song, at: BeatAddress, position: 'before' | 'af
       return undefined;
     }
     const insertIndex = position === 'before' ? index : index + 1;
-    const inserted = [...events.slice(0, insertIndex), restEvent(event.voice.duration), ...events.slice(insertIndex)];
+    const inserted = [...events.slice(0, insertIndex), ...signedRests([restEvent(event.voice.duration)], event), ...events.slice(insertIndex)];
     return { events: inserted, tuplets: event.voice.duration };
   });
 }
@@ -175,7 +176,7 @@ export function deleteBeat(song: Song, at: BeatAddress): Song {
     }
     const remaining = [...events.slice(0, index), ...events.slice(index + 1)];
     const padding = Math.max(0, Math.min(eventsTicks(events), length) - eventsTicks(remaining));
-    const padded = [...remaining, ...(restEvents(padding, removed.voice.duration) ?? [])];
+    const padded = [...remaining, ...signedRests(restEvents(padding, removed.voice.duration) ?? [], remaining[remaining.length - 1] ?? removed)];
     return { events: padded, tuplets: removed.voice.duration };
   });
 }

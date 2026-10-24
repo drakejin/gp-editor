@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
-import { setBeatDuration } from '../src/edit/beats';
+import { deleteBeat, insertBeat, setBeatDuration } from '../src/edit/beats';
 import { setMeasureClef, setOttava } from '../src/edit/staff-signs';
 import { OTTAVAS, isOttava, ottavaOctaves } from '../src/model/defaults';
 import type { Clef, Ottava, Song } from '../src/model/song';
@@ -61,6 +61,12 @@ describe('setOttava', () => {
     expect(removed.tracks[0]?.measures[0]?.beats[0]).not.toHaveProperty('ottava');
   });
 
+  it('puts no octave sign on a drum track (its staff has no pitches to move)', () => {
+    const song = makeSong();
+    const drums: Song = { ...song, tracks: song.tracks.map((track) => ({ ...track, isPercussion: true })) };
+    expect(setOttava(drums, at(0, 0), at(0, 1), '8va')).toBe(drums);
+  });
+
   it('returns the same song when nothing changes, the range has no beat or the sign is unknown', () => {
     const song = makeSong();
     expect(setOttava(song, at(0, 0), at(0, 1), undefined)).toBe(song);
@@ -68,6 +74,27 @@ describe('setOttava', () => {
     expect(setOttava(song, at(0, 0), at(0, 0), '22ma' as Ottava)).toBe(song);
     const signed = setOttava(song, at(0, 0), at(0, 1), '8vb');
     expect(setOttava(signed, at(0, 0), at(0, 1), '8vb')).toBe(signed);
+  });
+
+  it('puts the rests an edit adds inside a signed run under the sign, so its line runs on', () => {
+    // Arrange: the whole first bar under an 8va
+    const signed = setOttava(makeSong(), at(0, 0), at(0, 3), '8va');
+
+    // Act
+    const shorter = setBeatDuration(signed, at(0, 0), dur(8));
+    const inserted = insertBeat(signed, at(0, 0), 'after');
+    const deleted = deleteBeat(signed, at(0, 1));
+    const longer = setBeatDuration(setBeatDuration(signed, at(0, 2), dur(8)), at(0, 1), dur(2));
+
+    // Assert
+    expect(ottavas(shorter, 0).every((sign) => sign === '8va')).toBe(true);
+    expect(ottavas(inserted, 0).every((sign) => sign === '8va')).toBe(true);
+    expect(ottavas(deleted, 0).every((sign) => sign === '8va')).toBe(true);
+    expect(ottavas(longer, 0).every((sign) => sign === '8va')).toBe(true);
+  });
+
+  it('adds no sign to the rests of an edit outside a signed run', () => {
+    expect(ottavas(insertBeat(makeSong(), at(0, 0), 'after'), 0).every((sign) => sign === undefined)).toBe(true);
   });
 
   it('keeps the octave sign of a beat whose duration an edit changes', () => {

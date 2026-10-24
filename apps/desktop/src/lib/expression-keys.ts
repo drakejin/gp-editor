@@ -40,7 +40,7 @@ function typedChord(
   const spec = parseChordName(symbol);
   return spec === undefined
     ? undefined
-    : { spec, spelling: /^[A-Ga-g](b|♭)/.test(symbol) ? 'flat' : 'sharp' };
+    : { spec, spelling: /^[A-Ga-g](b|♭)|\/[A-Ga-g](b|♭)$/.test(symbol) ? 'flat' : 'sharp' };
 }
 
 /** The chord a typed symbol names, its diagram the first voicing on the track's strings (none fits: its name only). */
@@ -76,11 +76,17 @@ const MODES: Readonly<Record<string, KeyMode>> = {
   '': 'major',
   major: 'major',
   maj: 'major',
-  M: 'major',
   minor: 'minor',
   min: 'minor',
-  m: 'minor',
 };
+
+/** A key's mode as typed: "major" / "minor" in any case, "M" / "m" by their case (CM, Cm). */
+function modeOf(word: string): KeyMode | undefined {
+  if (word === 'M' || word === 'm') {
+    return word === 'M' ? 'major' : 'minor';
+  }
+  return MODES[word.toLowerCase()];
+}
 const ACCIDENTAL_SHIFTS: Readonly<Record<string, number>> = {
   '': 0,
   '#': 1,
@@ -111,12 +117,12 @@ function keyMatch(keySignature: number, title: string): ExpressionMatch {
 /** A key typed by its tonic and mode: "G", "G major", "Eb minor", "key of F#m". */
 function keyByTonic(text: string): ExpressionMatch | undefined {
   const match =
-    /^([A-Ga-g])\s*(#|♯|b|♭|-?sharp|-?flat)?\s*(major|maj|minor|min|M|m)?$/.exec(
+    /^([A-Ga-g])\s*(#|♯|b|♭|-?sharp|-?flat)?\s*(major|maj|minor|min|m)?$/i.exec(
       text,
     );
   const letter = LETTERS.indexOf((match?.[1] ?? '').toUpperCase());
-  const alter = ACCIDENTAL_SHIFTS[(match?.[2] ?? '').replace('-', '')];
-  const mode = MODES[match?.[3] ?? ''];
+  const alter = ACCIDENTAL_SHIFTS[(match?.[2] ?? '').replace('-', '').toLowerCase()];
+  const mode = modeOf(match?.[3] ?? '');
   const keySignature =
     match === null || letter < 0 || alter === undefined || mode === undefined
       ? undefined
