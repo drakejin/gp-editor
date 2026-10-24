@@ -83,9 +83,13 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   NSDictionary *step = self.steps[index];
   NSTimeInterval delay = [self perform:step];
   [self log:[NSString stringWithFormat:@"step %lu ok: %@", (unsigned long)index, step.allKeys.firstObject]];
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    [self runStep:index + 1];
-  });
+  // In the common run loop modes, so the next step also runs while a save panel or an alert runs modally.
+  [self performSelector:@selector(runStepNumber:) withObject:@(index + 1) afterDelay:delay inModes:@[ NSRunLoopCommonModes ]];
+}
+
+- (void)runStepNumber:(NSNumber *)index
+{
+  [self runStep:index.unsignedIntegerValue];
 }
 
 /** Runs one step; returns how long to wait before the next one. */
@@ -438,8 +442,34 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     }
     [queue addObjectsFromArray:view.subviews];
   }
+  // A save or open panel draws its own content out of process; what the app gave it (title, message, prompt, the
+  // accessory view's label and popup) is read from the panel, and the accessory view is the snapshot.
+  NSView *accessory = nil;
+  if ([modal isKindOfClass:[NSSavePanel class]]) {
+    NSSavePanel *panel = (NSSavePanel *)modal;
+    [texts addObjectsFromArray:@[ panel.title ?: @"", panel.message ?: @"", panel.prompt ?: @"", panel.nameFieldLabel ?: @"" ]];
+    accessory = panel.accessoryView;
+    NSMutableArray<NSView *> *views = accessory == nil ? [NSMutableArray array] : [NSMutableArray arrayWithObject:accessory];
+    while (views.count > 0) {
+      NSView *view = views.firstObject;
+      [views removeObjectAtIndex:0];
+      if ([view isKindOfClass:[NSPopUpButton class]]) {
+        [texts addObject:[((NSPopUpButton *)view).itemTitles componentsJoinedByString:@" / "]];
+      } else if ([view isKindOfClass:[NSTextField class]]) {
+        [texts addObject:((NSTextField *)view).stringValue];
+      }
+      [views addObjectsFromArray:view.subviews];
+    }
+  }
   [self log:[NSString stringWithFormat:@"snapshotModal texts: %@", [texts componentsJoinedByString:@" | "]]];
-  [self snapshot:modal to:path];
+  if (accessory != nil) {
+    NSBitmapImageRep *rep = [accessory bitmapImageRepForCachingDisplayInRect:accessory.bounds];
+    [accessory cacheDisplayInRect:accessory.bounds toBitmapImageRep:rep];
+    BOOL written = [[rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:path atomically:YES];
+    [self log:[NSString stringWithFormat:@"snapshot %@ %@ (the panel's accessory view)", path, written ? @"written" : @"FAILED"]];
+  } else {
+    [self snapshot:modal to:path];
+  }
 }
 
 - (void)snapshot:(NSWindow *)window to:(NSString *)path
