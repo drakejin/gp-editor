@@ -1,14 +1,14 @@
-import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View, type ViewToken } from 'react-native';
+import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
-import { type PageTop, isLineOnFirstScreen } from '../lib/score-scroll';
+import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import { ROW } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import type { PlayingBeat } from '../score/row';
-import type { ScoreLayout, StaffSpec } from '../score/score-layout';
+import type { StaffSpec } from '../score/score-layout';
 import { type BeatRange, clipRange } from '../score/selection-tint';
 import { staffDecor } from '../score/system-staff';
 import type { Palette } from '../theme';
@@ -40,33 +40,12 @@ interface ScoreViewProps {
   readonly onDragBeat: (hit: RowHit) => void;
 }
 
-/** A line of the page: one track's staves in one system (a row of the score in the single-track view). */
-interface ScoreLine {
-  readonly systemIndex: number;
-  readonly staffIndex: number;
-}
-
 /** Rows rendered at once and kept around the viewport. */
 const INITIAL_ROWS = 6;
 const WINDOW_SIZE = 5;
 /** Grey desk around the page, and the page's foot. */
 const DESK_MARGIN = 22;
 const PAGE_FOOT = 48;
-/** Where a row scrolled into view lands (fraction of the viewport from the top). */
-const SCROLL_POSITION = 0.25;
-
-/** A line's top under the title block, and its height, in layout points. */
-function linePlace(layout: ScoreLayout, line: ScoreLine): { readonly top: number; readonly height: number } {
-  const staff = layout.staves[line.staffIndex];
-  return { top: line.systemIndex * layout.systemHeight + (staff?.top ?? 0), height: staff?.height ?? 0 };
-}
-
-/** The line of the system holding a bar, on a track's staves (the first staves when it is not shown); -1 for none. */
-function lineOf(layout: ScoreLayout, measureIndex: number | undefined, trackIndex?: number): number {
-  const systemIndex = measureIndex === undefined ? -1 : layout.systems.findIndex((system) => system.rows[0]?.measures.some((m) => m.measureIndex === measureIndex));
-  const staffIndex = Math.max(0, layout.staves.findIndex((staff) => staff.trackIndex === trackIndex));
-  return systemIndex < 0 ? -1 : systemIndex * layout.staves.length + staffIndex;
-}
 
 /**
  * The score as one page on Guitar Pro's grey desk: the title block, then the systems — a staff group per shown track,
@@ -92,32 +71,7 @@ export function ScoreView(props: ScoreViewProps) {
     setWidth(event.nativeEvent.layout.width);
     setHeight(event.nativeEvent.layout.height);
   }, []);
-  // Read by the cursor's scroll below without making it run again on every layout change.
-  const page: PageTop = { headerHeight, rowHeight: layout.systemHeight * zoom, topMargin: DESK_MARGIN, viewportHeight: height };
-  const pageTop = useRef({ page, layout, zoom });
-  pageTop.current = { page, layout, zoom };
-
-  const playingLine = lineOf(layout, playing?.measureIndex);
-  const cursorLine = lineOf(layout, cursor?.measureIndex, cursor?.trackIndex);
-  const visibleLines = useRef<ReadonlySet<number>>(new Set());
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    visibleLines.current = new Set(viewableItems.flatMap((item) => (item.index === null ? [] : [item.index])));
-  }).current;
-  // Not animated: react-native-macos's animated scrolls do not move the list.
-  useEffect(() => {
-    if (playingLine >= 0) {
-      listRef.current?.scrollToIndex({ index: playingLine, viewPosition: SCROLL_POSITION, animated: false });
-    }
-  }, [playingLine]);
-  useEffect(() => {
-    // Until the list says which lines it shows, the page is at the top (a file just opened, another tab).
-    const { page: current, layout: shown, zoom: scale } = pageTop.current;
-    const place = linePlace(shown, { systemIndex: Math.floor(cursorLine / Math.max(1, shown.staves.length)), staffIndex: cursorLine % Math.max(1, shown.staves.length) });
-    const isInView = visibleLines.current.size > 0 ? visibleLines.current.has(cursorLine) : isLineOnFirstScreen({ top: place.top * scale, height: place.height * scale }, current);
-    if (cursorLine >= 0 && playingLine < 0 && !isInView) {
-      listRef.current?.scrollToIndex({ index: cursorLine, viewPosition: SCROLL_POSITION, animated: false });
-    }
-  }, [cursorLine, playingLine]);
+  const onViewableItemsChanged = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight: height, topMargin: DESK_MARGIN, cursor, playing });
 
   const renderLine = useCallback(
     ({ item }: ListRenderItemInfo<ScoreLine>) => {
@@ -170,8 +124,7 @@ export function ScoreView(props: ScoreViewProps) {
           return layout.staves.length === 1 ? firstBar : `${firstBar}:${layout.staves[line.staffIndex]?.trackIndex ?? 0}`;
         }}
         getItemLayout={(_, index) => {
-          const line = { systemIndex: Math.floor(index / Math.max(1, layout.staves.length)), staffIndex: index % Math.max(1, layout.staves.length) };
-          const place = linePlace(layout, line);
+          const place = linePlace(layout, lineAt(layout, index));
           return { length: place.height * zoom, offset: headerHeight + place.top * zoom, index };
         }}
         extraData={renderLine}
