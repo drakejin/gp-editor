@@ -48,11 +48,11 @@ const toolIds = (title: string) =>
   ) ?? [];
 
 describe('palette: Expression Text, octave signs and clefs', () => {
-  it('puts Expression Text after the beat’s text, the octave sign at the end of the Beat group and the clef in the Bar group', () => {
-    expect(toolIds('Beat').slice(4, 7)).toEqual([
-      'text',
+  it('puts Expression Text after the pedal (under Text, at its row’s end), the octave sign at the end of the Beat group and the clef in the Bar group', () => {
+    expect(toolIds('Beat').slice(8, 11)).toEqual([
+      'pedalUp',
       'expressionText',
-      'chord',
+      'slash',
     ]);
     expect(toolIds('Beat').at(-1)).toBe('ottava');
     expect(toolIds('Bar')).toContain('clef');
@@ -63,6 +63,7 @@ describe('palette: Expression Text, octave signs and clefs', () => {
       id: 'expressionText',
       face: '>',
       run: { kind: 'expressionText' },
+      width: 24,
     });
     expect(expressionTextTool().tooltip).toContain('⌥⌘E');
   });

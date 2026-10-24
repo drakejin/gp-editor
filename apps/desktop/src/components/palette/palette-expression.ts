@@ -5,6 +5,8 @@ import type { PaletteContext, PaletteOption, PaletteTool } from './palette-tools
 
 /** Tools ▸ Expression Text…: the menu item's key, shown in the button's tooltip. */
 export const EXPRESSION_TEXT_SHORTCUT = '⌥⌘E';
+/** Narrower than the palette's other tools, so it ends the Beat group's second row, under Text, without a new row. */
+const EXPRESSION_TEXT_TOOL_WIDTH = 24;
 
 /** The command palette's Expression Text: type a chord, a dynamic, a key, an octave sign, a clef or a direction. */
 export function expressionTextTool(): PaletteTool {
@@ -14,6 +16,7 @@ export function expressionTextTool(): PaletteTool {
     tooltip: `Expression Text (${EXPRESSION_TEXT_SHORTCUT}): type a chord (G maj), a dynamic (ff), a key (E minor), an octave sign (8va), a clef or a direction (D.S. al Coda)`,
     scope: 'beat',
     run: { kind: 'expressionText' },
+    width: EXPRESSION_TEXT_TOOL_WIDTH,
   };
 }
 

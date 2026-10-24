@@ -100,7 +100,7 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
               tooltip={tool.tooltip}
               fontSize={11}
               minWidth={30}
-              width={group.toolWidth}
+              width={tool.width ?? group.toolWidth}
               height={PALETTE_ROW_HEIGHT}
               isEnabled={isToolEnabled(tool, context)}
               isActive={isActive}

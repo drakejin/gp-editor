@@ -73,6 +73,8 @@ export interface PaletteTool {
   readonly scope: ToolScope;
   readonly isActive?: (context: PaletteContext) => boolean;
   readonly run: PaletteRun;
+  /** A fixed width, for a one-character face that must fit the end of a full row (the Beat group's >). */
+  readonly width?: number;
 }
 
 /** "Label  [−] value [+]" for a bar setting. */
