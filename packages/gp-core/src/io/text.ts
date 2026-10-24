@@ -164,13 +164,17 @@ export function encodeUtf8(text: string): Uint8Array {
   const bytes = new Uint8Array(text.length * UTF8_MAX_BYTES_PER_UNIT);
   let length = 0;
   for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i);
+    if (unit < 0x80) {
+      // ASCII, most of any XML document: no call per character (Hermes does not inline).
+      bytes[length++] = unit;
+      continue;
+    }
     const codePoint = codePointAt(text, i);
     if (codePoint >= 0x10000) {
       i++;
     }
-    if (codePoint < 0x80) {
-      bytes[length++] = codePoint;
-    } else if (codePoint < 0x800) {
+    if (codePoint < 0x800) {
       bytes[length++] = 0xc0 | (codePoint >> 6);
       bytes[length++] = 0x80 | (codePoint & 0x3f);
     } else if (codePoint < 0x10000) {

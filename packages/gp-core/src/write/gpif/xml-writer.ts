@@ -39,23 +39,29 @@ export function sanitizeXmlText(text: string): string {
   });
 }
 
-function toAttributes(attributes: XmlAttributes): readonly (readonly [string, string])[] {
-  return Object.entries(attributes).map(([name, value]) => [name, String(value)] as const);
+/** Shared by every element without attributes or children (most of them): no empty lists built per element. */
+const NO_ATTRIBUTES: XmlNode['attributes'] = [];
+const NO_CHILDREN: readonly XmlNode[] = [];
+
+function toAttributes(attributes: XmlAttributes): XmlNode['attributes'] {
+  const names = Object.keys(attributes);
+  return names.length === 0 ? NO_ATTRIBUTES : names.map((name) => [name, String(attributes[name])] as const);
 }
 
 /** An element with child elements (or none). */
-export function xmlElement(name: string, children: readonly XmlChild[] = [], attributes: XmlAttributes = {}): XmlNode {
-  return { name, attributes: toAttributes(attributes), children: children.filter((child): child is XmlNode => child !== undefined && child !== false) };
+export function xmlElement(name: string, children: readonly XmlChild[] = NO_CHILDREN, attributes: XmlAttributes = {}): XmlNode {
+  const present = children.length === 0 ? NO_CHILDREN : children.filter((child): child is XmlNode => child !== undefined && child !== false);
+  return { name, attributes: toAttributes(attributes), children: present };
 }
 
 /** A leaf element holding an escaped text. */
 export function xmlText(name: string, text: string | number, attributes: XmlAttributes = {}): XmlNode {
-  return { name, attributes: toAttributes(attributes), children: [], text: String(text) };
+  return { name, attributes: toAttributes(attributes), children: NO_CHILDREN, text: String(text) };
 }
 
 /** A leaf element holding a CDATA section (as Guitar Pro writes names, titles and free texts). */
 export function xmlCdata(name: string, text: string, attributes: XmlAttributes = {}): XmlNode {
-  return { name, attributes: toAttributes(attributes), children: [], text, isCdata: true };
+  return { name, attributes: toAttributes(attributes), children: NO_CHILDREN, text, isCdata: true };
 }
 
 const TAB = 0x09;
@@ -94,8 +100,11 @@ function cdataSection(text: string): string {
 }
 
 function openTag(node: XmlNode): string {
-  const attributes = node.attributes.map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`).join('');
-  return `<${node.name}${attributes}`;
+  let tag = `<${node.name}`;
+  for (const [name, value] of node.attributes) {
+    tag += ` ${name}="${escapeAttribute(value)}"`;
+  }
+  return tag;
 }
 
 function writeNode(node: XmlNode, lines: string[]): void {
