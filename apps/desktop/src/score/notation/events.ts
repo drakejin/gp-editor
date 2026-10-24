@@ -1,5 +1,8 @@
 import type {
+  AccidentalDisplay,
+  BeamLink,
   Duration,
+  Finger,
   Grace,
   GraceTransition,
   Measure,
@@ -10,11 +13,12 @@ import type {
   VoiceDirection,
 } from '@gp-editor/core';
 import type { MeasureLayout } from '../../lib/layout';
-import { OTTAVA } from './metrics';
+import { OTTAVA, STAFF } from './metrics';
 import {
   type Accidental,
   type ClefKind,
   type PitchedClef,
+  type StaffPitch,
   drumPlacement,
   keyAlter,
   measureAccidentals,
@@ -45,6 +49,12 @@ export interface StaffNote {
   readonly isTied: boolean;
   readonly effect: NoteEffect;
   readonly grace?: GraceNote;
+  /** The accidental is a reminder, written in parentheses. */
+  readonly isCautionary?: boolean;
+  /** The rhythm slash standing for a slashed beat's notes. */
+  readonly isSlash?: boolean;
+  readonly leftFinger?: Finger;
+  readonly rightFinger?: Finger;
 }
 
 /** One non-empty voice of one beat: a chord, a single note or a rest. */
@@ -66,6 +76,10 @@ export interface VoiceEvent {
   readonly notes: readonly StaffNote[];
   /** Octaves the notes are drawn below (8va, positive) or above (8vb, negative) their written place. */
   readonly ottava: number;
+  /** The beam to the voice's next beat, set by hand. */
+  readonly beamToNext?: BeamLink;
+  /** Written as a rhythm slash (the beat's, or its track's slash notation). */
+  readonly isSlashed?: boolean;
 }
 
 type RawEvent = Omit<VoiceEvent, 'notes' | 'ottava'> & {
@@ -79,7 +93,7 @@ export function buildVoiceEvents(
   layout: MeasureLayout,
   clef: ClefKind,
 ): VoiceEvent[] {
-  const raw = rawEvents(measure, layout);
+  const raw = rawEvents(measure, layout, track.hasSlashNotation === true);
   const placed =
     clef === 'percussion'
       ? raw.map(event => event.notes.map(placeDrum))
@@ -91,7 +105,13 @@ export function buildVoiceEvents(
     [...new Set(raw.map(event => event.voiceIndex))].map(voiceIndex => [
       voiceIndex,
       voiceOttava(
-        sorted.filter((_, i) => raw[i]?.voiceIndex === voiceIndex).flat(),
+        // Slashes sit on the middle line: their notes move nothing.
+        sorted
+          .filter(
+            (_, i) =>
+              raw[i]?.voiceIndex === voiceIndex && raw[i]?.isSlashed !== true,
+          )
+          .flat(),
       ),
     ]),
   );
@@ -99,12 +119,31 @@ export function buildVoiceEvents(
     const notes = sorted[index] ?? [];
     const ottava = voiceOttavas.get(event.voiceIndex) ?? chordOttava(notes);
     const shift = ottava * STEPS_PER_OCTAVE;
-    return {
+    const shifted = {
       ...event,
       notes: shift === 0 ? notes : notes.map(note => shiftNote(note, shift)),
       ottava,
     };
+    return event.isSlashed === true ? asSlash(shifted) : shifted;
   });
+}
+
+/** A slashed beat's notes become one slash on the middle line, with the first note's string and effects. */
+function asSlash(event: VoiceEvent): VoiceEvent {
+  const [first] = event.notes;
+  if (first === undefined) {
+    return event;
+  }
+  const slash: StaffNote = {
+    string: first.string,
+    fret: first.fret,
+    position: STAFF.middleLine,
+    isCross: false,
+    isTied: event.notes.every(note => note.isTied),
+    effect: first.effect,
+    isSlash: true,
+  };
+  return { ...event, notes: [slash], ottava: 0 };
 }
 
 function shiftNote(note: StaffNote, shift: number): StaffNote {
@@ -115,7 +154,11 @@ function shiftNote(note: StaffNote, shift: number): StaffNote {
   return { ...note, position: note.position - shift, grace };
 }
 
-function rawEvents(measure: Measure, layout: MeasureLayout): RawEvent[] {
+function rawEvents(
+  measure: Measure,
+  layout: MeasureLayout,
+  isTrackSlashed: boolean,
+): RawEvent[] {
   return layout.beats.flatMap(({ beatIndex, x }) => {
     const beat = measure.beats[beatIndex];
     if (beat === undefined) {
@@ -135,6 +178,12 @@ function rawEvents(measure: Measure, layout: MeasureLayout): RawEvent[] {
               stroke: beat.stroke.direction,
               pickStroke: beat.pickStroke,
               notes: voice.notes,
+              ...(voice.beamToNext === undefined
+                ? {}
+                : { beamToNext: voice.beamToNext }),
+              ...(isTrackSlashed || voice.isSlashed === true
+                ? { isSlashed: true }
+                : {}),
             },
           ],
     );
@@ -225,13 +274,41 @@ function placePitched(
       string: note.string,
       fret: note.fret,
       position: staffPosition(pitch.step, clef),
-      accidental: accidentals[i]?.[j],
+      ...shownAccidental(accidentals[i]?.[j], pitch, note.accidentalDisplay),
       isCross: note.effect.deadNote,
       isTied: note.isTied,
       effect: note.effect,
       grace: placeGrace(track, note, keySignature, clef),
+      ...fingersOf(note),
     })),
   );
+}
+
+/**
+ * The accidental the bar needs, else the one the note asks to show: always (forced) or as a reminder in parentheses
+ * (cautionary). A tied note shows none.
+ */
+function shownAccidental(
+  needed: Accidental | undefined,
+  pitch: StaffPitch,
+  display: AccidentalDisplay | undefined,
+): Pick<StaffNote, 'accidental' | 'isCautionary'> {
+  if (needed !== undefined || display === undefined || pitch.isTied) {
+    return { accidental: needed };
+  }
+  const accidental = ACCIDENTAL_OF_ALTER[pitch.alter];
+  return display === 'cautionary'
+    ? { accidental, isCautionary: true }
+    : { accidental };
+}
+
+function fingersOf(note: Note): Pick<StaffNote, 'leftFinger' | 'rightFinger'> {
+  return {
+    ...(note.leftFinger === undefined ? {} : { leftFinger: note.leftFinger }),
+    ...(note.rightFinger === undefined
+      ? {}
+      : { rightFinger: note.rightFinger }),
+  };
 }
 
 /** Octaves to move notes so they stay within four ledger lines above or about five below the staff. */

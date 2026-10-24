@@ -33,6 +33,8 @@ export interface TrackInspectorProps {
   readonly onSetTrackEffects?: (trackIndex: number, effects: readonly Effect[]) => void;
   /** While an effect's slider is dragged: what to hear now; undefined when the drag ended unchanged. */
   readonly onPreviewMix?: (preview: MixPreview | undefined) => void;
+  /** The track written in rhythm slashes, or as notes again (an edit of the song, undoable). */
+  readonly onSetTrackSlashNotation?: (trackIndex: number, hasSlashNotation: boolean) => void;
 }
 
 /** The effects editor's width inside the inspector's sections. */
@@ -70,6 +72,13 @@ export function TrackInspector(props: TrackInspectorProps) {
           {STAVES.map(({ staff, label, tooltip }) => (
             <ChromeButton key={staff} palette={palette} label={label} tooltip={tooltip} isActive={showsStaff(mode, staff)} onPress={() => props.onChangeMode(toggleStaff(mode, staff))} />
           ))}
+          <ChromeButton
+            palette={palette}
+            label="Slash"
+            tooltip="Write the whole track in rhythm slashes"
+            isActive={track.hasSlashNotation === true}
+            onPress={() => props.onSetTrackSlashNotation?.(trackIndex, track.hasSlashNotation !== true)}
+          />
         </InspectorField>
         <InspectorField palette={palette} label="Chords">
           {CHORD_PARTS.map(({ part, label, tooltip }) => (

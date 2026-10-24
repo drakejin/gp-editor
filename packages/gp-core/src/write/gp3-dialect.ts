@@ -5,7 +5,7 @@ import { writeBendCurve } from './gp-bends';
 import { bendValueToGp } from './gp-units';
 import type { Gp34Dialect } from './gp34-beats';
 import { strokeBytes } from './gp45-beat-effects';
-import { hasOwnDynamic, noteType, writeDynamicAndFret, writeGraceGp34 } from './gtp-notes';
+import { fingeringFlag, hasOwnDynamic, noteType, writeDynamicAndFret, writeFingers, writeGraceGp34 } from './gtp-notes';
 
 const CHORD_HEADER_SIZE = 25;
 /**
@@ -105,12 +105,13 @@ function noteEffectFlags(effect: NoteEffect): number {
   );
 }
 
-/** GP3 note: flags (ghost, effects, dynamic, type and fret), then bend and grace effects. */
+/** GP3 note: flags (ghost, effects, dynamic, type and fret, fingering), then bend and grace effects. */
 function writeNoteGp3(writer: ByteWriter, note: Note, isTied: boolean): void {
   const effectFlags = noteEffectFlags(note.effect);
-  const flags = 0x20 | (hasOwnDynamic(note) ? 0x10 : 0) | (effectFlags !== 0 ? 0x08 : 0) | (note.effect.ghostNote ? 0x04 : 0);
+  const flags = 0x20 | (hasOwnDynamic(note) ? 0x10 : 0) | (effectFlags !== 0 ? 0x08 : 0) | (note.effect.ghostNote ? 0x04 : 0) | fingeringFlag(note);
   writer.writeUnsignedByte(flags).writeUnsignedByte(noteType(note, isTied));
   writeDynamicAndFret(writer, note, flags);
+  writeFingers(writer, note, flags);
   if (effectFlags === 0) {
     return;
   }

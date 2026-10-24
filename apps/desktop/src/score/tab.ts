@@ -1,9 +1,10 @@
 import type { Beat, Duration, Measure, MeasureHeader, Track, Voice } from '@gp-editor/core';
-import { type BeamLayout, beamGroupTicks, flagCount, layoutBeams } from '../lib/beams';
+import { type BeamLayout, beamGroupBoundsOf, flagCount, layoutBeams } from '../lib/beams';
 import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/layout';
 import { fretLabel, tabFretOf } from '../lib/notation';
 import type { Palette } from '../theme';
 import { type DrawCommand, SMUFL } from './draw';
+import { SLASH_GLYPHS } from './symbols/smufl';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
 import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
 import { engraveTabTechniques } from './symbols/tab-notes';
@@ -43,6 +44,8 @@ const STEM_HEIGHT = 15;
 const HALF_STEM_HEIGHT = 9;
 const BEAM_SPACING = 3;
 const MUSIC_SIZE = 32;
+/** A slash on the tab staff, smaller than on the five-line staff: two string gaps tall. */
+const SLASH_SIZE = MUSIC_SIZE * 0.75;
 
 export function stringY(top: number, stringNumber: number): number {
   return tabStringY(top, stringNumber);
@@ -76,7 +79,7 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
     }
   });
   commands.push(...engraveTabMarks({ ...context, previousBeat: context.previousBeat ?? lastBeat(context.previousMeasure) }));
-  commands.push(...engraveTabTechniques(context));
+  commands.push(...engraveTabTechniques({ ...context, measure: withoutSlashedNotes(context.track, context.measure) }));
   if (context.cursor !== undefined) {
     commands.push(...cursorBox(context, context.cursor));
   }
@@ -84,6 +87,26 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
     commands.push(...beamLines(beams, bottom + STEM_GAP, palette));
   }
   return commands;
+}
+
+/** A voice written as rhythm slashes (its own or its track's slash notation): the tab shows its rhythm, not its frets. */
+function isSlashedVoice(track: Track, voice: Voice): boolean {
+  return track.hasSlashNotation === true || voice.isSlashed === true;
+}
+
+/** The measure without the notes of slashed voices, for the marks drawn at a fret (bends, slides …). */
+function withoutSlashedNotes(track: Track, measure: Measure): Measure {
+  const beats = measure.beats.map((beat) =>
+    beat.voices.some((voice) => voice.notes.length > 0 && isSlashedVoice(track, voice))
+      ? { ...beat, voices: beat.voices.map((voice) => (isSlashedVoice(track, voice) ? { ...voice, notes: [] } : voice)) }
+      : beat,
+  );
+  return { ...measure, beats };
+}
+
+/** A rhythm slash across the middle of the tab staff. */
+function slashGlyph(x: number, middle: number, color: string): DrawCommand {
+  return { kind: 'text', x, y: middle, text: SLASH_GLYPHS.black.text, size: SLASH_SIZE, color, font: 'music', align: 'center' };
 }
 
 function lastBeat(measure: Measure | undefined): Beat | undefined {
@@ -139,6 +162,10 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
   const { x } = beatLayout;
   const commands: DrawCommand[] = [];
   beat.voices.forEach((voice, voiceIndex) => {
+    if (isSlashedVoice(context.track, voice)) {
+      commands.push(...(voice.notes.length > 0 ? [slashGlyph(x, (top + bottom) / 2, voiceColor(voiceIndex, palette))] : []));
+      return;
+    }
     voice.notes.forEach((note) => {
       const y = stringY(top, note.string);
       commands.push(
@@ -164,7 +191,8 @@ function cursorBox(context: TabContext, cursor: { readonly beatIndex: number; re
     return [];
   }
   const y = stringY(context.top, cursor.string);
-  const note = context.measure.beats[cursor.beatIndex]?.voices.flatMap((voice) => voice.notes).find((n) => n.string === cursor.string);
+  const voices = context.measure.beats[cursor.beatIndex]?.voices.filter((voice) => !isSlashedVoice(context.track, voice)) ?? [];
+  const note = voices.flatMap((voice) => voice.notes).find((n) => n.string === cursor.string);
   const box = { x: beat.x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
   const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: context.palette.selection, radius: 4 }];
   if (note !== undefined) {
@@ -223,10 +251,10 @@ function measureBeams(context: TabContext): BeamLayout {
   const rhythm = context.layout.beats.map((beatLayout) => {
     const beat = context.measure.beats[beatLayout.beatIndex];
     const voice = beat === undefined ? undefined : primaryVoice(beat);
-    return { x: beatLayout.x, start: beat?.start ?? 0, value: voice?.duration.value ?? 4, isRest: voice === undefined || voice.notes.length === 0 };
+    const isRest = voice === undefined || voice.notes.length === 0;
+    return { x: beatLayout.x, start: beat?.start ?? 0, value: voice?.duration.value ?? 4, isRest, ...(voice?.beamToNext === undefined ? {} : { beamToNext: voice.beamToNext }) };
   });
-  const { numerator, denominator } = context.header.timeSignature;
-  return layoutBeams(rhythm, context.header.start, beamGroupTicks(numerator, denominator));
+  return layoutBeams(rhythm, context.header.start, beamGroupBoundsOf(context.header));
 }
 
 function beamLines(beams: BeamLayout, top: number, palette: Palette): DrawCommand[] {

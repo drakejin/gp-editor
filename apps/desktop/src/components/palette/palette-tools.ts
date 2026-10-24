@@ -79,6 +79,8 @@ export interface PaletteStepper {
   readonly minus: SongEdit;
   readonly plus: SongEdit;
   readonly isEnabled?: (context: PaletteContext) => boolean;
+  /** Drawn on the previous stepper's row, without its label (the time signature's two numbers); the label stays a command keyword. */
+  readonly isBesidePrevious?: boolean;
 }
 
 export interface PaletteGroup {

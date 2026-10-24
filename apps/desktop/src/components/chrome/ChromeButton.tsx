@@ -18,12 +18,14 @@ export interface ChromeButtonProps {
   readonly minWidth?: number;
   /** A fixed width (an even grid of tools); the label is cut short if it does not fit. */
   readonly width?: number;
+  /** Height when not the chrome's 26 points (the edition palette's compact rows). */
+  readonly height?: number;
   readonly testID?: string;
 }
 
 /** A button on the dark chrome (top bar, edition palette, inspector, tracks panel), as Guitar Pro draws them. */
 export function ChromeButton(props: ChromeButtonProps) {
-  const { palette, label, icon, tooltip, onPress, isActive = false, isEnabled = true, fontFamily, fontSize = 12, minWidth = 26, width } = props;
+  const { palette, label, icon, tooltip, onPress, isActive = false, isEnabled = true, fontFamily, fontSize = 12, minWidth = 26, width, height } = props;
   const [isHovered, setIsHovered] = useState(false);
   const background = isActive ? palette.chromeAccent : isHovered && isEnabled ? palette.chromeRaised : 'transparent';
   const color = isActive ? palette.chromeAccentText : palette.chromeText;
@@ -38,7 +40,7 @@ export function ChromeButton(props: ChromeButtonProps) {
       accessibilityLabel={tooltip}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive, disabled: !isEnabled }}
-      style={[styles.button, width === undefined ? { minWidth } : [styles.fixedWidth, { width }], { backgroundColor: background }, isEnabled ? null : styles.disabled]}
+      style={[styles.button, width === undefined ? { minWidth } : [styles.fixedWidth, { width }], height === undefined ? null : { height }, { backgroundColor: background }, isEnabled ? null : styles.disabled]}
     >
       {icon ?? (
         <Text numberOfLines={1} style={[styles.label, { color, fontSize, fontFamily }]}>

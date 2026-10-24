@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { durationTicks, measureTicks } from '../../src/model/defaults';
 import type { Song } from '../../src/model/song';
+import { assertNotationMarks } from './invariants-marks';
 
 /**
  * Structural checks every reader's output must pass, whatever the format.
@@ -55,4 +56,5 @@ export function assertSongInvariants(song: Song): void {
       }
     });
   });
+  assertNotationMarks(song);
 }
