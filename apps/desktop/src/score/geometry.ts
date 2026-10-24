@@ -2,8 +2,8 @@ import type { Track } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
 import { TAB } from '../lib/layout';
 import { diagramHeight } from './chord-diagram';
-import { NOTATION, notationBandHeight } from './notation';
-import { TAB_MARKS } from './symbols/tab-geometry';
+import { NOTATION, STAFF_HEIGHT, notationBandHeight } from './notation';
+import { TAB_MARKS, tabStringY } from './symbols/tab-geometry';
 
 /** What the score shows: standard notation and tab (default), notation only, or tab only. */
 export type ScoreMode = 'notationAndTab' | 'notation' | 'tab';
@@ -247,4 +247,20 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Parti
     y += ROW.pedals;
   }
   return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, marksY, tabTop, height: y + ROW.gap };
+}
+
+/** Where a row's staves run: the notation's top line (else the tab's top string) to the tab's bottom string (else the notation's bottom line). */
+export interface StavesSpan {
+  readonly top: number;
+  readonly bottom: number;
+  /** The notation's bottom line, when the row shows notation. */
+  readonly notationBottom?: number;
+}
+
+export function stavesSpan(geometry: RowGeometry, stringCount: number): StavesSpan | undefined {
+  const { notationTop, tabTop } = geometry;
+  const notationBottom = notationTop === undefined ? undefined : notationTop + STAFF_HEIGHT;
+  const top = notationTop ?? tabTop;
+  const bottom = tabTop === undefined ? notationBottom : tabStringY(tabTop, stringCount);
+  return top === undefined || bottom === undefined ? undefined : { top, bottom, notationBottom };
 }

@@ -1,15 +1,12 @@
 import { DEFAULT_STYLESHEET, type Song, type TextStyle, stylesheetOf } from '@gp-editor/core';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
-import type { RowGeometry } from './geometry';
+import { type RowGeometry, stavesSpan } from './geometry';
 import { type RowContext, engraveRow, placeRow } from './row';
 import { SYSTEM, type ScoreLayout, staffLabel, systemNameFormat } from './score-layout';
 import { textWidth } from './symbols/shapes';
-import { stringY } from './tab';
 import { styleText } from './text-styles';
 
-/** Five notation lines, 8 points apart. */
-const NOTATION_HEIGHT = 32;
 const BRACKET_WIDTH = 3;
 /** The bracket's ends: they reach past the outer staff lines and curl towards the staves. */
 const BRACKET_OVERHANG = 3;
@@ -53,13 +50,12 @@ interface StaffSpan {
 }
 
 function staffSpan(geometry: RowGeometry, stringCount: number): StaffSpan | undefined {
-  const { notationTop, tabTop } = geometry;
-  const notationBottom = notationTop === undefined ? undefined : notationTop + NOTATION_HEIGHT;
-  const top = notationTop ?? tabTop;
-  const bottom = tabTop === undefined ? notationBottom : stringY(tabTop, stringCount);
-  if (top === undefined || bottom === undefined) {
+  const span = stavesSpan(geometry, stringCount);
+  if (span === undefined) {
     return undefined;
   }
+  const { top, bottom, notationBottom } = span;
+  const { tabTop } = geometry;
   return { top, bottom, inner: notationBottom === undefined || tabTop === undefined ? undefined : { from: notationBottom, to: tabTop } };
 }
 

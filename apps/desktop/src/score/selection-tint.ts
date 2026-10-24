@@ -1,8 +1,7 @@
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
-import type { RowGeometry } from './geometry';
-import { stringY } from './tab';
+import { type RowGeometry, stavesSpan } from './geometry';
 
 /** A beat of the shown track. */
 export interface BeatPosition {
@@ -20,8 +19,6 @@ export interface BeatRange {
 const MARGIN = 10;
 /** Beyond the first and last selected beat of a bar when the selection ends there. */
 const EDGE = 12;
-/** Five notation lines, 8 points apart. */
-const NOTATION_HEIGHT = 32;
 /** A light tint over the selected beats (hex alpha). */
 const TINT_ALPHA = '26';
 
@@ -47,12 +44,8 @@ export function isSameRange(a: BeatRange | undefined, b: BeatRange | undefined):
 
 /** Top and bottom of the staves a row shows, with a margin. */
 function staffSpan(geometry: RowGeometry, stringCount: number): { readonly top: number; readonly bottom: number } | undefined {
-  const top = geometry.notationTop ?? geometry.tabTop;
-  if (top === undefined) {
-    return undefined;
-  }
-  const bottom = geometry.tabTop !== undefined ? stringY(geometry.tabTop, stringCount) : top + NOTATION_HEIGHT;
-  return { top: top - MARGIN, bottom: bottom + MARGIN };
+  const span = stavesSpan(geometry, stringCount);
+  return span === undefined ? undefined : { top: span.top - MARGIN, bottom: span.bottom + MARGIN };
 }
 
 /** The selected beats' x span in a measure: from bar line to bar line where the selection goes on past it. */

@@ -1,6 +1,6 @@
 import { type Measure, type MeasureHeader, type Song, type StringAddress, type Stylesheet, type Track, isMeasureOverfull, stylesheetOf } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
-import { type MeasureLayout, type RowLayout } from '../lib/layout';
+import { type MeasureLayout, type RowLayout, TAB } from '../lib/layout';
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
 import { engraveDirections } from './directions';
@@ -10,17 +10,15 @@ import { engraveNotationExpressions } from './notation-expressions';
 import { engravePedals } from './pedals';
 import { engraveChords } from './chords';
 import { engraveFreeTexts } from './free-text';
-import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
+import { type RowGeometry, type ScoreMode, showsNotation, showsTab, stavesSpan } from './geometry';
 import { type HeadingStyle, engraveHeading } from './heading';
 import { engraveLyrics } from './lyrics';
-import { engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth } from './notation';
+import { STAFF_HEIGHT, engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth, staffLines } from './notation';
 import { type BeatRange, engraveSelection } from './selection-tint';
-import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader, stringY } from './tab';
+import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader } from './tab';
 
 /** Width of the clef column of tab-only rows. */
 const TAB_HEADER_WIDTH = 30;
-const NOTATION_LINES = 5;
-const STAFF_SPACE = 8;
 
 /** A measure with its x offset in the row. */
 export interface PlacedMeasure {
@@ -87,21 +85,22 @@ function rowHeader(context: RowContext, track: Track, placed: readonly PlacedMea
   const first = track.measures[placed[0]?.layout.measureIndex ?? 0];
   const commands: DrawCommand[] = [];
   if (geometry.notationTop !== undefined && first !== undefined) {
-    commands.push(...staffLines(0, headerWidth, geometry.notationTop, NOTATION_LINES, STAFF_SPACE, palette.line));
+    commands.push(...staffLines(0, headerWidth, geometry.notationTop, palette.line));
     commands.push(...engraveNotationRowHeader(track, first, geometry.notationTop, palette));
   }
   if (geometry.tabTop !== undefined) {
-    commands.push(...staffLines(0, headerWidth, geometry.tabTop, track.strings.length, stringY(0, 2), palette.line));
+    commands.push(...stringLines(headerWidth, geometry.tabTop, track.strings.length, palette.line));
     commands.push(...engraveTabRowHeader(track, geometry.tabTop, palette));
   }
-  const top = geometry.notationTop ?? geometry.tabTop ?? 0;
-  const bottom = geometry.tabTop !== undefined ? stringY(geometry.tabTop, track.strings.length) : top + (NOTATION_LINES - 1) * STAFF_SPACE;
+  // Every row shows a staff (rowGeometry): the line at the row's start runs from its top to its bottom.
+  const { top, bottom } = stavesSpan(geometry, track.strings.length) ?? { top: 0, bottom: STAFF_HEIGHT };
   commands.push({ kind: 'line', x1: 0.5, y1: top, x2: 0.5, y2: bottom, width: 1, color: palette.text });
   return commands;
 }
 
-function staffLines(x1: number, x2: number, top: number, count: number, gap: number, color: string): DrawCommand[] {
-  return Array.from({ length: count }, (_, i): DrawCommand => ({ kind: 'line', x1, y1: top + i * gap, x2, y2: top + i * gap, width: 1, color }));
+/** The tab staff's string lines across the row's header. */
+function stringLines(width: number, top: number, count: number, color: string): DrawCommand[] {
+  return Array.from({ length: count }, (_, i): DrawCommand => ({ kind: 'line', x1: 0, y1: top + i * TAB.stringGap, x2: width, y2: top + i * TAB.stringGap, width: 1, color }));
 }
 
 /** One measure of the row with the measures either side of it, and the cursor or playing beat when they are in it. */
@@ -186,7 +185,7 @@ function engraveMeasureDynamics(context: RowContext, scope: MeasureScope, notati
   if (dynamicsY === undefined) {
     return [];
   }
-  const staff = notation === undefined || notationTop === undefined ? undefined : { commands: notation, bottomLine: notationTop + (NOTATION_LINES - 1) * STAFF_SPACE };
+  const staff = notation === undefined || notationTop === undefined ? undefined : { commands: notation, bottomLine: notationTop + STAFF_HEIGHT };
   const { layout } = scope;
   return engraveDynamics({ measures: scope.track.measures, measureIndex: layout.measureIndex, layout, y: dynamicsY, palette: context.palette, staff });
 }

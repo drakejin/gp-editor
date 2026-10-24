@@ -3,7 +3,8 @@
  * Guitar and bass are written an octave above sounding pitch (treble / bass clef with an 8 below);
  * drum tracks are drawn on a percussion staff.
  */
-export { NOTATION, notationBandHeight } from './metrics';
+export { NOTATION, STAFF_HEIGHT, notationBandHeight } from './metrics';
+export { staffLines } from './staff';
 export {
   type NotationContext,
   engraveNotationMeasure,
