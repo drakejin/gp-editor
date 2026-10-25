@@ -1,5 +1,5 @@
 import type { Beat, Measure, Song, Track } from '../model/song';
-import { type BeatAddress, voiceOf } from './addresses';
+import { type BeatAddress, isVoiceIndex, voiceOf } from './addresses';
 import { type PlacedEvent, type VoiceFlow, liftVoice, reflowVoice } from './bar-flow';
 import { type BeatFragment, type BeatFragmentItem, fragmentItem, itemEvent, settleFragmentTies, untieFirst } from './beat-fragment';
 import { type VoiceEvents, eventTicks, isFreeRest, measureGapRests } from './timeline';
@@ -21,17 +21,22 @@ function comparePositions(a: VoicePosition, b: VoicePosition): number {
   return a.measureIndex - b.measureIndex || a.offset - b.offset;
 }
 
-/** Where the addressed beat starts in its bar; undefined when the beat does not exist. */
-function beatPosition(song: Song, at: BeatAddress): VoicePosition | undefined {
-  const header = song.measureHeaders[at.measureIndex];
-  const beat = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex];
-  return header === undefined || beat === undefined ? undefined : { measureIndex: at.measureIndex, offset: beat.start - header.start };
+/** True for beat 0 of a bar that holds no beats (the track rests there): it stands for the bar's start. */
+function isEmptyBarStart(song: Song, at: BeatAddress): boolean {
+  return at.beatIndex === 0 && song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats.length === 0;
 }
 
-/** True when the addressed beat can hold the addressed voice (it may be empty; voices 3 and 4 always can). */
+/** Where the addressed beat starts in its bar (beat 0 of a bar without beats: its start); undefined when the beat does not exist. */
+function beatPosition(song: Song, at: BeatAddress): VoicePosition | undefined {
+  const header = song.measureHeaders[at.measureIndex];
+  const start = isEmptyBarStart(song, at) ? header?.start : song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.start;
+  return header === undefined || start === undefined ? undefined : { measureIndex: at.measureIndex, offset: start - header.start };
+}
+
+/** True when the addressed beat can hold the addressed voice (it may be empty; voices 3 and 4 always can, so can a bar without beats). */
 function hasVoiceSlot(song: Song, at: BeatAddress): boolean {
   const beat = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex];
-  return beat !== undefined && voiceOf(beat, at.voiceIndex) !== undefined;
+  return beat === undefined ? isEmptyBarStart(song, at) && isVoiceIndex(at.voiceIndex) : voiceOf(beat, at.voiceIndex) !== undefined;
 }
 
 /** The run from `from` to `to` (either order) in `from`'s track and voice; undefined when a beat is missing. */

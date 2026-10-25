@@ -21,6 +21,10 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
   if (edit.type === 'moveToVoice') {
     return voiceMoveHint(song, cursor, edit);
   }
+  if (edit.type === 'deleteMeasure') {
+    // − Bar changes nothing only where it would delete every bar.
+    return t('palette.hint.lastBar');
+  }
   if (edit.type !== 'shiftTimeSignature') {
     return undefined;
   }

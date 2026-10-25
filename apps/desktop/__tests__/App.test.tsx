@@ -1,5 +1,9 @@
 // First: the native modules every src/native wrapper keeps when it loads.
-import { answerNativeCalls, nativeCallCount, nativeCalls } from '../test-support/native-fakes';
+import {
+  answerNativeCalls,
+  nativeCallCount,
+  nativeCalls,
+} from '../test-support/native-fakes';
 import { createElement } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
@@ -19,7 +23,10 @@ const mockPlayer = { seconds: 0 };
 const mockRenders = new Map<string, number>();
 
 /** The component, counting each time its props change (it renders when they do, as the real one does). */
-function mockCounted<Props extends object>(name: string, component: (props: Props) => unknown) {
+function mockCounted<Props extends object>(
+  name: string,
+  component: (props: Props) => unknown,
+) {
   const { memo } = jest.requireActual<typeof import('react')>('react');
   return memo((props: Props) => {
     mockRenders.set(name, (mockRenders.get(name) ?? 0) + 1);
@@ -27,7 +34,10 @@ function mockCounted<Props extends object>(name: string, component: (props: Prop
   });
 }
 
-jest.mock('../src/native/specs/GPScoreCanvasNativeComponent', () => 'GPScoreCanvas');
+jest.mock(
+  '../src/native/specs/GPScoreCanvasNativeComponent',
+  () => 'GPScoreCanvas',
+);
 jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
 jest.mock('../src/native/player', () => ({
   ...jest.requireActual('../src/native/player'),
@@ -35,7 +45,8 @@ jest.mock('../src/native/player', () => ({
   stopMidi: () => Promise.resolve(),
   setMutedTracks: () => Promise.resolve(),
   setClickTracks: () => Promise.resolve(),
-  playerPosition: () => Promise.resolve({ seconds: mockPlayer.seconds, isPlaying: true }),
+  playerPosition: () =>
+    Promise.resolve({ seconds: mockPlayer.seconds, isPlaying: true }),
 }));
 jest.mock('../src/components/inspector/Inspector', () => {
   const actual = jest.requireActual('../src/components/inspector/Inspector');
@@ -43,11 +54,17 @@ jest.mock('../src/components/inspector/Inspector', () => {
 });
 jest.mock('../src/components/palette/EditionPalette', () => {
   const actual = jest.requireActual('../src/components/palette/EditionPalette');
-  return { ...actual, EditionPalette: mockCounted('EditionPalette', actual.EditionPalette) };
+  return {
+    ...actual,
+    EditionPalette: mockCounted('EditionPalette', actual.EditionPalette),
+  };
 });
 jest.mock('../src/components/TracksPanel', () => {
   const actual = jest.requireActual('../src/components/TracksPanel');
-  return { ...actual, TracksPanel: mockCounted('TracksPanel', actual.TracksPanel) };
+  return {
+    ...actual,
+    TracksPanel: mockCounted('TracksPanel', actual.TracksPanel),
+  };
 });
 jest.mock('../src/components/TabStrip', () => {
   const actual = jest.requireActual('../src/components/TabStrip');
@@ -57,7 +74,11 @@ jest.mock('../src/components/TabStrip', () => {
 beforeAll(() =>
   answerNativeCalls((moduleName, method) =>
     moduleName === 'GPFiles' && method === 'readFile'
-      ? Promise.resolve({ name: 'nightwish.gp5', path: FILE_PATH, base64: bytesToBase64(readFixture('guitarpro5', 'nightwish.gp5')) })
+      ? Promise.resolve({
+          name: 'nightwish.gp5',
+          path: FILE_PATH,
+          base64: bytesToBase64(readFixture('guitarpro5', 'nightwish.gp5')),
+        })
       : undefined,
   ),
 );
@@ -74,7 +95,7 @@ const mockOpenWindows: ReactTestRenderer.ReactTestRenderer[] = [];
 
 afterEach(async () => {
   await ReactTestRenderer.act(async () => {
-    mockOpenWindows.splice(0).forEach((renderer) => renderer.unmount());
+    mockOpenWindows.splice(0).forEach(renderer => renderer.unmount());
   });
   jest.useRealTimers();
 });
@@ -90,23 +111,43 @@ async function openWindow(): Promise<ReactTestRenderer.ReactTestRenderer> {
     DeviceEventEmitter.emit('fileOpened', { path: FILE_PATH });
   });
   await ReactTestRenderer.act(async () => {
-    for (const node of renderer.root.findAll((candidate) => typeof candidate.props.onLayout === 'function')) {
-      node.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 1280, height: 800 } } });
+    for (const node of renderer.root.findAll(
+      candidate => typeof candidate.props.onLayout === 'function',
+    )) {
+      node.props.onLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width: 1280, height: 800 } },
+      });
     }
   });
   return renderer;
 }
 
-async function press(renderer: ReactTestRenderer.ReactTestRenderer, key: string, modifiers: { readonly metaKey?: boolean } = {}): Promise<void> {
-  const root = renderer.root.find((node) => node.props.keyDownEvents === HANDLED_KEYS);
+async function press(
+  renderer: ReactTestRenderer.ReactTestRenderer,
+  key: string,
+  modifiers: { readonly metaKey?: boolean } = {},
+): Promise<void> {
+  const root = renderer.root.find(
+    node => node.props.keyDownEvents === HANDLED_KEYS,
+  );
   await ReactTestRenderer.act(async () => {
-    root.props.onKeyDown({ nativeEvent: { key, metaKey: false, shiftKey: false, altKey: false, ...modifiers } });
+    root.props.onKeyDown({
+      nativeEvent: {
+        key,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        ...modifiers,
+      },
+    });
   });
 }
 
 /** The props of the first part of the window that has a prop named `prop` (memoised parts are not found by type). */
 function propsOf(renderer: ReactTestRenderer.ReactTestRenderer, prop: string) {
-  const [found] = renderer.root.findAll((node) => Object.prototype.hasOwnProperty.call(node.props, prop));
+  const [found] = renderer.root.findAll(node =>
+    Object.prototype.hasOwnProperty.call(node.props, prop),
+  );
   if (found === undefined) {
     throw new Error(`nothing in the window has a ${prop} prop`);
   }
@@ -124,8 +165,12 @@ describe('App', () => {
     const renderer = await openWindow();
 
     // Assert
-    expect(propsOf(renderer, 'activeTabId').tabs).toEqual([expect.objectContaining({ fileName: 'nightwish.gp5', isEdited: false })]);
-    expect(nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1)).toEqual(['nightwish.gp5']);
+    expect(propsOf(renderer, 'activeTabId').tabs).toEqual([
+      expect.objectContaining({ fileName: 'nightwish.gp5', isEdited: false }),
+    ]);
+    expect(nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1)).toEqual([
+      'nightwish.gp5',
+    ]);
     expect(topBar(renderer).lcd?.bar).toBeDefined();
   });
 
@@ -135,13 +180,21 @@ describe('App', () => {
 
     // Act
     await press(renderer, '7');
-    const edited = { canUndo: topBar(renderer).canUndo, title: nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1) };
+    const edited = {
+      canUndo: topBar(renderer).canUndo,
+      title: nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1),
+    };
     await press(renderer, 'z', { metaKey: true });
 
     // Assert
-    expect(edited).toEqual({ canUndo: true, title: ['nightwish.gp5 — Edited'] });
+    expect(edited).toEqual({
+      canUndo: true,
+      title: ['nightwish.gp5 — Edited'],
+    });
     expect(topBar(renderer).canUndo).toBe(false);
-    expect(nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1)).toEqual(['nightwish.gp5']);
+    expect(nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1)).toEqual([
+      'nightwish.gp5',
+    ]);
   });
 
   it('plays with Space and stops with Esc', async () => {
@@ -160,12 +213,14 @@ describe('App', () => {
 });
 
 describe('App: Edit ▸ Cut / Copy / Paste of the menu bar', () => {
-  it('copies the cursor\'s beat, and nothing while a panel is over the score', async () => {
+  it("copies the cursor's beat, and nothing while a panel is over the score", async () => {
     // Arrange
     await openWindow();
     const copy = async () =>
       ReactTestRenderer.act(async () => {
-        DeviceEventEmitter.emit('clipboardCommandRequested', { command: 'copy' });
+        DeviceEventEmitter.emit('clipboardCommandRequested', {
+          command: 'copy',
+        });
       });
 
     // Act
@@ -189,8 +244,14 @@ describe('App: the command palette', () => {
     await ReactTestRenderer.act(async () => {
       DeviceEventEmitter.emit('commandPaletteRequested', { mode: 'commands' });
     });
-    const field = () => renderer.root.findByProps({ testID: 'command-palette-field' });
-    const firstRow = () => renderer.root.findAll((node) => typeof node.props.testID === 'string' && /^command-(?!palette)/.test(node.props.testID))[0]?.props.testID;
+    const field = () =>
+      renderer.root.findByProps({ testID: 'command-palette-field' });
+    const firstRow = () =>
+      renderer.root.findAll(
+        node =>
+          typeof node.props.testID === 'string' &&
+          /^command-(?!palette)/.test(node.props.testID),
+      )[0]?.props.testID;
 
     // Act
     const before = firstRow();
@@ -221,7 +282,11 @@ describe('App: what an action re-renders', () => {
 
     // Assert
     expect(topBar(renderer).beat).toBeDefined();
-    const renders = { inspector: mockRenders.get('Inspector') ?? 0, palette: mockRenders.get('EditionPalette') ?? 0, tabStrip: mockRenders.get('TabStrip') ?? 0 };
+    const renders = {
+      inspector: mockRenders.get('Inspector') ?? 0,
+      palette: mockRenders.get('EditionPalette') ?? 0,
+      tabStrip: mockRenders.get('TabStrip') ?? 0,
+    };
     expect(renders).toEqual({ inspector: 0, palette: 0, tabStrip: 0 });
     expect(nativeCallCount('GPFiles.addListener')).toBe(0);
   });
@@ -238,7 +303,10 @@ describe('App: what an action re-renders', () => {
     await press(renderer, 'ArrowUp');
 
     // Assert
-    expect({ tracksPanel: mockRenders.get('TracksPanel') ?? 0, tabStrip: mockRenders.get('TabStrip') ?? 0 }).toEqual({ tracksPanel: 0, tabStrip: 0 });
+    expect({
+      tracksPanel: mockRenders.get('TracksPanel') ?? 0,
+      tabStrip: mockRenders.get('TabStrip') ?? 0,
+    }).toEqual({ tracksPanel: 0, tabStrip: 0 });
     expect(nativeCallCount('GPFiles.addListener')).toBe(0);
   });
 });

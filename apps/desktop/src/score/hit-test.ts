@@ -1,4 +1,4 @@
-import { TAB } from '../lib/layout';
+import { type BeatLayout, TAB } from '../lib/layout';
 import type { RowGeometry } from './geometry';
 import type { PlacedMeasure } from './row';
 
@@ -16,15 +16,18 @@ export interface StaffPlacement {
   readonly top: number;
 }
 
-/** The beat nearest to a click (within the measure under it) and, on the tab staff, the nearest string. */
+/**
+ * The beat nearest to a click (within the measure under it; beat 0 of a bar without beats, where its rest is drawn) and,
+ * on the tab staff, the nearest string.
+ */
 export function hitTestRow(placed: readonly PlacedMeasure[], geometry: RowGeometry, stringCount: number, x: number, y: number): RowHit | undefined {
   const measure = placed.find((m) => x >= m.x && x < m.x + m.layout.width) ?? (x < (placed[0]?.x ?? 0) ? placed[0] : undefined);
-  if (measure === undefined || measure.layout.beats.length === 0) {
+  if (measure === undefined) {
     return undefined;
   }
   const localX = x - measure.x;
-  const nearest = measure.layout.beats.reduce((best, beat) => (Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best));
-  return { measureIndex: measure.layout.measureIndex, beatIndex: nearest.beatIndex, string: tabString(geometry, stringCount, y) };
+  const nearest = measure.layout.beats.reduce<BeatLayout | undefined>((best, beat) => (best === undefined || Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best), undefined);
+  return { measureIndex: measure.layout.measureIndex, beatIndex: nearest?.beatIndex ?? 0, string: tabString(geometry, stringCount, y) };
 }
 
 /**

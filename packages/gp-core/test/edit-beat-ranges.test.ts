@@ -364,3 +364,45 @@ describe('copy, cut and paste together', () => {
     assertEditInvariants(restored);
   });
 });
+
+describe('a bar without beats (the track rests there): its beat 0 is the bar’s start', () => {
+  /** Bar 2 holds no beats, as many files leave a bar a track does not play in. */
+  const withEmptyBar = (): Song => bars(FOUR_QUARTERS, [], NEXT_QUARTERS);
+
+  it('copies the bar as the whole rest the score draws there, at either end of the run', () => {
+    // Arrange
+    const song = withEmptyBar();
+
+    // Act
+    const into = copyBeats(song, at(0, 3), at(1, 0));
+    const outOf = copyBeats(song, at(1, 0), at(2, 0));
+
+    // Assert
+    expect(noteSummary(into.items)).toEqual(['4:1/3', '1:r']);
+    expect(noteSummary(outOf.items)).toEqual(['1:r', '4:1/4']);
+    expect(noteSummary(copyBeats(song, at(1, 0, 1), at(1, 0, 1)).items)).toEqual(['1:r']);
+  });
+
+  it('cuts the bar: the following bars move back', () => {
+    const song = withEmptyBar();
+    const cut = deleteBeatsFlowing(song, at(1, 0), at(1, 0));
+    expect(layout(cut, 1)).toEqual(layout(song, 2));
+    expect(layout(cut, 2)).toEqual(['0:1:r']);
+    assertEditInvariants(cut);
+  });
+
+  it('pastes at the bar’s start', () => {
+    const song = withEmptyBar();
+    const pasted = insertBeatsFlowing(song, at(1, 0), fragment(item(4, n(2, 9))));
+    expect(layout(pasted, 1)[0]).toBe('0:4:2/9');
+    expect(layout(pasted, 0)).toEqual(layout(song, 0));
+    assertEditInvariants(pasted);
+  });
+
+  it('still finds no beat past beat 0 of such a bar', () => {
+    const song = withEmptyBar();
+    expect(copyBeats(song, at(1, 1), at(1, 1)).items).toEqual([]);
+    expect(deleteBeatsFlowing(song, at(1, 0, 5), at(1, 0, 5))).toBe(song);
+    expect(insertBeatsFlowing(song, at(1, 2), fragment(item(4, n(1, 1))))).toBe(song);
+  });
+});

@@ -17,6 +17,7 @@ import { adjacentBeat, clampCursor, firstCursor } from '../lib/navigation';
 import { refusalHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
+import { editAtCursor, withBarRests } from './empty-bars';
 import { withSelectionStart } from './mark-edits';
 import { droneFretHint, playedNotesHint, storedFret } from './note-entry';
 import { type ClipboardEdit, cutSelectionAt, pasteBeatsAt, pasteRefusal } from './selection';
@@ -28,13 +29,13 @@ function cursorBeat(state: EditorState, cursor: StringAddress): Beat | undefined
   return state.document?.song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex];
 }
 
-/** Runs an edit at the cursor and records the previous song for undo. */
+/** Runs an edit at the cursor (in a bar without beats, on the rest drawn there) and records the previous song for undo. */
 function applyEdit(state: EditorState, edit: (song: Song, at: StringAddress) => Song): EditorState {
   const { document, cursor } = state;
   if (document === undefined || cursor === undefined) {
     return state;
   }
-  return recordSong(state, document, edit(document.song, cursor));
+  return recordSong(state, document, editAtCursor(document.song, cursor, edit));
 }
 
 /**
@@ -54,8 +55,10 @@ function followBeatStart(before: EditorState, after: EditorState): EditorState {
 
 /** The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet; the same state past voice 4. */
 export function selectVoice(state: EditorState, voiceIndex: number): EditorState {
-  const { cursor } = state;
-  const beat = cursor === undefined ? undefined : cursorBeat(state, cursor);
+  const { cursor, document } = state;
+  // A bar without beats offers the voices of the rest drawn there.
+  const song = cursor === undefined || document === undefined ? undefined : withBarRests(document.song, cursor);
+  const beat = cursor === undefined ? undefined : song?.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex];
   const isSelectable = beat !== undefined && voiceOf(beat, voiceIndex) !== undefined;
   if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
     return state;
@@ -117,9 +120,11 @@ export function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): E
   if (document === undefined || cursor === undefined) {
     return state;
   }
-  const entry = enterPlayedNotes(document.song, cursor, notes);
+  // In a bar without beats, the notes go onto the rest drawn there.
+  const rests = withBarRests(document.song, cursor);
+  const entry = enterPlayedNotes(rests, cursor, notes);
   const hint = playedNotesHint(entry.skipped);
-  const entered = followBeatStart(state, recordSong(state, document, entry.song));
+  const entered = followBeatStart(state, recordSong(state, document, entry.song === rests ? document.song : entry.song));
   if (entered === state || entered.cursor === undefined || entered.document === undefined) {
     return hint === undefined ? state : { ...state, hint };
   }
@@ -133,12 +138,21 @@ export function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): E
   return { ...entered, document: { ...entered.document, song }, cursor: cursorInNewBar, hint };
 }
 
-/** Where the cursor goes after an edit: on past an inserted beat or bar, and inside the song after deletions. */
+/**
+ * Where the cursor goes after an edit: on the beat or bar it inserted, on the bar that took the place of the deleted
+ * ones, and inside the song after deletions.
+ */
 function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringAddress | undefined {
-  if (edit.type === 'insertBeat') {
-    return clampCursor(song, { ...cursor, beatIndex: cursor.beatIndex + 1 });
+  switch (edit.type) {
+    case 'insertBeat':
+      return clampCursor(song, { ...cursor, beatIndex: cursor.beatIndex + 1 });
+    case 'insertMeasure':
+      return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
+    case 'deleteMeasure':
+      return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex) });
+    default:
+      return clampCursor(song, cursor);
   }
-  return clampCursor(song, edit.type === 'insertMeasure' ? { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 } : cursor);
 }
 
 /**
@@ -151,7 +165,7 @@ export function applyCursorEdit(state: EditorState, cursorEdit: SongEdit): Edito
   const applied = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
   const edited = edit.type === 'moveToVoice' || (edit.type === 'setBeatChord' && edit.withNotes === true) ? followBeatStart(state, applied) : applied;
   if (edited === state) {
-    const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(state.document.song, state.cursor, edit);
+    const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(withBarRests(state.document.song, state.cursor), state.cursor, edit);
     return hint === state.hint ? state : { ...state, hint };
   }
   const song = edited.document?.song;

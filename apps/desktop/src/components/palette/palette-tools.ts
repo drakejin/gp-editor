@@ -3,6 +3,7 @@ import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { Palette } from '../../theme';
+import { withBarRests } from '../../state/empty-bars';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
 
 /** What the palette knows about the cursor: its note, voice, beat and bar. */
@@ -23,10 +24,12 @@ export interface PaletteContext {
   readonly isDesignMode?: boolean;
 }
 
-export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {
+export function paletteContext(edited: Song, cursor: StringAddress | undefined): PaletteContext {
   if (cursor === undefined) {
     return { keySignature: 0 };
   }
+  // A bar without beats reads as the rest drawn there, which the tools act on.
+  const song = withBarRests(edited, cursor);
   const measure = song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex];
   return {
     cursor,

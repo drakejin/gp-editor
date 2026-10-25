@@ -96,8 +96,11 @@ function keyChangeCommands(
   });
 }
 
+/** What places the beat area of a measure: its layout, header and key, and the key before it. */
+type BeatArea = Pick<NotationContext, 'layout' | 'header' | 'measure' | 'previousMeasure'>;
+
 /** Where the beat area starts: after the repeat sign, key change and time signature that layoutMeasure placed. */
-function beatAreaStart(context: NotationContext): number {
+function beatAreaStart(context: BeatArea): number {
   const { layout, header, measure, previousMeasure } = context;
   const changedKey =
     measure.keySignature === 0
@@ -125,6 +128,18 @@ function beatAreaStart(context: NotationContext): number {
   );
 }
 
+/** Where a bar without beats draws its whole rest (the tab draws the cursor there): the middle of its beat area. */
+export function measureRestX(context: BeatArea): number {
+  return (beatAreaStart(context) + context.layout.width) / 2;
+}
+
+/** A bar without beats: its whole rest, lit in the cursor's voice colour when the cursor stands there. */
+function emptyMeasureRest(context: NotationContext): DrawCommand {
+  const voiceIndex = context.highlight?.voiceIndex;
+  const color = voiceIndex === undefined ? context.palette.text : voiceTint(voiceIndex, context.palette);
+  return measureRest(measureRestX(context), context.top, color);
+}
+
 /** One measure of the standard-notation staff: staff and bar lines, key / time signature changes, voices. */
 export function engraveNotationMeasure(
   context: NotationContext,
@@ -139,7 +154,7 @@ export function engraveNotationMeasure(
   const entryX = start > TAB.padLeft ? start : 0;
   const voices =
     measure.beats.length === 0
-      ? [measureRest((start + layout.width) / 2, top, palette.text)]
+      ? [emptyMeasureRest(context)]
       : engraveVoices(buildVoiceEvents(track, measure, layout, clef), {
           ...context,
           width: layout.width,

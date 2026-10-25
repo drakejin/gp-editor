@@ -13,7 +13,7 @@ import {
   type Voice,
   deleteBeat,
   deleteBeatNotes,
-  deleteMeasure,
+  deleteMeasures,
   deleteNote,
   findNote,
   findVoice,
@@ -29,7 +29,7 @@ import {
   tupletOf,
 } from '@gp-editor/core';
 import { type BarEdit, applyBarEdit, isBarEdit } from './bar-edits';
-import { type MarkEdit, applyMarkEdit, isMarkEdit } from './mark-edits';
+import { type BeatPlace, type MarkEdit, applyMarkEdit, isMarkEdit } from './mark-edits';
 import { type NotationEdit, applyNotationEdit, isNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
 import { type VoiceEdit, applyVoiceEdit } from './voice-edits';
@@ -69,7 +69,8 @@ export type SongEdit =
   | NotationEdit
   | VoiceEdit
   | { readonly type: 'insertMeasure' }
-  | { readonly type: 'deleteMeasure' }
+  /** The cursor's bar, or every bar from `from` (the selection's start) to it, in one undo step (Guitar Pro's − Bar). */
+  | { readonly type: 'deleteMeasure'; readonly from?: BeatPlace }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
   | { readonly type: 'erase' };
 
@@ -116,7 +117,7 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
-      return deleteMeasure(song, cursor.measureIndex);
+      return deleteMeasures(song, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
     case 'moveToVoice':
       return applyVoiceEdit(song, cursor, edit);
     default:

@@ -22,7 +22,13 @@ interface WindowCommandSources {
   readonly cursorTools: CursorTools;
 }
 
-export function useWindowCommands({ base, media, files, overlays, cursorTools }: WindowCommandSources): WindowCommands {
+export function useWindowCommands({
+  base,
+  media,
+  files,
+  overlays,
+  cursorTools,
+}: WindowCommandSources): WindowCommands {
   const { state, dispatch, chrome, keyboardView } = base;
   const { documents } = files;
   const editor = useEditorCommands({
@@ -35,7 +41,7 @@ export function useWindowCommands({ base, media, files, overlays, cursorTools }:
     exportPdf: files.pdfExport.open,
     openPath: documents.openPath,
     save: documents.save,
-    onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
+    onZoom: direction => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: cursorTools.openNotePanel,
     onChordPanel: cursorTools.openChordPanel,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
@@ -45,12 +51,25 @@ export function useWindowCommands({ base, media, files, overlays, cursorTools }:
     keyboardView,
   });
   // Edit ▸ Undo / Redo / Cut / Copy / Paste of the menu bar, and ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V in the activated app (the menu's key equivalents).
-  useEditMenu(state.past.length > 0, state.future.length > 0, editor.runCommand, overlays.isOverlayOpen);
+  useEditMenu(
+    state.past.length > 0,
+    state.future.length > 0,
+    editor.runCommand,
+    overlays.isOverlayOpen,
+  );
   return { editor };
 }
 
 /** What the command palette's commands call: the handlers of the menus, keys and buttons. */
-export function commandActionsOf({ base, media, files, tools, cursorTools, commands, topBar }: WindowModel): CommandActions {
+export function commandActionsOf({
+  base,
+  media,
+  files,
+  tools,
+  cursorTools,
+  commands,
+  topBar,
+}: WindowModel): CommandActions {
   const { chrome, dispatch, workspace, state } = base;
   const { playback } = media;
   const { pdfExport, songExport } = files;
@@ -65,8 +84,10 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     exportAudio: files.audioExport.open,
     print: pdfExport.print,
     openStylesheet: tools.scoreDesign.openStylesheet,
-    closeTab: () => workspace.activeTabId !== undefined && files.tabs.requestClose(workspace.activeTabId),
-    cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
+    closeTab: () =>
+      workspace.activeTabId !== undefined &&
+      files.tabs.requestClose(workspace.activeTabId),
+    cycleTab: step => dispatch({ type: 'cycleTab', step }),
     openRecentFiles: files.recentFiles.openPanel,
     openSongWriter: tools.songWriter.open,
     openShortcuts: chrome.openShortcutSheet,
@@ -84,6 +105,7 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     toggleLoop: topBar.toggleLoop,
     toggleFocus: chrome.toggleFocus,
     toggleDrumKey: tools.drumKey.toggle,
-    togglePreviewOnHover: () => playback.changePractice({ type: 'togglePreviewOnHover' }),
+    togglePreviewOnHover: () =>
+      playback.changePractice({ type: 'togglePreviewOnHover' }),
   };
 }

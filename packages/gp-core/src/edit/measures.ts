@@ -3,7 +3,7 @@ import { headerTicks } from '../model/defaults';
 import type { Clef, Measure, MeasureHeader, Song, Track } from '../model/song';
 import { withMeasureDeleted, withMeasureInserted } from './audio-track';
 import { relayoutMeasures } from './relayout';
-import { insertAt } from './song-paths';
+import { insertAt, updateMeasure } from './song-paths';
 import { restEvents, toBeats } from './timeline';
 
 /** Voice slots of the beats around a measure: the measure's own beats, else any beat of the track, else one. */
@@ -62,14 +62,45 @@ export function insertMeasure(song: Song, measureIndex: number, position: 'befor
  * measure does not exist or is the only one left.
  */
 export function deleteMeasure(song: Song, measureIndex: number): Song {
-  if (song.measureHeaders[measureIndex] === undefined || song.measureHeaders.length <= 1) {
+  return deleteMeasures(song, measureIndex, measureIndex);
+}
+
+/**
+ * New song without the measures from `firstIndex` to `lastIndex` (inclusive, either order) in every track, in one edit
+ * (Guitar Pro deletes the selected bars); the following measures move back. Same song when a measure of the run does
+ * not exist or no measure would be left.
+ */
+export function deleteMeasures(song: Song, firstIndex: number, lastIndex: number): Song {
+  const first = Math.min(firstIndex, lastIndex);
+  const last = Math.max(firstIndex, lastIndex);
+  const count = song.measureHeaders.length;
+  if (!Number.isInteger(first) || !Number.isInteger(last) || first < 0 || last >= count || last - first + 1 >= count) {
     return song;
   }
-  const keep = <T>(_item: T, index: number): boolean => index !== measureIndex;
+  const keep = <T>(_item: T, index: number): boolean => index < first || index > last;
   const deleted = relayoutMeasures(
     song,
     song.measureHeaders.filter(keep),
     song.tracks.map((track) => track.measures.filter(keep)),
   );
-  return deleted.audioTrack === undefined ? deleted : { ...deleted, audioTrack: withMeasureDeleted(deleted.audioTrack, measureIndex) };
+  // Later bars first, so each deletion leaves the indexes of the ones still to go as they were.
+  const indexes = Array.from({ length: last - first + 1 }, (_, offset) => last - offset);
+  const { audioTrack } = deleted;
+  return audioTrack === undefined ? deleted : { ...deleted, audioTrack: indexes.reduce((track, index) => withMeasureDeleted(track, index), audioTrack) };
+}
+
+/**
+ * New song where the track's measure at `measureIndex`, when it holds no beats (the track rests there: many files leave
+ * such bars empty), holds rests to the bar line in its first voice, as a measure insertMeasure adds; its clef, key and
+ * pedal marks stay. An edit at the bar's beat 0 can then act on it as on the rest drawn there. Same song when the
+ * measure has beats or does not exist.
+ */
+export function fillEmptyMeasure(song: Song, trackIndex: number, measureIndex: number): Song {
+  const header = song.measureHeaders[measureIndex];
+  const track = song.tracks[trackIndex];
+  if (header === undefined || track === undefined || track.measures[measureIndex]?.beats.length !== 0) {
+    return song;
+  }
+  const { beats } = restMeasure(track, measureIndex, header, measureIndex);
+  return beats.length === 0 ? song : updateMeasure(song, trackIndex, measureIndex, (measure) => ({ ...measure, beats }));
 }

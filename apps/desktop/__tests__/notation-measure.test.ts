@@ -557,6 +557,13 @@ describe('rests and dots', () => {
     ).toBeGreaterThan(lastSharp + SPACE);
   });
 
+  it('lights an empty measure’s whole rest in the cursor’s voice colour when the cursor stands there', () => {
+    const lit = engrave([[]], { highlight: { beatIndex: 0, string: 1, voiceIndex: 0 } });
+    const plain = engrave([[]]);
+    expect(texts(lit.commands, SMUFL.restWhole)[0]!.color).toBe(PALETTE.accent);
+    expect(texts(plain.commands, SMUFL.restWhole)[0]!.color).toBe(PALETTE.text);
+  });
+
   it('puts augmentation dots in the space right of the notehead', () => {
     const onLine = engrave([[beat(960, [note(1, 1)], DOTTED_QUARTER)]]);
     const [dot] = texts(onLine.commands, SMUFL.augmentationDot);
