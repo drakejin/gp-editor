@@ -1,13 +1,11 @@
 // A MusicXML part's measure as the model's beats (no TuxGuitar reader exists): one beat per position any voice starts at.
 import { restDurations } from '../../edit/rests';
-import { NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
+import { EMPTY_VOICE, NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
 import type { Beat, MeasureHeader, Ottava, Stroke, StrokeDirection, Voice } from '../../model/song';
 import type { Timed } from './musicxml-measures';
 import type { RawNote } from './musicxml-note';
 import { type Neck, type PlacedNote, placeBeat } from './musicxml-placement';
 import type { VoiceEventDraft } from './musicxml-voices';
-
-const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 
 /** What a measure's beats are built from, and the strings each voice played before it (ties cross bar lines). */
 export interface MeasureSource {

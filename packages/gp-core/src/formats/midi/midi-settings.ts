@@ -13,7 +13,7 @@ export interface MidiSettings {
 }
 
 /** MidiSettings.getDefaults: no transposition, quantised to sixteenths without tuplets. */
-export const DEFAULT_MIDI_SETTINGS: MidiSettings = {
+const DEFAULT_MIDI_SETTINGS: MidiSettings = {
   transpose: 0,
   quantization: true,
   maxDurationValue: 16,

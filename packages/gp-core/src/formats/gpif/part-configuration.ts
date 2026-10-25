@@ -7,7 +7,7 @@ export const GPX_PART_CONFIGURATION_FILE = 'PartConfiguration';
 export const GP7_PART_CONFIGURATION_ENTRY = 'Content/PartConfiguration';
 
 /** Notation byte: the track shows slash notation. */
-export const SLASH_NOTATION_FLAG = 0x04;
+const SLASH_NOTATION_FLAG = 0x04;
 const INT32 = 4;
 /** Views beyond the multi-track one and the tracks' own are not read; this bounds a corrupt count. */
 const MAX_TRACKS = 0xffff;

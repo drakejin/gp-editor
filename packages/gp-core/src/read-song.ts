@@ -1,4 +1,4 @@
-import { GpFormatError, UnsupportedFormatError } from './errors';
+import { GpFormatError, UnsupportedFormatError, errorMessage } from './errors';
 import { type DetectedFormat, detectFormat } from './formats/detect';
 import { type SongFile, readGp7, readGp7File } from './formats/gpif/gp7';
 import { readGpx } from './formats/gpif/gpx';
@@ -52,10 +52,6 @@ export function readSong(input: Uint8Array | ArrayBuffer, options?: ReadOptions)
     }
     throw new GpFormatError(`Failed to read ${detected.format} file: ${errorMessage(error)}`, { cause: error });
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export type { SongFile } from './formats/gpif/gp7';

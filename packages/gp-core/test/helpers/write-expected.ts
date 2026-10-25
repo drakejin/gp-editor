@@ -3,10 +3,10 @@ import { artificialHarmonicOffset } from '../../src/formats/common/harmonics';
 import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
 import { DEFAULT_RASGUEADO } from '../../src/formats/common/rasgueado';
 import { velocityFromGp } from '../../src/formats/common/velocity';
-import { impliedDurationPercent } from '../../src/formats/gtp/gp5';
-import { clefFromTuning, EMPTY_VOICE } from '../../src/formats/gtp/shared';
+import { impliedDurationPercent } from '../../src/formats/gtp/gp5-notes';
+import { clefFromTuning } from '../../src/formats/gtp/gtp-tracks';
 import { normalizeBeamGrouping } from '../../src/model/beaming';
-import { DEFAULT_PERCUSSION_BANK, durationTicks, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
+import { DEFAULT_PERCUSSION_BANK, durationTicks, EMPTY_VOICE, NO_STROKE, NORMAL_TUPLET, plainDuration, QUARTER } from '../../src/model/defaults';
 import type {
   BeamGrouping,
   Beat,

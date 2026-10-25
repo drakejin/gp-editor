@@ -9,8 +9,8 @@ const EIGHTH = 8;
 const MAX_GP5_GROUP = 0x7f;
 
 /** Beat display flags (the short after a beat's notes): the beam from the beat before broken / joined. */
-export const GP5_BREAK_BEAM = 0x0001;
-export const GP5_FORCE_BEAM = 0x0004;
+const GP5_BREAK_BEAM = 0x0001;
+const GP5_FORCE_BEAM = 0x0004;
 /** Secondary beams broken from the beat before; a byte follows (the beams kept: 1). Guitar Pro sets 0x1000 with it. */
 export const GP5_BREAK_SECONDARY_BEAMS = 0x0800;
 const GP5_SECONDARY_COMPANION = 0x1000;

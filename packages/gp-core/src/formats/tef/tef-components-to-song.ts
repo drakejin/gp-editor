@@ -2,7 +2,7 @@
 // addTempoChange and addEnding) (LGPL-2.1).
 import type { Note } from '../../model/song';
 import { type DraftBeat, type DraftTrack, type DraftVoice, type SongDraft } from '../common/song-draft';
-import { buildChord } from '../gtp/shared';
+import { buildChord } from '../gtp/gtp-beats';
 import { durationFromTef, velocityFromDynamic } from './tef-durations';
 import { TE_PERCUSSION_PROGRAM, type TeChord, type TeComponent, type TeEnding, type TeNote, type TeRest, type TeSong, type TeTempoChange } from './tef-model';
 import { TE_TIE_DYNAMIC, noteEffectOf, withGraceMetadata } from './tef-note-effects';

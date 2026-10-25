@@ -2,7 +2,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { GpFormatError } from '../../errors';
 import { decodeUtf8Lenient, decodeWindows1252 } from '../../io/text';
-import { type XmlElement, attribute, child, children, parseXmlDocument } from '../gpif/xml';
+import { XML_PARSER_OPTIONS, type XmlElement, attribute, child, children, parseXmlDocument } from '../gpif/xml';
 
 /** A score as score-partwise holds it: the header elements and each part's measures. */
 export interface PartwiseScore {
@@ -32,19 +32,7 @@ const SINGLE_BYTE_ENCODINGS = /encoding\s*=\s*["'](iso-8859-1|latin-?1|windows-1
  * The parser of MusicXML text: like the GPIF one, but numeric character references (&#233;) are decoded too.
  * The document type is removed before parsing (refused when it has an internal subset), so no entity is ever declared.
  */
-const PARSER = new XMLParser({
-  preserveOrder: true,
-  ignoreAttributes: false,
-  attributeNamePrefix: '',
-  cdataPropName: '#cdata',
-  parseTagValue: false,
-  parseAttributeValue: false,
-  trimValues: false,
-  ignoreDeclaration: true,
-  ignorePiTags: true,
-  commentPropName: false,
-  htmlEntities: true,
-});
+const PARSER = new XMLParser({ ...XML_PARSER_OPTIONS, htmlEntities: true });
 
 function startsWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
   return prefix.every((byte, i) => bytes[i] === byte);

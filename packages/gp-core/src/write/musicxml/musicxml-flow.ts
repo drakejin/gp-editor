@@ -43,7 +43,7 @@ export function noteKey(event: Pick<VoiceEvent, 'measureIndex' | 'beatIndex' | '
 }
 
 /** The track's events in time order: measure by measure, beat by beat, voice by voice. */
-export function voiceEventsOf(track: Track): readonly VoiceEvent[] {
+function voiceEventsOf(track: Track): readonly VoiceEvent[] {
   return track.measures.flatMap((measure, measureIndex) =>
     measure.beats.flatMap((beat, beatIndex) =>
       beat.voices.flatMap((voice, voiceIndex): VoiceEvent[] => (voice.isEmpty ? [] : [{ measureIndex, beatIndex, voiceIndex, beat, voice }])),

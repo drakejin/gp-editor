@@ -93,7 +93,7 @@ export function headerDirection(header: MeasureHeader, previous: MeasureHeader |
 const MAX_ENDING_BIT = 30;
 
 /** generateAlternateEndingString: the endings a measure belongs to, "1,3" for endings 1 and 3. */
-export function endingNumbers(header: MeasureHeader | undefined): string {
+function endingNumbers(header: MeasureHeader | undefined): string {
   if (header === undefined || header.repeatAlternative === 0) {
     return '';
   }

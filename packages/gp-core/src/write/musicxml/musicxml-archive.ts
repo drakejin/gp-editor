@@ -1,6 +1,6 @@
 // Compressed MusicXML (.mxl), which TuxGuitar does not write: a zip holding the score and META-INF/container.xml naming it.
 import { zipSync } from 'fflate';
-import { utf8Bytes } from '../../midi/midi-bytes';
+import { encodeUtf8 } from '../../io/text';
 import type { Song } from '../../model/song';
 import { writeMusicXml } from './musicxml-writer';
 
@@ -26,7 +26,7 @@ const STORED = 0;
 
 /** UTF-8 bytes of a MusicXML document (what a .musicxml file holds); no TextEncoder, which Hermes lacks. */
 export function encodeMusicXml(xml: string): Uint8Array {
-  return Uint8Array.from(utf8Bytes(xml));
+  return encodeUtf8(xml);
 }
 
 /**

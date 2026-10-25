@@ -60,7 +60,7 @@ function curveLevels(curve: Bend): readonly number[] {
  * (TuxGuitar writes absolute values); a curve that starts bent is a pre-bend, a step down a release. A bend held from
  * the note before ('release' of bendShapeOf) is a release alone.
  */
-export function bendSteps(bend: Bend): readonly BendStep[] {
+function bendSteps(bend: Bend): readonly BendStep[] {
   const values = curveLevels(bend);
   const shaped = bendShapeOf(bend);
   if (shaped?.shape === 'release') {
@@ -76,7 +76,7 @@ export function bendSteps(bend: Bend): readonly BendStep[] {
 }
 
 /** The tremolo bar as bend steps (TuxGuitar's TODO "with-bar"): a curve that starts away from the pitch is a pre-bend. */
-export function tremoloBarSteps(bar: Bend): readonly BendStep[] {
+function tremoloBarSteps(bar: Bend): readonly BendStep[] {
   const values = curveLevels(bar);
   return values.flatMap((value, index): BendStep[] => {
     if (index === 0) {

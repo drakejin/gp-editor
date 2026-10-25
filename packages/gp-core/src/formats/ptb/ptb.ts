@@ -7,7 +7,7 @@ import { readPtSong } from './ptb-input-stream';
 import { parsePtSong } from './ptb-song-parser';
 
 /** PTFileFormatDetector.PTB_VERSION: Power Tab Editor 1.7 files ("ptab", version 4). */
-export const SUPPORTED_PTB_VERSION = '4';
+const SUPPORTED_PTB_VERSION = '4';
 
 /** Reads a Power Tab (.ptb) file: its guitar and bass scores, repeats and jumps played out. */
 export function readPtb(bytes: Uint8Array, detected: DetectedFormat, options: ResolvedReadOptions): Song {

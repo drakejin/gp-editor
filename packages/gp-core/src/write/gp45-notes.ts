@@ -38,7 +38,7 @@ const GP4_ARTIFICIAL_HARMONICS: readonly (readonly [number, number])[] = [
 /** GP4/GP5 harmonic types without data (artificial and tapped carry data in GP5). */
 const SIMPLE_HARMONICS: Readonly<Record<Harmonic['type'], number>> = { natural: 1, artificial: 2, tapped: 3, pinch: 4, semi: 5 };
 
-export function hasNoteEffects(effect: NoteEffect): boolean {
+function hasNoteEffects(effect: NoteEffect): boolean {
   const [flags1, flags2] = effectFlags(effect);
   return flags1 !== 0 || flags2 !== 0;
 }

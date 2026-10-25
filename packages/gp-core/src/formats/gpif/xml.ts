@@ -1,6 +1,7 @@
 // Port of the DOM helpers of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentReader (LGPL-2.1).
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import { GpFormatError } from '../../errors';
+import { GpFormatError, errorMessage } from '../../errors';
+import { readXmlTree } from './xml-tree';
 
 /** A parsed XML element. `text` is the element's own text and CDATA (GPIF values are leaf elements). */
 export interface XmlElement {
@@ -15,7 +16,11 @@ const CDATA_KEY = '#cdata';
 const ATTRIBUTES_KEY = ':@';
 const BYTE_ORDER_MARK = '\uFEFF';
 
-const PARSER = new XMLParser({
+/**
+ * fast-xml-parser's options for every document read (GPIF, MusicXML): elements in order with their attributes, values
+ * as text, nothing trimmed, the declaration, PIs and comments left out. xml-tree.ts reads plain documents the same way.
+ */
+export const XML_PARSER_OPTIONS = {
   preserveOrder: true,
   ignoreAttributes: false,
   attributeNamePrefix: '',
@@ -26,7 +31,9 @@ const PARSER = new XMLParser({
   ignoreDeclaration: true,
   ignorePiTags: true,
   commentPropName: false,
-});
+} as const;
+
+const PARSER = new XMLParser(XML_PARSER_OPTIONS);
 
 /**
  * Parse an XML document and return its root element. Malformed XML is rejected (TuxGuitar's DOM
@@ -40,19 +47,30 @@ export function parseXml(xml: string): XmlElement {
   return parseXmlDocument(source, PARSER, 'GPIF');
 }
 
-/** Check and parse a document with `parser` (its options set how entities are read); `kind` names it in errors. */
+/**
+ * Check and parse a document with `parser` (its options set how entities are read); `kind` names it in errors.
+ * A plain document (most are) is valid and read by readXmlTree into the same tree, faster; the rest is checked by
+ * XMLValidator and read by `parser`.
+ */
 export function parseXmlDocument(source: string, parser: XMLParser, kind: string): XmlElement {
+  const tree = readXmlTree(source);
+  if (tree !== undefined) {
+    return tree;
+  }
   const validation = XMLValidator.validate(source);
   if (validation !== true) {
     const { msg, line } = validation.err;
     throw new GpFormatError(`Invalid ${kind} document: ${msg} (line ${line})`);
   }
+  return parseWithParser(source, parser, kind);
+}
+
+function parseWithParser(source: string, parser: XMLParser, kind: string): XmlElement {
   let nodes: unknown;
   try {
     nodes = parser.parse(source);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new GpFormatError(`Invalid ${kind} document: ${reason}`, { cause: error });
+    throw new GpFormatError(`Invalid ${kind} document: ${errorMessage(error)}`, { cause: error });
   }
   const root = toElements(nodes)[0];
   if (root === undefined) {

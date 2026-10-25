@@ -1,11 +1,11 @@
 // Port of TuxGuitar GTPOutputStream / GP5OutputStream song-level helpers (LGPL-2.1): what every GP3–GP5 writer derives from the song.
-import { EMPTY_VOICE } from '../formats/gtp/shared';
+import { EMPTY_VOICE } from '../model/defaults';
 import type { Beat, GuitarString, Lyrics, Measure, Note, Song, Track, Voice } from '../model/song';
 
 /** GP3–GP5 tracks have at most seven strings. */
 export const MAX_STRINGS = 7;
 /** GP3–GP5 frets are signed bytes and the readers turn frets of 100 or more into 0. */
-export const MAX_GP_FRET = 99;
+const MAX_GP_FRET = 99;
 /** Guitar Pro 3–5 hold two voices per beat (GP6+ up to four: the others are left out). */
 export const MAX_GP_VOICES = 2;
 const MAX_KEY = 7;
