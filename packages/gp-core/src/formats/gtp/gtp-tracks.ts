@@ -1,5 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream/GP4InputStream/GP5InputStream shared parts (LGPL-2.1): measure headers and tracks before their measures are read.
 import type { ByteReader } from '../../io/byte-reader';
+import { FOUR_FOUR } from '../../model/defaults';
 import type { Clef, GuitarString, Lyrics, MeasureHeader, TimeSignature, Track } from '../../model/song';
 import { type ChannelRegistry, EMPTY_REGISTRY } from './gtp-channels';
 import { readInts, withContext } from './shared';
@@ -50,7 +51,7 @@ export type ReadHeader = (number: number, previous: readonly HeaderDraft[], time
 export function readMeasureHeaders(count: number, songKey: number, readHeader: ReadHeader): HeadersRead {
   const headers: HeaderDraft[] = [];
   const keySignatures: number[] = [];
-  let timeSignature: TimeSignature = { numerator: 4, denominator: 4 };
+  let timeSignature: TimeSignature = FOUR_FOUR;
   let keySignature = songKey;
   for (let index = 0; index < count; index++) {
     const read = withContext(`measure header ${index + 1}`, () => readHeader(index + 1, headers, timeSignature));

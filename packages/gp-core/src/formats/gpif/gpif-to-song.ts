@@ -1,6 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser (LGPL-2.1).
 import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
-import { RED, isNoteValue, measureTicks, roundTempo } from '../../model/defaults';
+import { FOUR_FOUR, RED, isNoteValue, measureTicks, roundTempo } from '../../model/defaults';
 import {
   type MeasureHeader,
   type MusicalDirection,
@@ -19,7 +19,6 @@ import { buildTracks } from './gpif-song-tracks';
 import type { TrackView } from './part-configuration';
 
 const DEFAULT_TEMPO = 120;
-const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 const MAX_ALTERNATE_ENDING = 31;
 
 /** Build the song model from a GPIF document and, when the container has one, its PartConfiguration's track views. */
@@ -97,9 +96,9 @@ function timeSignatureOf(time: readonly number[] | undefined): TimeSignature {
   const numerator = time?.[0];
   const denominator = time?.[1];
   if (time?.length !== 2 || numerator === undefined || denominator === undefined) {
-    return DEFAULT_TIME_SIGNATURE;
+    return FOUR_FOUR;
   }
-  return numerator > 0 && isNoteValue(denominator) ? { numerator, denominator } : DEFAULT_TIME_SIGNATURE;
+  return numerator > 0 && isNoteValue(denominator) ? { numerator, denominator } : FOUR_FOUR;
 }
 
 /** Alternate endings "1 3" → bits 0 and 2. Endings outside 1–31 are ignored. */

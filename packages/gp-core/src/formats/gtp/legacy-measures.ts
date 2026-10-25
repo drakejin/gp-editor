@@ -1,7 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP1InputStream / GP2InputStream, shared parts (LGPL-2.1): measure headers and each track's beats in them.
 import { GpFormatError } from '../../errors';
 import type { ByteReader } from '../../io/byte-reader';
-import { durationTicks, isNoteValue, measureTicks } from '../../model/defaults';
+import { durationTicks, headerTicks, isNoteValue, measureTicks } from '../../model/defaults';
 import { type MeasureHeader, QUARTER_TIME, type TimeSignature } from '../../model/song';
 import { parseRepeatAlternative } from './gtp-tracks';
 import { type ReadBeat, range, readBeat } from './legacy-beats';
@@ -40,7 +40,7 @@ export function readMeasures(reader: ByteReader, dialect: LegacyDialect, song: S
   const lastStarts = song.tunings.map(() => 0);
   for (let index = 0; index < song.measureCount; index++) {
     const previous = headers[index - 1];
-    const start = previous === undefined ? QUARTER_TIME : previous.start + headerLength(previous);
+    const start = previous === undefined ? QUARTER_TIME : previous.start + headerTicks(previous);
     const layout = readMeasureLayout(reader, dialect.trackCount, index + 1);
     const length = measureTicks(layout.timeSignature.numerator, layout.timeSignature.denominator);
     // The header's TGTempo is shared by all tracks: the last mix-table tempo read in the
@@ -68,10 +68,6 @@ export function readMeasures(reader: ByteReader, dialect: LegacyDialect, song: S
     });
   }
   return { headers, tracks };
-}
-
-function headerLength(header: MeasureHeader): number {
-  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
 }
 
 function readMeasureLayout(reader: ByteReader, trackCount: number, number: number): MeasureLayout {

@@ -226,8 +226,8 @@ export function measureTicks(numerator: number, denominator: number): number {
   return Math.round((numerator * QUARTER_TIME * 4) / denominator);
 }
 
-/** Length of a header's measure in ticks. */
-export function headerTicks(header: MeasureHeader): number {
+/** Length of a header's measure in ticks (a reader's draft header too: only its time signature counts). */
+export function headerTicks(header: Pick<MeasureHeader, 'timeSignature'>): number {
   return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
 }
 

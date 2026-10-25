@@ -1,7 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.tef3.TGSongAdjuster (in TESongParser.java) (LGPL-2.1): fits the beats of each
 // measure, laid on TablEdit's grid with their written durations, into one another and into the measure.
-import { QUARTER, durationFromTicks, durationTicks } from '../../model/defaults';
-import { type DraftBeat, type DraftMeasure, type DraftVoice, headerLength } from '../common/song-draft';
+import { QUARTER, durationFromTicks, durationTicks, headerTicks } from '../../model/defaults';
+import type { DraftBeat, DraftMeasure, DraftVoice } from '../common/song-draft';
 
 const VOICE_COUNT = 2;
 
@@ -19,7 +19,7 @@ export function adjustMeasures(measures: readonly DraftMeasure[]): void {
  */
 function adjustMeasure(measure: DraftMeasure): void {
   measure.beats.sort((a, b) => a.start - b.start);
-  const end = measure.header.start + headerLength(measure.header);
+  const end = measure.header.start + headerTicks(measure.header);
   for (let voice = 0; voice < VOICE_COUNT; voice++) {
     adjustVoice(measure.beats, voice, end);
   }

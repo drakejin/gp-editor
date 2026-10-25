@@ -1,9 +1,8 @@
 // Measure headers from every MusicXML part (no TuxGuitar reader exists; mirrors MusicXMLWriter#writeDirection / #writeBarline).
-import { RED, measureTicks } from '../../model/defaults';
-import { type MeasureHeader, QUARTER_TIME, type TimeSignature } from '../../model/song';
+import { FOUR_FOUR, RED, measureTicks } from '../../model/defaults';
+import { type MeasureHeader, QUARTER_TIME } from '../../model/song';
 import type { PartMeasure } from './musicxml-measures';
 
-const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 const DEFAULT_TEMPO = 120;
 
 /** The first part's value at a measure, in part order. */

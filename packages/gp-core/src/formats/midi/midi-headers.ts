@@ -1,7 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiSongReader (LGPL-2.1): getHeader, parseTimeSignature and parseTempo, plus key signatures.
 import { MAX_KEY_ACCIDENTALS, MAX_NUMERATOR, MAX_TEMPO, MIN_TEMPO } from '../../edit/measure-headers';
 import { GpFormatError } from '../../errors';
-import { measureTicks } from '../../model/defaults';
+import { FOUR_FOUR, measureTicks } from '../../model/defaults';
 import { type MeasureHeader, QUARTER_TIME, type TimeSignature } from '../../model/song';
 import { META_TYPE, type MetaMessage, type MidiTrackEvents } from './midi-sequence';
 import { WHOLE_PRECISE_DURATION } from './precise-duration';
@@ -9,7 +9,6 @@ import { WHOLE_PRECISE_DURATION } from './precise-duration';
 /** Most measures an imported song may have: past it the file is rejected rather than read for ever. */
 export const MAX_MEASURES = 4096;
 const DEFAULT_TEMPO = 120;
-const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 /** Time signature denominators by the power of two the file stores (TuxGuitar knows whole … thirty-second). */
 const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32];
 const MILLISECONDS_PER_MINUTE = 60_000;
@@ -99,7 +98,7 @@ export class HeaderTimeline {
     }
     const draft: HeaderDraft =
       last === undefined
-        ? { start: QUARTER_TIME, timeSignature: DEFAULT_TIME_SIGNATURE, tempo: DEFAULT_TEMPO, keySignature: 0 }
+        ? { start: QUARTER_TIME, timeSignature: FOUR_FOUR, tempo: DEFAULT_TEMPO, keySignature: 0 }
         : { start: last.start + lengthOf(last), timeSignature: last.timeSignature, tempo: last.tempo, keySignature: last.keySignature };
     this.drafts.push(draft);
     return draft;
@@ -140,7 +139,7 @@ function parseTimeSignature(data: Uint8Array): TimeSignature | undefined {
   if (data.length < 2 || numerator < 1 || numerator > MAX_NUMERATOR) {
     return undefined;
   }
-  return { numerator, denominator: DENOMINATORS[data[1] ?? 2] ?? DEFAULT_TIME_SIGNATURE.denominator };
+  return { numerator, denominator: DENOMINATORS[data[1] ?? 2] ?? FOUR_FOUR.denominator };
 }
 
 /** parseTempo / TGTempo.fromUSQ: microseconds per quarter note → quarter notes per minute, kept in the editor's range. */
