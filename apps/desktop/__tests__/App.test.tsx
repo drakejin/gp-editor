@@ -150,6 +150,27 @@ describe('App', () => {
   });
 });
 
+describe('App: the command palette', () => {
+  it('lists the commands matching what is typed', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    await ReactTestRenderer.act(async () => {
+      DeviceEventEmitter.emit('commandPaletteRequested', { mode: 'commands' });
+    });
+    const field = () => renderer.root.findByProps({ testID: 'command-palette-field' });
+    const firstRow = () => renderer.root.findAll((node) => typeof node.props.testID === 'string' && /^command-(?!palette)/.test(node.props.testID))[0]?.props.testID;
+
+    // Act
+    const before = firstRow();
+    await ReactTestRenderer.act(async () => field().props.onChangeText('tun'));
+
+    // Assert
+    expect(before).not.toBe('command-tools.tuner');
+    expect(field().props.value).toBe('tun');
+    expect(firstRow()).toBe('command-tools.tuner');
+  });
+});
+
 describe('App: what an action re-renders', () => {
   it('leaves the inspector, the edition palette, the tab strip and the native listeners alone while the playing beat moves', async () => {
     // Arrange
