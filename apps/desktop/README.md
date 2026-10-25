@@ -168,6 +168,7 @@ The Track menu's track commands need no QA hook: `{"notify": "GPEditorTrackComma
 ## Notes
 
 - `macos/.xcode.env.local` (git-ignored) pins `NODE_BINARY` for the Xcode bundle phase; point it at Node 24.
+- The release bundle is built for Hermes: `babel.config.js` gives Metro's production builds (the Xcode bundle phase, the Hermes smoke) Hermes' transform profile (`hermes-stable`: spreads, arrow functions, optional chaining … left for Hermes to run natively, without Babel's helpers), and `metro.config.js` turns inline requires off (modules run at startup, so the hot loops call them directly). Measured in the Hermes VM against the default (2026-10-26): renderMidi 15–22%, engraving 34–36%, the PDF's layout 31–33% faster; in the app about 35 ms more CPU at launch and 1.5 MB more memory, the same time to the first idle. Jest and the development server keep the default profile.
 - The app is sandboxed (`GPEditor.entitlements`: App Sandbox, user-selected read-write files, network client — Metro
   in Debug, `api.anthropic.com` for the PDF import —, read-write `~/Documents/GP Editor Projects/` as a
   home-relative temporary exception, and app-scoped security bookmarks for the recent files). Files reach it through
