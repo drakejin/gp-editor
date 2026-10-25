@@ -36,40 +36,60 @@ function timeSignatureData(numerator: number, denominator: number): number[] {
   ]);
 }
 
-/** Status + data bytes of an event, one entry per MIDI channel it is sent on (none when its channel has no route). */
-function encode(event: SequenceEvent, routes: ReadonlyMap<number, ChannelRoute>): number[][] {
+/** The event's status + data bytes added to `messages` at `tick`: one message per MIDI channel it is sent on. */
+function addEncoded(messages: MidiMessage[], tick: number, event: SequenceEvent, routes: ReadonlyMap<number, ChannelRoute>): void {
   switch (event.type) {
     case 'tempo':
-      return [tempoData(event.usq)];
+      messages.push({ tick, data: tempoData(event.usq) });
+      return;
     case 'timeSignature':
-      return [timeSignatureData(event.numerator, event.denominator)];
+      messages.push({ tick, data: timeSignatureData(event.numerator, event.denominator) });
+      return;
     case 'trackName':
-      return [meta(META_TYPE.TRACK_NAME, utf8Bytes(event.name))];
+      messages.push({ tick, data: meta(META_TYPE.TRACK_NAME, utf8Bytes(event.name)) });
+      return;
     default:
-      return encodeChannelEvent(event, routes);
+      addChannelEvent(messages, tick, event, routes);
   }
 }
 
 type ChannelEvent = Exclude<SequenceEvent, { type: 'tempo' | 'timeSignature' | 'trackName' }>;
+type VoiceEvent = Extract<ChannelEvent, { type: 'noteOn' | 'noteOff' | 'pitchBend' }>;
 
-function encodeChannelEvent(event: ChannelEvent, routes: ReadonlyMap<number, ChannelRoute>): number[][] {
+/** A channel event's messages; none when its channel has no route. */
+function addChannelEvent(messages: MidiMessage[], tick: number, event: ChannelEvent, routes: ReadonlyMap<number, ChannelRoute>): void {
   const route = routes.get(event.channelId);
   if (route === undefined) {
-    return [];
+    return;
   }
   switch (event.type) {
     case 'noteOn':
-    case 'noteOff': {
-      const status = event.type === 'noteOn' ? STATUS.NOTE_ON : STATUS.NOTE_OFF;
-      const channel = toMidiChannel(event.bendMode ? route.channel2 : route.channel1);
-      return [[status | channel, event.key, event.velocity]];
-    }
+    case 'noteOff':
     case 'pitchBend':
-      return [[STATUS.PITCH_BEND | toMidiChannel(event.bendMode ? route.channel2 : route.channel1), 0, event.value]];
+      messages.push({ tick, data: voiceData(event, route) });
+      return;
     case 'controlChange':
-      return routeChannels(route).map((channel) => [STATUS.CONTROL_CHANGE | channel, event.controller, event.value]);
+      for (const channel of routeChannels(route)) {
+        messages.push({ tick, data: [STATUS.CONTROL_CHANGE | channel, event.controller, event.value] });
+      }
+      return;
     case 'programChange':
-      return routeChannels(route).map((channel) => [STATUS.PROGRAM_CHANGE | channel, event.program]);
+      for (const channel of routeChannels(route)) {
+        messages.push({ tick, data: [STATUS.PROGRAM_CHANGE | channel, event.program] });
+      }
+  }
+}
+
+/** A note or pitch bend on the route's first MIDI channel, or its second (bend mode). */
+function voiceData(event: VoiceEvent, route: ChannelRoute): number[] {
+  const channel = toMidiChannel(event.bendMode ? route.channel2 : route.channel1);
+  switch (event.type) {
+    case 'noteOn':
+      return [STATUS.NOTE_ON | channel, event.key, event.velocity];
+    case 'noteOff':
+      return [STATUS.NOTE_OFF | channel, event.key, event.velocity];
+    case 'pitchBend':
+      return [STATUS.PITCH_BEND | channel, 0, event.value];
   }
 }
 
@@ -86,8 +106,9 @@ export function toMidiMessages(
   routes: ReadonlyMap<number, ChannelRoute>,
   origin: number,
 ): MidiMessage[] {
-  return events.flatMap((event) => {
-    const tick = Math.max(0, toMidiTick(event.tick - origin));
-    return encode(event, routes).map((data) => ({ tick, data }));
-  });
+  const messages: MidiMessage[] = [];
+  for (const event of events) {
+    addEncoded(messages, Math.max(0, toMidiTick(event.tick - origin)), event, routes);
+  }
+  return messages;
 }

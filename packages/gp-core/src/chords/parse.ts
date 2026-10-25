@@ -1,29 +1,39 @@
 // Chord symbols ("Am7", "C/G", "F#m7b5") back to a ChordSpec: the inverse of naming.ts, for the chord library's search.
+import { letterPitchClass } from '../edit/key-spelling';
 import { CHORD_TYPES } from './database';
 import { chordQuality } from './naming';
-import { CHORD_EXTENSIONS, type ChordSpec, DEGREE_SHIFTS, buildChordSpec, pitchClass } from './spec';
+import { CHORD_EXTENSIONS, type ChordSpec, type ChordSpecOptions, DEGREE_SHIFTS, buildChordSpec, pitchClass } from './spec';
 
 type ChordQuality = Omit<ChordSpec, 'root' | 'bass'>;
+
+type QualityOptions = Required<Pick<ChordSpecOptions, 'extension' | 'isAdd' | 'extensionShift' | 'fifth' | 'ninth' | 'eleventh'>>;
+
+/** `partials` with each of `values` set as `key`, the earlier keys varying slower (nested loops' order). */
+function withEach<K extends keyof QualityOptions>(partials: readonly Partial<QualityOptions>[], key: K, values: readonly QualityOptions[K][]): Partial<QualityOptions>[] {
+  return partials.flatMap((partial) => values.map((value) => ({ ...partial, [key]: value })));
+}
+
+/** Every choice of the selector's lists below the chord type, in the selector's order. */
+function qualityOptions(): readonly Partial<QualityOptions>[] {
+  const extensions = withEach([{}], 'extension', CHORD_EXTENSIONS);
+  const adds = withEach(extensions, 'isAdd', [false, true]);
+  const shifts = withEach(adds, 'extensionShift', DEGREE_SHIFTS);
+  const fifths = withEach(shifts, 'fifth', DEGREE_SHIFTS);
+  return withEach(withEach(fifths, 'ninth', DEGREE_SHIFTS), 'eleventh', DEGREE_SHIFTS);
+}
 
 /** Every quality chordName can write, first spec first (so "9" reads as the major chord's ninth). */
 function buildQualityTable(): ReadonlyMap<string, ChordQuality> {
   const table = new Map<string, ChordQuality>();
+  const options = qualityOptions();
   for (const type of CHORD_TYPES) {
-    for (const extension of CHORD_EXTENSIONS) {
-      for (const isAdd of [false, true]) {
-        for (const extensionShift of DEGREE_SHIFTS) {
-          for (const fifth of DEGREE_SHIFTS) {
-            for (const ninth of DEGREE_SHIFTS) {
-              for (const eleventh of DEGREE_SHIFTS) {
-                const { root: _root, bass: _bass, ...quality } = buildChordSpec(0, type.name, { extension, isAdd, extensionShift, fifth, ninth, eleventh });
-                const label = chordQuality({ ...quality, root: 0, bass: 0 });
-                if (!table.has(label)) {
-                  table.set(label, quality);
-                }
-              }
-            }
-          }
-        }
+    for (const option of options) {
+      // Built on root C, so the spec is its own quality's label source (root and bass 0).
+      const spec = buildChordSpec(0, type.name, option);
+      const label = chordQuality(spec);
+      if (!table.has(label)) {
+        const { root: _root, bass: _bass, ...quality } = spec;
+        table.set(label, quality);
       }
     }
   }
@@ -66,14 +76,13 @@ function lookupQuality(text: string): ChordQuality | undefined {
   return undefined;
 }
 
-const LETTERS: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const NOTE = /^([A-Ga-g])([#b♯♭]?)/;
 
 /** A note name at the start of the text: its pitch class and length. */
 function readNote(text: string): { readonly pitchClass: number; readonly length: number } | undefined {
   const match = NOTE.exec(text);
   const letter = match?.[1]?.toUpperCase();
-  const base = letter === undefined ? undefined : LETTERS[letter];
+  const base = letterPitchClass(letter);
   if (match === null || base === undefined) {
     return undefined;
   }

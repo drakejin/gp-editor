@@ -3,7 +3,7 @@
 import { MAX_VELOCITY, MIN_VELOCITY, VELOCITY_INCREMENT } from '../formats/common/velocity';
 import { durationTicks } from '../model/defaults';
 import type { Beat, Hairpin } from '../model/song';
-import { beatsAfter, beatsBefore, type PlacedNote, type PlayedBeat, type TrackContext } from './note-search';
+import { type PlacedNote, type PlayedBeat, type TrackContext, nextBeatPosition, previousBeatPosition } from './note-search';
 
 /** The loudest struck note of a beat; undefined for a rest or tied notes only. */
 function beatVelocity(beat: Beat): number | undefined {
@@ -15,45 +15,52 @@ function beatLength(beat: Beat): number {
   return Math.max(0, ...beat.voices.filter((voice) => !voice.isEmpty).map((voice) => durationTicks(voice.duration)));
 }
 
-/** The beats of the hairpin around the placed note, in playback order, and the beat after it. */
+/** The beats of the hairpin around the placed note, in playback order, and the beat after it (its position in the playback's beats). */
 interface HairpinRun {
   readonly beats: readonly PlayedBeat[];
   readonly after?: PlayedBeat;
+  readonly afterPosition?: number;
 }
 
 function runAround(context: TrackContext, placed: PlacedNote, hairpin: Hairpin): HairpinRun {
-  const before: PlayedBeat[] = [];
-  for (const played of beatsBefore(context, placed.playedIndex, placed.beatIndex)) {
-    if (played.beat.hairpin !== hairpin) {
-      break;
-    }
-    before.unshift(played);
+  const { beats } = context.playback;
+  const previous = previousBeatPosition(context, placed.playedIndex, placed.beatIndex);
+  let first = previous + 1;
+  while (first > 0 && beats[first - 1]?.beat.hairpin === hairpin) {
+    first--;
   }
-  const after: PlayedBeat[] = [];
-  for (const played of beatsAfter(context, placed.playedIndex, placed.beatIndex)) {
-    if (played.beat.hairpin !== hairpin) {
-      return { beats: [...before, { beat: placed.beat, move: placed.move, playedIndex: placed.playedIndex }, ...after], after: played };
-    }
-    after.push(played);
+  const next = nextBeatPosition(context, placed.playedIndex, placed.beatIndex);
+  let end = next;
+  while (end < beats.length && beats[end]?.beat.hairpin === hairpin) {
+    end++;
   }
-  return { beats: [...before, { beat: placed.beat, move: placed.move, playedIndex: placed.playedIndex }, ...after] };
+  const here: PlayedBeat = { beat: placed.beat, move: placed.move, playedIndex: placed.playedIndex };
+  const run = [...beats.slice(first, previous + 1), here, ...beats.slice(next, end)];
+  const after = beats[end];
+  return after === undefined ? { beats: run } : { beats: run, after, afterPosition: end };
 }
 
 /** The dynamic the hairpin goes to: the next struck beat's when it goes the hairpin's way, else one dynamic further. */
 function targetVelocity(context: TrackContext, run: HairpinRun, start: number, hairpin: Hairpin): number {
   const step = hairpin === 'crescendo' ? VELOCITY_INCREMENT : -VELOCITY_INCREMENT;
   const fallback = Math.min(MAX_VELOCITY, Math.max(MIN_VELOCITY, start + step));
-  const after = run.after;
-  if (after === undefined) {
+  if (run.afterPosition === undefined) {
     return fallback;
   }
-  const next = [after, ...beatsAfter(context, after.playedIndex, beatIndexOf(context, after))].map((played) => beatVelocity(played.beat)).find((velocity) => velocity !== undefined);
+  const next = firstVelocityFrom(context.playback.beats, run.afterPosition);
   return next !== undefined && (next - start) * step > 0 ? next : fallback;
 }
 
-function beatIndexOf(context: TrackContext, played: PlayedBeat): number {
-  const measureIndex = context.played[played.playedIndex]?.headerIndex ?? -1;
-  return context.track.measures[measureIndex]?.beats.indexOf(played.beat) ?? -1;
+/** The first struck beat's velocity from `position` of the playback's beats on. */
+function firstVelocityFrom(beats: readonly PlayedBeat[], position: number): number | undefined {
+  for (let index = position; index < beats.length; index++) {
+    const played = beats[index];
+    const velocity = played === undefined ? undefined : beatVelocity(played.beat);
+    if (velocity !== undefined) {
+      return velocity;
+    }
+  }
+  return undefined;
 }
 
 /**

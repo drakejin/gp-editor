@@ -32,6 +32,9 @@ function ramp(channelId: number, start: number, duration: number, from: number, 
  * the note ends. None for a note without a fade.
  */
 export function fadeEvents(effect: NoteEffect, span: FadeSpan): SequenceEvent[] {
+  if (!effect.fadeIn && effect.fadeOut !== true && effect.volumeSwell !== true) {
+    return [];
+  }
   const { channelId, start, duration } = span;
   const end = controlChangeEvent(channelId, start + duration, CONTROLLER.EXPRESSION, FULL);
   if (effect.fadeIn) {
@@ -40,9 +43,6 @@ export function fadeEvents(effect: NoteEffect, span: FadeSpan): SequenceEvent[] 
   if (effect.fadeOut === true) {
     return [...ramp(channelId, start, duration, FULL, QUIET), end];
   }
-  if (effect.volumeSwell === true) {
-    const half = duration / 2;
-    return [...ramp(channelId, start, half, QUIET, FULL), ...ramp(channelId, start + half, half, FULL, QUIET), end];
-  }
-  return [];
+  const half = duration / 2;
+  return [...ramp(channelId, start, half, QUIET, FULL), ...ramp(channelId, start + half, half, FULL, QUIET), end];
 }

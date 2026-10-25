@@ -86,6 +86,15 @@ describe('renderMidi hairpins', () => {
     expect(playedNotes(midi(song)).map((played) => played.velocity)).toEqual([63, 71]);
   });
 
+  it('ramps a crescendo one dynamic up when only rests follow it', () => {
+    // Arrange
+    const rest: BeatSpec = { isEmpty: false, notes: [] };
+    const song = songOf([[quarter(63, { hairpin: 'crescendo' }), quarter(63, { hairpin: 'crescendo' }), rest, rest]]);
+
+    // Act / Assert: mp to mf (79) over two quarters, up to the rest after the run.
+    expect(playedNotes(midi(song)).map((played) => played.velocity)).toEqual([63, 71]);
+  });
+
   it('ramps across a bar line, and keeps accents on top of the ramp', () => {
     // Arrange
     const accented = { notes: [note({ fret: 0, string: 1, velocity: 47, effect: { accentuatedNote: true } })], hairpin: 'crescendo' as const };

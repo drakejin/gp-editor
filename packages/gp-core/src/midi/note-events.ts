@@ -1,7 +1,7 @@
 // Port of TuxGuitar MidiSequenceParser.addNotes (LGPL-2.1): the MIDI events of one struck note and its effects.
 import { artificialHarmonicOffset, artificialHarmonicOffsetAtFret } from '../formats/common/harmonics';
 import { durationTicks } from '../model/defaults';
-import { type Grace, type Harmonic, type Note, QUARTER_TIME } from '../model/song';
+import { type Grace, type Harmonic, type Note, type NoteEffect, QUARTER_TIME } from '../model/song';
 import type { BeatTiming } from './beat-timing';
 import { fadeEvents } from './fades';
 import { type NoteOutput, noteEvents, type SequenceEvent } from './midi-events';
@@ -16,6 +16,8 @@ import { curveEvents, slideEvents, vibratoEvents } from './pitch-bends';
 /** A repeated note (trill, tremolo picking) stops this close to the end of the note. */
 const REPEAT_MARGIN = fromMidiTicks(10);
 const OCTAVE = 12;
+/** Shared by the notes without an effect's events (most of them); never added to. */
+const NO_EVENTS: readonly SequenceEvent[] = [];
 
 /** A note's sounding window and MIDI output while its effects are applied. */
 interface Sound {
@@ -24,6 +26,12 @@ interface Sound {
   readonly duration: number;
   readonly velocity: number;
   readonly output: NoteOutput;
+}
+
+/** A sound after one effect shaped it, and the events that effect adds. */
+interface Shaped {
+  readonly sound: Sound;
+  readonly events: readonly SequenceEvent[];
 }
 
 function isPercussion(context: TrackContext): boolean {
@@ -53,14 +61,14 @@ function applyGrace(
   placed: PlacedNote,
   sound: Sound,
   grace: Grace,
-): { sound: Sound; events: SequenceEvent[] } {
+): Shaped {
   const output: NoteOutput = { ...sound.output, bendMode: !isPercussion(context) };
   const length = graceTicks(grace.duration);
   const graceDuration = grace.isDead ? staticDuration(placed.tempo, DEAD_NOTE_DURATION, length) : length;
   const isOnBeat = grace.onBeat || sound.start - length < context.origin;
   const main = isOnBeat ? { ...sound, start: sound.start + length, duration: sound.duration - length } : sound;
   const key = pitchOf(context, placed.note.string, grace.fret);
-  const events = key === undefined ? [] : noteEvents(output, key, main.start - length, graceDuration, grace.velocity);
+  const events = key === undefined ? NO_EVENTS : noteEvents(output, key, main.start - length, graceDuration, grace.velocity);
   return { sound: { ...main, output }, events };
 }
 
@@ -77,6 +85,15 @@ function repeatedEvents(sound: Sound, length: number, keys: readonly number[]): 
   return events;
 }
 
+/** No grace note, trill, tremolo picking, harmonic or pitch effect. */
+function isPlain(effect: NoteEffect): boolean {
+  return effect.grace === undefined && effect.trill === undefined && effect.tremoloPicking === undefined && effect.harmonic === undefined && !hasPitchEffect(effect);
+}
+
+function hasPitchEffect(effect: NoteEffect): boolean {
+  return effect.bend !== undefined || effect.tremoloBar !== undefined || effect.slides.length > 0 || effect.vibrato || effect.wideVibrato;
+}
+
 /**
  * The first pitch effect of bend, tremolo bar, slide, vibrato (slight or wide: TuxGuitar plays them alike); any of
  * them moves the note to the bend channel.
@@ -85,8 +102,11 @@ function pitchEffect(
   context: TrackContext,
   placed: PlacedNote,
   sound: Sound,
-): { sound: Sound; events: SequenceEvent[] } {
+): Shaped {
   const { effect } = placed.note;
+  if (!hasPitchEffect(effect)) {
+    return { sound, events: NO_EVENTS };
+  }
   const bent = { ...sound, output: { ...sound.output, bendMode: true } };
   if (effect.bend !== undefined) {
     return { sound: bent, events: curveEvents(bent.output, sound.start, sound.duration, effect.bend.points) };
@@ -103,10 +123,7 @@ function pitchEffect(
         : slideEvents(bent.output, fromTick, placed.note.fret, next.beat.start + next.move, next.note.fret);
     return { sound: bent, events };
   }
-  if (effect.vibrato || effect.wideVibrato) {
-    return { sound: bent, events: vibratoEvents(bent.output, sound.start, sound.duration) };
-  }
-  return { sound, events: [] };
+  return { sound: bent, events: vibratoEvents(bent.output, sound.start, sound.duration) };
 }
 
 /** Semitones a non-natural harmonic sounds above the fretted note (TuxGuitar's data index 0 = 12 when unknown). */
@@ -133,7 +150,7 @@ function harmonicKey(note: Note, harmonic: Harmonic, base: number): number {
 }
 
 /** Harmonic: the key moves to the harmonic, with a soft note an octave below (and the fretted note for semi). */
-function applyHarmonic(note: Note, harmonic: Harmonic, sound: Sound): { sound: Sound; events: SequenceEvent[] } {
+function applyHarmonic(note: Note, harmonic: Harmonic, sound: Sound): Shaped {
   const { output, start, duration, velocity, key: base } = sound;
   const key = harmonicKey(note, harmonic, base);
   const semi =
@@ -185,7 +202,8 @@ export function buildNoteEvents(
     output: { channelId: context.channel.id, bendMode: false },
   });
   const fade = fadeEvents(placed.note.effect, { channelId: initial.output.channelId, start: initial.start, duration: initial.duration });
-  return [...fade, ...effectEvents(context, placed, initial)];
+  const events = effectEvents(context, placed, initial);
+  return fade.length === 0 ? events : fade.concat(events);
 }
 
 /** A rasgueado beat's note, struck once per finger of the pattern (rasgueado.ts); its other effects are not played. */
@@ -197,28 +215,28 @@ function rasgueadoEvents(context: TrackContext, placed: PlacedNote, timing: Beat
   return strikes.flatMap((strike) => noteEvents(output, key, timing.start + placed.move + strike.start, strike.duration, velocity));
 }
 
+/** The note's effects in TuxGuitar's order (grace, then trill or tremolo picking, or pitch effect and harmonic), then the note. */
 function effectEvents(context: TrackContext, placed: PlacedNote, initial: Sound): SequenceEvent[] {
   const { effect } = placed.note;
-  const graced =
-    effect.grace === undefined ? { sound: initial, events: [] } : applyGrace(context, placed, initial, effect.grace);
+  if (isPlain(effect)) {
+    // Most notes: no effect shapes them, so nothing to build but the note.
+    return noteEvents(initial.output, initial.key, initial.start, initial.duration, initial.velocity);
+  }
+  const graced = effect.grace === undefined ? { sound: initial, events: NO_EVENTS } : applyGrace(context, placed, initial, effect.grace);
   const sound = graced.sound;
   if (effect.trill !== undefined && !isPercussion(context)) {
     const trillKey = pitchOf(context, placed.note.string, effect.trill.fret) ?? sound.key;
-    return [...graced.events, ...repeatedEvents(sound, durationTicks(effect.trill.duration), [sound.key, trillKey])];
+    return graced.events.concat(repeatedEvents(sound, durationTicks(effect.trill.duration), [sound.key, trillKey]));
   }
   if (effect.tremoloPicking !== undefined) {
-    return [...graced.events, ...repeatedEvents(sound, durationTicks(effect.tremoloPicking.duration), [sound.key])];
+    return graced.events.concat(repeatedEvents(sound, durationTicks(effect.tremoloPicking.duration), [sound.key]));
   }
-  const pitched = isPercussion(context) ? { sound, events: [] } : pitchEffect(context, placed, sound);
+  const pitched = isPercussion(context) ? { sound, events: NO_EVENTS } : pitchEffect(context, placed, sound);
   const harmonic =
     effect.harmonic === undefined || isPercussion(context)
-      ? { sound: pitched.sound, events: [] }
+      ? { sound: pitched.sound, events: NO_EVENTS }
       : applyHarmonic(placed.note, effect.harmonic, pitched.sound);
   const final = harmonic.sound;
-  return [
-    ...graced.events,
-    ...pitched.events,
-    ...harmonic.events,
-    ...noteEvents(final.output, final.key, final.start, final.duration, final.velocity),
-  ];
+  // concat, not spreads: this runs for every struck note.
+  return graced.events.concat(pitched.events, harmonic.events, noteEvents(final.output, final.key, final.start, final.duration, final.velocity));
 }

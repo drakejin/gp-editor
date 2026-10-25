@@ -77,8 +77,16 @@ export function restEvents(ticks: number, preferred?: Duration, tuplets?: Durati
 
 /** Of the voices playing in a beat, the one whose event carries the beat attributes: preferably one that stays put. */
 function attributeOwner(beat: Beat, movingVoiceIndex: number | undefined): number | undefined {
-  const played = beat.voices.flatMap((voice, index) => (voice.isEmpty ? [] : [index]));
-  return played.find((index) => index !== movingVoiceIndex) ?? played[0];
+  let firstPlayed: number | undefined;
+  for (let index = 0; index < beat.voices.length; index++) {
+    if (beat.voices[index]?.isEmpty === false) {
+      if (index !== movingVoiceIndex) {
+        return index;
+      }
+      firstPlayed ??= index;
+    }
+  }
+  return firstPlayed;
 }
 
 function attributesOf(beat: Beat): BeatAttributes {
@@ -106,7 +114,15 @@ export function distinctTuplets(durations: readonly DurationTuplets[]): readonly
 
 /** The tuplets a measure's events use: time another voice leaves unused is made of these. */
 function measureTuplets(measure: Measure): readonly DurationTuplets[] {
-  return distinctTuplets(measure.beats.flatMap((beat) => beat.voices.filter((voice) => !voice.isEmpty).map((voice) => voice.duration)));
+  const durations: Duration[] = [];
+  for (const beat of measure.beats) {
+    for (const voice of beat.voices) {
+      if (!voice.isEmpty) {
+        durations.push(voice.duration);
+      }
+    }
+  }
+  return distinctTuplets(durations);
 }
 
 /** Rests for `ticks` of unused time, plain or in one of `tuplets`; undefined when none can write it. */
@@ -158,15 +174,18 @@ function appendEvent(split: Split, voiceIndex: number, beatStart: number, event:
 export function toMeasureVoices(measure: Measure, start: number, movingVoiceIndex?: number): MeasureVoices | undefined {
   // A voice the beats have no slot for yet (voice 3 or 4 of a bar read from a GP3–GP5 file) gets one.
   const movingSlots = movingVoiceIndex === undefined || movingVoiceIndex >= MAX_VOICES ? 0 : movingVoiceIndex + 1;
-  const voiceCount = Math.max(1, movingSlots, ...measure.beats.map((beat) => beat.voices.length));
-  const split: Split = {
-    voices: Array.from({ length: voiceCount }, () => []),
-    ends: Array.from({ length: voiceCount }, () => start),
-    tuplets: measureTuplets(measure),
-  };
-  for (const [beatIndex, beat] of measure.beats.entries()) {
+  const voiceCount = measure.beats.reduce((count, beat) => Math.max(count, beat.voices.length), Math.max(1, movingSlots));
+  const split: Split = { voices: [], ends: [], tuplets: measureTuplets(measure) };
+  for (let voiceIndex = 0; voiceIndex < voiceCount; voiceIndex++) {
+    split.voices.push([]);
+    split.ends.push(start);
+  }
+  // Index loops, not entries(): every beat edit and every bar a cut or paste re-bars runs this.
+  for (let beatIndex = 0; beatIndex < measure.beats.length; beatIndex++) {
+    const beat = measure.beats[beatIndex] as Beat;
     const owner = attributeOwner(beat, movingVoiceIndex);
-    for (const [voiceIndex, voice] of beat.voices.entries()) {
+    for (let voiceIndex = 0; voiceIndex < beat.voices.length; voiceIndex++) {
+      const voice = beat.voices[voiceIndex] as Voice;
       const event: VoiceEvent = voiceIndex === owner ? { voice, beatIndex, attributes: attributesOf(beat) } : { voice, beatIndex };
       if (!voice.isEmpty && !appendEvent(split, voiceIndex, beat.start, event)) {
         return undefined;
@@ -184,14 +203,34 @@ export function eventIndexOfBeat(events: VoiceEvents, beatIndex: number): number
 
 /** Attributes of the events meeting in one beat, field by field from the lowest voice that has the field. */
 function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttributes {
-  const all = events.flatMap((event) => (event?.attributes === undefined ? [] : [event.attributes]));
-  const stroke = all.find((attributes) => attributes.stroke.direction !== 'none')?.stroke ?? all[0]?.stroke ?? NO_STROKE;
-  const pickStroke = all.find((attributes) => attributes.pickStroke !== 'none')?.pickStroke ?? 'none';
-  const chord = all.find((attributes) => attributes.chord !== undefined)?.chord;
-  const text = all.find((attributes) => attributes.text !== undefined)?.text;
-  const hairpin = all.find((attributes) => attributes.hairpin !== undefined)?.hairpin;
-  const rasgueado = all.find((attributes) => attributes.rasgueado !== undefined)?.rasgueado;
-  const ottava = all.find((attributes) => attributes.ottava !== undefined)?.ottava;
+  // One pass (every rebuilt beat runs this): each field from the first attributes that have it.
+  let firstStroke: Stroke | undefined;
+  let stroke: Stroke | undefined;
+  let pickStroke: StrokeDirection = 'none';
+  let chord: Chord | undefined;
+  let text: string | undefined;
+  let hairpin: Hairpin | undefined;
+  let rasgueado: RasgueadoPattern | undefined;
+  let ottava: Ottava | undefined;
+  for (const event of events) {
+    const attributes = event?.attributes;
+    if (attributes !== undefined) {
+      firstStroke ??= attributes.stroke;
+      stroke ??= attributes.stroke.direction === 'none' ? undefined : attributes.stroke;
+      pickStroke = pickStroke === 'none' ? attributes.pickStroke : pickStroke;
+      chord ??= attributes.chord;
+      text ??= attributes.text;
+      hairpin ??= attributes.hairpin;
+      rasgueado ??= attributes.rasgueado;
+      ottava ??= attributes.ottava;
+    }
+  }
+  return mergedAttributes(stroke ?? firstStroke ?? NO_STROKE, pickStroke, { chord, text, hairpin, rasgueado, ottava });
+}
+
+/** The merged attributes with only the marks that are set. */
+function mergedAttributes(stroke: Stroke, pickStroke: StrokeDirection, marks: Omit<BeatAttributes, 'stroke' | 'pickStroke'>): BeatAttributes {
+  const { chord, text, hairpin, rasgueado, ottava } = marks;
   return {
     stroke,
     pickStroke,
@@ -239,16 +278,20 @@ export function toBeats(start: number, measureVoices: MeasureVoices, previous: r
   measureVoices.voices.forEach((events, voiceIndex) => {
     let position = start;
     for (const event of events) {
-      const atPosition = slots.get(position) ?? Array.from({ length: measureVoices.voiceCount }, () => undefined);
+      let atPosition = slots.get(position);
+      if (atPosition === undefined) {
+        atPosition = new Array<VoiceEvent | undefined>(measureVoices.voiceCount).fill(undefined);
+        slots.set(position, atPosition);
+      }
       atPosition[voiceIndex] = event;
-      slots.set(position, atPosition);
       position += eventTicks(event);
     }
   });
-  const previousByStart = new Map(previous.map((beat) => [beat.start, beat]));
-  return [...slots.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([beatStart, events]) => buildBeat(beatStart, events, previousByStart.get(beatStart)));
+  const previousByStart = new Map<number, Beat>();
+  for (const beat of previous) {
+    previousByStart.set(beat.start, beat);
+  }
+  return [...slots.keys()].sort((a, b) => a - b).map((beatStart) => buildBeat(beatStart, slots.get(beatStart) ?? [], previousByStart.get(beatStart)));
 }
 
 /** True when two event lists hold the same events (free rests compare by duration). */

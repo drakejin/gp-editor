@@ -1,5 +1,6 @@
 // The song's audio track (Guitar Pro 7/8's backing track; not in TuxGuitar): its defaults and bounds, and the check every
 // reader and edit applies, so an audio track from a file or an edit always lies within them.
+import { clamp } from '../model/defaults';
 import type { AudioSyncPoint, AudioTrack } from '../model/song';
 
 /** The name Guitar Pro gives the audio track. */
@@ -15,10 +16,6 @@ const EXTENSION = /^[a-z0-9]{1,8}$/;
 
 /** What an audio track is built from: the id of its data, and any field to set (the others take their defaults). */
 export type AudioTrackFields = Pick<AudioTrack, 'assetId'> & Partial<Omit<AudioTrack, 'assetId'>>;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function finiteOr(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) ? value : fallback;

@@ -2,12 +2,11 @@
 // these marks): a bar's directions, hairpins over a run of beats, a beat's rasgueado and the sustain pedal.
 import { MUSICAL_DIRECTIONS, sortDirections } from '../formats/common/directions';
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
-import { comparePedalMarks, durationTicks, measureTicks } from '../model/defaults';
+import { comparePedalMarks, durationTicks, isHairpin, measureTicks } from '../model/defaults';
 import type { Beat, Hairpin, Measure, MeasureHeader, MusicalDirection, PedalAction, PedalMark, RasgueadoPattern, Song } from '../model/song';
 import type { BeatAddress } from './addresses';
+import { orderRun, runBeats, updateRunBeats } from './beat-runs';
 import { replaceAt, updateBeat, updateMeasure, updateTrack } from './song-paths';
-
-const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
 
 function withDirections(header: MeasureHeader, directions: readonly MusicalDirection[]): MeasureHeader {
   const { directions: _removed, ...rest } = header;
@@ -25,15 +24,6 @@ export function toggleDirection(song: Song, measureIndex: number, direction: Mus
   return { ...song, measureHeaders: replaceAt(song.measureHeaders, measureIndex, withDirections(header, next)) };
 }
 
-function isBefore(a: BeatAddress, b: BeatAddress): boolean {
-  return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beatIndex < b.beatIndex);
-}
-
-function isInRange(measureIndex: number, beatIndex: number, first: BeatAddress, last: BeatAddress): boolean {
-  const here = { ...first, measureIndex, beatIndex };
-  return !isBefore(here, first) && !isBefore(last, here);
-}
-
 function withHairpin(beat: Beat, hairpin: Hairpin | undefined): Beat {
   if (beat.hairpin === hairpin) {
     return beat;
@@ -42,31 +32,19 @@ function withHairpin(beat: Beat, hairpin: Hairpin | undefined): Beat {
   return hairpin === undefined ? rest : { ...rest, hairpin };
 }
 
-/** The beats of one track from `first` to `last` (each measure's beats in order). */
-function beatsInRange(song: Song, first: BeatAddress, last: BeatAddress): readonly Beat[] {
-  const measures = song.tracks[first.trackIndex]?.measures ?? [];
-  return measures.flatMap((measure, measureIndex) => measure.beats.filter((_, beatIndex) => isInRange(measureIndex, beatIndex, first, last)));
-}
-
 /**
  * New song with a crescendo or decrescendo over the beats from `from` to `to` (either order, one track; the voice does
  * not matter: a hairpin is the beat's). When every one of them already has it, it is taken off instead. Same song when
  * there is no beat in the range or the hairpin is unknown.
  */
 export function toggleHairpin(song: Song, from: BeatAddress, to: BeatAddress, hairpin: Hairpin): Song {
-  const [first, last] = isBefore(to, from) ? [to, from] : [from, to];
-  const beats = beatsInRange(song, first, last);
-  if (beats.length === 0 || !HAIRPINS.includes(hairpin)) {
+  const [first, last] = orderRun(from, to);
+  const beats = runBeats(song.tracks[first.trackIndex], first, last);
+  if (beats.length === 0 || !isHairpin(hairpin)) {
     return song;
   }
   const next = beats.every((beat) => beat.hairpin === hairpin) ? undefined : hairpin;
-  return updateTrack(song, first.trackIndex, (track) => {
-    const measures = track.measures.map((measure, measureIndex): Measure => {
-      const changed = measure.beats.map((beat, beatIndex) => (isInRange(measureIndex, beatIndex, first, last) ? withHairpin(beat, next) : beat));
-      return changed.every((beat, index) => beat === measure.beats[index]) ? measure : { ...measure, beats: changed };
-    });
-    return measures.every((measure, index) => measure === track.measures[index]) ? track : { ...track, measures };
-  });
+  return updateTrack(song, first.trackIndex, (track) => updateRunBeats(track, first, last, (beat) => withHairpin(beat, next)));
 }
 
 /** New song with the beat strummed as a rasgueado of `pattern`, or not (undefined). Same song for an unknown pattern. */

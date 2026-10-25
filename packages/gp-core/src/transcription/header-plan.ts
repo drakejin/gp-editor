@@ -1,11 +1,10 @@
-import { measureTicks } from '../model/defaults';
+import { FOUR_FOUR, measureTicks } from '../model/defaults';
 import { type MeasureHeader, QUARTER_TIME, type TimeSignature } from '../model/song';
 import { isTimeSignature } from './durations';
 import type { TranscribedMeasure } from './types';
 
 /** Tempo when neither the song nor the first bar marks one. */
 export const DEFAULT_TEMPO = 120;
-const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 /** Endings a measure header holds (bits 0…7 of repeatAlternative). */
 const MAX_ALTERNATE_ENDING = 8;
 

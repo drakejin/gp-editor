@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiFileWriter (LGPL-2.1): a format 1 Standard MIDI File.
-import { variableLength } from './midi-bytes';
+import { variableLengthSize, writeVariableLength } from './midi-bytes';
 
 /** One encoded MIDI message (status byte first, or 0xFF type length data for a meta event) at a tick. */
 export interface MidiMessage {
@@ -23,12 +23,6 @@ function uint32(value: number): number[] {
   return [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
 }
 
-function appendAll(target: number[], bytes: readonly number[]): void {
-  for (const byte of bytes) {
-    target.push(byte);
-  }
-}
-
 /**
  * MidiTrack.sort is a stable sort by tick. A note-off moves ahead of the other messages of its tick, so a note
  * struck again on the tick another one of the same key ends is not cut short.
@@ -38,19 +32,35 @@ function sortMessages(messages: readonly MidiMessage[]): MidiMessage[] {
   return [...messages].sort((a, b) => a.tick - b.tick || rank(a) - rank(b));
 }
 
-/** Events of one MTrk chunk, ended (MidiSequence.finish) at its last event or at `endTick`, whichever is later. */
-function trackEvents(messages: readonly MidiMessage[], endTick: number): number[] {
-  const events: number[] = [];
-  let previousTick = 0;
+/** Bytes of `data` written into `bytes` from `offset`; the offset after them. */
+function writeData(bytes: Uint8Array, offset: number, data: readonly number[]): number {
+  bytes.set(data, offset);
+  return offset + data.length;
+}
+
+/**
+ * One MTrk chunk: its events, ended (MidiSequence.finish) at its last event or at `endTick`, whichever is later.
+ * Sized first, then written into one byte array (no growing list of numbers: a track has thousands of events).
+ */
+function trackChunk(messages: readonly MidiMessage[], endTick: number): Uint8Array {
   const sorted = sortMessages(messages);
+  const lastTick = sorted[sorted.length - 1]?.tick ?? 0;
+  const endDelta = Math.max(endTick, lastTick) - lastTick;
+  let size = variableLengthSize(endDelta) + END_OF_TRACK.length;
+  let previousTick = 0;
   for (const message of sorted) {
-    appendAll(events, variableLength(message.tick - previousTick));
-    appendAll(events, message.data);
+    size += variableLengthSize(message.tick - previousTick) + message.data.length;
     previousTick = message.tick;
   }
-  appendAll(events, variableLength(Math.max(endTick, previousTick) - previousTick));
-  appendAll(events, END_OF_TRACK);
-  return events;
+  const chunk = new Uint8Array(TRACK_MAGIC.length + 4 + size);
+  let offset = writeData(chunk, writeData(chunk, 0, TRACK_MAGIC), uint32(size));
+  previousTick = 0;
+  for (const message of sorted) {
+    offset = writeData(chunk, writeVariableLength(chunk, offset, message.tick - previousTick), message.data);
+    previousTick = message.tick;
+  }
+  writeData(chunk, writeVariableLength(chunk, offset, endDelta), END_OF_TRACK);
+  return chunk;
 }
 
 /** A format 1 file: one MTrk per entry of `tracks`, `division` ticks per quarter note. */
@@ -66,18 +76,13 @@ export function writeMidiFile(
     ...uint16(tracks.length),
     ...uint16(division),
   ];
-  const chunks = tracks.map((messages) => {
-    const events = trackEvents(messages, endTick);
-    return { prefix: [...TRACK_MAGIC, ...uint32(events.length)], events };
-  });
-  const size = chunks.reduce((total, chunk) => total + chunk.prefix.length + chunk.events.length, header.length);
-  const bytes = new Uint8Array(size);
+  const chunks = tracks.map((messages) => trackChunk(messages, endTick));
+  const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, header.length));
   bytes.set(header, 0);
   let offset = header.length;
   for (const chunk of chunks) {
-    bytes.set(chunk.prefix, offset);
-    bytes.set(chunk.events, offset + chunk.prefix.length);
-    offset += chunk.prefix.length + chunk.events.length;
+    bytes.set(chunk, offset);
+    offset += chunk.length;
   }
   return bytes;
 }

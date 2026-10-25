@@ -1,4 +1,5 @@
 import { CompositionError, TranscriptionError } from '../errors';
+import { FOUR_FOUR } from '../model/defaults';
 import type { TimeSignature } from '../model/song';
 import { isTimeSignature } from '../transcription/durations';
 import { parseTrack } from '../transcription/parse-page';
@@ -18,7 +19,6 @@ import {
   type SongPlan,
 } from './types';
 
-const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 
 /** Trimmed text cut to `max` characters; "" for anything but text. */
 function text(value: unknown, max: number): string {

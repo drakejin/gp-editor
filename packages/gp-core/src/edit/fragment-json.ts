@@ -1,8 +1,8 @@
 import { FINGERS } from '../formats/common/fingering';
 import { MAX_VELOCITY } from '../formats/common/velocity';
-import { NO_STROKE, STROKE_VALUES, isOttava } from '../model/defaults';
+import { NO_STROKE, STROKE_VALUES, isHairpin, isOttava } from '../model/defaults';
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
-import type { Hairpin, Note, Stroke, StrokeDirection } from '../model/song';
+import type { Note, Stroke, StrokeDirection } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
@@ -101,11 +101,9 @@ function parseText(value: unknown): { readonly text?: string } | null {
   return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_TEXT_LENGTH ? { text: value } : null;
 }
 
-const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
-
 /** No mark, or a known one; `null` stands for invalid. */
 function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado' | 'ottava'> | null {
-  const hairpin = HAIRPINS.find((known) => known === value.hairpin);
+  const hairpin = isHairpin(value.hairpin) ? value.hairpin : undefined;
   const rasgueado = isRasgueadoPattern(value.rasgueado) ? value.rasgueado : undefined;
   const ottava = isOttava(value.ottava) ? value.ottava : undefined;
   if ((value.hairpin !== undefined && hairpin === undefined) || (value.rasgueado !== undefined && rasgueado === undefined) || (value.ottava !== undefined && ottava === undefined)) {

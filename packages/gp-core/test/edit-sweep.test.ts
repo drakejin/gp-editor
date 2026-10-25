@@ -201,20 +201,22 @@ const BEAT_EDITS: readonly ((song: Song, at: BeatAddress, random: Random) => Son
   (song, at) => deleteBeat(song, at),
 ];
 
-function expectOnlyVoiceChanged(before: Song, after: Song, at: BeatAddress): void {
-  expect(after.measureHeaders).toBe(before.measureHeaders);
-  after.tracks.forEach((track, trackIndex) => {
+/** Tracks other than `at`'s, and measures of its track other than `at`'s, that are not the same objects as before. */
+function otherChanges(before: Song, after: Song, at: BeatAddress): string[] {
+  return after.tracks.flatMap((track, trackIndex) => {
     const original = before.tracks[trackIndex];
     if (trackIndex !== at.trackIndex) {
-      expect(track).toBe(original);
-      return;
+      return track === original ? [] : [`track ${trackIndex}`];
     }
-    track.measures.forEach((measure, measureIndex) => {
-      if (measureIndex !== at.measureIndex) {
-        expect(measure).toBe(original?.measures[measureIndex]);
-      }
-    });
+    return track.measures.flatMap((measure, measureIndex) =>
+      measureIndex === at.measureIndex || measure === original?.measures[measureIndex] ? [] : [`track ${trackIndex} measure ${measureIndex}`],
+    );
   });
+}
+
+function expectOnlyVoiceChanged(before: Song, after: Song, at: BeatAddress): void {
+  expect(after.measureHeaders).toBe(before.measureHeaders);
+  expect(otherChanges(before, after, at)).toEqual([]);
   for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
     if (voiceIndex !== at.voiceIndex) {
       expect(playedEvents(after, at, voiceIndex)).toEqual(playedEvents(before, at, voiceIndex));

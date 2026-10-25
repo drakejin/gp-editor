@@ -1,4 +1,5 @@
 // Port of TuxGuitar's ScaleManager (KEY_NAMES, selectScale) and TGScale (setKeyName, getNote) (LGPL-2.1).
+import { letterPitchClass } from '../edit/key-spelling';
 import { SCALES } from './table';
 
 export type Alteration = 'natural' | 'sharp' | 'flat';
@@ -20,19 +21,9 @@ export interface ScaleChoice {
 /** ScaleManager's KEY_NAMES. */
 const ROOT_NAMES = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'] as const;
 
-const LETTER_PITCH_CLASSES: ReadonlyMap<string, number> = new Map([
-  ['C', 0],
-  ['D', 2],
-  ['E', 4],
-  ['F', 5],
-  ['G', 7],
-  ['A', 9],
-  ['B', 11],
-]);
-
 /** TGScale#setKeyName: the letter's pitch class, a semitone higher for "#", lower for "b". */
 function toScaleRoot(name: string): ScaleRoot {
-  const letter = LETTER_PITCH_CLASSES.get(name.slice(0, 1)) ?? 0;
+  const letter = letterPitchClass(name.slice(0, 1)) ?? 0;
   const alteration: Alteration = name.includes('#') ? 'sharp' : name.includes('b') ? 'flat' : 'natural';
   const shift = alteration === 'sharp' ? 1 : alteration === 'flat' ? -1 : 0;
   return { name, pitchClass: (letter + shift + 12) % 12, alteration };

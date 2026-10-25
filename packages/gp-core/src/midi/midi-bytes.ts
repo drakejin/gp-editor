@@ -6,13 +6,28 @@ const REPLACEMENT_CHARACTER = 0xfffd;
 
 /** Standard MIDI File variable-length quantity (7 bits per byte, most significant first). */
 export function variableLength(value: number): number[] {
-  const bytes = [value & SEVEN_BITS];
-  let rest = Math.floor(value / 128);
-  while (rest > 0) {
-    bytes.unshift((rest & SEVEN_BITS) | CONTINUATION);
-    rest = Math.floor(rest / 128);
-  }
+  const bytes: number[] = [];
+  writeVariableLength(bytes, 0, value);
   return bytes;
+}
+
+/** How many bytes variableLength(value) takes. */
+export function variableLengthSize(value: number): number {
+  let size = 1;
+  for (let rest = Math.floor(value / 128); rest > 0; rest = Math.floor(rest / 128)) {
+    size++;
+  }
+  return size;
+}
+
+/** variableLength's bytes written into `bytes` from `offset`, without an array of their own; the offset after them. */
+export function writeVariableLength(bytes: Uint8Array | number[], offset: number, value: number): number {
+  let at = offset;
+  for (let group = variableLengthSize(value) - 1; group > 0; group--) {
+    bytes[at++] = (Math.floor(value / 128 ** group) & SEVEN_BITS) | CONTINUATION;
+  }
+  bytes[at++] = value & SEVEN_BITS;
+  return at;
 }
 
 function codePointBytes(codePoint: number): number[] {

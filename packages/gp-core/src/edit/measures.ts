@@ -1,7 +1,9 @@
 // Measure insertion and removal after TuxGuitar's TGSongManager.addNewMeasure / removeMeasureHeader (LGPL-2.1).
-import type { Measure, MeasureHeader, Song, Track } from '../model/song';
+import { headerTicks } from '../model/defaults';
+import type { Clef, Measure, MeasureHeader, Song, Track } from '../model/song';
 import { withMeasureDeleted, withMeasureInserted } from './audio-track';
-import { headerTicks, relayoutMeasures } from './relayout';
+import { relayoutMeasures } from './relayout';
+import { insertAt } from './song-paths';
 import { restEvents, toBeats } from './timeline';
 
 /** Voice slots of the beats around a measure: the measure's own beats, else any beat of the track, else one. */
@@ -24,22 +26,17 @@ function newHeader(neighbour: MeasureHeader, start: number): MeasureHeader {
   };
 }
 
+/** A measure of `voiceCount` voice slots holding only rests, in its first voice. */
+export function emptyMeasure(header: MeasureHeader, headerIndex: number, voiceCount: number, clef: Clef = 'treble', keySignature = 0): Measure {
+  const rests = restEvents(headerTicks(header)) ?? [];
+  const voices = Array.from({ length: voiceCount }, (_, voiceIndex) => (voiceIndex === 0 ? rests : []));
+  return { headerIndex, clef, keySignature, beats: toBeats(header.start, { voiceCount, voices }, []) };
+}
+
 /** A measure holding only rests in its first voice, with the neighbour's clef and key. */
 export function restMeasure(track: Track, neighbourIndex: number, header: MeasureHeader, headerIndex: number): Measure {
   const neighbour = track.measures[neighbourIndex];
-  const voiceCount = voiceCountNear(track, neighbourIndex);
-  const rests = restEvents(headerTicks(header)) ?? [];
-  const voices = Array.from({ length: voiceCount }, (_, voiceIndex) => (voiceIndex === 0 ? rests : []));
-  return {
-    headerIndex,
-    clef: neighbour?.clef ?? 'treble',
-    keySignature: neighbour?.keySignature ?? 0,
-    beats: toBeats(header.start, { voiceCount, voices }, []),
-  };
-}
-
-function insertAt<T>(items: readonly T[], index: number, item: T): readonly T[] {
-  return [...items.slice(0, index), item, ...items.slice(index)];
+  return emptyMeasure(header, headerIndex, voiceCountNear(track, neighbourIndex), neighbour?.clef, neighbour?.keySignature);
 }
 
 /**

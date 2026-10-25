@@ -6,8 +6,10 @@ import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
 import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, RED } from '../model/defaults';
 import type { Channel, Clef, Song, Track } from '../model/song';
 import { restMeasure } from './measures';
+import { insertAt } from './song-paths';
 import { type TrackKind, type TrackKindSpec, trackKindSpec, trackTuningChoices } from './track-kinds';
 import { MAX_CAPO } from './track-properties';
+import { isMidiValue } from './track-sound';
 
 /** What addTrack makes; everything but the kind falls back to the kind's defaults (TRACK_KINDS). */
 export interface NewTrack {
@@ -24,8 +26,6 @@ export interface NewTrack {
 
 /** Most strings a new track may have: the 8-string guitar's. */
 export const MAX_NEW_TRACK_STRINGS = 8;
-/** Highest MIDI program and pitch. */
-const MAX_MIDI_VALUE = 127;
 
 interface ResolvedTrack {
   readonly spec: TrackKindSpec;
@@ -33,10 +33,6 @@ interface ResolvedTrack {
   readonly program: number;
   readonly tuning: readonly number[];
   readonly capo: number;
-}
-
-function isMidiValue(value: number): boolean {
-  return Number.isInteger(value) && value >= 0 && value <= MAX_MIDI_VALUE;
 }
 
 function resolveTuning(spec: TrackKindSpec, tuning: readonly number[] | undefined): readonly number[] | undefined {
@@ -90,10 +86,6 @@ function clefOf(kind: TrackKind): Clef {
 /** Every track numbered by its place (Track.number = index + 1), as TGSongManager.orderTracks leaves them. */
 function numbered(tracks: readonly Track[]): readonly Track[] {
   return tracks.map((track, index) => (track.number === index + 1 ? track : { ...track, number: index + 1 }));
-}
-
-function insertAt<T>(items: readonly T[], index: number, item: T): readonly T[] {
-  return [...items.slice(0, index), item, ...items.slice(index)];
 }
 
 function isTrackIndex(song: Song, trackIndex: number): boolean {

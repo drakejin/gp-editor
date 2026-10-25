@@ -2,13 +2,8 @@
 // type is dropped, missing parameters take their defaults, the others are clamped into range.
 import type { Effect, EffectType, MasterMix } from '../model/song';
 import { DEFAULT_MASTER, MASTER_GAIN, setMasterGain } from './effect-chain';
+import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { EFFECT_PARAMS, MASTER_EFFECT_TYPES, MAX_TRACK_EFFECTS, TRACK_EFFECT_TYPES, clampEffectParam } from './effect-params';
-
-type JsonObject = Readonly<Record<string, unknown>>;
-
-export function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** JSON text parsed; undefined for text that is not JSON (a file's entry read as one that is not there). */
 export function parseJsonText(text: string): unknown {
@@ -20,12 +15,12 @@ export function parseJsonText(text: string): unknown {
 }
 
 /** An own property of a JSON object (never one from its prototype). */
-export function ownValue(object: JsonObject, key: string): unknown {
+export function ownValue(object: RawObject, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(object, key) ? object[key] : undefined;
 }
 
 function parseParams(type: EffectType, raw: unknown): Readonly<Record<string, number>> {
-  const object = isJsonObject(raw) ? raw : {};
+  const object = isRawObject(raw) ? raw : {};
   return Object.fromEntries(
     EFFECT_PARAMS[type].map((spec) => {
       const value = ownValue(object, spec.id);
@@ -35,8 +30,8 @@ function parseParams(type: EffectType, raw: unknown): Readonly<Record<string, nu
 }
 
 /** One effect of one of `types`; undefined for anything else. A missing `isEnabled` reads as on. */
-export function parseEffect(raw: unknown, types: readonly EffectType[] = TRACK_EFFECT_TYPES): Effect | undefined {
-  if (!isJsonObject(raw)) {
+function parseEffect(raw: unknown, types: readonly EffectType[] = TRACK_EFFECT_TYPES): Effect | undefined {
+  if (!isRawObject(raw)) {
     return undefined;
   }
   const type = types.find((candidate) => candidate === ownValue(raw, 'type'));
@@ -56,7 +51,7 @@ export function parseEffectChain(raw: unknown): readonly Effect[] {
 
 /** The master strip in its fixed order: each effect read from the first entry of its type, else the default's. */
 export function parseMasterMix(raw: unknown): MasterMix {
-  if (!isJsonObject(raw)) {
+  if (!isRawObject(raw)) {
     return DEFAULT_MASTER;
   }
   const listed = ownValue(raw, 'effects');

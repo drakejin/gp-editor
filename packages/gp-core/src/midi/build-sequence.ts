@@ -11,7 +11,7 @@ import {
   toDataValue,
 } from './midi-events';
 import { buildNoteEvents } from './note-events';
-import type { TrackContext } from './note-search';
+import { type TrackContext, buildPlaybackBeats } from './note-search';
 import { pedalEvents } from './pedals';
 import { type PlayedMeasure, playedTempo, playedTempoPieces } from './playback-order';
 import { usqFromTempo } from './timeline';
@@ -106,39 +106,50 @@ function channelSetup(channel: Channel, track: Track, tick: number): SequenceEve
   ];
 }
 
-/** addBeats / addNotes for one played measure: every struck note of every beat and voice. */
-function measureEvents(context: TrackContext, playedIndex: number): SequenceEvent[] {
+/**
+ * Pushes `items` onto the end of `target` one by one: `target.push(...items)` copies `items` into an argument list
+ * (Hermes runs it through array helpers) and fails on very long arrays.
+ */
+function appendAll<T>(target: T[], items: readonly T[]): void {
+  for (const item of items) {
+    target.push(item);
+  }
+}
+
+/** addBeats / addNotes for one played measure: every struck note of every beat and voice, added to `events`. */
+function addMeasureEvents(context: TrackContext, playedIndex: number, events: SequenceEvent[]): void {
   const played = context.played[playedIndex];
   const header = headerOf(context.headers, played);
   const beats = played === undefined ? undefined : context.track.measures[played.headerIndex]?.beats;
   if (played === undefined || header === undefined || beats === undefined) {
-    return [];
+    return;
   }
   const tempo = playedTempo(header, played);
-  return beats.flatMap((beat, beatIndex) => {
+  beats.forEach((beat, beatIndex) => {
     const strokes = strokeOffsets(beat, context.track.strings.length);
-    return beat.voices.flatMap((voice, voiceIndex) => {
+    beat.voices.forEach((voice, voiceIndex) => {
+      const struck = voice.notes.filter((note) => !note.isTied);
+      if (struck.length === 0) {
+        return;
+      }
       const timing = tripletFeelTiming(beats, beatIndex, voiceIndex, header.tripletFeel);
-      return voice.notes
-        .filter((note) => !note.isTied)
-        .flatMap((note) => {
-          const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
-          return buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0);
-        });
+      for (const note of struck) {
+        const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
+        appendAll(events, buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0));
+      }
     });
   });
 }
 
 /** addTrack: the channel setup, then the notes when the track is played. A track without channel stays silent. */
 export function buildTrackEvents(
-  context: Omit<TrackContext, 'channel'>,
+  context: Omit<TrackContext, 'channel' | 'playback'>,
   channel: Channel | undefined,
   isPlayed: boolean,
 ): SequenceEvent[] {
   if (channel === undefined) {
     return [];
   }
-  const full: TrackContext = { ...context, channel };
   const setup = [
     pitchBendEvent({ channelId: channel.id, bendMode: false }, context.origin, DEFAULT_BEND),
     ...channelSetup(channel, context.track, context.origin),
@@ -146,5 +157,8 @@ export function buildTrackEvents(
   if (!isPlayed) {
     return setup;
   }
-  return [...setup, ...pedalEvents(full), ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
+  const full: TrackContext = { ...context, channel, playback: buildPlaybackBeats(context.track, context.played) };
+  const events = [...setup, ...pedalEvents(full)];
+  context.played.forEach((_, playedIndex) => addMeasureEvents(full, playedIndex, events));
+  return events;
 }

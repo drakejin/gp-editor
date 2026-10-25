@@ -1,6 +1,6 @@
+import { headerTicks } from '../model/defaults';
 import type { Measure, Song } from '../model/song';
 import { insertMeasure } from './measures';
-import { headerTicks } from './relayout';
 import { hasSameItems, updateTrack } from './song-paths';
 import { splitAtBarLines } from './tied-pieces';
 import {

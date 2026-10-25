@@ -94,7 +94,7 @@ export type EffectValue<K extends OptionalEffect> = Exclude<NoteEffect[K], undef
  * New song with one optional effect of the addressed note set, or left out when `next` is undefined. Same song when
  * the note already has it (`isSame`) or there is no note.
  */
-export function setOptionalEffect<K extends OptionalEffect>(
+function setOptionalEffect<K extends OptionalEffect>(
   song: Song,
   at: StringAddress,
   key: K,

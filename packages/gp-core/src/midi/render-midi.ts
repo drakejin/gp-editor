@@ -6,7 +6,7 @@ import { type AudioRun, audioRunsOf, syncToAudio } from './audio-sync';
 import { buildConductorEvents, buildTrackEvents } from './build-sequence';
 import { buildChannelRoutes } from './channel-routes';
 import type { SequenceEvent } from './midi-events';
-import { writeMidiFile } from './midi-file';
+import { type MidiMessage, writeMidiFile } from './midi-file';
 import { toMidiMessages } from './midi-messages';
 import { type MidiOptions, SINGLE_PASS, validateOptions } from './midi-options';
 import { MIDI_PPQ, fromMidiTicks, toMidiTick } from './midi-ticks';
@@ -116,10 +116,7 @@ export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender
   const countInSeconds = countIn?.seconds ?? 0;
   const timeline = buildTimeline(song.measureHeaders, played, countInSeconds);
   const measuresEnd = toMidiTick(playbackEnd(song, played, origin));
-  const lastEvent = messages.reduce(
-    (tick, track) => track.reduce((latest, message) => Math.max(latest, message.tick), tick),
-    0,
-  );
+  const lastEvent = lastTick(messages);
   const tail = fromMidiTicks(Math.max(0, lastEvent - measuresEnd));
   return {
     bytes: writeMidiFile(messages, MIDI_PPQ, measuresEnd),
@@ -129,6 +126,17 @@ export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender
     countInSeconds,
     ...(syncMap === undefined ? {} : { audioRuns: audioRunsOf(synced, timeline.entries, syncMap) }),
   };
+}
+
+/** The latest tick of any message (0 for none). */
+function lastTick(tracks: readonly (readonly MidiMessage[])[]): number {
+  let latest = 0;
+  for (const track of tracks) {
+    for (const message of track) {
+      latest = Math.max(latest, message.tick);
+    }
+  }
+  return latest;
 }
 
 /** The played measures at the audio track's pace when following it, else as they are. */

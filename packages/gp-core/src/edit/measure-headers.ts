@@ -1,9 +1,9 @@
 // Measure property edits after TuxGuitar's TGSongManager.changeTimeSignature / changeTempos / changeTripletFeel,
 // TGTrackManager.changeKeySignature and TGUpdateMarkerAction / TGSongManager.removeMarker (LGPL-2.1), propagated the way
 // Guitar Pro does.
-import { NOTE_VALUES, measureTicks, roundTempo } from '../model/defaults';
+import { NOTE_VALUES, clamp, headerTicks, measureTicks, roundTempo } from '../model/defaults';
 import type { Marker, Measure, MeasureHeader, NoteValue, Song, TimeSignature, TripletFeel } from '../model/song';
-import { headerTicks, relayoutMeasures } from './relayout';
+import { relayoutMeasures } from './relayout';
 import { replaceAt, hasSameItems } from './song-paths';
 import { type VoiceEvents, eventsTicks, restEvents, hasSameEvents, toBeats, toMeasureVoices } from './timeline';
 import { fitLimits, settleVoice } from './voice-fit';
@@ -21,10 +21,6 @@ const MAX_REPEAT_ALTERNATIVE = 0xff;
 const TRIPLET_FEELS: readonly TripletFeel[] = ['none', 'eighth', 'sixteenth'];
 /** Largest red, green or blue value of a marker colour. */
 const MAX_COLOR_COMPONENT = 255;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 /** End (exclusive) of the run of measures from `from` that still have the value `from` has (GP's "until the next change"). */
 export function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boolean): number {

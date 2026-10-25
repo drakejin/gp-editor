@@ -52,13 +52,16 @@ export const FIFTH_DEGREE = 8;
 const MINOR_SEVENTH_DEGREE = 11;
 const MAJOR_SEVENTH_DEGREE = 12;
 
-/** The type's place in CHORD_TYPES (0 for an unknown name). */
-export function chordTypeIndex(name: ChordTypeName): number {
-  return Math.max(0, CHORD_TYPES.findIndex((type) => type.name === name));
+const TYPES_BY_NAME: ReadonlyMap<string, ChordType> = new Map(CHORD_TYPES.map((type) => [type.name, type]));
+
+/** True for one of CHORD_TYPES' names. */
+export function isChordTypeName(name: unknown): name is ChordTypeName {
+  return typeof name === 'string' && TYPES_BY_NAME.has(name);
 }
 
+/** The type of that name; the major chord's for an unknown name. */
 export function chordType(name: ChordTypeName): ChordType {
-  return CHORD_TYPES[chordTypeIndex(name)] ?? { name: 'M', requiredNotes: [1, 5, 8] };
+  return TYPES_BY_NAME.get(name) ?? CHORD_TYPES[0] ?? { name: 'M', requiredNotes: [1, 5, 8] };
 }
 
 /** Diminished, augmented and power chords take no ninth, eleventh or thirteenth (TuxGuitar disables them). */

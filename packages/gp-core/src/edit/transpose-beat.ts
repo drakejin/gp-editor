@@ -49,6 +49,7 @@ type Plan =
 
 interface Moving {
   readonly voiceIndex: number;
+  readonly noteIndex: number;
   /** `voiceIndex:noteIndex`, the note's place in the beat. */
   readonly key: string;
   readonly note: Note;
@@ -120,7 +121,7 @@ function remember(beat: Beat, plans: readonly (readonly Plan[])[], placed: Reado
 
 function rebuildVoice(voice: Voice, moving: readonly Moving[], placed: ReadonlyMap<string, StringPlacement | undefined>): Voice {
   const notes = voice.notes.map((note, i) => {
-    const item = moving.find((candidate) => candidate.key.endsWith(`:${i}`));
+    const item = moving.find((candidate) => candidate.noteIndex === i);
     const placement = item === undefined ? undefined : placed.get(item.key);
     return item === undefined || placement === undefined ? note : movedNote(item, placement);
   });
@@ -133,7 +134,7 @@ export function transposeBeatNotes(beat: Beat, context: BeatContext, memory: Tie
   const moving = beat.voices.flatMap((voice, voiceIndex) =>
     voice.notes.flatMap((note, i): Moving[] => {
       const plan = plans[voiceIndex]?.[i];
-      return plan?.kind === 'move' ? [{ voiceIndex, key: `${voiceIndex}:${i}`, note, plan }] : [];
+      return plan?.kind === 'move' ? [{ voiceIndex, noteIndex: i, key: `${voiceIndex}:${i}`, note, plan }] : [];
     }),
   );
   const placed = moving.length === 0 ? new Map<string, StringPlacement | undefined>() : placeBeat(moving, plans, beat, context);

@@ -1,11 +1,11 @@
 // Port of TuxGuitar's TGMusicKeyUtils (getKeySignature(TGScale), noteName, noteAccidental) (LGPL-2.1): a scale's note names.
+import { NOTE_LETTERS } from '../edit/key-spelling';
 import { type ScaleChoice, SCALE_ROOTS, scalePitchClasses } from './notes';
 
 /**
  * Key signatures are numbered as in TuxGuitar here: 0 = none, 1–7 = 1–7 sharps, 8–14 = 1–7 flats. A note's index is
  * its letter, 0 = C … 6 = B.
  */
-const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 const SHARP_INDEXES = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
 const SIX_SHARP_INDEXES = [0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6]; // E#
 const SEVEN_SHARP_INDEXES = [6, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6]; // E#, B#
@@ -44,7 +44,7 @@ function letterAlteration(index: number, signature: number): Alteration {
 
 function noteName(pitchClass: number, signature: number): string {
   const alteration = noteAlteration(pitchClass, signature);
-  return `${LETTERS[noteIndex(pitchClass, signature)] ?? ''}${alteration === 'sharp' ? '#' : alteration === 'flat' ? 'b' : ''}`;
+  return `${NOTE_LETTERS[noteIndex(pitchClass, signature)] ?? ''}${alteration === 'sharp' ? '#' : alteration === 'flat' ? 'b' : ''}`;
 }
 
 /**

@@ -47,5 +47,23 @@ function placeAround(
  * the others are placed again around it.
  */
 export function placeMovingNotes(notes: readonly NoteToMove[], tuning: readonly number[], neck: number, taken: ReadonlySet<number>): readonly (StringPlacement | undefined)[] {
-  return placeAround(notes, tuning, neck, taken, new Set());
+  return placeOnOwnStrings(notes, tuning, neck, taken) ?? placeAround(notes, tuning, neck, taken, new Set());
+}
+
+/**
+ * The common case, where placeAround comes to the same: every note's preferred string is free, no two share one, and
+ * the new pitch is on that string's neck — each note stays on it. Undefined otherwise.
+ */
+function placeOnOwnStrings(notes: readonly NoteToMove[], tuning: readonly number[], neck: number, taken: ReadonlySet<number>): StringPlacement[] | undefined {
+  const used = new Set<number>(taken);
+  const placed: StringPlacement[] = [];
+  for (const { pitch, preferredString: string } of notes) {
+    const fret = pitch - (tuning[string - 1] ?? Number.NaN);
+    if (!Number.isInteger(string) || used.has(string) || !(fret >= 0 && fret <= neck)) {
+      return undefined;
+    }
+    used.add(string);
+    placed.push({ string, fret, octaves: 0 });
+  }
+  return placed;
 }

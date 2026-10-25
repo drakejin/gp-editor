@@ -2,7 +2,7 @@
 import { durationTicks } from '../model/defaults';
 import type { Note, Voice } from '../model/song';
 import { fromMidiTicks, truncToMidiTicks } from './midi-ticks';
-import { beatsAfter, type PlacedNote, type PlayedBeat, type TrackContext, voiceAt } from './note-search';
+import { type PlacedNote, type PlayedBeat, type TrackContext, nextBeatPosition, noteOnString, voiceAt } from './note-search';
 
 /** DEFAULT_DURATION_DEAD / DEFAULT_DURATION_PM: MIDI file ticks at 60 BPM, scaled with the tempo so they last the same time. */
 export const DEAD_NOTE_DURATION = 30;
@@ -34,18 +34,19 @@ interface TieScan {
   readonly isLetRing: boolean;
 }
 
-type ScanStep =
-  | { readonly isDone: true; readonly duration: number }
-  | { readonly isDone: false; readonly scan: TieScan };
+/** The scan to go on with, or (a number) the note's duration where the scan ends. */
+type ScanStep = TieScan | number;
 
-function done(duration: number): ScanStep {
-  return { isDone: true, duration };
-}
-
-/** One following beat of getRealNoteDuration's loop: ties extend the note, let ring keeps it sounding. */
+/**
+ * One following beat of getRealNoteDuration's loop: ties extend the note, let ring keeps it sounding. A beat that
+ * changes nothing returns the scan itself (most beats: no let ring, no note on the string).
+ */
 function scanBeat(placed: PlacedNote, next: PlayedBeat, voice: Voice, scan: TieScan): ScanStep {
   if (voice.notes.length === 0) {
-    return done(scan.duration);
+    return scan.duration;
+  }
+  if (!scan.isLetRing && noteOnString(voice.notes, placed.note.string) === undefined) {
+    return scan;
   }
   const voiceLength = durationTicks(voice.duration);
   let current = scan;
@@ -57,15 +58,15 @@ function scanBeat(placed: PlacedNote, next: PlayedBeat, voice: Voice, scan: TieS
     if (current.isLetRing) {
       // Let ring does not survive a repeat close, and ends with the first beat without let ring.
       if (next.playedIndex !== placed.playedIndex && placed.header.repeatClose > 0) {
-        return done(current.duration);
+        return current.duration;
       }
       if (!nextNote.effect.letRing) {
-        return done(current.duration + voiceLength);
+        return current.duration + voiceLength;
       }
     }
     if (nextNote.string === placed.note.string) {
       if (!nextNote.isTied) {
-        return done(current.duration);
+        return current.duration;
       }
       const beatStart = next.move + next.beat.start;
       current = {
@@ -77,12 +78,9 @@ function scanBeat(placed: PlacedNote, next: PlayedBeat, voice: Voice, scan: TieS
     }
   }
   if (current.isLetRing && !hasTie) {
-    return {
-      isDone: false,
-      scan: { ...current, duration: current.duration + voiceLength, lastEnd: current.lastEnd + voiceLength },
-    };
+    return { duration: current.duration + voiceLength, lastEnd: current.lastEnd + voiceLength, isLetRing: current.isLetRing };
   }
-  return { isDone: false, scan: current };
+  return current;
 }
 
 /** getRealNoteDuration: `duration` (the beat's, after triplet feel) extended by ties and let ring, then shortened. */
@@ -93,14 +91,16 @@ export function realNoteDuration(context: TrackContext, placed: PlacedNote, dura
     lastEnd: placed.beat.start + durationTicks(placed.voice.duration) + placed.move,
     isLetRing: placed.note.effect.letRing,
   };
-  for (const next of beatsAfter(context, placed.playedIndex, placed.beatIndex)) {
-    const voice = voiceAt(next.beat, placed.voiceIndex);
-    if (voice !== undefined) {
+  const { beats } = context.playback;
+  for (let position = nextBeatPosition(context, placed.playedIndex, placed.beatIndex); position < beats.length; position++) {
+    const next = beats[position];
+    const voice = next === undefined ? undefined : voiceAt(next.beat, placed.voiceIndex);
+    if (next !== undefined && voice !== undefined) {
       const step = scanBeat(placed, next, voice, scan);
-      if (step.isDone) {
-        return applyDurationEffects(placed.note, tempo, step.duration);
+      if (typeof step === 'number') {
+        return applyDurationEffects(placed.note, tempo, step);
       }
-      scan = step.scan;
+      scan = step;
     }
   }
   return applyDurationEffects(placed.note, tempo, scan.duration);

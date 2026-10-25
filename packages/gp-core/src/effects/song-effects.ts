@@ -3,7 +3,8 @@
 import { setMasterMix, setTrackEffects } from '../edit/track-effects';
 import type { Song } from '../model/song';
 import { isDefaultMaster } from './effect-chain';
-import { isJsonObject, ownValue, parseEffectChain, parseJsonText, parseMasterMix } from './effects-json';
+import { isRawObject } from '../transcription/parse-values';
+import { ownValue, parseEffectChain, parseJsonText, parseMasterMix } from './effects-json';
 
 export const SONG_EFFECTS_VERSION = 1;
 
@@ -24,14 +25,14 @@ export function songEffectsToJson(song: Song): string | undefined {
 export function readSongEffects(song: Song, text: string): Song {
   // Not our JSON reads as undefined: the file is read without effects, as one that never had them.
   const raw = parseJsonText(text);
-  if (!isJsonObject(raw) || ownValue(raw, 'version') !== SONG_EFFECTS_VERSION) {
+  if (!isRawObject(raw) || ownValue(raw, 'version') !== SONG_EFFECTS_VERSION) {
     return song;
   }
   const tracks = ownValue(raw, 'tracks');
   const entries: readonly unknown[] = Array.isArray(tracks) ? tracks : [];
   const withTracks = entries.reduce<Song>((current, entry) => {
-    const trackIndex = isJsonObject(entry) ? ownValue(entry, 'trackIndex') : undefined;
-    if (!isJsonObject(entry) || typeof trackIndex !== 'number') {
+    const trackIndex = isRawObject(entry) ? ownValue(entry, 'trackIndex') : undefined;
+    if (!isRawObject(entry) || typeof trackIndex !== 'number') {
       return current;
     }
     return setTrackEffects(current, trackIndex, parseEffectChain(ownValue(entry, 'effects')));

@@ -6,7 +6,7 @@ import type { BeamGrouping, MeasureHeader, TimeSignature } from './song';
 /** Groups a GPIF master bar holds (XProperties 1124139264 … 1124139295). */
 export const MAX_BEAM_GROUPS = 32;
 /** The longest group a file may give (a 16/4 bar in eighths is 32 units); longer ones are not read. */
-export const MAX_BEAM_GROUP_SIZE = 128;
+const MAX_BEAM_GROUP_SIZE = 128;
 const EIGHTH = 8;
 const COMPOUND_BEAT = 3;
 const QUARTERS_PER_WHOLE = 4;

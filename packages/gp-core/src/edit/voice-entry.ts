@@ -1,8 +1,7 @@
 // A note typed into an empty voice, after TuxGuitar's TGMeasureManager.addNote and autoCompleteSilences (LGPL-2.1).
-import { durationTicks } from '../model/defaults';
+import { durationTicks, headerTicks } from '../model/defaults';
 import type { Measure, Note, Song, Voice } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
-import { headerTicks } from './relayout';
 import { replaceAt, updateMeasure } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, measureGapRests, toBeats, toMeasureVoices } from './timeline';
 import { takeRestsAfter, trimTrailingRests } from './voice-fit';

@@ -1,5 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.player.base.MidiRepeatController (LGPL-2.1): the order measures are played in.
-import { measureTicks } from '../model/defaults';
+import { headerTicks } from '../model/defaults';
 import { type MeasureHeader, QUARTER_TIME } from '../model/song';
 import { type DirectionState, INITIAL_DIRECTIONS, codaTarget, endsAtFine, skippedEndingEnd, takeJump } from './playback-directions';
 
@@ -72,10 +72,6 @@ const INITIAL_STATE: RepeatState = {
   repeatAlternative: 0,
 };
 
-function headerLength(header: MeasureHeader): number {
-  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
-}
-
 function hasEnding(alternative: number, repeatNumber: number): boolean {
   return repeatNumber <= MAX_ENDING_BIT && (alternative & (1 << repeatNumber)) !== 0;
 }
@@ -95,7 +91,7 @@ function enterRepeatOpen(state: RepeatState, header: MeasureHeader): Step {
 function enterAlternative(state: RepeatState, header: MeasureHeader): Step {
   const alternative = state.repeatAlternative === 0 ? header.repeatAlternative : state.repeatAlternative;
   if (state.isRepeatOpen && alternative > 0 && !hasEnding(alternative, state.repeatNumber)) {
-    const skipped = { ...state, repeatMove: state.repeatMove - headerLength(header) };
+    const skipped = { ...state, repeatMove: state.repeatMove - headerTicks(header) };
     return { state: { ...skipped, repeatAlternative: header.repeatClose > 0 ? 0 : alternative }, shouldPlay: false };
   }
   return { state: { ...state, repeatAlternative: alternative }, shouldPlay: true };
@@ -107,7 +103,7 @@ function closeRepeat(state: RepeatState, header: MeasureHeader): RepeatState {
     return state;
   }
   if (state.repeatNumber < header.repeatClose || state.repeatAlternative > 0) {
-    const repeatEnd = header.start + headerLength(header);
+    const repeatEnd = header.start + headerTicks(header);
     return {
       ...state,
       repeatMove: state.repeatMove + repeatEnd - state.repeatStart,
@@ -154,7 +150,7 @@ function goTo(repeat: RepeatState, headers: readonly MeasureHeader[], target: nu
 
 /** Where a played measure ends, in sequence ticks. */
 function playedEnd(header: MeasureHeader, move: number): number {
-  return header.start + headerLength(header) + move;
+  return header.start + headerTicks(header) + move;
 }
 
 /** A measure read normally: repeats as TuxGuitar plays them, then the bar's first jump not taken yet. */
@@ -174,7 +170,7 @@ function jumpedStep(walk: Walk, headers: readonly MeasureHeader[], header: Measu
   const { repeat, directions } = walk;
   const skippedTo = skippedEndingEnd(headers, repeat.index);
   if (skippedTo !== undefined) {
-    const skipped = headers.slice(repeat.index, skippedTo + 1).reduce((ticks, other) => ticks + headerLength(other), 0);
+    const skipped = headers.slice(repeat.index, skippedTo + 1).reduce((ticks, other) => ticks + headerTicks(other), 0);
     return { walk: { ...walk, repeat: { ...repeat, index: skippedTo + 1, repeatMove: repeat.repeatMove - skipped } } };
   }
   const played = { headerIndex: repeat.index, move: repeat.repeatMove };
