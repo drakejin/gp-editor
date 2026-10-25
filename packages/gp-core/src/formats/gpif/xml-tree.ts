@@ -6,13 +6,13 @@
 // The subset: one root element; outside it white space, comments and processing instructions (the XML declaration
 // first); tags and entities as xml-tag.ts reads them; CDATA; no deeper than MAX_DEPTH. Anything else returns
 // undefined, and the caller validates and parses with fast-xml-parser as before (its errors, its reading).
-import { type XmlElement } from './xml';
+import type { XmlElement } from './xml';
 import { closingTagEnd, decodeEntities, hasGuardedName, isBlank, readOpeningTag } from './xml-tag';
 
 /** Below fast-xml-parser's maxNestedTags (100), past which it throws. */
 const MAX_DEPTH = 64;
 const NO_CHILDREN: readonly XmlElement[] = [];
-const CODE = { slash: 0x2f, question: 0x3f, exclamation: 0x21, hyphen: 0x2d, greaterThan: 0x3e, space: 0x20 } as const;
+const CODE = { slash: 0x2f, question: 0x3f, exclamation: 0x21, greaterThan: 0x3e, space: 0x20 } as const;
 const QUOTES: ReadonlySet<number> = new Set([0x22, 0x27]);
 const CDATA_START = '<![CDATA[';
 const BYTE_ORDER_MARK = '﻿';
