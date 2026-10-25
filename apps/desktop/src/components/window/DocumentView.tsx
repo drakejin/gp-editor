@@ -122,6 +122,7 @@ function DocumentSide({ model, document }: DocumentPartProps) {
       midiInput={cursorTools.midiInput}
       note={cursorTools.cursorNote}
       onEditNote={cursorTools.editAtCursor}
+      drumKey={tools.drumKey}
     />
   );
 }

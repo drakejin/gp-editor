@@ -186,6 +186,19 @@ Guitar Pro's own files differently are listed, with that evidence, in
   cowbell — with the drums of the current beat lit (the playing beat while playing); drums the kit has no piece for are
   named underneath. Clicking a piece enters that drum (its General MIDI key) into the cursor's beat, a second click
   takes it out (one undo step each).
+- **Drum notation**: drum tracks are written as Guitar Pro writes them, from its factory drum kit: each drum on its own
+  line with its own notehead — closed hi-hat ×, open hi-hat circled ×, half-open circled slash, pedal hi-hat × under the
+  staff, crash heavy ×, china heavy × with its hat, ride ×, ride bell diamond, rim shot diamond, side stick ×, cowbell
+  triangle, the toms from the floor tom up — and its symbol: the cymbal's edge above the staff, a choke's dot, a mute in
+  parentheses, tambourine and shaker strokes. Guitar Pro 7/8's articulations (half-open hi-hat, ride edge, chokes …)
+  keep their own places. Percussion the kit writes far off the staff (guiro, shaker …) and keys it lacks sit on the
+  middle line.
+- **Drum Key**: View ▸ Drum Key, the command palette, or the *Drum Key* button on the drum kit or in the Track
+  inspector shows a card over the score — like a "DRUMSET" legend — naming how the cursor's drum track writes each drum it
+  uses (*Used drums*) or the whole kit (*Whole kit*): a column per drum (kick, snare, hi-hat, toms, crash, ride …) with
+  its variants (closed, open, pedal; hit, side stick, rim shot; bell, choke …), each on a short staff drawn as the
+  score draws it. Pointing at a drum shows its full name, its key and the General MIDI sound it plays. It follows the
+  cursor's track (multitrack too) and says so on a track that is not a drum track; × or Esc closes it.
 - **MIDI input**: the SONG inspector's *MIDI INPUT* turns it on and picks the source (every source, or one keyboard or
   MIDI guitar; CoreMIDI, devices plugged in later are found). Notes struck within 50 ms make one beat at the cursor
   — replacing what the beat held, keeping its duration — and the cursor moves to the next beat, adding a bar after the

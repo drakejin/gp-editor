@@ -101,6 +101,9 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | fade in / out, volume swell | 페이드 인 / 아웃, 볼륨 스웰 | |
 | sustain pedal | 서스테인 페달 | |
 | drums, drum kit | 드럼, 드럼 키트 | kick 킥, snare 스네어, hi-hat 하이햇, tom 탐, crash 크래시, ride 라이드 |
+| Drum Key (the drum notation legend), used drums, whole kit | 드럼 표기, 쓰인 드럼, 전체 키트 | |
+| a drum's plain stroke (hit), closed / open / half / pedal | 기본, 클로즈 / 오픈 / 하프 / 페달 | |
+| side stick, rim shot, edge, bell, choke, mute, slap, return, roll | 사이드 스틱, 림샷, 엣지, 벨, 초크, 뮤트, 슬랩, 리턴, 롤 | as drummers say them |
 
 ## Playback and sound (재생과 소리)
 

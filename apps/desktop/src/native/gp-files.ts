@@ -127,6 +127,8 @@ export const subscribeScalesRequests = menuRequests('scalesRequested');
 export const subscribeHelpRequests = menuRequests('helpRequested');
 /** View ▸ Focus / Unfocus (⇧⌘F): only the score and the transport, or the panels back. */
 export const subscribeFocusRequests = menuRequests('focusRequested');
+/** View ▸ Drum Key: the drum key over the score, shown or hidden. */
+export const subscribeDrumKeyRequests = menuRequests('drumKeyRequested');
 
 export interface SongExportHandlers {
   /** File ▸ Export MIDI…. */

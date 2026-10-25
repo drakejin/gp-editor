@@ -692,8 +692,9 @@ describe('key changes, percussion and bass clef', () => {
   });
 
   it('places drums on a percussion staff with x heads for cymbals and no accidentals', () => {
+    // A key Guitar Pro's drum kit lacks (27) stays on the middle line (notation-drums.test.ts: the kit's drums).
     const { commands } = engrave(
-      [[beat(960, [note(1, 36), note(2, 42)]), beat(1920, [note(1, 61)])]],
+      [[beat(960, [note(1, 36), note(2, 42)]), beat(1920, [note(1, 27)])]],
       { isPercussion: true },
     );
     const [kick, hiHat, unknown] = heads(commands);

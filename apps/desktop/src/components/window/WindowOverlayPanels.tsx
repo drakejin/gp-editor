@@ -6,6 +6,7 @@ import { tunerStrings } from '../../lib/tuner-display';
 import { ChordPanel } from '../chords/ChordPanel';
 import { ChromeMenu } from '../chrome/ChromeMenu';
 import { CommandPalette } from '../CommandPalette';
+import { DrumKeyPanel } from '../drum-key/DrumKeyPanel';
 import { LineInPanel } from '../effects/LineInPanel';
 import { NotePanelView } from '../note-panels/NotePanels';
 import { PracticeMenu } from '../PracticeMenu';
@@ -78,7 +79,7 @@ function TopBarMenu({ model }: WindowPartProps) {
   );
 }
 
-/** The Song Writer, the line in's card, the tuner, the chord and note panels, the Add Track panel and the delete question. */
+/** The Song Writer, the line in's card, the drum key, the tuner, the chord and note panels, the Add Track panel and the delete question. */
 export function ToolOverlays({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, chrome } = base;
@@ -90,6 +91,7 @@ export function ToolOverlays({ model }: WindowPartProps) {
     <>
       <SongWriterOverlay model={model} />
       {lineIn.isOpen && song !== undefined ? <LineInPanel palette={palette} lineIn={lineIn} trackLabel={`${lineIn.trackIndex + 1}. ${song.tracks[lineIn.trackIndex]?.name ?? ''}`} /> : null}
+      {tools.drumKey.isOpen && song !== undefined ? <DrumKeyPanel palette={palette} song={song} trackIndex={state.trackIndex} drumKey={tools.drumKey} /> : null}
       {tools.tuner.isOpen ? (
         <TunerPanel palette={palette} referenceA4={tools.tuner.referenceA4} strings={tunerStrings(song?.tracks[state.trackIndex])} onShiftReferenceA4={tools.tuner.shiftReferenceA4} onClose={tools.tuner.close} />
       ) : null}

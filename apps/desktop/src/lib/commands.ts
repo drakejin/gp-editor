@@ -101,6 +101,7 @@ const viewRows = (): readonly Command[] => [
   appRow('view.focus', 'view', (a) => a.toggleFocus(), { shortcut: '⇧⌘F', keywords: ['hide', 'panels', 'score', 'only', 'distraction'] }),
   appEditorRow('view.designMode', 'view', { type: 'toggleDesignMode' }, { keywords: ['layout', 'beat', 'position', 'bar', 'width', 'spacing', 'systems', 'guideline', 'drag'] }),
   appEditorRow('view.resetPositions', 'view', { type: 'resetPositions' }, { keywords: ['design', 'spacing', 'tools', 'layout', 'bar', 'width', 'beat', 'position', 'systems'] }),
+  appRow('view.drumKey', 'view', (a) => a.toggleDrumKey(), { keywords: ['drums', 'drumset', 'legend', 'noteheads', 'kit', 'percussion', 'hi-hat', 'cymbal'] }),
 ];
 
 const toolsRows = (): readonly Command[] => [

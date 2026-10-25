@@ -83,6 +83,7 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     togglePanel: chrome.togglePanel,
     toggleLoop: topBar.toggleLoop,
     toggleFocus: chrome.toggleFocus,
+    toggleDrumKey: tools.drumKey.toggle,
     togglePreviewOnHover: () => playback.changePractice({ type: 'togglePreviewOnHover' }),
   };
 }

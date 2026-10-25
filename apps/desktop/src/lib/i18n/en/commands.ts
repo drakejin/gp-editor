@@ -70,6 +70,7 @@ export const EN_COMMANDS = {
   'commands.title.view.focus': 'Focus / Unfocus',
   'commands.title.view.designMode': 'Design Mode',
   'commands.title.view.resetPositions': 'Reset Positions',
+  'commands.title.view.drumKey': 'Drum Key',
 
   'commands.title.tools.tuner': 'Tuner…',
   'commands.title.tools.scales': 'Scales…',

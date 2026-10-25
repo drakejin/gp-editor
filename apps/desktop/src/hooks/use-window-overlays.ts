@@ -15,13 +15,13 @@ export interface WindowOverlays {
 /** The panels over the window that are not the chrome's, the one on top first: closed by Esc after the save question. */
 function panelClosers(files: WindowFiles, tools: WindowTools): readonly PanelCloser[] {
   const { importPanel, pdfExport, audioExport, recentFiles } = files;
-  const { settingsPanel, tuner, songWriter, lyricsEditor, closeLyricsPanel, scales, transposePanel, scoreDesign, commandPalette, audio, trackManager } = tools;
+  const { settingsPanel, tuner, songWriter, lyricsEditor, closeLyricsPanel, scales, transposePanel, scoreDesign, commandPalette, audio, trackManager, drumKey } = tools;
   return [
     // Settings first: it is over every other panel.
     [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [importPanel.isOpen, importPanel.close],
     [pdfExport.isOpen, pdfExport.close], [audioExport.isOpen, audioExport.close], [recentFiles.isPanelOpen, recentFiles.closePanel], [lyricsEditor.isOpen, closeLyricsPanel],
     [scales.isOpen, scales.close], [transposePanel.isOpen, transposePanel.close], [scoreDesign.isStylesheetOpen, scoreDesign.closeStylesheet],
-    [commandPalette.isOpen, commandPalette.close], [audio.lineIn.isOpen, audio.lineIn.close], [trackManager.isOpen, trackManager.close],
+    [commandPalette.isOpen, commandPalette.close], [audio.lineIn.isOpen, audio.lineIn.close], [drumKey.isOpen, drumKey.close], [trackManager.isOpen, trackManager.close],
   ];
 }
 

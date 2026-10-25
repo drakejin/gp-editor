@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
+import type { DrumKey } from '../hooks/use-drum-key';
 import { beatNotes } from '../lib/beat-notes';
 import { soundingPitches } from '../score/keyboard';
 import type { PlayingBeat } from '../score/row';
@@ -25,6 +26,8 @@ interface InstrumentViewProps {
   readonly onDrumHit?: (key: number) => void;
   /** With "Preview on hover" on: the pitch of a piano key or fret the mouse enters, to play. */
   readonly onHoverPitch?: (pitch: number) => void;
+  /** View ▸ Drum Key: a button on the drum kit shows or hides it. */
+  readonly drumKey?: Pick<DrumKey, 'isOpen' | 'toggle'>;
 }
 
 const NO_DRUM_HIT = (): void => undefined;
@@ -35,7 +38,7 @@ const NO_DRUM_HIT = (): void => undefined;
  * enters plays. A drum track shows a drum kit instead (when either part is on), its drums lit the same way; a click on
  * a drum enters it.
  */
-function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT, onHoverPitch }: InstrumentViewProps) {
+function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT, onHoverPitch, drumKey }: InstrumentViewProps) {
   const track = song.tracks[trackIndex];
   const shown = playing ?? cursor;
   const measureIndex = shown?.measureIndex;
@@ -53,7 +56,7 @@ function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, shows
   if (track.isPercussion) {
     return (
       <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
-        <DrumKit keys={drumKeys} palette={chromePalette} onHit={onDrumHit} />
+        <DrumKit keys={drumKeys} palette={chromePalette} onHit={onDrumHit} drumKey={drumKey} />
       </View>
     );
   }

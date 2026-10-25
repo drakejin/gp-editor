@@ -6,6 +6,7 @@ import { type SettingsPanelState, useSettingsPanel } from './use-app-settings';
 import { type AudioTools, useAudioTools } from './use-audio-tools';
 import { type CommandPalette, type TransposePanel, useCommandPalette, useTransposePanel } from './use-command-palette';
 import { type DraftPreview, useDraftPreview } from './use-draft-preview';
+import { type DrumKey, useDrumKey } from './use-drum-key';
 import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
 import { type ScalesTool, useScales } from './use-scales';
 import { type ScoreDesign, useScoreDesign } from './use-score-design';
@@ -46,6 +47,8 @@ export interface WindowTools {
   readonly audio: AudioTools;
   /** Track ▸ Add Track…, Duplicate, Delete, Move Up / Down. */
   readonly trackManager: TrackManager;
+  /** View ▸ Drum Key: how the cursor's drum track writes its drums, a card over the score. */
+  readonly drumKey: DrumKey;
 }
 
 /** Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip. */
@@ -60,7 +63,7 @@ function useWindowSongWriter({ dispatch }: WindowBase): SongWriter {
   return useSongWriter(onSongWritten);
 }
 
-/** The panels beside and over the score: scales, lyrics, tuner, settings, transpose, the command palette, the stylesheet. */
+/** The panels beside and over the score: scales, lyrics, tuner, settings, transpose, the command palette, the stylesheet, the drum key. */
 function useWindowPanels(base: WindowBase) {
   const { workspace, dispatch, state, focusScore } = base;
   const song = state.document?.song;
@@ -84,7 +87,8 @@ function useWindowPanels(base: WindowBase) {
   const { open: openCommandPalette } = commandPalette;
   const openExpressionText = useCallback(() => openCommandPalette('expression'), [openCommandPalette]);
   const scoreDesign = useScoreDesign(hasDocument, dispatch, focusScore);
-  return { scales, lyricsEditor, openLyrics, closeLyricsPanel, tuner, settingsPanel, transposePanel, commandPalette, openExpressionText, scoreDesign };
+  const drumKey = useDrumKey(focusScore);
+  return { scales, lyricsEditor, openLyrics, closeLyricsPanel, tuner, settingsPanel, transposePanel, commandPalette, openExpressionText, scoreDesign, drumKey };
 }
 
 export function useWindowTools(base: WindowBase): WindowTools {

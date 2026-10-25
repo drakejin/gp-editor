@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Effect, Song, Track } from '@gp-editor/core';
+import type { DrumKey } from '../../hooks/use-drum-key';
 import { useT } from '../../hooks/use-i18n';
 import type { MessageKey } from '../../lib/i18n/i18n';
 import { trackInstrument } from '../../lib/instruments';
@@ -38,6 +39,8 @@ export interface TrackInspectorProps {
   readonly onPreviewMix?: (preview: MixPreview | undefined) => void;
   /** The track written in rhythm slashes, or as notes again (an edit of the song, undoable). */
   readonly onSetTrackSlashNotation?: (trackIndex: number, hasSlashNotation: boolean) => void;
+  /** View ▸ Drum Key, shown or hidden by a button for drum tracks. */
+  readonly drumKey?: Pick<DrumKey, 'isOpen' | 'toggle'>;
 }
 
 /** The effects editor's width inside the inspector's sections. */
@@ -76,6 +79,11 @@ export function TrackInspector(props: TrackInspectorProps) {
           onChangeChordDisplay={props.onChangeChordDisplay}
           onSetTrackSlashNotation={props.onSetTrackSlashNotation}
         />
+        {track.isPercussion && props.drumKey !== undefined ? (
+          <InspectorField palette={palette} label={t('drums.key.field')}>
+            <ChromeButton palette={palette} label={t('drums.key.title')} tooltip={t('drums.key.openTooltip')} isActive={props.drumKey.isOpen} onPress={props.drumKey.toggle} />
+          </InspectorField>
+        ) : null}
         {track.isPercussion ? null : <TuningFields {...props} capo={track.offset} />}
       </InspectorSection>
       <TrackSound palette={palette} trackIndex={trackIndex} isPercussion={track.isPercussion} instrumentName={trackInstrument(song, trackIndex)?.name} onEditInstrument={props.onEditInstrument} />

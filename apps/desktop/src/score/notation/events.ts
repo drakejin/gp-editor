@@ -2,6 +2,8 @@ import { ottavaOctaves as signOctaves } from '@gp-editor/core';
 import type {
   AccidentalDisplay,
   BeamLink,
+  DrumNoteheads,
+  DrumTechnique,
   Duration,
   Finger,
   Grace,
@@ -14,13 +16,13 @@ import type {
   VoiceDirection,
 } from '@gp-editor/core';
 import type { MeasureLayout } from '../../lib/layout';
+import { drumPlacement } from './drum-notes';
 import { OTTAVA, STAFF } from './metrics';
 import {
   type Accidental,
   type ClefKind,
   type PitchedClef,
   type StaffPitch,
-  drumPlacement,
   keyAlter,
   measureAccidentals,
   spellPitch,
@@ -56,6 +58,10 @@ export interface StaffNote {
   readonly isSlash?: boolean;
   readonly leftFinger?: Finger;
   readonly rightFinger?: Finger;
+  /** A drum's noteheads in Guitar Pro's kit, drawn in place of the plain one (a dead note stays an x). */
+  readonly drumNoteheads?: DrumNoteheads;
+  /** A drum's technique symbol in Guitar Pro's kit (the ride's edge, a choke, a mute's parentheses …). */
+  readonly drumTechnique?: DrumTechnique;
 }
 
 /** One non-empty voice of one beat: a chord, a single note or a rest. */
@@ -241,14 +247,17 @@ function graceNote(
   };
 }
 
-function placeDrum(note: Note): StaffNote {
-  const { position, isCross } = drumPlacement(note.fret);
+/** A drum note on the percussion staff, where and as Guitar Pro's kit writes its key (the drum key draws it too). */
+export function placeDrum(note: Note): StaffNote {
+  const { position, noteheads, technique } = drumPlacement(note.fret);
   const { grace } = note.effect;
   return {
     string: note.string,
     fret: note.fret,
     position,
-    isCross: isCross || note.effect.deadNote,
+    isCross: note.effect.deadNote,
+    drumNoteheads: noteheads,
+    ...(technique === undefined ? {} : { drumTechnique: technique }),
     isTied: note.isTied,
     effect: note.effect,
     grace:

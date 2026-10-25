@@ -22,6 +22,7 @@ export function DocumentBottom({ model, document }: DocumentPartProps) {
         scale={tools.scales.highlight}
         onDrumHit={cursorTools.hitDrum}
         onHoverPitch={media.previewPitch}
+        drumKey={tools.drumKey}
       />
       {chrome.panels.tracks ? <DocumentTracks model={model} document={document} /> : null}
       <DocumentMixer model={model} document={document} />

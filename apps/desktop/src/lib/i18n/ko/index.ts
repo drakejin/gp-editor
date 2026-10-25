@@ -2,6 +2,7 @@ import type { EN } from '../en';
 import type { Catalog } from '../messages';
 import { KO_COMMANDS } from './commands';
 import { KO_COMMON } from './common';
+import { KO_DRUMS } from './drums';
 import { KO_INSTRUMENTS } from './instruments';
 import { KO_PALETTE } from './palette';
 import { KO_SETTINGS } from './settings';
@@ -19,4 +20,5 @@ export const KO: Catalog<typeof EN> = {
   ...KO_TOOLS,
   ...KO_INSTRUMENTS,
   ...KO_STYLESHEET,
+  ...KO_DRUMS,
 };

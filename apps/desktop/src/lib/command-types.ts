@@ -60,6 +60,8 @@ export interface CommandActions {
   readonly toggleLoop: () => void;
   /** View ▸ Focus / Unfocus. */
   readonly toggleFocus: () => void;
+  /** View ▸ Drum Key: how the shown drum track's drums are written on the staff. */
+  readonly toggleDrumKey: () => void;
   readonly togglePreviewOnHover: () => void;
 }
 

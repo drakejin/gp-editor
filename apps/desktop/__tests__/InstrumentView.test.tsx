@@ -1,5 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
+import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { DrumKit } from '../src/components/DrumKit';
 import { Fretboard } from '../src/components/Fretboard';
 import { InstrumentView } from '../src/components/InstrumentView';
@@ -47,6 +48,24 @@ describe('InstrumentView', () => {
     // Assert
     expect(root.findAll((node) => node.type === Keyboard || node.type === Fretboard)).toHaveLength(0);
     expect(root.findByType(DrumKit).props.keys).toEqual([36, 42]);
+  });
+
+  it('shows or hides the drum key from the drum kit', () => {
+    // Arrange
+    const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
+    const drumKey = { isOpen: false, toggle: jest.fn() };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<InstrumentView song={percussion} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard drumKey={drumKey} />);
+    });
+
+    // Act
+    const button = renderer.root.findAllByType(ChromeButton).find((candidate) => candidate.props.testID === 'drum-kit-drum-key')!;
+    ReactTestRenderer.act(() => button.props.onPress());
+
+    // Assert
+    expect(button.props).toMatchObject({ label: 'Drum Key', isActive: false });
+    expect(drumKey.toggle).toHaveBeenCalled();
   });
 
   it('enters the clicked drum through onDrumHit', () => {

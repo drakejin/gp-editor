@@ -1,7 +1,6 @@
 import type { Track } from '@gp-editor/core';
 import {
   clefKind,
-  drumPlacement,
   measureAccidentals,
   spellPitch,
   staffPosition,
@@ -71,16 +70,6 @@ describe('staff positions and clefs', () => {
     expect(clefKind({ ...GUITAR, isPercussion: true }, 'treble')).toBe(
       'percussion',
     );
-  });
-
-  it('places common drums and falls back to the middle line', () => {
-    expect(drumPlacement(36)).toEqual({ position: 1, isCross: false }); // kick
-    expect(drumPlacement(38)).toEqual({ position: 5, isCross: false }); // snare
-    expect(drumPlacement(42)).toEqual({ position: 9, isCross: true }); // closed hi-hat
-    expect(drumPlacement(49)).toEqual({ position: 10, isCross: true }); // crash
-    expect(drumPlacement(51)).toEqual({ position: 8, isCross: true }); // ride
-    expect(drumPlacement(44)).toEqual({ position: -1, isCross: true }); // pedal hi-hat
-    expect(drumPlacement(99)).toEqual({ position: 4, isCross: false });
   });
 });
 
