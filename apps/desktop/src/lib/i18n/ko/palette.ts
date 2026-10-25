@@ -55,7 +55,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.tool.multivoice': '멀티 성부: 모든 성부를 한꺼번에 편집합니다 — 흐리게 보이는 성부가 없고, 음을 누르면 그 성부가 선택됩니다',
   'palette.tool.designMode': '디자인 모드: 박, 세로줄, 단 사이 간격을 드래그하고 단 옆의 + − ×로 마디 수를 바꿉니다 (보기 ▸ 디자인 모드)',
   'palette.tool.insertMeasure': '이 마디 뒤에 마디 넣기',
-  'palette.tool.deleteMeasure': '이 마디 삭제',
+  'palette.tool.deleteMeasure': '이 마디 또는 선택한 마디 삭제',
   'palette.tool.repeatOpen': '도돌이표 시작',
   'palette.tool.repeatClose': '도돌이표 끝',
   'palette.tool.endings': '다른 끝맺음 (1번·2번 괄호)',

@@ -57,7 +57,7 @@ export const EN_PALETTE = {
   'palette.tool.multivoice': 'Multivoice: edit every voice at once — none faded, a click on a note picks its voice',
   'palette.tool.designMode': 'Design Mode: drag beats, bar lines and the space between systems; + − × beside each system (View ▸ Design Mode)',
   'palette.tool.insertMeasure': 'Insert a bar after this one',
-  'palette.tool.deleteMeasure': 'Delete this bar',
+  'palette.tool.deleteMeasure': 'Delete this bar, or the selected bars',
   'palette.tool.repeatOpen': 'Repeat start',
   'palette.tool.repeatClose': 'Repeat end',
   'palette.tool.endings': 'Alternate endings',
