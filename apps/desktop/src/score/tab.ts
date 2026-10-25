@@ -4,6 +4,7 @@ import { type BeatLayout, type MeasureLayout, TAB, primaryVoice } from '../lib/l
 import { fretLabel, tabFretOf } from '../lib/notation';
 import type { Palette } from '../theme';
 import { type DrawCommand, SMUFL } from './draw';
+import { measureRestX } from './notation/engrave-measure';
 import { SLASH_GLYPHS } from './symbols/smufl';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
 import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
@@ -201,8 +202,10 @@ function engraveBeat(context: TabContext, beat: Beat, beatLayout: BeatLayout, bo
  * a note is there. The note of the cursor's voice shows on it in ink; else another voice's note there, as that voice is drawn.
  */
 function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
-  const beat = context.layout.beats.find((b) => b.beatIndex === cursor.beatIndex);
-  if (beat === undefined) {
+  const { beats } = context.layout;
+  // In a bar without beats (the track rests there) the cursor stands where the notation draws the whole rest.
+  const x = beats.find((b) => b.beatIndex === cursor.beatIndex)?.x ?? (beats.length === 0 && cursor.beatIndex === 0 ? measureRestX(context) : undefined);
+  if (x === undefined) {
     return [];
   }
   const voiceIndex = cursor.voiceIndex ?? 0;
@@ -211,11 +214,11 @@ function cursorBox(context: TabContext, cursor: TabCursor): DrawCommand[] {
     isSlashedVoice(context.track, voice) ? [] : voice.notes.filter((n) => n.string === cursor.string).map((note) => ({ note, index })),
   );
   const shown = notes.find((candidate) => candidate.index === voiceIndex) ?? notes[0];
-  const box = { x: beat.x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
+  const box = { x: x - FRET_BOX.width / 2 - 1, y: y - FRET_BOX.height / 2 - 1, width: FRET_BOX.width + 2, height: FRET_BOX.height + 2 };
   const commands: DrawCommand[] = [{ kind: 'rect', ...box, color: cursorFill(voiceIndex, context.palette), radius: 4 }];
   if (shown !== undefined) {
     const color = shown.index === voiceIndex ? context.palette.text : voiceColor(shown.index, context.palette, context.editedVoiceIndex, context.notation?.showsVoiceColors);
-    commands.push({ kind: 'text', x: beat.x, y, text: fretLabel(shown.note, tabFretOf(context.track, shown.note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true });
+    commands.push({ kind: 'text', x, y, text: fretLabel(shown.note, tabFretOf(context.track, shown.note)), size: FRET_FONT_SIZE, color, font: 'mono', align: 'center', bold: true });
   }
   return commands;
 }

@@ -29,13 +29,16 @@ export function selectionRange(state: SelectionState): BeatRange | undefined {
   return { first: { measureIndex: first.measureIndex, beatIndex: first.beatIndex }, last: { measureIndex: last.measureIndex, beatIndex: last.beatIndex } };
 }
 
-/** Where playing a selection starts: its first beat's bar and song tick; undefined without a selection. */
+/** Where playing a selection starts: its first beat's bar and song tick (a bar without beats: its start); undefined without a selection. */
 export function selectionStart(state: SelectionState): { readonly measureIndex: number; readonly tick: number } | undefined {
-  const range = selectionRange(state);
-  const cursor = state.cursor;
-  const first = range?.first;
-  const tick = first === undefined || cursor === undefined ? undefined : state.document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex]?.beats[first.beatIndex]?.start;
-  return first === undefined || tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
+  const first = selectionRange(state)?.first;
+  const { cursor, document } = state;
+  const measure = first === undefined || cursor === undefined ? undefined : document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex];
+  if (first === undefined || measure === undefined) {
+    return undefined;
+  }
+  const tick = measure.beats.length === 0 ? document?.song.measureHeaders[first.measureIndex]?.start : measure.beats[first.beatIndex]?.start;
+  return tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
 }
 
 /** The bars a selection spans, first to last: what the loop plays; undefined without a selection. */

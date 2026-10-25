@@ -58,6 +58,10 @@ function staffSpan(geometry: RowGeometry, stringCount: number): { readonly top: 
 /** The selected beats' x span in a measure: from bar line to bar line where the selection goes on past it. */
 function selectedSpan(range: BeatRange, layout: MeasureLayout): { readonly left: number; readonly right: number } | undefined {
   const { measureIndex, beats } = layout;
+  if (beats.length === 0) {
+    // A bar without beats (the track rests there) is selected whole.
+    return measureIndex < range.first.measureIndex || measureIndex > range.last.measureIndex ? undefined : { left: 0, right: layout.width };
+  }
   const from = measureIndex === range.first.measureIndex ? range.first.beatIndex : 0;
   const to = measureIndex === range.last.measureIndex ? range.last.beatIndex : Number.MAX_SAFE_INTEGER;
   const selected = beats.filter((beat) => beat.beatIndex >= from && beat.beatIndex <= to);

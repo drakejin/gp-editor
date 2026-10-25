@@ -61,7 +61,10 @@ describe('cursor edits in the reducer', () => {
     const deleted = edit(inserted, { type: 'edit', edit: { type: 'deleteMeasure' } });
     expect(song(deleted).measureHeaders).toHaveLength(1);
     expect(deleted.cursor).toMatchObject({ measureIndex: 0 });
-    expect(edit(deleted, { type: 'edit', edit: { type: 'deleteMeasure' } })).toBe(deleted);
+    const refused = edit(deleted, { type: 'edit', edit: { type: 'deleteMeasure' } });
+    expect(refused.document).toBe(deleted.document);
+    expect(refused.past).toBe(deleted.past);
+    expect(refused.hint).toBe('A song keeps at least one bar: nothing was deleted.');
   });
 
   it('changes time signature, tempo, key and repeats of the cursor bar', () => {

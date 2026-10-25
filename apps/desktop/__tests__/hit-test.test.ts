@@ -18,8 +18,12 @@ describe('hitTestRow', () => {
     expect(hitTestRow(placed, geometry, 6, 10, 20)).toEqual({ measureIndex: 4, beatIndex: 0, string: undefined });
   });
 
-  it('ignores clicks on empty measures or past the row', () => {
-    expect(hitTestRow(placed, geometry, 6, 150, 100)).toBeUndefined();
+  it('puts a click on a bar without beats (the track rests there) on its beat 0', () => {
+    expect(hitTestRow(placed, geometry, 6, 150, 100 + TAB.stringGap)).toEqual({ measureIndex: 5, beatIndex: 0, string: 2 });
+    expect(hitTestRow([measure(5, 0, [])], geometry, 6, 80, 20)).toEqual({ measureIndex: 5, beatIndex: 0, string: undefined });
+  });
+
+  it('ignores clicks past the row', () => {
     expect(hitTestRow(placed, geometry, 6, 900, 100)).toBeUndefined();
     expect(hitTestRow(placed, { height: 100 }, 6, 45, 100)).toEqual({ measureIndex: 4, beatIndex: 0, string: undefined });
   });
@@ -47,6 +51,10 @@ describe('hitTestDrag', () => {
 
   it('finds nothing without rows', () => {
     expect(hitTestDrag([], 0, geometry, 6, 95, 30)).toBeUndefined();
+  });
+
+  it('reaches a bar without beats', () => {
+    expect(hitTestDrag([[measure(0, 40, [20, 60]), measure(1, 140, [])]], 0, geometry, 6, 190, 30)).toMatchObject({ measureIndex: 1, beatIndex: 0 });
   });
 });
 

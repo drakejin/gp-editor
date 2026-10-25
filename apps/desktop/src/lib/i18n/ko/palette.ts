@@ -246,6 +246,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.hint.noNoteInSelection': '선택한 박에 옮길 음이 없습니다.',
   'palette.hint.noNoteRest': '옮길 음이 없습니다: 커서의 박이 쉼표입니다.',
   'palette.hint.noNoteInVoice': '옮길 음이 없습니다: 커서 자리의 성부 {number}이(가) 비어 있습니다.',
+  'palette.hint.lastBar': '곡에는 마디가 하나 이상 있어야 합니다: 아무것도 지우지 않았습니다.',
   'palette.hint.lastTrack': '곡에는 트랙이 하나 이상 있어야 합니다: 이 트랙을 지우기 전에 다른 트랙을 추가하세요.',
   'palette.hint.addTrackFailed': '트랙을 추가하지 못했습니다: 악기와 1–8줄 튜닝을 고르세요.',
   'palette.hint.selectedTrackShown': '선택한 트랙은 늘 보입니다. 이 트랙을 숨기려면 다른 트랙을 선택하세요.',

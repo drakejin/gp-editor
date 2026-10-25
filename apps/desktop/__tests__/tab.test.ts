@@ -4,6 +4,7 @@ import { type DrawCommand, SMUFL } from '../src/score/draw';
 import { ROW } from '../src/score/geometry';
 import { TAB_MARKS } from '../src/score/symbols/tab-geometry';
 import { tabMarkLanes } from '../src/score/symbols/tab-marks';
+import { engraveNotationMeasure } from '../src/score/notation';
 import { engraveTabMeasure, engraveTabRowHeader, stringY } from '../src/score/tab';
 import { listFixtures, readFixture } from '../test-support/fixtures';
 import { beat, header, makeSong, note } from '../test-support/songs';
@@ -73,6 +74,24 @@ describe('engraveTabMeasure', () => {
     expect(box).toBeDefined();
     const playing = engraveTabMeasure(context({ playingBeatIndex: 0 }));
     expect(playing[0]).toMatchObject({ kind: 'rect', color: `${PALETTE.accent}33` });
+  });
+
+  it('draws the cursor box of a bar without beats where the notation draws its whole rest', () => {
+    // Arrange: bar 2 holds no beats (the track rests there)
+    const song = makeSong([[beat(960, [note(1, 0)])], []]);
+    const track = song.tracks[0]!;
+    const bar = { ...context(), track, header: song.measureHeaders[1]!, measure: track.measures[1]!, previousMeasure: track.measures[0], layout: layoutMeasure(song, 0, 1) };
+
+    // Act
+    const tab = engraveTabMeasure({ ...bar, cursor: { beatIndex: 0, string: 3 } });
+    const notation = engraveNotationMeasure({ ...bar, top: 0 });
+
+    // Assert
+    const box = tab.find((c) => c.kind === 'rect' && c.color === PALETTE.selection);
+    const rest = texts(notation).find((t) => t.text === SMUFL.restWhole);
+    expect(box?.kind === 'rect' ? box.x + box.width / 2 : undefined).toBeCloseTo(rest!.x);
+    expect(box).toMatchObject({ y: stringY(60, 3) - 8 });
+    expect(engraveTabMeasure({ ...bar, cursor: { beatIndex: 1, string: 3 } }).some((c) => c.kind === 'rect')).toBe(false);
   });
 
   it('numbers a beat of a tuplet inside a tuplet with both sizes under its stem', () => {
