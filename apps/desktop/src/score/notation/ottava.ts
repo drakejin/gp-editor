@@ -169,6 +169,12 @@ function writtenRuns(
   }));
 }
 
+/** Where a run's mark goes: over its highest note and the staff for 8va / 15ma, under its lowest and the staff for 8vb / 15mb. */
+function runMarkY(run: OttavaRun, top: number): number {
+  const ys = run.chords.flatMap(chord => chord.heads.map(head => head.y));
+  return run.ottava > 0 ? Math.min(top, ...ys) - OTTAVA.gap : Math.max(positionY(top, STAFF.bottomLine), ...ys) + OTTAVA.gap;
+}
+
 /**
  * "8va" over (or "8vb" under) the run's notes, with a line to the end of the run and a hook towards the staff. A written
  * sign running on from the bar before has no new label (but at a row start), one running on into the next has no hook.
@@ -187,25 +193,11 @@ function runMarks(
   ) {
     return [];
   }
-  const ys = run.chords.flatMap(chord => chord.heads.map(head => head.y));
   const isAbove = run.ottava > 0;
-  const y = isAbove
-    ? Math.min(top, ...ys) - OTTAVA.gap
-    : Math.max(positionY(top, STAFF.bottomLine), ...ys) + OTTAVA.gap;
+  const y = runMarkY(run, top);
   const isLabelled = run.fromBefore !== true || edges.isRowStart === true;
   const labels: DrawCommand[] = isLabelled
-    ? [
-        {
-          kind: 'text',
-          x: run.left,
-          y,
-          text: label,
-          size: OTTAVA.fontSize,
-          color,
-          font: 'ui',
-          align: 'left',
-        },
-      ]
+    ? [{ kind: 'text', x: run.left, y, text: label, size: OTTAVA.fontSize, color, font: 'ui', align: 'left' }]
     : [];
   const lineStart = isLabelled
     ? run.left + label.length * OTTAVA.charWidth + OTTAVA.labelGap

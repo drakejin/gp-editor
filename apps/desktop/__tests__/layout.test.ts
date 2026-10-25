@@ -1,5 +1,5 @@
 import { QUARTER } from '@gp-editor/core';
-import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, squeezeRow, staffHeight, stringY } from '../src/lib/layout';
+import { BEND_MOVE_WIDTH, TAB, layoutMeasure, layoutRows, primaryVoice, squeezeRow } from '../src/lib/layout';
 import { beat, fromTux, header, makeSong, note } from '../test-support/songs';
 
 const EIGHTH = { ...QUARTER, value: 8 as const };
@@ -117,13 +117,7 @@ describe('layoutRows', () => {
   });
 });
 
-describe('staff geometry', () => {
-  it('computes string positions and staff height', () => {
-    expect(stringY(1)).toBe(TAB.top);
-    expect(stringY(6) - stringY(1)).toBe(5 * TAB.stringGap);
-    expect(staffHeight(6)).toBe(TAB.top + 5 * TAB.stringGap + TAB.bottom);
-  });
-
+describe('primaryVoice', () => {
   it('picks the first non-empty voice for rhythm', () => {
     const b = beat(960, []);
     const withEmptyFirst = { ...b, voices: [{ ...b.voices[0]!, isEmpty: true }, b.voices[0]!] };

@@ -44,7 +44,7 @@ export function neckFret(track: Track, fret: number): number {
 }
 
 /** Where a note sits on the neck: neckFret, and a banjo's short 5th string counts from its peg at the 5th fret. */
-export function neckPosition(track: Track, string: number, fret: number): number {
+function neckPosition(track: Track, string: number, fret: number): number {
   return neckFret(track, fret) + stringStartFret(trackTuning(track), string);
 }
 

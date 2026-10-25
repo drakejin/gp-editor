@@ -1,20 +1,9 @@
 import type { Song } from '@gp-editor/core';
-import {
-  type BeatLayout,
-  type BeatRoom,
-  type MeasureLayout,
-  type RowLayout,
-  beatWidths,
-  closeMeasure,
-  layoutMeasure,
-  measureFrame,
-} from './layout';
+import { type BeatLayout, type BeatRoom, type MeasureLayout, NO_ROOM, type RowLayout, beatWidths, closeMeasure, layoutMeasure, measureFrame } from './layout';
 import { NO_SYSTEM_RULES, type SystemRules, breakSystems, fitSystem } from './system-design';
 
 /** The least distance between two moments of a multitrack bar, so beats starting apart never share an x. */
 const MIN_COLUMN_GAP = 6;
-
-const NO_ROOM: BeatRoom = () => 0;
 
 /** One track's beats in the bar: their columns (moments shared with the other tracks) and widths. */
 interface TrackBeats {
@@ -22,22 +11,30 @@ interface TrackBeats {
   readonly widths: readonly number[];
 }
 
-/** The bar's moments in order: a column per beat start (a start repeated on one track gets a column of its own). */
-function columnKeys(song: Song, trackIndexes: readonly number[], measureIndex: number): readonly string[][] {
+/** A beat's moment in the bar: its start, and how many beats of its track start there before it (a column of its own). */
+interface Moment {
+  readonly key: string;
+  readonly start: number;
+  readonly repeat: number;
+}
+
+/** Each track's beats in the bar as moments. */
+function trackMoments(song: Song, trackIndexes: readonly number[], measureIndex: number): readonly Moment[][] {
   return trackIndexes.map((trackIndex) => {
     const seen = new Map<number, number>();
-    return (song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? []).map((beat) => {
+    return (song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? []).map((beat): Moment => {
       const repeat = seen.get(beat.start) ?? 0;
       seen.set(beat.start, repeat + 1);
-      return `${beat.start}#${repeat}`;
+      return { key: `${beat.start}#${repeat}`, start: beat.start, repeat };
     });
   });
 }
 
-function byMoment(a: string, b: string): number {
-  const [startA = 0, repeatA = 0] = a.split('#').map(Number);
-  const [startB = 0, repeatB = 0] = b.split('#').map(Number);
-  return startA - startB || repeatA - repeatB;
+/** The bar's columns: its moments in time order (by start, then repeat), each once, by key. */
+function columnOrder(moments: readonly (readonly Moment[])[]): string[] {
+  const unique = new Map<string, Moment>();
+  moments.forEach((track) => track.forEach((moment) => unique.set(moment.key, moment)));
+  return [...unique.values()].sort((a, b) => a.start - b.start || a.repeat - b.repeat).map((moment) => moment.key);
 }
 
 /**
@@ -74,11 +71,11 @@ export function layoutAlignedMeasures(song: Song, trackIndexes: readonly number[
   const beatsX = Math.max(0, ...frames.map((frame) => frame.beatsX));
   const signatures = frames.flatMap((frame) => (frame.timeSignatureX === undefined ? [] : [frame.timeSignatureX]));
   const timeSignatureX = signatures.length === 0 ? undefined : Math.max(...signatures);
-  const keys = columnKeys(song, trackIndexes, measureIndex);
-  const order = [...new Set(keys.flat())].sort(byMoment);
+  const moments = trackMoments(song, trackIndexes, measureIndex);
+  const order = columnOrder(moments);
   const columnOf = new Map(order.map((key, column) => [key, column]));
   const tracks = trackIndexes.map((trackIndex, i): TrackBeats => ({
-    columns: (keys[i] ?? []).map((key) => columnOf.get(key) ?? 0),
+    columns: (moments[i] ?? []).map((moment) => columnOf.get(moment.key) ?? 0),
     widths: beatWidths(song, trackIndex, measureIndex, beatRoom),
   }));
   const centres = columnCentres(tracks, order.length, beatsX);

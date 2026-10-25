@@ -111,13 +111,16 @@ function beatNotes(beat: Beat | undefined): readonly Note[] {
   return beat?.voices.flatMap(voice => voice.notes) ?? [];
 }
 
+/** Whether the beat has a mark of `kind` (its notes looked at where they are: every beat of a track is asked, per kind). */
 function beatHas(beat: Beat | undefined, kind: TabMarkKind): boolean {
   if (kind === 'labels' && beat?.rasgueado !== undefined) {
     return true;
   }
-  return kind === 'pickStroke'
-    ? hasPickStroke(beat)
-    : beatNotes(beat).some(note => HAS[kind](note.effect));
+  if (kind === 'pickStroke') {
+    return hasPickStroke(beat);
+  }
+  const has = HAS[kind];
+  return beat?.voices.some(voice => voice.notes.some(note => has(note.effect))) ?? false;
 }
 
 /** The kinds of marks in `measures`, in lane order: pass a row's measures to keep each kind at one height across the row. */

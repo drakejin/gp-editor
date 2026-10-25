@@ -23,6 +23,9 @@ export const STAFF = {
   lineWidth: 1,
 } as const;
 
+/** A staff's height, top line to bottom line. */
+export const STAFF_HEIGHT = (STAFF.lineCount - 1) * SPACE;
+
 /** Bravura is drawn at four staff spaces, so one em spans the staff. */
 export const MUSIC_FONT_SIZE = 4 * SPACE;
 

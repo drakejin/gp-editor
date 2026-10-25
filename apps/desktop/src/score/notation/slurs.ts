@@ -144,55 +144,19 @@ function line(
 }
 
 /** Short slides out of a note (from its right) or into it (from its left). */
-function shortSlide(
-  from: PlacedHead,
-  slide: SlideType,
-  color: string,
-): LineCommand[] {
+function shortSlide(from: PlacedHead, slide: SlideType, color: string): LineCommand[] {
   const { head, chord } = from;
   const right = head.x + head.width + SLIDE.gap;
   const left = chordInkLeft(chord) - SLIDE.gap;
   switch (slide) {
     case 'outDownwards':
-      return [
-        line(
-          right,
-          head.y,
-          right + SLIDE.shortLength,
-          head.y + SLIDE.shortRise,
-          color,
-        ),
-      ];
+      return [line(right, head.y, right + SLIDE.shortLength, head.y + SLIDE.shortRise, color)];
     case 'outUpwards':
-      return [
-        line(
-          right,
-          head.y,
-          right + SLIDE.shortLength,
-          head.y - SLIDE.shortRise,
-          color,
-        ),
-      ];
+      return [line(right, head.y, right + SLIDE.shortLength, head.y - SLIDE.shortRise, color)];
     case 'intoFromBelow':
-      return [
-        line(
-          left - SLIDE.shortLength,
-          head.y + SLIDE.shortRise,
-          left,
-          head.y,
-          color,
-        ),
-      ];
+      return [line(left - SLIDE.shortLength, head.y + SLIDE.shortRise, left, head.y, color)];
     case 'intoFromAbove':
-      return [
-        line(
-          left - SLIDE.shortLength,
-          head.y - SLIDE.shortRise,
-          left,
-          head.y,
-          color,
-        ),
-      ];
+      return [line(left - SLIDE.shortLength, head.y - SLIDE.shortRise, left, head.y, color)];
     default:
       return [];
   }

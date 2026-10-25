@@ -4,12 +4,6 @@ import { directionsWidth } from '../score/directions';
 /** Tab staff geometry, in points. */
 export const TAB = {
   stringGap: 13,
-  /** Space above the top string: measure number, marker, tempo, endings, then the effect marks row. */
-  top: 54,
-  /** Top of the effect marks row, clear of the fret numbers on the top string. */
-  marksTop: 36,
-  /** Space under the bottom string: rhythm stems. */
-  bottom: 30,
   padLeft: 12,
   padRight: 8,
   timeSignatureWidth: 22,
@@ -20,7 +14,6 @@ export const TAB = {
   clefChangeWidth: 22,
   repeatWidth: 10,
   emptyMeasureWidth: 48,
-  rowGap: 18,
 } as const;
 
 /** Natural width of a beat by its shortest note value. */
@@ -34,9 +27,10 @@ export const BEND_MOVE_WIDTH = 16;
 const BEND_PADDING = 20;
 /** The last row is stretched to the full width only when it is at least this full. */
 const JUSTIFY_THRESHOLD = 0.75;
-/** The closest squeezeRow moves beats together, as a share of their natural distance. */
-const MIN_SQUEEZE = 0.25;
+/** The closest beats are moved together to fit a line (squeezeRow, a fixed system), as a share of their natural distance. */
+export const MIN_SQUEEZE = 0.25;
 
+/** A placed beat. `placedBeat` copies its fields by name when a line is stretched or squeezed: a new one goes there too. */
 export interface BeatLayout {
   readonly beatIndex: number;
   /** Centre of the beat, relative to the measure's left edge. */
@@ -63,14 +57,6 @@ export interface RowLayout {
   readonly measures: readonly MeasureLayout[];
 }
 
-export function staffHeight(stringCount: number): number {
-  return TAB.top + Math.max(0, stringCount - 1) * TAB.stringGap + TAB.bottom;
-}
-
-export function stringY(stringNumber: number): number {
-  return TAB.top + (stringNumber - 1) * TAB.stringGap;
-}
-
 /** The voice used for rhythm display: the first voice that has a beat. */
 export function primaryVoice(beat: Beat): Voice | undefined {
   return beat.voices.find((voice) => !voice.isEmpty);
@@ -83,7 +69,7 @@ function beatWidth(beat: Beat): number {
   }
   const shortest = Math.max(...voices.map((voice) => voice.duration.value));
   const dotted = voices.some((voice) => voice.duration.dotted || voice.duration.doubleDotted);
-  const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => bendMoves(note.effect.bend?.points ?? []))));
+  const moves = Math.max(0, ...voices.flatMap((voice) => voice.notes.map((note) => (note.effect.bend === undefined ? 0 : bendMoves(note.effect.bend.points)))));
   const bendWidth = moves === 0 ? 0 : BEND_PADDING + moves * BEND_MOVE_WIDTH;
   const fingered = voices.some((voice) => voice.notes.some((note) => note.leftFinger !== undefined));
   return Math.max((BEAT_WIDTH[shortest] ?? 22) + (dotted ? DOT_EXTRA : 0) + (fingered ? FINGERING_EXTRA : 0), bendWidth);
@@ -104,7 +90,7 @@ function changed(headers: readonly MeasureHeader[], index: number, pick: (h: Mea
 /** Room a beat needs beyond its notes (a chord diagram over it, `chordBeatWidth`); 0 for none. */
 export type BeatRoom = (beat: Beat) => number;
 
-const NO_ROOM: BeatRoom = () => 0;
+export const NO_ROOM: BeatRoom = () => 0;
 
 export function layoutMeasure(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): MeasureLayout {
   const frame = measureFrame(song, trackIndex, measureIndex);
@@ -221,12 +207,23 @@ function beatSpread(measure: MeasureLayout): number {
 }
 
 function squeezeMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
-  const firstX = measure.beats[0]?.x ?? 0;
-  return {
-    ...measure,
-    width: measure.width - beatSpread(measure) * (1 - scale),
-    beats: measure.beats.map((beat) => ({ ...beat, x: firstX + (beat.x - firstX) * scale })),
-  };
+  return compressMeasure(measure, measure.beats[0]?.x ?? 0, beatSpread(measure), scale);
+}
+
+/**
+ * The measure with its beats moved towards `anchor` to `scale` of their distance from it, narrower by what `spread`
+ * (the beats' span it is squeezed for) loses; the room before its first beat and after its last keeps its size.
+ */
+export function compressMeasure(measure: MeasureLayout, anchor: number, spread: number, scale: number): MeasureLayout {
+  return { ...measure, width: measure.width - spread * (1 - scale), beats: measure.beats.map((beat) => placedBeat(beat, anchor + (beat.x - anchor) * scale)) };
+}
+
+/**
+ * The beat at `x`. A literal, not a spread: every beat of every staff is placed again on each edit (the systems are
+ * stretched anew), and an object spread — Object.assign once compiled — costs about three times as much in Hermes.
+ */
+function placedBeat(beat: BeatLayout, x: number): BeatLayout {
+  return { beatIndex: beat.beatIndex, x };
 }
 
 function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {
@@ -245,5 +242,5 @@ export function justifyScale(row: readonly MeasureLayout[], availableWidth: numb
 
 /** The measure stretched by `scale`; prefix glyphs keep their size, only the beat area stretches. */
 export function stretchMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
-  return { ...measure, width: measure.width * scale, beats: measure.beats.map((beat) => ({ ...beat, x: beat.x * scale })) };
+  return { ...measure, width: measure.width * scale, beats: measure.beats.map((beat) => placedBeat(beat, beat.x * scale)) };
 }

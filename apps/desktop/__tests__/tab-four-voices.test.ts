@@ -1,7 +1,8 @@
 import { EMPTY_VOICE, QUARTER, type Beat, type Note, type Voice } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import type { DrawCommand, RectCommand, TextCommand } from '../src/score/draw';
-import { engraveTabMeasure, stringY } from '../src/score/tab';
+import { engraveTabMeasure } from '../src/score/tab';
+import { tabStringY } from '../src/score/symbols/tab-geometry';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -33,7 +34,7 @@ function engrave(overrides: Partial<Parameters<typeof engraveTabMeasure>[0]> = {
 }
 
 const fretOn = (commands: readonly DrawCommand[], string: number) =>
-  commands.filter((c): c is TextCommand => c.kind === 'text' && c.font === 'mono' && c.y === stringY(TOP, string));
+  commands.filter((c): c is TextCommand => c.kind === 'text' && c.font === 'mono' && c.y === tabStringY(TOP, string));
 
 describe('the tab in four voices', () => {
   it('writes every voice’s frets, voice 1 in ink and voices 2, 3 and 4 in their colours', () => {

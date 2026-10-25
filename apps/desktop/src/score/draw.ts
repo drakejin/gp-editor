@@ -92,86 +92,103 @@ export type DrawCommand =
   | CurveCommand
   | PolygonCommand;
 
-/** Shift every command by (dx, dy) — used to place a measure's commands in its row. */
-export function translateCommands(
-  commands: readonly DrawCommand[],
-  dx: number,
-  dy: number,
-): DrawCommand[] {
-  return commands.map(command => translateCommand(command, dx, dy));
+/**
+ * Where commands go: moved by (dx, dy), scaled about the origin by `scale` (sizes and strokes too), then moved by (x, y).
+ * translateCommands and scaleCommands are its halves; the PDF places a staff on its page with all of it in one pass.
+ */
+export interface Placement {
+  readonly dx: number;
+  readonly dy: number;
+  readonly scale: number;
+  readonly x: number;
+  readonly y: number;
 }
 
-function translateCommand(
-  command: DrawCommand,
-  dx: number,
-  dy: number,
-): DrawCommand {
-  switch (command.kind) {
-    case 'line':
-      return {
-        ...command,
-        x1: command.x1 + dx,
-        y1: command.y1 + dy,
-        x2: command.x2 + dx,
-        y2: command.y2 + dy,
-      };
-    case 'curve':
-      return {
-        ...command,
-        x1: command.x1 + dx,
-        y1: command.y1 + dy,
-        cx: command.cx + dx,
-        cy: command.cy + dy,
-        x2: command.x2 + dx,
-        y2: command.y2 + dy,
-      };
-    case 'polygon':
-      return {
-        ...command,
-        points: command.points.map(
-          (value, i) => value + (i % 2 === 0 ? dx : dy),
-        ),
-      };
-    case 'rect':
-    case 'circle':
-    case 'text':
-      return { ...command, x: command.x + dx, y: command.y + dy };
-  }
+/** Shift every command by (dx, dy) — used to place a measure's commands in its row. */
+export function translateCommands(commands: readonly DrawCommand[], dx: number, dy: number): DrawCommand[] {
+  return placeCommands(commands, { dx, dy, scale: 1, x: 0, y: 0 });
 }
 
 /** Scale every command about the origin by `factor`, sizes and stroke widths too — used to print rows smaller than on screen. */
 export function scaleCommands(commands: readonly DrawCommand[], factor: number): DrawCommand[] {
-  return commands.map((command) => scaleCommand(command, factor));
+  return placeCommands(commands, { dx: 0, dy: 0, scale: factor, x: 0, y: 0 });
 }
 
-function scaleCommand(command: DrawCommand, factor: number): DrawCommand {
-  const scale = (value: number) => value * factor;
+/**
+ * Every command where `placement` puts it. Each is built as a literal, key by key in the order the engravers write
+ * them (the canvas's JSON stays the same): an object spread per command — Object.assign once compiled — costs about
+ * three times as much in Hermes, and every command of a row or a PDF page is moved more than once.
+ */
+export function placeCommands(commands: readonly DrawCommand[], placement: Placement): DrawCommand[] {
+  return commands.map((command) => placeCommand(command, placement));
+}
+
+function placeX(value: number, p: Placement): number {
+  return (value + p.dx) * p.scale + p.x;
+}
+
+function placeY(value: number, p: Placement): number {
+  return (value + p.dy) * p.scale + p.y;
+}
+
+function placeCommand(command: DrawCommand, p: Placement): DrawCommand {
   switch (command.kind) {
     case 'line':
-      return {
-        ...command, x1: scale(command.x1), y1: scale(command.y1), x2: scale(command.x2), y2: scale(command.y2), width: scale(command.width),
-        ...(command.dash === undefined ? {} : { dash: command.dash.map(scale) }),
-      };
+      return placeLine(command, p);
     case 'curve':
       return {
-        ...command, x1: scale(command.x1), y1: scale(command.y1), cx: scale(command.cx), cy: scale(command.cy),
-        x2: scale(command.x2), y2: scale(command.y2), width: scale(command.width),
+        kind: 'curve', x1: placeX(command.x1, p), y1: placeY(command.y1, p), cx: placeX(command.cx, p), cy: placeY(command.cy, p),
+        x2: placeX(command.x2, p), y2: placeY(command.y2, p), width: command.width * p.scale, color: command.color,
       };
     case 'polygon':
-      return { ...command, points: command.points.map(scale) };
+      return { kind: 'polygon', points: command.points.map((value, i) => (i % 2 === 0 ? placeX(value, p) : placeY(value, p))), color: command.color };
     case 'rect':
-      return {
-        ...command, x: scale(command.x), y: scale(command.y), width: scale(command.width), height: scale(command.height),
-        ...(command.radius === undefined ? {} : { radius: scale(command.radius) }),
-      };
+      return placeRect(command, p);
     case 'circle':
-      return {
-        ...command, x: scale(command.x), y: scale(command.y), radius: scale(command.radius),
-        ...(command.strokeWidth === undefined ? {} : { strokeWidth: scale(command.strokeWidth) }),
-      };
+      return placeCircle(command, p);
     case 'text':
-      return { ...command, x: scale(command.x), y: scale(command.y), size: scale(command.size) };
+      return placeText(command, p);
   }
+}
+
+function placeLine(line: LineCommand, p: Placement): LineCommand {
+  const x1 = placeX(line.x1, p);
+  const y1 = placeY(line.y1, p);
+  const x2 = placeX(line.x2, p);
+  const y2 = placeY(line.y2, p);
+  const width = line.width * p.scale;
+  return line.dash === undefined
+    ? { kind: 'line', x1, y1, x2, y2, width, color: line.color }
+    : { kind: 'line', x1, y1, x2, y2, width, color: line.color, dash: line.dash.map((length) => length * p.scale) };
+}
+
+function placeRect(rect: RectCommand, p: Placement): RectCommand {
+  const x = placeX(rect.x, p);
+  const y = placeY(rect.y, p);
+  const width = rect.width * p.scale;
+  const height = rect.height * p.scale;
+  return rect.radius === undefined
+    ? { kind: 'rect', x, y, width, height, color: rect.color }
+    : { kind: 'rect', x, y, width, height, color: rect.color, radius: rect.radius * p.scale };
+}
+
+function placeCircle(circle: CircleCommand, p: Placement): CircleCommand {
+  const x = placeX(circle.x, p);
+  const y = placeY(circle.y, p);
+  const radius = circle.radius * p.scale;
+  return circle.strokeWidth === undefined
+    ? { kind: 'circle', x, y, radius, color: circle.color }
+    : { kind: 'circle', x, y, radius, color: circle.color, strokeWidth: circle.strokeWidth * p.scale };
+}
+
+/** A text's style keys (bold, italic, family) are kept when it has any; an unset one is left out of the JSON. */
+function placeText(text: TextCommand, p: Placement): TextCommand {
+  const x = placeX(text.x, p);
+  const y = placeY(text.y, p);
+  const size = text.size * p.scale;
+  return text.bold === undefined && text.italic === undefined && text.family === undefined
+    ? { kind: 'text', x, y, text: text.text, size, color: text.color, font: text.font, align: text.align }
+    : { kind: 'text', x, y, text: text.text, size, color: text.color, font: text.font, align: text.align, bold: text.bold, italic: text.italic, family: text.family };
 }
 
 /** SMuFL code points used by the engravers (Bravura). https://w3c.github.io/smufl/latest/ */
@@ -203,3 +220,18 @@ export const SMUFL = {
   rest32nd: '',
   rest64th: '',
 } as const;
+
+const REST_GLYPHS: Readonly<Record<number, string>> = {
+  1: SMUFL.restWhole,
+  2: SMUFL.restHalf,
+  4: SMUFL.restQuarter,
+  8: SMUFL.rest8th,
+  16: SMUFL.rest16th,
+  32: SMUFL.rest32nd,
+  64: SMUFL.rest64th,
+};
+
+/** The rest of a note value (1 = whole … 64); a quarter rest for any other. */
+export function restGlyph(noteValue: number): string {
+  return REST_GLYPHS[noteValue] ?? SMUFL.restQuarter;
+}

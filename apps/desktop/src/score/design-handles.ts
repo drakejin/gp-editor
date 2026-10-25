@@ -3,6 +3,7 @@ import type { RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
 import type { RowGeometry } from './geometry';
+import { STAFF_HEIGHT } from './notation';
 import { placeRow } from './row';
 
 /** The space Design Mode drags: under each system, between tracks, between a track's notation and tab. */
@@ -56,7 +57,6 @@ export interface DesignRowInput {
   readonly headingHeight: number;
 }
 
-const NOTATION_STAFF_HEIGHT = 32;
 /** The spacing grips sit in the clef column, this far right of the names. */
 const GRIP_LEFT = 14;
 
@@ -97,7 +97,7 @@ function spacingHandles(input: DesignRowInput): DesignHandle[] {
     grips.push({ kind: 'spacing', spacing: 'trackSpacing', x, y: DESIGN_HANDLE.gripHeight, isMoved: systems.trackSpacing !== 0 });
   }
   if (geometry.notationTop !== undefined && geometry.marksY !== undefined) {
-    const y = geometry.notationTop + NOTATION_STAFF_HEIGHT + (geometry.marksY - geometry.notationTop - NOTATION_STAFF_HEIGHT) / 2;
+    const y = geometry.notationTop + STAFF_HEIGHT + (geometry.marksY - geometry.notationTop - STAFF_HEIGHT) / 2;
     grips.push({ kind: 'spacing', spacing: 'staffSpacing', x, y, isMoved: systems.staffSpacing !== 0 });
   }
   if (input.isLast) {

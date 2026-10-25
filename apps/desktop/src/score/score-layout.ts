@@ -254,13 +254,26 @@ export function scoreSystems(song: Song, staves: readonly ScoreStaff[], measures
   return { systems, clefWidth };
 }
 
+/** A system's height: its staves', with the room under the last one. */
+export function systemHeightOf(staves: readonly ScoreStaff[]): number {
+  return staves.reduce((sum, staff) => sum + staff.height, 0);
+}
+
+/** A staff group per shown track (in the order given), as every system stacks them: their height does not depend on the width. */
+export function scoreStaves(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay): ScoreStaff[] {
+  return stackStaves(staffPlans(song, specs, chordDisplay), stylesheetOf(song).systems.systemSpacing);
+}
+
+/** The layout of staves already stacked (`scoreStaves`): the bars laid out for their tracks and broken into systems across `rowWidth`. */
+export function layoutStaves(song: Song, staves: readonly ScoreStaff[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
+  const measures = scoreMeasures(song, staves.map((staff) => staff.trackIndex), chordDisplay);
+  return { staves, systemHeight: systemHeightOf(staves), ...scoreSystems(song, staves, measures, rowWidth) };
+}
+
 /**
  * The score's layout: a staff group per shown track (in the order given), the bars broken into systems across
  * `rowWidth`. With one track it is the single-track score: no names, no bracket, the rows as layoutRows makes them.
  */
 export function layoutScore(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
-  const staves = stackStaves(staffPlans(song, specs, chordDisplay), stylesheetOf(song).systems.systemSpacing);
-  const measures = scoreMeasures(song, staves.map((staff) => staff.trackIndex), chordDisplay);
-  const systemHeight = staves.reduce((sum, staff) => sum + staff.height, 0);
-  return { staves, systemHeight, ...scoreSystems(song, staves, measures, rowWidth) };
+  return layoutStaves(song, scoreStaves(song, specs, chordDisplay), chordDisplay, rowWidth);
 }

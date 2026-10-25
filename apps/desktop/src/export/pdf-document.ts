@@ -3,10 +3,10 @@ import { withoutExtension } from '../lib/file-name';
 import { t } from '../lib/i18n/i18n';
 import { squeezeRow } from '../lib/layout';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
-import { type DrawCommand, scaleCommands, translateCommands } from '../score/draw';
+import { type DrawCommand, placeCommands, translateCommands } from '../score/draw';
 import { SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import { type RowContext, engraveRow } from '../score/row';
-import { type ScoreLayout, type StaffSpec, layoutScore } from '../score/score-layout';
+import { type ScoreLayout, type ScoreStaff, type StaffSpec, layoutStaves, scoreStaves, systemHeightOf } from '../score/score-layout';
 import { engraveSystemStaff, staffDecor } from '../score/system-staff';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE, type PaperId, type PaperSize } from './paper';
 import { type TitleBlock, engraveTitleBlock, fitFontSize } from './title-block';
@@ -128,8 +128,8 @@ function printedStaves(trackIndex: number, mode: ScoreMode, options: PdfOptions)
  * The score as the screen lays it out, at screen size across the printable width, to print at PRINT_SCALE; a single
  * track's measure too wide for a line is squeezed instead of running off the page.
  */
-function printedLayout(song: Song, staves: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
-  const layout = layoutScore(song, staves, chordDisplay, rowWidth);
+function printedLayout(song: Song, staves: readonly ScoreStaff[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
+  const layout = layoutStaves(song, staves, chordDisplay, rowWidth);
   if (layout.staves.length !== 1) {
     return layout;
   }
@@ -144,7 +144,7 @@ export function printedPage(page: PageSetup, paper?: PaperId): PaperSize {
 }
 
 /** The stylesheet's margins (millimetres) in points. */
-export function pageMargins(page: PageSetup): PageMarginPoints {
+function pageMargins(page: PageSetup): PageMarginPoints {
   const { top, right, bottom, left } = page.margins;
   return { top: millimetresToPoints(top), right: millimetresToPoints(right), bottom: millimetresToPoints(bottom), left: millimetresToPoints(left) };
 }
@@ -165,18 +165,19 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   // The stylesheet's overall proportions scale the printed staves as they scale the screen's.
   const printScale = PRINT_SCALE * sheet.scale;
   // A system taller than the room under the title block (many tracks) is printed smaller, and laid out across a wider
-  // row so that it still fills the printable width.
-  const natural = printedLayout(song, staves, chordDisplay, printWidth / printScale);
-  const fit = natural.systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (natural.systemHeight * printScale)) : 1;
+  // row so that it still fills the printable width. The staves' height does not depend on the width: one layout.
+  const stacked = scoreStaves(song, staves, chordDisplay);
+  const systemHeight = systemHeightOf(stacked);
+  const fit = systemHeight > 0 ? Math.min(1, (bottom - firstTop) / (systemHeight * printScale)) : 1;
   const scale = printScale * fit;
   const rowWidth = printWidth / scale;
-  const layout = fit === 1 ? natural : printedLayout(song, staves, chordDisplay, rowWidth);
+  const layout = printedLayout(song, stacked, chordDisplay, rowWidth);
   const rowHeight = layout.systemHeight * scale;
   const pages = packRows(layout.systems.map((_, systemIndex) => systemIndex), rowHeight, firstTop, margins.top, bottom);
   return { song, title, paper, margins, hasFooter, titleBlock, layout, rowWidth, scale, rowHeight, bottom, pages };
 }
 
-/** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the system's top. */
+/** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the staff's top. */
 function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: number): DrawCommand[] {
   const { song, layout } = plan;
   const staff = layout.staves[staffIndex];
@@ -189,20 +190,23 @@ function engraveSystemPart(plan: PdfPlan, systemIndex: number, staffIndex: numbe
     markLanes: staff.markLanes, hasHeading: staff.hasHeading,
   };
   const decor = staffDecor(song, layout, systemIndex, staffIndex);
-  return translateCommands(decor === undefined ? engraveRow(context) : engraveSystemStaff(context, decor), 0, staff.top);
+  return decor === undefined ? engraveRow(context) : engraveSystemStaff(context, decor);
 }
 
 /**
- * One system scaled and placed with its top at `y`. A system still too wide once squeezed (a bar denser than
- * squeezeRow can fit), or taller than the room under `y`, is printed smaller to stay on the page.
+ * One system scaled and placed with its top at `y`, each staff moved to its place in the system, scaled and put on the
+ * page in one pass. A system still too wide once squeezed (a bar denser than squeezeRow can fit), or taller than the
+ * room under `y`, is printed smaller to stay on the page.
  */
 function engravePrintedSystem(plan: PdfPlan, systemIndex: number, y: number): DrawCommand[] {
-  const { layout } = plan;
+  const { layout, margins } = plan;
   const system = layout.systems[systemIndex];
-  const commands = layout.staves.flatMap((_, staffIndex) => engraveSystemPart(plan, systemIndex, staffIndex));
   const width = (system?.rows[0]?.measures ?? []).reduce((sum, measure) => sum + measure.width, system?.headerWidth ?? 0);
   const fit = Math.min(1, plan.rowWidth / width, (plan.bottom - y) / plan.rowHeight);
-  return translateCommands(scaleCommands(commands, plan.scale * fit), plan.margins.left, y);
+  const scale = plan.scale * fit;
+  return layout.staves.flatMap((staff, staffIndex) =>
+    placeCommands(engraveSystemPart(plan, systemIndex, staffIndex), { dx: 0, dy: staff.top, scale, x: margins.left, y }),
+  );
 }
 
 /** "<title> — <page> / <pages>", centred in the footer band. */

@@ -56,7 +56,7 @@ export function laneX(seconds: number, pixelsPerSecond: number): number {
   return AUDIO_LANE.padLeft + seconds * pixelsPerSecond;
 }
 
-export function laneSeconds(x: number, pixelsPerSecond: number): number {
+function laneSeconds(x: number, pixelsPerSecond: number): number {
   return (x - AUDIO_LANE.padLeft) / pixelsPerSecond;
 }
 
