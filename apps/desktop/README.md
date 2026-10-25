@@ -109,7 +109,17 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"hover": {"x": 300, "y": 200}}` the mouse entering the views at a point (each view there with a tracking area gets
   `mouseEntered:` — a Pressable's `onHoverIn`; synthetic mouse moves never reach tracking areas)
 - `{"key": "z", "modifiers": ["cmd", "shift", "alt", "ctrl"]}` — ArrowUp/Down/Left/Right, Backspace, Delete, Escape,
-  Enter, Tab, else the character (with shift a letter is sent as its capital, as a real key press reports it)
+  Enter, Tab, Home, End, F3, F7, else the character (with shift a letter is sent as its capital); straight to the window
+  when the app is not active, so it skips the menu bar's key equivalents
+- `{"appKey": "c", "modifiers": ["cmd"]}` — a key press as the keyboard makes it: the key's code on the US layout (the
+  same names and characters as `key`), the event made the way the window server makes one (AppKit types its
+  characters: ⇧⌘P is "p" ignoring modifiers "P"), dispatched by NSApplication — local monitors, then the window's and
+  the menu bar's key equivalents, then the first responder — queued while the app is active, sent through NSApp at once
+  when it cannot be (a locked screen). The log names the menu item the press matches. Use it for anything the menu
+  bar could take (⌘ keys, F-keys); `key` never showed a menu item swallowing a key
+- `{"menuKeys": true}` logs every menu item with a key equivalent (keys, action, target, enabled as matched now) ·
+  `{"setPasteboard": "text"}` puts plain text on the system pasteboard (the real one: put nothing private there) ·
+  `{"logPasteboard": true}` logs its types and text (the beats' summary after a copy)
 - `{"resize": {"width": 1100, "height": 760}}` · `{"appearance": "dark"}` (anything else is light)
 - `{"menu": ["File", "Open Recent"]}` logs the items of a menu-bar menu; `{"menu": ["File", "Open Recent", "Song.gp5"]}`
   chooses the item, as a click in the menu does

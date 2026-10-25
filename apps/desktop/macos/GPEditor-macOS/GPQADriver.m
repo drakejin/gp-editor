@@ -1,13 +1,16 @@
 // QA driver for development. When GPEDITOR_QA_SCRIPT names a JSON file, replays its steps against this app's
 // own window — open a file, click, type, scroll, resize, switch appearance, snapshot to PNG — so the UI can be
-// exercised and inspected without Screen Recording or Accessibility permissions. Events go through
-// -[NSWindow sendEvent:], the same path as real input. Does nothing when the variable is unset. It is not gated on
-// the sandbox on purpose: the sandboxed app can only read a script inside its own container, which is how sandbox
+// exercised and inspected without Screen Recording or Accessibility permissions. Mouse events go through
+// -[NSWindow sendEvent:]; so does `key` unless the app is active; `appKey` is dispatched by NSApplication as a typed key
+// is, so the menu bar's key equivalents see it first. Does nothing when the variable is unset. It is not gated on the
+// sandbox on purpose: the sandboxed app can only read a script inside its own container, which is how sandbox
 // behaviour is checked; everyday QA uses the unsandboxed copy made by scripts/qa/run.sh.
 //
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
 //          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}, {"rightClick": {"x": 300, "y": 200}}, {"controlClick": …},
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
+//          {"appKey": "c", "modifiers": ["cmd"]} (a typed key, dispatched by NSApplication: the menus' key equivalents first),
+//          {"menuKeys": true} (logs every menu item with a key equivalent), {"setPasteboard": "text"}, {"logPasteboard": true},
 //          {"hover": {"x": 300, "y": 200}} (the mouse entering the views there: onHoverIn),
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
@@ -153,6 +156,23 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"key"] != nil) {
     [self pressKey:step[@"key"] modifiers:step[@"modifiers"] window:window];
     return 0.3;
+  }
+  if ([step[@"appKey"] isKindOfClass:[NSString class]]) {
+    [self postKey:step[@"appKey"] modifiers:step[@"modifiers"] window:window];
+    return 0.4;
+  }
+  if (step[@"menuKeys"] != nil) {
+    [self logMenuKeys:NSApp.mainMenu path:@""];
+    return 0.1;
+  }
+  if ([step[@"setPasteboard"] isKindOfClass:[NSString class]]) {
+    [NSPasteboard.generalPasteboard clearContents];
+    [NSPasteboard.generalPasteboard setString:step[@"setPasteboard"] forType:NSPasteboardTypeString];
+    return 0.1;
+  }
+  if (step[@"logPasteboard"] != nil) {
+    [self logPasteboard];
+    return 0.1;
   }
   if (step[@"scroll"] != nil) {
     [self scrollAt:[self windowPoint:step[@"scroll"] in:window] by:[step[@"scroll"][@"dy"] doubleValue] window:window];
@@ -361,35 +381,97 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   }
 }
 
-- (void)pressKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window
+/** The keys a script names: name → [characters, key code] (Events.h kVK_*). */
+static NSDictionary<NSString *, NSArray *> *GPQANamedKeys(void)
 {
-  static NSDictionary<NSString *, NSArray *> *special;
+  static NSDictionary<NSString *, NSArray *> *named;
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    // name → [characters, key code]
-    special = @{
-      @"ArrowUp" : @[ [NSString stringWithFormat:@"%C", (unichar)NSUpArrowFunctionKey], @126 ],
-      @"ArrowDown" : @[ [NSString stringWithFormat:@"%C", (unichar)NSDownArrowFunctionKey], @125 ],
-      @"ArrowLeft" : @[ [NSString stringWithFormat:@"%C", (unichar)NSLeftArrowFunctionKey], @123 ],
-      @"ArrowRight" : @[ [NSString stringWithFormat:@"%C", (unichar)NSRightArrowFunctionKey], @124 ],
-      @"Backspace" : @[ [NSString stringWithFormat:@"%C", (unichar)0x7F], @51 ],
-      @"Delete" : @[ [NSString stringWithFormat:@"%C", (unichar)NSDeleteFunctionKey], @117 ],
-      @"Escape" : @[ [NSString stringWithFormat:@"%C", (unichar)0x1B], @53 ],
+    NSString * (^text)(unichar) = ^(unichar character) {
+      return [NSString stringWithFormat:@"%C", character];
+    };
+    named = @{
+      @"ArrowUp" : @[ text(NSUpArrowFunctionKey), @126 ],
+      @"ArrowDown" : @[ text(NSDownArrowFunctionKey), @125 ],
+      @"ArrowLeft" : @[ text(NSLeftArrowFunctionKey), @123 ],
+      @"ArrowRight" : @[ text(NSRightArrowFunctionKey), @124 ],
+      @"Backspace" : @[ text(0x7F), @51 ],
+      @"Delete" : @[ text(NSDeleteFunctionKey), @117 ],
+      @"Escape" : @[ text(0x1B), @53 ],
       @"Enter" : @[ @"\r", @36 ],
       @"Tab" : @[ @"\t", @48 ],
+      @"Home" : @[ text(NSHomeFunctionKey), @115 ],
+      @"End" : @[ text(NSEndFunctionKey), @119 ],
+      @"F3" : @[ text(NSF3FunctionKey), @99 ],
+      @"F7" : @[ text(NSF7FunctionKey), @98 ],
     };
   });
-  NSArray *mapped = special[key];
-  // Shift writes a letter's capital, as a real key press reports it even in charactersIgnoringModifiers (so ⇧⌘Z finds
-  // the menu's Redo).
-  BOOL isShiftedLetter = mapped == nil && key.length == 1 && [modifiers containsObject:@"shift"];
-  NSString *characters = mapped != nil ? mapped[0] : (isShiftedLetter ? key.uppercaseString : key);
-  unsigned short keyCode = mapped != nil ? [mapped[1] unsignedShortValue] : 0;
+  return named;
+}
+
+/** The US layout's key codes (Events.h kVK_ANSI_*) of the keys a script names by their character. */
+static NSDictionary<NSString *, NSNumber *> *GPQACharacterKeyCodes(void)
+{
+  static NSDictionary<NSString *, NSNumber *> *codes;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    codes = @{
+      @"a" : @0, @"s" : @1, @"d" : @2, @"f" : @3, @"h" : @4, @"g" : @5, @"z" : @6, @"x" : @7, @"c" : @8, @"v" : @9,
+      @"b" : @11, @"q" : @12, @"w" : @13, @"e" : @14, @"r" : @15, @"y" : @16, @"t" : @17, @"1" : @18, @"2" : @19,
+      @"3" : @20, @"4" : @21, @"6" : @22, @"5" : @23, @"=" : @24, @"9" : @25, @"7" : @26, @"-" : @27, @"8" : @28,
+      @"0" : @29, @"]" : @30, @"o" : @31, @"u" : @32, @"[" : @33, @"i" : @34, @"p" : @35, @"l" : @37, @"j" : @38,
+      @"'" : @39, @"k" : @40, @";" : @41, @"\\" : @42, @"," : @43, @"/" : @44, @"n" : @45, @"m" : @46, @"." : @47,
+      @" " : @49, @"`" : @50,
+    };
+  });
+  return codes;
+}
+
+/** The CGEvent field AppKit reads a key event's window number from (not public: QA only). */
+static const CGEventField kGPQAWindowNumberField = (CGEventField)51;
+
+/**
+ * A key event made the way the window server makes one for this window: AppKit gives it the characters a real press
+ * types on the current keyboard layout (⇧⌘P: "p", ignoring modifiers "P"; ⌥C: "ç" / "c"), and the menus match it by
+ * its key code, as they match a typed key (an NSEvent made from characters alone misses shifted items such as ⇧⌘P).
+ */
+static NSEvent *GPQAKeyboardEvent(unsigned short keyCode, BOOL isDown, NSEventModifierFlags flags, NSWindow *window)
+{
+  CGEventRef cgEvent = CGEventCreateKeyboardEvent(NULL, keyCode, isDown);
+  CGEventSetFlags(cgEvent, (CGEventFlags)flags);
+  CGEventSetIntegerValueField(cgEvent, kGPQAWindowNumberField, window.windowNumber);
+  NSEvent *event = [NSEvent eventWithCGEvent:cgEvent];
+  CFRelease(cgEvent);
+  return event;
+}
+
+/** The function-key flags a real press of this key carries (arrows also the numeric pad's). */
+static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
+{
+  BOOL isArrow = keyCode >= 123 && keyCode <= 126;
+  BOOL isFunctionKey = keyCode == 99 || keyCode == 98 || keyCode == 115 || keyCode == 119 || keyCode == 117;
+  return isArrow ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : isFunctionKey ? NSEventModifierFlagFunction : 0;
+}
+
+- (NSEventModifierFlags)modifierFlags:(NSArray<NSString *> *)modifiers
+{
   NSEventModifierFlags flags = 0;
   flags |= [modifiers containsObject:@"cmd"] ? NSEventModifierFlagCommand : 0;
   flags |= [modifiers containsObject:@"shift"] ? NSEventModifierFlagShift : 0;
   flags |= [modifiers containsObject:@"alt"] ? NSEventModifierFlagOption : 0;
   flags |= [modifiers containsObject:@"ctrl"] ? NSEventModifierFlagControl : 0;
+  return flags;
+}
+
+- (void)pressKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window
+{
+  NSArray *mapped = GPQANamedKeys()[key];
+  // Shift writes a letter's capital, as a real key press reports it even in charactersIgnoringModifiers (so ⇧⌘Z finds
+  // the menu's Redo).
+  BOOL isShiftedLetter = mapped == nil && key.length == 1 && [modifiers containsObject:@"shift"];
+  NSString *characters = mapped != nil ? mapped[0] : (isShiftedLetter ? key.uppercaseString : key);
+  unsigned short keyCode = mapped != nil ? [mapped[1] unsignedShortValue] : 0;
+  NSEventModifierFlags flags = [self modifierFlags:modifiers];
   flags |= mapped != nil && keyCode >= 123 && keyCode <= 126 ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : 0;
   for (NSNumber *type in @[ @(NSEventTypeKeyDown), @(NSEventTypeKeyUp) ]) {
     NSEvent *event = [NSEvent keyEventWithType:(NSEventType)type.unsignedIntegerValue
@@ -412,6 +494,94 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   }
   [self log:[NSString stringWithFormat:@"key %@: active=%d key=%d firstResponder=%@", key, NSApp.isActive,
                                        NSApp.keyWindow == window, NSStringFromClass([window.firstResponder class])]];
+}
+
+/**
+ * A key press as the keyboard makes it (GPQAKeyboardEvent: the key's code, the text it types), dispatched by
+ * NSApplication — local monitors, the window's and the menu bar's key equivalents, then the first responder — so a
+ * menu item that takes the key takes it here too, which the `key` step (characters only, straight to the window when
+ * the app is not active) never showed. Queued as typed keys are while the app is active, sent through NSApp at once
+ * when it cannot be (a locked screen). The log names the menu item the press matches.
+ */
+- (void)postKey:(NSString *)key modifiers:(NSArray<NSString *> *)modifiers window:(NSWindow *)window
+{
+  NSArray *named = GPQANamedKeys()[key];
+  NSNumber *code = named != nil ? named[1] : GPQACharacterKeyCodes()[key.lowercaseString];
+  if (code == nil) {
+    [self log:[NSString stringWithFormat:@"appKey %@: no key code for it", key]];
+    return;
+  }
+  unsigned short keyCode = code.unsignedShortValue;
+  NSEventModifierFlags flags = [self modifierFlags:modifiers] | GPQAFunctionFlags(keyCode);
+  // The keyboard's path needs the app active with this window key; otherwise (a locked screen) NSApp dispatches the
+  // events at once, as it does a dequeued one: local monitors, key equivalents, then the window.
+  BOOL isKeyboardPath = NSApp.isActive && NSApp.keyWindow == window;
+  NSEvent *down = GPQAKeyboardEvent(keyCode, YES, flags, window);
+  NSMenuItem *item = [self menuItemForKey:down menu:NSApp.mainMenu];
+  if (item != nil) {
+    id target = [NSApp targetForAction:item.action to:item.target from:item];
+    [self log:[NSString stringWithFormat:@"appKey %@: matches the menu bar's \"%@\" (action %@, responder %@, enabled %d)", key, item.title,
+                                         NSStringFromSelector(item.action), target == nil ? @"none" : NSStringFromClass([target class]), item.isEnabled]];
+  }
+  for (NSEvent *event in @[ down, GPQAKeyboardEvent(keyCode, NO, flags, window) ]) {
+    if (isKeyboardPath) {
+      [NSApp postEvent:event atStart:NO];
+    } else {
+      [NSApp sendEvent:event];
+    }
+  }
+  [self log:[NSString stringWithFormat:@"appKey %@ %@ (code %d, \"%@\" ignoring modifiers \"%@\"): %@, active=%d key=%d main=%d firstResponder=%@", key,
+                                       [modifiers componentsJoinedByString:@"+"] ?: @"", keyCode, down.characters, down.charactersIgnoringModifiers,
+                                       isKeyboardPath ? @"queued" : @"sent through NSApp", NSApp.isActive, NSApp.keyWindow == window,
+                                       NSApp.mainWindow == window, NSStringFromClass([window.firstResponder class])]];
+}
+
+/** The menu bar's item whose key equivalent is this press (its character and ⌘ ⌥ ⇧ ⌃), or nil. */
+- (NSMenuItem *)menuItemForKey:(NSEvent *)event menu:(NSMenu *)menu
+{
+  NSEventModifierFlags relevant = NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagShift | NSEventModifierFlagControl;
+  for (NSMenuItem *item in menu.itemArray) {
+    NSMenuItem *found = item.submenu != nil ? [self menuItemForKey:event menu:item.submenu] : nil;
+    BOOL isUpper = item.keyEquivalent.length == 1 && ![item.keyEquivalent isEqualToString:item.keyEquivalent.lowercaseString];
+    NSEventModifierFlags mask = (item.keyEquivalentModifierMask | (isUpper ? NSEventModifierFlagShift : 0)) & relevant;
+    BOOL isMatch = item.keyEquivalent.length > 0 && [item.keyEquivalent.lowercaseString isEqualToString:event.charactersIgnoringModifiers.lowercaseString] &&
+                   mask == (event.modifierFlags & relevant);
+    if (found != nil || isMatch) {
+      return found ?: item;
+    }
+  }
+  return nil;
+}
+
+/** The menu bar's key equivalents: each item that has one, with its action, target and (as matched now) enabled state. */
+- (void)logMenuKeys:(NSMenu *)menu path:(NSString *)path
+{
+  for (NSMenuItem *item in menu.itemArray) {
+    NSString *itemPath = path.length == 0 ? item.title : [NSString stringWithFormat:@"%@ > %@", path, item.title];
+    if (item.submenu != nil) {
+      [self logMenuKeys:item.submenu path:itemPath];
+    } else if (item.keyEquivalent.length > 0) {
+      NSEventModifierFlags mask = item.keyEquivalentModifierMask;
+      unichar first = [item.keyEquivalent characterAtIndex:0];
+      NSString *keyName = first >= NSF1FunctionKey && first <= NSF35FunctionKey ? [NSString stringWithFormat:@"F%d", first - NSF1FunctionKey + 1]
+                          : first < 0x21                                       ? [NSString stringWithFormat:@"U+%04X", first]
+                                                                               : item.keyEquivalent;
+      NSString *keys = [NSString stringWithFormat:@"%@%@%@%@%@%@", (mask & NSEventModifierFlagFunction) ? @"fn " : @"", (mask & NSEventModifierFlagControl) ? @"⌃" : @"",
+                                                  (mask & NSEventModifierFlagOption) ? @"⌥" : @"", (mask & NSEventModifierFlagShift) ? @"⇧" : @"",
+                                                  (mask & NSEventModifierFlagCommand) ? @"⌘" : @"", keyName];
+      [self log:[NSString stringWithFormat:@"menuKey %@  %@  action=%@ target=%@%@", keys, itemPath, NSStringFromSelector(item.action),
+                                           item.target == nil ? @"nil" : NSStringFromClass([item.target class]), item.isEnabled ? @"" : @" (off)"]];
+    }
+  }
+}
+
+/** The general pasteboard's types and plain text (the beats' summary after a copy). */
+- (void)logPasteboard
+{
+  NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+  NSString *text = [pasteboard stringForType:NSPasteboardTypeString] ?: @"";
+  NSString *shown = text.length > 120 ? [[text substringToIndex:120] stringByAppendingString:@"…"] : text;
+  [self log:[NSString stringWithFormat:@"pasteboard: types=%@ text=\"%@\"", [pasteboard.types componentsJoinedByString:@", "], shown]];
 }
 
 - (void)scrollAt:(NSPoint)location by:(double)deltaY window:(NSWindow *)window
