@@ -53,6 +53,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     togglePanel: jest.fn(),
     toggleLoop: jest.fn(),
     toggleFocus: jest.fn(),
+    toggleDrumKey: jest.fn(),
     togglePreviewOnHover: jest.fn(),
   };
 }
@@ -261,6 +262,20 @@ describe('command registry: running', () => {
     // Assert
     expect(row).toMatchObject({ title: 'Expression Text…', group: 'Tools', shortcut: '⌥⌘E' });
     expect(actions.openExpressionText).toHaveBeenCalled();
+  });
+
+  it('shows or hides View ▸ Drum Key, found by its drums', () => {
+    // Arrange
+    const actions = mockActions();
+    const row = find('view.drumKey');
+
+    // Act
+    row.run(actions);
+
+    // Assert
+    expect(row).toMatchObject({ title: 'Drum Key', group: 'View' });
+    expect(row.keywords).toEqual(expect.arrayContaining(['drums', 'legend', 'noteheads']));
+    expect(actions.toggleDrumKey).toHaveBeenCalled();
   });
 
   it('runs the practice keys, View ▸ Focus and the hover preview', () => {

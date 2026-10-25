@@ -5,6 +5,7 @@ import { AudioExportPanel } from './components/AudioExportPanel';
 import { ChromeMenu } from './components/chrome/ChromeMenu';
 import { CommandPalette } from './components/CommandPalette';
 import { DocumentLayout } from './components/DocumentLayout';
+import { DrumKeyPanel } from './components/drum-key/DrumKeyPanel';
 import { EmptyState } from './components/EmptyState';
 import { ExportPanel } from './components/ExportPanel';
 import { HintBar } from './components/HintBar';
@@ -45,6 +46,7 @@ import { useClipboard } from './hooks/use-clipboard';
 import { commandStateOf, useCommandPalette, useTransposePanel } from './hooks/use-command-palette';
 import { useDocument } from './hooks/use-document';
 import { useDraftPreview } from './hooks/use-draft-preview';
+import { useDrumKey } from './hooks/use-drum-key';
 import { useEditMenu } from './hooks/use-edit-menu';
 import { useEditorCommands } from './hooks/use-editor-commands';
 import { useLyricsEditor } from './hooks/use-lyrics-editor';
@@ -171,6 +173,7 @@ export default function App() {
   const focusScore = useCallback(() => focusView(keyboardView.current), []);
   const transposePanel = useTransposePanel(document !== undefined);
   const commandPalette = useCommandPalette(focusScore);
+  const drumKey = useDrumKey(focusScore); // View ▸ Drum Key: how the cursor's drum track writes its drums.
   const { isOpen: isTransposeOpen, close: closeTranspose } = transposePanel;
   // File ▸ Stylesheet… (F7), View ▸ Design Mode, View ▸ Reset Positions.
   const scoreDesign = useScoreDesign(document !== undefined, dispatch, focusScore);
@@ -193,7 +196,7 @@ export default function App() {
       // Settings first: it is over every other panel.
       [isSettingsOpen, closeSettings], [isTunerOpen, closeTuner], [isSongWriterOpen, closeSongWriter], [isImportPanelOpen, () => setIsImportPanelOpen(false)], [isExportPanelOpen, closeExportPanel],
       [isAudioExportOpen, closeAudioExport], [isRecentFilesOpen, closeRecentFiles], [isLyricsOpen, closeLyricsPanel], [isScalesOpen, closeScales], [isTransposeOpen, closeTranspose],
-      [isStylesheetOpen, closeStylesheet], [isCommandPaletteOpen, closeCommandPalette], [isLineInOpen, closeLineIn], [isTrackPanelOpen, closeTrackPanel],
+      [isStylesheetOpen, closeStylesheet], [isCommandPaletteOpen, closeCommandPalette], [isLineInOpen, closeLineIn], [drumKey.isOpen, drumKey.close], [isTrackPanelOpen, closeTrackPanel],
     ],
     focusScore,
   );
@@ -202,7 +205,7 @@ export default function App() {
   // While anything is over the score, typing goes to it (or nowhere), not to the score.
   const isOverlayOpen =
     tabs.closing !== undefined || isSongWriterOpen || isImportPanelOpen || isExportPanelOpen || isAudioExportOpen || isRecentFilesOpen || chrome.notePanel !== undefined || chrome.isChordPanelOpen ||
-    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen || isStylesheetOpen || isSettingsOpen;
+    chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined || isTunerOpen || isLyricsOpen || isScalesOpen || isTransposeOpen || isCommandPaletteOpen || isTrackPanelOpen || isStylesheetOpen || isSettingsOpen || drumKey.isOpen;
   // B / C and the palette's vibrato, bend and W.bar open a panel for the note at the cursor; on an empty string a hint says
   // to type a fret first. The keyboard goes back to the score, so Esc closes the panel.
   const openNotePanel = useCallback(
@@ -398,6 +401,7 @@ export default function App() {
     togglePanel: chrome.togglePanel,
     toggleLoop: () => playback.changePractice({ type: 'toggleLoop', ...loopScope }),
     toggleFocus: chrome.toggleFocus,
+    toggleDrumKey: drumKey.toggle,
     togglePreviewOnHover: () => playback.changePractice({ type: 'togglePreviewOnHover' }),
   };
   const transposeTo = (draft: TranspositionDraft) => {
@@ -605,6 +609,7 @@ export default function App() {
                 midiInput={midiInput}
                 note={cursorNote}
                 onEditNote={editAtCursor}
+                drumKey={drumKey}
               />
             ) : null
           }
@@ -621,6 +626,7 @@ export default function App() {
                 scale={scales.highlight}
                 onDrumHit={hitDrum}
                 onHoverPitch={previewPitch}
+                drumKey={drumKey}
               />
               {chrome.panels.tracks ? (
                 <TracksPanel
@@ -744,6 +750,7 @@ export default function App() {
       {audio.lineIn.isOpen && song !== undefined ? (
         <LineInPanel palette={palette} lineIn={audio.lineIn} trackLabel={`${audio.lineIn.trackIndex + 1}. ${song.tracks[audio.lineIn.trackIndex]?.name ?? ''}`} />
       ) : null}
+      {drumKey.isOpen && song !== undefined ? <DrumKeyPanel palette={palette} song={song} trackIndex={trackIndex} drumKey={drumKey} /> : null}
       {isTunerOpen ? (
         <TunerPanel
           palette={palette}

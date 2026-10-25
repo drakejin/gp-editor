@@ -212,6 +212,10 @@ struct GPEditorApp: App {
         Button(strings("Mixer")) {
           NotificationCenter.default.post(name: .GPEditorMixerCommand, object: nil)
         }
+        // How the drum track at the cursor writes its drums: a key over the score (GPFiles.m forwards it).
+        Button(strings("Drum Key")) {
+          NotificationCenter.default.post(name: .GPEditorDrumKeyCommand, object: nil)
+        }
       }
       // The GP Editor menu (one group: a commands builder takes at most ten).
       Group {

@@ -109,6 +109,9 @@ FOUNDATION_EXPORT NSString *const GPEditorNextTrackCommandNotification;
 /** View ▸ Mixer was chosen; GPPlayer.m forwards it to JS as "mixerRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMixerCommandNotification;
 
+/** View ▸ Drum Key was chosen; GPFiles.m forwards it to JS as "drumKeyRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorDrumKeyCommandNotification;
+
 /** Tools ▸ Line In… was chosen; GPPlayer.m forwards it to JS as "lineInRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorLineInCommandNotification;
 

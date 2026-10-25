@@ -136,6 +136,22 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Guitar Pro 3–5 files hold no drum-kit setting')?.props.isEnabled).toBe(false);
     expect(inspector.button('Capo one fret higher')).toBeUndefined();
   });
+
+  it('shows or hides the drum key from a drum track’s notation, not a guitar’s', () => {
+    // Arrange
+    const drums: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })), channels: [{ ...GUITAR, isPercussion: true }] };
+    const drumKey = { isOpen: true, toggle: jest.fn() };
+    const tooltip = "How this track's drums are written on the staff (View ▸ Drum Key)";
+
+    // Act
+    const inspector = render({ song: drums, drumKey });
+    inspector.press(tooltip);
+
+    // Assert
+    expect(inspector.button(tooltip)?.props).toMatchObject({ label: 'Drum Key', isActive: true });
+    expect(drumKey.toggle).toHaveBeenCalled();
+    expect(render({ drumKey }).button(tooltip)).toBeUndefined();
+  });
 });
 
 describe('Inspector SONG tab', () => {

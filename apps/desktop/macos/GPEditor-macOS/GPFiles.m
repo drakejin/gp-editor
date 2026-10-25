@@ -46,6 +46,7 @@ static NSString *const kExportAudioRequestedEvent = @"exportAudioRequested";
 static NSString *const kTransposeRequestedEvent = @"transposeRequested";
 static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
 static NSString *const kMultitrackRequestedEvent = @"multitrackRequested";
+static NSString *const kDrumKeyRequestedEvent = @"drumKeyRequested";
 static NSString *const kPreviousTrackRequestedEvent = @"previousTrackRequested";
 static NSString *const kNextTrackRequestedEvent = @"nextTrackRequested";
 
@@ -215,6 +216,7 @@ RCT_EXPORT_MODULE();
     [center addObserver:self selector:@selector(onMultitrackCommand:) name:GPEditorMultitrackCommandNotification object:nil];
     [center addObserver:self selector:@selector(onPreviousTrackCommand:) name:GPEditorPreviousTrackCommandNotification object:nil];
     [center addObserver:self selector:@selector(onNextTrackCommand:) name:GPEditorNextTrackCommandNotification object:nil];
+    [center addObserver:self selector:@selector(onDrumKeyCommand:) name:GPEditorDrumKeyCommandNotification object:nil];
   }
   return self;
 }
@@ -232,7 +234,7 @@ RCT_EXPORT_MODULE();
     kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
     kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent, kExportAudioRequestedEvent,
     kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent, kUndoRequestedEvent, kRedoRequestedEvent,
-    kMultitrackRequestedEvent, kPreviousTrackRequestedEvent, kNextTrackRequestedEvent
+    kMultitrackRequestedEvent, kPreviousTrackRequestedEvent, kNextTrackRequestedEvent, kDrumKeyRequestedEvent
   ];
 }
 
@@ -289,6 +291,14 @@ RCT_EXPORT_MODULE();
 {
   if (hasListeners) {
     [self sendEventWithName:kHelpRequestedEvent body:@{}];
+  }
+}
+
+/** View ▸ Drum Key. */
+- (void)onDrumKeyCommand:(NSNotification *)note
+{
+  if (hasListeners) {
+    [self sendEventWithName:kDrumKeyRequestedEvent body:@{}];
   }
 }
 

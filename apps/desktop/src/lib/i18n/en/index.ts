@@ -1,5 +1,6 @@
 import { EN_COMMANDS } from './commands';
 import { EN_COMMON } from './common';
+import { EN_DRUMS } from './drums';
 import { EN_INSTRUMENTS } from './instruments';
 import { EN_PALETTE } from './palette';
 import { EN_SETTINGS } from './settings';
@@ -20,6 +21,7 @@ export const EN = {
   ...EN_TOOLS,
   ...EN_INSTRUMENTS,
   ...EN_STYLESHEET,
+  ...EN_DRUMS,
 } as const;
 
 export type MessageKey = keyof typeof EN;
@@ -34,4 +36,5 @@ export const EN_FILES = {
   tools: EN_TOOLS,
   instruments: EN_INSTRUMENTS,
   stylesheet: EN_STYLESHEET,
+  drums: EN_DRUMS,
 } as const;

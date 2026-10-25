@@ -68,6 +68,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.view.focus': '집중 모드 켜기 / 끄기',
   'commands.title.view.designMode': '디자인 모드',
   'commands.title.view.resetPositions': '위치 초기화',
+  'commands.title.view.drumKey': '드럼 표기',
 
   'commands.title.tools.tuner': '튜너…',
   'commands.title.tools.scales': '스케일…',

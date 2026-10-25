@@ -265,6 +265,15 @@ export function subscribeFocusRequests(onFocusRequested: () => void): () => void
   return () => subscription.remove();
 }
 
+/** View ▸ Drum Key: the drum key over the score, shown or hidden. */
+export function subscribeDrumKeyRequests(onDrumKeyRequested: () => void): () => void {
+  if (native === undefined) {
+    return () => undefined;
+  }
+  const subscription = new NativeEventEmitter(NativeModules.GPFiles).addListener('drumKeyRequested', onDrumKeyRequested);
+  return () => subscription.remove();
+}
+
 export interface TrackViewEventHandlers {
   /** View ▸ Multitrack (F3). */
   readonly onMultitrackRequested: () => void;
