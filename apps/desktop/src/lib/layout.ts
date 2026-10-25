@@ -30,6 +30,7 @@ const JUSTIFY_THRESHOLD = 0.75;
 /** The closest beats are moved together to fit a line (squeezeRow, a fixed system), as a share of their natural distance. */
 export const MIN_SQUEEZE = 0.25;
 
+/** A placed beat. `placedBeat` copies its fields by name when a line is stretched or squeezed: a new one goes there too. */
 export interface BeatLayout {
   readonly beatIndex: number;
   /** Centre of the beat, relative to the measure's left edge. */
@@ -214,7 +215,15 @@ function squeezeMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
  * (the beats' span it is squeezed for) loses; the room before its first beat and after its last keeps its size.
  */
 export function compressMeasure(measure: MeasureLayout, anchor: number, spread: number, scale: number): MeasureLayout {
-  return { ...measure, width: measure.width - spread * (1 - scale), beats: measure.beats.map((beat) => ({ ...beat, x: anchor + (beat.x - anchor) * scale })) };
+  return { ...measure, width: measure.width - spread * (1 - scale), beats: measure.beats.map((beat) => placedBeat(beat, anchor + (beat.x - anchor) * scale)) };
+}
+
+/**
+ * The beat at `x`. A literal, not a spread: every beat of every staff is placed again on each edit (the systems are
+ * stretched anew), and an object spread — Object.assign once compiled — costs about three times as much in Hermes.
+ */
+function placedBeat(beat: BeatLayout, x: number): BeatLayout {
+  return { beatIndex: beat.beatIndex, x };
 }
 
 function justify(row: readonly MeasureLayout[], availableWidth: number, isLastRow: boolean): readonly MeasureLayout[] {
@@ -233,5 +242,5 @@ export function justifyScale(row: readonly MeasureLayout[], availableWidth: numb
 
 /** The measure stretched by `scale`; prefix glyphs keep their size, only the beat area stretches. */
 export function stretchMeasure(measure: MeasureLayout, scale: number): MeasureLayout {
-  return { ...measure, width: measure.width * scale, beats: measure.beats.map((beat) => ({ ...beat, x: beat.x * scale })) };
+  return { ...measure, width: measure.width * scale, beats: measure.beats.map((beat) => placedBeat(beat, beat.x * scale)) };
 }
