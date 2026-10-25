@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { deleteMeasure, insertMeasure } from '../src/edit/measures';
+import { buildAudioTrack } from '../src/audio-track/audio-track';
+import { setAudioTrack } from '../src/edit/audio-track';
+import { setNoteFret } from '../src/edit/edit-song';
+import { deleteMeasure, deleteMeasures, fillEmptyMeasure, insertMeasure } from '../src/edit/measures';
 import type { Song } from '../src/model/song';
 import { SONG_START, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
 import { fromTux } from './helpers/ticks';
@@ -125,5 +128,82 @@ describe('deleteMeasure', () => {
     const song = makeSong();
     expect(deleteMeasure(song, 3)).toBe(song);
     expect(deleteMeasure(song, -1)).toBe(song);
+  });
+});
+
+describe('deleteMeasures', () => {
+  it('removes a run of measures from every track in one edit, either order', () => {
+    // Arrange
+    const song = deepFreeze(buildSong({ tempos: [100, 110, 120, 130], tracks: [[[[play(1, n(1, 1))]], [[play(1, n(1, 2))]], [[play(1, n(1, 3))]], [[play(1, n(1, 4))]]]] }));
+
+    // Act
+    const edited = deleteMeasures(song, 2, 1);
+
+    // Assert
+    expect(edited.measureHeaders.map((header) => [header.number, header.start, header.tempo])).toEqual([
+      [1, SONG_START, 100],
+      [2, SONG_START + WHOLE, 130],
+    ]);
+    expect(voiceLayout(edited, 0, 1, 0)).toEqual(['0:1:1/4']);
+    expect(deleteMeasures(song, 1, 2)).toEqual(edited);
+    assertEditInvariants(edited);
+  });
+
+  it('keeps the sync points of the bars left, those after the run moved back', () => {
+    const song = setAudioTrack(makeSong(), buildAudioTrack({ assetId: 'take', syncPoints: [0, 1, 2].map((measureIndex) => ({ measureIndex, occurrence: 0, position: 0, seconds: measureIndex * 2 })) }));
+    expect(deleteMeasures(song, 0, 1).audioTrack?.syncPoints).toEqual([{ measureIndex: 0, occurrence: 0, position: 0, seconds: 4 }]);
+  });
+
+  it('refuses to delete every measure, or a run past the song', () => {
+    const song = makeSong();
+    expect(deleteMeasures(song, 0, 2)).toBe(song);
+    expect(deleteMeasures(song, 1, 3)).toBe(song);
+    expect(deleteMeasures(song, -1, 0)).toBe(song);
+    expect(deleteMeasures(song, 0.5, 1)).toBe(song);
+  });
+});
+
+describe('fillEmptyMeasure', () => {
+  /** Bar 2 of track 1 holds no beats (the track rests there), as many files leave it. */
+  function withEmptyBar(): Song {
+    const song = makeSong();
+    const track = song.tracks[0]!;
+    const measures = track.measures.map((measure, index) => (index === 1 ? { ...measure, beats: [], pedals: [{ offset: 0, action: 'down' as const }] } : measure));
+    return deepFreeze({ ...song, tracks: [{ ...track, measures }, song.tracks[1]!] });
+  }
+
+  it('fills a measure without beats with rests to the bar line in its first voice, keeping its marks', () => {
+    // Arrange
+    const song = withEmptyBar();
+
+    // Act
+    const filled = fillEmptyMeasure(song, 0, 1);
+
+    // Assert
+    expect(voiceLayout(filled, 0, 1, 0)).toEqual(['0:1:r']);
+    expect(filled.tracks[0]?.measures[1]?.beats[0]?.voices).toHaveLength(2);
+    expect(filled.tracks[0]?.measures[1]?.pedals).toEqual([{ offset: 0, action: 'down' }]);
+    expect(filled.tracks[0]?.measures[0]).toBe(song.tracks[0]?.measures[0]);
+    expect(filled.tracks[1]).toBe(song.tracks[1]);
+    assertEditInvariants(filled);
+  });
+
+  it('fills other time signatures with the fewest rests', () => {
+    const fiveFour = deepFreeze(buildSong({ timeSignatures: [{ numerator: 5, denominator: 4 }], tracks: [[[]]] }));
+    expect(voiceLayout(fillEmptyMeasure(fiveFour, 0, 0), 0, 0, 0)).toEqual(['0:1:r', '3840:4:r']);
+  });
+
+  it('returns the same song for a measure with beats or one that does not exist', () => {
+    const song = withEmptyBar();
+    expect(fillEmptyMeasure(song, 0, 0)).toBe(song);
+    expect(fillEmptyMeasure(song, 0, 3)).toBe(song);
+    expect(fillEmptyMeasure(song, 2, 1)).toBe(song);
+  });
+
+  it('lets a fret typed into a bar without beats become the bar’s first beat', () => {
+    const song = withEmptyBar();
+    const typed = setNoteFret(fillEmptyMeasure(song, 0, 1), { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 2 }, 5);
+    expect(voiceLayout(typed, 0, 1, 0)).toEqual(['0:1:2/5']);
+    expect(setNoteFret(song, { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 2 }, 5)).toBe(song);
   });
 });
