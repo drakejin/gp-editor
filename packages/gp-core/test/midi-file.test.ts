@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderMidi } from '../src/index';
-import { utf8Bytes, variableLength } from '../src/midi/midi-bytes';
+import { variableLength } from '../src/midi/midi-bytes';
 import { writeMidiFile } from '../src/midi/midi-file';
 import { eventsOf, readMidi } from './helpers/midi-reader';
 import { makeSong, note } from './helpers/midi-song';
@@ -23,24 +23,6 @@ describe('variableLength', () => {
 
     // Assert
     expect(bytes).toEqual(expected);
-  });
-});
-
-describe('utf8Bytes', () => {
-  it('encodes ASCII, two-, three- and four-byte characters', () => {
-    // Act
-    const bytes = utf8Bytes('Aé기🎸');
-
-    // Assert
-    expect(bytes).toEqual([0x41, 0xc3, 0xa9, 0xea, 0xb8, 0xb0, 0xf0, 0x9f, 0x8e, 0xb8]);
-  });
-
-  it('replaces a lone surrogate with U+FFFD', () => {
-    // Act
-    const bytes = utf8Bytes('\ud800x');
-
-    // Assert
-    expect(bytes).toEqual([0xef, 0xbf, 0xbd, 0x78]);
   });
 });
 

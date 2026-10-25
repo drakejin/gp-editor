@@ -1,6 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiSequenceHandlerImpl and MidiMessageUtils (LGPL-2.1): events → bytes.
+import { encodeUtf8 } from '../io/text';
 import type { ChannelRoute } from './channel-routes';
-import { utf8Bytes, variableLength } from './midi-bytes';
+import { variableLength } from './midi-bytes';
 import type { SequenceEvent } from './midi-events';
 import type { MidiMessage } from './midi-file';
 import { toMidiTick } from './midi-ticks';
@@ -46,7 +47,7 @@ function addEncoded(messages: MidiMessage[], tick: number, event: SequenceEvent,
       messages.push({ tick, data: timeSignatureData(event.numerator, event.denominator) });
       return;
     case 'trackName':
-      messages.push({ tick, data: meta(META_TYPE.TRACK_NAME, utf8Bytes(event.name)) });
+      messages.push({ tick, data: meta(META_TYPE.TRACK_NAME, Array.from(encodeUtf8(event.name))) });
       return;
     default:
       addChannelEvent(messages, tick, event, routes);
