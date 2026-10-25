@@ -19,8 +19,13 @@ using namespace facebook::react;
 @property (nonatomic, copy) NSArray<NSDictionary *> *commands;
 @end
 
+/** A drawing that left a text out (no font) is drawn again this much later, at most kMaxRedraws times per command list. */
+static const NSTimeInterval kRedrawDelay = 0.25;
+static const NSInteger kMaxRedraws = 4;
+
 @implementation GPScoreCanvasDrawingView {
   GPCommandPainter *_painter;
+  NSInteger _redraws;
 }
 
 - (BOOL)isFlipped
@@ -36,6 +41,7 @@ using namespace facebook::react;
 - (void)setCommands:(NSArray<NSDictionary *> *)commands
 {
   _commands = [commands copy];
+  _redraws = 0;
   [self setNeedsDisplay:YES];
 }
 
@@ -44,7 +50,22 @@ using namespace facebook::react;
   if (_painter == nil) {
     _painter = [GPCommandPainter new];
   }
-  [_painter drawCommands:self.commands];
+  if (![_painter drawCommands:self.commands]) {
+    [self redrawLater];
+  }
+}
+
+/** AppKit made no font for a text this time: draw again a moment later, so the text shows once a font is made. */
+- (void)redrawLater
+{
+  if (_redraws >= kMaxRedraws) {
+    return;
+  }
+  _redraws += 1;
+  __weak GPScoreCanvasDrawingView *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRedrawDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [weakSelf setNeedsDisplay:YES];
+  });
 }
 
 @end

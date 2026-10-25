@@ -1,6 +1,7 @@
 #import "GPCommandPainter.h"
 
 #import <CoreText/CoreText.h>
+#import <os/log.h>
 
 static NSString *const kMusicFontName = @"Bravura";
 /** The most texts' attributes and widths kept; past it both caches start again empty (a width is kept by its attributes). */
@@ -48,9 +49,10 @@ static const NSUInteger kMaxCachedTexts = 4096;
   return color;
 }
 
-- (void)drawCommands:(NSArray<NSDictionary *> *)commands
+- (BOOL)drawCommands:(NSArray<NSDictionary *> *)commands
 {
   CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+  BOOL isComplete = YES;
   for (NSDictionary *command in commands) {
     NSString *kind = command[@"kind"];
     if ([kind isEqualToString:@"line"]) {
@@ -60,13 +62,14 @@ static const NSUInteger kMaxCachedTexts = 4096;
     } else if ([kind isEqualToString:@"circle"]) {
       [self drawCircle:command in:context];
     } else if ([kind isEqualToString:@"text"]) {
-      [self drawText:command];
+      isComplete = [self drawText:command] && isComplete;
     } else if ([kind isEqualToString:@"curve"]) {
       [self drawCurve:command in:context];
     } else if ([kind isEqualToString:@"polygon"]) {
       [self drawPolygon:command in:context];
     }
   }
+  return isComplete;
 }
 
 - (void)drawLine:(NSDictionary *)c in:(CGContextRef)context
@@ -195,9 +198,9 @@ static const NSUInteger kMaxCachedTexts = 4096;
 
 /**
  * The text's font and colour, kept by the command's font, size (to the bit: sizes a hair apart draw apart), bold,
- * italic, family and colour.
+ * italic, family and colour; nil — and nothing kept — when AppKit makes no font for it.
  */
-- (NSDictionary *)attributesFor:(NSDictionary *)c
+- (nullable NSDictionary *)attributesFor:(NSDictionary *)c
 {
   if (_textAttributes == nil || _textAttributes.count >= kMaxCachedTexts) {
     _textAttributes = [NSMutableDictionary dictionary];
@@ -205,10 +208,17 @@ static const NSUInteger kMaxCachedTexts = 4096;
   }
   NSString *key = [NSString stringWithFormat:@"%@|%a|%@|%@|%@|%@", c[@"font"], [c[@"size"] doubleValue], c[@"bold"], c[@"italic"], c[@"family"], c[@"color"]];
   NSDictionary *attributes = _textAttributes[key];
-  if (attributes == nil) {
-    attributes = @{NSFontAttributeName : [self fontFor:c], NSForegroundColorAttributeName : [self color:c[@"color"]]};
-    _textAttributes[key] = attributes;
+  if (attributes != nil) {
+    return attributes;
   }
+  NSFont *font = [self fontFor:c];
+  if (font == nil) {
+    os_log_error(OS_LOG_DEFAULT, "GPCommandPainter: no font for a %{public}@ text, size %g, family %{public}@, bold %{public}@, italic %{public}@",
+                 c[@"font"], [c[@"size"] doubleValue], c[@"family"], c[@"bold"], c[@"italic"]);
+    return nil;
+  }
+  attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
+  _textAttributes[key] = attributes;
   return attributes;
 }
 
@@ -227,11 +237,17 @@ static const NSUInteger kMaxCachedTexts = 4096;
   return width.doubleValue;
 }
 
-/** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. A left-aligned text is not measured. */
-- (void)drawText:(NSDictionary *)c
+/**
+ * Music text sits on its baseline (SMuFL); UI text is centred vertically on y. A left-aligned text is not measured. NO
+ * when it is left out: no font.
+ */
+- (BOOL)drawText:(NSDictionary *)c
 {
   NSString *family = c[@"font"];
   NSDictionary *attributes = [self attributesFor:c];
+  if (attributes == nil) {
+    return NO;
+  }
   NSFont *font = attributes[NSFontAttributeName];
   NSString *text = c[@"text"];
   NSString *align = c[@"align"];
@@ -242,6 +258,7 @@ static const NSUInteger kMaxCachedTexts = 4096;
   CGFloat y = [c[@"y"] doubleValue];
   CGFloat top = [family isEqualToString:@"music"] ? y - font.ascender : y - (font.ascender - font.descender) / 2;
   [text drawAtPoint:NSMakePoint(x, top) withAttributes:attributes];
+  return YES;
 }
 
 @end

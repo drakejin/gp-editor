@@ -15,8 +15,12 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, copy, nullable) NSString *eraseColor;
 
-/** Draws the commands, in order, into NSGraphicsContext.currentContext (flipped). */
-- (void)drawCommands:(NSArray<NSDictionary *> *)commands;
+/**
+ * Draws the commands, in order, into NSGraphicsContext.currentContext (flipped). NO when a text was left out because
+ * AppKit made no font for it (it happened once, 2026-10-25: an exception then, which AppKit turns into a crash inside
+ * -drawRect:); drawing the commands again later draws it.
+ */
+- (BOOL)drawCommands:(NSArray<NSDictionary *> *)commands;
 
 @end
 
