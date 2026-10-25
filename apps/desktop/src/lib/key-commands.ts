@@ -167,6 +167,62 @@ function practiceKey(key: string): KeyCommand | undefined {
   return practice === undefined ? undefined : { type: 'togglePractice', practice };
 }
 
+const isUpDown = (key: string): boolean => key === 'ArrowUp' || key === 'ArrowDown';
+const isLeftRight = (key: string): boolean => key === 'ArrowLeft' || key === 'ArrowRight';
+
+/** ⌘ presses: undo / redo, zoom, the track, the clipboard, the voice; nothing else answers ⌘. */
+function metaKeyCommand(key: string, shiftKey: boolean): KeyCommand | undefined {
+  if (key.toLowerCase() === 'z') {
+    return shiftKey ? { type: 'redo' } : { type: 'undo' };
+  }
+  if (key === '=' || key === '-') {
+    return { type: 'zoom', direction: key === '=' ? 1 : -1 };
+  }
+  if (isUpDown(key)) {
+    return { type: 'moveCursorTrack', step: key === 'ArrowUp' ? -1 : 1 };
+  }
+  return CLIPBOARD_KEYS[key.toLowerCase()] ?? VOICE_KEYS[key];
+}
+
+/** What only ⌥ makes of a key: the duration steps, the inner triplet, the practice toggles, Move Voice, bar jumps. */
+function altKeyCommand(key: string): KeyCommand | undefined {
+  if (key === '[' || key === ']') {
+    return { type: 'edit', edit: { type: 'shiftNoteValue', step: key === '[' ? -1 : 1 } };
+  }
+  if (key === '/') {
+    return { type: 'edit', edit: { type: 'toggleInnerTriplet' } };
+  }
+  const command = practiceKey(key) ?? MOVE_VOICE_KEYS[key];
+  if (command !== undefined) {
+    return command;
+  }
+  return isLeftRight(key) ? { type: 'goToBar', jump: key === 'ArrowLeft' ? 'previous' : 'next' } : undefined;
+}
+
+/** What only ⇧ makes of a key: beats selected, the beat deleted. */
+function shiftKeyCommand(key: string): KeyCommand | undefined {
+  if (isLeftRight(key)) {
+    return { type: 'extendSelection', step: key === 'ArrowLeft' ? -1 : 1 };
+  }
+  return key === 'Backspace' ? { type: 'edit', edit: { type: 'deleteBeat' } } : undefined;
+}
+
+/** A letter or punctuation key (any modifier but ⌘): an edit at the cursor, a note panel, the chord panel, a sync point. */
+function letterKeyCommand(key: string): KeyCommand | undefined {
+  const edit = EDIT_KEYS[key.length === 1 ? key.toLowerCase() : key];
+  if (edit !== undefined) {
+    return { type: 'edit', edit };
+  }
+  const panel = PANEL_KEYS[key.toLowerCase()];
+  if (panel !== undefined) {
+    return { type: 'openNotePanel', panel };
+  }
+  if (key.toLowerCase() === CHORD_PANEL_KEY) {
+    return { type: 'openChordPanel' };
+  }
+  return key.toLowerCase() === SYNC_POINT_KEY ? { type: 'markSyncPoint' } : undefined;
+}
+
 /**
  * The editor's keys: arrows move the cursor (↑/↓ between strings — on into the next shown track in the multitrack view —,
  * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
@@ -179,60 +235,21 @@ function practiceKey(key: string): KeyCommand | undefined {
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */
 export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
-  if (press.metaKey && press.key.toLowerCase() === 'z') {
-    return press.shiftKey ? { type: 'redo' } : { type: 'undo' };
-  }
-  if (press.metaKey && (press.key === '=' || press.key === '-')) {
-    return { type: 'zoom', direction: press.key === '=' ? 1 : -1 };
-  }
-  if (press.metaKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
-    return { type: 'moveCursorTrack', step: press.key === 'ArrowUp' ? -1 : 1 };
-  }
+  const { key, altKey, shiftKey } = press;
   if (press.metaKey) {
-    return CLIPBOARD_KEYS[press.key.toLowerCase()] ?? VOICE_KEYS[press.key];
+    return metaKeyCommand(key, shiftKey);
   }
-  if (press.altKey && (press.key === '[' || press.key === ']')) {
-    return { type: 'edit', edit: { type: 'shiftNoteValue', step: press.key === '[' ? -1 : 1 } };
+  const command = (altKey ? altKeyCommand(key) : undefined) ?? (shiftKey ? shiftKeyCommand(key) : undefined) ?? letterKeyCommand(key);
+  if (command !== undefined) {
+    return command;
   }
-  if (press.altKey && press.key === '/') {
-    return { type: 'edit', edit: { type: 'toggleInnerTriplet' } };
+  if (altKey && isUpDown(key)) {
+    return { type: 'shiftNoteString', delta: key === 'ArrowUp' ? -1 : 1 };
   }
-  if (press.altKey) {
-    const command = practiceKey(press.key) ?? MOVE_VOICE_KEYS[press.key];
-    if (command !== undefined) {
-      return command;
-    }
-  }
-  if (press.altKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
-    return { type: 'goToBar', jump: press.key === 'ArrowLeft' ? 'previous' : 'next' };
-  }
-  if (press.shiftKey && (press.key === 'ArrowLeft' || press.key === 'ArrowRight')) {
-    return { type: 'extendSelection', step: press.key === 'ArrowLeft' ? -1 : 1 };
-  }
-  if (press.shiftKey && press.key === 'Backspace') {
-    return { type: 'edit', edit: { type: 'deleteBeat' } };
-  }
-  const edit = EDIT_KEYS[press.key.length === 1 ? press.key.toLowerCase() : press.key];
-  if (edit !== undefined) {
-    return { type: 'edit', edit };
-  }
-  const panel = PANEL_KEYS[press.key.toLowerCase()];
-  if (panel !== undefined) {
-    return { type: 'openNotePanel', panel };
-  }
-  if (press.key.toLowerCase() === CHORD_PANEL_KEY) {
-    return { type: 'openChordPanel' };
-  }
-  if (press.key.toLowerCase() === SYNC_POINT_KEY) {
-    return { type: 'markSyncPoint' };
-  }
-  if (press.altKey && (press.key === 'ArrowUp' || press.key === 'ArrowDown')) {
-    return { type: 'shiftNoteString', delta: press.key === 'ArrowUp' ? -1 : 1 };
-  }
-  if (DIGITS.includes(press.key)) {
-    const entry = nextFretEntry(lastDigit.current, Number(press.key), now);
+  if (DIGITS.includes(key)) {
+    const entry = nextFretEntry(lastDigit.current, Number(key), now);
     lastDigit.current = entry;
     return { type: 'setNoteFret', fret: entry.value };
   }
-  return SIMPLE_KEYS[press.key];
+  return SIMPLE_KEYS[key];
 }

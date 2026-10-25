@@ -1,4 +1,4 @@
-import { memoByLanguage, t } from './i18n/i18n';
+import { type MessageKey, memoByLanguage, t } from './i18n/i18n';
 import { KEYS, type KeyPress } from './key-commands';
 
 /** One line of the shortcut sheet: the keys as shown, what they do, and (for score keys) the press it stands for. */
@@ -22,94 +22,119 @@ const key = (k: string, modifiers: Partial<Omit<KeyPress, 'key'>> = {}): KeyPres
   ...modifiers,
 });
 
+/** A key the Mac keyboard names by a word (Space): shown in the shown language. */
+interface KeyWord {
+  readonly word: MessageKey;
+}
+
+/** A line of the sheet before it is put in the shown language: the keys, the action's catalogue key, the press. */
+interface ShortcutRow {
+  readonly keys: string | KeyWord;
+  readonly action: MessageKey;
+  readonly press?: KeyPress;
+}
+
+interface ShortcutGroupRows {
+  readonly title: MessageKey;
+  readonly rows: readonly ShortcutRow[];
+}
+
+const row = (keys: string | KeyWord, action: MessageKey, press?: KeyPress): ShortcutRow => ({ keys, action, ...(press === undefined ? {} : { press }) });
+
+/** The note at the cursor: frets, effects, panels. */
+const NOTE_ROWS: readonly ShortcutRow[] = [
+  row('0 – 9', 'commands.shortcuts.fret', key('5')),
+  row('R', 'commands.shortcuts.letRing', key('r')),
+  row('S', 'commands.shortcuts.slide', key('s')),
+  row('H', 'commands.shortcuts.hammerOn', key('h')),
+  row('P', 'commands.shortcuts.pullOff', key('p')),
+  row('M', 'commands.shortcuts.palmMute', key('m')),
+  row('X', 'commands.shortcuts.deadNote', key('x')),
+  row('B', 'commands.shortcuts.vibrato', key('b')),
+  row('C', 'commands.shortcuts.bend', key('c')),
+  row('W.bar', 'commands.shortcuts.tremoloBar'),
+  row('G', 'commands.shortcuts.ghostNote', key('g')),
+  row('A', 'commands.shortcuts.accent', key('a')),
+  row('N', 'commands.shortcuts.naturalHarmonic', key('n')),
+  row('T', 'commands.shortcuts.tie', key('t')),
+  row('- / =', 'commands.shortcuts.fretDownUp', key('=')),
+  row('⌥↑ / ⌥↓', 'commands.shortcuts.noteString', key(KEYS.arrowUp, { altKey: true })),
+];
+
+/** The cursor's beat: erase, delete, insert, its length. */
+const BEAT_ROWS: readonly ShortcutRow[] = [
+  row('⌫ / ⌦', 'commands.shortcuts.erase', key(KEYS.backspace)),
+  row('⇧⌫', 'commands.shortcuts.deleteBeat', key(KEYS.backspace, { shiftKey: true })),
+  row('I', 'commands.shortcuts.insertBeat', key('i')),
+  row('K', 'commands.shortcuts.chord', key('k')),
+  row('Y', 'commands.shortcuts.syncPoint', key('y')),
+  row('⌥[ / ⌥]', 'commands.shortcuts.noteValue', key('[', { altKey: true })),
+  row('.', 'commands.shortcuts.dotted', key('.')),
+  row('/', 'commands.shortcuts.triplet', key('/')),
+  row('⌥/', 'commands.shortcuts.innerTriplet', key('/', { altKey: true })),
+];
+
+/** Moving the cursor, selecting, voices, bars, zoom. */
+const MOVING_ROWS: readonly ShortcutRow[] = [
+  row('← / →', 'commands.shortcuts.beat', key(KEYS.arrowLeft)),
+  row('↑ / ↓', 'commands.shortcuts.string', key(KEYS.arrowDown)),
+  row('⌘↑ / ⌘↓', 'commands.shortcuts.track', key(KEYS.arrowDown, { metaKey: true })),
+  row('⌥← / ⌥→', 'commands.shortcuts.bar', key(KEYS.arrowRight, { altKey: true })),
+  row('⇧← / ⇧→', 'commands.shortcuts.select', key(KEYS.arrowRight, { shiftKey: true })),
+  row('⌘1 – ⌘4', 'commands.shortcuts.editVoice', key('1', { metaKey: true })),
+  row('⌥1 – ⌥4', 'commands.shortcuts.moveVoice', key('2', { altKey: true })),
+  // i18n-exempt: key caps as the Mac keyboard prints them
+  row('Home / End', 'commands.shortcuts.firstLastBar', key(KEYS.home)),
+  row('⌘- / ⌘=', 'commands.shortcuts.zoom', key('=', { metaKey: true })),
+  row('F3', 'commands.shortcuts.multitrack'),
+];
+
+/** Practice playback. */
+const PRACTICE_ROWS: readonly ShortcutRow[] = [
+  row('⌥- / ⌥=', 'commands.shortcuts.speed', key('=', { altKey: true })),
+  row('⌥M', 'commands.shortcuts.metronome', key('m', { altKey: true })),
+  row('⌥C', 'commands.shortcuts.countIn', key('c', { altKey: true })),
+  row('⌥L', 'commands.shortcuts.tempoLock', key('l', { altKey: true })),
+  row('⇧⌘F', 'commands.shortcuts.focus'),
+];
+
+/** Anywhere in the window: playback, the clipboard, files and panels. */
+const EVERYWHERE_ROWS: readonly ShortcutRow[] = [
+  row({ word: 'commands.key.space' }, 'commands.shortcuts.play', key(' ')),
+  // i18n-exempt: the key cap as the Mac keyboard prints it
+  row('Esc', 'commands.shortcuts.escape', key(KEYS.escape)),
+  row('] / [', 'commands.shortcuts.tempo', key(']')),
+  row('⌘Z / ⇧⌘Z', 'commands.shortcuts.undo', key('z', { metaKey: true })),
+  row('⌘C', 'commands.shortcuts.copy', key('c', { metaKey: true })),
+  row('⌘X', 'commands.shortcuts.cut', key('x', { metaKey: true })),
+  row('⌘V', 'commands.shortcuts.paste', key('v', { metaKey: true })),
+  row('⌘S / ⇧⌘S', 'commands.shortcuts.save'),
+  row('⌘P', 'commands.shortcuts.print'),
+  row('⇧⌘E', 'commands.shortcuts.exportPdf'),
+  row('F7', 'commands.shortcuts.stylesheet'),
+  row('⌘N / ⌘O / ⇧⌘I', 'commands.shortcuts.newOpen'),
+  row('⌘W', 'commands.shortcuts.closeTab'),
+  row('⌃⇥ / ⌃⇧⇥', 'commands.shortcuts.cycleTab'),
+  row('⌥⌘N / ⌥⌘R', 'commands.shortcuts.tracks'),
+  row('⇧⌘P', 'commands.shortcuts.commandPalette'),
+  row('⌥⌘E', 'commands.shortcuts.expressionText'),
+  row('⌘H', 'commands.shortcuts.sheet'),
+];
+
+const GROUPS: readonly ShortcutGroupRows[] = [
+  { title: 'commands.shortcuts.group.note', rows: NOTE_ROWS },
+  { title: 'commands.shortcuts.group.beats', rows: BEAT_ROWS },
+  { title: 'commands.shortcuts.group.moving', rows: MOVING_ROWS },
+  { title: 'commands.shortcuts.group.practice', rows: PRACTICE_ROWS },
+  { title: 'commands.shortcuts.group.everywhere', rows: EVERYWHERE_ROWS },
+];
+
+function toShortcut({ keys, action, press }: ShortcutRow): Shortcut {
+  return { keys: typeof keys === 'string' ? keys : t(keys.word), action: t(action), ...(press === undefined ? {} : { press }) };
+}
+
 /**
  * The keyboard shortcut sheet (Help ▸ Keyboard Shortcuts, ⌘H): every key the app answers, by where it applies — in the
  * shown language (call it where the sheet is drawn).
  */
-export const shortcutGroups = memoByLanguage((): readonly ShortcutGroup[] => [
-  {
-    title: t('commands.shortcuts.group.note'),
-    shortcuts: [
-      { keys: '0 – 9', action: t('commands.shortcuts.fret'), press: key('5') },
-      { keys: 'R', action: t('commands.shortcuts.letRing'), press: key('r') },
-      { keys: 'S', action: t('commands.shortcuts.slide'), press: key('s') },
-      { keys: 'H', action: t('commands.shortcuts.hammerOn'), press: key('h') },
-      { keys: 'P', action: t('commands.shortcuts.pullOff'), press: key('p') },
-      { keys: 'M', action: t('commands.shortcuts.palmMute'), press: key('m') },
-      { keys: 'X', action: t('commands.shortcuts.deadNote'), press: key('x') },
-      { keys: 'B', action: t('commands.shortcuts.vibrato'), press: key('b') },
-      { keys: 'C', action: t('commands.shortcuts.bend'), press: key('c') },
-      { keys: 'W.bar', action: t('commands.shortcuts.tremoloBar') },
-      { keys: 'G', action: t('commands.shortcuts.ghostNote'), press: key('g') },
-      { keys: 'A', action: t('commands.shortcuts.accent'), press: key('a') },
-      { keys: 'N', action: t('commands.shortcuts.naturalHarmonic'), press: key('n') },
-      { keys: 'T', action: t('commands.shortcuts.tie'), press: key('t') },
-      { keys: '- / =', action: t('commands.shortcuts.fretDownUp'), press: key('=') },
-      { keys: '⌥↑ / ⌥↓', action: t('commands.shortcuts.noteString'), press: key(KEYS.arrowUp, { altKey: true }) },
-    ],
-  },
-  {
-    title: t('commands.shortcuts.group.beats'),
-    shortcuts: [
-      { keys: '⌫ / ⌦', action: t('commands.shortcuts.erase'), press: key(KEYS.backspace) },
-      { keys: '⇧⌫', action: t('commands.shortcuts.deleteBeat'), press: key(KEYS.backspace, { shiftKey: true }) },
-      { keys: 'I', action: t('commands.shortcuts.insertBeat'), press: key('i') },
-      { keys: 'K', action: t('commands.shortcuts.chord'), press: key('k') },
-      { keys: 'Y', action: t('commands.shortcuts.syncPoint'), press: key('y') },
-      { keys: '⌥[ / ⌥]', action: t('commands.shortcuts.noteValue'), press: key('[', { altKey: true }) },
-      { keys: '.', action: t('commands.shortcuts.dotted'), press: key('.') },
-      { keys: '/', action: t('commands.shortcuts.triplet'), press: key('/') },
-      { keys: '⌥/', action: t('commands.shortcuts.innerTriplet'), press: key('/', { altKey: true }) },
-    ],
-  },
-  {
-    title: t('commands.shortcuts.group.moving'),
-    shortcuts: [
-      { keys: '← / →', action: t('commands.shortcuts.beat'), press: key(KEYS.arrowLeft) },
-      { keys: '↑ / ↓', action: t('commands.shortcuts.string'), press: key(KEYS.arrowDown) },
-      { keys: '⌘↑ / ⌘↓', action: t('commands.shortcuts.track'), press: key(KEYS.arrowDown, { metaKey: true }) },
-      { keys: '⌥← / ⌥→', action: t('commands.shortcuts.bar'), press: key(KEYS.arrowRight, { altKey: true }) },
-      { keys: '⇧← / ⇧→', action: t('commands.shortcuts.select'), press: key(KEYS.arrowRight, { shiftKey: true }) },
-      { keys: '⌘1 – ⌘4', action: t('commands.shortcuts.editVoice'), press: key('1', { metaKey: true }) },
-      { keys: '⌥1 – ⌥4', action: t('commands.shortcuts.moveVoice'), press: key('2', { altKey: true }) },
-      // i18n-exempt: key caps as the Mac keyboard prints them
-      { keys: 'Home / End', action: t('commands.shortcuts.firstLastBar'), press: key(KEYS.home) },
-      { keys: '⌘- / ⌘=', action: t('commands.shortcuts.zoom'), press: key('=', { metaKey: true }) },
-      { keys: 'F3', action: t('commands.shortcuts.multitrack') },
-    ],
-  },
-  {
-    title: t('commands.shortcuts.group.practice'),
-    shortcuts: [
-      { keys: '⌥- / ⌥=', action: t('commands.shortcuts.speed'), press: key('=', { altKey: true }) },
-      { keys: '⌥M', action: t('commands.shortcuts.metronome'), press: key('m', { altKey: true }) },
-      { keys: '⌥C', action: t('commands.shortcuts.countIn'), press: key('c', { altKey: true }) },
-      { keys: '⌥L', action: t('commands.shortcuts.tempoLock'), press: key('l', { altKey: true }) },
-      { keys: '⇧⌘F', action: t('commands.shortcuts.focus') },
-    ],
-  },
-  {
-    title: t('commands.shortcuts.group.everywhere'),
-    shortcuts: [
-      { keys: t('commands.key.space'), action: t('commands.shortcuts.play'), press: key(' ') },
-      // i18n-exempt: the key cap as the Mac keyboard prints it
-      { keys: 'Esc', action: t('commands.shortcuts.escape'), press: key(KEYS.escape) },
-      { keys: '] / [', action: t('commands.shortcuts.tempo'), press: key(']') },
-      { keys: '⌘Z / ⇧⌘Z', action: t('commands.shortcuts.undo'), press: key('z', { metaKey: true }) },
-      { keys: '⌘C', action: t('commands.shortcuts.copy'), press: key('c', { metaKey: true }) },
-      { keys: '⌘X', action: t('commands.shortcuts.cut'), press: key('x', { metaKey: true }) },
-      { keys: '⌘V', action: t('commands.shortcuts.paste'), press: key('v', { metaKey: true }) },
-      { keys: '⌘S / ⇧⌘S', action: t('commands.shortcuts.save') },
-      { keys: '⌘P', action: t('commands.shortcuts.print') },
-      { keys: '⇧⌘E', action: t('commands.shortcuts.exportPdf') },
-      { keys: 'F7', action: t('commands.shortcuts.stylesheet') },
-      { keys: '⌘N / ⌘O / ⇧⌘I', action: t('commands.shortcuts.newOpen') },
-      { keys: '⌘W', action: t('commands.shortcuts.closeTab') },
-      { keys: '⌃⇥ / ⌃⇧⇥', action: t('commands.shortcuts.cycleTab') },
-      { keys: '⌥⌘N / ⌥⌘R', action: t('commands.shortcuts.tracks') },
-      { keys: '⇧⌘P', action: t('commands.shortcuts.commandPalette') },
-      { keys: '⌥⌘E', action: t('commands.shortcuts.expressionText') },
-      { keys: '⌘H', action: t('commands.shortcuts.sheet') },
-    ],
-  },
-]);
+export const shortcutGroups = memoByLanguage((): readonly ShortcutGroup[] => GROUPS.map(({ title, rows }) => ({ title: t(title), shortcuts: rows.map(toShortcut) })));
