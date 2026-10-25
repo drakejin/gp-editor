@@ -87,7 +87,6 @@ export function useDocument(
     },
     [saveTab],
   );
-
   const create = useCallback((mode: ScoreMode) => dispatch({ type: 'created', mode }), [dispatch]);
   const openDocument = useCallback((document: OpenDocument) => dispatch({ type: 'openTab', document, isUnsaved: true }), [dispatch]);
   const openDialog = useCallback(() => {
@@ -109,8 +108,14 @@ export function useDocument(
     },
     [open],
   );
-  useEffect(() => subscribeOpenRecentRequests(openRecent), [openRecent]);
+  useFileMenu({ create, openDialog, openPath, openRecent, save });
+  useWindowTitle(workspace);
+  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab };
+}
 
+/** File ▸ New, Open…, Open Recent and Save / Save As…, and files Finder hands over. */
+function useFileMenu({ create, openDialog, openPath, openRecent, save }: Pick<DocumentCommands, 'create' | 'openDialog' | 'openPath' | 'openRecent' | 'save'>): void {
+  useEffect(() => subscribeOpenRecentRequests(openRecent), [openRecent]);
   useEffect(
     () =>
       subscribeFileEvents({
@@ -121,7 +126,10 @@ export function useDocument(
       }),
     [create, openDialog, openPath, save],
   );
+}
 
+/** The window's title: the shown tab's file, marked while edited (in the shown language). */
+function useWindowTitle(workspace: WorkspaceState): void {
   const editor = activeEditor(workspace);
   const fileName = editor.document?.fileName;
   const edited = isEdited(editor);
@@ -130,8 +138,6 @@ export function useDocument(
     // i18n-exempt: the app's name
     setDocumentTitle(fileName === undefined ? 'GP Editor' : edited ? t('window.titleEdited', { name: fileName }) : fileName);
   }, [fileName, edited, language]);
-
-  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab };
 }
 
 /**

@@ -52,6 +52,21 @@ export interface TracksPanelProps {
  * marked; clicking a cell goes there. The two halves share their row heights, and the whole panel scrolls vertically.
  */
 function TracksPanelView(props: TracksPanelProps) {
+  const { palette } = props;
+  return (
+    <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
+      <ScrollView style={styles.vertical}>
+        <View style={styles.columns}>
+          <TrackTable {...props} />
+          <BarMap {...props} />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+/** The track table: Multitrack over it, a row per track (dragged by its name to move it), the buttons under it. */
+function TrackTable(props: TracksPanelProps) {
   const { song, selectedTrackIndex, palette, trackActions, shownTrackIndexes = [selectedTrackIndex] } = props;
   // The instrument names are in the shown language: the rows are rebuilt when it changes.
   const language = useLanguage();
@@ -69,45 +84,38 @@ function TracksPanelView(props: TracksPanelProps) {
     [song, language],
   );
   return (
-    <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
-      <ScrollView style={styles.vertical}>
-        <View style={styles.columns}>
-          <View style={[styles.table, { borderRightColor: palette.chromeBorder }]}>
-            <TrackTableHeader palette={palette} isMultitrack={props.isMultitrack === true} onToggleMultitrack={props.onToggleMultitrack} />
-            {song.tracks.map((track, trackIndex) => (
-              <TrackMixerRow
-                key={trackIndex}
-                track={track}
-                trackIndex={trackIndex}
-                channel={rows[trackIndex]?.channel}
-                instrumentName={rows[trackIndex]?.instrumentName}
-                iconKind={rows[trackIndex]?.iconKind ?? 'guitar'}
-                isSelected={trackIndex === selectedTrackIndex}
-                isShown={shownTrackIndexes.includes(trackIndex)}
-                palette={palette}
-                onSelectTrack={props.onSelectTrack}
-                onToggleShown={props.onToggleTrackShown}
-                onSetTrackMute={props.onSetTrackMute}
-                onSetTrackSolo={props.onSetTrackSolo}
-                onSetTrackVolume={props.onSetTrackVolume}
-                onSetTrackBalance={props.onSetTrackBalance}
-                onEditInstrument={props.onEditInstrument}
-                trackCount={song.tracks.length}
-                isDragged={drag?.fromIndex === trackIndex}
-                onDragTrack={trackActions === undefined ? undefined : onDragTrack}
-                onMoveTrack={trackActions?.onMoveTrack}
-              />
-            ))}
-            {drag === undefined ? null : <DropMarker palette={palette} {...drag} />}
-            <TrackTableFooter
-              palette={palette}
-              onAddAudioTrack={props.onAddAudioTrack}
-              trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} actions={trackActions} />}
-            />
-          </View>
-          <BarMap {...props} />
-        </View>
-      </ScrollView>
+    <View style={[styles.table, { borderRightColor: palette.chromeBorder }]}>
+      <TrackTableHeader palette={palette} isMultitrack={props.isMultitrack === true} onToggleMultitrack={props.onToggleMultitrack} />
+      {song.tracks.map((track, trackIndex) => (
+        <TrackMixerRow
+          key={trackIndex}
+          track={track}
+          trackIndex={trackIndex}
+          channel={rows[trackIndex]?.channel}
+          instrumentName={rows[trackIndex]?.instrumentName}
+          iconKind={rows[trackIndex]?.iconKind ?? 'guitar'}
+          isSelected={trackIndex === selectedTrackIndex}
+          isShown={shownTrackIndexes.includes(trackIndex)}
+          palette={palette}
+          onSelectTrack={props.onSelectTrack}
+          onToggleShown={props.onToggleTrackShown}
+          onSetTrackMute={props.onSetTrackMute}
+          onSetTrackSolo={props.onSetTrackSolo}
+          onSetTrackVolume={props.onSetTrackVolume}
+          onSetTrackBalance={props.onSetTrackBalance}
+          onEditInstrument={props.onEditInstrument}
+          trackCount={song.tracks.length}
+          isDragged={drag?.fromIndex === trackIndex}
+          onDragTrack={trackActions === undefined ? undefined : onDragTrack}
+          onMoveTrack={trackActions?.onMoveTrack}
+        />
+      ))}
+      {drag === undefined ? null : <DropMarker palette={palette} {...drag} />}
+      <TrackTableFooter
+        palette={palette}
+        onAddAudioTrack={props.onAddAudioTrack}
+        trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} actions={trackActions} />}
+      />
     </View>
   );
 }

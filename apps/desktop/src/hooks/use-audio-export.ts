@@ -1,4 +1,4 @@
-import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
 import { type AudioExportFile, audioSavedHint, planAudioExport, renderAudioFile } from '../export/audio-export-plan';
 import { type AudioExportOptions, DEFAULT_AUDIO_EXPORT, audioFileSettings, audioFormat } from '../export/audio-formats';
@@ -72,6 +72,38 @@ async function runExport(song: Song, files: readonly AudioExportFile[], options:
   return written === null ? undefined : audioSavedHint(written.files, destination.folderName, options);
 }
 
+/** What a run reports to the panel and the window. */
+interface ExportReport {
+  readonly setStatus: (status: AudioExportStatus) => void;
+  readonly dispatch: Dispatch<EditorAction>;
+  /** The files were written: the panel closes. */
+  readonly onWritten: () => void;
+}
+
+/** One export: the save or folder panel, then the render; the hint strip says what was written (or that it was cancelled). */
+async function exportFiles(song: Song, files: readonly AudioExportFile[], chosen: AudioExportOptions, { setStatus, dispatch, onWritten }: ExportReport): Promise<void> {
+  const destination = await chooseDestination(files, chosen);
+  if (destination === null) {
+    return;
+  }
+  setStatus({ kind: 'rendering', fileIndex: 0, fileCount: files.length, fraction: 0 });
+  const hint = await runExport(song, files, chosen, destination);
+  dispatch({ type: 'showHint', hint: hint ?? t('window.audioExport.cancelled') });
+  if (hint !== undefined) {
+    onWritten();
+  }
+}
+
+/** While a render runs, its progress (file, fraction) from the native side. */
+function useExportProgress(isRendering: boolean, setStatus: Dispatch<SetStateAction<AudioExportStatus>>): void {
+  useEffect(() => {
+    if (!isRendering) {
+      return undefined;
+    }
+    return subscribeAudioExportProgress((progress) => setStatus((previous) => (previous.kind === 'rendering' ? { kind: 'rendering', ...progress } : previous)));
+  }, [isRendering, setStatus]);
+}
+
 /**
  * File ▸ Export Audio… for the shown tab: the panel's settings, the save or folder panel, the native render with its
  * progress and Cancel, the hint strip saying what was written, and the error banner (`exportFailed`) when it fails.
@@ -84,15 +116,12 @@ export function useAudioExport(document: OpenDocument | undefined, practice: Pra
   const latest = useRef({ document, practice, options });
   latest.current = { document, practice, options };
   const isRunning = useRef(false);
-  const hasDocument = document !== undefined;
-
   const open = useCallback(() => {
     const { practice: current } = latest.current;
     setOptions((previous) => ({ ...previous, range: current.isLooping && current.loop !== undefined ? 'loop' : 'song' }));
     setIsOpen(latest.current.document !== undefined);
   }, []);
   useEffect(() => subscribeExportAudioRequests(open), [open]);
-
   const cancel = useCallback(() => {
     setStatus((previous) => (previous.kind === 'rendering' ? { kind: 'cancelling' } : previous));
     cancelAudioExport().catch(() => undefined);
@@ -103,15 +132,7 @@ export function useAudioExport(document: OpenDocument | undefined, practice: Pra
     }
     setIsOpen(false);
   }, [cancel]);
-
-  const isRendering = status.kind === 'rendering';
-  useEffect(() => {
-    if (!isRendering) {
-      return undefined;
-    }
-    return subscribeAudioExportProgress((progress) => setStatus((previous) => (previous.kind === 'rendering' ? { kind: 'rendering', ...progress } : previous)));
-  }, [isRendering]);
-
+  useExportProgress(status.kind === 'rendering', setStatus);
   const start = useCallback(() => {
     const { document: current, practice: settings, options: chosen } = latest.current;
     const files = current === undefined ? [] : planAudioExport(current.song, current.fileName, chosen, settings.loop);
@@ -120,25 +141,12 @@ export function useAudioExport(document: OpenDocument | undefined, practice: Pra
     }
     isRunning.current = true;
     setStatus({ kind: 'choosing' });
-    const run = async () => {
-      const destination = await chooseDestination(files, chosen);
-      if (destination === null) {
-        return;
-      }
-      setStatus({ kind: 'rendering', fileIndex: 0, fileCount: files.length, fraction: 0 });
-      const hint = await runExport(current.song, files, chosen, destination);
-      dispatch({ type: 'showHint', hint: hint ?? t('window.audioExport.cancelled') });
-      if (hint !== undefined) {
-        setIsOpen(false);
-      }
-    };
-    run()
+    exportFiles(current.song, files, chosen, { setStatus, dispatch, onWritten: () => setIsOpen(false) })
       .catch((error: unknown) => dispatch({ type: 'exportFailed', what: chosen.isPerTrack ? t('window.exportWhat.audioFiles') : t('window.exportWhat.audioFile'), message: errorMessage(error) }))
       .finally(() => {
         isRunning.current = false;
         setStatus(IDLE);
       });
   }, [dispatch]);
-
-  return { isOpen: isOpen && hasDocument, options, status, open, close, setOptions, start, cancel };
+  return { isOpen: isOpen && document !== undefined, options, status, open, close, setOptions, start, cancel };
 }

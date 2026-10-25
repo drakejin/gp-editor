@@ -106,6 +106,11 @@ export function useSongExport(document: OpenDocument | undefined, dispatch: Disp
     },
     [dispatch],
   );
+  return useSongExportMenu(run);
+}
+
+/** The four exports as commands, and File ▸ Export MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… running them. */
+function useSongExportMenu(run: (kind: ExportKind) => Promise<void>): SongExport {
   const commands = useMemo(
     () => ({
       exportMidi: () => {

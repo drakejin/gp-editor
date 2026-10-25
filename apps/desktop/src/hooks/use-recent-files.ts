@@ -41,28 +41,27 @@ interface QueuedChange {
 }
 
 /**
- * The recent files list, kept by the native side across launches (GPRecentFiles.m, which also builds File ▸ Open
- * Recent from it). Each change is stored at once; changes made before the stored list arrived (a file Finder opened at
- * launch) are applied to it when it does. `now` stamps a file as opened (ms since 1970).
+ * The list as stored: loaded once, each change stored at once; changes made before the stored list arrived (a file
+ * Finder opened at launch) are applied to it when it does.
  */
-export function useRecentFiles(now: () => number = Date.now): RecentFiles {
+function useStoredRecentFiles(setError: (error: string) => void) {
   const [files, setFiles] = useState<readonly RecentFile[]>([]);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
   // The list as last changed, read synchronously so quick changes build on each other; undefined until it is loaded.
   const latest = useRef<readonly RecentFile[] | undefined>(undefined);
   const queued = useRef<readonly QueuedChange[]>([]);
-
-  const apply = useCallback(({ change, touchedPath }: QueuedChange) => {
-    const current = latest.current ?? [];
-    const next = change(current);
-    if (next === current) {
-      return;
-    }
-    latest.current = next;
-    setFiles(next);
-    saveRecentFiles(next, touchedPath).catch((reason: unknown) => setError(errorMessage(reason, t('window.recentFiles.keepFailed'))));
-  }, []);
+  const apply = useCallback(
+    ({ change, touchedPath }: QueuedChange) => {
+      const current = latest.current ?? [];
+      const next = change(current);
+      if (next === current) {
+        return;
+      }
+      latest.current = next;
+      setFiles(next);
+      saveRecentFiles(next, touchedPath).catch((reason: unknown) => setError(errorMessage(reason, t('window.recentFiles.keepFailed'))));
+    },
+    [setError],
+  );
   const update = useCallback(
     (change: RecentChange, touchedPath = '') => {
       if (latest.current === undefined) {
@@ -73,7 +72,6 @@ export function useRecentFiles(now: () => number = Date.now): RecentFiles {
     },
     [apply],
   );
-
   useEffect(() => {
     const start = (loaded: readonly RecentFile[]) => {
       latest.current = loaded;
@@ -88,8 +86,18 @@ export function useRecentFiles(now: () => number = Date.now): RecentFiles {
         setError(errorMessage(reason, t('window.recentFiles.readFailed')));
         start([]);
       });
-  }, [apply]);
+  }, [apply, setError]);
+  return { files, update };
+}
 
+/**
+ * The recent files list, kept by the native side across launches (GPRecentFiles.m, which also builds File ▸ Open
+ * Recent from it). `now` stamps a file as opened (ms since 1970).
+ */
+export function useRecentFiles(now: () => number = Date.now): RecentFiles {
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const { files, update } = useStoredRecentFiles(setError);
   const remember = useCallback(
     (file: RecentFileRef, previousPath?: string) => update((list) => rememberRecentFile(list, file, now(), previousPath), file.path),
     [update, now],
@@ -105,6 +113,5 @@ export function useRecentFiles(now: () => number = Date.now): RecentFiles {
   const closePanel = useCallback(() => setIsPanelOpen(false), []);
   const dismissError = useCallback(() => setError(undefined), []);
   useEffect(() => subscribeRecentListRequests({ onClearRequested: clear, onShowRequested: openPanel }), [clear, openPanel]);
-
   return { files, error, isPanelOpen, openPanel, closePanel, remember, togglePin, remove, clear, markMissing, dismissError };
 }

@@ -1,7 +1,8 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import type { AudioFileSettings } from '../export/audio-formats';
 import type { AudioPlayback } from '../lib/audio-track';
 import type { MixLayout } from '../lib/mix';
+import { subscribeNativeEvents } from './native-events';
 
 /** One file to render and write: its MIDI (base64, gp-core's renderMidi), the song's length, the path chosen. */
 export interface AudioExportJobFile {
@@ -73,14 +74,12 @@ export function chooseAudioFolder(fileNames: readonly string[]): Promise<ChosenF
 
 /** The progress events of the running export (the native values checked); returns the unsubscribe function. */
 export function subscribeAudioExportProgress(listener: (progress: AudioExportProgress) => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAudioExport).addListener('audioExportProgress', (event: Partial<AudioExportProgress>) => {
-    const { fileIndex, fileCount, fraction } = event;
-    if (typeof fileIndex === 'number' && typeof fileCount === 'number' && typeof fraction === 'number') {
-      listener({ fileIndex, fileCount, fraction: Math.min(1, Math.max(0, fraction)) });
-    }
+  return subscribeNativeEvents(native, {
+    audioExportProgress: (event: Partial<AudioExportProgress>) => {
+      const { fileIndex, fileCount, fraction } = event;
+      if (typeof fileIndex === 'number' && typeof fileCount === 'number' && typeof fraction === 'number') {
+        listener({ fileIndex, fileCount, fraction: Math.min(1, Math.max(0, fraction)) });
+      }
+    },
   });
-  return () => subscription.remove();
 }

@@ -27,18 +27,9 @@ interface Pending {
   readonly timer: ReturnType<typeof setTimeout>;
 }
 
-/**
- * The Lyrics panel's state. Typing applies the draft (`setTrackLyrics`) LYRICS_APPLY_DELAY ms after the last key, to
- * the tab it was typed in, so the score updates live and each pause is one undo step. When the song's lyrics change
- * otherwise (undo, redo, another tab shown), the panel shows them.
- */
-export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number, tabId: string | undefined, dispatch: Dispatch<WorkspaceAction>): LyricsEditor {
-  const [draft, setDraft] = useState<LyricsDraft | undefined>(undefined);
+/** Typing waits LYRICS_APPLY_DELAY ms, then applies the draft (`setTrackLyrics`) to the tab it was typed in: one undo step a pause. */
+function usePendingLyrics(dispatch: Dispatch<WorkspaceAction>) {
   const pending = useRef<Pending | undefined>(undefined);
-  // The draft track's lyrics as the panel last saw or left them in the song: anything else came from outside.
-  const known = useRef<Lyrics | undefined>(undefined);
-  const draftTab = useRef(tabId);
-
   const apply = useCallback(
     (next: LyricsDraft, tab: string | undefined) => {
       const action: EditorAction = { type: 'setTrackLyrics', trackIndex: next.trackIndex, lyrics: draftLyrics(next) };
@@ -54,14 +45,8 @@ export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number,
       apply(waiting.draft, waiting.tabId);
     }
   }, [apply]);
-  const show = useCallback((next: LyricsDraft | undefined, from: Song | undefined) => {
-    setDraft(next);
-    known.current = next === undefined || from === undefined ? undefined : effectiveLyrics(from, from.tracks[next.trackIndex]?.lyrics);
-  }, []);
-  const edit = useCallback(
-    (next: LyricsDraft) => {
-      setDraft(next);
-      known.current = song === undefined ? undefined : effectiveLyrics(song, draftLyrics(next));
+  const schedule = useCallback(
+    (next: LyricsDraft, tabId: string | undefined) => {
       if (pending.current !== undefined) {
         clearTimeout(pending.current.timer);
       }
@@ -73,10 +58,8 @@ export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number,
       }, LYRICS_APPLY_DELAY);
       pending.current = { draft: next, tabId, timer };
     },
-    [song, tabId, apply],
+    [apply],
   );
-
-  useFollowSong({ song, shownTrackIndex, tabId, draft, draftTab, pending, known, flush, show });
   // An edit still waiting when the window goes away is dropped with it.
   useEffect(() => {
     const waiting = pending;
@@ -86,7 +69,33 @@ export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number,
       }
     };
   }, []);
+  return { pending, flush, schedule };
+}
 
+/**
+ * The Lyrics panel's state. Typing applies the draft (`setTrackLyrics`) LYRICS_APPLY_DELAY ms after the last key, to
+ * the tab it was typed in, so the score updates live and each pause is one undo step. When the song's lyrics change
+ * otherwise (undo, redo, another tab shown), the panel shows them.
+ */
+export function useLyricsEditor(song: Song | undefined, shownTrackIndex: number, tabId: string | undefined, dispatch: Dispatch<WorkspaceAction>): LyricsEditor {
+  const [draft, setDraft] = useState<LyricsDraft | undefined>(undefined);
+  // The draft track's lyrics as the panel last saw or left them in the song: anything else came from outside.
+  const known = useRef<Lyrics | undefined>(undefined);
+  const draftTab = useRef(tabId);
+  const { pending, flush, schedule } = usePendingLyrics(dispatch);
+  const show = useCallback((next: LyricsDraft | undefined, from: Song | undefined) => {
+    setDraft(next);
+    known.current = next === undefined || from === undefined ? undefined : effectiveLyrics(from, from.tracks[next.trackIndex]?.lyrics);
+  }, []);
+  const edit = useCallback(
+    (next: LyricsDraft) => {
+      setDraft(next);
+      known.current = song === undefined ? undefined : effectiveLyrics(song, draftLyrics(next));
+      schedule(next, tabId);
+    },
+    [song, tabId, schedule],
+  );
+  useFollowSong({ song, shownTrackIndex, tabId, draft, draftTab, pending, known, flush, show });
   const measureCount = song?.measureHeaders.length ?? 1;
   return {
     isOpen: draft !== undefined,

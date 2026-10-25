@@ -15,6 +15,7 @@ import {
   setTripletFeel,
   toNoteValue,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of the cursor's bar (its measure header, and its key in the cursor's track). */
 export type BarEdit =
@@ -40,6 +41,11 @@ export type BarEdit =
   | { readonly type: 'setTripletFeel'; readonly feel: TripletFeel }
   /** The bar's section marker; an empty title removes it. */
   | { readonly type: 'setSection'; readonly title: string };
+
+export const isBarEdit = isOfTypes<BarEdit>({
+  shiftTimeSignature: true, shiftTempo: true, setTempo: true, shiftKeySignature: true, setKeySignature: true, setClef: true, toggleRepeatOpen: true,
+  toggleRepeatClose: true, toggleAlternateEnding: true, shiftRepeatCount: true, setTripletFeel: true, setSection: true,
+});
 
 /** Repeat count a new repeat close gets (play twice), and the fewest a repeat plays. */
 const DEFAULT_REPEAT_COUNT = 2;

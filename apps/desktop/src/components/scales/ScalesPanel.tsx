@@ -66,7 +66,6 @@ export function ScalesPanel(props: ScalesPanelProps) {
     setRootIndex(next.rootIndex);
     onChoose(next);
   };
-  const barNumber = props.cursorMeasureIndex + 1;
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.scales.title')}>
       <View style={[styles.header, { backgroundColor: palette.chromeDeep }]}>
@@ -75,21 +74,8 @@ export function ScalesPanel(props: ScalesPanelProps) {
         <ChromeButton palette={palette} label={t('common.close')} tooltip={t('tools.scales.closeTooltip')} fontSize={11} onPress={props.onClose} />
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
-        <Section palette={palette} label={t('tools.scales.root')}>
-          <View style={styles.wrap}>
-            {SCALE_ROOTS.map((root, index) => (
-              <ChromeButton key={root.name} palette={palette} label={root.name} tooltip={t('tools.scales.rootTooltip', { name: root.name })} fontSize={11} minWidth={28} isActive={index === rootIndex} onPress={() => chooseRoot(index)} />
-            ))}
-          </View>
-        </Section>
-        <Section palette={palette} label={t('tools.scales.find')}>
-          <View style={styles.wrap}>
-            <ChromeButton palette={palette} label={props.selection === undefined ? t('tools.scales.fromBar', { number: barNumber }) : t('tools.scales.fromSelection')} tooltip={props.selection === undefined ? t('tools.scales.findBarTooltip', { number: barNumber }) : t('tools.scales.findSelectionTooltip')} fontSize={11} onPress={() => find(selectionNotes(song, trackIndex, props.selection, props.cursorMeasureIndex))} />
-            <ChromeButton palette={palette} label={t('tools.scales.fromTrack')} tooltip={t('tools.scales.fromTrackTooltip')} fontSize={11} onPress={() => find(trackNotes(song, trackIndex))} />
-            {found === undefined ? null : <ChromeButton palette={palette} label={t('tools.scales.allScales')} tooltip={t('tools.scales.allScalesTooltip')} fontSize={11} onPress={() => setFound(undefined)} />}
-          </View>
-          {found === undefined ? null : <Text style={[styles.note, { color: palette.chromeMuted }]}>{sourceSummary(found.source)}</Text>}
-        </Section>
+        <RootSection palette={palette} rootIndex={rootIndex} onChooseRoot={chooseRoot} />
+        <FindSection {...props} found={found} onFind={find} onShowAll={() => setFound(undefined)} />
         <Section palette={palette} label={found === undefined ? t('tools.scales.scale') : t('tools.scales.matches')}>
           {found === undefined ? (
             <ScaleList palette={palette} query={query} onChangeQuery={setQuery} selectedScaleIndex={choice?.scaleIndex} onChooseScale={(scaleIndex) => onChoose({ rootIndex, scaleIndex })} />
@@ -100,6 +86,43 @@ export function ScalesPanel(props: ScalesPanelProps) {
         {choice === undefined ? null : <ChosenScale palette={palette} choice={choice} song={song} trackIndex={trackIndex} />}
       </ScrollView>
     </View>
+  );
+}
+
+/** The 17 roots of TuxGuitar's dialog. */
+function RootSection({ palette, rootIndex, onChooseRoot }: { readonly palette: Palette; readonly rootIndex: number; readonly onChooseRoot: (rootIndex: number) => void }) {
+  const t = useT();
+  return (
+    <Section palette={palette} label={t('tools.scales.root')}>
+      <View style={styles.wrap}>
+        {SCALE_ROOTS.map((root, index) => (
+          <ChromeButton key={root.name} palette={palette} label={root.name} tooltip={t('tools.scales.rootTooltip', { name: root.name })} fontSize={11} minWidth={28} isActive={index === rootIndex} onPress={() => onChooseRoot(index)} />
+        ))}
+      </View>
+    </Section>
+  );
+}
+
+interface FindSectionProps extends ScalesPanelProps {
+  readonly found?: Found;
+  readonly onFind: (source: NoteSource) => void;
+  /** Back to the whole list. */
+  readonly onShowAll: () => void;
+}
+
+/** The scale finder: the scales holding the selection's (else the cursor's bar's) or the track's notes. */
+function FindSection({ palette, song, trackIndex, selection, cursorMeasureIndex, found, onFind, onShowAll }: FindSectionProps) {
+  const t = useT();
+  const barNumber = cursorMeasureIndex + 1;
+  return (
+    <Section palette={palette} label={t('tools.scales.find')}>
+      <View style={styles.wrap}>
+        <ChromeButton palette={palette} label={selection === undefined ? t('tools.scales.fromBar', { number: barNumber }) : t('tools.scales.fromSelection')} tooltip={selection === undefined ? t('tools.scales.findBarTooltip', { number: barNumber }) : t('tools.scales.findSelectionTooltip')} fontSize={11} onPress={() => onFind(selectionNotes(song, trackIndex, selection, cursorMeasureIndex))} />
+        <ChromeButton palette={palette} label={t('tools.scales.fromTrack')} tooltip={t('tools.scales.fromTrackTooltip')} fontSize={11} onPress={() => onFind(trackNotes(song, trackIndex))} />
+        {found === undefined ? null : <ChromeButton palette={palette} label={t('tools.scales.allScales')} tooltip={t('tools.scales.allScalesTooltip')} fontSize={11} onPress={onShowAll} />}
+      </View>
+      {found === undefined ? null : <Text style={[styles.note, { color: palette.chromeMuted }]}>{sourceSummary(found.source)}</Text>}
+    </Section>
   );
 }
 

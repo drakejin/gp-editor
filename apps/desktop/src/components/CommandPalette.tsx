@@ -90,14 +90,8 @@ function emptyText(t: Translate, query: string, isExpression: boolean): string {
   return isExpression ? t('commands.palette.noExpression', { query: expressionQuery(query) }) : t('commands.palette.noCommand', { query });
 }
 
-/**
- * Tools ▸ Command Palette… (⇧⌘P): every command — the menus', the panels', the editor's keys and the edition palette's
- * tools — found by typing parts of its name or keywords ("exp pdf"), the recently run ones first, each with its key.
- * ↑ / ↓ choose, ↩ runs, Esc closes; the keys typed here stay out of the score (TextField). After “>” (or from Tools ▸
- * Expression Text…), Guitar Pro 8's Expression Text: a chord, dynamic, key, octave sign, clef or direction by name.
- */
-export function CommandPalette({ palette, commands, state, recentIds, onRun, onClose, initialQuery = '' }: CommandPaletteProps) {
-  const t = useT();
+/** What is typed, the commands (or expressions) it finds, the highlighted one, and ↑ ↓ ↩ in the field. */
+function usePaletteSearch({ commands, state, recentIds, onRun, initialQuery }: Pick<CommandPaletteProps, 'commands' | 'state' | 'recentIds' | 'onRun'> & { readonly initialQuery: string }) {
   // Expression Text's titles are built in the shown language: a change lists them again.
   const language = useLanguage();
   const [query, setQuery] = useState(initialQuery);
@@ -109,19 +103,33 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
     [isExpression, commands, query, state, recentIds, language],
   );
   const current = Math.min(highlighted, Math.max(0, matches.length - 1));
-  const runMatch = (match: CommandMatch | undefined) => {
-    if (match?.isEnabled === true) {
-      onRun(match.command);
-    }
+  const changeQuery = (text: string) => {
+    setQuery(text.replace(/\n/g, ''));
+    setHighlighted(0);
   };
   const onKeyDown = (event: KeyEvent) => {
     const { key } = event.nativeEvent;
     if (key === 'ArrowUp' || key === 'ArrowDown') {
       setHighlighted(moveHighlight(current, key === 'ArrowUp' ? -1 : 1, matches.length));
     } else if (key === 'Enter') {
-      runMatch(matches[current]);
+      const match: CommandMatch | undefined = matches[current];
+      if (match?.isEnabled === true) {
+        onRun(match.command);
+      }
     }
   };
+  return { query, changeQuery, isExpression, matches, current, onKeyDown };
+}
+
+/**
+ * Tools ▸ Command Palette… (⇧⌘P): every command — the menus', the panels', the editor's keys and the edition palette's
+ * tools — found by typing parts of its name or keywords ("exp pdf"), the recently run ones first, each with its key.
+ * ↑ / ↓ choose, ↩ runs, Esc closes; the keys typed here stay out of the score (TextField). After “>” (or from Tools ▸
+ * Expression Text…), Guitar Pro 8's Expression Text: a chord, dynamic, key, octave sign, clef or direction by name.
+ */
+export function CommandPalette({ palette, commands, state, recentIds, onRun, onClose, initialQuery = '' }: CommandPaletteProps) {
+  const t = useT();
+  const { query, changeQuery, isExpression, matches, current, onKeyDown } = usePaletteSearch({ commands, state, recentIds, onRun, initialQuery });
   return (
     <View style={styles.overlay}>
       <Pressable testID="command-palette-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
@@ -130,10 +138,7 @@ export function CommandPalette({ palette, commands, state, recentIds, onRun, onC
         <TextField
           testID="command-palette-field"
           value={query}
-          onChangeText={(text) => {
-            setQuery(text.replace(/\n/g, ''));
-            setHighlighted(0);
-          }}
+          onChangeText={changeQuery}
           placeholder={t('commands.palette.placeholder')}
           placeholderTextColor={palette.chromeMuted}
           autoFocus

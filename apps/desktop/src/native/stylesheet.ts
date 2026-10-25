@@ -1,5 +1,6 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import { COMMON_FONT_FAMILIES } from '../lib/stylesheet-draft';
+import { subscribeNativeEvents } from './native-events';
 
 /** What the menus ask of the score's look: File ▸ Stylesheet…, View ▸ Design Mode, View ▸ Reset Positions. */
 export type LayoutCommand = 'stylesheet' | 'designMode' | 'resetPositions';
@@ -29,14 +30,12 @@ export async function fontFamilies(): Promise<readonly string[]> {
 
 /** File ▸ Stylesheet… (F7), View ▸ Design Mode and View ▸ Reset Positions; returns the unsubscribe function. */
 export function subscribeLayoutCommands(onCommand: (command: LayoutCommand) => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPStylesheet).addListener('layoutCommandRequested', (body: unknown) => {
-    const command = toLayoutCommand(body);
-    if (command !== undefined) {
-      onCommand(command);
-    }
+  return subscribeNativeEvents(native, {
+    layoutCommandRequested: (body: unknown) => {
+      const command = toLayoutCommand(body);
+      if (command !== undefined) {
+        onCommand(command);
+      }
+    },
   });
-  return () => subscription.remove();
 }

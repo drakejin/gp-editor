@@ -28,11 +28,12 @@ import {
   setBeatText,
   tupletOf,
 } from '@gp-editor/core';
-import { type BarEdit, applyBarEdit } from './bar-edits';
-import { type MarkEdit, applyMarkEdit } from './mark-edits';
-import { type NotationEdit, applyNotationEdit } from './notation-edits';
+import { type BarEdit, applyBarEdit, isBarEdit } from './bar-edits';
+import { type MarkEdit, applyMarkEdit, isMarkEdit } from './mark-edits';
+import { type NotationEdit, applyNotationEdit, isNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
 import { type VoiceEdit, applyVoiceEdit } from './voice-edits';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
 type DurationEdit =
@@ -89,61 +90,33 @@ export function cursorVoice(
   return findVoice(song, cursor);
 }
 
+const isDurationEdit = isOfTypes<DurationEdit>({ setNoteValue: true, shiftNoteValue: true, toggleDot: true, toggleTriplet: true, setTuplet: true, setInnerTuplet: true, toggleInnerTriplet: true });
+const isBeatEdit = isOfTypes<BeatEdit>({ insertBeat: true, deleteBeat: true, makeRest: true, setStroke: true, setPickStroke: true, setBeatText: true, setBeatChord: true });
+
 /** Applies one cursor edit to the song. */
-export function applySongEdit(
-  song: Song,
-  cursor: StringAddress,
-  edit: SongEdit,
-): Song {
+export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit): Song {
+  if (isDurationEdit(edit)) {
+    return editDuration(song, cursor, edit);
+  }
+  if (isBeatEdit(edit)) {
+    return editBeat(song, beatAddress(cursor), edit);
+  }
+  if (isBarEdit(edit)) {
+    return applyBarEdit(song, cursor, edit);
+  }
+  if (isNotationEdit(edit)) {
+    return applyNotationEdit(song, cursor, edit);
+  }
+  if (isMarkEdit(edit)) {
+    return applyMarkEdit(song, cursor, edit);
+  }
   switch (edit.type) {
-    case 'setNoteValue':
-    case 'shiftNoteValue':
-    case 'toggleDot':
-    case 'toggleTriplet':
-    case 'setTuplet':
-    case 'setInnerTuplet':
-    case 'toggleInnerTriplet':
-      return editDuration(song, cursor, edit);
-    case 'insertBeat':
-    case 'deleteBeat':
-    case 'makeRest':
-    case 'setStroke':
-    case 'setPickStroke':
-    case 'setBeatText':
-    case 'setBeatChord':
-      return editBeat(song, beatAddress(cursor), edit);
     case 'erase':
       return erase(song, cursor);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
       return deleteMeasure(song, cursor.measureIndex);
-    case 'shiftTimeSignature':
-    case 'shiftTempo':
-    case 'setTempo':
-    case 'shiftKeySignature':
-    case 'setKeySignature':
-    case 'setClef':
-    case 'toggleRepeatOpen':
-    case 'toggleRepeatClose':
-    case 'toggleAlternateEnding':
-    case 'shiftRepeatCount':
-    case 'setTripletFeel':
-    case 'setSection':
-      return applyBarEdit(song, cursor, edit);
-    case 'setFinger':
-    case 'setPianoFinger':
-    case 'setAccidentalDisplay':
-    case 'toggleSlash':
-    case 'toggleBeamLink':
-    case 'setBeamGrouping':
-      return applyNotationEdit(song, cursor, edit);
-    case 'toggleDirection':
-    case 'toggleHairpin':
-    case 'setRasgueado':
-    case 'togglePedal':
-    case 'setOttava':
-      return applyMarkEdit(song, cursor, edit);
     case 'moveToVoice':
       return applyVoiceEdit(song, cursor, edit);
     default:

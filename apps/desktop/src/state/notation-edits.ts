@@ -14,6 +14,7 @@ import {
   setVoiceBeamToNext,
   setVoiceSlashed,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Notation marks at the cursor: the note's fingers and shown accidental, the beat's slash and beams, the bar's beam groups. */
 export type NotationEdit =
@@ -26,6 +27,8 @@ export type NotationEdit =
   /** The beam from the cursor's beat to the next one broken, joined or with only its eighth beam; off when it already is. */
   | { readonly type: 'toggleBeamLink'; readonly link: BeamLink }
   | { readonly type: 'setBeamGrouping'; readonly preset: BeamGroupingPreset };
+
+export const isNotationEdit = isOfTypes<NotationEdit>({ setFinger: true, setPianoFinger: true, setAccidentalDisplay: true, toggleSlash: true, toggleBeamLink: true, setBeamGrouping: true });
 
 /** Applies one notation edit at the cursor; the same song when it does not apply. */
 export function applyNotationEdit(song: Song, cursor: StringAddress, edit: NotationEdit): Song {

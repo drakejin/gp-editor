@@ -1,4 +1,5 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
+import { subscribeNativeEvents } from './native-events';
 
 interface GPClipboardModule {
   writeBeats(json: string, summary: string): Promise<void>;
@@ -34,14 +35,12 @@ export function toClipboardCommand(body: unknown): ClipboardCommand | undefined 
  * sees them before the score: EditMenu.swift); returns the unsubscribe function.
  */
 export function subscribeClipboardRequests(onClipboardRequested: (command: ClipboardCommand) => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPClipboard).addListener('clipboardCommandRequested', (body: unknown) => {
-    const command = toClipboardCommand(body);
-    if (command !== undefined) {
-      onClipboardRequested(command);
-    }
+  return subscribeNativeEvents(native, {
+    clipboardCommandRequested: (body: unknown) => {
+      const command = toClipboardCommand(body);
+      if (command !== undefined) {
+        onClipboardRequested(command);
+      }
+    },
   });
-  return () => subscription.remove();
 }

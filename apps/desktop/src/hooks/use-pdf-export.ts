@@ -10,6 +10,7 @@ import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import type { StaffSpec } from '../score/score-layout';
 import type { EditorAction, OpenDocument } from '../state/editor';
+import { useStableCallback } from './use-stable-callback';
 
 /** What the export panel saves: a PDF (File ▸ Export PDF…, the Export button) or PNG images (File ▸ Export PNG…). */
 export type ExportFormat = 'pdf' | 'png';
@@ -58,21 +59,27 @@ function useSaveRun(onSaved: () => void, onFailed: (message: string) => void): {
   return { isSaving, run };
 }
 
-/**
- * The export panel and saving a PDF or PNG images of the shown track, or of the multitrack view's tracks (`staves`,
- * when it shows several); a failure goes to the error banner (`exportFailed`).
- */
-export function usePdfExport(
-  document: OpenDocument | undefined,
-  trackIndex: number,
-  mode: ScoreMode,
-  dispatch: Dispatch<EditorAction>,
-  chordDisplay: ChordDisplay = DEFAULT_CHORD_DISPLAY,
-  staves: readonly StaffSpec[] = [],
-): PdfExport {
+/** What an export prints: the shown tab's document, track, view and staves. */
+interface PrintSource {
+  readonly document: OpenDocument;
+  readonly trackIndex: number;
+  readonly mode: ScoreMode;
+  readonly chordDisplay: ChordDisplay;
+  readonly staves: readonly StaffSpec[];
+}
+
+/** The pages of an export as the view shows them (`asShown`) or in one score mode, with the staves and mode they print. */
+function exportPages({ document, trackIndex, mode, chordDisplay, staves }: PrintSource, exportMode: ExportMode) {
+  const printed = exportStaves(staves, exportMode);
+  const trackMode = exportMode === 'asShown' ? mode : exportMode;
+  const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
+  return { printed, trackMode, pdf };
+}
+
+/** The export panel: open for a PDF (File ▸ Export PDF…, the Export button) or PNG images (File ▸ Export PNG…). */
+function useExportPanel(hasDocument: boolean) {
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('pdf');
-  const hasDocument = document !== undefined;
   const openAs = useCallback(
     (next: ExportFormat) => {
       setFormat(next);
@@ -85,54 +92,56 @@ export function usePdfExport(
   const close = useCallback(() => setIsOpen(false), []);
   useEffect(() => subscribeExportRequests(open), [open]);
   useEffect(() => subscribeExportPngRequests(openPng), [openPng]);
+  return { isOpen: isOpen && hasDocument, format, open, openPng, close };
+}
+
+/**
+ * The export panel and saving a PDF or PNG images of the shown track, or of the multitrack view's tracks (`staves`,
+ * when it shows several); a failure goes to the error banner (`exportFailed`).
+ */
+export function usePdfExport(
+  document: OpenDocument | undefined,
+  trackIndex: number,
+  mode: ScoreMode,
+  dispatch: Dispatch<EditorAction>,
+  chordDisplay: ChordDisplay = DEFAULT_CHORD_DISPLAY,
+  staves: readonly StaffSpec[] = [],
+): PdfExport {
+  const panel = useExportPanel(document !== undefined);
+  const { format, close } = panel;
   const onFailed = useCallback(
     (message: string) => dispatch(format === 'png' ? { type: 'exportFailed', message, what: t('window.exportWhat.pngImages') } : { type: 'exportFailed', message }),
     [dispatch, format],
   );
   const { isSaving, run } = useSaveRun(close, onFailed);
-
-  const save = useCallback(
-    (exportMode: ExportMode) => {
-      if (document !== undefined) {
-        run(async () => {
-          const printed = exportStaves(staves, exportMode);
-          const trackMode = exportMode === 'asShown' ? mode : exportMode;
-          const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
-          return (await savePdf(pdf, pdfFileName(document.song, trackIndex, trackMode, document.fileName, printed))) !== null;
-        });
-      }
-    },
-    [document, trackIndex, mode, staves, run, chordDisplay],
-  );
-
-  const savePng = useCallback(
-    (exportMode: ExportMode, png: PngOptions) => {
-      if (document !== undefined) {
-        run(async () => {
-          const printed = exportStaves(staves, exportMode);
-          const trackMode = exportMode === 'asShown' ? mode : exportMode;
-          const pages = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
-          const names = pngFileNames(exportBaseName(document.song, trackIndex, trackMode, document.fileName, printed), pages.pages.length);
-          const saved = await savePngs(pages, names, png);
-          if (saved !== null) {
-            dispatch({ type: 'showHint', hint: pngSavedHint(saved.names, saved.folderName) });
-          }
-          return saved !== null;
-        });
-      }
-    },
-    [document, trackIndex, mode, staves, run, dispatch, chordDisplay],
-  );
-
-  const print = useCallback(() => {
-    if (document === undefined) {
-      return;
+  const source = document === undefined ? undefined : { document, trackIndex, mode, chordDisplay, staves };
+  const save = useStableCallback((exportMode: ExportMode) => {
+    if (source !== undefined) {
+      run(async () => {
+        const { printed, trackMode, pdf } = exportPages(source, exportMode);
+        return (await savePdf(pdf, pdfFileName(source.document.song, trackIndex, trackMode, source.document.fileName, printed))) !== null;
+      });
     }
-    const printed = exportStaves(staves, 'asShown');
-    const pdf = buildPdfDocument(document.song, trackIndex, mode, { fileName: document.fileName, chordDisplay, staves: printed });
-    printPdf(pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
-  }, [document, trackIndex, mode, staves, dispatch, chordDisplay]);
+  });
+  const savePng = useStableCallback((exportMode: ExportMode, png: PngOptions) => {
+    if (source !== undefined) {
+      run(async () => {
+        const { printed, trackMode, pdf } = exportPages(source, exportMode);
+        const names = pngFileNames(exportBaseName(source.document.song, trackIndex, trackMode, source.document.fileName, printed), pdf.pages.length);
+        const saved = await savePngs(pdf, names, png);
+        if (saved !== null) {
+          dispatch({ type: 'showHint', hint: pngSavedHint(saved.names, saved.folderName) });
+        }
+        return saved !== null;
+      });
+    }
+  });
+  // The same function after every edit, so File ▸ Print…'s listener is added once.
+  const print = useStableCallback(() => {
+    if (source !== undefined) {
+      printPdf(exportPages(source, 'asShown').pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
+    }
+  });
   useEffect(() => subscribePrintRequests(print), [print]);
-
-  return { isOpen: isOpen && hasDocument, format, isSaving, open, openPng, close, save, savePng, print };
+  return { ...panel, isSaving, save, savePng, print };
 }

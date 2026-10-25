@@ -1,5 +1,6 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import { t } from '../lib/i18n/i18n';
+import { subscribeNativeEvents } from './native-events';
 
 /** A kept audio file (GPAudioAssets.m): its id, length and format. */
 export interface AudioFileInfo {
@@ -80,9 +81,5 @@ export function audioPeaks(assetId: string): Promise<NativeAudioPeaks> {
 
 /** Track ▸ Add Audio Track… (the "addAudioTrackRequested" event); returns the unsubscribe function. */
 export function subscribeAddAudioTrackRequests(listener: () => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAudioTrack).addListener('addAudioTrackRequested', listener);
-  return () => subscription.remove();
+  return subscribeNativeEvents(native, { addAudioTrackRequested: listener });
 }

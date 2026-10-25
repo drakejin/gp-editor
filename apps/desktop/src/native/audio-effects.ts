@@ -1,6 +1,7 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import type { MixLayout } from '../lib/mix';
 import { t } from '../lib/i18n/i18n';
+import { subscribeNativeEvents } from './native-events';
 
 /** Where the line in plays: an input device (empty: the system's default), the track whose effects it goes through. */
 export interface LineInSettings {
@@ -54,20 +55,12 @@ export function lineInLevel(): Promise<number> {
   return native === undefined ? Promise.resolve(-120) : native.lineInLevel();
 }
 
-function subscribe(event: string, listener: () => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPPlayer).addListener(event, listener);
-  return () => subscription.remove();
-}
-
 /** View ▸ Mixer; returns the unsubscribe function. */
 export function subscribeMixerRequests(onMixerRequested: () => void): () => void {
-  return subscribe('mixerRequested', onMixerRequested);
+  return subscribeNativeEvents(native, { mixerRequested: onMixerRequested });
 }
 
 /** Tools ▸ Line In…; returns the unsubscribe function. */
 export function subscribeLineInRequests(onLineInRequested: () => void): () => void {
-  return subscribe('lineInRequested', onLineInRequested);
+  return subscribeNativeEvents(native, { lineInRequested: onLineInRequested });
 }

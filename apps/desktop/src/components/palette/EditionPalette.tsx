@@ -1,7 +1,8 @@
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
+import { useStableCallback } from '../../hooks/use-stable-callback';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { SongEdit } from '../../state/song-edits';
@@ -49,7 +50,8 @@ function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDes
   const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode };
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
-  const press = (tool: PaletteTool) => {
+  // The same function on every render: the tool buttons (memoised) redraw only when they change.
+  const press = useStableCallback((tool: PaletteTool) => {
     const { run } = tool;
     if (run.kind === 'edit') {
       onEdit(run.edit);
@@ -64,7 +66,7 @@ function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDes
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }
-  };
+  });
   const choose = (songEdit: SongEdit) => {
     onEdit(songEdit);
     setOpenToolId(undefined);
@@ -95,26 +97,17 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
     <View style={[styles.group, { borderColor: palette.chromeBorder }]} accessibilityLabel={group.title}>
       <Text style={[styles.groupTitle, { color: palette.chromeMuted }]}>{group.title.toUpperCase()}</Text>
       <View style={styles.tools}>
-        {group.tools.map((tool) => {
-          const isActive = tool.id === openToolId || (tool.isActive?.(context) ?? false);
-          return (
-            <ChromeButton
-              key={tool.id}
-              testID={`palette-${tool.id}`}
-              palette={palette}
-              label={tool.face}
-              icon={toolIcon(palette, tool, isActive)}
-              tooltip={tool.tooltip}
-              fontSize={11}
-              minWidth={30}
-              width={tool.width ?? group.toolWidth}
-              height={PALETTE_ROW_HEIGHT}
-              isEnabled={isToolEnabled(tool, context)}
-              isActive={isActive}
-              onPress={() => onPress(tool)}
-            />
-          );
-        })}
+        {group.tools.map((tool) => (
+          <ToolButton
+            key={tool.id}
+            palette={palette}
+            tool={tool}
+            width={tool.width ?? group.toolWidth}
+            isEnabled={isToolEnabled(tool, context)}
+            isActive={tool.id === openToolId || (tool.isActive?.(context) ?? false)}
+            onPress={onPress}
+          />
+        ))}
       </View>
       {open?.run.kind === 'options' ? <PaletteOptionStrip palette={palette} options={open.run.options} context={context} onChoose={onChoose} /> : null}
       {open?.run.kind === 'text' ? <PaletteTextField palette={palette} key={open.id} run={open.run} context={context} onChoose={onChoose} /> : null}
@@ -124,6 +117,37 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
     </View>
   );
 }
+
+interface ToolButtonProps {
+  readonly palette: Palette;
+  readonly tool: PaletteTool;
+  readonly width?: number;
+  readonly isEnabled: boolean;
+  readonly isActive: boolean;
+  readonly onPress: (tool: PaletteTool) => void;
+}
+
+/** One tool; memoised: a cursor move redraws only the tools it lights, greys or ungreys. */
+function ToolButtonView({ palette, tool, width, isEnabled, isActive, onPress }: ToolButtonProps) {
+  return (
+    <ChromeButton
+      testID={`palette-${tool.id}`}
+      palette={palette}
+      label={tool.face}
+      icon={toolIcon(palette, tool, isActive)}
+      tooltip={tool.tooltip}
+      fontSize={11}
+      minWidth={30}
+      width={width}
+      height={PALETTE_ROW_HEIGHT}
+      isEnabled={isEnabled}
+      isActive={isActive}
+      onPress={() => onPress(tool)}
+    />
+  );
+}
+
+const ToolButton = memo(ToolButtonView);
 
 /** Hangul syllables a keyed face shows at the usual size; a longer word (슬라이드, 비브라토) is set smaller to fit beside its key. */
 const KEYED_FACE_SYLLABLES = 3;
@@ -174,15 +198,17 @@ function stepperRows(steppers: readonly PaletteStepper[]): readonly (readonly Pa
   }, []);
 }
 
-interface StepperProps {
+interface StepperRowProps {
   readonly palette: Palette;
+  readonly steppers: readonly PaletteStepper[];
   readonly context: PaletteContext;
   readonly onEdit: (edit: SongEdit) => void;
 }
 
 /** One row: the first stepper's label, then each stepper's − value +; a value that can be typed (the tempo) opens a field under the row on a click. */
-function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { readonly steppers: readonly PaletteStepper[] }) {
+function StepperRow({ palette, steppers, context, onEdit }: StepperRowProps) {
   const [typingId, setTypingId] = useState<string | undefined>(undefined);
+  const toggleTyping = useCallback((id: string) => setTypingId((current) => (current === id ? undefined : id)), []);
   const typed = steppers.find((stepper) => stepper.id === typingId)?.typed;
   return (
     <>
@@ -193,9 +219,10 @@ function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { rea
             key={stepper.id}
             palette={palette}
             stepper={stepper}
-            context={context}
+            value={stepper.value(context)}
+            isEnabled={context.header !== undefined && (stepper.isEnabled?.(context) ?? true)}
             onEdit={onEdit}
-            onType={() => setTypingId(typingId === stepper.id ? undefined : stepper.id)}
+            onType={toggleTyping}
           />
         ))}
       </View>
@@ -214,25 +241,37 @@ function StepperRow({ palette, steppers, context, onEdit }: StepperProps & { rea
   );
 }
 
-function StepperControl({ palette, stepper, context, onEdit, onType }: StepperProps & { readonly stepper: PaletteStepper; readonly onType: () => void }) {
+interface StepperControlProps {
+  readonly palette: Palette;
+  readonly stepper: PaletteStepper;
+  readonly value: string;
+  readonly isEnabled: boolean;
+  readonly onEdit: (edit: SongEdit) => void;
+  /** A click on a typed value: its field opens (or closes). */
+  readonly onType: (stepperId: string) => void;
+}
+
+/** − value +; memoised: a cursor move redraws only the steppers whose value it changes. */
+function StepperControlView({ palette, stepper, value, isEnabled, onEdit, onType }: StepperControlProps) {
   const t = useT();
-  const isEnabled = context.header !== undefined && (stepper.isEnabled?.(context) ?? true);
   const { typed } = stepper;
-  const value = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{stepper.value(context)}</Text>;
+  const shown = <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{value}</Text>;
   return (
     <>
       <ChromeButton palette={palette} label="−" tooltip={t('palette.stepper.less', { tooltip: stepper.tooltip })} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.minus)} />
       {typed === undefined ? (
-        value
+        shown
       ) : (
-        <Pressable testID={`palette-value-${stepper.id}`} tooltip={t('palette.stepper.clickToType', { placeholder: typed.placeholder })} disabled={!isEnabled} onPress={onType} style={styles.stepperPress}>
-          {value}
+        <Pressable testID={`palette-value-${stepper.id}`} tooltip={t('palette.stepper.clickToType', { placeholder: typed.placeholder })} disabled={!isEnabled} onPress={() => onType(stepper.id)} style={styles.stepperPress}>
+          {shown}
         </Pressable>
       )}
       <ChromeButton palette={palette} label="+" tooltip={t('palette.stepper.more', { tooltip: stepper.tooltip })} minWidth={STEPPER_BUTTON_WIDTH} height={PALETTE_ROW_HEIGHT} isEnabled={isEnabled} onPress={() => onEdit(stepper.plus)} />
     </>
   );
 }
+
+const StepperControl = memo(StepperControlView);
 
 export const EditionPalette = memo(EditionPaletteView);
 

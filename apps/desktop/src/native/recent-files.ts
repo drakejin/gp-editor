@@ -1,6 +1,7 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 import { type RecentFile, parseRecentFiles } from '../lib/recent-files';
 import type { OpenedFile } from './gp-files';
+import { subscribeNativeEvents } from './native-events';
 
 interface GPRecentFilesModule {
   loadRecentFiles(): Promise<unknown>;
@@ -44,15 +45,13 @@ export function isMissingFileError(error: unknown): boolean {
 
 /** File ▸ Open Recent ▸ a file; returns the unsubscribe function. */
 export function subscribeOpenRecentRequests(onOpenRecent: (path: string) => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPRecentFiles).addListener('openRecentRequested', (event?: { readonly path?: unknown }) => {
-    if (typeof event?.path === 'string') {
-      onOpenRecent(event.path);
-    }
+  return subscribeNativeEvents(native, {
+    openRecentRequested: (event?: { readonly path?: unknown }) => {
+      if (typeof event?.path === 'string') {
+        onOpenRecent(event.path);
+      }
+    },
   });
-  return () => subscription.remove();
 }
 
 export interface RecentListHandlers {
@@ -64,13 +63,5 @@ export interface RecentListHandlers {
 
 /** Clear Menu and Recent Files…; returns the unsubscribe function. */
 export function subscribeRecentListRequests(handlers: RecentListHandlers): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const emitter = new NativeEventEmitter(NativeModules.GPRecentFiles);
-  const subscriptions = [
-    emitter.addListener('clearRecentRequested', handlers.onClearRequested),
-    emitter.addListener('recentFilesRequested', handlers.onShowRequested),
-  ];
-  return () => subscriptions.forEach((subscription) => subscription.remove());
+  return subscribeNativeEvents(native, { clearRecentRequested: handlers.onClearRequested, recentFilesRequested: handlers.onShowRequested });
 }

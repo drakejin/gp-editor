@@ -19,7 +19,7 @@ import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
 import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
 import { clefTool, expressionTextTool, ottavaTool } from './palette-expression';
-import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteTool } from './palette-tools';
+import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteStepper, type PaletteTool } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
 
@@ -128,14 +128,59 @@ function voiceGroup(): PaletteGroup {
   };
 }
 
-function barGroup(): PaletteGroup {
+/** Alternate endings 1–8, lit where the bar has them. */
+function endingsTool(): PaletteTool {
   const endings: readonly PaletteOption[] = [1, 2, 3, 4, 5, 6, 7, 8].map((ending) => ({
     label: `${ending}.`,
     tooltip: t('palette.option.ending', { number: ending }),
     edit: { type: 'toggleAlternateEnding', ending },
     isActive: (context: PaletteContext) => ((context.header?.repeatAlternative ?? 0) & (1 << (ending - 1))) !== 0, // eslint-disable-line no-bitwise
   }));
+  return { id: 'endings', face: '1. 2.', tooltip: t('palette.tool.endings'), scope: 'bar', run: { kind: 'options', options: endings }, isActive: (c) => (c.header?.repeatAlternative ?? 0) !== 0 };
+}
+
+/** The bar's triplet feel: none, eighths, sixteenths. */
+function tripletFeelTool(): PaletteTool {
   const feels: readonly TripletFeel[] = ['none', 'eighth', 'sixteenth'];
+  return {
+    id: 'tripletFeel',
+    face: '♪³',
+    tooltip: t('palette.tool.tripletFeel'),
+    scope: 'bar',
+    run: {
+      kind: 'options',
+      options: feels.map((feel) => ({
+        label: t(`palette.option.feel.${feel}` as MessageKey),
+        tooltip: t(`palette.option.feel.${feel}.tooltip` as MessageKey),
+        edit: { type: 'setTripletFeel', feel },
+        isActive: (c: PaletteContext) => c.header?.tripletFeel === feel,
+      })),
+    },
+    isActive: (c) => (c.header?.tripletFeel ?? 'none') !== 'none',
+  };
+}
+
+/** The bar's time signature (its two numbers on one row), tempo (typed too), key and repeat count. */
+function barSteppers(): readonly PaletteStepper[] {
+  return [
+    { id: 'numerator', label: t('palette.stepper.numerator'), tooltip: t('palette.stepper.numerator.tooltip'), value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
+    { id: 'denominator', label: t('palette.stepper.denominator'), tooltip: t('palette.stepper.denominator.tooltip'), value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 }, isBesidePrevious: true },
+    {
+      id: 'tempo',
+      label: t('palette.stepper.tempo'),
+      tooltip: t('palette.stepper.tempo.tooltip'),
+      value: (c) => `♩ ${c.header?.tempo ?? '–'}`,
+      minus: { type: 'shiftTempo', delta: -5 },
+      plus: { type: 'shiftTempo', delta: 5 },
+      typed: { placeholder: t('palette.stepper.tempo.placeholder'), value: (c) => String(c.header?.tempo ?? ''), edit: (text) => ({ type: 'setTempo', tempo: parseTempoText(text) ?? Number.NaN }) },
+    },
+    // i18n-exempt: key names (C / Am)
+    { id: 'key', label: t('palette.stepper.key'), tooltip: t('palette.stepper.key.tooltip'), value: (c) => (c.keySignature === 0 ? 'C / Am' : `${Math.abs(c.keySignature)}${c.keySignature > 0 ? '♯' : '♭'}`), minus: { type: 'shiftKeySignature', delta: -1 }, plus: { type: 'shiftKeySignature', delta: 1 } },
+    { id: 'repeats', label: t('palette.stepper.repeats'), tooltip: t('palette.stepper.repeats.tooltip'), value: (c) => ((c.header?.repeatClose ?? 0) > 0 ? `×${c.header?.repeatClose}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },
+  ];
+}
+
+function barGroup(): PaletteGroup {
   return {
     id: 'bar',
     title: t('palette.group.bar'),
@@ -144,23 +189,8 @@ function barGroup(): PaletteGroup {
       { id: 'deleteMeasure', face: t('palette.face.deleteMeasure'), tooltip: t('palette.tool.deleteMeasure'), scope: 'bar', run: edit({ type: 'deleteMeasure' }) },
       { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
       { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
-      { id: 'endings', face: '1. 2.', tooltip: t('palette.tool.endings'), scope: 'bar', run: { kind: 'options', options: endings }, isActive: (c) => (c.header?.repeatAlternative ?? 0) !== 0 },
-      {
-        id: 'tripletFeel',
-        face: '♪³',
-        tooltip: t('palette.tool.tripletFeel'),
-        scope: 'bar',
-        run: {
-          kind: 'options',
-          options: feels.map((feel) => ({
-            label: t(`palette.option.feel.${feel}` as MessageKey),
-            tooltip: t(`palette.option.feel.${feel}.tooltip` as MessageKey),
-            edit: { type: 'setTripletFeel', feel },
-            isActive: (c: PaletteContext) => c.header?.tripletFeel === feel,
-          })),
-        },
-        isActive: (c) => (c.header?.tripletFeel ?? 'none') !== 'none',
-      },
+      endingsTool(),
+      tripletFeelTool(),
       {
         id: 'section',
         face: 'A',
@@ -173,22 +203,7 @@ function barGroup(): PaletteGroup {
       beamGroupingTool(),
       clefTool(),
     ],
-    steppers: [
-      { id: 'numerator', label: t('palette.stepper.numerator'), tooltip: t('palette.stepper.numerator.tooltip'), value: (c) => String(c.header?.timeSignature.numerator ?? '–'), minus: { type: 'shiftTimeSignature', part: 'numerator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'numerator', delta: 1 } },
-      { id: 'denominator', label: t('palette.stepper.denominator'), tooltip: t('palette.stepper.denominator.tooltip'), value: (c) => `÷${c.header?.timeSignature.denominator ?? '–'}`, minus: { type: 'shiftTimeSignature', part: 'denominator', delta: -1 }, plus: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 }, isBesidePrevious: true },
-      {
-        id: 'tempo',
-        label: t('palette.stepper.tempo'),
-        tooltip: t('palette.stepper.tempo.tooltip'),
-        value: (c) => `♩ ${c.header?.tempo ?? '–'}`,
-        minus: { type: 'shiftTempo', delta: -5 },
-        plus: { type: 'shiftTempo', delta: 5 },
-        typed: { placeholder: t('palette.stepper.tempo.placeholder'), value: (c) => String(c.header?.tempo ?? ''), edit: (text) => ({ type: 'setTempo', tempo: parseTempoText(text) ?? Number.NaN }) },
-      },
-      // i18n-exempt: key names (C / Am)
-      { id: 'key', label: t('palette.stepper.key'), tooltip: t('palette.stepper.key.tooltip'), value: (c) => (c.keySignature === 0 ? 'C / Am' : `${Math.abs(c.keySignature)}${c.keySignature > 0 ? '♯' : '♭'}`), minus: { type: 'shiftKeySignature', delta: -1 }, plus: { type: 'shiftKeySignature', delta: 1 } },
-      { id: 'repeats', label: t('palette.stepper.repeats'), tooltip: t('palette.stepper.repeats.tooltip'), value: (c) => ((c.header?.repeatClose ?? 0) > 0 ? `×${c.header?.repeatClose}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },
-    ],
+    steppers: barSteppers(),
   };
 }
 
