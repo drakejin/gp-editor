@@ -1,13 +1,11 @@
 // File access for the JS side: the open and save panels, reading a file the user picked or dropped, files handed to
-// the app by Finder ("Open With", dock drop), and the File menu (New, Import PDF…, Export PDF…, Print…, Open…, Save, Save
-// As…, Close Tab, Next Tab, Previous Tab), Edit ▸ AI Wizard ▸ Song Writer… and Help ▸ Keyboard Shortcuts.
-// Also Edit ▸ Undo / Redo (the score's, with JS's undo state back: setUndoState), Edit ▸ Lyrics…, Tools ▸ Scales… and View ▸ Focus / Unfocus.
-// AppDelegate.swift posts the notifications in GPEditorNotifications.h; this module forwards them as events.
-// File ▸ Export MIDI… and Export ASCII Tab… come here too; their files, like Save's, go through showSavePanel, then
-// writeFile / writeTextFile. So do Export MusicXML… and Export Compressed MusicXML…, and Open reads MusicXML files.
-// File ▸ Export Audio… comes here as an event too; its single file's place is chosen with showSavePanel.
-// Tools ▸ Transpose… and Tools ▸ Command Palette… (⇧⌘P) come here as events too.
-// So do View ▸ Multitrack (F3), Previous Track and Next Track.
+// the app by Finder ("Open With", dock drop), writing bytes and text, and the menu commands AppDelegate.swift and
+// EditMenu.swift post (GPEditorNotifications.h), forwarded to JS as events by one table, GPMenuEvents: the File menu
+// (New, Open…, Import PDF…, Export PDF… / PNG… / MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… / Audio…,
+// Print…, Save, Save As…, Close Tab, Next Tab, Previous Tab), Edit ▸ Undo / Redo (with JS's undo state back:
+// setUndoState), Lyrics… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…, Command Palette… / Expression
+// Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸ Keyboard Shortcuts. Export's
+// files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads MusicXML files too.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -20,35 +18,105 @@
 #import "GPSandbox.h"
 #import "GPAppStrings.h"
 
-static NSString *const kNewRequestedEvent = @"newRequested";
-static NSString *const kImportPdfRequestedEvent = @"importPdfRequested";
-static NSString *const kExportRequestedEvent = @"exportRequested";
-static NSString *const kExportPngRequestedEvent = @"exportPngRequested";
-static NSString *const kPrintRequestedEvent = @"printRequested";
-static NSString *const kHelpRequestedEvent = @"helpRequested";
-static NSString *const kFocusRequestedEvent = @"focusRequested";
-static NSString *const kUndoRequestedEvent = @"undoRequested";
-static NSString *const kRedoRequestedEvent = @"redoRequested";
-static NSString *const kSongWriterRequestedEvent = @"songWriterRequested";
-static NSString *const kLyricsRequestedEvent = @"lyricsRequested";
-static NSString *const kScalesRequestedEvent = @"scalesRequested";
-static NSString *const kOpenRequestedEvent = @"openRequested";
 static NSString *const kFileOpenedEvent = @"fileOpened";
-static NSString *const kSaveRequestedEvent = @"saveRequested";
-static NSString *const kCloseTabRequestedEvent = @"closeTabRequested";
-static NSString *const kNextTabRequestedEvent = @"nextTabRequested";
-static NSString *const kPreviousTabRequestedEvent = @"previousTabRequested";
-static NSString *const kExportMidiRequestedEvent = @"exportMidiRequested";
-static NSString *const kExportAsciiTabRequestedEvent = @"exportAsciiTabRequested";
-static NSString *const kExportMusicXmlRequestedEvent = @"exportMusicXmlRequested";
-static NSString *const kExportCompressedMusicXmlRequestedEvent = @"exportCompressedMusicXmlRequested";
-static NSString *const kExportAudioRequestedEvent = @"exportAudioRequested";
-static NSString *const kTransposeRequestedEvent = @"transposeRequested";
-static NSString *const kCommandPaletteRequestedEvent = @"commandPaletteRequested";
-static NSString *const kMultitrackRequestedEvent = @"multitrackRequested";
-static NSString *const kDrumKeyRequestedEvent = @"drumKeyRequested";
-static NSString *const kPreviousTrackRequestedEvent = @"previousTrackRequested";
-static NSString *const kNextTrackRequestedEvent = @"nextTrackRequested";
+
+/** The body of the event a menu notification becomes. */
+typedef NSDictionary *_Nonnull (*GPMenuEventBody)(NSNotification *_Nonnull note);
+
+static NSDictionary *GPNoBody(NSNotification *note)
+{
+  return @{};
+}
+
+/** File ▸ New: the score mode the item asks for (JS checks it; an unknown or missing one is score + tab). */
+static NSDictionary *GPNewBody(NSNotification *note)
+{
+  return @{@"mode" : [note.object isKindOfClass:[NSString class]] ? note.object : @""};
+}
+
+/** File ▸ Save: overwrite where it can. */
+static NSDictionary *GPSaveBody(NSNotification *note)
+{
+  return @{@"saveAs" : @NO};
+}
+
+/** File ▸ Save As…: always ask where. */
+static NSDictionary *GPSaveAsBody(NSNotification *note)
+{
+  return @{@"saveAs" : @YES};
+}
+
+/** Tools ▸ Command Palette… (⇧⌘P), or Expression Text… (⌥⌘E: the notification's object is @"expression"). */
+static NSDictionary *GPCommandPaletteBody(NSNotification *note)
+{
+  BOOL isExpression = [note.object isKindOfClass:[NSString class]] && [note.object isEqualToString:@"expression"];
+  return @{@"mode" : isExpression ? @"expression" : @"commands"};
+}
+
+/** One menu notification forwarded to JS: the event's name and how its body is made. */
+@interface GPMenuEvent : NSObject
+@property(nonatomic, copy, readonly) NSString *name;
+@property(nonatomic, readonly) GPMenuEventBody body;
+@end
+
+@implementation GPMenuEvent
+- (instancetype)initWithName:(NSString *)name body:(GPMenuEventBody)body
+{
+  if (self = [super init]) {
+    _name = [name copy];
+    _body = body;
+  }
+  return self;
+}
+@end
+
+static GPMenuEvent *GPEvent(NSString *name, GPMenuEventBody body)
+{
+  return [[GPMenuEvent alloc] initWithName:name body:body];
+}
+
+/** Every menu notification GPFiles forwards, by name: the event JS receives (src/native/gp-files.ts). */
+static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
+{
+  static NSDictionary<NSNotificationName, GPMenuEvent *> *events;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    events = @{
+      GPEditorNewCommandNotification : GPEvent(@"newRequested", GPNewBody),
+      GPEditorOpenCommandNotification : GPEvent(@"openRequested", GPNoBody),
+      GPEditorImportPdfCommandNotification : GPEvent(@"importPdfRequested", GPNoBody),
+      GPEditorExportCommandNotification : GPEvent(@"exportRequested", GPNoBody),
+      GPEditorExportPngCommandNotification : GPEvent(@"exportPngRequested", GPNoBody),
+      GPEditorExportMidiCommandNotification : GPEvent(@"exportMidiRequested", GPNoBody),
+      GPEditorExportAsciiTabCommandNotification : GPEvent(@"exportAsciiTabRequested", GPNoBody),
+      GPEditorExportMusicXmlCommandNotification : GPEvent(@"exportMusicXmlRequested", GPNoBody),
+      GPEditorExportCompressedMusicXmlCommandNotification : GPEvent(@"exportCompressedMusicXmlRequested", GPNoBody),
+      // GPAudioExport.m renders and writes the files.
+      GPEditorExportAudioCommandNotification : GPEvent(@"exportAudioRequested", GPNoBody),
+      GPEditorPrintCommandNotification : GPEvent(@"printRequested", GPNoBody),
+      GPEditorSaveCommandNotification : GPEvent(@"saveRequested", GPSaveBody),
+      GPEditorSaveAsCommandNotification : GPEvent(@"saveRequested", GPSaveAsBody),
+      GPEditorCloseTabCommandNotification : GPEvent(@"closeTabRequested", GPNoBody),
+      GPEditorNextTabCommandNotification : GPEvent(@"nextTabRequested", GPNoBody),
+      GPEditorPreviousTabCommandNotification : GPEvent(@"previousTabRequested", GPNoBody),
+      // The score's undo and redo (EditMenu.swift: not while a text field edits, its own undo then).
+      GPEditorUndoCommandNotification : GPEvent(@"undoRequested", GPNoBody),
+      GPEditorRedoCommandNotification : GPEvent(@"redoRequested", GPNoBody),
+      GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
+      GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
+      GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),
+      GPEditorTransposeCommandNotification : GPEvent(@"transposeRequested", GPNoBody),
+      GPEditorCommandPaletteCommandNotification : GPEvent(@"commandPaletteRequested", GPCommandPaletteBody),
+      GPEditorFocusCommandNotification : GPEvent(@"focusRequested", GPNoBody),
+      GPEditorMultitrackCommandNotification : GPEvent(@"multitrackRequested", GPNoBody),
+      GPEditorPreviousTrackCommandNotification : GPEvent(@"previousTrackRequested", GPNoBody),
+      GPEditorNextTrackCommandNotification : GPEvent(@"nextTrackRequested", GPNoBody),
+      GPEditorDrumKeyCommandNotification : GPEvent(@"drumKeyRequested", GPNoBody),
+      GPEditorHelpCommandNotification : GPEvent(@"helpRequested", GPNoBody),
+    };
+  });
+  return events;
+}
 
 /** Paths Finder handed over before JS started listening. */
 static NSMutableArray<NSString *> *pendingPaths;
@@ -184,39 +252,10 @@ RCT_EXPORT_MODULE();
 {
   if (self = [super init]) {
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center addObserver:self selector:@selector(onNewCommand:) name:GPEditorNewCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onOpenCommand:) name:GPEditorOpenCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onImportPdfCommand:) name:GPEditorImportPdfCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onExportCommand:) name:GPEditorExportCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onExportPngCommand:) name:GPEditorExportPngCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onPrintCommand:) name:GPEditorPrintCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onHelpCommand:) name:GPEditorHelpCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onFocusCommand:) name:GPEditorFocusCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onUndoCommand:) name:GPEditorUndoCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onRedoCommand:) name:GPEditorRedoCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onSongWriterCommand:) name:GPEditorSongWriterCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onLyricsCommand:) name:GPEditorLyricsCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onScalesCommand:) name:GPEditorScalesCommandNotification object:nil];
+    for (NSNotificationName name in GPMenuEvents()) {
+      [center addObserver:self selector:@selector(onMenuCommand:) name:name object:nil];
+    }
     [center addObserver:self selector:@selector(onOpenURLs:) name:GPEditorOpenURLsNotification object:nil];
-    [center addObserver:self selector:@selector(onSaveCommand:) name:GPEditorSaveCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onSaveAsCommand:) name:GPEditorSaveAsCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onCloseTabCommand:) name:GPEditorCloseTabCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onNextTabCommand:) name:GPEditorNextTabCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onPreviousTabCommand:) name:GPEditorPreviousTabCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onExportMidiCommand:) name:GPEditorExportMidiCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onExportAsciiTabCommand:) name:GPEditorExportAsciiTabCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onExportMusicXmlCommand:) name:GPEditorExportMusicXmlCommandNotification object:nil];
-    [center addObserver:self
-               selector:@selector(onExportCompressedMusicXmlCommand:)
-                   name:GPEditorExportCompressedMusicXmlCommandNotification
-                 object:nil];
-    [center addObserver:self selector:@selector(onExportAudioCommand:) name:GPEditorExportAudioCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onTransposeCommand:) name:GPEditorTransposeCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onCommandPaletteCommand:) name:GPEditorCommandPaletteCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onMultitrackCommand:) name:GPEditorMultitrackCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onPreviousTrackCommand:) name:GPEditorPreviousTrackCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onNextTrackCommand:) name:GPEditorNextTrackCommandNotification object:nil];
-    [center addObserver:self selector:@selector(onDrumKeyCommand:) name:GPEditorDrumKeyCommandNotification object:nil];
   }
   return self;
 }
@@ -228,14 +267,8 @@ RCT_EXPORT_MODULE();
 
 - (NSArray<NSString *> *)supportedEvents
 {
-  return @[
-    kNewRequestedEvent, kImportPdfRequestedEvent, kExportRequestedEvent, kPrintRequestedEvent, kHelpRequestedEvent, kSongWriterRequestedEvent,
-    kOpenRequestedEvent, kFileOpenedEvent, kSaveRequestedEvent, kCloseTabRequestedEvent, kNextTabRequestedEvent, kPreviousTabRequestedEvent,
-    kExportPngRequestedEvent, kExportMidiRequestedEvent, kExportAsciiTabRequestedEvent,
-    kExportMusicXmlRequestedEvent, kExportCompressedMusicXmlRequestedEvent, kExportAudioRequestedEvent,
-    kLyricsRequestedEvent, kScalesRequestedEvent, kTransposeRequestedEvent, kCommandPaletteRequestedEvent, kFocusRequestedEvent, kUndoRequestedEvent, kRedoRequestedEvent,
-    kMultitrackRequestedEvent, kPreviousTrackRequestedEvent, kNextTrackRequestedEvent, kDrumKeyRequestedEvent
-  ];
+  NSArray<NSString *> *menuEvents = [GPMenuEvents().allValues valueForKey:@"name"];
+  return [[NSOrderedSet orderedSetWithArray:[menuEvents arrayByAddingObject:kFileOpenedEvent]] array];
 }
 
 - (void)startObserving
@@ -249,217 +282,12 @@ RCT_EXPORT_MODULE();
   hasListeners = NO;
 }
 
-- (void)onNewCommand:(NSNotification *)note
+/** A menu command (GPMenuEvents) to JS, while it listens. */
+- (void)onMenuCommand:(NSNotification *)note
 {
-  // The JS side checks the mode; an unknown or missing one falls back to score + tab.
-  NSString *mode = [note.object isKindOfClass:[NSString class]] ? note.object : @"";
-  if (hasListeners) {
-    [self sendEventWithName:kNewRequestedEvent body:@{@"mode" : mode}];
-  }
-}
-
-- (void)onImportPdfCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kImportPdfRequestedEvent body:@{}];
-  }
-}
-
-- (void)onExportCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportRequestedEvent body:@{}];
-  }
-}
-
-/** File ▸ Export PNG…. */
-- (void)onExportPngCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportPngRequestedEvent body:@{}];
-  }
-}
-
-- (void)onPrintCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kPrintRequestedEvent body:@{}];
-  }
-}
-
-- (void)onHelpCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kHelpRequestedEvent body:@{}];
-  }
-}
-
-/** View ▸ Drum Key. */
-- (void)onDrumKeyCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kDrumKeyRequestedEvent body:@{}];
-  }
-}
-
-/** View ▸ Multitrack, Previous Track, Next Track. */
-- (void)onMultitrackCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kMultitrackRequestedEvent body:@{}];
-  }
-}
-
-- (void)onPreviousTrackCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kPreviousTrackRequestedEvent body:@{}];
-  }
-}
-
-- (void)onNextTrackCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kNextTrackRequestedEvent body:@{}];
-  }
-}
-
-/** Edit ▸ Undo / Redo for the score (EditMenu.swift: not while a text field edits, its own undo then). */
-- (void)onUndoCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kUndoRequestedEvent body:@{}];
-  }
-}
-
-- (void)onRedoCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kRedoRequestedEvent body:@{}];
-  }
-}
-
-/** View ▸ Focus / Unfocus. */
-- (void)onFocusCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kFocusRequestedEvent body:@{}];
-  }
-}
-
-- (void)onSongWriterCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kSongWriterRequestedEvent body:@{}];
-  }
-}
-
-- (void)onLyricsCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kLyricsRequestedEvent body:@{}];
-  }
-}
-
-- (void)onScalesCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kScalesRequestedEvent body:@{}];
-  }
-}
-
-- (void)onOpenCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kOpenRequestedEvent body:@{}];
-  }
-}
-
-- (void)onSaveCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kSaveRequestedEvent body:@{@"saveAs" : @NO}];
-  }
-}
-
-- (void)onSaveAsCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kSaveRequestedEvent body:@{@"saveAs" : @YES}];
-  }
-}
-
-- (void)onCloseTabCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kCloseTabRequestedEvent body:@{}];
-  }
-}
-
-- (void)onNextTabCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kNextTabRequestedEvent body:@{}];
-  }
-}
-
-- (void)onPreviousTabCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kPreviousTabRequestedEvent body:@{}];
-  }
-}
-
-- (void)onExportMidiCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportMidiRequestedEvent body:@{}];
-  }
-}
-
-- (void)onExportAsciiTabCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportAsciiTabRequestedEvent body:@{}];
-  }
-}
-
-- (void)onExportMusicXmlCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportMusicXmlRequestedEvent body:@{}];
-  }
-}
-
-- (void)onExportCompressedMusicXmlCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportCompressedMusicXmlRequestedEvent body:@{}];
-  }
-}
-
-/** File ▸ Export Audio… (GPAudioExport.m renders and writes the files). */
-- (void)onExportAudioCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kExportAudioRequestedEvent body:@{}];
-  }
-}
-
-/** Tools ▸ Transpose…. */
-- (void)onTransposeCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    [self sendEventWithName:kTransposeRequestedEvent body:@{}];
-  }
-}
-
-/** Tools ▸ Command Palette… (⇧⌘P), and Tools ▸ Expression Text… (⌥⌘E: the notification's object is @"expression"). */
-- (void)onCommandPaletteCommand:(NSNotification *)note
-{
-  if (hasListeners) {
-    NSString *mode = [note.object isKindOfClass:[NSString class]] && [note.object isEqualToString:@"expression"] ? @"expression" : @"commands";
-    [self sendEventWithName:kCommandPaletteRequestedEvent body:@{@"mode": mode}];
+  GPMenuEvent *event = GPMenuEvents()[note.name];
+  if (hasListeners && event != nil) {
+    [self sendEventWithName:event.name body:event.body(note)];
   }
 }
 
