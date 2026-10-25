@@ -40,5 +40,6 @@ NSString *const GPEditorLayoutCommandNotification = @"GPEditorLayoutCommand";
 NSString *const GPEditorUndoCommandNotification = @"GPEditorUndoCommand";
 NSString *const GPEditorRedoCommandNotification = @"GPEditorRedoCommand";
 NSString *const GPEditorUndoStateNotification = @"GPEditorUndoState";
+NSString *const GPEditorClipboardCommandNotification = @"GPEditorClipboardCommand";
 NSString *const GPEditorSettingsCommandNotification = @"GPEditorSettingsCommand";
 NSString *const GPEditorLanguageChangedNotification = @"GPEditorLanguageChanged";

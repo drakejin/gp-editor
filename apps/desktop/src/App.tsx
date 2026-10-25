@@ -250,8 +250,8 @@ export default function App() {
     clipboard,
     keyboardView,
   });
-  // Edit ▸ Undo / Redo of the menu bar, and ⌘Z / ⇧⌘Z in the activated app (the menu's key equivalents).
-  useEditMenu(state.past.length > 0, state.future.length > 0, commands.runCommand);
+  // Edit ▸ Undo / Redo / Cut / Copy / Paste of the menu bar, and ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V in the activated app (the menu's key equivalents).
+  useEditMenu(state.past.length > 0, state.future.length > 0, commands.runCommand, isOverlayOpen);
 
   // Palette buttons edit at the cursor, then hand the keyboard back to the score (to type the next fret).
   const editAtCursor = useCallback((edit: SongEdit) => {

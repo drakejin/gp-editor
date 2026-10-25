@@ -149,7 +149,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | close tab / next tab / previous tab | 탭 닫기 / 다음 탭 / 이전 탭 | |
 | import / export / print | 가져오기 / 내보내기 / 프린트 | macOS's Korean says 프린트 |
 | undo / redo | 실행 취소 / 실행 복귀 | macOS's words |
-| cut / copy / paste | 오려두기 / 복사하기 / 붙여넣기 | macOS's words |
+| cut / copy / paste | 오려두기 / 복사하기 / 붙여넣기 | the Edit menu's items keep macOS 26's own titles: 오려두기 / 복사 / 붙여넣기, 삭제, 전체 선택 |
 | selection, select | 선택 영역, 선택 | |
 | cursor | 커서 | |
 | zoom in / out | 확대 / 축소 | |

@@ -99,6 +99,12 @@ FOUNDATION_EXPORT NSString *const GPEditorRedoCommandNotification;
 /** JS's undo state for Edit ▸ Undo / Redo (GPFiles' setUndoState). userInfo: "canUndo", "canRedo" (NSNumber booleans). */
 FOUNDATION_EXPORT NSString *const GPEditorUndoStateNotification;
 
+/**
+ * Edit ▸ Cut / Copy / Paste (⌘X / ⌘C / ⌘V) for the score (EditMenu.swift); GPClipboard.m forwards it to JS as
+ * "clipboardCommandRequested". Object: NSString "cut", "copy" or "paste".
+ */
+FOUNDATION_EXPORT NSString *const GPEditorClipboardCommandNotification;
+
 /** View ▸ Multitrack (F3) was chosen; GPFiles.m forwards it to JS as "multitrackRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMultitrackCommandNotification;
 

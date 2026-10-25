@@ -111,6 +111,10 @@ struct GPEditorApp: App {
         CommandGroup(replacing: .undoRedo) {
           UndoRedoCommands(model: editMenu, strings: strings)
         }
+        // Edit ▸ Cut / Copy / Paste: the score's beats, or the text being edited (EditMenu.swift); Delete, Select All.
+        CommandGroup(replacing: .pasteboard) {
+          PasteboardCommands(model: editMenu, strings: strings)
+        }
         // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
         CommandGroup(after: .pasteboard) {
           Divider()
