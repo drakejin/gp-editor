@@ -1,4 +1,6 @@
-// Port of TuxGuitar's TGMusicKeyUtils (getKeySignature(TGScale), noteName, noteAccidental) (LGPL-2.1): a scale's note names.
+// Port of TuxGuitar's TGMusicKeyUtils (getKeySignature(TGScale), noteName, noteAccidental, noteIndex, noteAlteration)
+// (LGPL-2.1): how a pitch is spelled in a key signature — a scale's note names here, MusicXML's steps
+// (write/musicxml/musicxml-pitch.ts) from the same tables.
 import { NOTE_LETTERS } from '../edit/key-spelling';
 import { type ScaleChoice, SCALE_ROOTS, scalePitchClasses } from './notes';
 
@@ -19,19 +21,29 @@ const TABLE_OF_SIGNATURE = [0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 4, 5];
 const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6];
 const ONE_FLAT = 8;
 const LAST_SIGNATURE = 14;
+const MAX_ACCIDENTALS = 7;
 
-type Alteration = 'natural' | 'sharp' | 'flat';
+/** How a pitch class is written in a key signature: its letter's alteration. */
+export type Alteration = 'natural' | 'sharp' | 'flat';
 
-function noteIndex(pitchClass: number, signature: number): number {
+/** The model's key signature (-7 … 7, flats negative; rounded towards 0 and kept within) as TuxGuitar numbers it, 0 … 14. */
+export function toTuxSignature(keySignature: number): number {
+  const key = Math.max(-MAX_ACCIDENTALS, Math.min(MAX_ACCIDENTALS, Math.trunc(keySignature)));
+  return key >= 0 ? key : MAX_ACCIDENTALS - key;
+}
+
+/** The letter (0 = C … 6 = B) a pitch class is written on in a TuxGuitar key signature (TGMusicKeyUtils#noteIndex). */
+export function letterIndexInKey(pitchClass: number, signature: number): number {
   return INDEX_TABLES[TABLE_OF_SIGNATURE[signature] ?? 0]?.[pitchClass] ?? 0;
 }
 
-function noteAlteration(pitchClass: number, signature: number): Alteration {
-  const index = noteIndex(pitchClass, signature);
-  if ((7 + noteIndex(pitchClass, ONE_FLAT) - index) % 7 === 1) {
+/** The alteration a pitch class is written with in a TuxGuitar key signature (TGMusicKeyUtils#noteAlteration). */
+export function alterationInKey(pitchClass: number, signature: number): Alteration {
+  const index = letterIndexInKey(pitchClass, signature);
+  if ((7 + letterIndexInKey(pitchClass, ONE_FLAT) - index) % 7 === 1) {
     return 'sharp';
   }
-  return (7 + noteIndex(pitchClass, 0) - index) % 7 === 6 ? 'flat' : 'natural';
+  return (7 + letterIndexInKey(pitchClass, 0) - index) % 7 === 6 ? 'flat' : 'natural';
 }
 
 /** The alteration the key signature gives a letter. */
@@ -43,8 +55,8 @@ function letterAlteration(index: number, signature: number): Alteration {
 }
 
 function noteName(pitchClass: number, signature: number): string {
-  const alteration = noteAlteration(pitchClass, signature);
-  return `${NOTE_LETTERS[noteIndex(pitchClass, signature)] ?? ''}${alteration === 'sharp' ? '#' : alteration === 'flat' ? 'b' : ''}`;
+  const alteration = alterationInKey(pitchClass, signature);
+  return `${NOTE_LETTERS[letterIndexInKey(pitchClass, signature)] ?? ''}${alteration === 'sharp' ? '#' : alteration === 'flat' ? 'b' : ''}`;
 }
 
 /**
@@ -57,11 +69,11 @@ function accidentalCount(choice: ScaleChoice, signature: number): number | undef
     return undefined;
   }
   const pitchClasses = scalePitchClasses(choice);
-  const letters = new Set(pitchClasses.map((pitchClass) => noteIndex(pitchClass, signature)));
+  const letters = new Set(pitchClasses.map((pitchClass) => letterIndexInKey(pitchClass, signature)));
   if (letters.size < pitchClasses.length) {
     return undefined;
   }
-  return pitchClasses.filter((pitchClass) => noteAlteration(pitchClass, signature) !== letterAlteration(noteIndex(pitchClass, signature), signature)).length;
+  return pitchClasses.filter((pitchClass) => alterationInKey(pitchClass, signature) !== letterAlteration(letterIndexInKey(pitchClass, signature), signature)).length;
 }
 
 /** TGMusicKeyUtils#getKeySignature(TGScale): the signature with the fewest accidentals; undefined when none fits. */
