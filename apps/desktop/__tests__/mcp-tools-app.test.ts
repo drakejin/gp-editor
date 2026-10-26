@@ -92,6 +92,18 @@ describe('file tools', () => {
     expect(refused.text).toContain(SANDBOX_NOTE);
   });
 
+  it('names the tab the window shows after opening, also when the file opens under another path (/tmp → /private/tmp)', async () => {
+    // Arrange: tab-1 holds the file under /tmp; its recent-files bookmark resolves to /private/tmp, a new tab.
+    const opened: WorkspaceAction = { type: 'loaded', document: { fileName: 'Riff.gp5', path: '/private/tmp/Riff.gp5', song: buildNewSong() } };
+    const app = fakeApp(openWorkspace(buildNewSong(), '/tmp/Riff.gp5'), { openAnswer: () => opened });
+
+    // Act
+    const { structured } = await call(app, 'open_file', { path: '/tmp/Riff.gp5' });
+
+    // Assert
+    expect(structured).toMatchObject({ tab: 'tab-2' });
+  });
+
   it('saves a file in its own format, and sends a new score to save_as', async () => {
     const saved = fakeApp(openWorkspace(buildNewSong()));
     const fresh = fakeApp(newScore());

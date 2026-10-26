@@ -65,7 +65,8 @@ async function openPath(host: AppHost, path: string): Promise<ToolResult> {
   if (workspace.error !== undefined) {
     return fileError(host, workspace.error);
   }
-  const tab = workspace.tabs.find((each) => each.editor.document?.path === path) ?? workspace.tabs.find((each) => each.id === workspace.activeTabId);
+  // The window shows what it opened (or the tab that already held the file).
+  const tab = workspace.tabs.find((each) => each.id === workspace.activeTabId);
   const song = tab?.editor.document?.song;
   return song === undefined ? toolError(`${path} did not open.`) : answer(`Opened ${path} in ${tab?.id ?? ''}.`, { tab: tab?.id ?? null, song: songJson(song) });
 }
