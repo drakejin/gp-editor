@@ -111,14 +111,14 @@ Guitar Pro's own files differently are listed, with that evidence, in
 ## Using the app
 
 - **Window** (Guitar Pro 8's layout): the **top bar** — the panel toggles (palette, tracks, inspector); zoom (50–200%, ⌘- / ⌘=); undo and redo; the transport (first, previous, play/stop,
-  next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track, bar *n*/*N*, time signature, time and
+  next, last bar — also Home, ⌥←, Space, ⌥→, End) and the **LCD** (the track's colour, icon and name, bar *n*/*N*, time signature, time and
   length, tempo at the playback speed, the loop pass, and what the cursor is on; while playing, a dot per beat);
   ⟲ Loop, Metronome, Count-in, the practice menu ▾ and − ♩ speed menu +; the
   piano keyboard and fretboard toggles and **?** (the keyboard shortcut sheet). File commands — New, Open, Close Tab, Save, Import PDF, Export PDF,
   Export MIDI, Export Audio, Export ASCII Tab, Print — are in the macOS menu bar's **File** menu. Under it the **tab strip** (one tab per open document), then: the **edition palette** on the left, the **score** as a page on a
   grey desk in the middle, the **inspector** (SONG / TRACK / NOTE) on the right, and at the bottom the **piano keyboard**, the
   **fretboard** and the
-  **tracks panel** — each track's instrument icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
+  **tracks panel** — each track's colour strip, icon, name, show, mute, solo, volume and pan, and the **bar map**: a cell
   per bar and track, in the track's colour where it has notes, grey where it only rests, a dark square on the cursor's
   bar, lettered sections underneath. Clicking a cell shows that track at that bar.
 - **New**: File ▸ New Score + Tab (⌘N) / New Score / New Tab or the start screen —
@@ -464,6 +464,19 @@ Guitar Pro's own files differently are listed, with that evidence, in
   when it has notes, never the last track; Move Track Up / Down, the ⧉ − ▲ ▼ buttons beside *+ Track*, or dragging a
   track's name up or down reorder the tracks. Each is one undo step, also in the command palette; the shown track, the
   cursor, the lyrics panel and the line in's sound lock follow the tracks. Saved in every format the app writes.
+- **Track information** (Guitar Pro 8's name, short name, colour and icon): a click on a track's colour strip or icon
+  in the tracks panel, or on the colour or icon in the Track inspector's INFORMATION, opens a small panel beside it —
+  the name and short name, Guitar Pro 8's nine track colours and any colour typed as `#RRGGBB`, Guitar Pro's track
+  icons (steel, nylon, electric and distortion guitar, bass, ukulele, banjo, keyboard, synthesizer, strings, brass,
+  reeds, flute, voice, mallets, percussion, timpani, drums, other), *Instrument's icon* (the icon follows the instrument
+  again) and *Instrument…*; Esc, ✕ or a click outside closes it. A double-click on a track's name — or ✎ on the
+  selected row — renames it in place (Return sets it, Esc keeps the old name). The Track inspector has the name and
+  short name fields too. Each change is one undo step. The colour shows in the tracks panel's strip and bar map, the
+  LCD, the inspector, the mixer's strips and the Drum Key; the icon in the tracks panel, the LCD, the inspector, the
+  mixer and the Drum Key; the short name labels the later systems of the multitrack view (the stylesheet's track
+  names). `.gp` files keep all four (GPIF `Name`, `ShortName`, `Color`, `IconId`; an icon equal to the instrument's,
+  and a short name equal to the name or its abbreviation, read as none); GP5, GP4 and GP3 keep the name and colour —
+  the save says what is left out —; MusicXML keeps the name and the short name (`part-abbreviation`).
 - **Audio track** (Guitar Pro 8's backing track): Track ▸ Add Audio Track… (or *+ Audio Track* under the tracks) picks a
   recording — WAV, AIFF, MP3, AAC / M4A, FLAC, Ogg, CAF (whatever macOS reads) — that plays with the score; a second one
   replaces it after asking. Its lane under the tracks shows the waveform with the bars placed over it, the cursor's bar
