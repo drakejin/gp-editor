@@ -24,6 +24,8 @@ export type BarEdit =
       readonly part: 'numerator' | 'denominator';
       readonly delta: number;
     }
+  /** A typed time signature (the MCP server's set_time_signature), from the cursor's bar, one undo step. */
+  | { readonly type: 'setTimeSignature'; readonly numerator: number; readonly denominator: number }
   | { readonly type: 'shiftTempo'; readonly delta: number }
   /** A typed tempo (decimals kept to two places by setTempo). */
   | { readonly type: 'setTempo'; readonly tempo: number }
@@ -43,7 +45,7 @@ export type BarEdit =
   | { readonly type: 'setSection'; readonly title: string };
 
 export const isBarEdit = isOfTypes<BarEdit>({
-  shiftTimeSignature: true, shiftTempo: true, setTempo: true, shiftKeySignature: true, setKeySignature: true, setClef: true, toggleRepeatOpen: true,
+  shiftTimeSignature: true, setTimeSignature: true, shiftTempo: true, setTempo: true, shiftKeySignature: true, setKeySignature: true, setClef: true, toggleRepeatOpen: true,
   toggleRepeatClose: true, toggleAlternateEnding: true, shiftRepeatCount: true, setTripletFeel: true, setSection: true,
 });
 
@@ -72,6 +74,8 @@ export function applyBarEdit(
         edit.part,
         edit.delta,
       );
+    case 'setTimeSignature':
+      return setTimeSignature(song, measureIndex, { numerator: edit.numerator, denominator: edit.denominator });
     case 'shiftTempo':
       return setTempo(song, measureIndex, header.tempo + edit.delta);
     case 'setTempo':

@@ -27,6 +27,25 @@ describe('typed tempo', () => {
   });
 });
 
+describe('typed time signature', () => {
+  it('sets a time signature on the bar and the bars after it with the same one, in one undo step', () => {
+    // Act
+    const typed = edit(loaded(), { type: 'setTimeSignature', numerator: 6, denominator: 8 });
+
+    // Assert
+    expect([bar(typed).timeSignature, bar(typed, 1).timeSignature]).toEqual([
+      { numerator: 6, denominator: 8 },
+      { numerator: 6, denominator: 8 },
+    ]);
+    expect(typed.past).toHaveLength(1);
+  });
+
+  it('keeps the song for a denominator that is no note value', () => {
+    const state = loaded();
+    expect(edit(state, { type: 'setTimeSignature', numerator: 4, denominator: 5 }).document).toBe(state.document);
+  });
+});
+
 describe('bar edits at the cursor', () => {
   it('turns alternate endings on and off one at a time', () => {
     // Act

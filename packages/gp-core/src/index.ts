@@ -268,6 +268,8 @@ export {
 } from './formats/common/drum-notation';
 export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore } from './edit/pitch-entry';
 export {
+  MAX_TEMPO,
+  MIN_TEMPO,
   type RepeatChange,
   setKeySignature,
   setMeasureMarker,

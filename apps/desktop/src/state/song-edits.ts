@@ -45,7 +45,9 @@ type DurationEdit =
   | { readonly type: 'setTuplet'; readonly enters: number }
   /** A tuplet of `enters` notes inside the beat's tuplet (tupletOf); 1 = none. Only on a beat in a tuplet. */
   | { readonly type: 'setInnerTuplet'; readonly enters: number }
-  | { readonly type: 'toggleInnerTriplet' };
+  | { readonly type: 'toggleInnerTriplet' }
+  /** A whole duration at once, one undo step (the MCP server's set_duration): note value, dots, `enters` of tupletOf (1 = none). */
+  | { readonly type: 'setDuration'; readonly value: NoteValue; readonly dots: 0 | 1 | 2; readonly tuplet: number };
 
 /** Edits of the cursor's beat and voice. */
 type BeatEdit =
@@ -91,7 +93,9 @@ export function cursorVoice(
   return findVoice(song, cursor);
 }
 
-const isDurationEdit = isOfTypes<DurationEdit>({ setNoteValue: true, shiftNoteValue: true, toggleDot: true, toggleTriplet: true, setTuplet: true, setInnerTuplet: true, toggleInnerTriplet: true });
+const isDurationEdit = isOfTypes<DurationEdit>({
+  setNoteValue: true, shiftNoteValue: true, toggleDot: true, toggleTriplet: true, setTuplet: true, setInnerTuplet: true, toggleInnerTriplet: true, setDuration: true,
+});
 const isBeatEdit = isOfTypes<BeatEdit>({ insertBeat: true, deleteBeat: true, makeRest: true, setStroke: true, setPickStroke: true, setBeatText: true, setBeatChord: true });
 
 /** Applies one cursor edit to the song. */
@@ -202,7 +206,15 @@ function nextDuration(
     }
     case 'toggleInnerTriplet':
       return isInTuplet(current) ? withInnerTuplet(current, isInnerTriplet(current) ? NORMAL_TUPLET : TRIPLET) : undefined;
+    case 'setDuration':
+      return typedDuration(current, edit.value, edit.dots, edit.tuplet);
   }
+}
+
+/** The duration typed as a whole; a tuplet inside the old one stays inside the new one (withTuplet). */
+function typedDuration(current: Duration, value: NoteValue, dots: 0 | 1 | 2, enters: number): Duration | undefined {
+  const tuplet = tupletOf(enters);
+  return tuplet === undefined ? undefined : withTuplet({ ...current, value, dotted: dots === 1, doubleDotted: dots === 2 }, tuplet);
 }
 
 /** True when the beat is in a tuplet (so a tuplet may go inside it). */

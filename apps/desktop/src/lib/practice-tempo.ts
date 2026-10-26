@@ -1,4 +1,4 @@
-import { roundTempo } from '@gp-editor/core';
+import { MAX_TEMPO, MIN_TEMPO, roundTempo } from '@gp-editor/core';
 
 /** −/+ step of the playback tempo and of the trainer's top tempo, in BPM. */
 export const TEMPO_STEP = 5;
@@ -34,9 +34,6 @@ export function playbackTempo(writtenTempo: number, tempoScale: number): number 
   return roundTempo(writtenTempo * tempoScale);
 }
 
-/** Lowest and highest tempo a field accepts (a written or locked tempo), as gp-core's setTempo. */
-const MIN_TYPED_TEMPO = 1;
-const MAX_TYPED_TEMPO = 999;
 const TEMPO_TEXT = /^\d+([.,]\d*)?$/;
 
 /** A typed tempo ("92.5", or "92,5" with a decimal comma) kept to two decimals; undefined unless it is 1–999. */
@@ -46,12 +43,12 @@ export function parseTempoText(text: string): number | undefined {
     return undefined;
   }
   const tempo = roundTempo(Number(trimmed.replace(',', '.')));
-  return tempo >= MIN_TYPED_TEMPO && tempo <= MAX_TYPED_TEMPO ? tempo : undefined;
+  return tempo >= MIN_TEMPO && tempo <= MAX_TEMPO ? tempo : undefined;
 }
 
 /** A tempo kept to two decimals and within 1–999. */
 export function clampTypedTempo(tempo: number): number {
-  return Math.min(MAX_TYPED_TEMPO, Math.max(MIN_TYPED_TEMPO, roundTempo(tempo)));
+  return Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, roundTempo(tempo)));
 }
 
 /** Relative speed (Guitar Pro's speed −/+): 5% steps between 25% and 200% of the written tempo. */

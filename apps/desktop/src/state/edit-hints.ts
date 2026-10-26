@@ -1,4 +1,4 @@
-import { type Song, type StringAddress, findNote } from '@gp-editor/core';
+import { type Song, type StringAddress, type TimeSignature, findNote } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
 import { needsNote } from './note-edits';
 import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
@@ -25,21 +25,28 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
     // − Bar changes nothing only where it would delete every bar.
     return t('palette.hint.lastBar');
   }
-  if (edit.type !== 'shiftTimeSignature') {
-    return undefined;
-  }
   const header = song.measureHeaders[cursor.measureIndex];
-  if (header === undefined) {
+  const next = header === undefined ? undefined : nextTimeSignature(header.timeSignature, edit);
+  if (header === undefined || next === undefined) {
     return undefined;
   }
   const { numerator, denominator } = header.timeSignature;
-  const denominatorIndex = DENOMINATORS.indexOf(denominator);
-  const next =
-    edit.part === 'numerator'
-      ? { numerator: numerator + edit.delta, denominator }
-      : { numerator, denominator: DENOMINATORS[denominatorIndex + edit.delta] ?? denominator };
   const isShorter = next.numerator / next.denominator < numerator / denominator;
   return isShorter ? t('palette.hint.barFull', { number: header.number, meter: `${next.numerator}/${next.denominator}` }) : undefined;
+}
+
+/** The time signature a time signature edit asks for; undefined for any other edit. */
+function nextTimeSignature(current: TimeSignature, edit: SongEdit): TimeSignature | undefined {
+  if (edit.type === 'setTimeSignature') {
+    return { numerator: edit.numerator, denominator: edit.denominator };
+  }
+  if (edit.type !== 'shiftTimeSignature') {
+    return undefined;
+  }
+  const { numerator, denominator } = current;
+  return edit.part === 'numerator'
+    ? { numerator: numerator + edit.delta, denominator }
+    : { numerator, denominator: DENOMINATORS[DENOMINATORS.indexOf(denominator) + edit.delta] ?? denominator };
 }
 
 /** An inner tuplet on a beat that is in no tuplet (or has no beat in the cursor's voice). */
