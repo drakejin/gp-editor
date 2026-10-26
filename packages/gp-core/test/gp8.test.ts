@@ -33,6 +33,27 @@ describe('Guitar Pro 8 (.gp) fixture sweep', () => {
 });
 
 describe('Guitar Pro 8 (.gp) values', () => {
+  it('canon-audio-track: keeps a track icon other than the instrument’s and Guitar Pro’s short names', () => {
+    // Act
+    const song = read('canon-audio-track.gp');
+    const appearance = song.tracks.map((track) => [track.name, track.shortName, track.iconId, track.color]);
+
+    // Assert: GP8 gives its Distortion Guitar icon 24 (our instrument sets say 4); the others are their instrument's
+    expect(appearance.slice(0, 2)).toEqual([
+      ['Guitar Player', 'dist.guit.', 24, { r: 255, g: 0, b: 0 }],
+      ['Low Bassy Sound', 'vln.', undefined, { r: 0, g: 255, b: 255 }],
+    ]);
+    expect(appearance.slice(6, 9)).toEqual([
+      ['The clean guitar', 'el.guit.', undefined, { r: 255, g: 0, b: 0 }],
+      ['Track 8', 'el.bs.', undefined, { r: 255, g: 255, b: 0 }],
+      ['Percussion', 'drm.', undefined, { r: 0, g: 0, b: 255 }],
+    ]);
+  });
+
+  it('bank: a short name the same as the name reads as none', () => {
+    expect(read('bank.gp').tracks.every((track) => track.shortName === undefined)).toBe(true);
+  });
+
   it('reports the GP8 version and revision', () => {
     expect(read('directions.gp').source.version).toMatch(/^8\.\d+\.\d+ r\d+$/);
   });

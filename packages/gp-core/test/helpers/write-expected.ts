@@ -32,7 +32,8 @@ import type {
  *   drum channel plays on MIDI channel 10, so drum tracks on different channels read back on the first one (its
  *   mixer values; not modelled here, see edit-round-trip.test.ts);
  * - tracks: seven strings at most; lyrics on one track (the first with text); one clef per track
- *   (bass or treble); key signature per measure header (from the first non-percussion track);
+ *   (bass or treble); key signature per measure header (from the first non-percussion track); the colour, but no
+ *   short name and no icon (GP3–GP5 have no place for them: the icon follows the instrument again);
  * - beats: voices 1 and 2 only; notes on the track's strings, one per string, in string order, frets
  *   0…99, velocities on the eight dynamics; fade in, tapping/slapping/popping, the tremolo bar and wide
  *   vibrato per voice (a wide vibrato replaces a note's slight one); strokes at 4…64; double dots and tuplets GP5 lacks written as an equal length when there is
@@ -319,7 +320,7 @@ function expectedTrack(track: Track, song: Song, lyricTrack: number | undefined)
   const clef: Clef = track.measures[0]?.clef === 'bass' ? 'bass' : 'treble';
   const measureStarts = song.measureHeaders.map((header) => header.start);
   const rules: MeasureRules = { stringCount: strings.length, clef, keySignatures, measureStarts };
-  const { lyrics, hasSlashNotation: _slash, effects: _effects, ...rest } = track;
+  const { lyrics, hasSlashNotation: _slash, effects: _effects, shortName: _shortName, iconId: _iconId, ...rest } = track;
   return {
     ...rest,
     ...(lyrics !== undefined && track.number === lyricTrack ? { lyrics } : {}),
@@ -402,7 +403,7 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
     ...rest,
     channels: expectedChannels(song.channels),
     measureHeaders: song.measureHeaders.map(({ beamGrouping: _dropped, design: _design, ...header }) => ({ ...header, tempo: Math.round(header.tempo) })),
-    tracks: song.tracks.map(({ hasSlashNotation: _slash, effects: _effects, ...track }) => {
+    tracks: song.tracks.map(({ hasSlashNotation: _slash, effects: _effects, shortName: _shortName, iconId: _iconId, ...track }) => {
       const clef = clefFromTuning(track.strings, track.isPercussion);
       return withoutAudio({
         ...track,

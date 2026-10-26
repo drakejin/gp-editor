@@ -9,7 +9,7 @@ import type { Beat, Duration, Measure, MeasureHeader, Note, NoteEffect, Song, Tr
  * - a bar is its voices, each the beats that voice plays (no empty beats), trailing empty voices left out; grace notes
  *   are a tag on the note they lead to (alphaTab keeps them as beats of their own before it), `grace:x` when dead; drum
  *   notes are their key and tie (alphaTab's drum grace notes keep a string their main note no longer has);
- * - track names without outer spaces (gp-core's GPIF reader trims them);
+ * - track names without outer spaces (gp-core's GPIF reader trims them), track colours as "r g b";
  * - effects are sorted tags, e.g. `slide-out:shift`, `harmonic:natural`, `grace:5`, so a difference names them;
  * - a beat's chord name and text belong to the first voice playing in it (GP3–GP5 keep them on one voice's beat); its
  *   octave sign to every voice playing in it (GP5 and GPIF keep it on each voice's beat);
@@ -42,6 +42,8 @@ export interface BarView {
 
 export interface TrackView {
   readonly name: string;
+  /** "r g b", 0–255 each. */
+  readonly color: string;
   readonly isPercussion: boolean;
   /** Open-string pitches from the highest string. */
   readonly tuning: readonly number[];
@@ -186,6 +188,7 @@ function barView(measure: Measure, track: Track): BarView {
 function trackView(track: Track): TrackView {
   return {
     name: track.name.trim(),
+    color: `${track.color.r} ${track.color.g} ${track.color.b}`,
     isPercussion: track.isPercussion,
     tuning: track.strings.map((string) => string.tuning),
     capo: track.offset,

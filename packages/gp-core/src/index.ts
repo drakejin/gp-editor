@@ -162,7 +162,19 @@ export { DEFAULT_NOTE_AUDIO, NOTE_AUDIO_LIMITS, toNoteAudio } from './model/defa
 export { deleteMeasure, deleteMeasures, fillEmptyMeasure, insertMeasure } from './edit/measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
-export { MAX_CAPO, setTrackCapo, setTrackName } from './edit/track-properties';
+export {
+  MAX_CAPO,
+  abbreviateTrackName,
+  instrumentIconId,
+  setTrackCapo,
+  setTrackColor,
+  setTrackIcon,
+  setTrackName,
+  setTrackShortName,
+  trackIconId,
+  trackShortName,
+} from './edit/track-properties';
+export { MAX_TRACK_ICON_ID, TRACK_COLORS, TRACK_ICON_IDS, type TrackIconName, isTrackIconId, trackIconName } from './formats/common/track-icons';
 export { MAX_NEW_TRACK_STRINGS, type NewTrack, addTrack, deleteTrack, duplicateTrack, hasTrackNotes, moveTrack } from './edit/tracks';
 export { TRACK_KINDS, type TrackKind, type TrackKindSpec, type TrackTuningChoice, trackKindSpec, trackTuningChoices } from './edit/track-kinds';
 export { type TrackIndexMap, isIdentityTrackMap, matchTrackIndexes, remapTrackIndex, remapTrackIndexes } from './edit/track-index-map';

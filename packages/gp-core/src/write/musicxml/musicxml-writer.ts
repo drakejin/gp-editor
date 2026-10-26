@@ -101,7 +101,10 @@ function melodicInstruments(track: Track, channel: Channel, midiChannel: number)
   ];
 }
 
-/** writePartList: a score-part per track, with its channel's instrument (one per drum key for percussion). */
+/**
+ * writePartList: a score-part per track, with its own short name as its abbreviation (not in TuxGuitar) and its
+ * channel's instrument (one per drum key for percussion).
+ */
 function partList(song: Song): XmlNode {
   const routes = buildChannelRoutes(song.channels);
   return element(
@@ -116,7 +119,8 @@ function partList(song: Song): XmlNode {
         : channel === undefined
           ? []
           : melodicInstruments(track, channel, midiChannel);
-      return element('score-part', { id: partId(track) }, [textElement('part-name', track.name), ...instruments]);
+      const abbreviation = track.shortName === undefined ? [] : [textElement('part-abbreviation', track.shortName)];
+      return element('score-part', { id: partId(track) }, [textElement('part-name', track.name), ...abbreviation, ...instruments]);
     }),
   );
 }

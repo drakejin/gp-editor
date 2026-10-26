@@ -1,5 +1,6 @@
 // A MusicXML part as a track and its channel (no TuxGuitar reader exists; mirrors MusicXMLWriter#writeTrack / #writePartList).
 import { neckFrets } from '../../edit/string-placement';
+import { normalizeShortName } from '../../edit/track-properties';
 import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, RED, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
 import type { Channel, Lyrics, Measure, MeasureHeader, Ottava, Track } from '../../model/song';
 import { createChannelName, isGmBassProgram } from '../common/channels';
@@ -133,9 +134,12 @@ export function buildPartTrack(source: PartSource, headers: readonly MeasureHead
   const { measures, notes } = buildMeasures(source, layout, headers, neck);
   const channel = buildChannel(source.info, number, isPercussion, isBass, channels);
   const lyrics = isPercussion ? undefined : buildLyrics(measures, headers, notes);
+  const name = source.info.name === '' ? `Track ${number}` : source.info.name;
+  const shortName = normalizeShortName(source.info.abbreviation, name);
   const track: Track = {
     number,
-    name: source.info.name === '' ? `Track ${number}` : source.info.name,
+    name,
+    ...(shortName === undefined ? {} : { shortName }),
     channelId: channel.id,
     strings: tuning.map((open, index) => ({ number: index + 1, tuning: open })),
     color: RED,

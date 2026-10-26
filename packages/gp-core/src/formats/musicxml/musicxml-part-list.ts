@@ -22,6 +22,8 @@ export interface PartInstrument {
 
 export interface PartInfo {
   readonly name: string;
+  /** `<part-abbreviation>` ('' when none): the track's short name. */
+  readonly abbreviation: string;
   readonly instruments: readonly PartInstrument[];
 }
 
@@ -71,18 +73,16 @@ function readMidi(midi: XmlElement): Omit<PartInstrument, 'id'> {
   };
 }
 
-/** A score-part: its name (else its abbreviation or first instrument's name) and its instruments. */
+/** A score-part: its name (else its abbreviation or first instrument's name), its abbreviation and its instruments. */
 export function readPartInfo(scorePart: XmlElement | undefined): PartInfo {
   const scoreInstruments = children(scorePart, 'score-instrument');
-  const name =
-    readText(childText(scorePart, 'part-name')) ||
-    readText(childText(scorePart, 'part-abbreviation')) ||
-    readText(childText(scoreInstruments[0], 'instrument-name'));
+  const abbreviation = readText(childText(scorePart, 'part-abbreviation'));
+  const name = readText(childText(scorePart, 'part-name')) || abbreviation || readText(childText(scoreInstruments[0], 'instrument-name'));
   const midis = children(scorePart, 'midi-instrument');
   const ids = [...new Set([...scoreInstruments, ...midis].map((element) => attribute(element, 'id') ?? ''))];
   const instruments = ids.map((id): PartInstrument => {
     const midi = midis.find((element) => (attribute(element, 'id') ?? '') === id);
     return { id, ...(midi === undefined ? {} : readMidi(midi)) };
   });
-  return { name, instruments };
+  return { name, abbreviation, instruments };
 }

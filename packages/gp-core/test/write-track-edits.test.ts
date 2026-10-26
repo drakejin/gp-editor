@@ -1,9 +1,11 @@
-// Songs whose tracks were added, deleted, duplicated and moved save and read back in every format gp-core writes, and
-// alphaTab reads the files as gp-core does.
+// Songs whose tracks were added, deleted, duplicated and moved — and renamed, coloured and given icons — save and read
+// back in every format gp-core writes, and alphaTab reads the files as gp-core does.
 import { describe, expect, it } from 'vitest';
 import { setNoteFret } from '../src/edit/edit-song';
 import { buildNewSong } from '../src/edit/new-song';
+import { setTrackColor, setTrackIcon, setTrackName, setTrackShortName } from '../src/edit/track-properties';
 import { addTrack, deleteTrack, duplicateTrack, moveTrack } from '../src/edit/tracks';
+import { TRACK_COLORS, TRACK_ICON_IDS } from '../src/formats/common/track-icons';
 import type { Channel, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { type WritableFormat, writeSong } from '../src/write/index';
@@ -122,5 +124,74 @@ describe('a song with added, deleted, duplicated and moved tracks', () => {
     expect(again.tracks[3]?.strings.map((guitarString) => guitarString.tuning)).toEqual(SEVEN_STRINGS);
     const firstNotes = again.tracks.map((track) => track.measures[0]?.beats[0]?.voices[0]?.notes.map((note) => note.fret));
     expect(firstNotes).toEqual([[5], [KICK], [KICK], [2]]);
+  });
+});
+
+/** The edited song with the bass renamed and given a short name, a colour and the strings' icon, the copied drums blue. */
+function dressedSong(): Song {
+  const named = setTrackShortName(setTrackName(editedSong(), 0, 'Upright Bass'), 0, 'Upr. B.');
+  const coloured = setTrackColor(setTrackColor(named, 0, TRACK_COLORS[4] ?? { r: 0, g: 0, b: 0 }), 2, { r: 0, g: 64, b: 255 });
+  return setTrackIcon(coloured, 0, TRACK_ICON_IDS.strings);
+}
+
+/** Each track's name, short name, icon and colour. */
+function appearanceOf(song: Song): readonly unknown[] {
+  return song.tracks.map((track) => [track.name, track.shortName, track.iconId, `${track.color.r} ${track.color.g} ${track.color.b}`]);
+}
+
+describe('a song whose tracks were renamed, coloured and given icons', () => {
+  it('saves as .gp with every name, short name, icon and colour', () => {
+    // Arrange
+    const song = dressedSong();
+
+    // Act
+    const again = readSong(writeSong(song, 'gp'));
+
+    // Assert
+    expect(appearanceOf(again)).toEqual([
+      ['Upright Bass', 'Upr. B.', TRACK_ICON_IDS.strings, '181 208 140'],
+      ['Drums', undefined, undefined, '255 0 0'],
+      ['Drums', undefined, undefined, '0 64 255'],
+      ['7-string', undefined, undefined, '255 0 0'],
+    ]);
+    expect(songDifference(expectedAfterGp(song), again)).toBeUndefined();
+  });
+
+  it.each<WritableFormat>(['gp5', 'gp4', 'gp3'])('saves as %s with the names and colours; the icons follow the instruments again', (format) => {
+    // Arrange
+    const song = dressedSong();
+
+    // Act
+    const again = readSong(writeSong(song, format));
+
+    // Assert
+    expect(appearanceOf(again)).toEqual([
+      ['Upright Bass', undefined, undefined, '181 208 140'],
+      ['Drums', undefined, undefined, '255 0 0'],
+      ['Drums', undefined, undefined, '0 64 255'],
+      ['7-string', undefined, undefined, '255 0 0'],
+    ]);
+    expect(songDifference(expectedAfter(song, format, again), again)).toBeUndefined();
+  });
+
+  it.each<WritableFormat>(['gp', 'gp5', 'gp4', 'gp3'])('written as %s, reads in alphaTab as in gp-core, colours too', (format) => {
+    // Act
+    const { unexplained } = compareReadings(writeSong(dressedSong(), format), format);
+
+    // Assert
+    expect(unexplained.slice(0, 5)).toEqual([]);
+  });
+
+  it('saves as MusicXML with the short name as the part’s abbreviation', () => {
+    // Act
+    const again = readSong(encodeMusicXml(writeMusicXml(dressedSong())));
+
+    // Assert
+    expect(again.tracks.map((track) => [track.name, track.shortName])).toEqual([
+      ['Upright Bass', 'Upr. B.'],
+      ['Drums', undefined],
+      ['Drums', undefined],
+      ['7-string', undefined],
+    ]);
   });
 });

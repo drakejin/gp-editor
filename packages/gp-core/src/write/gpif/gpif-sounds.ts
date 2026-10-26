@@ -1,5 +1,6 @@
-// MIDI channels and instrument sets of GPIF tracks (no TuxGuitar counterpart: TuxGuitar has no GPIF writer).
-import { GM_INSTRUMENT_NAMES, gmFamilyIndex, isGmBassProgram } from '../../formats/common/channels';
+// MIDI channels, tuning instruments and sound names of GPIF tracks (no TuxGuitar counterpart: TuxGuitar has no GPIF
+// writer); their instrument sets are formats/common/instrument-sets.ts.
+import { GM_INSTRUMENT_NAMES, isGmBassProgram } from '../../formats/common/channels';
 import { DEFAULT_PERCUSSION_CHANNEL } from '../../model/defaults';
 import type { Channel, Song, Track } from '../../model/song';
 
@@ -51,55 +52,6 @@ export function assignMidiChannels(song: Song): ReadonlyMap<number, MidiChannels
     channels.set(id, { primary, secondary: isPaired ? (MELODIC_CHANNELS[index * 2 + 1] ?? primary) : primary });
   }
   return channels;
-}
-
-/** How Guitar Pro presents a track's instrument: its instrument set, icon and playing style. */
-export interface InstrumentSet {
-  readonly name: string;
-  readonly type: string;
-  readonly iconId: number;
-  readonly isStringed: boolean;
-}
-
-/** [instrument set name, Guitar Pro icon id] per General MIDI family (program / 8). */
-const FAMILY_SETS: readonly (readonly [string, number])[] = [
-  ['Acoustic Piano', 10], ['Vibraphone', 17], ['Electric Organ', 10], ['Electric Guitar', 4],
-  ['Electric Bass', 5], ['Violin', 11], ['Violin', 11], ['Trumpet', 13],
-  ['Saxophone', 14], ['Flute', 15], ['Lead Synthesizer', 12], ['Pad Synthesizer', 12],
-  ['Pad Synthesizer', 21], ['Banjo', 8], ['Xylophone', 19], ['Pad Synthesizer', 21],
-];
-
-/** Programs whose instrument set differs from their family's. */
-const PROGRAM_SETS: ReadonlyMap<number, readonly [string, number]> = new Map([
-  [24, ['Nylon Guitar', 23]],
-  [25, ['Steel Guitar', 1]],
-  [32, ['Acoustic Bass', 5]],
-  [35, ['Acoustic Bass', 5]],
-  [41, ['Viola', 11]],
-  [42, ['Cello', 11]],
-  [43, ['Contrabass', 11]],
-  [46, ['Harp', 10]],
-  [47, ['Timpani', 20]],
-  [52, ['Voice', 16]],
-  [53, ['Voice', 16]],
-  [54, ['Voice', 16]],
-]);
-const DRUM_SET: InstrumentSet = { name: 'Drums', type: 'drumKit', iconId: 18, isStringed: false };
-const GUITAR_FAMILY = 3;
-
-/** "Steel Guitar" → "steelGuitar", as Guitar Pro types its instrument sets. */
-function typeOf(name: string): string {
-  const [first = '', ...rest] = name.split(' ');
-  return [first.charAt(0).toLowerCase() + first.slice(1), ...rest].join('');
-}
-
-export function instrumentSetOf(program: number, isPercussion: boolean): InstrumentSet {
-  if (isPercussion) {
-    return DRUM_SET;
-  }
-  const family = gmFamilyIndex(program);
-  const [name, iconId] = PROGRAM_SETS.get(program) ?? FAMILY_SETS[family] ?? ['Steel Guitar', 1];
-  return { name, type: typeOf(name), iconId, isStringed: family === GUITAR_FAMILY || isGmBassProgram(program) };
 }
 
 /** `<Tuning><Instrument>`: what Guitar Pro's tuning dialog lists the strings for. */

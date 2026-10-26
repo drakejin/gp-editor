@@ -174,13 +174,18 @@ function lyricsOf(staff: Staff): string {
   return lyricLetters(syllables.join(''));
 }
 
+function colorOf(track: Track): string {
+  return `${track.color.r} ${track.color.g} ${track.color.b}`;
+}
+
 function trackView(track: Track): TrackView {
   const staff = track.staves[0];
   if (staff === undefined) {
-    return { name: track.name, isPercussion: false, tuning: [], capo: 0, lyrics: '', bars: [] };
+    return { name: track.name, color: colorOf(track), isPercussion: false, tuning: [], capo: 0, lyrics: '', bars: [] };
   }
   return {
     name: track.name.trim(),
+    color: colorOf(track),
     isPercussion: staff.isPercussion,
     tuning: [...staff.tuning],
     capo: staff.capo,

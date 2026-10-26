@@ -1,11 +1,13 @@
 // GPIF `<Track>` elements (no TuxGuitar counterpart): the inverse of the reader's readTracks / buildTracks.
+import { instrumentIconId, trackShortName } from '../../edit/track-properties';
+import { instrumentSetOf } from '../../formats/common/instrument-sets';
 import { DEFAULT_CHANNEL } from '../../model/defaults';
 import type { Channel, Song, Track } from '../../model/song';
 import type { TrackPlan } from './gpif-bars';
 import { chordPropertiesOf } from './gpif-chords';
 import { pedalAutomationNodes } from './gpif-marks';
 import { flagProperty, property } from './gpif-properties';
-import { type MidiChannels, channelOf, instrumentSetOf, soundNameOf, tuningInstrumentOf } from './gpif-sounds';
+import { type MidiChannels, channelOf, soundNameOf, tuningInstrumentOf } from './gpif-sounds';
 import type { DrumElement } from './drum-kit';
 import { type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
 
@@ -160,12 +162,13 @@ function trackNode(song: Song, plan: TrackPlan, index: number, midi: MidiChannel
   const isPercussion = plan.noteContext.isPercussion;
   const program = isPercussion ? 0 : channel.program;
   const set = instrumentSetOf(program, isPercussion);
+  const iconId = track.iconId ?? instrumentIconId({ name: track.name, isPercussion }, { program, isPercussion });
   const [sounds, automations] = soundNodes(channel, isPercussion, pedalAutomationNodes(track, song.measureHeaders));
   return xmlElement(
     'Track',
     [
       xmlCdata('Name', track.name),
-      xmlCdata('ShortName', track.name),
+      xmlCdata('ShortName', trackShortName(track)),
       xmlText('Color', `${track.color.r} ${track.color.g} ${track.color.b}`),
       xmlText('SystemsDefautLayout', 3), // sic: Guitar Pro's spelling
       xmlText('SystemsLayout', 3),
@@ -174,7 +177,7 @@ function trackNode(song: Song, plan: TrackPlan, index: number, midi: MidiChannel
       xmlText('AutoAccentuation', 0.2),
       xmlText('PlayingStyle', set.isStringed ? 'StringedPick' : 'Default'),
       xmlElement('UseOneChannelPerString'),
-      xmlText('IconId', set.iconId),
+      xmlText('IconId', iconId),
       instrumentSetNode(program, plan),
       xmlElement('Transpose', [xmlText('Chromatic', 0), xmlText('Octave', 0)]),
       channelStripNode(channel),

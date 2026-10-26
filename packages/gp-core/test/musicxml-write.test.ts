@@ -86,6 +86,19 @@ describe('writeMusicXml document', () => {
     expect(childText(child(child(parseWritten(xml), 'part-list'), 'score-part'), 'part-name')).toBe('Gtr <1>');
   });
 
+  it('writes a track’s own short name as its part-abbreviation, and none for a track without one', () => {
+    // Arrange
+    const song = buildSong({ tracks: [{ name: 'Lead', measures: [[]] }, { name: 'Rhythm Guitar', measures: [[]] }] });
+    const named = { ...song, tracks: song.tracks.map((track, index) => (index === 0 ? { ...track, shortName: 'L.Gt' } : track)) };
+
+    // Act
+    const parts = children(child(written(named), 'part-list'), 'score-part');
+
+    // Assert
+    expect(parts.map((part) => childText(part, 'part-abbreviation'))).toEqual(['L.Gt', undefined]);
+    expect(childNames(parts[0]).slice(0, 2)).toEqual(['part-name', 'part-abbreviation']);
+  });
+
   it('refuses a song without measures or tracks', () => {
     // Arrange
     const song = buildSong({ tracks: [{ measures: [[]] }] });

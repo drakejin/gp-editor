@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setTrackEffects } from '../src/edit/track-effects';
 import { setTrackLyrics } from '../src/edit/lyrics';
+import { setTrackColor, setTrackIcon, setTrackShortName } from '../src/edit/track-properties';
 import { addTrack, deleteTrack, duplicateTrack, hasTrackNotes, moveTrack } from '../src/edit/tracks';
 import { buildEffect } from '../src/effects/effect-params';
 import { buildChannelRoutes } from '../src/midi/channel-routes';
@@ -218,6 +219,21 @@ describe('duplicateTrack', () => {
     expect(duplicated.tracks[1]?.measures).not.toBe(song.tracks[0]?.measures);
     expect(channelOf(duplicated, 1)).toEqual({ ...song.channels[0], id: 4, name: 'Steel String Acoustic Guitar 1' });
     expect(duplicated.tracks[0]).toBe(song.tracks[0]);
+  });
+
+  it('copies the track’s short name, colour and icon, and moving tracks takes them along', () => {
+    // Arrange
+    const dressed = setTrackIcon(setTrackColor(setTrackShortName(threeTracks(), 1, 'T2'), 1, { r: 1, g: 2, b: 3 }), 1, 7);
+
+    // Act
+    const duplicated = duplicateTrack(dressed, 1);
+    const moved = moveTrack(dressed, 1, 2);
+
+    // Assert
+    const appearance = (song: Song, trackIndex: number) => [song.tracks[trackIndex]?.shortName, song.tracks[trackIndex]?.color, song.tracks[trackIndex]?.iconId];
+    expect(appearance(duplicated, 2)).toEqual(['T2', { r: 1, g: 2, b: 3 }, 7]);
+    expect(appearance(moved, 2)).toEqual(['T2', { r: 1, g: 2, b: 3 }, 7]);
+    expect(appearance(moved, 1)).toEqual([undefined, { r: 255, g: 0, b: 0 }, undefined]);
   });
 
   it('copies the track’s effects, lyrics, capo, mute and solo', () => {

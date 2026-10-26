@@ -53,7 +53,11 @@ export type GpifPlaybackState = 'default' | 'solo' | 'mute';
 export interface GpifTrack {
   readonly id: number;
   readonly name: string;
+  /** `<ShortName>` as written (GP7/8). */
+  readonly shortName: string | undefined;
   readonly color: readonly number[] | undefined;
+  /** `<IconId>`, -1 when it is not a number (GP7/8). */
+  readonly iconId: number | undefined;
   /** Open-string pitches, lowest string first. */
   readonly tuningPitches: readonly number[] | undefined;
   readonly capo: number;

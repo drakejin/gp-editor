@@ -1,3 +1,4 @@
+import { instrumentIconId, normalizeIconId, normalizeShortName, trackShortName } from '../../src/edit/track-properties';
 import { createChannelName } from '../../src/formats/common/channels';
 import {
   DEFAULT_CHANNEL,
@@ -54,7 +55,8 @@ import { expectedCurve } from './write-expected-curves';
  *   from their program by the reader; no chorus, reverb, phaser or tremolo (GPIF has RSE effects instead); percussion
  *   channels all play on MIDI channel 10, so they read back as one (program 0, bank 128); channels no track uses are gone;
  * - tracks: solo wins over mute; lyrics only with some text; the key signature is the measure header's (the first
- *   pitched track's, 0 on percussion tracks);
+ *   pitched track's, 0 on percussion tracks); a short name the (sanitized) name makes redundant and an icon its
+ *   instrument read back gives are none;
  * - measure headers: marker colours are red (GPIF sections have none); tempos keep two decimals, at least 1;
  * - beats: four voices, empty ones the reader's placeholder (an empty quarter); beats without a voice are gone; voice
  *   directions (stem orientations) are not read; strokes at 4…128 (32 for a stroke without speed); measure 1, when its
@@ -386,16 +388,32 @@ function expectedMeasure(measure: Measure, header: MeasureHeader, rules: TrackRu
   };
 }
 
+/**
+ * The short name and icon read back. The writer writes the name abbreviated and the instrument's icon when the track has
+ * none; the reader takes them as none — unless the channel read back plays another program (merged channels).
+ */
+function expectedAppearance(track: Track, song: Song, name: string, channel: Channel | undefined): Pick<Track, 'shortName' | 'iconId'> {
+  const shortName = normalizeShortName(sanitized(trackShortName(track)), name);
+  const written = channel?.isPercussion === true ? undefined : song.channels.find((candidate) => candidate.id === track.channelId);
+  const isPercussion = channel?.isPercussion ?? false;
+  const writtenIcon = track.iconId ?? instrumentIconId({ name: track.name, isPercussion }, written ?? { ...DEFAULT_CHANNEL, isPercussion });
+  const iconId = normalizeIconId(writtenIcon, instrumentIconId({ name, isPercussion }, channel));
+  return { ...(shortName === undefined ? {} : { shortName }), ...(iconId === undefined ? {} : { iconId }) };
+}
+
 function expectedTrack(track: Track, song: Song, plan: ChannelPlan, keys: readonly number[], headers: readonly MeasureHeader[]): Track {
   const channelId = plan.ids.get(track.channelId) ?? track.channelId;
-  const isPercussion = plan.channels.find((channel) => channel.id === channelId)?.isPercussion ?? false;
+  const channel = plan.channels.find((candidate) => candidate.id === channelId);
+  const isPercussion = channel?.isPercussion ?? false;
   const rules: TrackRules = { track, isPercussion };
-  const { lyrics, hasSlashNotation, ...rest } = track;
+  const { lyrics, hasSlashNotation, shortName: _shortName, iconId: _iconId, ...rest } = track;
   const lyricsText = lyrics === undefined ? '' : sanitized(lyrics.text);
+  const name = sanitized(track.name).replaceAll('\n', '').trim();
   return {
     ...rest,
     ...(hasSlashNotation === true ? { hasSlashNotation } : {}),
-    name: sanitized(track.name).replaceAll('\n', '').trim(),
+    name,
+    ...expectedAppearance(track, song, name, channel),
     channelId,
     isPercussion,
     mute: track.mute && !track.solo,

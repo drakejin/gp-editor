@@ -76,6 +76,31 @@ describe('readGp7Container', () => {
 });
 
 describe('Guitar Pro 7 (.gp) values', () => {
+  it('serenade: keeps the icon a track was given apart from its instrument, and its short name', () => {
+    // Act
+    const song = read('serenade.gp');
+
+    // Assert: "Keyboard" plays a music box (program 10, a mallets icon) under Guitar Pro 7's steel guitar icon
+    expect(song.tracks.map((track) => [track.shortName, track.iconId])).toEqual([
+      ['S-Gt', undefined],
+      ['S-Gt', undefined],
+      ['A-Bass', undefined],
+      ['S-Gt', 1],
+    ]);
+  });
+
+  it('reads no icon or short name from values that are not ones', () => {
+    // Arrange
+    const gpif = MINIMAL_GPIF.replace('<Name>T</Name>', '<Name>Long Name</Name><ShortName>  </ShortName><IconId>500</IconId>');
+
+    // Act
+    const track = at(readSong(zipSync({ 'Content/score.gpif': strToU8(gpif) })).tracks, 0);
+
+    // Assert
+    expect(track.shortName).toBeUndefined();
+    expect(track.iconId).toBeUndefined();
+  });
+
   it('reports GPVersion and GPRevision as the version', () => {
     expect(read('notes.gp').source).toEqual({ format: 'gp7', version: '7 r12020' });
   });

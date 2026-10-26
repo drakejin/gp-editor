@@ -176,6 +176,21 @@ describe('readMusicXml basics', () => {
     expect(voiceNotes(song)[0]?.map((n) => n.fret)).toEqual([35]);
   });
 
+  it('reads a part-abbreviation as the track’s short name, none when it is the name or the name abbreviated', () => {
+    // Arrange
+    const parts = [
+      { name: 'Distortion Guitar', scorePart: '<part-abbreviation> Dist. Gtr </part-abbreviation>', measures: [DIVISIONS_1 + quarter('E4')] },
+      { name: 'Distortion Guitar', scorePart: '<part-abbreviation>Dist. Guit.</part-abbreviation>', measures: [DIVISIONS_1 + quarter('E4')] },
+      { name: 'Bass', measures: [DIVISIONS_1 + quarter('E2')] },
+    ];
+
+    // Act
+    const song = readXml(scoreXml(parts));
+
+    // Assert
+    expect(song.tracks.map((track) => track.shortName)).toEqual(['Dist. Gtr', undefined, undefined]);
+  });
+
   it('converts a score-timewise document to the same song as its partwise form', () => {
     // Arrange
     const content = DIVISIONS_1 + quarter('E4') + quarter('G4');

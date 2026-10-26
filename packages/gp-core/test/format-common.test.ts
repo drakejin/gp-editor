@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { instrumentSetOf } from '../src/formats/common/instrument-sets';
+import { MAX_TRACK_ICON_ID, TRACK_COLORS, TRACK_ICON_IDS, isTrackIconId, trackIconName } from '../src/formats/common/track-icons';
 import { bendPositionFromGp, bendValueFromGp, tremoloBarValueFromGp } from '../src/formats/common/bend-units';
 import { createChannelName, gmPercussionName } from '../src/formats/common/channels';
 import {
@@ -252,5 +254,27 @@ describe('durationFromTicks', () => {
 
     // Assert
     expect(values).toEqual([1, 2, 4, 8, 16, 32, 64]);
+  });
+});
+
+describe('track icons and colours', () => {
+  it('names each Guitar Pro icon id, and nothing else', () => {
+    expect(trackIconName(TRACK_ICON_IDS.distortionGuitar)).toBe('distortionGuitar');
+    expect(trackIconName(TRACK_ICON_IDS.drums)).toBe('drums');
+    expect(trackIconName(3)).toBeUndefined();
+    expect(new Set(Object.values(TRACK_ICON_IDS)).size).toBe(Object.keys(TRACK_ICON_IDS).length);
+  });
+
+  it('takes whole numbers 0…MAX_TRACK_ICON_ID as icon ids', () => {
+    expect([0, 24, MAX_TRACK_ICON_ID].every(isTrackIconId)).toBe(true);
+    expect([-1, 2.5, MAX_TRACK_ICON_ID + 1, Number.NaN, '4', undefined].some(isTrackIconId)).toBe(false);
+  });
+
+  it('gives each instrument set an icon of the set, and offers nine of Guitar Pro 8’s track colours', () => {
+    const icons = Array.from({ length: 128 }, (_, program) => instrumentSetOf(program, false).iconId);
+    expect(icons.every((iconId) => trackIconName(iconId) !== undefined)).toBe(true);
+    expect(instrumentSetOf(0, true).iconId).toBe(TRACK_ICON_IDS.drums);
+    expect(TRACK_COLORS).toHaveLength(9);
+    expect(TRACK_COLORS.every((color) => [color.r, color.g, color.b].every((value) => Number.isInteger(value) && value >= 0 && value <= 255))).toBe(true);
   });
 });

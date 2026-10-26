@@ -5,6 +5,7 @@ import {
   DEFAULT_PERCUSSION_CHANNEL,
   STANDARD_TUNING,
 } from '../../model/defaults';
+import { instrumentIconId, normalizeIconId, normalizeShortName } from '../../edit/track-properties';
 import type { Channel, GuitarString, Lyrics, Measure, Rgb, Track } from '../../model/song';
 import { createChannelName } from '../common/channels';
 import type { GpifDocument, GpifTrack } from './gpif-document';
@@ -46,7 +47,7 @@ export function buildTracks(
     }
     const strings = buildStrings(gpTrack, isPercussion);
     const layout: TrackLayout = { strings, isPercussion, barIndex, chords: gpTrack.chords, pedalAutomations: pedalAutomationsByBar(gpTrack.automations) };
-    tracks.push(buildTrack(gpTrack, index, channel.id, layout, measuresFor(layout)));
+    tracks.push(buildTrack(gpTrack, index, channel, layout, measuresFor(layout)));
     // GP7 multi-staff tracks have one bar per staff; the model keeps the first staff.
     barIndex += gpTrack.staffCount;
   });
@@ -91,17 +92,21 @@ function buildStrings(gpTrack: GpifTrack, isPercussion: boolean): readonly Guita
 function buildTrack(
   gpTrack: GpifTrack,
   index: number,
-  channelId: number,
+  channel: Channel,
   layout: TrackLayout,
   measures: readonly Measure[],
 ): Track {
   const lyrics = firstLyrics(gpTrack);
+  const shortName = normalizeShortName(gpTrack.shortName, gpTrack.name);
+  const iconId = normalizeIconId(gpTrack.iconId, instrumentIconId({ name: gpTrack.name, isPercussion: layout.isPercussion }, channel));
   return {
     number: index + 1,
     name: gpTrack.name,
-    channelId,
+    ...(shortName === undefined ? {} : { shortName }),
+    channelId: channel.id,
     strings: layout.strings,
     color: colorOf(gpTrack.color),
+    ...(iconId === undefined ? {} : { iconId }),
     offset: gpTrack.tuningPitches === undefined ? 0 : gpTrack.capo,
     isPercussion: layout.isPercussion,
     solo: gpTrack.playbackState === 'solo',

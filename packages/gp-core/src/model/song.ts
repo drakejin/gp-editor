@@ -233,9 +233,20 @@ export interface Track {
   /** 1-based track number. */
   readonly number: number;
   readonly name: string;
+  /**
+   * Guitar Pro's abbreviated name ("s.guit.", GPIF `<ShortName>`, MusicXML `<part-abbreviation>`), shown where the
+   * stylesheet asks for short names; absent = the name abbreviated (`trackShortName`).
+   */
+  readonly shortName?: string;
   readonly channelId: number;
   readonly strings: readonly GuitarString[];
+  /** The track's colour (Guitar Pro's tracks panel and LCD; GP3–GP5 and GPIF keep it). */
   readonly color: Rgb;
+  /**
+   * Guitar Pro's track icon (GPIF `<IconId>`, `TRACK_ICON_IDS`), chosen apart from the instrument; absent = the
+   * instrument's icon (`trackIconId`).
+   */
+  readonly iconId?: number;
   /** Capo fret. */
   readonly offset: number;
   readonly isPercussion: boolean;
