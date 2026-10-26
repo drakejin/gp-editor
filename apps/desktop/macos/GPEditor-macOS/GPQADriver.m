@@ -8,6 +8,7 @@
 //
 // Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
 //          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}, {"rightClick": {"x": 300, "y": 200}}, {"controlClick": …},
+//          {"doubleClick": {"x": 300, "y": 200}} (two clicks, the second's events counting two: a view's onDoubleClick),
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"appKey": "c", "modifiers": ["cmd"]} (a typed key, dispatched by NSApplication: the menus' key equivalents first),
 //          {"menuKeys": true} (logs every menu item with a key equivalent), {"setPasteboard": "text"}, {"logPasteboard": true},
@@ -124,6 +125,10 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"click"] != nil) {
     [self clickAt:[self windowPoint:step[@"click"] in:window] window:window];
     return 0.4;
+  }
+  if (step[@"doubleClick"] != nil) {
+    [self doubleClickAt:[self windowPoint:step[@"doubleClick"] in:window] window:window];
+    return 0.6;
   }
   if (step[@"rightClick"] != nil) {
     [self rightClickAt:[self windowPoint:step[@"rightClick"] in:window] window:window];
@@ -272,6 +277,11 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 
 - (NSEvent *)mouseEvent:(NSEventType)type at:(NSPoint)location flags:(NSEventModifierFlags)flags window:(NSWindow *)window
 {
+  return [self mouseEvent:type at:location flags:flags clickCount:1 window:window];
+}
+
+- (NSEvent *)mouseEvent:(NSEventType)type at:(NSPoint)location flags:(NSEventModifierFlags)flags clickCount:(NSInteger)clickCount window:(NSWindow *)window
+{
   return [NSEvent mouseEventWithType:type
                             location:location
                        modifierFlags:flags
@@ -279,7 +289,7 @@ __attribute__((constructor)) static void GPQADriverStart(void)
                         windowNumber:window.windowNumber
                              context:nil
                          eventNumber:0
-                          clickCount:1
+                          clickCount:clickCount
                             pressure:1.0];
 }
 
@@ -291,6 +301,19 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 {
   [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location window:window] atStart:NO];
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location window:window]];
+}
+
+/**
+ * A click, then 0.12 s later a second one whose events count two clicks (`clickCount` 2), as a double-click makes them:
+ * a view's onDoubleClick (react-native-macos, on the second mouse-up).
+ */
+- (void)doubleClickAt:(NSPoint)location window:(NSWindow *)window
+{
+  [self clickAt:location window:window];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location flags:0 clickCount:2 window:window] atStart:NO];
+    [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location flags:0 clickCount:2 window:window]];
+  });
 }
 
 /**
