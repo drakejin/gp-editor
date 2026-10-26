@@ -7,6 +7,7 @@ import App from '../src/App';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
 import { readFixture } from '../test-support/fixtures';
+import { answerMeasure } from '../test-support/measure';
 
 // The window as it runs: App with every native module answering (menu events through the device event emitter, as
 // the native side sends them), the score canvas drawn by nothing, and the player's position set by the test.
@@ -240,5 +241,62 @@ describe('App: what an action re-renders', () => {
     // Assert
     expect({ tracksPanel: mockRenders.get('TracksPanel') ?? 0, tabStrip: mockRenders.get('TabStrip') ?? 0 }).toEqual({ tracksPanel: 0, tabStrip: 0 });
     expect(nativeCallCount('GPFiles.addListener')).toBe(0);
+  });
+});
+
+describe('App: a track’s information', () => {
+  /** The pressable with this accessibility label (a Pressable, not a part passing it on). */
+  function control(renderer: ReactTestRenderer.ReactTestRenderer, label: string) {
+    const [found] = renderer.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function' && node.props.accessibilityRole !== undefined);
+    if (found === undefined) {
+      throw new Error(`no control "${label}"`);
+    }
+    return found;
+  }
+
+  const firstTrack = (renderer: ReactTestRenderer.ReactTestRenderer) => propsOf(renderer, 'onOpenTrackInfo').song.tracks[0];
+  const panels = (renderer: ReactTestRenderer.ReactTestRenderer) => renderer.root.findAll((node) => node.props.testID === 'track-info-panel' && typeof node.type === 'string');
+
+  it('opens from a track’s icon, colours the track as one undo step, and closes with Esc', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const before = firstTrack(renderer).color;
+
+    // Act
+    await ReactTestRenderer.act(async () => control(renderer, 'Icon of track 1').props.onPress({ nativeEvent: { pageX: 30, pageY: 640 } }));
+    await ReactTestRenderer.act(async () => answerMeasure(control(renderer, 'Icon of track 1'), 13, 610));
+    const isOpen = panels(renderer).length === 1;
+    await ReactTestRenderer.act(async () => control(renderer, 'Colour #75CBDE').props.onPress());
+    const coloured = firstTrack(renderer).color;
+    await press(renderer, 'Escape');
+    const isClosed = panels(renderer).length === 0;
+    await press(renderer, 'z', { metaKey: true });
+
+    // Assert
+    expect(isOpen).toBe(true);
+    expect(coloured).toEqual({ r: 117, g: 203, b: 222 });
+    expect(isClosed).toBe(true);
+    expect(firstTrack(renderer).color).toEqual(before);
+  });
+
+  it('gives the track an icon from it, shown in the tracks panel and the LCD, and renames it in place', async () => {
+    // Arrange
+    const renderer = await openWindow();
+
+    // Act
+    await ReactTestRenderer.act(async () => control(renderer, 'Colour of track 1').props.onPress({ nativeEvent: { pageX: 2, pageY: 640 } }));
+    await ReactTestRenderer.act(async () => answerMeasure(control(renderer, 'Colour of track 1'), 0, 610));
+    await ReactTestRenderer.act(async () => control(renderer, 'Ukulele').props.onPress());
+    await ReactTestRenderer.act(async () => renderer.root.findByProps({ testID: 'track-info-backdrop' }).props.onPress());
+    await ReactTestRenderer.act(async () => control(renderer, 'Rename track 1').props.onPress());
+    const field = renderer.root.findAll((node) => node.props.accessibilityLabel === 'Name of track 1' && typeof node.props.onSubmitEditing === 'function')[0]!;
+    await ReactTestRenderer.act(async () => field.props.onChangeText('Uke'));
+    await ReactTestRenderer.act(async () => field.props.onSubmitEditing());
+
+    // Assert
+    expect(panels(renderer)).toHaveLength(0);
+    expect(firstTrack(renderer)).toEqual(expect.objectContaining({ name: 'Uke', iconId: 7 }));
+    expect(topBar(renderer).trackIcon).toBe('ukulele');
+    expect(control(renderer, 'Icon of track 1').props.tooltip).toBe('Ukulele: click for the track’s colour, icon and names');
   });
 });

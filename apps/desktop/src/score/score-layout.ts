@@ -1,4 +1,4 @@
-import { type Song, type Stylesheet, type Track, type TrackNameFormat, stylesheetOf } from '@gp-editor/core';
+import { type Song, type Stylesheet, type Track, type TrackNameFormat, abbreviateTrackName, stylesheetOf } from '@gp-editor/core';
 import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
 import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
@@ -185,25 +185,21 @@ export function scoreMeasures(song: Song, trackIndexes: readonly number[], chord
   });
 }
 
-/** Guitar Pro's short name for a track: words over five letters cut to four and a dot ("Dist. Guit."). */
-export function shortTrackName(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word !== '')
-    .map((word) => (word.length > 5 ? `${word.slice(0, 4)}.` : word))
-    .join(' ');
-}
-
 /** The stylesheet's track names of a system: the first's (full by default), the others' (short by default). */
 function nameFormat(sheet: Stylesheet, isFirstSystem: boolean): TrackNameFormat {
   return isFirstSystem ? sheet.systems.firstSystemNames : sheet.systems.otherSystemNames;
 }
 
-/** What a staff is labelled with: the track's name in full or short (the stylesheet's `format`), '' when hidden. */
-export function staffLabel(track: Pick<Track, 'name' | 'number'>, isFirstSystem: boolean, format: TrackNameFormat = isFirstSystem ? 'full' : 'short'): string {
+/**
+ * What a staff is labelled with: the track's name in full, or its short name — its own, else the name abbreviated
+ * (gp-core `abbreviateTrackName`) — as the stylesheet's `format` says; '' when hidden.
+ */
+export function staffLabel(track: Pick<Track, 'name' | 'number' | 'shortName'>, isFirstSystem: boolean, format: TrackNameFormat = isFirstSystem ? 'full' : 'short'): string {
+  if (format === 'hidden') {
+    return '';
+  }
   const name = track.name.trim() === '' ? t('common.trackNumber', { number: track.number }) : track.name.trim();
-  return format === 'hidden' ? '' : format === 'full' ? name : shortTrackName(name);
+  return format === 'full' ? name : (track.shortName ?? abbreviateTrackName(name));
 }
 
 /** The names column: the longest label (at most SYSTEM.maxNameWidth), the gap and the bracket; none for one track. */

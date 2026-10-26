@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { type AudioTrack, type AudioTrackMix, DEFAULT_MASTER, type Effect, type MasterMix, type Song, toggleEffect } from '@gp-editor/core';
+import { type AudioTrack, type AudioTrackMix, DEFAULT_MASTER, type Effect, type MasterMix, type Song, type TrackIconName, toggleEffect } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
 import type { MixPreview } from '../../lib/mix';
 import { effectName, formatEffectValue } from '../../lib/effect-values';
+import { shownTrackIcon } from '../../score/track-icons';
 import type { Palette } from '../../theme';
 import { AudioTrackControls } from '../audio-track/AudioTrackControls';
 import { ChromeButton } from '../chrome/ChromeButton';
+import { TrackIcon } from '../TrackIcon';
 import { EffectChainEditor } from './EffectChainEditor';
 import { MasterStripEditor, OUTPUT_GAIN } from './MasterStripEditor';
 
 export const MIXER_PANEL = { height: 270, stripWidth: 128, audioStripWidth: 156, editorWidth: 300 } as const;
+/** A track icon's side in a strip's header, in points. */
+const STRIP_ICON_SIZE = 14;
 
 export interface MixerPanelProps {
   readonly palette: Palette;
@@ -31,6 +35,8 @@ interface StripProps {
   readonly palette: Palette;
   readonly title: string;
   readonly color?: string;
+  /** A track's icon, beside its colour. */
+  readonly icon?: TrackIconName;
   readonly effects: readonly Effect[];
   readonly footer?: string;
   readonly isSelected: boolean;
@@ -39,12 +45,17 @@ interface StripProps {
 }
 
 /** A channel strip: its name (selects it), then its effects in order, each switched on or off by a click. */
-function Strip({ palette, title, color, effects, footer, isSelected, onSelect, onToggle }: StripProps) {
+function Strip({ palette, title, color, icon, effects, footer, isSelected, onSelect, onToggle }: StripProps) {
   const t = useT();
   return (
     <View style={[styles.strip, { borderColor: isSelected ? palette.chromeAccent : palette.chromeBorder, backgroundColor: palette.chromeDeep }]}>
       <Pressable style={styles.stripHeader} onPress={onSelect} tooltip={t('tools.mixer.editEffectsOf', { name: title })} accessibilityRole="button" accessibilityLabel={t('tools.mixer.editEffectsOf', { name: title })}>
         {color === undefined ? null : <View style={[styles.swatch, { backgroundColor: color }]} />}
+        {icon === undefined ? null : (
+          <View style={styles.icon}>
+            <TrackIcon icon={icon} color={palette.chromeText} size={STRIP_ICON_SIZE} />
+          </View>
+        )}
         <Text numberOfLines={1} style={[styles.stripTitle, { color: palette.chromeText }]}>
           {title}
         </Text>
@@ -130,6 +141,7 @@ function TrackStrips({ palette, song, selectedTrackIndex, isMasterSelected, onSe
           palette={palette}
           title={t('common.trackNumbered', { number: each.number, name: each.name })}
           color={`rgb(${each.color.r},${each.color.g},${each.color.b})`}
+          icon={shownTrackIcon(song, trackIndex)}
           effects={each.effects ?? []}
           isSelected={!isMasterSelected && trackIndex === selectedTrackIndex}
           onSelect={() => {
@@ -182,6 +194,7 @@ const styles = StyleSheet.create({
   audioStrip: { width: MIXER_PANEL.audioStripWidth },
   stripHeader: { flexDirection: 'row', alignItems: 'center', height: 24, marginBottom: 4 },
   swatch: { width: 10, height: 10, borderRadius: 2, marginRight: 5 },
+  icon: { marginRight: 4 },
   stripTitle: { flex: 1, fontSize: 12, fontWeight: '700' },
   none: { fontSize: 11, marginVertical: 4, textAlign: 'center' },
   editorPane: { width: MIXER_PANEL.editorWidth, borderLeftWidth: 1, paddingHorizontal: 10 },

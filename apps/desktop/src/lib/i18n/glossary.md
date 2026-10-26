@@ -159,6 +159,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | panel / inspector / edition palette / command palette | 패널 / 인스펙터 / 편집 팔레트 / 명령 팔레트 | |
 | focus mode (Focus / Unfocus) | 집중 모드 | |
 | multitrack | 멀티트랙 | |
+| track information: name, short name, colour, icon; rename | 트랙 정보: 이름, 줄인 이름, 색, 아이콘; 이름 바꾸기 | Guitar Pro 8's Track Information; `줄인 이름` as the stylesheet's short names; the icons' names are the instruments' (`스틸 기타`, `건반`, `금관악기` …), `Other` = `효과음 등` (`기타` would read as guitar) |
 | keyboard shortcuts | 단축키 | |
 | settings | 설정 | |
 | song information: title, subtitle, artist, album, words, music, copyright, tab author, instructions, notice | 곡 정보: 제목, 부제, 아티스트, 앨범, 작사, 작곡, 저작권, 타브 작성자, 연주 안내, 메모 | |

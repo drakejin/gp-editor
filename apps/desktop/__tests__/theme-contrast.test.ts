@@ -1,4 +1,6 @@
+import { TRACK_COLORS } from '@gp-editor/core';
 import { AA_TEXT_CONTRAST, DISTINCT_COLOR_DIFFERENCE, colorDifference, contrastRatio } from '../src/lib/contrast';
+import { hexColorText } from '../src/lib/track-color';
 import { LCD_COLORS, type Palette, STRIP_COLORS, allPalettes, onChrome, paletteFor } from '../src/theme';
 
 /** Text colour → the surfaces it is drawn on, by palette role. */
@@ -93,6 +95,19 @@ describe('palettes', () => {
       return [...graphics, ...alike, ...labels];
     });
 
+    expect(failing).toEqual([]);
+  });
+
+  it('show Guitar Pro 8’s track colours 3:1 on the chrome they are offered and drawn on', () => {
+    const swatches = TRACK_COLORS.map(hexColorText);
+    const failing = allPalettes().flatMap(([name, palette]) => {
+      const chrome = onChrome(palette);
+      return swatches.flatMap((swatch) =>
+        [chrome.chrome, chrome.chromeDeep].filter((surface) => contrastRatio(swatch, surface) < 3).map((surface) => `${name}: ${swatch} on ${surface}`),
+      );
+    });
+
+    // A swatch, a track's colour strip and its bars are graphics: WCAG's 3:1 for non-text contrast.
     expect(failing).toEqual([]);
   });
 

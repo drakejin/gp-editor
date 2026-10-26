@@ -30,6 +30,16 @@ function render(selectedTrackIndex = 0) {
 }
 
 describe('MixerPanel', () => {
+  it('shows each track strip’s colour and icon, the master none', () => {
+    // Act
+    const mixer = render();
+
+    // Assert
+    const icons = mixer.renderer.root.findAll((node) => typeof node.props.icon === 'string' && typeof node.props.size === 'number' && typeof node.type !== 'string');
+    expect(icons.filter((node) => node.props.color === PALETTE.chromeText).map((node) => node.props.icon)).toEqual(expect.arrayContaining(['steelGuitar']));
+    expect(new Set(icons.map((node) => node.props.icon)).size).toBe(1);
+  });
+
   it('shows a strip per track and the master, and edits the selected track’s chain', () => {
     // Act
     const mixer = render();

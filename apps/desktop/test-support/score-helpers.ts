@@ -24,3 +24,25 @@ export function allFinite(commands: readonly DrawCommand[]): boolean {
     ),
   );
 }
+
+/** Every x and y a command reaches. */
+function reachedPoints(command: DrawCommand): number[] {
+  switch (command.kind) {
+    case 'line':
+    case 'curve':
+      return [command.x1, command.y1, command.x2, command.y2];
+    case 'polygon':
+      return [...command.points];
+    case 'rect':
+      return [command.x, command.y, command.x + command.width, command.y + command.height];
+    case 'circle':
+      return [command.x - command.radius, command.y - command.radius, command.x + command.radius, command.y + command.radius];
+    case 'text':
+      return [command.x, command.y];
+  }
+}
+
+/** Every command stays inside a `size` square (an icon), half a point of stroke allowed. */
+export function fitsSquare(commands: readonly DrawCommand[], size: number): boolean {
+  return commands.flatMap(reachedPoints).every((value) => value >= 0 && value <= size + 0.5);
+}

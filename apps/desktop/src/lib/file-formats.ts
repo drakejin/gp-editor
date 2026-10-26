@@ -82,6 +82,11 @@ function hasClefChanges(song: Song): boolean {
   return song.tracks.some((track) => track.measures.some((measure, index) => index > 0 && measure.clef !== track.measures[index - 1]?.clef));
 }
 
+/** A track given an icon or a short name of its own (only .gp files keep them; GP3–GP5 keep the name and colour). */
+function hasOwnAppearance(song: Song): boolean {
+  return song.tracks.some((track) => track.iconId !== undefined || track.shortName !== undefined);
+}
+
 /** True when a note plays in voice 3 or 4 (Guitar Pro 5 files hold two voices). */
 function playsPastTwoVoices(song: Song): boolean {
   return song.tracks.some((track) => track.measures.some((measure) => measure.beats.some((beat) => beat.voices.slice(2).some((voice) => voice.notes.length > 0))));
@@ -92,15 +97,19 @@ export function formatName(format: FileFormat): string {
   return format.label.replace(/ \(.*\)$/, '');
 }
 
-/** What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track, clefs and layout it leaves out. */
+/**
+ * What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track, clefs,
+ * track icons and short names and layout it leaves out.
+ */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const name = formatName(format);
   const voices = format.id === 'gp5' && playsPastTwoVoices(song) ? t('window.saveHint.voices', { format: name }) : undefined;
   const effects = format.id !== 'gp' && hasEffects(song) ? t('window.saveHint.effects', { format: name }) : undefined;
   const audio = format.id !== 'gp' && song.audioTrack !== undefined ? t('window.saveHint.audio', { format: name }) : undefined;
   const clefs = format.id !== 'gp' && hasClefChanges(song) ? t('window.saveHint.clefs', { format: name }) : undefined;
+  const appearance = format.id !== 'gp' && hasOwnAppearance(song) ? t('window.saveHint.appearance', { format: name }) : undefined;
   const layout = format.id === 'gp' ? undefined : layoutLeftOut(name, song);
-  const parts = [format.note, voices, effects, audio, clefs, layout].filter((part): part is string => part !== undefined);
+  const parts = [format.note, voices, effects, audio, clefs, appearance, layout].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 

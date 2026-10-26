@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { Effect, MasterMix, SongInfo } from '@gp-editor/core';
+import type { Effect, MasterMix, Rgb, SongInfo } from '@gp-editor/core';
 import type { ChordDisplay } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import { useStableCallback } from './use-stable-callback';
@@ -22,6 +22,10 @@ export interface InspectorCommands {
   readonly onChangeChordDisplay: (display: ChordDisplay) => void;
   readonly onSetSongInfo: (info: Partial<SongInfo>) => void;
   readonly onSetTrackName: (trackIndex: number, name: string) => void;
+  /** Guitar Pro 8's track information: short name, colour, icon (undefined: the instrument's). */
+  readonly onSetTrackShortName: (trackIndex: number, shortName: string) => void;
+  readonly onSetTrackColor: (trackIndex: number, color: Rgb) => void;
+  readonly onSetTrackIcon: (trackIndex: number, iconId: number | undefined) => void;
   readonly onSetTrackCapo: (trackIndex: number, capo: number) => void;
   readonly onSetTrackSlashNotation: (trackIndex: number, hasSlashNotation: boolean) => void;
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
@@ -72,6 +76,9 @@ function useInspectorCommands({ dispatch }: WindowBase): InspectorCommands {
       onChangeChordDisplay: (display: ChordDisplay) => dispatch({ type: 'setChordDisplay', display }),
       onSetSongInfo: (info: Partial<SongInfo>) => dispatch({ type: 'setSongInfo', info }),
       onSetTrackName: (trackIndex: number, name: string) => dispatch({ type: 'setTrackName', trackIndex, name }),
+      onSetTrackShortName: (trackIndex: number, shortName: string) => dispatch({ type: 'setTrackShortName', trackIndex, shortName }),
+      onSetTrackColor: (trackIndex: number, color: Rgb) => dispatch({ type: 'setTrackColor', trackIndex, color }),
+      onSetTrackIcon: (trackIndex: number, iconId: number | undefined) => dispatch({ type: 'setTrackIcon', trackIndex, iconId }),
       onSetTrackCapo: (trackIndex: number, capo: number) => dispatch({ type: 'setTrackCapo', trackIndex, capo }),
       onSetTrackSlashNotation: (trackIndex: number, hasSlashNotation: boolean) => dispatch({ type: 'setTrackSlashNotation', trackIndex, hasSlashNotation }),
       onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => dispatch({ type: 'setTrackTuning', trackIndex, tuning }),

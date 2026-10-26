@@ -1,14 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { type LayoutChangeEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { Song } from '@gp-editor/core';
+import type { Song, TrackIconName } from '@gp-editor/core';
 import type { DrumKey } from '../../hooks/use-drum-key';
 import { useT } from '../../hooks/use-i18n';
 import { type DrumKeyGroup, WHOLE_KIT_KEYS, drumEntryDetail, drumEntryName, drumKeyGroups, trackDrumKeys } from '../../lib/drum-key';
 import { DRUM_KEY_LAYOUT, layoutDrumKey } from '../../lib/drum-key-layout';
+import { visibleTrackColor } from '../../score/bar-map';
 import { DRUM_KEY_STAFF, drumKeyColors } from '../../score/drum-key-staff';
+import { shownTrackIcon } from '../../score/track-icons';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { EDITION_PALETTE_WIDTH } from '../palette/EditionPalette';
+import { TrackIcon } from '../TrackIcon';
 import { DrumKeyColumn } from './DrumKeyColumn';
 
 /** The card's room over the score (right of the edition palette, under the tab strip, to the window's edges) and its inner spacing. */
@@ -29,19 +32,32 @@ function hoverLine(groups: readonly DrumKeyGroup[], litKey: number | undefined, 
   return group === undefined || entry === undefined ? fallback : `${drumEntryName(group, entry)} — ${drumEntryDetail(entry)}`;
 }
 
+/** The track icon's side in the card's header, in points. */
+const HEADER_ICON_SIZE = 13;
+
 interface DrumKeyHeaderProps {
   readonly palette: Palette;
   readonly trackLabel: string;
+  /** The track's colour and icon, before its name. */
+  readonly trackBadge?: { readonly color: string; readonly icon: TrackIconName };
   readonly isDrumTrack: boolean;
   readonly drumKey: DrumKey;
 }
 
 /** The card's title, the track it follows, Used drums / Whole kit and ×. */
-function DrumKeyHeader({ palette, trackLabel, isDrumTrack, drumKey }: DrumKeyHeaderProps) {
+function DrumKeyHeader({ palette, trackLabel, trackBadge, isDrumTrack, drumKey }: DrumKeyHeaderProps) {
   const t = useT();
   return (
     <View style={styles.header}>
       <Text style={[styles.title, { color: palette.chromeText }]}>{t('drums.key.title')}</Text>
+      {trackBadge === undefined ? null : (
+        <>
+          <View style={[styles.swatch, { backgroundColor: trackBadge.color }]} />
+          <View style={styles.icon}>
+            <TrackIcon icon={trackBadge.icon} color={palette.chromeMuted} size={HEADER_ICON_SIZE} />
+          </View>
+        </>
+      )}
       <Text numberOfLines={1} style={[styles.track, { color: palette.chromeMuted }]}>
         {trackLabel}
       </Text>
@@ -103,9 +119,10 @@ function DrumKeyCard({ palette, song, trackIndex, drumKey, roomWidth }: DrumKeyP
   const width = Math.min(roomWidth, Math.max(DRUM_KEY_PANEL.minWidth, ...rows.map((row) => row.width + 2 * DRUM_KEY_PANEL.padding)));
   const message = !isDrumTrack ? t('drums.key.notDrums') : keys.length === 0 ? t('drums.key.noNotes') : undefined;
   const trackLabel = track === undefined ? '' : t('drums.key.trackLabel', { number: track.number, name: track.name });
+  const trackBadge = track === undefined ? undefined : { color: visibleTrackColor(track.color), icon: shownTrackIcon(song, trackIndex) };
   return (
     <View testID="drum-key-panel" style={[styles.card, { width, backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
-      <DrumKeyHeader palette={palette} trackLabel={trackLabel} isDrumTrack={isDrumTrack} drumKey={drumKey} />
+      <DrumKeyHeader palette={palette} trackLabel={trackLabel} trackBadge={trackBadge} isDrumTrack={isDrumTrack} drumKey={drumKey} />
       {message === undefined ? (
         <DrumKeyRows palette={palette} groups={groups} rows={rows} litKey={litKey} onLight={setLitKey} />
       ) : (
@@ -137,6 +154,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   title: { fontSize: 14, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginRight: 10 },
   track: { flex: 1, fontSize: 12, marginRight: 8 },
+  swatch: { width: 8, height: 8, borderRadius: 2, marginRight: 5 },
+  icon: { marginRight: 5 },
   body: { flexGrow: 0, flexShrink: 1 },
   row: { flexDirection: 'row', columnGap: DRUM_KEY_LAYOUT.gap, marginBottom: 12 },
   message: { fontSize: 12, lineHeight: 18, marginVertical: 6 },

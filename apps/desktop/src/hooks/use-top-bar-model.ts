@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import type { TrackIconName } from '@gp-editor/core';
 import type { PracticeToggle } from '../lib/key-commands';
 import { type LcdInfo, lcdInfo } from '../lib/lcd';
 import { tempoPercent } from '../lib/practice-tempo';
+import { shownTrackIcon } from '../score/track-icons';
 import { playbackStartTempo, typedTempoAction } from '../state/practice';
 import { selectionBars } from '../state/selection';
 import type { EditorCommands } from './use-editor-commands';
@@ -13,6 +15,8 @@ export interface TopBarModel {
   readonly lcd?: LcdInfo;
   /** The shown track's colour (the LCD's swatch). */
   readonly trackColor?: string;
+  /** The shown track's icon, beside its colour (Guitar Pro 8's LCD). */
+  readonly trackIcon?: TrackIconName;
   /** "100%" or "80%": the playback speed. */
   readonly speedLabel: string;
   /** The tempo of the bar playback starts from (playbackStartTempo). */
@@ -34,6 +38,7 @@ export function useTopBarModel({ state, t }: WindowBase, { playback }: WindowMed
     [song, trackIndex, cursor, playback.playing, playback.practice, playback.loopPass, t],
   );
   const track = song?.tracks[trackIndex];
+  const trackIcon = useMemo(() => (song === undefined || song.tracks[trackIndex] === undefined ? undefined : shownTrackIcon(song, trackIndex)), [song, trackIndex]);
   const measureCount = song?.measureHeaders.length ?? 0;
   const cursorMeasureIndex = cursor?.measureIndex ?? 0;
   const writtenTempo = song === undefined ? 0 : playbackStartTempo(song, playback.practice, cursorMeasureIndex);
@@ -44,6 +49,7 @@ export function useTopBarModel({ state, t }: WindowBase, { playback }: WindowMed
   return {
     lcd,
     trackColor: track === undefined ? undefined : `rgb(${track.color.r},${track.color.g},${track.color.b})`,
+    trackIcon,
     speedLabel: `${tempoPercent(playback.practice.tempoScale)}%`,
     writtenTempo,
     measureCount,

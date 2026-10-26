@@ -1,4 +1,4 @@
-import { DEFAULT_MASTER, DEFAULT_STYLESHEET, buildAudioTrack, buildEffect, readSong, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackEffects, writeSong } from '@gp-editor/core';
+import { DEFAULT_MASTER, DEFAULT_STYLESHEET, TRACK_ICON_IDS, buildAudioTrack, buildEffect, readSong, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackColor, setTrackEffects, setTrackIcon, setTrackShortName, writeSong } from '@gp-editor/core';
 import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, hasOwnLayout, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
@@ -120,6 +120,21 @@ describe('saveHint', () => {
     expect(saveHint(format('gp5'), styled)).toBe('Guitar Pro 5 keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.');
     expect(saveHint(format('gp3'), designed)).toContain('Guitar Pro 3 keeps no stylesheet or Design Mode layout');
     expect(saveHint(format('gp'), styled)).toBe(format('gp').note);
+  });
+
+  it('says that GP5, GP4 and GP3 keep the tracks’ names and colours but not an icon or short name of their own', () => {
+    // Arrange
+    const withIcon = setTrackIcon(song, 0, TRACK_ICON_IDS.banjo);
+    const withShortName = setTrackShortName(song, 0, 'Gt');
+    const coloured = setTrackColor(song, 0, { r: 1, g: 2, b: 3 });
+
+    // Act / Assert
+    const hint = 'Guitar Pro 5 keeps the tracks’ names and colours but not their icons or short names: save as Guitar Pro 7/8 (.gp) to keep them.';
+    expect(saveHint(format('gp5'), withIcon)).toBe(hint);
+    expect(saveHint(format('gp5'), withShortName)).toBe(hint);
+    expect(saveHint(format('gp5'), coloured)).toBeUndefined();
+    expect(saveHint(format('gp3'), withIcon)).toContain('Guitar Pro 3 keeps the tracks’ names and colours');
+    expect(saveHint(format('gp'), withIcon)).toBe(format('gp').note);
   });
 
   it('says that GP5, GP4 and GP3 leave the audio track out', () => {

@@ -8,6 +8,7 @@ import { TracksPanel, type TracksPanelProps } from '../src/components/TracksPane
 import { ScoreCanvas } from '../src/native/score-canvas';
 import { BAR_MAP, barMapCellX, barMapHeight, barMapWidth, scrollOffsetToShowBar } from '../src/score/bar-map';
 import type { DrawCommand } from '../src/score/draw';
+import { answerMeasure } from '../test-support/measure';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, header, makeSong, note, toTux } from '../test-support/songs';
 
@@ -46,7 +47,9 @@ function render(overrides: Partial<TracksPanelProps> = {}) {
     onSetTrackSolo: jest.fn(),
     onSetTrackVolume: jest.fn(),
     onSetTrackBalance: jest.fn(),
-    onEditInstrument: jest.fn(),
+    onOpenTrackInfo: jest.fn(),
+    onRenameTrack: jest.fn(),
+    onRenameEnd: jest.fn(),
     onToggleTrackShown: jest.fn(),
     onToggleMultitrack: jest.fn(),
     ...overrides,
@@ -144,30 +147,101 @@ describe('TracksPanel table', () => {
     expect(panel.props.onSetTrackSolo).toHaveBeenCalledWith(1, true);
   });
 
-  it('opens the instrument picker from a pitched track’s icon, not from a drum track’s', () => {
+  it('opens a track’s information beside its colour strip or its icon, a drum track’s too', () => {
     // Arrange
     const drums: Song = { ...SONG, tracks: [SONG.tracks[0]!, { ...SONG.tracks[1]!, isPercussion: true }] };
     const panel = render({ song: drums });
+    const click = { nativeEvent: { pageX: 40, pageY: 640 } };
 
-    // Act
-    panel.press('Instrument of track 1');
+    // Act: each control is measured in the window's layout
+    ReactTestRenderer.act(() => panel.control('Icon of track 2').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(panel.control('Icon of track 2'), 13, 632));
+    ReactTestRenderer.act(() => panel.control('Colour of track 1').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(panel.control('Colour of track 1'), 0, 610));
 
     // Assert
-    expect(panel.props.onEditInstrument).toHaveBeenCalledWith(0);
-    expect(panel.control('Instrument of track 2').props.disabled).toBe(true);
+    expect(panel.props.onOpenTrackInfo).toHaveBeenNthCalledWith(1, 1, { x: 13, y: 632 });
+    expect(panel.props.onOpenTrackInfo).toHaveBeenNthCalledWith(2, 0, { x: 0, y: 610 });
+    expect(panel.control('Icon of track 2').props.tooltip).toBe('Drums: click for the track’s colour, icon and names');
+    expect(panel.control('Icon of track 1').props.tooltip).toBe('Electric guitar: click for the track’s colour, icon and names');
+  });
+
+  it('draws each track’s icon in white and its colour as the strip at the row’s edge', () => {
+    // Arrange
+    const coloured: Song = { ...SONG, tracks: [{ ...SONG.tracks[0]!, color: { r: 117, g: 203, b: 222 }, iconId: 7 }, SONG.tracks[1]!] };
+
+    // Act
+    const panel = render({ song: coloured });
+
+    // Assert
+    const strip = panel.control('Colour of track 1');
+    expect(strip.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ backgroundColor: '#75cbde' })]));
+    const icon = panel.control('Icon of track 1').findByType(ScoreCanvas);
+    const commands = icon.props.commands as DrawCommand[];
+    expect(commands.every((command) => command.color === PALETTE.chromeText)).toBe(true);
+    expect(panel.control('Icon of track 1').props.tooltip).toBe('Ukulele: click for the track’s colour, icon and names');
+  });
+
+  it('renames a track in place from a double-click on its name or ✎ on the selected row, Return setting the name', () => {
+    // Arrange
+    const panel = render();
+
+    // Act: double-click the bass, type, Return
+    ReactTestRenderer.act(() => panel.control('Track 2: Bass').props.onDoubleClick());
+    const field = () => panel.renderer.root.findByProps({ accessibilityLabel: 'Name of track 2' });
+    ReactTestRenderer.act(() => field().props.onChangeText('Upright Bass'));
+    ReactTestRenderer.act(() => field().props.onSubmitEditing());
+    ReactTestRenderer.act(() => panel.control('Rename track 1').props.onPress());
+    const guitarField = panel.renderer.root.findByProps({ accessibilityLabel: 'Name of track 1' });
+    const escape = { nativeEvent: { key: 'Escape' }, stopPropagation: jest.fn() };
+    ReactTestRenderer.act(() => guitarField.props.onKeyDown(escape));
+
+    // Assert: one rename, the field gone after each and the keyboard back; Esc changed nothing and went no further
+    expect(panel.props.onRenameTrack).toHaveBeenCalledTimes(1);
+    expect(panel.props.onRenameTrack).toHaveBeenCalledWith(1, 'Upright Bass');
+    expect(panel.renderer.root.findAllByProps({ accessibilityLabel: 'Name of track 1' })).toEqual([]);
+    expect(escape.stopPropagation).toHaveBeenCalled();
+    expect(panel.props.onRenameEnd).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops renaming when the track list changes under the field', () => {
+    // Arrange
+    const panel = render();
+    ReactTestRenderer.act(() => panel.control('Track 2: Bass').props.onDoubleClick());
+
+    // Act: the bass moved up (an undo from the menu, say)
+    panel.update({ song: { ...SONG, tracks: [SONG.tracks[1]!, SONG.tracks[0]!] } });
+
+    // Assert
+    expect(panel.renderer.root.findAllByProps({ accessibilityLabel: 'Name of track 2' })).toEqual([]);
+    expect(panel.props.onRenameTrack).not.toHaveBeenCalled();
+  });
+
+  it('keeps the name when the field is left blank or unchanged', () => {
+    // Arrange
+    const panel = render();
+
+    // Act
+    ReactTestRenderer.act(() => panel.control('Track 1: Guitar').props.onDoubleClick());
+    const field = () => panel.renderer.root.findByProps({ accessibilityLabel: 'Name of track 1' });
+    ReactTestRenderer.act(() => field().props.onChangeText('   '));
+    ReactTestRenderer.act(() => field().props.onBlur());
+
+    // Assert
+    expect(panel.props.onRenameTrack).not.toHaveBeenCalled();
   });
 
   it('gives every control a label and a tooltip', () => {
     // Act
     const panel = render();
 
-    // Assert: per track its name, eye, mute, solo, instrument, volume and pan, then Multitrack and the bar map
+    // Assert: per track its colour, icon, name, eye, mute, solo, volume and pan, ✎ on the selected one, then Multitrack and the bar map
     const controls = panel.renderer.root.findAll(
       (node) => typeof node.props.onPress === 'function' || typeof node.props.onPressIn === 'function',
     );
     const labels = new Set(controls.map((node) => node.props.accessibilityLabel));
     expect(labels.has(undefined)).toBe(false);
-    expect(labels.size).toBe(2 * 7 + 2);
+    expect(labels.size).toBe(2 * 8 + 1 + 2);
     expect(controls.filter((node) => typeof node.props.tooltip !== 'string' || node.props.tooltip.length === 0)).toEqual([]);
   });
 });

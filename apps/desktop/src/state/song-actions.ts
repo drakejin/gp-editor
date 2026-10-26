@@ -2,17 +2,21 @@ import {
   type Effect,
   type Lyrics,
   type MasterMix,
+  type Rgb,
   type Song,
   type SongInfo,
   setMasterMix,
   setSongInfo,
   setTrackBalance,
   setTrackCapo,
+  setTrackColor,
   setTrackEffects,
+  setTrackIcon,
   setTrackLyrics,
   setTrackMute,
   setTrackName,
   setTrackProgram,
+  setTrackShortName,
   setTrackSlashNotation,
   setTrackSolo,
   setTrackVolume,
@@ -24,6 +28,11 @@ export type SongAction =
   /** The General MIDI instrument a track plays (saved with the song). */
   | { readonly type: 'setTrackProgram'; readonly trackIndex: number; readonly program: number }
   | { readonly type: 'setTrackName'; readonly trackIndex: number; readonly name: string }
+  /** Guitar Pro's abbreviated name (blank: the name abbreviated). */
+  | { readonly type: 'setTrackShortName'; readonly trackIndex: number; readonly shortName: string }
+  | { readonly type: 'setTrackColor'; readonly trackIndex: number; readonly color: Rgb }
+  /** A Guitar Pro icon id; undefined: the instrument's icon. */
+  | { readonly type: 'setTrackIcon'; readonly trackIndex: number; readonly iconId: number | undefined }
   | { readonly type: 'setTrackMute'; readonly trackIndex: number; readonly isMute: boolean }
   | { readonly type: 'setTrackSolo'; readonly trackIndex: number; readonly isSolo: boolean }
   /** 0–127, on the track's channel (a channel shared with another track is copied first). */
@@ -43,7 +52,7 @@ export type SongAction =
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export const isSongAction = isOfTypes<SongAction>({
-  setTrackProgram: true, setTrackName: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
+  setTrackProgram: true, setTrackName: true, setTrackShortName: true, setTrackColor: true, setTrackIcon: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
   setTrackCapo: true, setTrackSlashNotation: true, setTrackEffects: true, setMasterMix: true, setTrackLyrics: true, setSongInfo: true,
 });
 
@@ -53,6 +62,12 @@ export function applySongAction(song: Song, action: SongAction): Song {
       return setTrackProgram(song, action.trackIndex, action.program);
     case 'setTrackName':
       return setTrackName(song, action.trackIndex, action.name);
+    case 'setTrackShortName':
+      return setTrackShortName(song, action.trackIndex, action.shortName);
+    case 'setTrackColor':
+      return setTrackColor(song, action.trackIndex, action.color);
+    case 'setTrackIcon':
+      return setTrackIcon(song, action.trackIndex, action.iconId);
     case 'setTrackMute':
       return setTrackMute(song, action.trackIndex, action.isMute);
     case 'setTrackSolo':

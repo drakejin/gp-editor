@@ -235,6 +235,9 @@ describe('editorReducer: track instrument', () => {
 
   it.each<[string, EditorAction, (state: EditorState) => unknown, unknown]>([
     ['renames', { type: 'setTrackName', trackIndex: 0, name: ' Lead ' }, (state) => song(state).tracks[0]?.name, 'Lead'],
+    ['gives a short name to', { type: 'setTrackShortName', trackIndex: 0, shortName: ' L.Gt ' }, (state) => song(state).tracks[0]?.shortName, 'L.Gt'],
+    ['colours', { type: 'setTrackColor', trackIndex: 0, color: { r: 117, g: 203, b: 222 } }, (state) => song(state).tracks[0]?.color, { r: 117, g: 203, b: 222 }],
+    ['gives an icon to', { type: 'setTrackIcon', trackIndex: 0, iconId: 7 }, (state) => song(state).tracks[0]?.iconId, 7],
     ['mutes', { type: 'setTrackMute', trackIndex: 0, isMute: true }, (state) => song(state).tracks[0]?.mute, true],
     ['solos', { type: 'setTrackSolo', trackIndex: 0, isSolo: true }, (state) => song(state).tracks[0]?.solo, true],
     ['sets the volume of', { type: 'setTrackVolume', trackIndex: 0, volume: 90 }, (state) => song(state).channels[0]?.volume, 90],
@@ -271,6 +274,8 @@ describe('editorReducer: track instrument', () => {
   it.each<EditorAction>([
     { type: 'setTrackName', trackIndex: 0, name: 'Guitar' },
     { type: 'setTrackName', trackIndex: 0, name: '  ' },
+    { type: 'setTrackShortName', trackIndex: 0, shortName: '' },
+    { type: 'setTrackIcon', trackIndex: 0, iconId: undefined },
     { type: 'setTrackMute', trackIndex: 0, isMute: false },
     { type: 'setTrackSolo', trackIndex: 0, isSolo: false },
     { type: 'setTrackVolume', trackIndex: 0, volume: 127 },

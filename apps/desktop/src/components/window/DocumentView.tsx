@@ -114,6 +114,7 @@ function DocumentSide({ model, document }: DocumentPartProps) {
       chordDisplay={state.chordDisplay}
       {...panelCommands.inspector}
       onEditInstrument={chrome.pickInstrument}
+      onOpenTrackInfo={tools.trackInfo.open}
       onSelectSoundBank={sound.select}
       onAddSoundBank={sound.add}
       onRemoveSoundBank={sound.remove}

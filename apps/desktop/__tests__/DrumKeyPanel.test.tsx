@@ -53,7 +53,10 @@ describe('DrumKeyPanel', () => {
       ['crash', [49]],
     ]);
     expect(panel.texts()).toEqual(expect.arrayContaining(['Drum Key', '2. Drums', 'Kick', 'Hi-Hat', 'Closed', 'Open', 'Crash', 'High']));
-    expect(panel.root.findAllByType(ScoreCanvas)).toHaveLength(4);
+    // A canvas per column, and the track's icon beside its name
+    expect(panel.root.findAllByType(ScoreCanvas)).toHaveLength(5);
+    const icons = panel.root.findAll((node) => typeof node.props.icon === 'string' && typeof node.props.size === 'number');
+    expect([...new Set(icons.map((icon) => icon.props.icon))]).toEqual(['drums']);
   });
 
   it('shows the whole kit when asked, and switches with its buttons', () => {

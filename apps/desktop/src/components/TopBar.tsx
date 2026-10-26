@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { TrackIconName } from '@gp-editor/core';
 import { type Translate, useT } from '../hooks/use-i18n';
 import type { PracticeToggle } from '../lib/key-commands';
 import type { LcdInfo } from '../lib/lcd';
@@ -30,6 +31,7 @@ export interface TopBarProps {
   readonly speedLabel: string;
   readonly lcd?: LcdInfo;
   readonly trackColor?: string;
+  readonly trackIcon?: TrackIconName;
   /** The metronome's beat while playing (the LCD's beat dots). */
   readonly beat?: MetronomeBeat;
   /** A tempo typed in the LCD: the playback tempo, or the locked tempo with the tempo lock on. */
@@ -63,7 +65,7 @@ function TopBarView(props: TopBarProps) {
       <ViewButtons palette={palette} panels={panels} hasDocument={hasDocument} zoom={props.zoom} canUndo={props.canUndo} canRedo={props.canRedo} onTogglePanel={onTogglePanel} onOpenMenu={onOpenMenu} onCommand={onCommand} />
       <View style={styles.transport}>
         <TransportButtons palette={palette} hasDocument={hasDocument} isPlaying={props.isPlaying} onCommand={onCommand} />
-        <Lcd palette={palette} info={props.lcd} trackColor={props.trackColor} beat={props.beat} onSetTempo={props.onSetTempo} />
+        <Lcd palette={palette} info={props.lcd} trackColor={props.trackColor} trackIcon={props.trackIcon} beat={props.beat} onSetTempo={props.onSetTempo} />
       </View>
       <View style={[styles.side, styles.right]}>
         <PracticeButtons

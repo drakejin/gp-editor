@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { TrackIconName } from '@gp-editor/core';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import { type LcdInfo, TEMPO_LOCK_MARK } from '../lib/lcd';
@@ -6,23 +7,29 @@ import type { MetronomeBeat } from '../lib/metronome-beat';
 import { parseTempoText } from '../lib/practice-tempo';
 import { LCD_COLORS, MONO_FONT, type Palette } from '../theme';
 import { TextField } from './TextField';
+import { TrackIcon } from './TrackIcon';
 
 export interface LcdProps {
   readonly palette: Palette;
   readonly info?: LcdInfo;
   /** The shown track's colour. */
   readonly trackColor?: string;
+  /** The shown track's icon, beside its colour (Guitar Pro 8's LCD). */
+  readonly trackIcon?: TrackIconName;
   /** While playing: the metronome's beat (the count-in's too), shown as dots. */
   readonly beat?: MetronomeBeat;
   /** A tempo typed over the LCD's tempo; without it the tempo is not editable. */
   readonly onSetTempo?: (tempo: number) => void;
 }
 
+/** The track icon's side in the LCD, in points. */
+const LCD_ICON_SIZE = 13;
+
 /** Longer bars show "beat/count" instead of a row of dots. */
 const MAX_BEAT_DOTS = 12;
 
 /** Guitar Pro's LCD in the middle of the top bar: the track, then bar, time signature, time, tempo and beat. */
-export function Lcd({ palette, info, trackColor, beat, onSetTempo }: LcdProps) {
+export function Lcd({ palette, info, trackColor, trackIcon, beat, onSetTempo }: LcdProps) {
   const t = useT();
   return (
     <View style={[styles.lcd, { borderColor: palette.chromeBorder }]} accessibilityLabel={t('window.lcd.accessibility')}>
@@ -33,6 +40,11 @@ export function Lcd({ palette, info, trackColor, beat, onSetTempo }: LcdProps) {
         <>
           <View style={styles.row}>
             <View style={[styles.swatch, { backgroundColor: trackColor ?? palette.chromeMuted }]} />
+            {trackIcon === undefined ? null : (
+              <View style={styles.icon}>
+                <TrackIcon icon={trackIcon} color={palette.chromeText} size={LCD_ICON_SIZE} />
+              </View>
+            )}
             <Text numberOfLines={1} style={[styles.track, { color: palette.chromeText }]}>
               {info.track}
             </Text>
@@ -125,6 +137,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   swatch: { width: 8, height: 8, borderRadius: 2, marginRight: 6 },
+  icon: { marginRight: 5 },
   track: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
   position: { fontSize: 11, marginLeft: 'auto', paddingLeft: 8 },
   digits: { fontFamily: MONO_FONT, fontSize: 11, color: LCD_COLORS.digits, marginRight: 11 },

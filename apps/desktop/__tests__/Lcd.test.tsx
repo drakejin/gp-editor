@@ -73,3 +73,17 @@ describe('Lcd tempo field', () => {
     expect(onSetTempo).not.toHaveBeenCalled();
   });
 });
+
+describe('Lcd track', () => {
+  it('shows the track’s colour and, as Guitar Pro 8 does, its icon before its name', () => {
+    // Act
+    const withIcon = render({ trackColor: 'rgb(117,203,222)', trackIcon: 'bass' });
+    const without = render({ trackColor: 'rgb(117,203,222)' });
+
+    // Assert
+    const icons = (lcd: ReturnType<typeof render>) => lcd.renderer.root.findAll((node) => typeof node.props.icon === 'string' && typeof node.props.size === 'number');
+    expect([...new Set(icons(withIcon).map((node) => node.props.icon))]).toEqual(['bass']);
+    expect(icons(without)).toEqual([]);
+    expect(withIcon.texts()).toContain('1. Guitar');
+  });
+});

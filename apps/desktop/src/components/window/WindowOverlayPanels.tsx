@@ -16,6 +16,7 @@ import { ShortcutSheet } from '../ShortcutSheet';
 import { SongWriterPanel } from '../song-writer/SongWriterPanel';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { SpeedMenu, ZoomMenu } from '../TopBarMenus';
+import { TrackInfoPanel } from '../track-info/TrackInfoPanel';
 import { TrackManagerOverlays } from '../TrackManagerOverlays';
 import { TunerPanel } from '../tuner/TunerPanel';
 import { PickerOverlay } from '../WindowOverlays';
@@ -79,7 +80,7 @@ function TopBarMenu({ model }: WindowPartProps) {
   );
 }
 
-/** The Song Writer, the line in's card, the drum key, the tuner, the chord and note panels, the Add Track panel and the delete question. */
+/** The Song Writer, the line in's card, the drum key, the tuner, the chord and note panels, the Add Track panel, the delete question and a track's information. */
 export function ToolOverlays({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, chrome } = base;
@@ -109,7 +110,31 @@ export function ToolOverlays({ model }: WindowPartProps) {
         <NotePanelView palette={palette} panel={chrome.notePanel} note={cursorNote} onEdit={cursorTools.editAtCursor} onPreview={tools.draftPreview.show} onClose={chrome.closeNotePanel} />
       ) : null}
       <TrackManagerOverlays manager={tools.trackManager} palette={chromePalette} />
+      <TrackInfoOverlay model={model} />
     </>
+  );
+}
+
+/** A track's information (name, short name, colour, icon) beside the control that opened it. */
+function TrackInfoOverlay({ model }: WindowPartProps) {
+  const { base, tools, panelCommands } = model;
+  const { trackInfo } = tools;
+  const song = base.state.document?.song;
+  if (song === undefined || trackInfo.trackIndex === undefined || trackInfo.anchor === undefined) {
+    return null;
+  }
+  return (
+    <TrackInfoPanel
+      key={trackInfo.trackIndex}
+      palette={base.chromePalette}
+      song={song}
+      trackIndex={trackInfo.trackIndex}
+      anchor={trackInfo.anchor}
+      windowWidth={base.windowWidth}
+      {...panelCommands.inspector}
+      onEditInstrument={base.chrome.pickInstrument}
+      onClose={trackInfo.close}
+    />
   );
 }
 

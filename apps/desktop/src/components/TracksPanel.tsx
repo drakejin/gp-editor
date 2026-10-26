@@ -6,7 +6,8 @@ import { useLanguage, useT } from '../hooks/use-i18n';
 import { trackInstrument } from '../lib/instruments';
 import { ScoreCanvas } from '../native/score-canvas';
 import { BAR_MAP, barMapHeight, barMapWidth, engraveBarMap, hitTestBarMap } from '../score/bar-map';
-import { instrumentIconKind } from '../score/panel-icons';
+import { shownTrackIcon } from '../score/track-icons';
+import type { PanelAnchor } from '../hooks/use-track-info';
 import type { TrackPanelActions } from '../hooks/use-track-manager';
 import type { Palette } from '../theme';
 import { TrackActions } from './TrackActions';
@@ -38,8 +39,12 @@ export interface TracksPanelProps {
   /** Called once when a drag ends (one undo step), not on every move. */
   readonly onSetTrackVolume: (trackIndex: number, volume: number) => void;
   readonly onSetTrackBalance: (trackIndex: number, balance: number) => void;
-  /** The track's instrument icon was clicked (opens the instrument picker). */
-  readonly onEditInstrument: (trackIndex: number) => void;
+  /** A track's colour strip or icon was clicked: its track information (name, short name, colour, icon) opens there. */
+  readonly onOpenTrackInfo?: (trackIndex: number, anchor: PanelAnchor) => void;
+  /** A track renamed in place (one undo step). */
+  readonly onRenameTrack?: (trackIndex: number, name: string) => void;
+  /** Renaming in place ended: the keyboard goes back to the score. */
+  readonly onRenameEnd?: () => void;
   /** Add, duplicate, delete and move tracks (the footer's buttons, dragging a track's name); none: no buttons. */
   readonly trackActions?: TrackPanelActions;
   /** Guitar Pro's "Audio track" button, while the song has none (Track ▸ Add Audio Track…). */
@@ -47,8 +52,8 @@ export interface TracksPanelProps {
 }
 
 /**
- * Guitar Pro's tracks panel, dark in both appearances: the track table (instrument, name, show / mute / solo, volume,
- * pan; Multitrack over it, the eyes choosing the tracks it shows) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
+ * Guitar Pro's tracks panel, dark in both appearances: the track table (colour strip and icon — both open the track's
+ * information —, name, show / mute / solo, volume, pan; Multitrack over it, the eyes choosing the tracks it shows) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
  * marked; clicking a cell goes there. The two halves share their row heights, and the whole panel scrolls vertically.
  */
 function TracksPanelView(props: TracksPanelProps) {
@@ -78,7 +83,7 @@ function TrackTable(props: TracksPanelProps) {
       song.tracks.map((track, trackIndex) => ({
         channel: song.channels.find((channel) => channel.id === track.channelId),
         instrumentName: trackInstrument(song, trackIndex)?.name,
-        iconKind: instrumentIconKind(song, trackIndex),
+        icon: shownTrackIcon(song, trackIndex),
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` is read by trackInstrument's names (global t)
     [song, language],
@@ -93,7 +98,7 @@ function TrackTable(props: TracksPanelProps) {
           trackIndex={trackIndex}
           channel={rows[trackIndex]?.channel}
           instrumentName={rows[trackIndex]?.instrumentName}
-          iconKind={rows[trackIndex]?.iconKind ?? 'guitar'}
+          icon={rows[trackIndex]?.icon ?? 'steelGuitar'}
           isSelected={trackIndex === selectedTrackIndex}
           isShown={shownTrackIndexes.includes(trackIndex)}
           palette={palette}
@@ -103,7 +108,9 @@ function TrackTable(props: TracksPanelProps) {
           onSetTrackSolo={props.onSetTrackSolo}
           onSetTrackVolume={props.onSetTrackVolume}
           onSetTrackBalance={props.onSetTrackBalance}
-          onEditInstrument={props.onEditInstrument}
+          onOpenTrackInfo={props.onOpenTrackInfo}
+          onRenameTrack={props.onRenameTrack}
+          onRenameEnd={props.onRenameEnd}
           trackCount={song.tracks.length}
           isDragged={drag?.fromIndex === trackIndex}
           onDragTrack={trackActions === undefined ? undefined : onDragTrack}

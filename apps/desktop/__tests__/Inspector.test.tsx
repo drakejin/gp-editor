@@ -4,6 +4,7 @@ import { type Song, buildEffect } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { Inspector, type InspectorProps } from '../src/components/inspector/Inspector';
 import { DEFAULT_MIDI_INPUT } from '../src/lib/midi-input';
+import { answerMeasure } from '../test-support/measure';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -52,7 +53,16 @@ function render(overrides: Partial<InspectorProps> = {}) {
     ReactTestRenderer.act(() => field(label)?.props.onSubmitEditing());
   };
   const texts = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
-  return { props, button, press, openTab, field, edit, texts };
+  return { renderer, props, button, press, openTab, field, edit, texts };
+}
+
+/** The pressable with this accessibility label. */
+function inspectorControl(inspector: ReturnType<typeof render>, label: string) {
+  const [found] = inspector.renderer.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function' && node.props.accessibilityRole !== undefined);
+  if (found === undefined) {
+    throw new Error(`no control "${label}"`);
+  }
+  return found;
 }
 
 describe('Inspector TRACK tab: effects', () => {
@@ -98,6 +108,41 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Show chord names over the staff')?.props.isActive).toBe(true);
     expect(inspector.button('Show chord diagrams over the staff')?.props.isActive).toBe(false);
     expect(onChangeChordDisplay.mock.calls).toEqual([[{ showsNames: true, showsDiagrams: true }], [{ showsNames: false, showsDiagrams: false }]]);
+  });
+
+  it('shows Guitar Pro 8’s INFORMATION: name, short name, the colour and icon, which open the track’s information', () => {
+    // Arrange
+    const onOpenTrackInfo = jest.fn();
+    const onSetTrackShortName = jest.fn();
+    const named: Song = { ...SONG, tracks: [{ ...SONG.tracks[0]!, shortName: 'D.Gt', iconId: 24 }] };
+    const inspector = render({ song: named, onOpenTrackInfo, onSetTrackShortName });
+    const control = (label: string) => inspectorControl(inspector, label);
+    const click = { nativeEvent: { pageX: 1100, pageY: 90 } };
+
+    // Act
+    inspector.edit('Short name', 'Dist');
+    ReactTestRenderer.act(() => control('Colour of track 1').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(control('Colour of track 1'), 1090, 80));
+    ReactTestRenderer.act(() => control('Icon of track 1').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(control('Icon of track 1'), 1112, 78));
+
+    // Assert
+    expect(inspector.field('Short name')?.props.placeholder).toBe('Guit.');
+    expect(onSetTrackShortName).toHaveBeenCalledWith(0, 'Dist');
+    expect(onOpenTrackInfo.mock.calls).toEqual([[0, { x: 1090, y: 80 }], [0, { x: 1112, y: 78 }]]);
+    expect(control('Icon of track 1').props.tooltip).toBe('Distortion guitar: click for the track’s colour, icon and names');
+  });
+
+  it('shows the track’s name again after a commit the edit did not keep (a blank name)', () => {
+    // Arrange
+    const inspector = render();
+
+    // Act: the song is unchanged, as setTrackName leaves it for a blank name
+    inspector.edit('Name', '   ');
+
+    // Assert
+    expect(inspector.props.onSetTrackName).toHaveBeenCalledWith(0, '   ');
+    expect(inspector.field('Name')?.props.value).toBe('Guitar');
   });
 
   it('renames the track when typing ends, not on every key', () => {

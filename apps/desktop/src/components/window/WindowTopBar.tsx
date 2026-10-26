@@ -21,6 +21,7 @@ export function WindowTopBar({ model }: { readonly model: WindowModel }) {
       speedLabel={topBar.speedLabel}
       lcd={topBar.lcd}
       trackColor={topBar.trackColor}
+      trackIcon={topBar.trackIcon}
       panels={chrome.panels}
       onTogglePanel={chrome.togglePanel}
       onOpenMenu={chrome.openMenu}

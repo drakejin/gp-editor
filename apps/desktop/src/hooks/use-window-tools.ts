@@ -11,6 +11,7 @@ import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
 import { type ScalesTool, useScales } from './use-scales';
 import { type ScoreDesign, useScoreDesign } from './use-score-design';
 import { type SongWriter, useSongWriter, writtenSummary } from './use-song-writer';
+import { type TrackInfo, useTrackInfo } from './use-track-info';
 import { type TrackManager, useTrackManager } from './use-track-manager';
 import { useStableCallback } from './use-stable-callback';
 import { type Tuner, useTuner } from './use-tuner';
@@ -49,6 +50,8 @@ export interface WindowTools {
   readonly trackManager: TrackManager;
   /** View ▸ Drum Key: how the cursor's drum track writes its drums, a card over the score. */
   readonly drumKey: DrumKey;
+  /** A track's name, short name, colour and icon (Guitar Pro 8's track information), a small panel over the window. */
+  readonly trackInfo: TrackInfo;
 }
 
 /** Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip. */
@@ -99,11 +102,13 @@ export function useWindowTools(base: WindowBase): WindowTools {
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, state.trackIndex)), [song, state.trackIndex]);
   const panels = useWindowPanels(base);
   const audio = useAudioTools(song, state.trackIndex, chrome.togglePanel);
-  // The line in's lock and the instrument picker follow track edits.
+  const trackInfo = useTrackInfo(focusScore, { tabId: workspace.activeTabId, trackCount: song?.tracks.length ?? 0 });
+  // The line in's lock follows track edits; the instrument picker and the track information close.
   const followTracks = (map: TrackIndexMap) => {
     audio.lineIn.remapTrack(map);
     chrome.closePicker();
+    trackInfo.close();
   };
   const trackManager = useTrackManager({ song, shownTrackIndex: state.trackIndex, tabId: workspace.activeTabId, dispatch, onClosed: focusScore, onTracksRemapped: followTracks });
-  return { draftPreview, songWriter, reference, ...panels, audio, trackManager };
+  return { draftPreview, songWriter, reference, ...panels, audio, trackManager, trackInfo };
 }

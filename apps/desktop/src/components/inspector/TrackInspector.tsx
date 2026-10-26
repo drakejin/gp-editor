@@ -1,16 +1,19 @@
 import { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import type { Effect, Song, Track } from '@gp-editor/core';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { type Effect, type Song, type Track, type TrackIconName, abbreviateTrackName } from '@gp-editor/core';
 import type { DrumKey } from '../../hooks/use-drum-key';
 import { useT } from '../../hooks/use-i18n';
+import { type PanelAnchor, useAnchoredPress } from '../../hooks/use-track-info';
 import type { MessageKey } from '../../lib/i18n/i18n';
 import { trackInstrument } from '../../lib/instruments';
 import type { MixPreview } from '../../lib/mix';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../../score/chords';
 import { type ScoreMode, type Staff, showsStaff, toggleStaff } from '../../score/geometry';
+import { shownTrackIcon } from '../../score/track-icons';
 import { type Palette, onChrome } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
 import { NeckSettings } from '../NeckSettings';
+import { TrackIcon } from '../TrackIcon';
 import { EffectChainEditor } from '../effects/EffectChainEditor';
 import { InspectorField, InspectorSection, InspectorTextField } from './InspectorParts';
 
@@ -29,6 +32,10 @@ export interface TrackInspectorProps {
   readonly onChangeMode: (mode: ScoreMode) => void;
   readonly onChangeChordDisplay?: (display: ChordDisplay) => void;
   readonly onSetTrackName: (trackIndex: number, name: string) => void;
+  /** Guitar Pro's abbreviated name (blank: the name abbreviated). */
+  readonly onSetTrackShortName?: (trackIndex: number, shortName: string) => void;
+  /** The colour or icon was clicked: the track's information opens beside it (colours, icons). */
+  readonly onOpenTrackInfo?: (trackIndex: number, anchor: PanelAnchor) => void;
   readonly onSetTrackCapo: (trackIndex: number, capo: number) => void;
   readonly onSetTrackTuning: (trackIndex: number, tuning: readonly number[]) => void;
   readonly onDismissNotice: () => void;
@@ -67,7 +74,22 @@ export function TrackInspector(props: TrackInspectorProps) {
   const { onSetTrackEffects } = props;
   return (
     <>
-      <TrackInformation palette={palette} trackIndex={trackIndex} name={track.name} color={track.color} number={track.number} trackCount={song.tracks.length} stringCount={track.strings.length} onSetTrackName={props.onSetTrackName} />
+      <TrackInformation
+        // Another track: fresh fields, nothing typed for one track left in the other's.
+        key={`information-${trackIndex}`}
+        palette={palette}
+        trackIndex={trackIndex}
+        name={track.name}
+        shortName={track.shortName}
+        color={track.color}
+        icon={shownTrackIcon(song, trackIndex)}
+        number={track.number}
+        trackCount={song.tracks.length}
+        stringCount={track.strings.length}
+        onSetTrackName={props.onSetTrackName}
+        onSetTrackShortName={props.onSetTrackShortName}
+        onOpenTrackInfo={props.onOpenTrackInfo}
+      />
       <InspectorSection palette={palette} title={t('tools.inspector.musicalNotation')}>
         <NotationFields
           palette={palette}
@@ -97,21 +119,56 @@ export function TrackInspector(props: TrackInspectorProps) {
 // The sections below are memoised on what they show: an edit of the track's notes (a new track object, the same
 // name, strings, effects …) redraws only the tuning, whose suggestions read the notes.
 
-interface TrackInformationProps extends Pick<TrackInspectorProps, 'palette' | 'trackIndex' | 'onSetTrackName'> {
+interface TrackInformationProps extends Pick<TrackInspectorProps, 'palette' | 'trackIndex' | 'onSetTrackName' | 'onSetTrackShortName' | 'onOpenTrackInfo'> {
   readonly name: string;
+  readonly shortName?: string;
   readonly color: Track['color'];
+  readonly icon: TrackIconName;
   readonly number: number;
   readonly trackCount: number;
   readonly stringCount: number;
 }
 
-function TrackInformationView({ palette, trackIndex, name, color, number, trackCount, stringCount, onSetTrackName }: TrackInformationProps) {
+/** Guitar Pro 8's INFORMATION: name and short name, the colour and icon (they open the track's information), the track's place. */
+function TrackInformationView(props: TrackInformationProps) {
+  const { palette, trackIndex, name, shortName, color, number, trackCount, stringCount, onSetTrackShortName, onOpenTrackInfo } = props;
   const t = useT();
+  const open = onOpenTrackInfo === undefined ? undefined : (anchor: PanelAnchor) => onOpenTrackInfo(trackIndex, anchor);
+  const swatch = useAnchoredPress(open);
+  const icon = useAnchoredPress(open);
   return (
     <InspectorSection palette={palette} title={t('tools.inspector.information')}>
-      <InspectorTextField palette={palette} label={t('common.name')} value={name} onCommit={(next) => onSetTrackName(trackIndex, next)} />
+      <InspectorTextField palette={palette} label={t('common.name')} value={name} onCommit={(next) => props.onSetTrackName(trackIndex, next)} />
+      {onSetTrackShortName === undefined ? null : (
+        <InspectorTextField
+          palette={palette}
+          label={t('window.trackInfo.shortName')}
+          value={shortName ?? ''}
+          placeholder={abbreviateTrackName(name)}
+          onCommit={(next) => onSetTrackShortName(trackIndex, next)}
+        />
+      )}
       <InspectorField palette={palette} label={t('common.track')}>
-        <View style={[styles.swatch, { backgroundColor: `rgb(${color.r},${color.g},${color.b})` }]} />
+        <Pressable
+          ref={swatch.ref}
+          disabled={swatch.onPress === undefined}
+          onPress={swatch.onPress}
+          tooltip={t('window.tracks.colorTooltip')}
+          accessibilityRole="button"
+          accessibilityLabel={t('window.tracks.colorOf', { number })}
+          style={[styles.swatch, { backgroundColor: `rgb(${color.r},${color.g},${color.b})`, borderColor: palette.chromeBorder }]}
+        />
+        <Pressable
+          ref={icon.ref}
+          disabled={icon.onPress === undefined}
+          onPress={icon.onPress}
+          tooltip={t('window.tracks.iconTooltip', { icon: t(`window.trackIcon.${props.icon}`) })}
+          accessibilityRole="button"
+          accessibilityLabel={t('window.tracks.iconOf', { number })}
+          style={styles.iconButton}
+        >
+          <TrackIcon icon={props.icon} color={palette.chromeText} />
+        </Pressable>
         <Text style={[styles.value, { color: palette.chromeText }]}>{t('tools.inspector.trackPosition', { number, total: trackCount, strings: t('common.strings', { count: stringCount }) })}</Text>
       </InspectorField>
     </InspectorSection>
@@ -219,7 +276,8 @@ function TrackEffectsView({ palette, trackIndex, effects, onSetTrackEffects, onP
 const TrackEffects = memo(TrackEffectsView);
 
 const styles = StyleSheet.create({
-  swatch: { width: 12, height: 12, borderRadius: 3, marginRight: 6 },
+  swatch: { width: 18, height: 18, borderRadius: 4, borderWidth: 1, marginRight: 4 },
+  iconButton: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   value: { fontSize: 11 },
   capo: { minWidth: 52, textAlign: 'center', fontSize: 12, fontWeight: '600' },
   tuning: { paddingHorizontal: 0, paddingTop: 4, backgroundColor: 'transparent' },

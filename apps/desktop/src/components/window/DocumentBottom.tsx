@@ -33,7 +33,7 @@ export function DocumentBottom({ model, document }: DocumentPartProps) {
 /** The tracks panel with its bar map, and the audio track's lane under it. */
 function DocumentTracks({ model, document }: DocumentPartProps) {
   const { base, media, tools, cursorTools, panelCommands } = model;
-  const { palette, state, chrome } = base;
+  const { palette, state } = base;
   const { trackView, playback } = media;
   const { audioLane } = cursorTools;
   const { track } = panelCommands;
@@ -50,7 +50,9 @@ function DocumentTracks({ model, document }: DocumentPartProps) {
         cursorMeasureIndex={state.cursor?.measureIndex}
         playingMeasureIndex={playback.playing?.measureIndex}
         palette={palette}
-        onEditInstrument={chrome.pickInstrument}
+        onOpenTrackInfo={tools.trackInfo.open}
+        onRenameTrack={panelCommands.inspector.onSetTrackName}
+        onRenameEnd={base.focusScore}
         onAddAudioTrack={audioTrack === undefined ? audioLane.addAudioTrack : undefined}
         trackActions={tools.trackManager.panelActions}
         {...track}

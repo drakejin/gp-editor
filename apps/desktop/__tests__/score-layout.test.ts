@@ -12,7 +12,7 @@ import { SCORE_MODES, rowGeometry } from '../src/score/geometry';
 import { hasLyrics } from '../src/score/lyrics';
 import { hasPedals } from '../src/score/pedals';
 import { engraveRow, rowHeaderWidth } from '../src/score/row';
-import { SYSTEM, layoutScore, scoreMeasures, shortTrackName, staffLabel, staffPlans } from '../src/score/score-layout';
+import { SYSTEM, layoutScore, scoreMeasures, staffLabel, staffPlans } from '../src/score/score-layout';
 import { hasBends } from '../src/score/symbols/bends';
 import { tabMarkLanes } from '../src/score/tab';
 import { readFixture } from '../test-support/fixtures';
@@ -99,17 +99,17 @@ describe('layoutScore with several tracks', () => {
 });
 
 describe('track names', () => {
-  it('keeps short names and shortens long words to their first letters and a dot', () => {
-    expect(shortTrackName('Bass')).toBe('Bass');
-    expect(shortTrackName('Distortion Guitar')).toBe('Dist. Guit.');
-    expect(shortTrackName('Acoustic Guitar 2')).toBe('Acou. Guit. 2');
-    expect(shortTrackName('  ')).toBe('');
-  });
-
   it('labels a staff with its name, or its number when it has none', () => {
     expect(staffLabel({ name: 'Lead', number: 2 }, true)).toBe('Lead');
     expect(staffLabel({ name: 'Electric Guitar', number: 2 }, false)).toBe('Elec. Guit.');
     expect(staffLabel({ name: '', number: 3 }, true)).toBe('Track 3');
+  });
+
+  it('labels the later systems with the track’s own short name, the name abbreviated without one', () => {
+    expect(staffLabel({ name: 'Electric Guitar', number: 2, shortName: 'el.guit.' }, false)).toBe('el.guit.');
+    expect(staffLabel({ name: 'Electric Guitar', number: 2, shortName: 'el.guit.' }, true)).toBe('Electric Guitar');
+    expect(staffLabel({ name: 'Electric Guitar', number: 2, shortName: 'el.guit.' }, true, 'short')).toBe('el.guit.');
+    expect(staffLabel({ name: 'Electric Guitar', number: 2, shortName: 'el.guit.' }, false, 'hidden')).toBe('');
   });
 });
 
