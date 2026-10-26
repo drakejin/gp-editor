@@ -55,6 +55,7 @@ function mockActions(): jest.Mocked<CommandActions> {
     toggleFocus: jest.fn(),
     toggleDrumKey: jest.fn(),
     togglePreviewOnHover: jest.fn(),
+    runMcpServerCommand: jest.fn(),
   };
 }
 
@@ -195,7 +196,9 @@ describe('command registry', () => {
 describe('command registry: when a command can run', () => {
   it('runs only what needs no document when none is open', () => {
     const enabled = appCommands().filter((command) => command.isEnabled(NO_DOCUMENT)).map((command) => command.id);
-    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales', 'help.shortcuts', 'app.settings']);
+    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales',
+      'tools.mcpServerSettings', 'tools.mcpServerLog', 'tools.mcpServerRestart', 'tools.mcpServerSetupCommand', 'help.shortcuts', 'app.settings',
+    ]);
   });
 
   it('needs a note for note commands, history for undo, two tabs to switch and a pitched track for the instrument', () => {
@@ -298,6 +301,19 @@ describe('command registry: running', () => {
     expect(actions.toggleFocus).toHaveBeenCalled();
     expect(actions.togglePreviewOnHover).toHaveBeenCalled();
     expect([find('play.metronome').shortcut, find('view.focus').shortcut]).toEqual(['⌥M', '⇧⌘F']);
+  });
+
+  it('runs Tools ▸ MCP Server’s items through the server’s native menus', () => {
+    // Arrange
+    const actions = mockActions();
+
+    // Act
+    for (const id of ['tools.mcpServerSettings', 'tools.mcpServerLog', 'tools.mcpServerRestart', 'tools.mcpServerSetupCommand']) {
+      find(id).run(actions);
+    }
+
+    // Assert
+    expect(actions.runMcpServerCommand.mock.calls).toEqual([['settings'], ['log'], ['restart'], ['copySetupCommand']]);
   });
 
   it('hands editor commands to the editor’s own path', () => {

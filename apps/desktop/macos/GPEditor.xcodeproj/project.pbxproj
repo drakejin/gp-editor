@@ -62,6 +62,15 @@
 		981053B97A38CF147FFE4049 /* GPAudioAssets.m in Sources */ = {isa = PBXBuildFile; fileRef = 8FD2DB36CBC090317CE79469 /* GPAudioAssets.m */; };
 		E20E680FC4F0B82F38F601E2 /* GPAudioTrackPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 33A89FD7F3A03D187768DF13 /* GPAudioTrackPlayer.m */; };
 		C1AC50F80F6A29D14702912E /* GPAudioTrack.m in Sources */ = {isa = PBXBuildFile; fileRef = 69F5D9D7A3C262A116234FBC /* GPAudioTrack.m */; };
+		6DE6B030659D032976A76E47 /* GPMcpHttp.m in Sources */ = {isa = PBXBuildFile; fileRef = AFD3EDF329865FF629ECF50B /* GPMcpHttp.m */; };
+		5A51EC2F9DAA595A26FDE509 /* GPMcpListener.m in Sources */ = {isa = PBXBuildFile; fileRef = 08D535BEB1A27C9CE46FBE6F /* GPMcpListener.m */; };
+		AB0EF9F0CB002D5C55917FAA /* GPMcpLog.m in Sources */ = {isa = PBXBuildFile; fileRef = EAACC1C87DDA7211E3A1B071 /* GPMcpLog.m */; };
+		0A65FC8094D2E66CFA91E837 /* GPMcpSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A922BBF7576EFE9CA194060 /* GPMcpSettings.m */; };
+		EA55270E9E740ADD6AB81B40 /* GPMcpServerCore.m in Sources */ = {isa = PBXBuildFile; fileRef = 358ADC9A11C95FB8BE6BB7B2 /* GPMcpServerCore.m */; };
+		84A178D0C0B3334A1DC7DDE1 /* GPMcpServer.m in Sources */ = {isa = PBXBuildFile; fileRef = 344F67DF42570E380DB0055A /* GPMcpServer.m */; };
+		EA166FA3B1882DCD4F49361C /* McpServerMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B310D62880CC4E9CCC22B24 /* McpServerMenu.swift */; };
+		8F38A389F1A61D93C7CDF48C /* McpServerWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E4A74169D268E6F8125F61 /* McpServerWindows.swift */; };
+		560FC468C3D19AC56452DDD8 /* GPQAWindows.m in Sources */ = {isa = PBXBuildFile; fileRef = 1021F74D3C0678166F4DA849 /* GPQAWindows.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -146,6 +155,21 @@
 		2615B0E1381C06FACF97DCD6 /* GPAudioTrackPlayer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPAudioTrackPlayer.h; sourceTree = "<group>"; };
 		33A89FD7F3A03D187768DF13 /* GPAudioTrackPlayer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioTrackPlayer.m; sourceTree = "<group>"; };
 		69F5D9D7A3C262A116234FBC /* GPAudioTrack.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPAudioTrack.m; sourceTree = "<group>"; };
+		0DFCEB78E8BB4C58CFD6075F /* GPMcpHttp.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMcpHttp.h; sourceTree = "<group>"; };
+		AFD3EDF329865FF629ECF50B /* GPMcpHttp.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpHttp.m; sourceTree = "<group>"; };
+		492E2DC887253BDC72EEFBC5 /* GPMcpListener.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMcpListener.h; sourceTree = "<group>"; };
+		08D535BEB1A27C9CE46FBE6F /* GPMcpListener.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpListener.m; sourceTree = "<group>"; };
+		12D0C15B4CBDF1CD1DA37E79 /* GPMcpLog.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMcpLog.h; sourceTree = "<group>"; };
+		EAACC1C87DDA7211E3A1B071 /* GPMcpLog.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpLog.m; sourceTree = "<group>"; };
+		EE9734800795C5A3F98E8164 /* GPMcpSettings.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMcpSettings.h; sourceTree = "<group>"; };
+		8A922BBF7576EFE9CA194060 /* GPMcpSettings.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpSettings.m; sourceTree = "<group>"; };
+		88484A6DC2BD264979B5E257 /* GPMcpServerCore.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPMcpServerCore.h; sourceTree = "<group>"; };
+		358ADC9A11C95FB8BE6BB7B2 /* GPMcpServerCore.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpServerCore.m; sourceTree = "<group>"; };
+		344F67DF42570E380DB0055A /* GPMcpServer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPMcpServer.m; sourceTree = "<group>"; };
+		3B310D62880CC4E9CCC22B24 /* McpServerMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = McpServerMenu.swift; sourceTree = "<group>"; };
+		38E4A74169D268E6F8125F61 /* McpServerWindows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = McpServerWindows.swift; sourceTree = "<group>"; };
+		268DD91B2179584F47145C81 /* GPQAWindows.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = GPQAWindows.h; sourceTree = "<group>"; };
+		1021F74D3C0678166F4DA849 /* GPQAWindows.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = GPQAWindows.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -257,6 +281,21 @@
 				9A4BEEBAAC49BCB8CC6576CC /* GPClipboard.m */,
 				45ED85928E66648C64309C86 /* GPMidiInput.m */,
 				8F778497CFAC9ACE36EAE323 /* GPAppStrings.h */,
+				1021F74D3C0678166F4DA849 /* GPQAWindows.m */,
+				268DD91B2179584F47145C81 /* GPQAWindows.h */,
+				38E4A74169D268E6F8125F61 /* McpServerWindows.swift */,
+				3B310D62880CC4E9CCC22B24 /* McpServerMenu.swift */,
+				344F67DF42570E380DB0055A /* GPMcpServer.m */,
+				358ADC9A11C95FB8BE6BB7B2 /* GPMcpServerCore.m */,
+				88484A6DC2BD264979B5E257 /* GPMcpServerCore.h */,
+				8A922BBF7576EFE9CA194060 /* GPMcpSettings.m */,
+				EE9734800795C5A3F98E8164 /* GPMcpSettings.h */,
+				EAACC1C87DDA7211E3A1B071 /* GPMcpLog.m */,
+				12D0C15B4CBDF1CD1DA37E79 /* GPMcpLog.h */,
+				08D535BEB1A27C9CE46FBE6F /* GPMcpListener.m */,
+				492E2DC887253BDC72EEFBC5 /* GPMcpListener.h */,
+				AFD3EDF329865FF629ECF50B /* GPMcpHttp.m */,
+				0DFCEB78E8BB4C58CFD6075F /* GPMcpHttp.h */,
 				4572E68AF53B1E0703D33656 /* GPAppStrings.m */,
 				F3A3A5C31D1676E2DB493C57 /* GPAppSettings.m */,
 				A5E917F33BA5DB0D35F4363F /* AppLanguage.swift */,
@@ -574,6 +613,15 @@
 				C94A2C43599FD106BA5C3883 /* GPRecentFiles.m in Sources */,
 				3E7A873DFC82AB94648513BE /* RecentFilesMenu.swift in Sources */,
 				5584DBE284B9C5D86E3EEC68 /* GPAppStrings.m in Sources */,
+				560FC468C3D19AC56452DDD8 /* GPQAWindows.m in Sources */,
+				8F38A389F1A61D93C7CDF48C /* McpServerWindows.swift in Sources */,
+				EA166FA3B1882DCD4F49361C /* McpServerMenu.swift in Sources */,
+				84A178D0C0B3334A1DC7DDE1 /* GPMcpServer.m in Sources */,
+				EA55270E9E740ADD6AB81B40 /* GPMcpServerCore.m in Sources */,
+				0A65FC8094D2E66CFA91E837 /* GPMcpSettings.m in Sources */,
+				AB0EF9F0CB002D5C55917FAA /* GPMcpLog.m in Sources */,
+				5A51EC2F9DAA595A26FDE509 /* GPMcpListener.m in Sources */,
+				6DE6B030659D032976A76E47 /* GPMcpHttp.m in Sources */,
 				3CA275B482454FEDFF4A0819 /* GPAppSettings.m in Sources */,
 				5F6B5B6A3550C7646937F95F /* AppLanguage.swift in Sources */,
 				AC3A1E89DE1E050C8942502E /* EditMenu.swift in Sources */,

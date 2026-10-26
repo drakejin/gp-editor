@@ -17,12 +17,15 @@
 //          {"notify": "GPEditorSaveCommand"}, {"notify": "GPEditorNewCommand", "object": "tab"},
 //          {"menu": ["File", "Open Recent"]} (logs the items), {"menu": ["File", "Open Recent", "Song.gp5"]} (chooses it),
 //          {"snapshotModal": "/abs/panel.png"} (a save panel or alert running modally: its texts logged, its content to PNG),
-//          {"cancelModal": true} (aborts it), {"quit": true}]}
+//          {"cancelModal": true} (aborts it), {"quit": true},
+//          {"snapshotWindow": {"id": "GPMcpLog", "path": "/abs/log.png"}} (another window of the app, by its identifier),
+//          {"statusMenu": "/abs/menu.png"} (the MCP server's menu bar item: its items logged, its menu opened and drawn)]}
 // Coordinates are points in the window's content view, origin top-left. Progress goes to "<script>.log".
 
 #import <AppKit/AppKit.h>
 
 #import "GPEditorNotifications.h"
+#import "GPQAWindows.h"
 
 static NSString *const kScriptVariable = @"GPEDITOR_QA_SCRIPT";
 static const int64_t kStartDelaySeconds = 3;
@@ -70,10 +73,11 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   [handle closeFile];
 }
 
+/** The score's window: the MCP server's own windows (identifiers "GPMcp…") are never it. */
 - (NSWindow *)window
 {
   for (NSWindow *window in NSApp.windows) {
-    if (window.isVisible && window.canBecomeMainWindow) {
+    if (window.isVisible && window.canBecomeMainWindow && ![window.identifier hasPrefix:@"GPMcp"]) {
       return window;
     }
   }
@@ -209,6 +213,14 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   if (step[@"snapshotModal"] != nil) {
     [self snapshotModalTo:step[@"snapshotModal"]];
     return 0.1;
+  }
+  if ([step[@"snapshotWindow"] isKindOfClass:[NSDictionary class]]) {
+    GPQASnapshotWindow(step[@"snapshotWindow"][@"id"], step[@"snapshotWindow"][@"path"], ^(NSString *line) { [self log:line]; });
+    return 0.1;
+  }
+  if (step[@"statusMenu"] != nil) {
+    GPQAStatusMenu(step[@"statusMenu"], ^(NSString *line) { [self log:line]; });
+    return 0.5;
   }
   if (step[@"cancelModal"] != nil) {
     [self log:[NSString stringWithFormat:@"cancelModal: %@", NSApp.modalWindow]];

@@ -12,6 +12,8 @@ struct GPEditorApp: App {
   @StateObject private var editMenu = EditMenuModel()
   /// The menus' language, GP Editor ▸ Settings… ▸ Language (AppLanguage.swift): titles change as soon as JS applies it.
   @StateObject private var strings = AppLanguageModel()
+  /// Tools ▸ MCP Server's status and Start / Stop (McpServerMenu.swift).
+  @StateObject private var mcpServer = McpServerModel()
 
   var body: some Scene {
     Window("GP Editor", id: "main") {
@@ -184,6 +186,12 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: "expression" as NSString)
         }
         .keyboardShortcut("e", modifiers: [.command, .option])
+        Divider()
+        // The MCP server that lets Claude Code and other MCP clients drive the window (GPMcpServerCore.m); the same
+        // items as its menu bar item's.
+        Menu(strings("MCP Server")) {
+          McpServerMenuItems(model: mcpServer, strings: strings)
+        }
       }
       // Track ▸ Add Audio Track…: a recording played in sync with the score (GPAudioTrack.m forwards it).
       CommandMenu(strings("Track")) {
@@ -264,6 +272,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     super.init()
+  }
+
+  // The MCP server starts with the app (unless its settings say not to), with its menu bar item.
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    McpServerCommands.shared.install()
+    GPMcpServerCore.shared().startAtLaunch()
+    McpStatusItem.shared.install()
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    GPMcpServerCore.shared().stop()
   }
 
   // Finder "Open With", dropping a file on the dock icon, `open -a`.

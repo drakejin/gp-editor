@@ -1,5 +1,6 @@
 import { type PaletteContext, isToolEnabled } from '../components/palette/palette-tools';
 import type { AppCommand } from '../state/app-command';
+import type { McpServerCommand } from '../native/mcp-server';
 import type { TrackMenuCommand } from '../native/track-menu';
 import type { PanelId } from '../state/panels';
 import { t } from './i18n/i18n';
@@ -63,6 +64,8 @@ export interface CommandActions {
   /** View ▸ Drum Key: how the shown drum track's drums are written on the staff. */
   readonly toggleDrumKey: () => void;
   readonly togglePreviewOnHover: () => void;
+  /** Tools ▸ MCP Server ▸ Settings…, Show Log…, Restart, Copy Setup Command (the server's native menus). */
+  readonly runMcpServerCommand: (command: McpServerCommand) => void;
 }
 
 /** One row of the command palette (⇧⌘P). A new feature's command is one more row of the registry (commands.ts) and its title in the catalogues. */

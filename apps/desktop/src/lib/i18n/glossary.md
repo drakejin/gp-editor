@@ -166,3 +166,16 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | AI Wizard, Song Writer | AI 마법사, 작곡 도우미 | |
 | PDF import, project | PDF 가져오기, 프로젝트 | |
 | API key, model | API 키, 모델 | |
+
+## MCP server (MCP 서버)
+
+| English | 한국어 | note |
+| --- | --- | --- |
+| MCP server | MCP 서버 | `MCP`, `URL`, `Claude Code` stay |
+| start / stop / restart (the server) | 시작 / 중지 / 다시 시작 | playback's stop stays `정지` |
+| running / stopped / starting | 실행 중 / 중지됨 / 시작하는 중 | |
+| port | 포트 | `포트 18256` |
+| menu bar (the screen's top bar) | 메뉴 막대 | macOS's words |
+| log, log file | 로그, 로그 파일 | |
+| client, request, result, time taken | 클라이언트, 요청, 결과, 걸린 시간 | the log's columns |
+| setup command | 설정 명령 | |

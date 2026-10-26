@@ -1,3 +1,4 @@
+import { runMcpServerCommand } from '../native/mcp-server';
 import { stepZoom } from '../state/panels';
 import type { CommandActions } from '../lib/command-types';
 import type { CursorTools } from './use-cursor-tools';
@@ -85,5 +86,6 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     toggleFocus: chrome.toggleFocus,
     toggleDrumKey: tools.drumKey.toggle,
     togglePreviewOnHover: () => playback.changePractice({ type: 'togglePreviewOnHover' }),
+    runMcpServerCommand,
   };
 }

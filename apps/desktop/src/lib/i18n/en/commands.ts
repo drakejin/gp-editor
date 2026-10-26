@@ -78,6 +78,10 @@ export const EN_COMMANDS = {
   'commands.title.tools.lineIn': 'Line In…',
   'commands.title.tools.expressionText': 'Expression Text…',
   'commands.title.tools.instrument': 'Instrument…',
+  'commands.title.tools.mcpServerSettings': 'MCP Server Settings…',
+  'commands.title.tools.mcpServerLog': 'MCP Server Log…',
+  'commands.title.tools.mcpServerRestart': 'Restart the MCP Server',
+  'commands.title.tools.mcpServerSetupCommand': 'Copy the MCP Server’s Setup Command',
 
   'commands.title.track.add': 'Add Track…',
   'commands.title.track.duplicate': 'Duplicate Track',

@@ -76,6 +76,10 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.tools.lineIn': '라인 입력…',
   'commands.title.tools.expressionText': '표현 텍스트…',
   'commands.title.tools.instrument': '악기…',
+  'commands.title.tools.mcpServerSettings': 'MCP 서버 설정…',
+  'commands.title.tools.mcpServerLog': 'MCP 서버 로그…',
+  'commands.title.tools.mcpServerRestart': 'MCP 서버 다시 시작',
+  'commands.title.tools.mcpServerSetupCommand': 'MCP 서버 설정 명령 복사',
 
   'commands.title.track.add': '트랙 추가…',
   'commands.title.track.duplicate': '트랙 복제',

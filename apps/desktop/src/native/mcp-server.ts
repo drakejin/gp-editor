@@ -26,10 +26,14 @@ export interface McpNativeRequest extends McpHttpRequest {
   readonly id: string;
 }
 
+/** What Tools ▸ MCP Server's items and the menu bar item's do (GPEditorMcpCommandNotification's object). */
+export type McpServerCommand = 'start' | 'stop' | 'restart' | 'settings' | 'log' | 'copyUrl' | 'copySetupCommand';
+
 interface GPMcpServerModule {
   attach(limits: McpListenerLimits): Promise<McpAppInfo>;
   detach(): void;
   respond(requestId: string, response: Readonly<Record<string, unknown>>): void;
+  runCommand(command: McpServerCommand): void;
 }
 
 const native = NativeModules.GPMcpServer as GPMcpServerModule | undefined;
@@ -43,6 +47,11 @@ export function attachMcpServer(limits: McpListenerLimits): Promise<McpAppInfo> 
 /** JS stops taking requests (the listener answers 503 until it attaches again). */
 export function detachMcpServer(): void {
   native?.detach();
+}
+
+/** Runs one of Tools ▸ MCP Server's items, as the menu does (the command palette's rows). */
+export function runMcpServerCommand(command: McpServerCommand): void {
+  native?.runCommand(command);
 }
 
 /** The answer to request `id`, and what the server log keeps of it. */

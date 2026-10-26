@@ -142,4 +142,26 @@ FOUNDATION_EXPORT NSString *const GPEditorSettingsCommandNotification;
 /** JS applied Settings ▸ Language (GPAppSettings.m): the menus and native panels show GPCurrentLanguage() now. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorLanguageChangedNotification;
 
+/**
+ * Tools ▸ MCP Server ▸ … or the menu bar item's menu was chosen (McpServerMenu.swift answers it; the command palette
+ * and the QA driver post it too). Object: NSString "start", "stop", "restart", "settings", "log", "copyUrl" or
+ * "copySetupCommand".
+ */
+FOUNDATION_EXPORT NSString *const GPEditorMcpCommandNotification;
+
+/** The MCP server started, stopped or failed (GPMcpServerCore.m). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorMcpServerStateNotification;
+
+/** The MCP server's log has new entries or was cleared (GPMcpLog.m). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorMcpLogChangedNotification;
+
+/** An MCP server setting changed (GPMcpSettings.m). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorMcpSettingsChangedNotification;
+
+/**
+ * The QA driver asks for the MCP server's menu bar item (McpServerMenu.swift answers at once). Object: an
+ * NSMutableDictionary, filled with "menu" (NSMenu) and "button" (NSStatusBarButton) while the item is shown.
+ */
+FOUNDATION_EXPORT NSString *const GPEditorMcpStatusItemQueryNotification;
+
 NS_ASSUME_NONNULL_END

@@ -1,5 +1,6 @@
 import { SCORE_MODES, type ScoreMode } from '../score/geometry';
 import type { AppCommand } from '../state/app-command';
+import type { McpServerCommand } from '../native/mcp-server';
 import type { PanelId } from '../state/panels';
 import { type Command, type CommandActions, type RowSpec, editorRow, keyRow, press, row } from './command-types';
 import { type MessageKey, currentLanguage, isMessageKey, memoByLanguage, t, translate } from './i18n/i18n';
@@ -104,6 +105,14 @@ const viewRows = (): readonly Command[] => [
   appRow('view.drumKey', 'view', (a) => a.toggleDrumKey(), { keywords: ['drums', 'drumset', 'legend', 'noteheads', 'kit', 'percussion', 'hi-hat', 'cymbal'] }),
 ];
 
+/** Tools ▸ MCP Server's items (the menu bar item has them too), and more words each is found by. */
+const MCP_SERVER_ROWS: readonly (readonly [string, McpServerCommand, readonly string[]])[] = [
+  ['tools.mcpServerSettings', 'settings', ['port', 'menu', 'bar', 'automation']],
+  ['tools.mcpServerLog', 'log', ['requests', 'clients', 'history']],
+  ['tools.mcpServerRestart', 'restart', ['start', 'stop']],
+  ['tools.mcpServerSetupCommand', 'copySetupCommand', ['code', 'connect', 'url', 'copy', 'terminal']],
+];
+
 const toolsRows = (): readonly Command[] => [
   appRow('tools.tuner', 'tools', (a) => a.openTuner(), { when: 'always', keywords: ['tune', 'microphone', 'pitch', 'strings'] }),
   appRow('tools.scales', 'tools', (a) => a.openScales(), { when: 'always', keywords: ['scale', 'mode', 'finder', 'boxes', 'key'] }),
@@ -114,6 +123,7 @@ const toolsRows = (): readonly Command[] => [
     keywords: ['chord', 'dynamic', 'key', 'signature', 'octave', '8va', 'clef', 'direction', 'coda', 'type', '>'],
   }),
   appRow('tools.instrument', 'tools', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general', 'midi'] }),
+  ...MCP_SERVER_ROWS.map(([id, command, keywords]) => appRow(id, 'tools', (a) => a.runMcpServerCommand(command), { when: 'always', keywords: ['mcp', 'server', 'claude', 'ai', ...keywords] })),
 ];
 
 const trackRows = (): readonly Command[] => [
