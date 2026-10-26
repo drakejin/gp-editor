@@ -4,6 +4,7 @@ import type { SavedFile } from './gp-files';
 
 interface GPPdfExportModule {
   savePdf(documentJson: string, suggestedName: string): Promise<SavedFile | null>;
+  writePdf(documentJson: string, path: string): Promise<SavedFile>;
   printPdf(documentJson: string): Promise<boolean>;
 }
 
@@ -24,6 +25,11 @@ function requireNative(): GPPdfExportModule {
 /** Asks where to save, then writes the document as a PDF; null when the save panel is cancelled. */
 export function savePdf(document: PdfDocument, suggestedName: string): Promise<SavedFile | null> {
   return requireNative().savePdf(JSON.stringify(document), suggestedName);
+}
+
+/** Writes the document as a PDF at `path`, without a panel (the MCP server's export_file). */
+export function writePdf(document: PdfDocument, path: string): Promise<SavedFile> {
+  return requireNative().writePdf(JSON.stringify(document), path);
 }
 
 /** The system print panel for the document's pages; resolves whether they were printed. */

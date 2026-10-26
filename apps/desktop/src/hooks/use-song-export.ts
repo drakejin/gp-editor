@@ -19,7 +19,12 @@ export interface SongExport {
   readonly exportMusicXml: () => void;
   /** File ▸ Export Compressed MusicXML…: the same score zipped (.mxl). */
   readonly exportCompressedMusicXml: () => void;
+  /** One of these exports of the shown tab written at `path`, without the panel (the MCP server's export_file); rejects with why not. */
+  readonly exportTo: (format: SongExportFormat, path: string) => Promise<SavedFile>;
 }
+
+/** The exports written straight from the song: MIDI, ASCII tab, MusicXML and compressed MusicXML. */
+export type SongExportFormat = 'midi' | 'ascii_tab' | 'musicxml' | 'mxl';
 
 /** One export: the file it makes, what the error banner calls it, and how its content is written. */
 interface ExportKind {
@@ -71,6 +76,18 @@ const MXL_EXPORT: ExportKind = {
   leftOut: (song) => layoutLeftOut(formatName(MXL_FILE), song),
 };
 
+const EXPORT_KINDS: Readonly<Record<SongExportFormat, ExportKind>> = { midi: MIDI_EXPORT, ascii_tab: ASCII_TAB_EXPORT, musicxml: MUSICXML_EXPORT, mxl: MXL_EXPORT };
+
+/** Writes an export of the song at `path`; what the file leaves out goes to the hint strip. */
+async function writeExport(kind: ExportKind, song: Song, path: string, dispatch: Dispatch<EditorAction>): Promise<SavedFile> {
+  const saved = await kind.write(song, path);
+  const hint = kind.leftOut?.(song);
+  if (hint !== undefined) {
+    dispatch({ type: 'showHint', hint });
+  }
+  return saved;
+}
+
 /**
  * File ▸ Export MIDI…, Export ASCII Tab…, Export MusicXML… and Export Compressed MusicXML… for the shown tab; a failure
  * goes to the error banner (`exportFailed`).
@@ -92,11 +109,7 @@ export function useSongExport(document: OpenDocument | undefined, dispatch: Disp
         const { file } = kind;
         const chosen = await showSavePanel({ suggestedName: fileNameIn(current.fileName, file), formats: [file], formatId: file.id });
         if (chosen !== null) {
-          await kind.write(current.song, chosen.path);
-          const hint = kind.leftOut?.(current.song);
-          if (hint !== undefined) {
-            dispatch({ type: 'showHint', hint });
-          }
+          await writeExport(kind, current.song, chosen.path, dispatch);
         }
       } catch (error: unknown) {
         dispatch({ type: 'exportFailed', what: kind.what, message: errorMessage(error) });
@@ -106,11 +119,20 @@ export function useSongExport(document: OpenDocument | undefined, dispatch: Disp
     },
     [dispatch],
   );
-  return useSongExportMenu(run);
+  const exportTo = useCallback(
+    (format: SongExportFormat, path: string) => {
+      const current = latest.current;
+      // i18n-exempt: an MCP client's error, never shown in the app
+      return current === undefined ? Promise.reject(new Error('No document is open')) : writeExport(EXPORT_KINDS[format], current.song, path, dispatch);
+    },
+    [dispatch],
+  );
+  const menu = useSongExportMenu(run);
+  return useMemo(() => ({ ...menu, exportTo }), [menu, exportTo]);
 }
 
 /** The four exports as commands, and File ▸ Export MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… running them. */
-function useSongExportMenu(run: (kind: ExportKind) => Promise<void>): SongExport {
+function useSongExportMenu(run: (kind: ExportKind) => Promise<void>): Omit<SongExport, 'exportTo'> {
   const commands = useMemo(
     () => ({
       exportMidi: () => {

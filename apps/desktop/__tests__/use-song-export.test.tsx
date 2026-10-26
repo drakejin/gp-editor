@@ -236,3 +236,31 @@ describe('asciiTabTrackIndexes', () => {
     expect(asciiTabTrackIndexes(SONG)).toEqual([0]);
   });
 });
+
+describe('useSongExport: exportTo (the MCP server’s export_file)', () => {
+  it('writes an export at the path given without the save panel', async () => {
+    // Arrange
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.txt', path: '/out/Song.txt' });
+    const hook = renderHook(DOCUMENT);
+    let saved: SavedFile | undefined;
+
+    // Act
+    await settle(() => {
+      void hook.current().exportTo('ascii_tab', '/out/Song.txt').then((file) => (saved = file));
+    });
+
+    // Assert
+    expect(saved).toEqual({ name: 'Song.txt', path: '/out/Song.txt' });
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
+    expect(mockFiles.writeTextFile).toHaveBeenCalledWith('/out/Song.txt', writeAsciiTab(SONG, { trackIndexes: [0] }));
+  });
+
+  it('rejects with the native error, and without a document', async () => {
+    mockFiles.writeFile.mockRejectedValueOnce(new Error('Operation not permitted'));
+    const hook = renderHook(DOCUMENT);
+    const empty = renderHook(undefined);
+
+    await expect(hook.current().exportTo('midi', '/System/a.mid')).rejects.toThrow('Operation not permitted');
+    await expect(empty.current().exportTo('midi', '/out/a.mid')).rejects.toThrow('No document is open');
+  });
+});

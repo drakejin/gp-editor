@@ -45,6 +45,20 @@ export function t(key: MessageKey, params?: MessageParams): string {
   return translate(language, key, params);
 }
 
+/**
+ * `build` run with `target`'s text, the shown language unchanged and no component told (the MCP server lists the command
+ * registry in English whatever the window shows). A `memoByLanguage` table built inside is built for `target`.
+ */
+export function withLanguage<T>(target: Language, build: () => T): T {
+  const shown = language;
+  language = target;
+  try {
+    return build();
+  } finally {
+    language = shown;
+  }
+}
+
 /** Whether a key built at run time (`commands.${id}`) is in the catalogues. */
 export function isMessageKey(key: string): key is MessageKey {
   return Object.prototype.hasOwnProperty.call(EN, key);

@@ -1,5 +1,5 @@
 import { type Dispatch, useCallback, useEffect, useRef } from 'react';
-import { readSongFile } from '@gp-editor/core';
+import { type WritableFormat, readSongFile } from '@gp-editor/core';
 import { songBytesFor, withLoadedAudio } from '../lib/audio-track-files';
 import { base64ToBytes, bytesToBase64 } from '../lib/base64';
 import { SAVE_FORMATS, type SaveFormat, defaultSaveFormat, fileNameIn, saveFormatOf, saveHint } from '../lib/file-formats';
@@ -27,10 +27,10 @@ export interface DocumentCommands {
   readonly create: (mode: ScoreMode) => void;
   /** Open panel (⌘O, Open button). */
   readonly openDialog: () => void;
-  /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. */
-  readonly openPath: (pathOrUrl: string) => void;
+  /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. Resolves once read (or not). */
+  readonly openPath: (pathOrUrl: string) => Promise<void>;
   /** A file of the recent files list (File ▸ Open Recent, the Recent Files list), read through its bookmark. */
-  readonly openRecent: (path: string) => void;
+  readonly openRecent: (path: string) => Promise<void>;
   /**
    * A song made in the app (no file holds it yet: `path` is empty, `fileName` is what Save suggests) in a new tab,
    * edited until saved, so closing it asks first.
@@ -43,6 +43,8 @@ export interface DocumentCommands {
   readonly save: (saveAs: boolean) => void;
   /** Saves one tab as `save` does; true once it is saved, false when the save panel was cancelled or it failed. */
   readonly saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>;
+  /** Saves one tab at `path` in `format`, without the panel (the MCP server's save_as); true once it is saved. */
+  readonly saveTabTo: (tabId: string, path: string, format: WritableFormat) => Promise<boolean>;
 }
 
 /** The default for `onOpenPdf`: one function, so the File-menu listeners are not re-added on every render. */
@@ -74,7 +76,7 @@ export function useDocument(
   recentFiles: RecentFileHandlers = NO_RECENT_FILES,
 ): DocumentCommands {
   const open = useOpenFile(dispatch, recentFiles);
-  const saveTab = useSaveTab(workspace, dispatch, recentFiles);
+  const { saveTab, saveTabTo } = useSaveTab(workspace, dispatch, recentFiles);
   // The shown tab is read through a ref, so the File-menu listener is not re-added on every switch.
   const latest = useRef(workspace);
   latest.current = workspace;
@@ -94,23 +96,18 @@ export function useDocument(
   }, [open]);
   const openPath = useCallback(
     (pathOrUrl: string) => {
-      if (isPdfPath(pathOrUrl)) {
-        onOpenPdf(pathOrUrl);
-      } else {
-        void open(() => readFile(pathOrUrl));
+      if (!isPdfPath(pathOrUrl)) {
+        return open(() => readFile(pathOrUrl));
       }
+      onOpenPdf(pathOrUrl);
+      return Promise.resolve();
     },
     [open, onOpenPdf],
   );
-  const openRecent = useCallback(
-    (path: string) => {
-      void open(() => readRecentFile(path), path);
-    },
-    [open],
-  );
+  const openRecent = useCallback((path: string) => open(() => readRecentFile(path), path), [open]);
   useFileMenu({ create, openDialog, openPath, openRecent, save });
   useWindowTitle(workspace);
-  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab };
+  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab, saveTabTo };
 }
 
 /** File ▸ New, Open…, Open Recent and Save / Save As…, and files Finder hands over. */
@@ -175,8 +172,14 @@ function useOpenFile(
   );
 }
 
+/** Where a tab is written, in which format. */
+interface SaveDestination {
+  readonly path: string;
+  readonly format: SaveFormat;
+}
+
 /** Where to write: the document's own file in its format (plain Save), else the save panel's choice; null when cancelled. */
-async function chooseDestination(document: OpenDocument, saveAs: boolean): Promise<{ readonly path: string; readonly format: SaveFormat } | null> {
+async function chooseDestination(document: OpenDocument, saveAs: boolean): Promise<SaveDestination | null> {
   const ownFormat = saveAs ? undefined : saveFormatOf(document.path);
   if (ownFormat !== undefined) {
     return { path: document.path, format: ownFormat };
@@ -190,16 +193,17 @@ async function chooseDestination(document: OpenDocument, saveAs: boolean): Promi
 }
 
 /**
- * Saving one tab: its song in the chosen Guitar Pro format, to its file or through the save panel; what the format
- * cannot hold goes to the hint bar before it is written, and the result to that tab (`inTab`) and the recent files.
+ * Saving one tab: its song in the chosen Guitar Pro format, to its file or through the save panel (or at a path given);
+ * what the format cannot hold goes to the hint bar before it is written, and the result to that tab (`inTab`) and the
+ * recent files.
  */
-function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, recentFiles: RecentFileHandlers): DocumentCommands['saveTab'] {
+function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, recentFiles: RecentFileHandlers): Pick<DocumentCommands, 'saveTab' | 'saveTabTo'> {
   const { remember } = recentFiles;
   // Reads the latest tabs through a ref, so the File-menu listener does not need re-subscribing per edit.
   const latest = useRef(workspace);
   latest.current = workspace;
-  return useCallback(
-    async (tabId: string, saveAs: boolean) => {
+  const writeTab = useCallback(
+    async (tabId: string, choose: (document: OpenDocument) => Promise<SaveDestination | null>) => {
       const document = latest.current.tabs.find((tab) => tab.id === tabId)?.editor.document;
       if (document === undefined) {
         return false;
@@ -207,7 +211,7 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
       const toTab = (action: EditorAction) => dispatch({ type: 'inTab', tabId, action });
       const { song } = document;
       try {
-        const destination = await chooseDestination(document, saveAs);
+        const destination = await choose(document);
         if (destination === null) {
           return false;
         }
@@ -228,4 +232,11 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
     },
     [dispatch, remember],
   );
+  const saveTab = useCallback((tabId: string, saveAs: boolean) => writeTab(tabId, (document) => chooseDestination(document, saveAs)), [writeTab]);
+  const saveTabTo = useCallback(
+    (tabId: string, path: string, format: WritableFormat) =>
+      writeTab(tabId, () => Promise.resolve({ path, format: SAVE_FORMATS.find((each) => each.id === format) ?? SAVE_FORMATS[0] })),
+    [writeTab],
+  );
+  return { saveTab, saveTabTo };
 }

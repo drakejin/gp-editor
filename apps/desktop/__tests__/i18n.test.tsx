@@ -1,7 +1,7 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
 import { useT } from '../src/hooks/use-i18n';
-import { currentLanguage, isMessageKey, memoByLanguage, setLanguage, subscribeLanguage, t, translate } from '../src/lib/i18n/i18n';
+import { currentLanguage, isMessageKey, memoByLanguage, setLanguage, subscribeLanguage, t, translate, withLanguage } from '../src/lib/i18n/i18n';
 import { resolveLanguage } from '../src/lib/i18n/language-setting';
 import { formatMessage, placeholdersOf } from '../src/lib/i18n/messages';
 
@@ -59,6 +59,21 @@ describe('t and the current language', () => {
     const korean = table();
 
     expect([first, again === first, korean, builds]).toEqual([['Save'], true, ['저장'], 2]);
+  });
+
+  it('builds text in another language without changing the shown one or telling listeners', () => {
+    // Arrange
+    setLanguage('ko');
+    const heard: string[] = [];
+    const unsubscribe = subscribeLanguage(() => heard.push(currentLanguage()));
+
+    // Act
+    const english = withLanguage('en', () => t('common.close'));
+    const shown = t('common.close');
+    unsubscribe();
+
+    // Assert
+    expect([english, shown, currentLanguage(), heard]).toEqual(['Close', '닫기', 'ko', []]);
   });
 });
 

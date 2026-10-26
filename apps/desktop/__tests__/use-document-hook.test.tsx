@@ -502,3 +502,49 @@ describe('useDocument with Power Tab and TablEdit files', () => {
     expect(saved.tracks.map((track) => track.strings.map((s) => s.tuning))).toEqual(loaded.document.song.tracks.map((track) => track.strings.map((s) => s.tuning)));
   });
 });
+
+describe('useDocument saving at a path (the MCP server’s save_as)', () => {
+  it('writes the tab in the format given at the path given, without the save panel, and resolves true', async () => {
+    // Arrange
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Etude.gp', path: '/out/Etude.gp' });
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+    let isSaved: boolean | undefined;
+
+    // Act
+    await settle(() => {
+      void hook.current().saveTabTo('tab-1', '/out/Etude.gp', 'gp').then((result) => (isSaved = result));
+    });
+
+    // Assert
+    expect(isSaved).toBe(true);
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
+    expect(mockFiles.writeFile.mock.calls[0]?.[0]).toBe('/out/Etude.gp');
+    expect(hook.dispatch.mock.calls.at(-1)).toEqual([inTab('tab-1', { type: 'saved', fileName: 'Etude.gp', path: '/out/Etude.gp', song: SONG })]);
+  });
+
+  it('resolves false and tells the tab why when the file cannot be written', async () => {
+    mockFiles.writeFile.mockRejectedValueOnce(new Error('Operation not permitted'));
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+    let isSaved: boolean | undefined;
+
+    await settle(() => {
+      void hook.current().saveTabTo('tab-1', '/System/Etude.gp5', 'gp5').then((result) => (isSaved = result));
+    });
+
+    expect(isSaved).toBe(false);
+    expect(hook.dispatch.mock.calls.at(-1)).toEqual([inTab('tab-1', { type: 'saveFailed', message: 'Operation not permitted' })]);
+  });
+
+  it('resolves once a path is read, so the caller can see the tab it opened', async () => {
+    mockFiles.readFile.mockResolvedValueOnce(ETUDE);
+    const hook = renderHook();
+    let isDone = false;
+
+    await settle(() => {
+      void hook.current().openPath('/scores/Etude.gp5').then(() => (isDone = true));
+    });
+
+    expect(isDone).toBe(true);
+    expect(hook.dispatch.mock.calls.map(([action]) => action.type)).toEqual(['loadStarted', 'loaded']);
+  });
+});

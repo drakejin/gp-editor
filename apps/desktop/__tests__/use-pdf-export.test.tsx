@@ -15,6 +15,7 @@ const mockExportPngRequests: { handler?: () => void } = {};
 const mockSavePngs = jest.fn<Promise<SavedPngs | null>, [PdfDocument, readonly string[], PngOptions]>();
 const mockSavePdf = jest.fn<Promise<{ name: string; path: string } | null>, [PdfDocument, string]>();
 const mockPrintPdf = jest.fn<Promise<boolean>, [PdfDocument]>();
+const mockWritePdf = jest.fn<Promise<{ name: string; path: string }>, [PdfDocument, string]>();
 
 jest.mock('../src/native/gp-files', () => ({
   subscribeExportRequests: (handler: () => void) => {
@@ -44,6 +45,7 @@ jest.mock('../src/native/png-export', () => ({
 jest.mock('../src/native/pdf-export', () => ({
   savePdf: (document: PdfDocument, suggestedName: string) => mockSavePdf(document, suggestedName),
   printPdf: (document: PdfDocument) => mockPrintPdf(document),
+  writePdf: (document: PdfDocument, path: string) => mockWritePdf(document, path),
 }));
 
 const DOCUMENT: OpenDocument = { fileName: 'Song.gp5', path: '/Song.gp5', song: makeSong([[beat(960, [note(1, 3)])]]) };
@@ -327,5 +329,27 @@ describe('usePdfExport PNG images', () => {
 
     // Assert
     expect(mockSavePngs).not.toHaveBeenCalled();
+  });
+});
+
+describe('usePdfExport.saveTo (the MCP server’s export_file)', () => {
+  it('writes the score as shown at the path given, without the panel', async () => {
+    // Arrange
+    mockWritePdf.mockResolvedValueOnce({ name: 'Song.pdf', path: '/out/Song.pdf' });
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    const saved = await hook.current().saveTo('/out/Song.pdf');
+
+    // Assert
+    expect(saved).toEqual({ name: 'Song.pdf', path: '/out/Song.pdf' });
+    expect(mockSavePdf).not.toHaveBeenCalled();
+    const [document, path] = mockWritePdf.mock.calls.at(-1) ?? [];
+    expect(path).toBe('/out/Song.pdf');
+    expect(document?.pages.length).toBeGreaterThan(0);
+  });
+
+  it('rejects without a document', async () => {
+    await expect(renderHook(undefined).current().saveTo('/out/a.pdf')).rejects.toThrow('No document is open');
   });
 });

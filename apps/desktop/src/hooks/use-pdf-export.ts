@@ -4,7 +4,8 @@ import { type PngOptions, pngFileNames, pngSavedHint } from '../export/png-expor
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
 import { subscribeExportPngRequests, subscribeExportRequests, subscribePrintRequests } from '../native/gp-files';
-import { printPdf, savePdf } from '../native/pdf-export';
+import { printPdf, savePdf, writePdf } from '../native/pdf-export';
+import type { SavedFile } from '../native/gp-files';
 import { savePngs } from '../native/png-export';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
@@ -32,6 +33,8 @@ export interface PdfExport {
   readonly savePng: (mode: ExportMode, png: PngOptions) => void;
   /** File ▸ Print… (⌘P): the system print panel for the shown track (tracks) as the view shows it (the stylesheet's pages, fitted to the paper). */
   readonly print: () => void;
+  /** The PDF of the shown track (tracks) as the view shows it, written at `path` without a panel (the MCP server's export_file). */
+  readonly saveTo: (path: string) => Promise<SavedFile>;
 }
 
 /** Runs one save at a time; `write` resolves whether it saved (false: the save panel was cancelled). */
@@ -143,5 +146,9 @@ export function usePdfExport(
     }
   });
   useEffect(() => subscribePrintRequests(print), [print]);
-  return { ...panel, isSaving, save, savePng, print };
+  const saveTo = useStableCallback((path: string) =>
+    // i18n-exempt: an MCP client's error, never shown in the app
+    source === undefined ? Promise.reject(new Error('No document is open')) : writePdf(exportPages(source, 'asShown').pdf, path),
+  );
+  return { ...panel, isSaving, save, savePng, print, saveTo };
 }
