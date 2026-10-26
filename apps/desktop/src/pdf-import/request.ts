@@ -18,7 +18,7 @@ export const DEFAULT_TRANSCRIPTION_MODEL = 'claude-opus-5-5';
 /** Room for a dense page of measures in one answer. */
 const MAX_TOKENS = 32000;
 
-export const TRANSCRIPTION_SYSTEM_PROMPT = `You transcribe guitar and bass sheet music from PDF pages into structured data by calling the record_transcription tool once per page.
+export const TRANSCRIPTION_SYSTEM_PROMPT = `You transcribe guitar and bass sheet music from PDF pages into structured data. Answer every page by calling the record_transcription tool once with the whole page; never answer in text.
 
 Rules:
 - Transcribe every measure on the page in reading order: systems top to bottom, measures left to right. Include measures that hold only rests. A multi-measure rest marked N becomes N measures, each a single whole-measure rest.
@@ -29,7 +29,8 @@ Rules:
 - Give timeSignature, tempo (quarter-note BPM), keySignature (sharps > 0, flats < 0) only where printed or changed. Mark repeat signs (repeatOpen, repeatClose = times played) and voltas (alternateEnding).
 - Tuning: as printed (e.g. "Drop D", "D A D G B E", or note names at the tab clef); otherwise standard (guitar E2 A2 D3 G3 B3 E4; bass E1 A1 D2 G2). List it lowest string first. Capo as printed, else 0.
 - Effects only where clearly marked: H / P (hammer), sl. (slide), bend arrows (bend), ~ (vibrato), P.M. (palmMute), let ring (letRing), x noteheads (deadNote), (n) ghost notes (ghostNote), > (accent), harmonics (harmonic).
-- Anything illegible, cut off or uncertain: transcribe your best reading and add a warning naming the measure (count measures from the top of the page).`;
+- Anything illegible, cut off or uncertain: transcribe your best reading and add a warning naming the measure (count measures from the top of the page).
+- A page with no music on it (a cover, lyrics or notes only): call the tool with no measures and a warning saying so.`;
 
 export interface TranscriptionRequestInput {
   readonly model: string;
@@ -58,7 +59,8 @@ export interface TranscriptionRequest {
   readonly max_tokens: number;
   readonly system: string;
   readonly tools: readonly (typeof TRANSCRIPTION_TOOL)[];
-  readonly tool_choice: { readonly type: 'tool'; readonly name: string };
+  /** Not forced: Claude Opus 5.5 and Sonnet 5.5 refuse a forced tool_choice with a 400; the prompt names the tool. */
+  readonly tool_choice: { readonly type: 'auto' };
   readonly messages: readonly { readonly role: 'user'; readonly content: readonly [DocumentBlock, TextBlock] }[];
 }
 
@@ -92,22 +94,24 @@ function earlierPages(firstPage: TranscriptionPage): string {
   return facts.filter((fact) => fact.length > 0).join(' ');
 }
 
+const CALL_TOOL = `Call ${TRANSCRIPTION_TOOL.name} with every measure on this page.`;
+
 function pageInstructions(input: TranscriptionRequestInput): string {
   const where = `This is page ${input.page} of ${input.pageCount} of "${input.title}".`;
   if (input.firstPage === undefined) {
-    return `${where} Also give the song and its tracks (name, guitar or bass, tuning, capo) as printed at the start. Transcribe every measure on this page.`;
+    return `${where} Also give the song and its tracks (name, guitar or bass, tuning, capo) as printed at the start. ${CALL_TOOL}`;
   }
-  return `${where} ${earlierPages(input.firstPage)} Transcribe every measure on this page.`;
+  return `${where} ${earlierPages(input.firstPage)} ${CALL_TOOL}`;
 }
 
-/** The Messages API body for one page: the page as a PDF document, and the transcription tool the model must call. */
+/** The Messages API body for one page: the page as a PDF document, and the transcription tool the model is asked to call. */
 export function buildTranscriptionRequest(input: TranscriptionRequestInput): TranscriptionRequest {
   return {
     model: input.model,
     max_tokens: MAX_TOKENS,
     system: TRANSCRIPTION_SYSTEM_PROMPT,
     tools: [TRANSCRIPTION_TOOL],
-    tool_choice: { type: 'tool', name: TRANSCRIPTION_TOOL.name },
+    tool_choice: { type: 'auto' },
     messages: [
       {
         role: 'user',

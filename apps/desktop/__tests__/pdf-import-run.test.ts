@@ -202,6 +202,23 @@ describe('runImport', () => {
     expect(finished.warnings[0]).toContain('Page 2 was not transcribed');
   });
 
+  it('asks again when the model answers in text, counting the tokens of every attempt', async () => {
+    // Arrange
+    const inText: ApiResponse = {
+      status: 200,
+      body: JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Here is the page.' }], usage: { input_tokens: 1000, output_tokens: 30 } }),
+    };
+    const run = fake((page, attempt) => (attempt === 0 ? inText : answer(FIRST_PAGE)));
+
+    // Act
+    const finished = await runImport(project(1), run.deps, OPTIONS);
+
+    // Assert
+    expect(finished.status).toBe('done');
+    expect(run.sent).toHaveLength(2);
+    expect(finished.usage).toEqual({ inputTokens: 2000, outputTokens: 230 });
+  });
+
   it('asks again when an answer does not fit the transcription format', async () => {
     const run = fake((page, attempt) =>
       answer(

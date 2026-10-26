@@ -40,7 +40,7 @@ type Asked<T> =
   | { readonly isOk: true; readonly value: T; readonly usage: TokenUsage }
   | { readonly isOk: false; readonly isFatal: boolean; readonly message: string; readonly usage: TokenUsage };
 
-/** One forced tool call with retries (backing off 2 s, 4 s); an answer that does not parse is asked for again. */
+/** One tool call with retries (backing off 2 s, 4 s); an answer without the call, or one that does not parse, is asked for again. */
 async function askTool<T>(deps: SongWriterDeps, body: string, tool: string, wording: ToolAnswerWording, parse: (input: unknown) => T): Promise<Asked<T>> {
   let usage = NO_USAGE;
   let message = '';
@@ -56,6 +56,7 @@ async function askTool<T>(deps: SongWriterDeps, body: string, tool: string, word
       (error: unknown): ToolAnswer => ({ isOk: false, isRetryable: true, message: errorMessage(error) }),
     );
     if (!answer.isOk) {
+      usage = addUsage(usage, answer.usage ?? NO_USAGE);
       if (!answer.isRetryable) {
         return { isOk: false, isFatal: answer.isFatal === true, message: answer.message, usage };
       }

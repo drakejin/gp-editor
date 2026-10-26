@@ -28,11 +28,11 @@ function toolAnswer(name: string, input: unknown): ApiResponse {
   };
 }
 
-/** The tool a request forces, and the section it asks for. */
+/** The tool a request asks for (its only tool), and the section it asks for. */
 function asked(body: string): { readonly tool: string; readonly section?: string } {
-  const request = JSON.parse(body) as { tool_choice: { name: string }; messages: { content: { type: string; text?: string }[] }[] };
+  const request = JSON.parse(body) as { tools: { name: string }[]; messages: { content: { type: string; text?: string }[] }[] };
   const text = request.messages[0]?.content.find((block) => block.type === 'text')?.text ?? '';
-  return { tool: request.tool_choice.name, section: /"(Intro|Verse)"/.exec(text)?.[1] };
+  return { tool: request.tools[0]?.name ?? '', section: /"(Intro|Verse)"/.exec(text)?.[1] };
 }
 
 /** Answers like a model would: the plan, then each section's measures. */

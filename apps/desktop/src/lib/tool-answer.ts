@@ -14,12 +14,13 @@ export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
 }
 
 /**
- * The input of the forced tool call in an answer, or why there is none — whether asking again may help, and whether
+ * The input of the tool call a request asked for, or why there is none — whether asking again may help, and whether
  * everything must stop (the key, the account or the request itself was refused, so every request would fail alike).
+ * A failed answer that the model did write still carries the tokens it cost.
  */
 export type ToolAnswer =
   | { readonly isOk: true; readonly input: unknown; readonly usage: TokenUsage }
-  | { readonly isOk: false; readonly isRetryable: boolean; readonly isFatal?: boolean; readonly message: string };
+  | { readonly isOk: false; readonly isRetryable: boolean; readonly isFatal?: boolean; readonly message: string; readonly usage?: TokenUsage };
 
 /** How to name what was asked for, in the messages. */
 export interface ToolAnswerWording {
@@ -33,6 +34,8 @@ const HTTP_OK = 200;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_SERVER_ERRORS = 500;
+/** How much of a text answer (one given instead of the tool call) a message quotes. */
+const MAX_QUOTE_LENGTH = 160;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -55,6 +58,28 @@ function failure(isRetryable: boolean, message: string, isFatal = false): ToolAn
   return isFatal ? { isOk: false, isRetryable, isFatal, message } : { isOk: false, isRetryable, message };
 }
 
+function usageOf(json: Record<string, unknown>): TokenUsage {
+  const usage = isRecord(json.usage) ? json.usage : {};
+  return { inputTokens: numberField(usage, 'input_tokens'), outputTokens: numberField(usage, 'output_tokens') };
+}
+
+/** The text the model wrote instead of calling the tool, on one line and shortened. */
+function textOf(content: readonly unknown[]): string {
+  const text = content
+    .map((block) => (isRecord(block) && block.type === 'text' && typeof block.text === 'string' ? block.text : ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > MAX_QUOTE_LENGTH ? `${text.slice(0, MAX_QUOTE_LENGTH - 1)}…` : text;
+}
+
+/** An answer without the tool call: Claude may answer in text (the call is asked for, not forced), which is worth asking again. */
+function withoutTool(content: readonly unknown[], wording: ToolAnswerWording, usage: TokenUsage): ToolAnswer {
+  const said = textOf(content);
+  const message = said === '' ? t('tools.answer.without', { what: wording.what }) : t('tools.answer.withoutSaid', { what: wording.what, said });
+  return { isOk: false, isRetryable: true, message, usage };
+}
+
 /** An HTTP error: rate limits, overload (529) and server errors are worth retrying; the rest (key, credit, request) are not. */
 function readError(status: number, json: unknown): ToolAnswer {
   const error = isRecord(json) && isRecord(json.error) ? json.error : undefined;
@@ -66,7 +91,11 @@ function readError(status: number, json: unknown): ToolAnswer {
   return failure(isRetryable, apiMessage, !isRetryable);
 }
 
-/** Reads a Messages API answer to a request that forced the tool `toolName`. */
+/**
+ * Reads a Messages API answer to a request that asked for the tool `toolName`. The answer may open with thinking
+ * blocks (Claude Opus 5.5 always thinks first), so the call is found by its type and name, not its position. A
+ * refusal is not asked again: the same page or section would be declined alike.
+ */
 export function readToolAnswer(response: ApiResponse, toolName: string, wording: ToolAnswerWording): ToolAnswer {
   const json = parseJson(response.body);
   if (response.status !== HTTP_OK) {
@@ -75,17 +104,16 @@ export function readToolAnswer(response: ApiResponse, toolName: string, wording:
   if (!isRecord(json) || !Array.isArray(json.content)) {
     return failure(true, t('tools.answer.notApi'));
   }
+  const usage = usageOf(json);
   if (json.stop_reason === 'max_tokens') {
-    return failure(false, t('tools.answer.tooLong', { tooLong: wording.tooLong }));
+    return { isOk: false, isRetryable: false, message: t('tools.answer.tooLong', { tooLong: wording.tooLong }), usage };
+  }
+  if (json.stop_reason === 'refusal') {
+    return { isOk: false, isRetryable: false, message: t('tools.answer.declined', { what: wording.what }), usage };
   }
   const tool = json.content.find((block: unknown) => isRecord(block) && block.type === 'tool_use' && block.name === toolName);
   if (!isRecord(tool)) {
-    return failure(true, t('tools.answer.without', { what: wording.what }));
+    return withoutTool(json.content, wording, usage);
   }
-  const usage = isRecord(json.usage) ? json.usage : {};
-  return {
-    isOk: true,
-    input: tool.input,
-    usage: { inputTokens: numberField(usage, 'input_tokens'), outputTokens: numberField(usage, 'output_tokens') },
-  };
+  return { isOk: true, input: tool.input, usage };
 }

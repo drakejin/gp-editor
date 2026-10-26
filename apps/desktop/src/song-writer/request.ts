@@ -18,7 +18,7 @@ export interface SongIdea {
 const PLAN_MAX_TOKENS = 8000;
 const SECTION_MAX_TOKENS = 32000;
 
-export const SONG_WRITER_SYSTEM_PROMPT = `You are a songwriter and arranger. You write original songs for guitar and bass, notated as Guitar Pro tablature: first a plan (plan_song), then each section's measures (write_section) when asked.
+export const SONG_WRITER_SYSTEM_PROMPT = `You are a songwriter and arranger. You write original songs for guitar and bass, notated as Guitar Pro tablature: first a plan (plan_song), then each section's measures (write_section) when asked. Answer every request by calling the tool it names, once; never answer in text.
 
 Arrangement:
 - 2 to 4 tracks: a lead guitar that plays the sung melody (the lyrics track), usually a rhythm guitar (chords: strummed, picked or arpeggiated as the genre calls for) and a bass (roots, fifths, approach notes, one note at a time). Standard tuning unless the genre calls for another (e.g. Drop D for heavy styles); capo 0 unless it helps.
@@ -57,7 +57,8 @@ export interface SongWriterRequest {
   readonly max_tokens: number;
   readonly system: string;
   readonly tools: readonly (typeof PLAN_SONG_TOOL | typeof WRITE_SECTION_TOOL)[];
-  readonly tool_choice: { readonly type: 'tool'; readonly name: string };
+  /** Not forced: Claude Opus 5.5 and Sonnet 5.5 refuse a forced tool_choice with a 400; the request names the tool. */
+  readonly tool_choice: { readonly type: 'auto' };
   readonly messages: readonly { readonly role: 'user'; readonly content: readonly TextBlock[] }[];
 }
 
@@ -67,7 +68,7 @@ function request(model: string, maxTokens: number, tool: typeof PLAN_SONG_TOOL |
     max_tokens: maxTokens,
     system: SONG_WRITER_SYSTEM_PROMPT,
     tools: [tool],
-    tool_choice: { type: 'tool', name: tool.name },
+    tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: [{ type: 'text', text }] }],
   };
 }

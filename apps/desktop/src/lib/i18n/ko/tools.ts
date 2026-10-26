@@ -471,6 +471,8 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.answer.notApi': '답변이 Messages API 응답이 아닙니다',
   'tools.answer.tooLong': '{tooLong} (모델의 출력 한도에 닿았습니다)',
   'tools.answer.without': '모델의 답변에 이것이 없습니다: {what}',
+  'tools.answer.withoutSaid': '모델의 답변에 이것이 없습니다: {what} (모델의 답: “{said}”)',
+  'tools.answer.declined': 'Claude가 {what} 작성을 거절했습니다',
   // 넥 설정의 튜닝 안내
   'tools.tuning.instrument.guitar': '기타',
   'tools.tuning.instrument.bass': '베이스',

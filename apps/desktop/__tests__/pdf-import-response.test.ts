@@ -23,11 +23,52 @@ describe('readTranscriptionResponse', () => {
     expect(result).toEqual(expect.objectContaining({ isOk: false, isRetryable: false }));
     expect(result).not.toHaveProperty('isFatal');
     expect(!result.isOk && result.message).toContain('too long');
+    expect(result).toMatchObject({ usage: { inputTokens: 3200, outputTokens: 900 } });
   });
 
-  it('fails when the model did not call the tool', () => {
-    const body = JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'I cannot read this.' }], usage: {} });
-    expect(readTranscriptionResponse({ status: 200, body })).toMatchObject({ isOk: false, isRetryable: true });
+  it('fails when the model did not call the tool, quoting what it said instead', () => {
+    // Arrange
+    const body = JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'I cannot read this.' }], usage: { input_tokens: 3000, output_tokens: 40 } });
+
+    // Act
+    const result = readTranscriptionResponse({ status: 200, body });
+
+    // Assert
+    expect(result).toMatchObject({ isOk: false, isRetryable: true, usage: { inputTokens: 3000, outputTokens: 40 } });
+    expect(!result.isOk && result.message).toContain('I cannot read this.');
+  });
+
+  it('shortens a long text answer in the message', () => {
+    const body = JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: `${'word '.repeat(200)}END` }], usage: {} });
+    const result = readTranscriptionResponse({ status: 200, body });
+    expect(!result.isOk && result.message).not.toContain('END');
+    expect(!result.isOk && result.message.length).toBeLessThan(300);
+  });
+
+  it('reads the tool call after the thinking blocks Claude Opus 5.5 answers with first', () => {
+    // Arrange
+    const body = JSON.stringify({
+      stop_reason: 'tool_use',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'tool_use', id: 'toolu_1', name: 'record_transcription', input: { measures: [] } },
+      ],
+      usage: { input_tokens: 10, output_tokens: 20 },
+    });
+
+    // Act
+    const result = readTranscriptionResponse({ status: 200, body });
+
+    // Assert
+    expect(result).toEqual({ isOk: true, input: { measures: [] }, usage: { inputTokens: 10, outputTokens: 20 } });
+  });
+
+  it('stops without retrying when Claude declines the page', () => {
+    const body = JSON.stringify({ stop_reason: 'refusal', content: [], usage: { input_tokens: 5, output_tokens: 0 } });
+    const result = readTranscriptionResponse({ status: 200, body });
+    expect(result).toMatchObject({ isOk: false, isRetryable: false, usage: { inputTokens: 5, outputTokens: 0 } });
+    expect(result).not.toHaveProperty('isFatal');
+    expect(!result.isOk && result.message).toContain('declined');
   });
 
   it('retries rate limits, overload and server errors', () => {

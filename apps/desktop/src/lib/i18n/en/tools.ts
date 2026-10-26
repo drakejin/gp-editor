@@ -473,6 +473,8 @@ export const EN_TOOLS = {
   'tools.answer.notApi': 'The answer was not a Messages API response',
   'tools.answer.tooLong': '{tooLong} (the model hit its output limit)',
   'tools.answer.without': 'The model answered without {what}',
+  'tools.answer.withoutSaid': 'The model answered without {what}: “{said}”',
+  'tools.answer.declined': 'Claude declined to write {what}',
   // Neck settings' tuning hints
   'tools.tuning.instrument.guitar': 'Guitar',
   'tools.tuning.instrument.bass': 'Bass',

@@ -39,7 +39,7 @@ async function attemptPage(project: ImportProject, page: number, firstPage: Tran
   }
   const answer = readTranscriptionResponse(response);
   if (!answer.isOk) {
-    return { isOk: false, isRetryable: answer.isRetryable, isFatal: answer.isFatal === true, message: answer.message, usage: NO_USAGE };
+    return { isOk: false, isRetryable: answer.isRetryable, isFatal: answer.isFatal === true, message: answer.message, usage: answer.usage ?? NO_USAGE };
   }
   try {
     return { isOk: true, isRetryable: false, page: parseTranscriptionPage(answer.input), usage: answer.usage };

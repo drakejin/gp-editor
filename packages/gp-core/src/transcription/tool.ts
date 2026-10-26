@@ -1,6 +1,7 @@
 /**
- * The tool a model is made to call with one page's transcription (Anthropic Messages API `tools` entry): its JSON
- * schema mirrors types.ts. The import forces the call (`tool_choice`), so the answer is always this structure.
+ * The tool a model is asked to call with one page's transcription (Anthropic Messages API `tools` entry): its JSON
+ * schema mirrors types.ts. The call is asked for in the prompt, not forced (`tool_choice` "tool" is refused by Claude
+ * Opus 5.5), and parse-page.ts checks every answer against the contract.
  */
 
 import { MAX_FRET } from '../edit/edit-song';
