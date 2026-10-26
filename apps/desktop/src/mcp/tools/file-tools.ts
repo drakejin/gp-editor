@@ -124,7 +124,7 @@ const saveAs: McpTool<AppHost> = {
   name: 'save_as',
   title: 'Save as',
   description:
-    'Saves a tab to a new file (File ▸ Save As…), in the format of the path’s extension: .gp (Guitar Pro 7/8, keeps everything), .gp5, .gp4 or .gp3 (what they cannot hold is said in the answer). The tab then belongs to that file. Without a path, the Save panel is shown to the person at the Mac.',
+    'Saves a tab to a new file (File ▸ Save As…), in the format of the path’s extension: .gp (Guitar Pro 7/8, keeps everything), .gp5, .gp4 or .gp3 (what they cannot hold is said in the answer). A file already at the path is replaced without asking. The tab then belongs to that file. Without a path, the Save panel is shown to the person at the Mac.',
   inputSchema: objectSchema({ path: PATH_ARGUMENT, tab: TAB_ARGUMENT }),
   annotations: { ...FILE, openWorldHint: true },
   run: (args, host) => {
@@ -159,7 +159,7 @@ const exportFile: McpTool<AppHost> = {
   name: 'export_file',
   title: 'Export',
   description:
-    'Exports the shown tab (or the tab given), as File ▸ Export … does: midi (as playback plays it: repeats unfolded, mute/solo), ascii_tab (the fretted tracks), musicxml, mxl (compressed MusicXML), pdf (the score as shown, on the stylesheet’s pages) — written to path at once, or through the save panel without one. png and audio always open their export panel (resolution, format and quality are chosen there) for the person at the Mac.',
+    'Exports the shown tab (or the tab given), as File ▸ Export … does: midi (as playback plays it: repeats unfolded, mute/solo), ascii_tab (the fretted tracks), musicxml, mxl (compressed MusicXML), pdf (the score as shown, on the stylesheet’s pages) — written to path at once (a file already there is replaced without asking), or through the save panel without one. png and audio always open their export panel (resolution, format and quality are chosen there) for the person at the Mac.',
   inputSchema: objectSchema(
     { format: { type: 'string', enum: [...Object.keys(EXPORT_EXTENSIONS), ...PANEL_FORMATS], description: 'What to export.' }, path: PATH_ARGUMENT, tab: TAB_ARGUMENT },
     ['format'],

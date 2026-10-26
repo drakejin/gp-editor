@@ -4,7 +4,7 @@
 
 import { type JsonObject, type JsonRpcId, RPC_ERROR, type RpcError, type RpcErrorResponse, type RpcMessage, type RpcResultResponse, rpcError, rpcResult } from './json-rpc';
 import { type Era, type Headers, META_KEY, clientName, eraOf, negotiatedVersion } from './mcp-era';
-import { LIST_TTL_MS, SUPPORTED_VERSIONS } from './mcp-limits';
+import { LIST_TTL_MS, MODERN_VERSIONS } from './mcp-limits';
 import { callTool } from './tool-call';
 import type { LogSummary, McpTool } from './tool-types';
 
@@ -87,7 +87,8 @@ function answerSync<Host>(context: RequestContext<Host>): RpcOutcome | undefined
     return answerLegacyOnly(context);
   }
   if (method === 'server/discover') {
-    return resultOutcome(context, cacheable(context, { supportedVersions: SUPPORTED_VERSIONS, capabilities: { tools: {} }, instructions: server.instructions }));
+    // The versions a modern client may choose for its next requests (legacy ones open with initialize instead).
+    return resultOutcome(context, cacheable(context, { supportedVersions: MODERN_VERSIONS, capabilities: { tools: {} }, instructions: server.instructions }));
   }
   return undefined;
 }

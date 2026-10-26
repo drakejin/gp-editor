@@ -72,9 +72,22 @@ static NSString *exchange(uint16_t port, NSString *request)
   return readAll(fd);
 }
 
+/** The port the checks run on (argv[1]). */
+static uint16_t checkPort = 41999;
+
 static NSString *post(NSString *body, NSString *extraHeaders)
 {
-  return [NSString stringWithFormat:@"POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n%@Content-Length: %lu\r\n\r\n%@", extraHeaders, (unsigned long)[body dataUsingEncoding:NSUTF8StringEncoding].length, body];
+  return [NSString stringWithFormat:@"POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/json\r\n%@Content-Length: %lu\r\n\r\n%@", checkPort, extraHeaders,
+                                    (unsigned long)[body dataUsingEncoding:NSUTF8StringEncoding].length, body];
+}
+
+/** Opens a connection and sends a whole request without reading the answer yet. */
+static int sendOnly(uint16_t port, NSString *request)
+{
+  int fd = connectTo("127.0.0.1", port);
+  NSData *bytes = [request dataUsingEncoding:NSUTF8StringEncoding];
+  send(fd, bytes.bytes, bytes.length, 0);
+  return fd;
 }
 
 /** A client that sends its head with Expect: 100-continue, waits for the 100, then sends the body. */
@@ -141,6 +154,15 @@ static void checkListenerLimits(uint16_t port)
   };
   [second start];
   check(waitFor(3, ^{ return (BOOL)(secondFailure != nil); }) && [secondFailure containsString:@"in use"], [NSString stringWithFormat:@"a second listener on the port fails: %@", secondFailure]);
+  listener.maxConnections = 3;
+  int idle[3] = {connectTo("127.0.0.1", port), connectTo("127.0.0.1", port), connectTo("127.0.0.1", port)};
+  waitFor(0.2, ^{ return NO; });
+  check([readAll(connectTo("127.0.0.1", port)) isEqualToString:@""], @"closes a connection over maxConnections at once");
+  for (int index = 0; index < 3; index += 1) {
+    close(idle[index]);
+  }
+  waitFor(0.3, ^{ return NO; });
+  check([exchange(port, post(@"ok", @"")) hasSuffix:@"ok"], @"takes connections again once others closed");
   [listener stop];
   check(waitFor(3, ^{ return (BOOL)(state == GPMcpListenerStopped); }) && connectTo("127.0.0.1", port) < 0, @"closes the socket when stopped");
 }
@@ -198,11 +220,24 @@ static void checkCore(uint16_t port)
   NSData *first = [post(@"{\"early\":1}", @"") dataUsingEncoding:NSUTF8StringEncoding];
   send(early, first.bytes, first.length, 0);
   waitFor(0.3, ^{ return NO; });
-  [core attachSink:sink maxBodyBytes:1024 responseTimeout:1];
+  [core attachSink:sink maxBodyBytes:1024 responseTimeout:1 loopbackNames:@[ @"127.0.0.1", @"localhost", @"[::1]" ]];
   check([readAll(early) hasSuffix:@"\r\n\r\n{\"early\":1}"], @"holds a request read before JS attaches, then writes JS's answer");
   check([exchange(port, post(@"{\"jsonrpc\":\"2.0\"}", @"")) hasSuffix:@"\r\n\r\n{\"jsonrpc\":\"2.0\"}"], @"writes JS's answer back");
+  NSInteger received = sink.received;
+  NSString *page = exchange(port, post(@"{}", @"Origin: https://evil.example\r\n"));
+  NSString *rebound = exchange(port, [post(@"{}", @"") stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"Host: 127.0.0.1:%u", port] withString:[NSString stringWithFormat:@"Host: evil.example:%u", port]]);
+  check([page hasPrefix:@"HTTP/1.1 403 "] && [rebound hasPrefix:@"HTTP/1.1 403 "] && sink.received == received, @"refuses a web page's Origin and a DNS-rebound Host with 403 before JS sees them");
   sink.isSilent = YES;
   check([exchange(port, post(@"{}", @"")) hasPrefix:@"HTTP/1.1 504 "], @"answers 504 when JS does not answer in time");
+  int waitingForJs[16];
+  for (int index = 0; index < 16; index += 1) {
+    waitingForJs[index] = sendOnly(port, post(@"{}", @""));
+  }
+  waitFor(0.3, ^{ return NO; });
+  check([exchange(port, post(@"{}", @"")) hasPrefix:@"HTTP/1.1 503 "], @"answers 503 at once past 16 requests waiting for JS");
+  for (int index = 0; index < 16; index += 1) {
+    readAll(waitingForJs[index]);
+  }
   int waiting = connectTo("127.0.0.1", port);
   NSData *bytes = [post(@"{}", @"") dataUsingEncoding:NSUTF8StringEncoding];
   send(waiting, bytes.bytes, bytes.length, 0);
@@ -218,6 +253,7 @@ int main(int argc, const char *argv[])
 {
   @autoreleasepool {
     uint16_t port = argc > 1 ? (uint16_t)atoi(argv[1]) : 41999;
+    checkPort = port;
     checkHeadReader();
     checkListenerLimits(port);
     waitFor(0.5, ^{ return NO; });

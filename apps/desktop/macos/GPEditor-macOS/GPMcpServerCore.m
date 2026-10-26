@@ -12,6 +12,8 @@ static const NSTimeInterval kRestartPause = 0.3;
 static const NSUInteger kHeldBodyBytes = 64 * 1024;
 /** How long a request read before JS attaches waits for it (the window opening, a reload). */
 static const NSTimeInterval kDefaultHoldTimeout = 20;
+/** Requests on their way to JS at once (held or sent); more are answered 503 at once — JS answers one at a time. */
+static const NSUInteger kMaxPending = 16;
 
 /** A request on its way to JS: held until JS attaches, then sent and waiting for JS's answer. */
 @interface GPMcpPending : NSObject
@@ -37,6 +39,8 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
 @property(atomic, weak, nullable) id<GPMcpRequestSink> sink;
 @property(atomic) NSUInteger maxBodyBytes;
 @property(atomic) NSTimeInterval responseTimeout;
+/** JS's loopback host names: the listener refuses any other Host or Origin before reading a body. */
+@property(atomic, copy) NSArray<NSString *> *loopbackNames;
 @end
 
 @implementation GPMcpServerCore {
@@ -44,6 +48,8 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
   GPMcpListener *_listener;
   /** Requests JS has not answered, by id (on `_queue` only). */
   NSMutableDictionary<NSString *, GPMcpPending *> *_pending;
+  /** Counts stops, so a restart's start does not follow a Stop chosen meanwhile. */
+  NSInteger _stops;
 }
 
 + (instancetype)shared
@@ -63,6 +69,7 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
     _pending = [NSMutableDictionary dictionary];
     _port = GPMcpSettings.effectivePort;
     _holdTimeout = kDefaultHoldTimeout;
+    _loopbackNames = @[];
   }
   return self;
 }
@@ -118,6 +125,7 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
   self.port = GPMcpSettings.effectivePort;
   GPMcpListener *listener = [[GPMcpListener alloc] initWithPort:(uint16_t)self.port queue:_queue];
   listener.maxBodyBytes = self.sink == nil ? kHeldBodyBytes : self.maxBodyBytes;
+  listener.loopbackNames = self.loopbackNames;
   __weak GPMcpServerCore *weakSelf = self;
   listener.handler = ^(GPMcpRequestHead *head, NSData *body, GPMcpRespond respond) {
     [weakSelf take:head body:body respond:respond];
@@ -157,8 +165,10 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
 {
   GPMcpListener *listener = _listener;
   _listener = nil;
-  [listener stop];
+  _stops += 1;
+  // Answered before the listener closes the connections (both run on `_queue`, in this order).
   [self answerPending:503 reason:@"Service unavailable: the MCP server stopped"];
+  [listener stop];
   if (self.state != GPMcpServerStopped) {
     BOOL wasListening = self.state == GPMcpServerRunning || self.state == GPMcpServerStarting;
     [self changeState:GPMcpServerStopped failure:nil];
@@ -171,19 +181,29 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
 - (void)restart
 {
   [self stop];
+  NSInteger stops = _stops;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRestartPause * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    [self start];
+    if (self->_stops == stops) {
+      [self start];
+    }
   });
 }
 
 #pragma mark - Requests
 
-- (void)attachSink:(id<GPMcpRequestSink>)sink maxBodyBytes:(NSUInteger)maxBodyBytes responseTimeout:(NSTimeInterval)responseTimeout
+- (void)attachSink:(id<GPMcpRequestSink>)sink maxBodyBytes:(NSUInteger)maxBodyBytes responseTimeout:(NSTimeInterval)responseTimeout loopbackNames:(NSArray<NSString *> *)loopbackNames
 {
   self.maxBodyBytes = maxBodyBytes;
   self.responseTimeout = responseTimeout;
+  self.loopbackNames = loopbackNames;
   self.sink = sink;
   _listener.maxBodyBytes = maxBodyBytes;
+  _listener.loopbackNames = loopbackNames;
+  [self resendHeld];
+}
+
+- (void)resendHeld
+{
   dispatch_async(_queue, ^{
     [self sendHeld];
   });
@@ -213,6 +233,12 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
     [[GPMcpLog shared] addRequestFrom:client request:request durationMs:0 outcome:[NSString stringWithFormat:@"refused 400: %@", reason] isError:YES];
     return;
   }
+  if (_pending.count >= kMaxPending) {
+    NSString *reason = @"Service unavailable: GP Editor is busy with other requests; try again";
+    respond(503, @{@"content-type" : @"application/json", @"retry-after" : @"1"}, GPMcpErrorBody(-32603, reason));
+    [[GPMcpLog shared] addRequestFrom:client request:request durationMs:0 outcome:[NSString stringWithFormat:@"refused 503: %@", reason] isError:YES];
+    return;
+  }
   NSString *requestId = [NSUUID UUID].UUIDString;
   GPMcpPending *pending = [GPMcpPending new];
   pending.respond = respond;
@@ -231,7 +257,10 @@ static const NSTimeInterval kDefaultHoldTimeout = 20;
 {
   GPMcpPending *pending = _pending[requestId];
   id<GPMcpRequestSink> sink = self.sink;
-  if (pending == nil || pending.isSent || sink == nil || ![sink sendMcpRequest:pending.event]) {
+  // When the server stops waiting: JS skips a request whose deadline passed while it was busy (it was answered 504).
+  NSMutableDictionary *event = [pending.event mutableCopy];
+  event[@"deadline"] = @(floor(([NSDate date].timeIntervalSince1970 + self.responseTimeout) * 1000));
+  if (pending == nil || pending.isSent || sink == nil || ![sink sendMcpRequest:event]) {
     return NO;
   }
   pending.isSent = YES;

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # MCP server check: builds the native half of the MCP server (GPMcpHttp, GPMcpListener, GPMcpServerCore and the log)
 # with clang against a check program (mcp-check.m) and runs it over real loopback sockets — the request head and its
-# limits (400, 411, 413, 431, 408), Expect: 100-continue, a request held until JS attaches (503 past the hold time), JS's
-# answer written back, 504 when JS does not answer, 503 for what JS was given when it goes, a port in use, and nothing
-# listening off the loopback.
+# limits (400, 411, 413, 431, 408, the connection cap), Expect: 100-continue, a request held until JS attaches (503 past
+# the hold time), JS's answer written back, a web page's Origin or a DNS-rebound Host refused with 403 before JS sees it,
+# 504 when JS does not answer, 503 past 16 requests waiting, 503 for what JS was given when it goes, a port in use, and
+# nothing listening off the loopback.
 # Its home is a temporary folder (CFFIXED_USER_HOME), so the log file it writes is never the app's.
 # Usage: scripts/mcp-check/run.sh   (from apps/desktop; nothing else needed)
 set -euo pipefail

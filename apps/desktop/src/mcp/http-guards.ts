@@ -5,8 +5,11 @@
 
 import { base64ToBytes } from '../lib/base64';
 
-/** Host names that mean this Mac's loopback, as a Host header or an Origin writes them. */
-const LOOPBACK_NAMES: readonly string[] = ['127.0.0.1', 'localhost', '[::1]'];
+/**
+ * Host names that mean this Mac's loopback, as a Host header or an Origin writes them; the native listener gets them too
+ * (`attachMcpServer`) and refuses any other before it reads a body.
+ */
+export const LOOPBACK_NAMES: readonly string[] = ['127.0.0.1', 'localhost', '[::1]'];
 
 /** `Host: 127.0.0.1:<port>` (or localhost, [::1]): what a client of http://127.0.0.1:<port>/mcp sends. */
 export function isAllowedHost(host: string | undefined, port: number): boolean {

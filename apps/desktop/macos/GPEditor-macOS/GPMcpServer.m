@@ -39,6 +39,8 @@ RCT_EXPORT_MODULE();
 - (void)startObserving
 {
   hasListeners = YES;
+  // A request held before JS listened goes now.
+  [[GPMcpServerCore shared] resendHeld];
 }
 
 - (void)stopObserving
@@ -69,12 +71,25 @@ static double GPClamp(id value, double low, double high, double fallback)
   return MIN(high, MAX(low, number));
 }
 
+/** The host names JS gives (src/mcp/http-guards.ts LOOPBACK_NAMES): a few short strings, else none (JS checks alone). */
+static NSArray<NSString *> *GPLoopbackNames(id value)
+{
+  NSMutableArray<NSString *> *names = [NSMutableArray array];
+  for (id name in [value isKindOfClass:[NSArray class]] ? value : @[]) {
+    if ([name isKindOfClass:[NSString class]] && [name length] > 0 && [name length] <= 64 && names.count < 8) {
+      [names addObject:name];
+    }
+  }
+  return names;
+}
+
 RCT_EXPORT_METHOD(attach : (NSDictionary *)limits resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   NSUInteger maxBodyBytes = (NSUInteger)GPClamp(limits[@"maxBodyBytes"], kMinBodyBytes, kMaxBodyBytes, kMinBodyBytes);
   NSTimeInterval timeout = GPClamp(limits[@"responseTimeoutMs"], kMinTimeout * 1000, kMaxTimeout * 1000, kMaxTimeout * 1000) / 1000;
+  NSArray<NSString *> *names = GPLoopbackNames(limits[@"loopbackNames"]);
   dispatch_async(dispatch_get_main_queue(), ^{
-    [[GPMcpServerCore shared] attachSink:self maxBodyBytes:maxBodyBytes responseTimeout:timeout];
+    [[GPMcpServerCore shared] attachSink:self maxBodyBytes:maxBodyBytes responseTimeout:timeout loopbackNames:names];
     NSString *version = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"] ?: @"";
     resolve(@{@"version" : version, @"isSandboxed" : @(GPIsSandboxed())});
   });

@@ -17,7 +17,7 @@ import type { ToolArguments, ToolResult } from '../tool-types';
 export const TAB_ARGUMENT: JsonSchema = { type: 'string', minLength: 1, maxLength: 32, description: 'A tab id from get_state ("tab-2"). Default: the shown tab.' };
 export const TRACK_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: 999, description: 'Track number (1 = the first track). Default: the cursor’s track.' };
 export const BAR_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: 99_999, description: 'Bar number (1 = the first bar).' };
-export const BEAT_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: 999, description: 'Beat number in the bar (1 = its first beat, as get_bars lists them).' };
+const BEAT_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: 999, description: 'Beat number in the bar (1 = its first beat, as get_bars lists them).' };
 export const STRING_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: 12, description: 'String number (1 = the highest string).' };
 export const VOICE_ARGUMENT: JsonSchema = { type: 'integer', minimum: 1, maximum: MAX_VOICES, description: 'Voice 1–4. Default: the cursor’s voice.' };
 

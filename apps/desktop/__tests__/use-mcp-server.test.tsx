@@ -31,17 +31,25 @@ async function openWindow(): Promise<void> {
 }
 
 interface Answer {
-  readonly status: number;
+  readonly status?: number;
   readonly body: Record<string, unknown> | undefined;
-  readonly outcome: string;
+  readonly outcome?: string;
 }
 
 let nextId = 0;
 
-/** Sends one JSON-RPC message as the listener would and waits for JS's answer. */
-async function post(message: Record<string, unknown>, headers: Record<string, string> = {}): Promise<Answer> {
+/** Sends one JSON-RPC message as the listener would and waits for JS's answer (`deadline`: when the listener stops waiting). */
+async function post(message: Record<string, unknown>, headers: Record<string, string> = {}, deadline?: number): Promise<Answer> {
   const id = `request-${(nextId += 1)}`;
-  const event = { id, method: 'POST', target: '/mcp', port: PORT, body: JSON.stringify({ jsonrpc: '2.0', ...message }), headers: { host: `127.0.0.1:${PORT}`, 'content-type': 'application/json', ...headers } };
+  const event = {
+    id,
+    method: 'POST',
+    target: '/mcp',
+    port: PORT,
+    body: JSON.stringify({ jsonrpc: '2.0', ...message }),
+    headers: { host: `127.0.0.1:${PORT}`, 'content-type': 'application/json', ...headers },
+    ...(deadline === undefined ? {} : { deadline }),
+  };
   await ReactTestRenderer.act(async () => {
     DeviceEventEmitter.emit('mcpRequest', event);
     for (let tries = 0; tries < 50 && !answered(id); tries += 1) {
@@ -49,8 +57,8 @@ async function post(message: Record<string, unknown>, headers: Record<string, st
     }
   });
   const [, response] = (nativeCalls.get('GPMcpServer.respond') ?? []).find(([answerId]) => answerId === id) ?? [];
-  const { status, body, outcome } = (response ?? {}) as { status: number; body: string; outcome: string };
-  return { status, body: body === '' ? undefined : (JSON.parse(body) as Record<string, unknown>), outcome };
+  const { status, body, outcome } = (response ?? {}) as { status?: number; body?: string; outcome?: string };
+  return { status, body: body === undefined || body === '' ? undefined : (JSON.parse(body) as Record<string, unknown>), outcome };
 }
 
 function answered(id: string): boolean {
@@ -63,7 +71,9 @@ describe('useMcpServer', () => {
   it('attaches to the native listener with the body and response limits', async () => {
     await openWindow();
 
-    expect(nativeCalls.get('GPMcpServer.attach')).toEqual([[{ maxBodyBytes: MCP_LIMITS.maxBodyBytes, responseTimeoutMs: MCP_LIMITS.responseTimeoutMs }]]);
+    expect(nativeCalls.get('GPMcpServer.attach')).toEqual([
+      [{ maxBodyBytes: MCP_LIMITS.maxBodyBytes, responseTimeoutMs: MCP_LIMITS.responseTimeoutMs, loopbackNames: ['127.0.0.1', 'localhost', '[::1]'] }],
+    ]);
   });
 
   it('answers initialize with the app’s version, and tools/list with every tool', async () => {
@@ -107,6 +117,19 @@ describe('useMcpServer', () => {
     expect(nativeCalls.get('GPFiles.setDocumentTitle')?.at(-1)?.[0] ?? 'GP Editor').toBe('GP Editor');
   });
 
+  it('does not run a request the listener stopped waiting for (it answered 504), so a retry cannot edit twice', async () => {
+    // Arrange
+    await openWindow();
+
+    // Act
+    const expired = await post({ id: 1, method: 'tools/call', params: { name: 'new_document', arguments: {} } }, LEGACY, Date.now() - 1);
+    const inTime = await post({ id: 2, method: 'tools/call', params: { name: 'get_state', arguments: {} } }, LEGACY, Date.now() + 60_000);
+
+    // Assert
+    expect(expired.status).toBeUndefined();
+    expect(inTime.body).toMatchObject({ result: { structuredContent: { tabs: [] } } });
+  });
+
   it('detaches when the window goes', async () => {
     await openWindow();
 
@@ -121,6 +144,7 @@ describe('parseMcpRequest', () => {
     const event = { id: 'a', method: 'POST', target: '/mcp', headers: { host: 'localhost:1' }, body: '{}', port: 1 };
 
     expect(parseMcpRequest(event)).toEqual(event);
+    expect(parseMcpRequest({ ...event, deadline: 1_700_000_000_000 })).toEqual({ ...event, deadline: 1_700_000_000_000 });
     expect(parseMcpRequest({ ...event, headers: { host: 1 } })).toBeUndefined();
     expect(parseMcpRequest({ ...event, port: 1.5 })).toBeUndefined();
     expect(parseMcpRequest(null)).toBeUndefined();

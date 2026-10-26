@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { errorMessage } from '../lib/errors';
+import { LOOPBACK_NAMES } from '../mcp/http-guards';
 import type { AppHost } from '../mcp/app-host';
 import { type McpHttpResponse, handleMcpHttp, internalErrorResponse } from '../mcp/mcp-http';
 import { MCP_LIMITS, SERVER_NAME, SERVER_TITLE } from '../mcp/mcp-limits';
@@ -9,6 +10,9 @@ import { type McpAppInfo, type McpNativeRequest, attachMcpServer, detachMcpServe
 import type { WorkspaceState } from '../state/workspace';
 import { type WindowAccess, windowHost } from './mcp-window-host';
 import type { WindowModel } from './use-window';
+
+/** What the native listener enforces itself. */
+const MCP_LIMITS_FOR_LISTENER = { maxBodyBytes: MCP_LIMITS.maxBodyBytes, responseTimeoutMs: MCP_LIMITS.responseTimeoutMs } as const;
 
 /** How long `settle` waits for a render before answering with the workspace as it is. */
 const SETTLE_TIMEOUT_MS = 250;
@@ -55,8 +59,14 @@ function serverOn(info: McpAppInfo, refs: WindowRefs): ServerOnWindow {
   return { access, server: { info: { name: SERVER_NAME, title: SERVER_TITLE, version: info.version }, instructions: SERVER_INSTRUCTIONS, tools: APP_TOOLS, host, toolTimeoutMs: MCP_LIMITS.toolTimeoutMs } };
 }
 
-/** A request answered on a window that has drawn the requests before it; a failure of the server itself is a 500. */
-async function answer(ready: Promise<ServerOnWindow>, request: McpNativeRequest): Promise<McpHttpResponse> {
+/**
+ * A request answered on a window that has drawn the requests before it; a failure of the server itself is a 500.
+ * Undefined for one the listener stopped waiting for (it answered 504): it is not run, so a retry cannot edit twice.
+ */
+async function answer(ready: Promise<ServerOnWindow>, request: McpNativeRequest): Promise<McpHttpResponse | undefined> {
+  if (request.deadline !== undefined && Date.now() > request.deadline) {
+    return undefined;
+  }
   try {
     const { server, access } = await ready;
     await access.whenRendered();
@@ -82,16 +92,22 @@ export function useMcpServer(model: WindowModel): void {
   });
   useEffect(() => {
     let queue: Promise<void> = Promise.resolve();
-    const ready = attachMcpServer({ maxBodyBytes: MCP_LIMITS.maxBodyBytes, responseTimeoutMs: MCP_LIMITS.responseTimeoutMs }).then((info) => serverOn(info, refs));
-    // Without the native module (tests, other platforms) no request ever comes.
-    ready.catch(() => undefined);
+    let ready: Promise<ServerOnWindow> = new Promise(() => undefined);
+    // Listening first, then attaching: what the listener held for JS comes as soon as it attaches.
     const unsubscribe = subscribeMcpRequests((request) => {
       // The queue goes on whatever happens to one answer (answer itself never rejects).
       queue = queue
         .then(() => answer(ready, request))
-        .then((response) => respondMcp(request.id, response))
+        .then((response) => {
+          if (response !== undefined) {
+            respondMcp(request.id, response);
+          }
+        })
         .catch(() => undefined);
     });
+    ready = attachMcpServer({ ...MCP_LIMITS_FOR_LISTENER, loopbackNames: LOOPBACK_NAMES }).then((info) => serverOn(info, refs));
+    // Without the native module (tests, other platforms) no request ever comes.
+    ready.catch(() => undefined);
     return () => {
       unsubscribe();
       detachMcpServer();

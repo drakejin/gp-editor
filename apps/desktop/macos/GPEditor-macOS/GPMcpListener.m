@@ -61,6 +61,8 @@ static NSString *GPMcpFailure(nw_error_t error)
     _queue = queue;
     _connections = [NSMutableSet set];
     _readTimeout = 10;
+    _maxConnections = 64;
+    _loopbackNames = @[];
   }
   return self;
 }
@@ -137,7 +139,7 @@ static NSString *GPMcpFailure(nw_error_t error)
 - (void)accept:(nw_connection_t)connection
 {
   nw_endpoint_t remote = nw_connection_copy_endpoint(connection);
-  if (!GPMcpIsLoopback(remote)) {
+  if (!GPMcpIsLoopback(remote) || _connections.count >= self.maxConnections) {
     nw_connection_cancel(connection);
     return;
   }
@@ -154,11 +156,12 @@ static NSString *GPMcpFailure(nw_error_t error)
     }
   });
   nw_connection_start(connection);
-  [self startReadTimer:entry];
+  [self startTimer:entry];
   [self receive:entry];
 }
 
-- (void)startReadTimer:(GPMcpConnection *)entry
+/** `readTimeout` for the request to arrive (else 408), then again for the answer to be taken (else the connection closes). */
+- (void)startTimer:(GPMcpConnection *)entry
 {
   dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
   dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.readTimeout * NSEC_PER_SEC)), DISPATCH_TIME_FOREVER, NSEC_PER_SEC / 10);
@@ -166,7 +169,9 @@ static NSString *GPMcpFailure(nw_error_t error)
   __weak GPMcpConnection *weakEntry = entry;
   dispatch_source_set_event_handler(timer, ^{
     GPMcpConnection *timedOut = weakEntry;
-    if (timedOut != nil && !timedOut.isHandedOver && !timedOut.isAnswered) {
+    if (timedOut != nil && timedOut.isAnswered) {
+      [weakSelf close:timedOut];
+    } else if (timedOut != nil && !timedOut.isHandedOver) {
       [weakSelf refuse:timedOut status:408 reason:@"Request timeout: the request did not arrive in time"];
     }
   });
@@ -196,7 +201,8 @@ static NSString *GPMcpFailure(nw_error_t error)
 /** Reads what arrived; YES once the request is answered or handed over (nothing more to receive). */
 - (BOOL)process:(GPMcpConnection *)entry
 {
-  if (entry.isHandedOver || entry.isAnswered) {
+  // Closed meanwhile (the server stopped): nothing more is read or handed over.
+  if (entry.isHandedOver || entry.isAnswered || ![_connections containsObject:entry]) {
     return YES;
   }
   if (entry.head == nil && ![self readHead:entry]) {
@@ -241,13 +247,34 @@ static NSString *GPMcpFailure(nw_error_t error)
   return YES;
 }
 
-/** Refuses what no body needs to be read for: nobody to answer, no length, too long. */
+/** `value` names a loopback host on the listener's port (`scheme` "http://" for an Origin, "" for a Host). */
+- (BOOL)isLoopback:(nullable NSString *)value scheme:(NSString *)scheme
+{
+  NSString *given = [value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]].lowercaseString;
+  for (NSString *name in self.loopbackNames) {
+    if ([given isEqualToString:[NSString stringWithFormat:@"%@%@:%u", scheme, name.lowercaseString, self.port]]) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
+/** A Host or Origin that names anything but the loopback (a web page, DNS rebinding), when JS gave the names. */
+- (BOOL)isForeign:(GPMcpRequestHead *)head
+{
+  NSString *origin = head.headers[@"origin"];
+  return self.loopbackNames.count > 0 && (![self isLoopback:head.headers[@"host"] scheme:@""] || (origin != nil && ![self isLoopback:origin scheme:@"http://"]));
+}
+
+/** Refuses what no body needs to be read for: nobody to answer, a foreign Host or Origin, no length, too long. */
 - (BOOL)refuseHead:(GPMcpConnection *)entry
 {
   GPMcpRequestHead *head = entry.head;
   NSUInteger limit = self.maxBodyBytes;
   if (limit == 0) {
     [self refuse:entry status:503 reason:@"Service unavailable: GP Editor's window is not ready; try again in a moment"];
+  } else if ([self isForeign:head]) {
+    [self refuse:entry status:403 reason:@"Forbidden: this server takes requests from this Mac's own programs only, not from web pages"];
   } else if (head.isChunked || (head.contentLength < 0 && [head.method isEqualToString:@"POST"])) {
     [self refuse:entry status:411 reason:@"Length required: send the body with a Content-Length"];
   } else if (head.contentLength > (long long)limit) {
@@ -296,6 +323,7 @@ static NSString *GPMcpFailure(nw_error_t error)
   }
   entry.isAnswered = YES;
   [self cancelTimer:entry];
+  [self startTimer:entry];
   NSData *data = GPMcpResponseData(status, headers, body);
   __weak GPMcpListener *weakSelf = self;
   nw_connection_send(entry.connection, dispatch_data_create(data.bytes, data.length, _queue, DISPATCH_DATA_DESTRUCTOR_DEFAULT), NW_CONNECTION_FINAL_MESSAGE_CONTEXT, true, ^(nw_error_t error) {

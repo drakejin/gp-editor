@@ -33,7 +33,7 @@ function isTuplet(tuplet: Tuplet | undefined): tuplet is Tuplet {
 }
 
 /** A duration: its note value (4 = quarter), dots, and the tuplet it is in ("3:2"). */
-export function durationJson(duration: Duration): JsonObject {
+function durationJson(duration: Duration): JsonObject {
   const dots = duration.doubleDotted ? 2 : duration.dotted ? 1 : 0;
   return {
     value: duration.value,
@@ -44,7 +44,7 @@ export function durationJson(duration: Duration): JsonObject {
 }
 
 /** The effects set on a note, by their model names ("palmMute", "slide:shiftSlide", "harmonic:natural", "bend"). */
-export function noteEffects(effect: NoteEffect): readonly string[] {
+function noteEffects(effect: NoteEffect): readonly string[] {
   const flags = FLAG_EFFECTS.filter((name) => effect[name] === true).map(String);
   const parts = PART_EFFECTS.filter((name) => effect[name] !== undefined).map(String);
   const slides = effect.slides.map((slide) => `slide:${slide}`);

@@ -128,7 +128,7 @@ describe('handleRpc, modern clients (2026-07-28, per-request _meta)', () => {
       id: 1,
       result: {
         resultType: 'complete',
-        supportedVersions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
+        supportedVersions: ['2026-07-28'],
         capabilities: { tools: {} },
         instructions: 'Drive GP Editor.',
         ttlMs: 3_600_000,

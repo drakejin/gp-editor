@@ -139,6 +139,12 @@ export function usePdfExport(
       });
     }
   });
+  const { print, saveTo } = useAsShownOutputs(source, dispatch);
+  return { ...panel, isSaving, save, savePng, print, saveTo };
+}
+
+/** File ▸ Print… and the MCP server's PDF at a path: the pages as the view shows them. */
+function useAsShownOutputs(source: PrintSource | undefined, dispatch: Dispatch<EditorAction>): Pick<PdfExport, 'print' | 'saveTo'> {
   // The same function after every edit, so File ▸ Print…'s listener is added once.
   const print = useStableCallback(() => {
     if (source !== undefined) {
@@ -150,5 +156,5 @@ export function usePdfExport(
     // i18n-exempt: an MCP client's error, never shown in the app
     source === undefined ? Promise.reject(new Error('No document is open')) : writePdf(exportPages(source, 'asShown').pdf, path),
   );
-  return { ...panel, isSaving, save, savePng, print, saveTo };
+  return { print, saveTo };
 }

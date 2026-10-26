@@ -4,13 +4,33 @@
 
 const NSUInteger GPMcpLogCapacity = 1000;
 const unsigned long long GPMcpLogFileLimit = 1024 * 1024;
+/** Longest field kept (a client's name, a request, an outcome): what a client sends cannot grow the log without end. */
+static const NSUInteger kMaxFieldLength = 200;
+/** The log window hears of new entries at most this often (a flood of requests must not stall the window). */
+static const double kNotifySeconds = 0.2;
 
-static NSString *GPMcpFormatDate(NSDate *date, NSString *format)
+/** Formatters made once (on the main thread, where entries are made). */
+static NSDateFormatter *GPMcpFormatter(BOOL isFull)
 {
-  NSDateFormatter *formatter = [NSDateFormatter new];
-  formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
-  formatter.dateFormat = format;
-  return [formatter stringFromDate:date];
+  static NSDateFormatter *full;
+  static NSDateFormatter *time;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    full = [NSDateFormatter new];
+    full.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    full.dateFormat = @"yyyy-MM-dd HH:mm:ss.SSS";
+    time = [NSDateFormatter new];
+    time.locale = full.locale;
+    time.dateFormat = @"HH:mm:ss.SSS";
+  });
+  return isFull ? full : time;
+}
+
+/** A field as kept: control characters (a line break could forge a line of the file) as spaces, at most 200 characters. */
+static NSString *GPMcpField(NSString *text)
+{
+  NSString *line = [[text componentsSeparatedByCharactersInSet:[NSCharacterSet controlCharacterSet]] componentsJoinedByString:@" "];
+  return line.length <= kMaxFieldLength ? line : [[line substringToIndex:kMaxFieldLength - 1] stringByAppendingString:@"…"];
 }
 
 @implementation GPMcpLogEntry
@@ -20,16 +40,16 @@ static NSString *GPMcpFormatDate(NSDate *date, NSString *format)
   if (self = [super init]) {
     _serial = serial;
     _date = [NSDate date];
-    _client = [client copy];
-    _request = [request copy];
+    _client = GPMcpField(client);
+    _request = GPMcpField(request);
     _durationMs = durationMs;
-    _outcome = [outcome copy];
+    _outcome = GPMcpField(outcome);
     _isError = isError;
     _isEvent = isEvent;
-    _timeText = GPMcpFormatDate(_date, @"HH:mm:ss.SSS");
-    NSString *when = GPMcpFormatDate(_date, @"yyyy-MM-dd HH:mm:ss.SSS");
-    _line = isEvent ? [NSString stringWithFormat:@"%@  [server]  %@", when, request]
-                    : [NSString stringWithFormat:@"%@  %@  %@  %ld ms  %@", when, client, request, (long)durationMs, outcome];
+    _timeText = [GPMcpFormatter(NO) stringFromDate:_date];
+    NSString *when = [GPMcpFormatter(YES) stringFromDate:_date];
+    _line = isEvent ? [NSString stringWithFormat:@"%@  [server]  %@", when, _request]
+                    : [NSString stringWithFormat:@"%@  %@  %@  %ld ms  %@", when, _client, _request, (long)durationMs, _outcome];
   }
   return self;
 }
@@ -40,6 +60,8 @@ static NSString *GPMcpFormatDate(NSDate *date, NSString *format)
   NSArray<GPMcpLogEntry *> *_entries;
   NSInteger _nextSerial;
   dispatch_queue_t _fileQueue;
+  /** A change notification is on its way (main thread). */
+  BOOL _isNotifying;
 }
 
 + (instancetype)shared
@@ -76,6 +98,19 @@ static NSString *GPMcpFormatDate(NSDate *date, NSString *format)
     NSArray<GPMcpLogEntry *> *entries = [self->_entries arrayByAddingObject:entry];
     self->_entries = entries.count > GPMcpLogCapacity ? [entries subarrayWithRange:NSMakeRange(entries.count - GPMcpLogCapacity, GPMcpLogCapacity)] : entries;
     [self writeLine:entry.line];
+    [self notifyChange];
+  });
+}
+
+/** On the main thread: one change notification for what changed within kNotifySeconds. */
+- (void)notifyChange
+{
+  if (_isNotifying) {
+    return;
+  }
+  _isNotifying = YES;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kNotifySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    self->_isNotifying = NO;
     [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorMcpLogChangedNotification object:nil];
   });
 }
@@ -94,7 +129,7 @@ static NSString *GPMcpFormatDate(NSDate *date, NSString *format)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
     self->_entries = @[];
-    [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorMcpLogChangedNotification object:nil];
+    [self notifyChange];
   });
 }
 

@@ -13,6 +13,8 @@ export interface McpListenerLimits {
   readonly maxBodyBytes: number;
   /** The listener answers 504 itself when JS has not answered by then. */
   readonly responseTimeoutMs: number;
+  /** The host names a Host or Origin may name (with the port): the listener refuses any other before reading a body. */
+  readonly loopbackNames: readonly string[];
 }
 
 /** What the native side says about the app the server runs in. */
@@ -24,6 +26,8 @@ export interface McpAppInfo {
 /** A request from the listener: its id (to answer), and the HTTP request as read. */
 export interface McpNativeRequest extends McpHttpRequest {
   readonly id: string;
+  /** When the listener stops waiting (ms since 1970): past it, it answered 504 and the request is not run. */
+  readonly deadline?: number;
 }
 
 /** What Tools ▸ MCP Server's items and the menu bar item's do (GPEditorMcpCommandNotification's object). */
@@ -69,10 +73,13 @@ export function parseMcpRequest(body: unknown): McpNativeRequest | undefined {
   if (typeof body !== 'object' || body === null) {
     return undefined;
   }
-  const { id, method, target, headers, body: text, port } = body as Readonly<Record<string, unknown>>;
+  const { id, method, target, headers, body: text, port, deadline } = body as Readonly<Record<string, unknown>>;
   const isRequest =
     typeof id === 'string' && typeof method === 'string' && typeof target === 'string' && isStringRecord(headers) && typeof text === 'string' && typeof port === 'number' && Number.isInteger(port);
-  return isRequest ? { id, method, target, headers, body: text, port } : undefined;
+  if (!isRequest) {
+    return undefined;
+  }
+  return typeof deadline === 'number' ? { id, method, target, headers, body: text, port, deadline } : { id, method, target, headers, body: text, port };
 }
 
 /** Calls `listener` for each request the listener hands over; returns the unsubscribe function. */
