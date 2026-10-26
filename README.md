@@ -534,6 +534,30 @@ Guitar Pro's own files differently are listed, with that evidence, in
   Notation on the score (P.M., let ring, 8va, dynamics, chords) stays as notation writes it. *Interface contrast* —
   Standard or High (darker panels, brighter text and borders) — and *Score paper* — light, dark or following the
   system; every text colour reads at WCAG AA. The settings are kept for the next start.
+- **MCP server** (for Claude Code, Claude Desktop or any MCP client): while GP Editor runs, a Model Context Protocol
+  server at `http://127.0.0.1:18256/mcp` lets an AI assistant drive the window as a person does — read the open tabs,
+  the song and its bars (JSON or ASCII tab), move the cursor, select bars, write notes, drums, rests and durations,
+  insert and delete beats and bars, set the tempo, time signature, key, track names and song information, undo and redo,
+  play / pause / stop / loop / speed, open, save, save as and export files, and run any command of the command palette
+  (36 tools). Every edit is one undo step, seen in the score at once. It needs no sign-in: it listens on the loopback
+  only and refuses web pages (their `Origin`, a DNS-rebound `Host`). The menu bar item at the top right of the screen
+  (and Tools ▸ MCP Server) shows its status and has Start / Stop, Restart, Copy URL, Copy Setup Command, Show Log… (each
+  request: time, client, method or tool, time taken, result; the file is `mcp-server.log` in GP Editor's Application
+  Support folder) and Settings… (start with the app, port, show in the menu bar). The App Store build is sandboxed:
+  without a panel it reads and writes only its recent files and `~/Documents/GP Editor Projects/`.
+
+### Connect Claude Code
+
+With GP Editor open, in a terminal:
+
+```bash
+claude mcp add --transport http gp-editor http://127.0.0.1:18256/mcp
+```
+
+(Tools ▸ MCP Server ▸ Copy Setup Command copies this line with the port in use.) Then ask Claude Code, say, to read bar 3
+of the shown score, or to write a melody into a new score. Claude Desktop and other clients take the same URL as a
+Streamable HTTP server. The server speaks MCP 2026-07-28 (stateless, `server/discover`) and the earlier revisions that
+open with `initialize` (2025-11-25, 2025-06-18, 2025-03-26).
 
 ## License
 
