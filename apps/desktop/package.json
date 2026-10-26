@@ -1,6 +1,6 @@
 {
   "name": "gp-editor-desktop",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "license": "LGPL-2.1-or-later",
   "private": true,
   "scripts": {
