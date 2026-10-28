@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { type Song, stylesheetOf } from '@gp-editor/core';
+import { type Song, hasAnnotations, stylesheetOf } from '@gp-editor/core';
 import { type ExportMode, exportBaseName, exportStaves, pdfPageCount, printedPage } from '../export/pdf-document';
 import { DEFAULT_PNG_OPTIONS, PNG_RESOLUTIONS, type PngOptions, pngFileNames, pngFilesText, pngPixelSize } from '../export/png-export';
 import { type Translate, useT } from '../hooks/use-i18n';
@@ -33,6 +33,28 @@ interface ExportPanelProps {
   readonly onClose: () => void;
   /** File ▸ Stylesheet…: the page the export prints on is the stylesheet's. */
   readonly onOpenStylesheet?: () => void;
+  /** The annotations left out of the PDF and PNG images (the hook keeps the choice for the session; print prints them). */
+  readonly hidesAnnotations?: boolean;
+  readonly onChangeHidesAnnotations?: (hides: boolean) => void;
+}
+
+interface AnnotationsRowProps {
+  readonly palette: Palette;
+  readonly hidesAnnotations: boolean;
+  readonly onChange: (hides: boolean) => void;
+}
+
+/** Annotations: Print (as the score shows them) or Leave out — for the PDF and the PNG images (File ▸ Print… prints them as shown). */
+function AnnotationsRow({ palette, hidesAnnotations, onChange }: AnnotationsRowProps) {
+  const t = useT();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.export.annotations')}</Text>
+      <BarButton label={t('window.export.printAnnotations')} palette={palette} isActive={!hidesAnnotations} onPress={() => onChange(false)} />
+      <BarButton label={t('window.export.leaveOutAnnotations')} palette={palette} isActive={hidesAnnotations} onPress={() => onChange(true)} />
+      <Text style={[styles.hint, { color: palette.muted }]}>{t('window.export.annotationsHint')}</Text>
+    </View>
+  );
 }
 
 interface PngSummaryInput {
@@ -84,13 +106,17 @@ function PngOptionsRow({ palette, png, onChange }: PngOptionsRowProps) {
  */
 export function ExportPanel(props: ExportPanelProps) {
   const { palette, song, trackIndex, staves = [], fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose, onOpenStylesheet } = props;
+  const { hidesAnnotations = false, onChangeHidesAnnotations } = props;
   const t = useT();
   const isMultitrack = staves.length > 1;
   const [choice, setChoice] = useState<ExportMode>(isMultitrack ? 'asShown' : viewMode);
   const mode = choice === 'asShown' ? viewMode : choice;
   const printed = useMemo(() => exportStaves(staves, choice), [staves, choice]);
   const [png, setPng] = useState<PngOptions>(DEFAULT_PNG_OPTIONS);
-  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { fileName, chordDisplay, staves: printed }), [song, trackIndex, mode, fileName, chordDisplay, printed]);
+  const pageCount = useMemo(
+    () => pdfPageCount(song, trackIndex, mode, { fileName, chordDisplay, staves: printed, hidesAnnotations }),
+    [song, trackIndex, mode, fileName, chordDisplay, printed, hidesAnnotations],
+  );
   const trackName = song.tracks[trackIndex]?.name ?? '';
   const isPng = format === 'png';
   const summary = isPng ? pngSummary({ song, trackIndex, staves: printed, fileName, mode, pageCount, png }, t) : t('common.pages', { count: pageCount });
@@ -114,6 +140,7 @@ export function ExportPanel(props: ExportPanelProps) {
         {onOpenStylesheet === undefined ? null : <BarButton label={t('window.export.stylesheet')} palette={palette} onPress={onOpenStylesheet} />}
       </View>
       {isPng ? <PngOptionsRow palette={palette} png={png} onChange={setPng} /> : null}
+      {onChangeHidesAnnotations !== undefined && hasAnnotations(song) ? <AnnotationsRow palette={palette} hidesAnnotations={hidesAnnotations} onChange={onChangeHidesAnnotations} /> : null}
       <View style={styles.row}>
         <BarButton
           label={isPng ? t('window.export.savePng') : t('window.export.savePdf')}

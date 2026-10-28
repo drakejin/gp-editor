@@ -47,8 +47,11 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
         case 'panel':
         case 'chordPanel':
         case 'expressionText':
-          // Opens the vibrato, bend or chord panel or Expression Text (no edit by itself); their choices are checked in
-          // NotePanels.test, ChordPanel.test and expression-text.test.
+        case 'annotationPanel':
+        case 'lyricsPanel':
+          // Opens the vibrato, bend, chord, annotation or lyrics panel or Expression Text (no edit by itself); their
+          // choices are checked in NotePanels.test, ChordPanel.test, expression-text.test, use-annotation-editor.test
+          // and use-lyrics-editor.test.
           return [];
       }
     }),

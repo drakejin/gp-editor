@@ -1,6 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
-import { DEFAULT_STYLESHEET, type Song, setStylesheet } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Song, setBeatAnnotation, setStylesheet } from '@gp-editor/core';
 import { BarButton } from '../src/components/BarButton';
 import { ExportPanel } from '../src/components/ExportPanel';
 import { pdfPageCount } from '../src/export/pdf-document';
@@ -182,5 +182,50 @@ describe('ExportPanel for PNG images', () => {
   it('names the single file of a one-page export', () => {
     const rendered = render('tab', false, 'png', makeSong([[beat(header(1).start, [note(1, 0)])]]));
     expect(allText(rendered)).toContain('1 page → Song (Tab).png, 1240 × 1754 px');
+  });
+});
+
+describe('ExportPanel with annotations', () => {
+  const annotated = setBeatAnnotation(song, { trackIndex: 0, measureIndex: 3, beatIndex: 0, voiceIndex: 0 }, { text: 'Watch the bend\nsofter\nthe second time', placement: 'above' });
+  const renderWith = (exportSong: Song, hidesAnnotations: boolean, format: ExportFormat = 'pdf') => {
+    const onChange = jest.fn();
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <ExportPanel
+          palette={PALETTE} song={exportSong} trackIndex={0} fileName="Song.gp" mode="notationAndTab" format={format} isSaving={false}
+          onSave={jest.fn()} onSavePng={jest.fn()} onClose={jest.fn()} hidesAnnotations={hidesAnnotations} onChangeHidesAnnotations={onChange}
+        />,
+      );
+    });
+    return { rendered: { renderer, onSave: jest.fn(), onSavePng: jest.fn(), onClose: jest.fn(), onOpenStylesheet: jest.fn() }, onChange };
+  };
+
+  it('prints them by default and can leave them out, for PDF and PNG alike', () => {
+    // Arrange
+    const { rendered, onChange } = renderWith(annotated, false);
+    const png = renderWith(annotated, true, 'png');
+
+    // Act
+    press(rendered, 'Leave out');
+
+    // Assert
+    expect(activeLabels(rendered)).toContain('Print');
+    expect(onChange).toHaveBeenCalledWith(true);
+    expect(activeLabels(png.rendered)).toContain('Leave out');
+    expect(allText(rendered)).toContain('Annotations');
+  });
+
+  it('counts the pages without them when they are left out', () => {
+    const shown = pdfPageCount(annotated, 0, 'notationAndTab', { fileName: 'Song.gp' });
+    const left = pdfPageCount(annotated, 0, 'notationAndTab', { fileName: 'Song.gp', hidesAnnotations: true });
+    expect(allText(renderWith(annotated, false).rendered)).toContain(shown === 1 ? '1 page' : `${shown} pages`);
+    expect(allText(renderWith(annotated, true).rendered)).toContain(left === 1 ? '1 page' : `${left} pages`);
+  });
+
+  it('shows no choice for a song without annotations', () => {
+    const { rendered } = renderWith(song, false);
+    expect(rendered.renderer.root.findAllByType(BarButton).map((b) => b.props.label)).not.toContain('Leave out');
+    expect(allText(rendered)).not.toContain('Annotations');
   });
 });

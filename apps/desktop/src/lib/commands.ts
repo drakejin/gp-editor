@@ -79,7 +79,8 @@ const editRows = (): readonly Command[] => [
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.voice${number}`, 'edit', press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.moveToVoice${number}`, 'edit', press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
   appEditorRow('edit.multivoice', 'edit', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all', 'voices', 'polyphony', 'fade'] }),
-  appRow('edit.lyrics', 'edit', (a) => a.openLyrics(), { keywords: ['words', 'syllables', 'sing'] }),
+  appEditorRow('edit.lyrics', 'edit', { type: 'openLyricsPanel' }, { keywords: ['words', 'syllables', 'sing', 'vocals'] }),
+  appKeyRow('edit.annotation', 'edit', press('j'), { when: 'beat', keywords: ['note', 'memo', 'comment', 'remark', 'sticky', 'annotate', 'write', 'print'] }),
   appRow('edit.songWriter', 'edit', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
 ];
 

@@ -2,7 +2,7 @@ import { DEFAULT_STYLESHEET, type Song, type TextStyle, stylesheetOf } from '@gp
 import type { Palette } from '../theme';
 import { type DrawCommand, translateCommands } from './draw';
 import { type RowGeometry, stavesSpan } from './geometry';
-import { type RowContext, engraveRow, placeRow } from './row';
+import { type RowContext, engraveRowAnnotations, engraveRowStaves, placeRow } from './row';
 import { SYSTEM, type ScoreLayout, staffLabel, systemNameFormat } from './score-layout';
 import { textWidth } from './symbols/shapes';
 import { styleText } from './text-styles';
@@ -27,8 +27,8 @@ export interface StaffDecor {
 
 /** The decor of a staff in a system; undefined for a one-track score, which draws its rows as they always were. */
 export function staffDecor(song: Song, layout: ScoreLayout, systemIndex: number, staffIndex: number): StaffDecor | undefined {
-  const staff = layout.staves[staffIndex];
   const system = layout.systems[systemIndex];
+  const staff = system?.staves[staffIndex];
   const track = staff === undefined ? undefined : song.tracks[staff.trackIndex];
   if (layout.staves.length < 2 || staff === undefined || system === undefined || track === undefined) {
     return undefined;
@@ -118,11 +118,13 @@ function nameLabel(decor: StaffDecor, span: StaffSpan, palette: Palette, style: 
  */
 export function engraveSystemStaff(context: RowContext, decor: StaffDecor): DrawCommand[] {
   const track = context.song.tracks[context.trackIndex];
-  const row = translateCommands(engraveRow(context), decor.namesWidth, 0);
+  const row = translateCommands(engraveRowStaves(context), decor.namesWidth, 0);
+  // The annotations last: no bar line through the system crosses their boxes.
+  const annotations = translateCommands(engraveRowAnnotations(context), decor.namesWidth, 0);
   const span = track === undefined ? undefined : staffSpan(context.geometry, track.strings.length);
   if (span === undefined) {
-    return row;
+    return [...row, ...annotations];
   }
   const style = stylesheetOf(context.song).texts.trackName;
-  return [...row, ...systemLines(context, decor, span), ...bracket(decor, span, context.palette.text), ...nameLabel(decor, span, context.palette, style)];
+  return [...row, ...systemLines(context, decor, span), ...bracket(decor, span, context.palette.text), ...nameLabel(decor, span, context.palette, style), ...annotations];
 }

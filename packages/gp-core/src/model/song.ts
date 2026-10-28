@@ -332,6 +332,20 @@ export interface Stroke {
   readonly value: number;
 }
 
+/** Where an annotation's box is drawn: over the staves of its beat's track, or under them. */
+export type AnnotationPlacement = 'above' | 'below';
+
+/**
+ * A musician's note on the score (the app's own; no Guitar Pro file holds one): a few lines of text about a beat, drawn
+ * in a box over or under the staves and printed unless an export leaves them out. Not part of the notation, as a beat's
+ * `text` is (Guitar Pro's one-line text above the beat, which every Guitar Pro file keeps).
+ */
+export interface Annotation {
+  /** One or more lines (\n between them), trimmed and kept within annotations/annotation-text.ts' limits. */
+  readonly text: string;
+  readonly placement: AnnotationPlacement;
+}
+
 export interface Beat {
   /** Start position in ticks. */
   readonly start: number;
@@ -341,6 +355,8 @@ export interface Beat {
   readonly pickStroke: StrokeDirection;
   readonly chord?: Chord;
   readonly text?: string;
+  /** The musician's annotation on the beat; absent when none. */
+  readonly annotation?: Annotation;
   /** The crescendo or decrescendo the beat is under; absent when none. */
   readonly hairpin?: Hairpin;
   /** The beat is strummed as a rasgueado of this pattern; absent when not. */

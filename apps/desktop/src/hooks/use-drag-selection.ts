@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import type { Song } from '@gp-editor/core';
-import { type RowHit, hitTestDrag } from '../score/hit-test';
+import { type DragRow, type RowHit, hitTestDrag } from '../score/hit-test';
 import { placeRow } from '../score/row';
 import type { ScoreLayout } from '../score/score-layout';
 
@@ -41,9 +41,14 @@ export function useDragSelection(sources: DragSources): DragSelection {
     if (staff === undefined) {
       return;
     }
-    const placed = layout.systems.map((system) => placeRow(system.rows[staffIndex] ?? { measures: [] }, system.headerWidth));
+    // Each system's own staff: its geometry and its place on the page.
+    const rows = layout.systems.map((system): DragRow => {
+      const own = system.staves[staffIndex] ?? staff;
+      const placed = placeRow(system.rows[staffIndex] ?? { measures: [] }, system.headerWidth);
+      return { placed, geometry: own.geometry, systemTop: system.top, staffTop: system.top + own.top };
+    });
     const stringCount = song.tracks[staff.trackIndex]?.strings.length ?? 6;
-    const hit = hitTestDrag(placed, rowIndex, staff.geometry, stringCount, x, y, { pitch: layout.systemHeight, top: staff.top });
+    const hit = hitTestDrag(rows, rowIndex, stringCount, x, y);
     if (hit === undefined || isSameBeat(lastBeat.current, hit)) {
       return;
     }

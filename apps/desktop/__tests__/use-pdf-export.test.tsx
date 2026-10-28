@@ -1,5 +1,5 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { DEFAULT_STYLESHEET, setStylesheet } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, setBeatAnnotation, setStylesheet } from '@gp-editor/core';
 import type { PdfDocument } from '../src/export/pdf-document';
 import type { PngOptions } from '../src/export/png-export';
 import { type PdfExport, usePdfExport } from '../src/hooks/use-pdf-export';
@@ -351,5 +351,48 @@ describe('usePdfExport.saveTo (the MCP server’s export_file)', () => {
 
   it('rejects without a document', async () => {
     await expect(renderHook(undefined).current().saveTo('/out/a.pdf')).rejects.toThrow('No document is open');
+  });
+});
+
+describe('usePdfExport and annotations', () => {
+  const ANNOTATED: OpenDocument = {
+    ...DOCUMENT,
+    song: setBeatAnnotation(DOCUMENT.song, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 }, { text: 'Watch the bend', placement: 'above' }),
+  };
+  const printedTexts = (document: PdfDocument | undefined) => (document?.pages ?? []).flatMap((page) => textValues(page.commands));
+
+  it('exports them as the score shows them until the export panel leaves them out (PDF and PNG); print always prints them', async () => {
+    // Arrange
+    mockSavePdf.mockResolvedValue({ name: 'a.pdf', path: '/a.pdf' });
+    mockPrintPdf.mockResolvedValue(true);
+    mockSavePngs.mockResolvedValue({ folder: '/Out', folderName: 'Out', names: ['a.png'] });
+    const hook = renderHook(ANNOTATED);
+    chooseExportPdf();
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().save('tab'));
+    await settle();
+    ReactTestRenderer.act(() => hook.current().changeHidesAnnotations(true));
+    ReactTestRenderer.act(() => hook.current().save('tab'));
+    await settle();
+    ReactTestRenderer.act(() => hook.current().savePng('tab', { dpi: 150, isTransparent: false }));
+    await settle();
+    ReactTestRenderer.act(() => mockPrintRequests.handler?.());
+    await settle();
+
+    // Assert
+    expect(hook.current().hidesAnnotations).toBe(true);
+    expect(printedTexts(mockSavePdf.mock.calls[0]?.[0])).toContain('Watch the bend');
+    expect(printedTexts(mockSavePdf.mock.calls[1]?.[0])).not.toContain('Watch the bend');
+    expect(printedTexts(mockSavePngs.mock.calls[0]?.[0])).not.toContain('Watch the bend');
+    expect(printedTexts(mockPrintPdf.mock.calls[0]?.[0])).toContain('Watch the bend');
+  });
+
+  it('writes them at a path as the score shows them (the MCP server’s export)', async () => {
+    mockWritePdf.mockResolvedValueOnce({ name: 'a.pdf', path: '/a.pdf' });
+    const hook = renderHook(ANNOTATED);
+    ReactTestRenderer.act(() => hook.current().changeHidesAnnotations(true));
+    await hook.current().saveTo('/a.pdf');
+    expect(printedTexts(mockWritePdf.mock.calls.at(-1)?.[0])).toContain('Watch the bend');
   });
 });

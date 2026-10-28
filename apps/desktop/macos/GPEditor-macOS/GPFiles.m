@@ -3,7 +3,7 @@
 // EditMenu.swift post (GPEditorNotifications.h), forwarded to JS as events by one table, GPMenuEvents: the File menu
 // (New, Open…, Import PDF…, Export PDF… / PNG… / MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… / Audio…,
 // Print…, Save, Save As…, Close Tab, Next Tab, Previous Tab), Edit ▸ Undo / Redo (with JS's undo state back:
-// setUndoState), Delete Notes / Delete Bars, Lyrics… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
+// setUndoState), Delete Notes / Delete Bars, Lyrics…, Annotation… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
 // Command Palette… / Expression Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸
 // Keyboard Shortcuts. Export's files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads
 // MusicXML files too.
@@ -113,6 +113,7 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       GPEditorDeleteCommandNotification : GPEvent(@"deleteRequested", GPDeleteBody),
       GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
       GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
+      GPEditorAnnotationCommandNotification : GPEvent(@"annotationRequested", GPNoBody),
       GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),
       GPEditorTransposeCommandNotification : GPEvent(@"transposeRequested", GPNoBody),
       GPEditorCommandPaletteCommandNotification : GPEvent(@"commandPaletteRequested", GPCommandPaletteBody),

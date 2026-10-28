@@ -69,6 +69,7 @@ const BEAT_ROWS: readonly ShortcutRow[] = [
   row('⌘D', 'commands.shortcuts.deleteBars', key('d', { metaKey: true })),
   row('I', 'commands.shortcuts.insertBeat', key('i')),
   row('K', 'commands.shortcuts.chord', key('k')),
+  row('J', 'commands.shortcuts.annotation', key('j')),
   row('Y', 'commands.shortcuts.syncPoint', key('y')),
   row('⌥[ / ⌥]', 'commands.shortcuts.noteValue', key('[', { altKey: true })),
   row('.', 'commands.shortcuts.dotted', key('.')),

@@ -42,7 +42,8 @@ export const PRINT_SCALE = 0.65;
 
 /**
  * Ink on white paper, whatever the app's appearance: notes and text in black, staff lines and secondary text in greys,
- * a second voice in dark grey (the accent colour on screen). The cursor and playing colours are never drawn in print.
+ * a second voice in dark grey (the accent colour on screen), annotations in their box. The cursor and playing colours are
+ * never drawn in print.
  */
 export const PRINT_PALETTE: Palette = {
   background: '#FFFFFF',
@@ -58,5 +59,8 @@ export const PRINT_PALETTE: Palette = {
   border: '#BBBBBB',
   desk: '#FFFFFF',
   voices: ['#555555', '#555555', '#555555', '#555555'],
+  // Annotations print in their pale yellow box, so a page still tells the musician's notes from the music.
+  annotationFill: '#FFF2BF',
+  annotationInk: '#4A3800',
   ...CHROME,
 };

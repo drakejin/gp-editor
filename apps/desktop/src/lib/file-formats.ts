@@ -1,4 +1,4 @@
-import { type Song, type WritableFormat, hasBarDesign, isDefaultMaster, isDefaultStylesheet } from '@gp-editor/core';
+import { type Song, type WritableFormat, hasAnnotations, hasBarDesign, isDefaultMaster, isDefaultStylesheet } from '@gp-editor/core';
 import { withoutExtension } from './file-name';
 import { type MessageKey, t } from './i18n/i18n';
 
@@ -99,7 +99,7 @@ export function formatName(format: FileFormat): string {
 
 /**
  * What the hint strip says when `song` is saved in `format`: its note, and the voices, effects, audio track, clefs,
- * track icons and short names and layout it leaves out.
+ * track icons and short names, layout and annotations it leaves out.
  */
 export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const name = formatName(format);
@@ -109,7 +109,8 @@ export function saveHint(format: SaveFormat, song: Song): string | undefined {
   const clefs = format.id !== 'gp' && hasClefChanges(song) ? t('window.saveHint.clefs', { format: name }) : undefined;
   const appearance = format.id !== 'gp' && hasOwnAppearance(song) ? t('window.saveHint.appearance', { format: name }) : undefined;
   const layout = format.id === 'gp' ? undefined : layoutLeftOut(name, song);
-  const parts = [format.note, voices, effects, audio, clefs, appearance, layout].filter((part): part is string => part !== undefined);
+  const annotations = format.id !== 'gp' && hasAnnotations(song) ? t('window.saveHint.annotations', { format: name }) : undefined;
+  const parts = [format.note, voices, effects, audio, clefs, appearance, layout, annotations].filter((part): part is string => part !== undefined);
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 

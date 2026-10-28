@@ -5,6 +5,7 @@ import { type TranspositionDraft, noSelectionHint, toTranspositionOptions, trans
 import { AudioExportPanel } from '../AudioExportPanel';
 import { ExportPanel } from '../ExportPanel';
 import { ImportPanel } from '../ImportPanel';
+import { AnnotationPanel } from '../annotations/AnnotationPanel';
 import { LyricsPanel } from '../lyrics/LyricsPanel';
 import { RecentFilesPanel } from '../RecentFilesPanel';
 import { DesignModeBar } from '../stylesheet/DesignModeBar';
@@ -40,6 +41,8 @@ export function FilePanels({ model }: WindowPartProps) {
           onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
           onOpenStylesheet={tools.scoreDesign.openStylesheet}
+          hidesAnnotations={pdfExport.hidesAnnotations}
+          onChangeHidesAnnotations={pdfExport.changeHidesAnnotations}
         />
       ) : null}
       {audioExport.isOpen && document !== undefined ? (
@@ -92,7 +95,7 @@ function transposeTo({ base, tools }: WindowModel, draft: TranspositionDraft): v
   focusScore();
 }
 
-/** Transpose, the stylesheet and Design Mode's strip, the recent files and the lyrics, under the tab strip. */
+/** Transpose, the stylesheet and Design Mode's strip, the recent files, the lyrics and the annotation, under the tab strip. */
 export function EditPanels({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, dispatch, focusScore } = base;
@@ -129,7 +132,32 @@ export function EditPanels({ model }: WindowPartProps) {
           onClose={tools.closeLyricsPanel}
         />
       ) : null}
+      <AnnotationPanelPart model={model} />
     </>
+  );
+}
+
+/** Edit ▸ Annotation… (J): the cursor's beat's annotation. */
+function AnnotationPanelPart({ model }: WindowPartProps) {
+  const { base, tools } = model;
+  const { annotationEditor: editor } = tools;
+  const song = base.state.document?.song;
+  if (editor.draft === undefined || song === undefined) {
+    return null;
+  }
+  return (
+    <AnnotationPanel
+      palette={base.palette}
+      draft={editor.draft}
+      hasAnnotation={editor.hasAnnotation}
+      movable={editor.movable}
+      onChangeText={editor.changeText}
+      onChangePlacement={editor.changePlacement}
+      onApply={editor.apply}
+      onDelete={editor.remove}
+      onMoveHere={editor.moveHere}
+      onClose={tools.closeAnnotationPanel}
+    />
   );
 }
 

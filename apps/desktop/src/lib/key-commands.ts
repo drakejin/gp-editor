@@ -30,6 +30,10 @@ export type KeyCommand =
   | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
   /** K: the chord diagram panel for the beat at the cursor. */
   | { readonly type: 'openChordPanel' }
+  /** J: the annotation panel for the beat at the cursor (Edit ▸ Annotation…, the palette's ✎). */
+  | { readonly type: 'openAnnotationPanel' }
+  /** Edit ▸ Lyrics… and the palette's Lyrics (no key): the lyrics panel. */
+  | { readonly type: 'openLyricsPanel' }
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now (a sync point). */
   | { readonly type: 'markSyncPoint' }
   | { readonly type: 'copy' }
@@ -104,7 +108,7 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
   { key: 'Backspace', shiftKey: true },
-  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k', 'y', 'd'].map((key) => ({ key })),
+  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k', 'y', 'd', 'j'].map((key) => ({ key })),
 ];
 
 /**
@@ -133,6 +137,8 @@ const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
 const PANEL_KEYS: Readonly<Record<string, NotePanel>> = { b: 'vibrato', c: 'bend' };
 /** Guitar Pro's chord diagram key is A, taken here by the accent. */
 const CHORD_PANEL_KEY = 'k';
+/** Free in Guitar Pro 8 and here: "jot" an annotation on the beat. */
+const ANNOTATION_KEY = 'j';
 const SYNC_POINT_KEY = 'y';
 
 const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
@@ -221,7 +227,7 @@ function shiftKeyCommand(key: string): KeyCommand | undefined {
   return key === 'Backspace' ? { type: 'edit', edit: { type: 'deleteBeat' } } : undefined;
 }
 
-/** A letter or punctuation key (any modifier but ⌘): an edit at the cursor, a note panel, the chord panel, a sync point. */
+/** A letter or punctuation key (any modifier but ⌘): an edit at the cursor, a note panel, the chord or annotation panel, a sync point. */
 function letterKeyCommand(key: string): KeyCommand | undefined {
   const edit = EDIT_KEYS[key.length === 1 ? key.toLowerCase() : key];
   if (edit !== undefined) {
@@ -234,6 +240,9 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
   if (key.toLowerCase() === CHORD_PANEL_KEY) {
     return { type: 'openChordPanel' };
   }
+  if (key.toLowerCase() === ANNOTATION_KEY) {
+    return { type: 'openAnnotationPanel' };
+  }
   return key.toLowerCase() === SYNC_POINT_KEY ? { type: 'markSyncPoint' } : undefined;
 }
 
@@ -241,7 +250,7 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
  * The editor's keys: arrows move the cursor (↑/↓ between strings — on into the next shown track in the multitrack view —,
  * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
- * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
+ * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord, J annotation), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, D deletes the note (or the selected notes: the beats stay as rests), ⇧⌫ deletes the beat,
  * ⌘D the bar (or the selected bars), ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's tuplet), I inserts a
  * beat, Space plays,

@@ -46,7 +46,6 @@ function mockActions(): jest.Mocked<CommandActions> {
     openScales: jest.fn(),
     openLineIn: jest.fn(),
     openExpressionText: jest.fn(),
-    openLyrics: jest.fn(),
     pickInstrument: jest.fn(),
     addAudioTrack: jest.fn(),
     runTrackCommand: jest.fn(),
@@ -236,7 +235,7 @@ describe('command registry: running', () => {
     const actions = mockActions();
 
     // Act
-    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'file.exportAudio', 'tools.tuner', 'tools.scales', 'edit.lyrics', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer', 'app.settings']) {
+    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'file.exportAudio', 'tools.tuner', 'tools.scales', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer', 'app.settings']) {
       find(id).run(actions);
     }
 
@@ -249,7 +248,6 @@ describe('command registry: running', () => {
     expect(actions.exportAudio).toHaveBeenCalled();
     expect(actions.openTuner).toHaveBeenCalled();
     expect(actions.openScales).toHaveBeenCalled();
-    expect(actions.openLyrics).toHaveBeenCalled();
     expect(actions.exportPng).toHaveBeenCalled();
     expect(actions.print).toHaveBeenCalled();
     expect(actions.closeTab).toHaveBeenCalled();

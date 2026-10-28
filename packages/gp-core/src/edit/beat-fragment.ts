@@ -1,5 +1,5 @@
 import { NO_STROKE } from '../model/defaults';
-import type { Beat, Chord, Duration, Hairpin, Note, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Annotation, Beat, Chord, Duration, Hairpin, Note, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import type { VoiceEvent, VoiceEvents } from './timeline';
 
 /** One beat of a fragment: one voice's event with the marks of its beat. */
@@ -14,6 +14,8 @@ export interface BeatFragmentItem {
   readonly hairpin?: Hairpin;
   readonly rasgueado?: RasgueadoPattern;
   readonly ottava?: Ottava;
+  /** The musician's note on the beat: it goes with the beat when the beats are cut, copied and pasted. */
+  readonly annotation?: Annotation;
 }
 
 /** A run of one voice's beats lifted out of their bars (copy, cut, paste). */
@@ -35,6 +37,7 @@ export function fragmentItem(voice: Voice, beat: Beat | undefined): BeatFragment
     ...(beat?.hairpin === undefined ? {} : { hairpin: beat.hairpin }),
     ...(beat?.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
     ...(beat?.ottava === undefined ? {} : { ottava: beat.ottava }),
+    ...(beat?.annotation === undefined ? {} : { annotation: beat.annotation }),
   };
 }
 
@@ -46,7 +49,8 @@ export function itemEvent(item: BeatFragmentItem): VoiceEvent {
   const hairpin = item.hairpin === undefined ? {} : { hairpin: item.hairpin };
   const rasgueado = item.rasgueado === undefined ? {} : { rasgueado: item.rasgueado };
   const ottava = item.ottava === undefined ? {} : { ottava: item.ottava };
-  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...chord, ...text, ...hairpin, ...rasgueado, ...ottava } };
+  const annotation = item.annotation === undefined ? {} : { annotation: item.annotation };
+  return { voice, attributes: { stroke: item.stroke, pickStroke: item.pickStroke, ...chord, ...text, ...hairpin, ...rasgueado, ...ottava, ...annotation } };
 }
 
 function untied(notes: readonly Note[], keepsTie: (note: Note) => boolean): readonly Note[] {

@@ -21,8 +21,10 @@ describe('palette: notation marks', () => {
   it('puts each mark at the end of its group', () => {
     expect([toolIn('Bar', 'directions'), toolIn('Dynamics', 'crescendo'), toolIn('Dynamics', 'decrescendo'), toolIn('Techniques', 'fadeOut'), toolIn('Techniques', 'volumeSwell')]).not.toContain(undefined);
     // The Beat group ends with the rasgueado and pedal tools, then the slash and beam tools (palette-notation.ts); the
-    // Expression Text and octave sign tools (palette-expression.ts) go between and after them.
-    const beatTools = paletteGroups().find((group) => group.title === 'Beat')?.tools.map((tool) => tool.id).filter((id) => id !== 'expressionText' && id !== 'ottava') ?? [];
+    // Expression Text and octave sign tools (palette-expression.ts) go between and after them, the annotation and lyrics
+    // tools (palette-annotations.ts) last.
+    const others = new Set(['expressionText', 'ottava', 'annotation', 'lyrics']);
+    const beatTools = paletteGroups().find((group) => group.title === 'Beat')?.tools.map((tool) => tool.id).filter((id) => !others.has(id)) ?? [];
     expect(beatTools.slice(-7)).toEqual(['rasgueado', 'pedalDown', 'pedalUp', 'slash', 'breakBeam', 'joinBeam', 'breakSecondaryBeam']);
   });
 

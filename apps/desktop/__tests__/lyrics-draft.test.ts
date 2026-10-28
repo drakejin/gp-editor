@@ -22,6 +22,15 @@ describe('initialLyricsDraft', () => {
     expect(initialLyricsDraft(twoTracks([undefined, { from: 2, text: 'la' }]), 0)).toEqual({ trackIndex: 1, from: 2, text: 'la' });
   });
 
+  it('opens on a vocal track shown without lyrics yet, not on another track’s lyrics (a voice the PDF import added)', () => {
+    // Arrange: track 2 is named "Voice" (its icon is the voice), track 1 sings already.
+    const song = twoTracks([{ from: 1, text: 'la la' }, undefined]);
+
+    // Act + Assert
+    expect(initialLyricsDraft(song, 1)).toEqual({ trackIndex: 1, from: 1, text: '' });
+    expect(lyricsFit(song, { trackIndex: 1, from: 1, text: 'one two three four' })).toBe('4 syllables for 4 notes from bar 1');
+  });
+
   it('opens empty on the shown track from bar 1 when no track has lyrics', () => {
     expect(initialLyricsDraft(twoTracks(), 1)).toEqual({ trackIndex: 1, from: 1, text: '' });
     expect(trackLyricsDraft(twoTracks(), 0)).toEqual({ trackIndex: 0, from: 1, text: '' });

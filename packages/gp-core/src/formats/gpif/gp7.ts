@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.v7.GPXInputStream (LGPL-2.1).
+import { readSongAnnotations } from '../../annotations/song-annotations';
 import { readSongEffects } from '../../effects/song-effects';
 import { readSongDesign, readSongStylesheet } from '../../stylesheet/song-stylesheet';
 import type { Song } from '../../model/song';
@@ -17,10 +18,11 @@ export interface SongFile {
   readonly audioTrackData?: Uint8Array;
 }
 
-/** The song with the app's stylesheet and Design Mode layout, when the container keeps them. */
+/** The song with the app's stylesheet, Design Mode layout and annotations, when the container keeps them. */
 function withAppEntries(container: Gp7Container, song: Song): Song {
   const styled = container.stylesheet === undefined ? song : readSongStylesheet(song, container.stylesheet);
-  return container.design === undefined ? styled : readSongDesign(styled, container.design);
+  const designed = container.design === undefined ? styled : readSongDesign(styled, container.design);
+  return container.annotations === undefined ? designed : readSongAnnotations(designed, container.annotations);
 }
 
 /** The song of a container; an audio track whose file the archive does not hold is left out. */

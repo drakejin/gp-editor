@@ -53,6 +53,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.edit.moveToVoice4': '성부 4로 옮기기',
   'commands.title.edit.multivoice': '멀티 성부 켜기 / 끄기',
   'commands.title.edit.lyrics': '가사…',
+  'commands.title.edit.annotation': '메모…',
   'commands.title.edit.songWriter': '작곡 도우미…',
 
   'commands.title.view.mode.notationAndTab': '오선보 + 타브 보기',
@@ -210,6 +211,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.deleteBars': '마디 또는 선택한 마디 삭제',
   'commands.shortcuts.insertBeat': '커서 뒤에 박 넣기',
   'commands.shortcuts.chord': '코드 다이어그램… (그리드, 이름, 코드 라이브러리)',
+  'commands.shortcuts.annotation': '메모… (박에 남기는 메모, 보표 위나 아래 상자). 박을 오른쪽 클릭하거나 ⌃-클릭해도 됩니다',
   'commands.shortcuts.syncPoint': '오디오 트랙을 재생하는 동안: 커서의 마디가 지금 들리는 곳에서 시작 (싱크 포인트)',
   'commands.shortcuts.noteValue': '음표 길이 늘리기 / 줄이기',
   'commands.shortcuts.dotted': '점음표',

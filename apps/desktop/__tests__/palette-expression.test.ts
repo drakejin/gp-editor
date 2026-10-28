@@ -48,13 +48,14 @@ const toolIds = (title: string) =>
   ) ?? [];
 
 describe('palette: Expression Text, octave signs and clefs', () => {
-  it('puts Expression Text after the pedal (under Text, at its row’s end), the octave sign at the end of the Beat group and the clef in the Bar group', () => {
+  it('puts Expression Text after the pedal (under Text, at its row’s end), the octave sign at the end of the Beat group’s marks and the clef in the Bar group', () => {
     expect(toolIds('Beat').slice(8, 11)).toEqual([
       'pedalUp',
       'expressionText',
       'slash',
     ]);
-    expect(toolIds('Beat').at(-1)).toBe('ottava');
+    // The annotation and lyrics tools (palette-annotations.ts) come after the marks.
+    expect(toolIds('Beat').slice(-3)).toEqual(['ottava', 'annotation', 'lyrics']);
     expect(toolIds('Bar')).toContain('clef');
   });
 

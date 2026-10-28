@@ -3,6 +3,7 @@ import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measure
 import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { withBeatOffsets } from '../lib/system-design';
+import { annotationRowBands, annotationTrackBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
 import { hasDirections } from './directions';
 import { hasDynamicChanges } from './dynamics';
@@ -38,10 +39,13 @@ export interface StaffSpec {
   readonly mode: ScoreMode;
 }
 
-/** A shown track's staves, the same in every system. */
-export interface ScoreStaff extends StaffSpec {
+/**
+ * A shown track's staves stacked in a system: the plan its geometry is made from, and its place in the system. A
+ * system's own (`ScoreSystem.staves`) have the bands of its bars; the layout's (`ScoreLayout.staves`) every band the
+ * track has anywhere.
+ */
+export interface ScoreStaff extends StaffPlan {
   readonly geometry: RowGeometry;
-  readonly markLanes: readonly TabMarkKind[];
   /** Bar numbers, tempo and markers over it: the top staff only. */
   readonly hasHeading: boolean;
   /** From the system's top. */
@@ -58,14 +62,20 @@ export interface ScoreSystem {
   readonly namesWidth: number;
   /** Where the bars start: the names, then the clef column. */
   readonly headerWidth: number;
+  /** Its staves stacked with the bands its own bars need (`systemBands`): what draws, scrolls and hit-tests the system. */
+  readonly staves: readonly ScoreStaff[];
+  /** From the first system's top, in layout points. */
+  readonly top: number;
+  /** Its staves' height, with the room under the last one. */
+  readonly height: number;
 }
 
 export interface ScoreLayout {
+  /** Each shown track's staves with every band the track has anywhere: the tallest a system can be. */
   readonly staves: readonly ScoreStaff[];
   readonly systems: readonly ScoreSystem[];
   /** The clef (+ key signature) column, as wide as the widest staff needs. */
   readonly clefWidth: number;
-  readonly systemHeight: number;
 }
 
 /** A staff before it is stacked: what its geometry is made from. */
@@ -95,6 +105,7 @@ function staffBands(song: Song, track: Track, markLaneCount: number, isTop: bool
     hasLyricsAbove: sheet.lyrics === 'above',
     staffSpacing: sheet.systems.staffSpacing,
     ...textBandHeights(sheet),
+    ...annotationTrackBands(track),
   };
 }
 
@@ -139,16 +150,50 @@ export function staffPlans(song: Song, specs: readonly StaffSpec[], chordDisplay
 export function stackStaves(plans: readonly StaffPlan[], systemSpacing = 0): ScoreStaff[] {
   let top = 0;
   return plans.map((plan, staffIndex) => {
-    const geometry = rowGeometry(plan.mode, plan.stringCount, plan.bands);
+    const geometry = sharedGeometry(plan);
     const isLast = staffIndex === plans.length - 1;
     const gap = (isLast && plans.length > 1 ? SYSTEM.gap : 0) + (isLast ? systemSpacing : 0);
-    const staff: ScoreStaff = {
-      trackIndex: plan.trackIndex, mode: plan.mode, geometry, markLanes: plan.markLanes, hasHeading: staffIndex === 0, top,
-      height: geometry.height + gap,
-    };
+    const staff: ScoreStaff = { ...plan, geometry, hasHeading: staffIndex === 0, top, height: geometry.height + gap };
     top += staff.height;
     return staff;
   });
+}
+
+/** Geometries made lately, by what they are made from: the rows compare them by identity, so equal bands give the same object. */
+const GEOMETRIES = new Map<string, RowGeometry>();
+/** Past this many kinds of rows the cache starts again (a few per shown track are usual). */
+const MAX_GEOMETRIES = 512;
+
+function sharedGeometry(plan: StaffPlan): RowGeometry {
+  const key = JSON.stringify([plan.mode, plan.stringCount, plan.bands]);
+  const kept = GEOMETRIES.get(key);
+  if (kept !== undefined) {
+    return kept;
+  }
+  if (GEOMETRIES.size >= MAX_GEOMETRIES) {
+    GEOMETRIES.clear();
+  }
+  const geometry = rowGeometry(plan.mode, plan.stringCount, plan.bands);
+  GEOMETRIES.set(key, geometry);
+  return geometry;
+}
+
+/** The bands a staff makes room for in one system, from that system's bars (`row`): the whole track's, and the room the system's own annotations need. */
+export function systemBands(song: Song, plan: StaffPlan, row: RowLayout): RowBands {
+  const track = song.tracks[plan.trackIndex];
+  return track === undefined ? plan.bands : {
+    ...plan.bands,
+    ...annotationRowBands(track, row),
+  };
+}
+
+/** A system's staves: the layout's plans with the bands of the system's bars, stacked as `stackStaves` stacks them. */
+function systemStaves(song: Song, staves: readonly ScoreStaff[], rows: readonly RowLayout[]): ScoreStaff[] {
+  const plans = staves.map((staff, staffIndex): StaffPlan => {
+    const { trackIndex, mode, stringCount, markLanes } = staff;
+    return { trackIndex, mode, stringCount, markLanes, bands: systemBands(song, staff, rows[staffIndex] ?? { measures: [] }) };
+  });
+  return stackStaves(plans, stylesheetOf(song).systems.systemSpacing);
 }
 
 /** The bars of the last layout, kept to reuse those an edit left alone (an edit keeps untouched measures identical). */
@@ -243,9 +288,14 @@ export function scoreSystems(song: Song, staves: readonly ScoreStaff[], measures
   const otherNames = namesColumnWidth(song, staves, false);
   const rules = { barsPerSystem: stylesheetOf(song).systems.barsPerSystem, headers: song.measureHeaders };
   const rows = rowWidth > 0 ? layoutAlignedRows(measures, rowWidth - clefWidth - otherNames, rowWidth - clefWidth - firstNames, rules) : [];
+  let top = 0;
   const systems = rows.map((staffRows, systemIndex): ScoreSystem => {
     const namesWidth = systemIndex === 0 ? firstNames : otherNames;
-    return { rows: withDesignedBeats(song, staves, staffRows), namesWidth, headerWidth: namesWidth + clefWidth };
+    const designed = withDesignedBeats(song, staves, staffRows);
+    const ownStaves = systemStaves(song, staves, designed);
+    const system: ScoreSystem = { rows: designed, namesWidth, headerWidth: namesWidth + clefWidth, staves: ownStaves, top, height: systemHeightOf(ownStaves) };
+    top += system.height;
+    return system;
   });
   return { systems, clefWidth };
 }
@@ -263,7 +313,7 @@ export function scoreStaves(song: Song, specs: readonly StaffSpec[], chordDispla
 /** The layout of staves already stacked (`scoreStaves`): the bars laid out for their tracks and broken into systems across `rowWidth`. */
 export function layoutStaves(song: Song, staves: readonly ScoreStaff[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
   const measures = scoreMeasures(song, staves.map((staff) => staff.trackIndex), chordDisplay);
-  return { staves, systemHeight: systemHeightOf(staves), ...scoreSystems(song, staves, measures, rowWidth) };
+  return { staves, ...scoreSystems(song, staves, measures, rowWidth) };
 }
 
 /**

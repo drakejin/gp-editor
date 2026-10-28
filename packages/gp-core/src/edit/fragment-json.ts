@@ -1,8 +1,9 @@
 import { FINGERS } from '../formats/common/fingering';
 import { MAX_VELOCITY } from '../formats/common/velocity';
+import { MAX_ANNOTATION_LENGTH, isAnnotationPlacement, toAnnotation } from '../annotations/annotation-text';
 import { NO_STROKE, STROKE_VALUES, isHairpin, isOttava } from '../model/defaults';
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
-import type { Note, Stroke, StrokeDirection } from '../model/song';
+import type { Annotation, Note, Stroke, StrokeDirection } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
@@ -101,6 +102,20 @@ function parseText(value: unknown): { readonly text?: string } | null {
   return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_TEXT_LENGTH ? { text: value } : null;
 }
 
+/** No annotation, or a placed text of 1…MAX_ANNOTATION_LENGTH characters with something to show (normalized); `null` stands for invalid. */
+function parseAnnotation(value: unknown): { readonly annotation?: Annotation } | null {
+  if (value === undefined) {
+    return {};
+  }
+  const text = isRawObject(value) ? value.text : undefined;
+  const placement = isRawObject(value) ? value.placement : undefined;
+  if (typeof text !== 'string' || text.length > MAX_ANNOTATION_LENGTH || !isAnnotationPlacement(placement)) {
+    return null;
+  }
+  const annotation = toAnnotation(text, placement);
+  return annotation === undefined ? null : { annotation };
+}
+
 /** No mark, or a known one; `null` stands for invalid. */
 function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado' | 'ottava'> | null {
   const hairpin = isHairpin(value.hairpin) ? value.hairpin : undefined;
@@ -122,18 +137,21 @@ function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefine
   const stroke = parseStroke(value.stroke);
   const pickStroke = parseDirection(value.pickStroke);
   const text = parseText(value.text);
+  const annotation = parseAnnotation(value.annotation);
   const chord = value.chord === undefined ? undefined : parseChord(value.chord);
-  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null || marks === null || (value.chord !== undefined && chord === undefined)) {
+  const isMarked = text !== null && marks !== null && annotation !== null;
+  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || !isMarked || (value.chord !== undefined && chord === undefined)) {
     return undefined;
   }
-  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text, ...marks };
+  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text, ...marks, ...annotation };
 }
 
 /**
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
  * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
  * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
- * diagrams, texts up to 1024 characters, hairpins, rasgueado patterns and octave signs. Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * diagrams, texts up to 1024 characters, hairpins, rasgueado patterns, octave signs and annotations (annotations/annotation-text.ts).
+ * Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {

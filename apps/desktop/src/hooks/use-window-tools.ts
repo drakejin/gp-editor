@@ -7,6 +7,7 @@ import { type AudioTools, useAudioTools } from './use-audio-tools';
 import { type CommandPalette, type TransposePanel, useCommandPalette, useTransposePanel } from './use-command-palette';
 import { type DraftPreview, useDraftPreview } from './use-draft-preview';
 import { type DrumKey, useDrumKey } from './use-drum-key';
+import { type AnnotationEditor, useAnnotationEditor } from './use-annotation-editor';
 import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
 import { type ScalesTool, useScales } from './use-scales';
 import { type ScoreDesign, useScoreDesign } from './use-score-design';
@@ -33,6 +34,12 @@ export interface WindowTools {
   readonly openLyrics: () => void;
   /** Closes the lyrics panel; the keyboard goes back to the score as its field goes away. */
   readonly closeLyricsPanel: () => void;
+  /** Edit ▸ Annotation… (J, the palette's ✎): the cursor's beat's annotation, above the score. */
+  readonly annotationEditor: AnnotationEditor;
+  /** Opens the annotation panel on the cursor's beat (the same function after every edit, for the menu's listener). */
+  readonly openAnnotations: () => void;
+  /** Writes what was typed and closes the annotation panel; the keyboard goes back to the score. */
+  readonly closeAnnotationPanel: () => void;
   /** Tools ▸ Tuner…: the microphone runs while its panel is open. */
   readonly tuner: Tuner;
   /** GP Editor ▸ Settings… (⌘,): language, interface contrast, score paper. */
@@ -80,6 +87,12 @@ function useWindowPanels(base: WindowBase) {
     closeLyrics();
     focusScore();
   }, [closeLyrics, focusScore]);
+  const annotationEditor = useAnnotationEditor(song, state.cursor, workspace.activeTabId, dispatch);
+  const openAnnotations = useStableCallback(() => annotationEditor.open());
+  const closeAnnotationPanel = useStableCallback(() => {
+    annotationEditor.close();
+    focusScore();
+  });
   const tuner = useTuner();
   const { open: openTuner } = tuner;
   useEffect(() => subscribeTunerRequests(openTuner), [openTuner]);
@@ -91,7 +104,10 @@ function useWindowPanels(base: WindowBase) {
   const openExpressionText = useCallback(() => openCommandPalette('expression'), [openCommandPalette]);
   const scoreDesign = useScoreDesign(hasDocument, dispatch, focusScore);
   const drumKey = useDrumKey(focusScore);
-  return { scales, lyricsEditor, openLyrics, closeLyricsPanel, tuner, settingsPanel, transposePanel, commandPalette, openExpressionText, scoreDesign, drumKey };
+  return {
+    scales, lyricsEditor, openLyrics, closeLyricsPanel, annotationEditor, openAnnotations, closeAnnotationPanel, tuner, settingsPanel, transposePanel, commandPalette,
+    openExpressionText, scoreDesign, drumKey,
+  };
 }
 
 export function useWindowTools(base: WindowBase): WindowTools {

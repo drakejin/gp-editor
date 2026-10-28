@@ -1,4 +1,4 @@
-import { type Lyrics, type Song, lyricsSyllables, separateCjkSyllables } from '@gp-editor/core';
+import { type Lyrics, type Song, TRACK_ICON_IDS, lyricsSyllables, separateCjkSyllables, trackIconId } from '@gp-editor/core';
 import { sungBeats } from '../score/lyrics';
 import { t } from './i18n/i18n';
 
@@ -17,9 +17,12 @@ export function trackLyricsDraft(song: Song, trackIndex: number): LyricsDraft {
 
 const hasText = (lyrics: Lyrics | undefined): boolean => (lyrics?.text.trim() ?? '') !== '';
 
-/** The lyrics the panel opens on: the shown track's; when it has none, the first track's that has some. */
+/**
+ * The lyrics the panel opens on: the shown track's; when it has none, the first track's that has some — unless the
+ * shown track is a voice (Guitar Pro's voice icon: named like one, or so set), whose lyrics are about to be typed.
+ */
 export function initialLyricsDraft(song: Song, shownTrackIndex: number): LyricsDraft {
-  if (hasText(song.tracks[shownTrackIndex]?.lyrics)) {
+  if (hasText(song.tracks[shownTrackIndex]?.lyrics) || trackIconId(song, shownTrackIndex) === TRACK_ICON_IDS.voice) {
     return trackLyricsDraft(song, shownTrackIndex);
   }
   const sung = song.tracks.findIndex((track) => hasText(track.lyrics));

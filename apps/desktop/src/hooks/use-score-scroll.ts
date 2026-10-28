@@ -20,10 +20,11 @@ export function lineAt(layout: ScoreLayout, index: number): ScoreLine {
   return { systemIndex: Math.floor(index / staffCount), staffIndex: index % staffCount };
 }
 
-/** A line's top under the title block, and its height, in layout points. */
+/** A line's top under the title block, and its height, in layout points: its system's staff (each system its own height). */
 export function linePlace(layout: ScoreLayout, line: ScoreLine): { readonly top: number; readonly height: number } {
-  const staff = layout.staves[line.staffIndex];
-  return { top: line.systemIndex * layout.systemHeight + (staff?.top ?? 0), height: staff?.height ?? 0 };
+  const system = layout.systems[line.systemIndex];
+  const staff = system?.staves[line.staffIndex];
+  return { top: (system?.top ?? 0) + (staff?.top ?? 0), height: staff?.height ?? 0 };
 }
 
 /** The line of the system holding a bar, on a track's staves (the first staves when it is not shown); -1 for none. */
@@ -73,7 +74,7 @@ export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, s
     // Until the list says which lines it shows, the page is at the top (a file just opened, another tab).
     const { layout: shown, zoom, headerHeight, viewportHeight, topMargin } = latest.current;
     const place = linePlace(shown, lineAt(shown, cursorLine));
-    const page = { headerHeight, rowHeight: shown.systemHeight * zoom, topMargin, viewportHeight };
+    const page = { headerHeight, rowHeight: place.height * zoom, topMargin, viewportHeight };
     const isInView = visibleLines.current.size > 0 ? visibleLines.current.has(cursorLine) : isLineOnFirstScreen({ top: place.top * zoom, height: place.height * zoom }, page);
     if (!isInView) {
       listRef.current?.scrollToIndex({ index: cursorLine, viewPosition: SCROLL_POSITION, animated: false });

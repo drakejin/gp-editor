@@ -2,7 +2,7 @@
 import { DEFAULT_VELOCITY } from '../../formats/common/velocity';
 import { artificialHarmonicOffsetAtFret } from '../../formats/common/harmonics';
 import { durationTicks } from '../../model/defaults';
-import type { Grace, Note, Ottava, Stroke, Track } from '../../model/song';
+import type { Annotation, Grace, Note, Ottava, Stroke, Track } from '../../model/song';
 import { type TrackFlow, type VoiceEvent, beatKey, eventKey, noteKey } from './musicxml-flow';
 import type { NoteLyric, TrackLyrics } from './musicxml-lyrics';
 import { noteElement, pitchElement, restElement, unpitchedElement } from './musicxml-note';
@@ -78,6 +78,12 @@ function words(text: string, placement: 'above' | 'below', voice: number): XmlNo
   return element('direction', { placement }, [element('direction-type', {}, [textElement('words', text)]), textElement('voice', voice), textElement('staff', 1)]);
 }
 
+/** A musician's annotation: words in a box (what notation programs draw as a text box), its line breaks kept. */
+function annotationWords(annotation: Annotation, voice: number): XmlNode {
+  const boxed = textElement('words', annotation.text, { enclosure: 'rectangle', 'xml:space': 'preserve' });
+  return element('direction', { placement: annotation.placement }, [element('direction-type', {}, [boxed]), textElement('voice', voice), textElement('staff', 1)]);
+}
+
 /** An 8va or 15ma writes the notes lower (MusicXML's "down"), an 8vb or 15mb higher; the size counts the octave's notes. */
 const OCTAVE_SHIFTS: Readonly<Record<Ottava, readonly [type: 'down' | 'up', size: number]>> = { '8va': ['down', 8], '8vb': ['up', 8], '15ma': ['down', 15], '15mb': ['up', 15] };
 
@@ -92,13 +98,14 @@ function octaveShifts(context: PartContext, event: VoiceEvent, marks: EventMarks
   return marks.isFirstVoice && ottava !== undefined ? [octaveShift(ottava, isStop)] : [];
 }
 
-/** Directions written before the event's notes on the notation staff: beat text, octave sign, dynamics change, palm mute. */
+/** Directions written before the event's notes on the notation staff: beat text, annotation, octave sign, dynamics change, palm mute. */
 function eventDirections(context: PartContext, event: VoiceEvent, marks: EventMarks, voice: number): XmlNode[] {
   const key = eventKey(event.measureIndex, event.beatIndex, event.voiceIndex);
   const dynamic = context.flow.dynamics.get(key);
   return [
     ...octaveShifts(context, event, marks, false),
     ...(marks.isFirstVoice && event.beat.text !== undefined && event.beat.text !== '' ? [words(event.beat.text, 'above', voice)] : []),
+    ...(marks.isFirstVoice && event.beat.annotation !== undefined ? [annotationWords(event.beat.annotation, voice)] : []),
     ...(dynamic === undefined
       ? []
       : [element('direction', { placement: 'below' }, [element('direction-type', {}, [element('dynamics', {}, [element(dynamic)])]), textElement('staff', 1)])]),

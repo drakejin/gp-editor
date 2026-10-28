@@ -1,6 +1,8 @@
 import { TRACK_COLORS } from '@gp-editor/core';
 import { AA_TEXT_CONTRAST, DISTINCT_COLOR_DIFFERENCE, colorDifference, contrastRatio } from '../src/lib/contrast';
 import { hexColorText } from '../src/lib/track-color';
+import { PRINT_PALETTE } from '../src/export/paper';
+import { ANNOTATION_TINT_DIFFERENCE, annotationColors } from '../src/score/annotations';
 import { LCD_COLORS, type Palette, STRIP_COLORS, allPalettes, onChrome, paletteFor } from '../src/theme';
 
 /** Text colour → the surfaces it is drawn on, by palette role. */
@@ -108,6 +110,24 @@ describe('palettes', () => {
     });
 
     // A swatch, a track's colour strip and its bars are graphics: WCAG's 3:1 for non-text contrast.
+    expect(failing).toEqual([]);
+  });
+
+  it('draw an annotation as one on every paper and in print: its text AA in its box, the box apart from the paper and the notation', () => {
+    const papers: readonly (readonly [string, Palette])[] = [...allPalettes(), ['print', PRINT_PALETTE]];
+    const failing = papers.flatMap(([name, palette]) => {
+      const { fill, ink } = annotationColors(palette);
+      return [
+        // The text in the box.
+        contrastRatio(ink, fill) < AA_TEXT_CONTRAST ? `${name}: ink on its box ${contrastRatio(ink, fill).toFixed(2)}` : '',
+        // The box's outline (the ink) is a graphic on the paper: WCAG's 3:1 for non-text contrast.
+        contrastRatio(ink, palette.paper) < 3 ? `${name}: outline on the paper ${contrastRatio(ink, palette.paper).toFixed(2)}` : '',
+        // Tinted at a glance, and written in a colour of its own: a musician's note, not the notation.
+        colorDifference(fill, palette.paper) < ANNOTATION_TINT_DIFFERENCE ? `${name}: box looks like the paper` : '',
+        colorDifference(ink, palette.text) < DISTINCT_COLOR_DIFFERENCE ? `${name}: ink looks like the notation's` : '',
+      ].filter((problem) => problem !== '');
+    });
+
     expect(failing).toEqual([]);
   });
 

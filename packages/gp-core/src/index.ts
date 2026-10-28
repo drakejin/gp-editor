@@ -348,6 +348,9 @@ export { PLAN_SONG_TOOL, WRITE_SECTION_TOOL } from './composition/tool';
 export { parseSongPlan } from './composition/parse-plan';
 export { SONG_WRITER_CREDIT, type SongDetails, buildComposedSong } from './composition/build';
 export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
+export { ANNOTATION_PLACEMENTS, MAX_ANNOTATION_LENGTH, MAX_ANNOTATION_LINES, isAnnotationPlacement, isSameAnnotation, normalizeAnnotationText, toAnnotation } from './annotations/annotation-text';
+export { readSongAnnotations, songAnnotationsToJson } from './annotations/song-annotations';
+export { type PlacedAnnotation, hasAnnotations, moveBeatAnnotation, setBeatAnnotation, songAnnotations, withoutAnnotations } from './edit/annotations';
 export { SCALES, type ScaleDefinition } from './scales/table';
 export {
   type Alteration,

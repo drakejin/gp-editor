@@ -37,6 +37,9 @@ export interface EditionPaletteProps {
   readonly onOpenChordPanel?: () => void;
   /** The > tool opens the command palette's Expression Text (lit while it is open). */
   readonly onOpenExpressionText?: () => void;
+  /** The ✎ tool opens the annotation panel, as J does; Lyrics the lyrics panel. */
+  readonly onOpenAnnotationPanel?: () => void;
+  readonly onOpenLyrics?: () => void;
   readonly isExpressionTextOpen?: boolean;
 }
 
@@ -46,7 +49,8 @@ export interface EditionPaletteProps {
  * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
  * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDesignMode = false, hasSelection = false, onEdit, onAction, onOpenPanel, onOpenChordPanel, onOpenExpressionText, isExpressionTextOpen = false }: EditionPaletteProps) {
+function EditionPaletteView(props: EditionPaletteProps) {
+  const { palette, song, cursor, isMultivoice = false, isDesignMode = false, hasSelection = false, onEdit, onAction, onOpenPanel, isExpressionTextOpen = false } = props;
   // The groups' texts are built in the shown language (useT re-renders the palette when it changes).
   useT();
   const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode, hasSelection };
@@ -61,10 +65,8 @@ function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDes
       onAction(run.action);
     } else if (run.kind === 'panel') {
       onOpenPanel(run.panel);
-    } else if (run.kind === 'chordPanel') {
-      onOpenChordPanel?.();
-    } else if (run.kind === 'expressionText') {
-      onOpenExpressionText?.();
+    } else if (run.kind === 'chordPanel' || run.kind === 'expressionText' || run.kind === 'annotationPanel' || run.kind === 'lyricsPanel') {
+      openPanel(props, run.kind);
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }
@@ -81,6 +83,12 @@ function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDes
       ))}
     </ScrollView>
   );
+}
+
+/** A tool that opens a panel of the window: the chord diagram (K), Expression Text (>), the annotation (J), the lyrics. */
+function openPanel(props: EditionPaletteProps, kind: 'chordPanel' | 'expressionText' | 'annotationPanel' | 'lyricsPanel'): void {
+  const opens = { chordPanel: props.onOpenChordPanel, expressionText: props.onOpenExpressionText, annotationPanel: props.onOpenAnnotationPanel, lyricsPanel: props.onOpenLyrics };
+  opens[kind]?.();
 }
 
 interface GroupViewProps {

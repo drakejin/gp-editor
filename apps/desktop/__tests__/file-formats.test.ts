@@ -1,4 +1,4 @@
-import { DEFAULT_MASTER, DEFAULT_STYLESHEET, TRACK_ICON_IDS, buildAudioTrack, buildEffect, readSong, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackColor, setTrackEffects, setTrackIcon, setTrackShortName, writeSong } from '@gp-editor/core';
+import { DEFAULT_MASTER, DEFAULT_STYLESHEET, TRACK_ICON_IDS, buildAudioTrack, buildEffect, readSong, setBeatAnnotation, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackColor, setTrackEffects, setTrackIcon, setTrackShortName, writeSong } from '@gp-editor/core';
 import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, hasOwnLayout, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
@@ -22,7 +22,7 @@ describe('SAVE_FORMATS', () => {
 
     // Assert
     expect(notes[0]).toBeUndefined();
-    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits, the audio track, and the stylesheet and Design Mode layout.*RSE.*not kept/);
+    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits, the audio track, the stylesheet and Design Mode layout and the annotations.*RSE.*not kept/);
     expect(notes[2]).toMatch(/^Guitar Pro 4 keeps one voice per bar/);
     expect(notes[3]).toMatch(/^Guitar Pro 3 keeps one voice per bar.*no lyrics/);
   });
@@ -158,5 +158,17 @@ describe('saveHint', () => {
     expect(saveHint(format('gp4'), changed)).toContain('Guitar Pro 4 keeps one clef per track');
     expect(saveHint(format('gp'), changed)).toBe(format('gp').note);
     expect(saveHint(format('gp5'), twoBars)).toBeUndefined();
+  });
+});
+
+describe('saveHint and annotations', () => {
+  const song = setBeatAnnotation(makeSong([[beat(960, [note(1, 0)])]]), { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 }, { text: 'breathe', placement: 'above' });
+  const format = (id: string) => SAVE_FORMATS.find((candidate) => candidate.id === id)!;
+
+  it('says that GP5, GP4 and GP3 leave the annotations out, a .gp file keeping them', () => {
+    expect(saveHint(format('gp5'), song)).toBe('Guitar Pro 5 keeps no annotations: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp3'), song)).toContain('Guitar Pro 3 keeps no annotations');
+    expect(saveHint(format('gp'), song)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), makeSong([[beat(960, [note(1, 0)])]]))).toBeUndefined();
   });
 });

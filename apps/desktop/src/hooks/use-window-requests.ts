@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
-import { subscribeFocusRequests, subscribeHelpRequests, subscribeLyricsRequests, subscribeScalesRequests, subscribeSongWriterRequests } from '../native/gp-files';
+import {
+  subscribeAnnotationRequests, subscribeFocusRequests, subscribeHelpRequests, subscribeLyricsRequests, subscribeScalesRequests, subscribeSongWriterRequests,
+} from '../native/gp-files';
 import type { WindowBase, WindowMedia } from './use-window';
 import type { WindowTools } from './use-window-tools';
 
-/** Help ▸ Keyboard Shortcuts, View ▸ Focus / Unfocus (⇧⌘F: only the score and the transport), Edit ▸ AI Wizard ▸ Song Writer…, Tools ▸ Scales… and Edit ▸ Lyrics…. */
+/** Help ▸ Keyboard Shortcuts, View ▸ Focus / Unfocus (⇧⌘F: only the score and the transport), Edit ▸ AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Edit ▸ Lyrics… and Annotation…. */
 function useMenuRequests({ chrome }: WindowBase, tools: WindowTools): void {
   const { openShortcutSheet, toggleFocus } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
@@ -12,8 +14,9 @@ function useMenuRequests({ chrome }: WindowBase, tools: WindowTools): void {
   useEffect(() => subscribeSongWriterRequests(openSongWriter), [openSongWriter]);
   const { open: openScales } = tools.scales;
   useEffect(() => subscribeScalesRequests(openScales), [openScales]);
-  const { openLyrics } = tools;
+  const { openLyrics, openAnnotations } = tools;
   useEffect(() => subscribeLyricsRequests(openLyrics), [openLyrics]);
+  useEffect(() => subscribeAnnotationRequests(openAnnotations), [openAnnotations]);
 }
 
 /**

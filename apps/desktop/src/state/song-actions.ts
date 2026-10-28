@@ -1,10 +1,14 @@
 import {
+  type Annotation,
+  type BeatAddress,
   type Effect,
   type Lyrics,
   type MasterMix,
   type Rgb,
   type Song,
   type SongInfo,
+  moveBeatAnnotation,
+  setBeatAnnotation,
   setMasterMix,
   setSongInfo,
   setTrackBalance,
@@ -22,6 +26,9 @@ import {
   setTrackVolume,
 } from '@gp-editor/core';
 import { isOfTypes } from '../lib/type-guards';
+
+/** A beat of a track, whatever its voices (an annotation is the beat's). */
+export type TrackBeat = Omit<BeatAddress, 'voiceIndex'>;
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
 export type SongAction =
@@ -49,12 +56,19 @@ export type SongAction =
   | { readonly type: 'setMasterMix'; readonly master: MasterMix }
   /** The track's lyrics (Edit ▸ Lyrics…); a blank text takes them away. */
   | { readonly type: 'setTrackLyrics'; readonly trackIndex: number; readonly lyrics: Lyrics }
+  /** A beat's annotation added, changed or (undefined, a blank text) taken away; a bar without beats gets its rests. */
+  | { readonly type: 'setBeatAnnotation'; readonly at: TrackBeat; readonly annotation: Annotation | undefined }
+  /** A beat's annotation onto another beat (never onto one that has its own). */
+  | { readonly type: 'moveBeatAnnotation'; readonly from: TrackBeat; readonly to: TrackBeat }
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export const isSongAction = isOfTypes<SongAction>({
   setTrackProgram: true, setTrackName: true, setTrackShortName: true, setTrackColor: true, setTrackIcon: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
   setTrackCapo: true, setTrackSlashNotation: true, setTrackEffects: true, setMasterMix: true, setTrackLyrics: true, setSongInfo: true,
+  setBeatAnnotation: true, moveBeatAnnotation: true,
 });
+
+const beatAddress = (beat: TrackBeat): BeatAddress => ({ ...beat, voiceIndex: 0 });
 
 export function applySongAction(song: Song, action: SongAction): Song {
   switch (action.type) {
@@ -88,5 +102,9 @@ export function applySongAction(song: Song, action: SongAction): Song {
       return setMasterMix(song, action.master);
     case 'setSongInfo':
       return setSongInfo(song, action.info);
+    case 'setBeatAnnotation':
+      return setBeatAnnotation(song, beatAddress(action.at), action.annotation);
+    case 'moveBeatAnnotation':
+      return moveBeatAnnotation(song, beatAddress(action.from), beatAddress(action.to));
   }
 }

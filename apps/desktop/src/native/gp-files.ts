@@ -121,6 +121,8 @@ export const subscribeSongWriterRequests = menuRequests('songWriterRequested');
 export const subscribeTransposeRequests = menuRequests('transposeRequested');
 /** Edit ▸ Lyrics…. */
 export const subscribeLyricsRequests = menuRequests('lyricsRequested');
+/** Edit ▸ Annotation…: the annotation of the cursor's beat. */
+export const subscribeAnnotationRequests = menuRequests('annotationRequested');
 /** Tools ▸ Scales…. */
 export const subscribeScalesRequests = menuRequests('scalesRequested');
 /** Help ▸ Keyboard Shortcuts (⌘H). */
