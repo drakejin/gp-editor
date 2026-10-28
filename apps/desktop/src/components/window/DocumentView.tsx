@@ -1,4 +1,6 @@
+import { useStableCallback } from '../../hooks/use-stable-callback';
 import type { WindowModel } from '../../hooks/use-window';
+import type { RowHit } from '../../score/hit-test';
 import type { OpenDocument } from '../../state/editor';
 import { DocumentLayout } from '../DocumentLayout';
 import { Inspector } from '../inspector/Inspector';
@@ -60,6 +62,11 @@ function DocumentScore({ model, document }: DocumentPartProps) {
   const { base, media, tools, cursorTools, commands } = model;
   const { palette, state, chrome, dispatch } = base;
   const { trackIndex } = state;
+  // A right-click or ⌃-click on a beat: the cursor goes there and the annotation panel opens (it follows the cursor).
+  const onContextBeat = useStableCallback((hit: RowHit) => {
+    commands.editor.onPressBeat(hit, false);
+    tools.openAnnotations();
+  });
   return (
     <ScoreView
       song={tools.draftPreview.song ?? document.song}
@@ -76,6 +83,7 @@ function DocumentScore({ model, document }: DocumentPartProps) {
       header={<SongHeader song={document.song} trackIndex={trackIndex} fileName={document.fileName} palette={palette} />}
       onPressBeat={commands.editor.onPressBeat}
       onDragBeat={commands.editor.onDragBeat}
+      onContextBeat={onContextBeat}
       isDesignMode={state.isDesignMode}
       onLayoutEdit={dispatch}
     />

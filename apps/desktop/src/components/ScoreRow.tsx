@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react';
-import { type GestureResponderEvent, Pressable } from 'react-native';
+import { type GestureResponderEvent, type NativeMouseEvent, type NativeSyntheticEvent, Pressable } from 'react-native';
 import type { Song, StringAddress, Track } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
@@ -47,6 +47,8 @@ export interface ScoreRowProps {
   readonly onPress: (hit: RowHit, isExtending: boolean) => void;
   /** A drag that began in this row moved: the pointer in layout points from this row's top left (it may leave the row). */
   readonly onDrag: (rowIndex: number, x: number, y: number, trackIndex: number) => void;
+  /** A right-click or ⌃-click on a beat (the hit names this row's track): its context action, the beat's annotation. */
+  readonly onContextBeat?: (hit: RowHit) => void;
   /** Design Mode is on: the canvas's place in its system (which handles it shows) and the guideline through it. */
   readonly design?: RowDesign;
   /** A Design Mode handle was pressed, at (x, y) on this canvas (layout points); then the pointer moves, then lets go. */
@@ -89,15 +91,33 @@ interface RowPointer {
   readonly onPressIn: (event: GestureResponderEvent) => void;
   readonly onPressMove: (event: GestureResponderEvent) => void;
   readonly onPressOut: () => void;
+  readonly onAuxClick?: (event: NativeSyntheticEvent<NativeMouseEvent>) => void;
 }
 
 /** The row's press, drag and release: a Design Mode handle first (it is dragged), else a beat (and a selection drag). */
+/** The beat (and string) under a point of the canvas, in screen points, on the row's track; and the right-click that hands it to the context action. */
+function rowHits(props: ScoreRowProps): { readonly hitAt: (x: number, y: number) => RowHit | undefined; readonly onAuxClick: RowPointer['onAuxClick'] } {
+  const { row, headerWidth, geometry, zoom, trackIndex, decor, onContextBeat } = props;
+  const stringCount = props.song.tracks[trackIndex]?.strings.length ?? 6;
+  const hitAt = (x: number, y: number): RowHit | undefined => {
+    const hit = hitTestRow(placeRow(row, headerWidth + (decor?.namesWidth ?? 0)), geometry, stringCount, x / zoom, y / zoom);
+    return hit === undefined ? undefined : { ...hit, trackIndex };
+  };
+  const onAuxClick = onContextBeat === undefined ? undefined : (event: NativeSyntheticEvent<NativeMouseEvent>) => {
+    const hit = hitAt(event.nativeEvent.clientX, event.nativeEvent.clientY);
+    if (hit !== undefined) {
+      onContextBeat(hit);
+    }
+  };
+  return { hitAt, onAuxClick };
+}
+
 function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): RowPointer {
-  const { row, headerWidth, geometry, zoom, rowIndex, trackIndex, decor, onPress, onDrag } = props;
+  const { zoom, rowIndex, trackIndex, onPress, onDrag } = props;
   const dragStart = useRef<DragStart | undefined>(undefined);
   // A press on a Design Mode handle drags the handle, not a selection.
   const isDesignDrag = useRef(false);
-  const stringCount = props.song.tracks[trackIndex]?.strings.length ?? 6;
+  const { hitAt, onAuxClick } = rowHits(props);
   const onPressIn = (event: GestureResponderEvent) => {
     const { locationX, locationY, pageX, pageY, shiftKey } = event.nativeEvent;
     dragStart.current = { x: locationX, y: locationY, pageX, pageY };
@@ -107,9 +127,12 @@ function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): 
       props.onDesignPress?.(rowIndex, handle, locationX / zoom, locationY / zoom);
       return;
     }
-    const hit = hitTestRow(placeRow(row, headerWidth + (decor?.namesWidth ?? 0)), geometry, stringCount, locationX / zoom, locationY / zoom);
-    if (hit !== undefined) {
-      onPress({ ...hit, trackIndex }, shiftKey === true);
+    const hit = hitAt(locationX, locationY);
+    if (hit !== undefined && event.nativeEvent.ctrlKey === true && props.onContextBeat !== undefined) {
+      dragStart.current = undefined;
+      props.onContextBeat(hit);
+    } else if (hit !== undefined) {
+      onPress(hit, shiftKey === true);
     }
   };
   // Measured from where the mouse went down, in window points, so the pointer can be followed into other rows.
@@ -132,7 +155,7 @@ function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): 
       props.onDesignRelease?.();
     }
   };
-  return { onPressIn, onPressMove, onPressOut };
+  return { onPressIn, onPressMove, onPressOut, onAuxClick };
 }
 
 function ScoreRowView(props: ScoreRowProps) {
@@ -148,6 +171,7 @@ function ScoreRowView(props: ScoreRowProps) {
       onPressIn={pointer.onPressIn}
       onPressMove={pointer.onPressMove}
       onPressOut={pointer.onPressOut}
+      onAuxClick={pointer.onAuxClick}
       pressRetentionOffset={DRAG_RETENTION}
       style={{ width: width * zoom, height: height * zoom }}
     >
@@ -164,7 +188,7 @@ function ScoreRowView(props: ScoreRowProps) {
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth || a.height !== b.height ||
-    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.rowIndex !== b.rowIndex ||
+    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.onContextBeat !== b.onContextBeat || a.rowIndex !== b.rowIndex ||
     !sameLanes(a.markLanes, b.markLanes) || a.editedVoiceIndex !== b.editedVoiceIndex || a.hasHeading !== b.hasHeading || !sameDecor(a.decor, b.decor) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
     !isSameRange(a.selection, b.selection) || a.song.stylesheet !== b.song.stylesheet || !sameDesign(a, b)

@@ -156,6 +156,20 @@ describe('useAnnotationEditor', () => {
     expect(editor.current().draft).toMatchObject({ text: '', isEdited: false });
   });
 
+  it('keeps what was typed when it is opened again while open (a right-click on another beat)', () => {
+    // Arrange
+    const editor = renderEditor(cursorAt(0, 0));
+    act(() => editor.current().open());
+    act(() => editor.current().changeText('still here'));
+
+    // Act
+    act(() => editor.current().open());
+
+    // Assert
+    expect(editor.current().draft).toMatchObject({ text: 'still here', isEdited: true });
+    expect(editor.dispatch).not.toHaveBeenCalled();
+  });
+
   it('closes without a cursor (no document)', () => {
     const editor = renderEditor();
     act(() => editor.current().open());

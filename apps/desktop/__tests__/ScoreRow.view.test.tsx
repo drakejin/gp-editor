@@ -370,3 +370,34 @@ describe('ScoreRow in Design Mode', () => {
     expect(row.onPress).not.toHaveBeenCalled();
   });
 });
+
+describe('ScoreRow context action', () => {
+  it('hands a right-click or a ⌃-click on a beat to onContextBeat (its annotation), not to a press', () => {
+    // Arrange
+    const onContextBeat = jest.fn<void, [RowHit]>();
+    const onPress = jest.fn<void, [RowHit, boolean]>();
+    const props = { ...rowProps(SONG, 'notationAndTab', onPress), onContextBeat };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<ScoreRow {...props} />);
+    });
+    const pressable = pressableOf(renderer.root.findByType(ScoreCanvas));
+    const { x, y } = tabPoint(props, 1, 2);
+
+    // Act
+    ReactTestRenderer.act(() => pressable.props.onAuxClick({ nativeEvent: { clientX: x, clientY: y } }));
+    ReactTestRenderer.act(() => pressable.props.onPressIn({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, ctrlKey: true } }));
+
+    // Assert
+    expect(onContextBeat.mock.calls).toEqual([
+      [{ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }],
+      [{ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }],
+    ]);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('takes no right-click without a context action', () => {
+    const row = render();
+    expect(pressableOf(row.canvasNode()).props.onAuxClick).toBeUndefined();
+  });
+});

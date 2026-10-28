@@ -141,8 +141,9 @@ function useEditorActions(parts: EditorParts): AnnotationEditor {
     isOpen: draft !== undefined,
     draft,
     movable: movableAnnotation === undefined || source === undefined ? undefined : { at: source, excerpt: annotationExcerpt(movableAnnotation.text) },
+    // Open already, it follows the cursor: opening again keeps what was typed.
     open: () => {
-      if (song !== undefined && beat !== undefined) {
+      if (draft === undefined && song !== undefined && beat !== undefined) {
         home.current = { song, tabId: tab ?? home.current.tabId };
         setDraft(draftOf(song, beat, placement.current));
         setSource(beatAnnotation(song, beat) === undefined ? source : beat);

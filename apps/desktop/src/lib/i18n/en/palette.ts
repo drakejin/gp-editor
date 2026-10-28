@@ -109,7 +109,7 @@ export const EN_PALETTE = {
   'palette.tool.pickUp': 'Pick stroke up',
   'palette.tool.text': 'Text above the beat',
   'palette.tool.chord': 'Chord diagram: grid, name and chord library',
-  'palette.tool.annotation': 'Annotation: a note on the beat, in a box over or under the staves, printed',
+  'palette.tool.annotation': 'Annotation: a note on the beat, in a box over or under the staves, printed; or right-click a beat',
   'palette.tool.lyrics': 'Lyrics of a track, one syllable per note (Edit ▸ Lyrics…)',
   'palette.tool.rasgueado': 'Rasgueado: the beat strummed by each finger in turn',
   'palette.tool.pedalDown': 'Sustain pedal down (Ped.) where the beat starts',

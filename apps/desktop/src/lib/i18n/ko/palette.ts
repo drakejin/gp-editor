@@ -107,7 +107,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.tool.pickUp': '업 피킹',
   'palette.tool.text': '박 위의 텍스트',
   'palette.tool.chord': '코드 다이어그램: 그리드, 이름, 코드 라이브러리',
-  'palette.tool.annotation': '메모: 박에 남기는 메모, 보표 위나 아래 상자에 표시되고 인쇄됩니다',
+  'palette.tool.annotation': '메모: 박에 남기는 메모, 보표 위나 아래 상자에 표시되고 인쇄됩니다. 박을 오른쪽 클릭해도 됩니다',
   'palette.tool.lyrics': '트랙의 가사, 음표 하나에 음절 하나 (편집 ▸ 가사…)',
   'palette.tool.rasgueado': '라스게아도: 손가락마다 차례로 박을 긁어 칩니다',
   'palette.tool.pedalDown': '박이 시작하는 곳에서 서스테인 페달 밟기 (Ped.)',

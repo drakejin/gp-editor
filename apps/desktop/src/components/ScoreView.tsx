@@ -47,6 +47,8 @@ interface ScoreViewProps {
   readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
   /** A drag reached another beat. */
   readonly onDragBeat: (hit: RowHit) => void;
+  /** A right-click or ⌃-click on a beat: its annotation (keep the same function: the rows compare it). */
+  readonly onContextBeat?: (hit: RowHit) => void;
   /** Design Mode: handles to drag beats, bar lines and spaces, and each system's + − × (View ▸ Design Mode). */
   readonly isDesignMode?: boolean;
   /** A Design Mode drag or button: one undo step. */
@@ -74,6 +76,7 @@ interface LineView extends Pick<ScoreViewProps, 'trackIndex' | 'cursor' | 'isMul
   readonly zoom: number;
   readonly onPressRow: ScoreRowProps['onPress'];
   readonly onDragRow: ScoreRowProps['onDrag'];
+  readonly onContextBeat?: ScoreRowProps['onContextBeat'];
   readonly isDesignMode: boolean;
   readonly guide?: DesignGuide;
   readonly onDesignEdit: (action: LayoutAction) => void;
@@ -98,7 +101,7 @@ function lineRowProps(item: ScoreLine, staff: ScoreStaff, row: RowLayout, view: 
     selection: isSelectedTrack ? clipRange(view.selection, firstBar, lastBar) : undefined,
     markLanes: staff.markLanes, hasHeading: staff.hasHeading, decor: staffDecor(song, layout, item.systemIndex, item.staffIndex),
     editedVoiceIndex: editedVoiceOf(cursor, staff.trackIndex, view.isMultivoice), zoom: view.zoom, rowIndex: item.systemIndex,
-    onPress: view.onPressRow, onDrag: view.onDragRow,
+    onPress: view.onPressRow, onDrag: view.onDragRow, onContextBeat: view.onContextBeat,
     design: view.isDesignMode ? rowDesign(item, layout.staves.length, view.guide) : undefined,
     onDesignPress: view.onDesignPress, onDesignMove: view.onDesignMove, onDesignRelease: view.onDesignRelease,
   };
@@ -168,10 +171,10 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
   const onDesignEdit = useCallback((action: LayoutAction) => onLayoutEdit?.(action), [onLayoutEdit]);
   const renderLine = useCallback(
     ({ item }: ListRenderItemInfo<ScoreLine>) => renderScoreLine(item, {
-      song, layout, rowWidth, zoom, palette, trackIndex, cursor, isMultivoice, playing, playingTracks, selection, onPressRow, onDragRow,
+      song, layout, rowWidth, zoom, palette, trackIndex, cursor, isMultivoice, playing, playingTracks, selection, onPressRow, onDragRow, onContextBeat: props.onContextBeat,
       isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease,
     }),
-    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
+    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, props.onContextBeat, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
   );
   return { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged };
 }
