@@ -146,8 +146,12 @@ Guitar Pro's own files differently are listed, with that evidence, in
   then closes it (cancelling the save panel keeps it open), *Don't Save* closes it, *Cancel* (or Esc) keeps it.
   Closing the last tab shows the start screen again.
 - **Import PDF → tab**: File ▸ Import PDF… (⇧⌘I) or the start screen. Claude (Anthropic API,
-  your own key) reads the sheet music page by page — tab staves as string/fret, standard notation as pitches placed on
-  the tuning's strings — and the app builds a Guitar Pro 5 song from it and opens it. Every import is a project folder
+  your own key) reads the sheet music page by page, every staff top to bottom — guitars, bass, ukulele and banjo (tab
+  staves as string/fret, standard notation as pitches placed on the tuning's strings), drums (each drum by its General
+  MIDI name; a drum legend on the page wins), vocals with their lyrics, keyboards (a grand staff as two tracks, right
+  and left hand) and any other instrument on its General MIDI program — and the app builds a Guitar Pro 5 song from it
+  and opens it. The request is not streamed: a page the model takes more than 10 minutes to write (a dense full-band
+  page can) fails like a network error. Every import is a project folder
   in `~/Documents/GP Editor Projects/<name>/`: the original PDF, `project.json` (status, model, pages done, warnings,
   tokens used), `pages/page-NNN.json` (each page's transcription) and `<name>.gp5`. A project whose pages did not all
   come through (network, an unreadable page, a cancelled run) can be resumed from the banner or the start screen; only

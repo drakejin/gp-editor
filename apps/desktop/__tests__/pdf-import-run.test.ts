@@ -38,6 +38,57 @@ const FIRST_PAGE = {
 };
 const LATER_PAGE = { measures: [QUARTER_BAR, QUARTER_BAR] };
 
+/** A band bar: a drum beat, two sung notes with their syllables, a guitar chord. */
+function bandBar(syllables: readonly string[]) {
+  const drums = [
+    ['Bass Drum 1', 'Closed Hi-Hat'],
+    ['Closed Hi-Hat'],
+    ['Acoustic Snare', 'Closed Hi-Hat'],
+    ['Closed Hi-Hat'],
+  ];
+  return {
+    lyrics: syllables,
+    parts: [
+      {
+        track: 0,
+        beats: drums.map(names => ({
+          duration: 'quarter',
+          notes: names.map(drum => ({ drum })),
+        })),
+      },
+      {
+        track: 1,
+        beats: ['G4', 'E4'].map(pitch => ({
+          duration: 'half',
+          notes: [{ pitch }],
+        })),
+      },
+      {
+        track: 2,
+        beats: [
+          {
+            duration: 'whole',
+            notes: [
+              { string: 3, fret: 0 },
+              { string: 2, fret: 1 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+const BAND_FIRST_PAGE = {
+  song: { title: 'Band', tempo: 100 },
+  tracks: [
+    { name: 'Drums', instrument: 'drums' },
+    { name: 'Vocals', instrument: 'vocals', clef: 'treble' },
+    { name: 'Guitar', instrument: 'guitar', tuning: [], capo: 0 },
+  ],
+  measures: [bandBar(['Hel-', 'lo'])],
+};
+const BAND_LATER_PAGE = { measures: [bandBar(['good', 'bye'])] };
+
 function answer(
   input: unknown,
   usage = { input_tokens: 1000, output_tokens: 200 },
@@ -145,6 +196,48 @@ describe('runImport', () => {
     expect(second).toContain(
       'track 0: Guitar (guitar; E2 A2 D3 G3 B3 E4; capo 0)',
     );
+  });
+
+  it('imports every staff of a band page: drums, vocals with their lyrics and a guitar', async () => {
+    // Arrange
+    const run = fake(page =>
+      answer(page === 1 ? BAND_FIRST_PAGE : BAND_LATER_PAGE),
+    );
+
+    // Act
+    const finished = await runImport(project(2), run.deps, OPTIONS);
+
+    // Assert
+    expect(finished).toMatchObject({ status: 'done', warnings: [] });
+    const song = readSong(base64ToBytes(run.files.get('Etude.gp5') ?? ''));
+    const [drums, vocals, guitar] = song.tracks;
+    const channelOf = (channelId: number | undefined) =>
+      song.channels.find(channel => channel.id === channelId);
+    expect(song.tracks.map(track => track.name)).toEqual([
+      'Drums',
+      'Vocals',
+      'Guitar',
+    ]);
+    expect(drums?.isPercussion).toBe(true);
+    expect(channelOf(drums?.channelId)?.isPercussion).toBe(true);
+    const drumKeys = drums?.measures.map(measure =>
+      measure.beats.map(beat => beat.voices[0]?.notes.map(note => note.fret)),
+    );
+    expect(drumKeys?.[1]).toEqual([[42, 36], [42], [42, 38], [42]]);
+    expect(channelOf(vocals?.channelId)?.program).toBe(53);
+    const sung = vocals?.measures.flatMap(measure =>
+      measure.beats.flatMap(beat =>
+        (beat.voices[0]?.notes ?? []).map(
+          note => (vocals.strings[note.string - 1]?.tuning ?? 0) + note.fret,
+        ),
+      ),
+    );
+    expect(sung).toEqual([67, 64, 67, 64]);
+    expect(vocals?.lyrics).toEqual({ from: 1, text: 'Hel- lo good bye' });
+    expect(guitar?.measures[0]?.beats[0]?.voices[0]?.notes).toHaveLength(2);
+    const second = run.sent.find(body => body.includes('pdf-page-2')) ?? '';
+    expect(second).toContain('track 0: Drums (drums)');
+    expect(second).toContain('The lyrics are sung on track 1 (Vocals).');
   });
 
   it('backs off and asks again when the API is busy', async () => {

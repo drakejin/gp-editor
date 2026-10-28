@@ -1,4 +1,5 @@
 import { TRANSCRIPTION_TOOL, type TranscriptionPage } from '@gp-editor/core';
+import { drumStaffGuide } from '../src/pdf-import/drum-staff-guide';
 import { DEFAULT_TRANSCRIPTION_MODEL, TRANSCRIPTION_MODELS, TRANSCRIPTION_SYSTEM_PROMPT, buildTranscriptionRequest } from '../src/pdf-import/request';
 
 const FIRST_PAGE: TranscriptionPage = {
@@ -50,5 +51,76 @@ describe('buildTranscriptionRequest', () => {
     expect(text).toContain('3/4');
     expect(text).toContain('♩ = 96');
     expect(text).toContain('1 sharp');
+  });
+});
+
+const BAND_PAGE: TranscriptionPage = {
+  song: { title: 'Band', tempo: 120, lyricsTrack: 1 },
+  tracks: [
+    { name: 'Drums', instrument: 'drums', tuning: [], capo: 0 },
+    { name: 'Lead Vocals', instrument: 'vocals', tuning: [], capo: 0 },
+    { name: 'Guitar', instrument: 'guitar', tuning: [], capo: 0 },
+    { name: 'Piano (right hand)', instrument: 'keys', tuning: [], capo: 0, clef: 'treble' },
+    { name: 'Piano (left hand)', instrument: 'keys', tuning: [], capo: 0, clef: 'bass' },
+    { name: 'Violin', instrument: 'other', tuning: [], capo: 0, program: 40 },
+  ],
+  measures: [{ parts: [] }],
+};
+
+describe('the transcription prompt: every staff', () => {
+  it('asks for every staff, top to bottom, drums, vocals, keyboards and other instruments included', () => {
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain('every staff');
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain('top to bottom');
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).not.toContain('Leave out vocal');
+    for (const instrument of ['drums', 'vocals', 'keys', 'other', 'ukulele', 'banjo']) {
+      expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain(instrument);
+    }
+  });
+
+  it('makes a grand staff two keys tracks, right hand then left hand', () => {
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain('"Piano (right hand)"');
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain('"Piano (left hand)"');
+  });
+
+  it('says how to read a drum staff, from the kit the app draws drums with, and that a legend on the page wins', () => {
+    // Arrange
+    const guide = drumStaffGuide();
+
+    // Assert
+    expect(guide).toEqual(expect.arrayContaining(['  - F4 (first space), round: Bass Drum 1', '  - C5 (third space), round: Acoustic Snare', '  - G5 (space above the staff), x: Closed Hi-Hat', '  - A5 (first ledger line above), x: Crash Cymbal 1', '  - F5 (top line), x: Ride Cymbal 1', '  - D4 (space below the staff), x: Pedal Hi-Hat']));
+    for (const line of guide) {
+      expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain(line);
+    }
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain('legend');
+  });
+
+  it('leaves room for a dense full-band page and the thinking before it', () => {
+    const body = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'x', page: 1, pageCount: 1, title: 'Band' });
+    expect(body.max_tokens).toBe(64000);
+  });
+
+  it('tells a later page every track page 1 found, with its instrument, clef and program, and which track sings', () => {
+    // Act
+    const text = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'x', page: 2, pageCount: 2, title: 'Band', firstPage: BAND_PAGE }).messages[0]?.content[1]?.text ?? '';
+
+    // Assert
+    expect(text).toContain('track 0: Drums (drums)');
+    expect(text).toContain('track 1: Lead Vocals (vocals)');
+    expect(text).toContain('track 2: Guitar (guitar)');
+    expect(text).toContain('track 3: Piano (right hand) (keys; treble clef)');
+    expect(text).toContain('track 4: Piano (left hand) (keys; bass clef)');
+    expect(text).toContain('track 5: Violin (other; program 40)');
+    expect(text).toContain('The lyrics are sung on track 1 (Lead Vocals).');
+  });
+
+  it('names the first vocal track as the singing one when page 1 named none', () => {
+    const page = { ...BAND_PAGE, song: { title: 'Band' } };
+    const text = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'x', page: 2, pageCount: 2, title: 'Band', firstPage: page }).messages[0]?.content[1]?.text ?? '';
+    expect(text).toContain('The lyrics are sung on track 1 (Lead Vocals).');
+  });
+
+  it('asks page 1 for every staff’s track', () => {
+    const text = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'x', page: 1, pageCount: 2, title: 'Band' }).messages[0]?.content[1]?.text ?? '';
+    expect(text).toContain('every staff');
   });
 });
