@@ -2,6 +2,7 @@ import type { Measure } from '@gp-editor/core';
 import type { Chord, NoteHead } from './chords';
 import type { VoiceEvent } from './events';
 import { NOTATION, ORNAMENT, OTTAVA, STAFF, positionY } from './metrics';
+import type { HeadLookup } from './voice-placement';
 
 /** The measure's voices once noteheads, stems and beams are placed: what technique marks are positioned against. */
 export interface VoiceLayout {
@@ -19,6 +20,10 @@ export interface VoiceLayout {
   readonly measure: Measure;
   readonly previousMeasure?: Measure;
   readonly nextMeasure?: Measure;
+  /** The next measure's noteheads when it is on this row: slurs and slides across the bar line end on them. */
+  readonly nextHeads?: HeadLookup;
+  /** False when the previous measure is on this row: it drew the slurs and slides into this one whole. */
+  readonly isRowStart?: boolean;
   readonly color: string;
 }
 

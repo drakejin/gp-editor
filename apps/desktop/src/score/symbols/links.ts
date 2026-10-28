@@ -1,4 +1,15 @@
-import type { Beat, Measure, Note } from '@gp-editor/core';
+import type { Beat, Measure, MeasureHeader, Note } from '@gp-editor/core';
+import type { MeasureLayout } from '../../lib/layout';
+
+/**
+ * The next measure when it follows on the same row, starting at this measure's right bar line: slurs and slides into it
+ * are drawn whole, from note to note, by this measure, and it draws no half of them. At a row's end there is none, and
+ * the links run to the bar line and come in again at the next row's start.
+ */
+export interface NextInRow {
+  readonly header: MeasureHeader;
+  readonly layout: MeasureLayout;
+}
 
 /** A note joined to another by a slur, slide or tie: where it is and whether it is in the neighbouring measure. */
 export interface LinkedNote {

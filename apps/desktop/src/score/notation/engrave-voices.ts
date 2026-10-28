@@ -8,7 +8,6 @@ import {
   beamPolygons,
   flaggedChords,
   flags,
-  stemDirections,
   stemTips,
   stems,
 } from './beams';
@@ -16,11 +15,9 @@ import {
   type Chord,
   accidentals,
   dots,
-  layoutChord,
   ledgerLines,
   noteheads,
 } from './chords';
-import { separateVoices } from './collisions';
 import { drumTechniques } from './drum-techniques';
 import type { StaffNote, VoiceEvent } from './events';
 import { fingerings } from './fingering';
@@ -33,6 +30,7 @@ import { legatoMarks } from './slurs';
 import { ties } from './ties';
 import { tupletGroups, tupletMarks } from './tuplets';
 import type { VoiceLayout } from './voice-layout';
+import { type HeadLookup, layoutChords, placeVoices } from './voice-placement';
 import { voiceTint } from '../voices';
 
 export interface Highlight {
@@ -62,6 +60,8 @@ export interface VoicesContext {
   readonly isRowStart?: boolean;
   /** The voice being edited (the cursor's): the other voices are drawn faded, as Guitar Pro 8 does. */
   readonly editedVoiceIndex?: number;
+  /** The noteheads of the next measure when it is on this row: slurs and slides into it end there, not at the bar line. */
+  readonly nextHeads?: HeadLookup;
 }
 
 function isHighlighted(
@@ -149,8 +149,7 @@ export function engraveVoices(
   placed: readonly VoiceEvent[],
   context: VoicesContext,
 ): DrawCommand[] {
-  const isMultiVoice = placed.some(event => event.voiceIndex > 0);
-  const events = isMultiVoice ? separateVoices(placed) : placed;
+  const { events, isMultiVoice } = placeVoices(placed);
   const { editedVoiceIndex, palette } = context;
   const isFaded = (event: VoiceEvent) =>
     editedVoiceIndex !== undefined && event.voiceIndex !== editedVoiceIndex;
@@ -174,12 +173,7 @@ function engraveVoiceEvents(
   ink: string,
 ): DrawCommand[] {
   const groups = beamGroups(events, context.header);
-  const directions = stemDirections(events, groups, isMultiVoice);
-  const chords = events.map((event, index) =>
-    event.notes.length === 0
-      ? undefined
-      : layoutChord(event, index, directions[index] ?? 'up', context.top),
-  );
+  const chords = layoutChords(events, groups, isMultiVoice, context.top);
   const beamed = beamChords(groups, chords);
   const tips = stemTips(chords, beamed);
   const flagged = flaggedChords(chords, beamed);

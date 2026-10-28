@@ -45,6 +45,27 @@ function isSlid(slides: readonly SlideType[]): boolean {
   return slides.some(slide => slide === 'shift' || slide === 'legato');
 }
 
+/**
+ * The notehead a link ends on: in this measure, or in the next measure when that is on the row too; undefined at a row's
+ * end, where the link runs to the bar line.
+ */
+function linkedHead(
+  layout: VoiceLayout,
+  from: PlacedHead,
+  link: LinkedNote,
+): { readonly chord: Chord; readonly head: NoteHead } | undefined {
+  const { voiceIndex } = from.event;
+  const { string } = from.head.note;
+  return link.isInOtherMeasure
+    ? layout.nextHeads?.(link.beatIndex, voiceIndex, string)
+    : headOnString(layout, link.beatIndex, voiceIndex, string);
+}
+
+/** A link into the next measure at a row's end: it runs to the bar line, and the next row's start draws it coming in. */
+function runsToBarLine(layout: VoiceLayout, link: LinkedNote): boolean {
+  return link.isInOtherMeasure && layout.nextHeads === undefined;
+}
+
 function slur(
   layout: VoiceLayout,
   from: PlacedHead,
@@ -52,7 +73,8 @@ function slur(
 ): DrawCommand[] {
   const side = slurSide(from.chord, layout.isMultiVoice);
   const y1 = from.head.y + side * SLUR.offset;
-  if (link.isInOtherMeasure) {
+  const to = linkedHead(layout, from, link);
+  if (to === undefined && runsToBarLine(layout, link)) {
     return [
       halfArc(
         centre(from.head),
@@ -64,12 +86,6 @@ function slur(
       ),
     ];
   }
-  const to = headOnString(
-    layout,
-    link.beatIndex,
-    from.event.voiceIndex,
-    from.head.note.string,
-  );
   if (to === undefined) {
     return [];
   }
@@ -100,7 +116,8 @@ function slideTo(
   const x1 = from.head.x + from.head.width + SLIDE.gap;
   const y1 = from.head.y;
   const isRising = link.note.fret >= from.head.note.fret;
-  if (link.isInOtherMeasure) {
+  const to = linkedHead(layout, from, link);
+  if (to === undefined && runsToBarLine(layout, link)) {
     return [
       line(
         x1,
@@ -111,12 +128,6 @@ function slideTo(
       ),
     ];
   }
-  const to = headOnString(
-    layout,
-    link.beatIndex,
-    from.event.voiceIndex,
-    from.head.note.string,
-  );
   if (to === undefined) {
     return [];
   }
@@ -255,7 +266,7 @@ function firstOnEachString(heads: readonly PlacedHead[]): PlacedHead[] {
 export function legatoMarks(layout: VoiceLayout): DrawCommand[] {
   const heads = placedHeads(layout);
   return [
-    ...(layout.previousMeasure === undefined
+    ...(layout.previousMeasure === undefined || layout.isRowStart === false
       ? []
       : firstOnEachString(heads).flatMap(placed => incoming(layout, placed))),
     ...heads.flatMap(placed => outgoing(layout, placed)),

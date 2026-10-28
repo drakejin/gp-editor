@@ -5,6 +5,7 @@ import { fretLabel, tabFretOf } from '../lib/notation';
 import type { Palette } from '../theme';
 import { type DrawCommand, SMUFL, restGlyph } from './draw';
 import { measureRestX } from './notation/engrave-measure';
+import type { NextInRow } from './symbols/links';
 import { SLASH_GLYPHS } from './symbols/smufl';
 import { FRET_BOX, tabStringY, voiceColor } from './symbols/tab-geometry';
 import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
@@ -25,6 +26,10 @@ export interface TabContext {
   readonly previousMeasure?: Measure;
   /** For slurs and slides leaving the measure, and spans ("P.M. - - -") that go on past the bar line. */
   readonly nextMeasure?: Measure;
+  /** The next measure when it is on this row too: slurs and slides into it are drawn whole, from fret to fret. */
+  readonly nextInRow?: NextInRow;
+  /** The measure starts its row: slurs and slides from the previous measure come in here (else that measure drew them whole). */
+  readonly isRowStart?: boolean;
   /** Lanes of the effect marks, e.g. `tabMarkLanes(rowMeasures)` so each kind keeps its height across a row; default: this measure's. */
   readonly markLanes?: readonly TabMarkKind[];
   /** Y of the first (highest) string. */
