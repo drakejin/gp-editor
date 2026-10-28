@@ -327,7 +327,10 @@ struct ReactNativeView: NSViewRepresentable {
   let factory: RCTReactNativeFactory
 
   func makeNSView(context: Context) -> NSView {
-    factory.rootViewFactory.view(withModuleName: "GPEditor")
+    let view = factory.rootViewFactory.view(withModuleName: "GPEditor")
+    // The Edit menu's score commands act in the window showing it (EditMenu.swift).
+    EditMenuModel.scoreRootView = view
+    return view
   }
 
   func updateNSView(_ nsView: NSView, context: Context) {}

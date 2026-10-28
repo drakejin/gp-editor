@@ -60,10 +60,15 @@ final class EditMenuModel: ObservableObject {
     keyMonitor.map(NSEvent.removeMonitor)
   }
 
-  /// The editor's window: the main window, or while the app is not active the one that will be (the QA driver's keys
-  /// come then when the screen is locked; keyWindow and mainWindow are nil until the app is active).
+  /// The React Native root view (AppDelegate's ReactNativeView sets it): the score is in its window.
+  static weak var scoreRootView: NSView?
+
+  /// The editor's window: the one showing the React Native root view — not the MCP server's settings or log window,
+  /// which can be the main window, so ⌘D, ⌘X … there never reach the score behind it. Before that view is in a window:
+  /// the main window, or while the app is not active the one that will be (the QA driver's keys come then when the
+  /// screen is locked; keyWindow and mainWindow are nil until the app is active).
   static var editorWindow: NSWindow? {
-    NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain }
+    scoreRootView?.window ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain }
   }
 
   /// The window with the keyboard: the key window, or while the app is not active the editor's.
