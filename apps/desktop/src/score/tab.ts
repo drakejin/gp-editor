@@ -12,7 +12,7 @@ import { type TabMarkKind, engraveTabMarks } from './symbols/tab-marks';
 import { engraveTabTechniques } from './symbols/tab-notes';
 import { cursorFill } from './voices';
 
-export { type TabMarkKind, tabMarkLanes } from './symbols/tab-marks';
+export { TAB_MARK_KINDS, type TabMarkKind, tabMarkLanes } from './symbols/tab-marks';
 
 /** Where the tab staff of one measure goes and what to emphasise. Coordinates are measure-local (x = 0 at the left edge). */
 export interface TabContext {

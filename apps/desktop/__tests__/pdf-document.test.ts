@@ -2,7 +2,7 @@ import { DYNAMICS, type DynamicName, QUARTER, type Song, readSong } from '@gp-ed
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE } from '../src/export/paper';
 import { buildPdfDocument, exportStaves, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
 import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
-import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
+import { SCORE_MODES, type ScoreMode } from '../src/score/geometry';
 import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
 import { readFixture } from '../test-support/fixtures';
 import { textValues } from '../test-support/score-helpers';
@@ -298,19 +298,6 @@ describe('buildPdfDocument', () => {
     expect(textValues(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages.flatMap((page) => page.commands))).not.toContain(DYNAMIC_GLYPHS.p.text);
   });
 
-  it('keeps one row height on every page when only one bar changes dynamic, the band reserved in each row', () => {
-    // Arrange
-    const quiet = withDynamicFrom(song, 29, 1, 'p');
-
-    // Act
-    const plainPitches = rowPitches(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-    const quietPitches = rowPitches(buildPdfDocument(quiet, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-
-    // Assert
-    expect(new Set(quietPitches).size).toBe(1);
-    expect(quietPitches[0]! - plainPitches[0]!).toBeCloseTo(ROW.dynamics * PRINT_SCALE);
-  });
-
   it('prints the chord names and diagrams the screen shows, and leaves out those it hides', () => {
     // Arrange: an Am chord on bar 2's first beat.
     const [track] = song.tracks;
@@ -327,7 +314,8 @@ describe('buildPdfDocument', () => {
     // Assert
     expect(textValues(both.pages[0]!.commands)).toContain('Am');
     expect(textValues(hidden.pages[0]!.commands)).not.toContain('Am');
-    expect(rowPitches(both.pages[1]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[1]!)[0]!);
+    // The row holding the chord (the first) makes room for it.
+    expect(rowPitches(both.pages[0]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[0]!)[0]!);
     expect(buildPdfDocument(chorded, 0, 'tab', { paper: 'a4' })).toEqual(both);
   });
 

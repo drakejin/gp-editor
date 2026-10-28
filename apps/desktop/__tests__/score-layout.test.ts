@@ -12,7 +12,7 @@ import { SCORE_MODES, rowGeometry } from '../src/score/geometry';
 import { hasLyrics } from '../src/score/lyrics';
 import { hasPedals } from '../src/score/pedals';
 import { engraveRow, rowHeaderWidth } from '../src/score/row';
-import { SYSTEM, layoutScore, scoreMeasures, staffLabel, staffPlans } from '../src/score/score-layout';
+import { SYSTEM, layoutScore, scoreMeasures, staffLabel, staffPlans, systemBands } from '../src/score/score-layout';
 import { hasBends } from '../src/score/symbols/bends';
 import { tabMarkLanes } from '../src/score/tab';
 import { readFixture } from '../test-support/fixtures';
@@ -22,7 +22,7 @@ const ROW_WIDTH = 1000;
 describe('layoutScore with one track', () => {
   const song = readSong(readFixture('guitarpro5', 'canon.gp5'));
 
-  it.each(SCORE_MODES)('lays the track out as the single-track score always has (%s)', (mode) => {
+  it.each(SCORE_MODES)('lays the track out as the single-track score always has, each system with its own bands (%s)', (mode) => {
     // Arrange: what ScoreView computed before the multitrack view
     const track = song.tracks[1]!;
     const markLanes = tabMarkLanes(track.measures);
@@ -44,8 +44,12 @@ describe('layoutScore with one track', () => {
     // Assert
     expect(layout.staves).toHaveLength(1);
     expect(layout.staves[0]).toMatchObject({ trackIndex: 1, mode, geometry, markLanes, top: 0, height: geometry.height });
-    expect(layout.systems.every((system) => system.height === geometry.height && system.staves[0]?.geometry === layout.staves[0]?.geometry)).toBe(true);
-    expect(layout.systems.map((system) => system.top)).toEqual(layout.systems.map((_, i) => i * geometry.height));
+    layout.systems.forEach((system) => {
+      const own = rowGeometry(mode, track.strings.length, systemBands(song, layout.staves[0]!, system.rows[0]!));
+      expect(system.staves[0]?.geometry).toEqual(own);
+      expect(system.height).toBe(own.height);
+      expect(own.height).toBeLessThanOrEqual(geometry.height);
+    });
     expect(layout.systems.map((system) => system.rows[0])).toEqual(layoutRows(measures, ROW_WIDTH - headerWidth));
     expect(layout.systems.every((system) => system.namesWidth === 0 && system.headerWidth === headerWidth)).toBe(true);
   });
@@ -67,9 +71,10 @@ describe('layoutScore with several tracks', () => {
     expect(second!.geometry.directionsY).toBeUndefined();
     expect(second!.hasHeading).toBe(false);
     expect(first!.hasHeading).toBe(true);
-    const staffSum = layout.staves.reduce((sum, staff) => sum + staff.geometry.height, 0);
-    expect(layout.systems[0]?.height).toBe(staffSum + SYSTEM.gap);
-    expect(layout.systems[1]?.staves.map((staff) => staff.top)).toEqual(layout.staves.map((staff) => staff.top));
+    const system = layout.systems[1]!;
+    const staffSum = system.staves.reduce((sum, staff) => sum + staff.geometry.height, 0);
+    expect(system.height).toBe(staffSum + SYSTEM.gap);
+    expect(system.staves.map((staff) => staff.top)).toEqual(system.staves.map((_, i) => system.staves.slice(0, i).reduce((sum, staff) => sum + staff.height, 0)));
     expect(layout.staves.at(-1)!.height).toBe(layout.staves.at(-1)!.geometry.height + SYSTEM.gap);
   });
 
