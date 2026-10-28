@@ -35,6 +35,9 @@ export interface PdfExport {
   readonly print: () => void;
   /** The PDF of the shown track (tracks) as the view shows it, written at `path` without a panel (the MCP server's export_file). */
   readonly saveTo: (path: string) => Promise<SavedFile>;
+  /** The export panel's choice for the session: the annotations left out of the PDF, the PNG images and print. */
+  readonly hidesAnnotations: boolean;
+  readonly changeHidesAnnotations: (hides: boolean) => void;
 }
 
 /** Runs one save at a time; `write` resolves whether it saved (false: the save panel was cancelled). */
@@ -69,13 +72,15 @@ interface PrintSource {
   readonly mode: ScoreMode;
   readonly chordDisplay: ChordDisplay;
   readonly staves: readonly StaffSpec[];
+  /** The export panel's choice: print without the annotations. */
+  readonly hidesAnnotations: boolean;
 }
 
 /** The pages of an export as the view shows them (`asShown`) or in one score mode, with the staves and mode they print. */
-function exportPages({ document, trackIndex, mode, chordDisplay, staves }: PrintSource, exportMode: ExportMode) {
+function exportPages({ document, trackIndex, mode, chordDisplay, staves, hidesAnnotations }: PrintSource, exportMode: ExportMode) {
   const printed = exportStaves(staves, exportMode);
   const trackMode = exportMode === 'asShown' ? mode : exportMode;
-  const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed });
+  const pdf = buildPdfDocument(document.song, trackIndex, trackMode, { fileName: document.fileName, chordDisplay, staves: printed, hidesAnnotations });
   return { printed, trackMode, pdf };
 }
 
@@ -117,7 +122,8 @@ export function usePdfExport(
     [dispatch, format],
   );
   const { isSaving, run } = useSaveRun(close, onFailed);
-  const source = document === undefined ? undefined : { document, trackIndex, mode, chordDisplay, staves };
+  const [hidesAnnotations, changeHidesAnnotations] = useState(false);
+  const source = document === undefined ? undefined : { document, trackIndex, mode, chordDisplay, staves, hidesAnnotations };
   const save = useStableCallback((exportMode: ExportMode) => {
     if (source !== undefined) {
       run(async () => {
@@ -140,10 +146,10 @@ export function usePdfExport(
     }
   });
   const { print, saveTo } = useAsShownOutputs(source, dispatch);
-  return { ...panel, isSaving, save, savePng, print, saveTo };
+  return { ...panel, isSaving, save, savePng, print, saveTo, hidesAnnotations, changeHidesAnnotations };
 }
 
-/** File ▸ Print… and the MCP server's PDF at a path: the pages as the view shows them. */
+/** File ▸ Print… and the MCP server's PDF at a path: the pages as the view shows them (print without the annotations when the export panel leaves them out). */
 function useAsShownOutputs(source: PrintSource | undefined, dispatch: Dispatch<EditorAction>): Pick<PdfExport, 'print' | 'saveTo'> {
   // The same function after every edit, so File ▸ Print…'s listener is added once.
   const print = useStableCallback(() => {
@@ -154,7 +160,7 @@ function useAsShownOutputs(source: PrintSource | undefined, dispatch: Dispatch<E
   useEffect(() => subscribePrintRequests(print), [print]);
   const saveTo = useStableCallback((path: string) =>
     // i18n-exempt: an MCP client's error, never shown in the app
-    source === undefined ? Promise.reject(new Error('No document is open')) : writePdf(exportPages(source, 'asShown').pdf, path),
+    source === undefined ? Promise.reject(new Error('No document is open')) : writePdf(exportPages({ ...source, hidesAnnotations: false }, 'asShown').pdf, path),
   );
   return { print, saveTo };
 }

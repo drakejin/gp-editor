@@ -127,6 +127,7 @@ function DocumentSide({ model, document }: DocumentPartProps) {
       note={cursorTools.cursorNote}
       onEditNote={cursorTools.editAtCursor}
       drumKey={tools.drumKey}
+      onOpenLyrics={tools.openLyrics}
     />
   );
 }

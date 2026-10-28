@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { type Effect, type Song, type Track, type TrackIconName, abbreviateTrackName } from '@gp-editor/core';
+import { type Effect, type Lyrics, type Song, type Track, type TrackIconName, abbreviateTrackName, lyricsSyllables } from '@gp-editor/core';
 import type { DrumKey } from '../../hooks/use-drum-key';
 import { useT } from '../../hooks/use-i18n';
 import { type PanelAnchor, useAnchoredPress } from '../../hooks/use-track-info';
@@ -48,6 +48,8 @@ export interface TrackInspectorProps {
   readonly onSetTrackSlashNotation?: (trackIndex: number, hasSlashNotation: boolean) => void;
   /** View ▸ Drum Key, shown or hidden by a button for drum tracks. */
   readonly drumKey?: Pick<DrumKey, 'isOpen' | 'toggle'>;
+  /** Edit ▸ Lyrics…: the lyrics panel, opened from the track's LYRICS field. */
+  readonly onOpenLyrics?: () => void;
 }
 
 /** The effects editor's width inside the inspector's sections. */
@@ -107,6 +109,7 @@ export function TrackInspector(props: TrackInspectorProps) {
           </InspectorField>
         ) : null}
         {track.isPercussion ? null : <TuningFields {...props} capo={track.offset} />}
+        {props.onOpenLyrics === undefined ? null : <LyricsField palette={palette} lyrics={track.lyrics} onOpenLyrics={props.onOpenLyrics} />}
       </InspectorSection>
       <TrackSound palette={palette} trackIndex={trackIndex} isPercussion={track.isPercussion} instrumentName={trackInstrument(song, trackIndex)?.name} onEditInstrument={props.onEditInstrument} />
       {onSetTrackEffects === undefined ? null : (
@@ -115,6 +118,25 @@ export function TrackInspector(props: TrackInspectorProps) {
     </>
   );
 }
+
+interface LyricsFieldProps {
+  readonly palette: Palette;
+  readonly lyrics?: Lyrics;
+  readonly onOpenLyrics: () => void;
+}
+
+/** LYRICS: how many syllables the track sings from which bar (Guitar Pro's syllables), and Edit… for the lyrics panel. */
+const LyricsField = memo(function LyricsField({ palette, lyrics, onOpenLyrics }: LyricsFieldProps) {
+  const t = useT();
+  const count = lyrics === undefined ? 0 : lyricsSyllables(lyrics.text).filter((syllable) => syllable.trim() !== '').length;
+  const summary = lyrics === undefined || count === 0 ? t('tools.lyrics.none') : t('tools.inspector.lyricsSummary', { syllables: t('tools.lyrics.syllables', { count }), bar: lyrics.from });
+  return (
+    <InspectorField palette={palette} label={t('tools.inspector.lyrics')}>
+      <Text style={[styles.lyricsSummary, { color: palette.chromeText }]}>{summary}</Text>
+      <ChromeButton palette={palette} label={t('tools.inspector.editLyrics')} tooltip={t('tools.inspector.editLyricsTooltip')} fontSize={11} onPress={onOpenLyrics} />
+    </InspectorField>
+  );
+});
 
 // The sections below are memoised on what they show: an edit of the track's notes (a new track object, the same
 // name, strings, effects …) redraws only the tuning, whose suggestions read the notes.
@@ -281,4 +303,5 @@ const styles = StyleSheet.create({
   value: { fontSize: 11 },
   capo: { minWidth: 52, textAlign: 'center', fontSize: 12, fontWeight: '600' },
   tuning: { paddingHorizontal: 0, paddingTop: 4, backgroundColor: 'transparent' },
+  lyricsSummary: { flexShrink: 1, fontSize: 11, marginRight: 6 },
 });

@@ -42,6 +42,8 @@ export function FilePanels({ model }: WindowPartProps) {
           onSavePng={pdfExport.savePng}
           onClose={pdfExport.close}
           onOpenStylesheet={tools.scoreDesign.openStylesheet}
+          hidesAnnotations={pdfExport.hidesAnnotations}
+          onChangeHidesAnnotations={pdfExport.changeHidesAnnotations}
         />
       ) : null}
       {audioExport.isOpen && document !== undefined ? (

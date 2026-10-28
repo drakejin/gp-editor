@@ -315,3 +315,29 @@ describe('Inspector TRACK tab: slash notation', () => {
     expect(onSetTrackSlashNotation.mock.calls).toEqual([[0, true], [0, false]]);
   });
 });
+
+describe('Inspector TRACK tab: lyrics', () => {
+  const tooltip = 'Edit the track’s lyrics (Edit ▸ Lyrics…)';
+
+  it('says how many syllables the track sings from which bar, and opens the lyrics panel', () => {
+    // Arrange
+    const onOpenLyrics = jest.fn();
+    const sung: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, lyrics: { from: 3, text: 'Pa-per boats  on the\nsea' } })) };
+
+    // Act
+    const inspector = render({ song: sung, onOpenLyrics });
+    inspector.press(tooltip);
+
+    // Assert
+    expect(inspector.texts()).toContain('6 syllables from bar 3');
+    expect(inspector.button(tooltip)?.props.label).toBe('Edit…');
+    expect(onOpenLyrics).toHaveBeenCalled();
+  });
+
+  it('says the track has none, and still offers to write them (a vocal track starts without)', () => {
+    const inspector = render({ onOpenLyrics: jest.fn() });
+    expect(inspector.texts()).toContain('No lyrics on this track');
+    expect(inspector.button(tooltip)).toBeDefined();
+    expect(render().button(tooltip)).toBeUndefined();
+  });
+});

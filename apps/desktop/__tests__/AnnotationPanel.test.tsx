@@ -5,6 +5,9 @@ import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { setLanguage } from '../src/lib/i18n/i18n';
 import { PALETTE } from '../test-support/score-helpers';
 
+/** Every panel rendered by a test, unmounted before the language goes back to English. */
+const mounted: ReactTestRenderer.ReactTestRenderer[] = [];
+
 function render(overrides: Partial<AnnotationPanelProps> = {}) {
   const props: AnnotationPanelProps = {
     palette: PALETTE,
@@ -22,6 +25,7 @@ function render(overrides: Partial<AnnotationPanelProps> = {}) {
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<AnnotationPanel {...props} />);
   });
+  mounted.push(renderer);
   const buttons = () => renderer.root.findAllByType(ChromeButton);
   const button = (label: string) => buttons().find((found) => found.props.label === label);
   const press = (label: string) => ReactTestRenderer.act(() => button(label)?.props.onPress());
@@ -31,7 +35,10 @@ function render(overrides: Partial<AnnotationPanelProps> = {}) {
 }
 
 describe('AnnotationPanel', () => {
-  afterEach(() => setLanguage('en'));
+  afterEach(() => {
+    ReactTestRenderer.act(() => mounted.splice(0).forEach((renderer) => renderer.unmount()));
+    setLanguage('en');
+  });
 
   it('shows where the annotation is, its placement lit, its text in a multi-line field', () => {
     // Act
