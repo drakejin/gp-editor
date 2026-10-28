@@ -126,7 +126,7 @@ interface LyricsFieldProps {
 }
 
 /** LYRICS: how many syllables the track sings from which bar (Guitar Pro's syllables), and Edit… for the lyrics panel. */
-const LyricsField = memo(function LyricsField({ palette, lyrics, onOpenLyrics }: LyricsFieldProps) {
+const LyricsField = memo(function LyricsFieldView({ palette, lyrics, onOpenLyrics }: LyricsFieldProps) {
   const t = useT();
   const count = lyrics === undefined ? 0 : lyricsSyllables(lyrics.text).filter((syllable) => syllable.trim() !== '').length;
   const summary = lyrics === undefined || count === 0 ? t('tools.lyrics.none') : t('tools.inspector.lyricsSummary', { syllables: t('tools.lyrics.syllables', { count }), bar: lyrics.from });

@@ -87,16 +87,16 @@ export function useAnnotationEditor(song: Song | undefined, cursor: StringAddres
   latest.current = draft;
   useEffect(() => {
     const at = trackIndex === undefined || measureIndex === undefined || beatIndex === undefined ? undefined : { trackIndex, measureIndex, beatIndex };
-    const draft = latest.current;
-    if (draft === undefined) {
+    const shown = latest.current;
+    if (shown === undefined) {
       home.current = { song, tabId };
       return;
     }
     const isHomeTab = home.current.tabId === tabId;
     home.current = isHomeTab ? { song, tabId } : home.current;
-    const step = followStep(draft, home.current, song, at, tabId, placement.current);
+    const step = followStep(shown, home.current, song, at, tabId, placement.current);
     if (step.commit) {
-      commit(draft);
+      commit(shown);
     }
     home.current = { song, tabId };
     const { next } = step;

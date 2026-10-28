@@ -31,7 +31,7 @@ function annotate(song: Song, measureIndex: number, beatIndex: number, annotatio
   return setBeatAnnotation(song, at(measureIndex, beatIndex), annotation);
 }
 
-const layout = (measureIndex: number, width = 200): MeasureLayout => ({
+const measureLayout = (measureIndex: number, width = 200): MeasureLayout => ({
   measureIndex,
   width,
   beats: [0, 1, 2, 3].map((beatIndex) => ({ beatIndex, x: 20 + beatIndex * 45 })),
@@ -133,7 +133,7 @@ describe('annotationBands', () => {
 describe('engraveAnnotationBand', () => {
   const song = annotate(annotate(quarters(), 0, 1, { text: 'Watch the bend', placement: 'above' }), 1, 0, { text: 'two\nlines', placement: 'below' });
   const track = song.tracks[0]!;
-  const placed = [{ layout: layout(0), x: 40 }, { layout: layout(1), x: 240 }];
+  const placed = [{ layout: measureLayout(0), x: 40 }, { layout: measureLayout(1), x: 240 }];
   const band = (placement: 'above' | 'below', edge = 70) =>
     engraveAnnotationBand({ track, placed, placement, edge, palette: { ...PALETTE, annotationFill: '#FFF0B0', annotationInk: '#5C4300' } });
 
