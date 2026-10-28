@@ -1,7 +1,8 @@
 // The audio check (run.sh): nobody listens here, so each effect is checked by rendering offline (GPMixRenderer) and
 // measuring what it must change — drive adds harmonics, delay and reverb leave energy after the note, chorus makes the
 // sides differ, the cabinet takes the top end away, EQ and compressor reshape the sound, the master gain scales the
-// level — and the mix without effects is compared with the graph playback had before effects existed; the audio track's
+// level — and the mix without effects is compared with the graph playback had before effects existed; a track with
+// effects on an instrument the bank lacks renders as the shared synth plays it; the audio track's
 // checks are in audio-track-check.m (time-pitch, detune, gain, sync of the runs). Prints PASS /
 // FAIL lines and how fast the many-track songs render with and without effects; exits 1 when a check fails.
 // Usage: audio-check <bank.sf2> <song.mid> <12-track.mid> <bends.mid>
@@ -207,12 +208,7 @@ static void CheckSameAsBefore(NSData *song)
   AVAudioPCMBuffer *now = Render(song, @{}, 20);
   double rmsDb = Db(sqrt(Power(now, 0, 20) / Power(before, 0, 20)));
   double peakDb = Db(Peak(now) / Peak(before));
-  float difference = 0;
-  for (int channel = 0; channel < 2; channel++) {
-    for (AVAudioFrameCount frame = 0; frame < MIN(now.frameLength, before.frameLength); frame++) {
-      difference = MAX(difference, fabsf(now.floatChannelData[channel][frame] - before.floatChannelData[channel][frame]));
-    }
-  }
+  float difference = LargestDifference(now, before);
   Check(fabs(rmsDb) < 0.05 && fabs(peakDb) < 0.05, @"no effects = as before",
         [NSString stringWithFormat:@"20 s: RMS %+.3f dB, peak %+.3f dB, largest sample difference %.2e", rmsDb, peakDb, difference]);
 }
@@ -229,6 +225,27 @@ static void CheckBends(NSData *bends)
     same += a > 0 && fabs(a - b) <= 6 ? 1 : 0;
   }
   Check(windows > 10 && same == windows, @"bends", [NSString stringWithFormat:@"same pitch as on the shared synth in %d of %d windows", same, windows]);
+}
+
+/**
+ * A track with effects plays on samplers of its own, loaded from the bank: an instrument the bank lacks — a drum kit, a
+ * variation (GP7/8's MSB / LSB) — renders as the shared synth plays it (the standard kit, the base program), where the
+ * sampler's load used to raise an uncaught exception (error -10851) and end the app.
+ */
+static void CheckMissingInstruments(void)
+{
+  NSDictionary *strip = TrackMix(@[ Effect(@"eq", NO, @{}) ], @{});
+  NSArray<NSArray *> *songs = @[
+    @[ @"drum kit 3 (not in the bank)", ChannelMidi(9, -1, 3, @[ @36, @38, @42 ]) ],
+    @[ @"program 29, variation 77 (not in the bank)", ChannelMidi(0, 77, 29, @[ @52, @59 ]) ],
+  ];
+  for (NSArray *item in songs) {
+    AVAudioPCMBuffer *shared = Render(item[1], @{}, 2);
+    AVAudioPCMBuffer *own = Render(item[1], strip, 2);
+    float difference = LargestDifference(own, shared);
+    Check(Power(own, 0, 1) > 0 && difference < 1e-3, @"missing instrument",
+          [NSString stringWithFormat:@"%@ on a track with effects: %.1f dBFS, largest sample difference from the shared synth %.1e", item[0], Db(sqrt(Power(own, 0, 1))), difference]);
+  }
 }
 
 /** Song tracks in a renderMidi file: the SMF's tracks less the conductor. */
@@ -275,6 +292,7 @@ int main(int argc, const char *argv[])
     CheckDrive();
     CheckEffects(ChordMidi(27, @[ @45, @52, @57 ]));
     CheckBends([NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[4]]]);
+    CheckMissingInstruments();
     CheckSameAsBefore(song);
     failures += CheckAudioTrack(bankURL);
     MeasureSpeed(@"song", song);
