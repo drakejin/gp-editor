@@ -1,4 +1,4 @@
-import { type PageSetup, type Song, millimetresToPoints, pageSize, stylesheetOf } from '@gp-editor/core';
+import { type PageSetup, type Song, millimetresToPoints, pageSize, stylesheetOf, withoutAnnotations } from '@gp-editor/core';
 import { withoutExtension } from '../lib/file-name';
 import { t } from '../lib/i18n/i18n';
 import { squeezeRow } from '../lib/layout';
@@ -36,6 +36,8 @@ export interface PdfOptions {
   readonly chordDisplay?: ChordDisplay;
   /** The multitrack view's staves: with several, each system prints them all (the track and mode arguments are not used). */
   readonly staves?: readonly StaffSpec[];
+  /** Leave the musician's annotations (and the room they take) out of the pages; printed as on screen by default. */
+  readonly hidesAnnotations?: boolean;
 }
 
 /** The page's margins in points. */
@@ -271,11 +273,16 @@ function buildPage(plan: PdfPlan, systems: readonly number[], pageIndex: number)
  * numbered footer on each page. An empty song is one page.
  */
 export function buildPdfDocument(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOptions): PdfDocument {
-  const plan = planPdf(song, trackIndex, mode, options);
+  const plan = planPdf(printedSong(song, options), trackIndex, mode, options);
   return { title: plan.title, pages: plan.pages.map((systems, pageIndex) => buildPage(plan, systems, pageIndex)) };
 }
 
 /** How many pages buildPdfDocument makes, without engraving them. */
 export function pdfPageCount(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOptions): number {
-  return planPdf(song, trackIndex, mode, options).pages.length;
+  return planPdf(printedSong(song, options), trackIndex, mode, options).pages.length;
+}
+
+/** The song as the pages print it: without its annotations when the export leaves them out. */
+function printedSong(song: Song, options: PdfOptions): Song {
+  return options.hidesAnnotations === true ? withoutAnnotations(song) : song;
 }

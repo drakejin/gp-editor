@@ -103,6 +103,10 @@ export interface RowGeometry {
   readonly marksY?: number;
   /** First (highest) string of the tab staff. */
   readonly tabTop?: number;
+  /** Where annotation boxes over the staves hang from: the bottom of their band under the heading (only with `annotationsAbove`). */
+  readonly annotationsAboveBottom?: number;
+  /** Where annotation boxes under the staves hang from: the top of their band before the gap (only with `annotationsBelow`). */
+  readonly annotationsBelowTop?: number;
   readonly height: number;
 }
 
@@ -149,6 +153,9 @@ export interface RowBands {
   readonly lyricsHeight: number;
   readonly chordNamesHeight: number;
   readonly freeTextHeight: number;
+  /** Room for annotation boxes under the heading and under the staves: 0 for none (score/annotations.ts, per row). */
+  readonly annotationsAbove: number;
+  readonly annotationsBelow: number;
 }
 
 const PLAIN_ROW: RowBands = {
@@ -167,6 +174,8 @@ const PLAIN_ROW: RowBands = {
   lyricsHeight: ROW.lyrics,
   chordNamesHeight: ROW.chordNames,
   freeTextHeight: ROW.freeText,
+  annotationsAbove: 0,
+  annotationsBelow: 0,
 };
 
 type ChordBand = Pick<RowGeometry, 'chordNamesY' | 'chordDiagramsTop'> & { readonly bottom: number };
@@ -199,10 +208,23 @@ function topBands(bands: RowBands): Pick<RowGeometry, 'directionsY' | 'freeTextY
   };
 }
 
+/** The bands over the staves (topBands) under the annotations' band, which comes right under the heading. */
+function annotatedTopBands(bands: RowBands): ReturnType<typeof topBands> & Pick<RowGeometry, 'annotationsAboveBottom'> {
+  const { headingHeight, annotationsAbove } = bands;
+  const top = topBands({ ...bands, headingHeight: headingHeight + annotationsAbove });
+  return annotationsAbove > 0 ? { ...top, annotationsAboveBottom: headingHeight + annotationsAbove } : top;
+}
+
+/** The annotations' band under the staves' last band (from `y`), then the gap: the row's height. */
+function rowBottom(y: number, bands: RowBands): Pick<RowGeometry, 'annotationsBelowTop' | 'height'> {
+  const { annotationsBelow } = bands;
+  return { ...(annotationsBelow > 0 ? { annotationsBelowTop: y } : {}), height: y + annotationsBelow + ROW.gap };
+}
+
 export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Partial<RowBands> = {}): RowGeometry {
   const bands: RowBands = { ...PLAIN_ROW, ...partial };
   const { markLaneCount, hasDynamics, hasBends, hasPedals, lyricsHeight } = bands;
-  const { bottom, lyricsY: lyricsAboveY, ...top } = topBands(bands);
+  const { bottom, lyricsY: lyricsAboveY, ...top } = annotatedTopBands(bands);
   const hasLyricsBelow = bands.hasLyrics && !bands.hasLyricsAbove;
   let y = bottom;
   let notationTop: number | undefined;
@@ -226,7 +248,7 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Parti
     }
   }
   if (!showsTab(mode)) {
-    return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, height: y + ROW.gap };
+    return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, ...rowBottom(y, bands) };
   }
   y += notationTop === undefined ? 0 : bands.staffSpacing;
   const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
@@ -246,7 +268,7 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Parti
     pedalsY = y + ROW.pedalsBaseline;
     y += ROW.pedals;
   }
-  return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, marksY, tabTop, height: y + ROW.gap };
+  return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, marksY, tabTop, ...rowBottom(y, bands) };
 }
 
 /** Where a row's staves run: the notation's top line (else the tab's top string) to the tab's bottom string (else the notation's bottom line). */

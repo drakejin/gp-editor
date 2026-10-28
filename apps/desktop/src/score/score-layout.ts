@@ -3,6 +3,7 @@ import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measure
 import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { withBeatOffsets } from '../lib/system-design';
+import { annotationRowBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
 import { hasDirections } from './directions';
 import { hasDynamicChanges } from './dynamics';
@@ -104,6 +105,7 @@ function staffBands(song: Song, track: Track, markLaneCount: number, isTop: bool
     hasLyricsAbove: sheet.lyrics === 'above',
     staffSpacing: sheet.systems.staffSpacing,
     ...textBandHeights(sheet),
+    ...annotationRowBands(track, measures.map((_, measureIndex) => measureIndex)),
   };
 }
 
@@ -176,9 +178,13 @@ function sharedGeometry(plan: StaffPlan): RowGeometry {
   return geometry;
 }
 
-/** The bands a staff makes room for in one system, from that system's bars (`row`): the whole track's, in every system. */
-export function systemBands(_song: Song, plan: StaffPlan, _row: RowLayout): RowBands {
-  return plan.bands;
+/** The bands a staff makes room for in one system, from that system's bars (`row`): the whole track's, and the room the system's own annotations need. */
+export function systemBands(song: Song, plan: StaffPlan, row: RowLayout): RowBands {
+  const track = song.tracks[plan.trackIndex];
+  return track === undefined ? plan.bands : {
+    ...plan.bands,
+    ...annotationRowBands(track, row.measures.map((measure) => measure.measureIndex)),
+  };
 }
 
 /** A system's staves: the layout's plans with the bands of the system's bars, stacked as `stackStaves` stacks them. */

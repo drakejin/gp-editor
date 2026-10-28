@@ -1,4 +1,5 @@
 import { type Annotation, type Song, setBeatAnnotation } from '@gp-editor/core';
+import { buildPdfDocument, pdfPageCount } from '../src/export/pdf-document';
 import type { MeasureLayout } from '../src/lib/layout';
 import {
   ANNOTATION_BOX,
@@ -9,9 +10,14 @@ import {
   measureAnnotation,
   wrapAnnotation,
 } from '../src/score/annotations';
+import { DEFAULT_CHORD_DISPLAY } from '../src/score/chords';
 import type { DrawCommand, RectCommand, TextCommand } from '../src/score/draw';
-import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
-import { beat, makeSong, note } from '../test-support/songs';
+import { ROW, type ScoreMode, rowGeometry, stavesSpan } from '../src/score/geometry';
+import { engraveRow } from '../src/score/row';
+import { type ScoreLayout, layoutScore } from '../src/score/score-layout';
+import { engraveSystemStaff, staffDecor } from '../src/score/system-staff';
+import { PALETTE, allFinite, textValues, texts } from '../test-support/score-helpers';
+import { beat, makeSong, note, withTrack } from '../test-support/songs';
 
 const at = (measureIndex: number, beatIndex: number) => ({ trackIndex: 0, measureIndex, beatIndex, voiceIndex: 0 });
 
@@ -35,6 +41,9 @@ const layout = (measureIndex: number, width = 200): MeasureLayout => ({
 });
 
 const rects = (commands: readonly DrawCommand[]): RectCommand[] => commands.filter((command): command is RectCommand => command.kind === 'rect');
+/** A palette whose annotation ink nothing else uses, so the boxes' outlines are found by colour. */
+const INKED = { ...PALETTE, annotationFill: '#FFF0B0', annotationInk: '#5C4300' };
+const outlines = (commands: readonly DrawCommand[]) => rects(commands).filter((rect) => rect.color === INKED.annotationInk);
 
 describe('annotationColors', () => {
   it('takes the palette’s annotation colours, else its sidebar and text', () => {
@@ -125,8 +134,8 @@ describe('engraveAnnotationBand', () => {
   const song = annotate(annotate(quarters(), 0, 1, { text: 'Watch the bend', placement: 'above' }), 1, 0, { text: 'two\nlines', placement: 'below' });
   const track = song.tracks[0]!;
   const placed = [{ layout: layout(0), x: 40 }, { layout: layout(1), x: 240 }];
-  const band = (placement: 'above' | 'below', height = 60, top = 10) =>
-    engraveAnnotationBand({ track, placed, placement, top, height, palette: { ...PALETTE, annotationFill: '#FFF0B0', annotationInk: '#5C4300' } });
+  const band = (placement: 'above' | 'below', edge = 70) =>
+    engraveAnnotationBand({ track, placed, placement, edge, palette: { ...PALETTE, annotationFill: '#FFF0B0', annotationInk: '#5C4300' } });
 
   it('draws each annotation of its placement as an outlined box at its beat, its lines in the annotation ink', () => {
     // Act
@@ -142,11 +151,11 @@ describe('engraveAnnotationBand', () => {
 
   it('hangs the boxes over the staves from the band’s bottom, and under them from its top', () => {
     // Act
-    const [aboveBox] = rects(band('above', 60, 10));
-    const [belowBox] = rects(band('below', 60, 300));
+    const [aboveBox] = rects(band('above', 70));
+    const [belowBox] = rects(band('below', 300));
 
     // Assert
-    expect((aboveBox?.y ?? 0) + (aboveBox?.height ?? 0)).toBe(10 + 60 - ANNOTATION_BOX.gap);
+    expect((aboveBox?.y ?? 0) + (aboveBox?.height ?? 0)).toBe(70 - ANNOTATION_BOX.gap);
     expect(belowBox?.y).toBe(300 + ANNOTATION_BOX.gap);
     expect(texts(band('below')).map((text) => text.text)).toEqual(['two', 'lines']);
   });
@@ -154,7 +163,7 @@ describe('engraveAnnotationBand', () => {
   it('keeps boxes side by side apart, and inside the row', () => {
     // Arrange: long annotations on two neighbouring beats of the last bar.
     const crowded = annotate(annotate(quarters(), 1, 2, { text: 'a long annotation here', placement: 'above' }), 1, 3, { text: 'and another long one', placement: 'above' });
-    const commands = engraveAnnotationBand({ track: crowded.tracks[0]!, placed, placement: 'above', top: 0, height: 40, palette: PALETTE });
+    const commands = engraveAnnotationBand({ track: crowded.tracks[0]!, placed, placement: 'above', edge: 40, palette: PALETTE });
 
     // Act
     const [first, , second] = rects(commands);
@@ -166,6 +175,143 @@ describe('engraveAnnotationBand', () => {
 
   it('draws nothing for a placement without annotations', () => {
     const plain = quarters().tracks[0]!;
-    expect(engraveAnnotationBand({ track: plain, placed, placement: 'above', top: 0, height: 40, palette: PALETTE })).toEqual([]);
+    expect(engraveAnnotationBand({ track: plain, placed, placement: 'above', edge: 40, palette: PALETTE })).toEqual([]);
+  });
+});
+
+describe('rowGeometry with annotation bands', () => {
+  it.each<ScoreMode>(['notationAndTab', 'notation', 'tab'])('is the row it always was without them (%s)', (mode) => {
+    const geometry = rowGeometry(mode, 6, { hasDirections: true, hasLyrics: true, hasDynamics: true });
+    expect(rowGeometry(mode, 6, { hasDirections: true, hasLyrics: true, hasDynamics: true, annotationsAbove: 0, annotationsBelow: 0 })).toEqual(geometry);
+    expect(geometry.annotationsAboveBottom).toBeUndefined();
+    expect(geometry.annotationsBelowTop).toBeUndefined();
+  });
+
+  it.each<ScoreMode>(['notationAndTab', 'notation', 'tab'])('puts the band over the staves under the heading, and the one under them before the gap (%s)', (mode) => {
+    // Arrange
+    const plain = rowGeometry(mode, 6, { hasDirections: true, hasLyrics: true, hasPedals: true });
+
+    // Act
+    const annotated = rowGeometry(mode, 6, { hasDirections: true, hasLyrics: true, hasPedals: true, annotationsAbove: 40, annotationsBelow: 30 });
+
+    // Assert
+    expect(annotated.annotationsAboveBottom).toBe(ROW.heading + 40);
+    expect(annotated.directionsY).toBe((plain.directionsY ?? 0) + 40);
+    expect(annotated.notationTop).toBe(plain.notationTop === undefined ? undefined : plain.notationTop + 40);
+    expect(annotated.tabTop).toBe(plain.tabTop === undefined ? undefined : plain.tabTop + 40);
+    expect(annotated.annotationsBelowTop).toBe(plain.height - ROW.gap + 40);
+    expect(annotated.height).toBe(plain.height + 70);
+  });
+});
+
+/** Twelve bars of quarters; the song's annotations by bar (0-based) and placement. */
+function longSong(annotations: readonly (readonly [number, Annotation])[] = []): Song {
+  const bar = (first: number) => [0, 1, 2, 3].map((i) => beat(first + i * 960, [note(1, i)]));
+  const plain = makeSong(Array.from({ length: 12 }, (_, i) => bar(960 + i * 3840)));
+  return annotations.reduce((song, [measureIndex, annotation]) => annotate(song, measureIndex, 1, annotation), plain);
+}
+
+const systemOf = (layout: ScoreLayout, measureIndex: number) => layout.systems.findIndex((system) => system.rows[0]?.measures.some((m) => m.measureIndex === measureIndex));
+
+describe('annotation bands in the layout', () => {
+  const WIDTH = 700;
+  const above: Annotation = { text: 'Watch the bend\nsofter the second time', placement: 'above' };
+  const below: Annotation = { text: 'breathe', placement: 'below' };
+
+  it('makes room only in the systems whose bars have annotations; the others keep their height', () => {
+    // Arrange
+    const plain = layoutScore(longSong(), [{ trackIndex: 0, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, WIDTH);
+
+    // Act
+    const layout = layoutScore(longSong([[9, above], [1, below]]), [{ trackIndex: 0, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, WIDTH);
+
+    // Assert
+    const [withAbove, withBelow] = [systemOf(layout, 9), systemOf(layout, 1)];
+    const bands = annotationBands(longSong([[9, above], [1, below]]).tracks[0], [9, 1]);
+    expect(layout.systems.length).toBe(plain.systems.length);
+    expect(withAbove).not.toBe(withBelow);
+    layout.systems.forEach((system, index) => {
+      const extra = index === withAbove ? bands.above : index === withBelow ? bands.below : 0;
+      expect(system.height).toBe((plain.systems[index]?.height ?? 0) + extra);
+    });
+    expect(layout.systems[withAbove]?.top).toBe(plain.systems[withAbove]?.top === undefined ? undefined : (plain.systems[withAbove]?.top ?? 0) + (withBelow < withAbove ? bands.below : 0));
+    // The track's staves (the tallest a system can be, the PDF's bound) have both.
+    expect(layout.staves[0]?.geometry.height).toBe((plain.staves[0]?.geometry.height ?? 0) + bands.above + bands.below);
+  });
+
+  it('draws the boxes in their band, clear of the heading and the staves', () => {
+    // Arrange
+    const song = longSong([[9, above], [1, below]]);
+    const layout = layoutScore(song, [{ trackIndex: 0, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, WIDTH);
+    const engraved = (systemIndex: number) => {
+      const system = layout.systems[systemIndex]!;
+      const staff = system.staves[0]!;
+      return { staff, commands: engraveRow({ song, trackIndex: 0, row: system.rows[0]!, headerWidth: layout.clefWidth, mode: staff.mode, geometry: staff.geometry, palette: INKED, markLanes: staff.markLanes, hasHeading: true }) };
+    };
+
+    // Act
+    const top = engraved(systemOf(layout, 9));
+    const bottom = engraved(systemOf(layout, 1));
+    const neither = engraved(layout.systems.findIndex((_, i) => i !== systemOf(layout, 9) && i !== systemOf(layout, 1)));
+
+    // Assert
+    const span = (staff: typeof top.staff) => stavesSpan(staff.geometry, 6)!;
+    const [aboveBox] = outlines(top.commands);
+    expect(textValues(top.commands)).toEqual(expect.arrayContaining(['Watch the bend', 'softer the second time']));
+    expect(aboveBox!.y).toBeGreaterThanOrEqual(ROW.heading);
+    expect(aboveBox!.y + aboveBox!.height).toBeLessThan(span(top.staff).top);
+    const [belowBox] = outlines(bottom.commands);
+    expect(belowBox!.y).toBeGreaterThan(span(bottom.staff).bottom);
+    expect(belowBox!.y + belowBox!.height).toBeLessThanOrEqual(bottom.staff.geometry.height - ROW.gap);
+    expect(textValues(neither.commands)).not.toContain('breathe');
+    expect(outlines(neither.commands)).toEqual([]);
+  });
+
+  it('gives a lower staff of a multitrack system its own band, under the staff above it', () => {
+    // Arrange: the second track's bar 2 has the annotation.
+    const base = longSong();
+    const second = base.tracks[0]!.measures.map((measure) => measure.beats);
+    const song = annotate2(withTrack(base, second), { text: 'bass enters', placement: 'above' });
+    const specs = [{ trackIndex: 0, mode: 'tab' as const }, { trackIndex: 1, mode: 'tab' as const }];
+    const plain = layoutScore(withTrack(base, second), specs, DEFAULT_CHORD_DISPLAY, WIDTH);
+
+    // Act
+    const layout = layoutScore(song, specs, DEFAULT_CHORD_DISPLAY, WIDTH);
+
+    // Assert
+    const systemIndex = systemOf(layout, 1);
+    const system = layout.systems[systemIndex]!;
+    const lower = system.staves[1]!;
+    expect(system.staves[0]?.height).toBe(plain.systems[systemIndex]?.staves[0]?.height);
+    expect(lower.geometry.annotationsAboveBottom).toBeDefined();
+    const decor = staffDecor(song, layout, systemIndex, 1)!;
+    const commands = engraveSystemStaff({ song, trackIndex: 1, row: system.rows[1]!, headerWidth: layout.clefWidth, mode: 'tab', geometry: lower.geometry, palette: PALETTE, markLanes: lower.markLanes, hasHeading: false }, decor);
+    expect(textValues(commands)).toContain('bass enters');
+  });
+});
+
+/** The second track's bar 2, beat 1 annotated. */
+function annotate2(song: Song, annotation: Annotation): Song {
+  return setBeatAnnotation(song, { trackIndex: 1, measureIndex: 1, beatIndex: 0, voiceIndex: 0 }, annotation);
+}
+
+describe('annotations in the PDF', () => {
+  const song = longSong([[2, { text: 'Watch the bend', placement: 'above' }], [7, { text: 'breathe', placement: 'below' }]]);
+  const allText = (document: ReturnType<typeof buildPdfDocument>) => document.pages.flatMap((page) => textValues(page.commands));
+
+  it('prints them as the screen draws them', () => {
+    const document = buildPdfDocument(song, 0, 'notationAndTab', { fileName: 'a.gp' });
+    expect(allText(document)).toEqual(expect.arrayContaining(['Watch the bend', 'breathe']));
+  });
+
+  it('leaves them and their room out when the export asks', () => {
+    // Act
+    const document = buildPdfDocument(song, 0, 'notationAndTab', { fileName: 'a.gp', hidesAnnotations: true });
+
+    // Assert
+    expect(allText(document)).not.toContain('Watch the bend');
+    expect(allText(document)).not.toContain('breathe');
+    expect(document).toEqual(buildPdfDocument(longSong(), 0, 'notationAndTab', { fileName: 'a.gp' }));
+    expect(pdfPageCount(song, 0, 'notationAndTab', { fileName: 'a.gp', hidesAnnotations: true })).toBe(pdfPageCount(longSong(), 0, 'notationAndTab', { fileName: 'a.gp' }));
   });
 });

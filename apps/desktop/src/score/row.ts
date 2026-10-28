@@ -8,6 +8,7 @@ import { engraveDynamics } from './dynamics';
 import { engraveHairpins } from './hairpins';
 import { engraveNotationExpressions } from './notation-expressions';
 import { engravePedals } from './pedals';
+import { engraveAnnotationBand } from './annotations';
 import { engraveChords } from './chords';
 import { engraveFreeTexts } from './free-text';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab, stavesSpan } from './geometry';
@@ -78,7 +79,19 @@ export function engraveRow(context: RowContext): DrawCommand[] {
     return [];
   }
   const placed = placeRow(context.row, context.headerWidth);
-  return [...rowHeader(context, track, placed), ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0, placed[i + 1]?.layout))];
+  return [
+    ...rowHeader(context, track, placed),
+    ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0, placed[i + 1]?.layout)),
+    ...engraveRowAnnotations(context, track, placed),
+  ];
+}
+
+/** The row's annotations in their bands over and under the staves (score/annotations.ts), over everything else drawn. */
+function engraveRowAnnotations(context: RowContext, track: Track, placed: readonly PlacedMeasure[]): DrawCommand[] {
+  const { annotationsAboveBottom, annotationsBelowTop } = context.geometry;
+  const band = (placement: 'above' | 'below', edge: number | undefined) =>
+    edge === undefined ? [] : engraveAnnotationBand({ track, placed, placement, edge, palette: context.palette });
+  return [...band('above', annotationsAboveBottom), ...band('below', annotationsBelowTop)];
 }
 
 function rowHeader(context: RowContext, track: Track, placed: readonly PlacedMeasure[]): DrawCommand[] {

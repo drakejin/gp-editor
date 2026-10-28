@@ -2,6 +2,7 @@ import type { Annotation, AnnotationPlacement, Track } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
+import type { RowBands } from './geometry';
 
 /** An annotation's box (a musician's note on the score), in layout points. */
 export const ANNOTATION_BOX = {
@@ -133,6 +134,12 @@ export function annotationBands(track: Track | undefined, measureIndexes: readon
   return { above: band(heights.above), below: band(heights.below) };
 }
 
+/** The bands as a row's geometry takes them (RowBands): the room for the bars' annotations over and under the staves. */
+export function annotationRowBands(track: Track | undefined, measureIndexes: readonly number[]): Pick<RowBands, 'annotationsAbove' | 'annotationsBelow'> {
+  const { above, below } = annotationBands(track, measureIndexes);
+  return { annotationsAbove: above, annotationsBelow: below };
+}
+
 /** A box and where it goes across the row. */
 interface PlacedBox extends AnnotationBox {
   readonly x: number;
@@ -187,9 +194,8 @@ export interface AnnotationBandInput {
   /** The row's measures with their x (row.ts' placeRow). */
   readonly placed: readonly RowMeasure[];
   readonly placement: AnnotationPlacement;
-  /** The band's top and height (the row's geometry). */
-  readonly top: number;
-  readonly height: number;
+  /** Where the boxes hang from: the band's bottom over the staves, its top under them (the row's geometry). */
+  readonly edge: number;
   readonly palette: Palette;
 }
 
@@ -197,7 +203,7 @@ export interface AnnotationBandInput {
  * The row's annotations of one placement as outlined boxes in the annotation colours, their lines inside: over the
  * staves they hang from the band's bottom (near the staff), under them from its top.
  */
-export function engraveAnnotationBand({ track, placed, placement, top, height, palette }: AnnotationBandInput): DrawCommand[] {
+export function engraveAnnotationBand({ track, placed, placement, edge, palette }: AnnotationBandInput): DrawCommand[] {
   const first = placed[0];
   const last = placed.at(-1);
   const boxes = rowBoxes(track, placed, placement);
@@ -206,6 +212,6 @@ export function engraveAnnotationBand({ track, placed, placement, top, height, p
   }
   const { gap } = ANNOTATION_BOX;
   return spreadBoxes(boxes, first.x, last.x + last.layout.width).flatMap((box) =>
-    engraveBox(box, placement === 'above' ? top + height - gap - box.height : top + gap, palette),
+    engraveBox(box, placement === 'above' ? edge - gap - box.height : edge + gap, palette),
   );
 }
