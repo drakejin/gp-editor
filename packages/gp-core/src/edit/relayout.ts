@@ -1,11 +1,6 @@
-import { measureTicks } from '../model/defaults';
+import { headerTicks } from '../model/defaults';
 import { type Measure, type MeasureHeader, QUARTER_TIME, type Song, type Track } from '../model/song';
 import { hasSameItems } from './song-paths';
-
-/** Length of a header's measure in ticks. */
-export function headerTicks(header: MeasureHeader): number {
-  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
-}
 
 function moveMeasure(measure: Measure, headerIndex: number, delta: number): Measure {
   if (delta === 0 && measure.headerIndex === headerIndex) {

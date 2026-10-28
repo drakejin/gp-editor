@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { positionAt, readSong, renderMidi } from '../src/index';
+import { type TimelineEntry, positionAt, readSong, renderMidi } from '../src/index';
 import { buildPlaybackOrder } from '../src/midi/playback-order';
 import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
 import { playedNotes, readMidi } from './helpers/midi-reader';
@@ -28,6 +28,23 @@ function readable(folder: FixtureFolder, name: string): ReturnType<typeof readSo
   }
 }
 
+/** Each entry at its measure's tick, in time order, and found again by its time. */
+function timelineViolations(song: ReturnType<typeof readSong>, timeline: readonly TimelineEntry[]): string[] {
+  return timeline.flatMap((entry, index) => {
+    const problems: string[] = [];
+    if (entry.tick !== song.measureHeaders[entry.headerIndex]?.start) {
+      problems.push(`entry ${index}: tick ${entry.tick}`);
+    }
+    if (!(entry.seconds >= (timeline[index - 1]?.seconds ?? 0))) {
+      problems.push(`entry ${index}: ${entry.seconds} s before the entry before`);
+    }
+    if (positionAt(timeline, entry.seconds)?.headerIndex !== entry.headerIndex) {
+      problems.push(`entry ${index}: found at another measure`);
+    }
+    return problems;
+  });
+}
+
 describe('renderMidi fixture sweep', () => {
   it('finds fixtures in every committed folder', () => {
     // Assert
@@ -50,15 +67,10 @@ describe('renderMidi fixture sweep', () => {
     expect(file.division).toBe(960);
     expect(file.tracks).toHaveLength(song.tracks.length + 1);
     expect(render.timeline).toHaveLength(buildPlaybackOrder(song.measureHeaders, 0).length);
-    render.timeline.forEach((entry, index) => {
-      expect(entry.tick).toBe(song.measureHeaders[entry.headerIndex]?.start);
-      expect(entry.seconds).toBeGreaterThanOrEqual(render.timeline[index - 1]?.seconds ?? 0);
-      expect(positionAt(render.timeline, entry.seconds)?.headerIndex).toBe(entry.headerIndex);
-    });
+    // Gathered and checked once: an expect per entry and per note made the large files slow.
+    expect(timelineViolations(song, render.timeline)).toEqual([]);
     expect(render.durationSeconds).toBeGreaterThanOrEqual(render.timeline.at(-1)?.seconds ?? 0);
-    for (const played of playedNotes(file)) {
-      expect(played.end, `${played.key}@${played.start}`).toBeDefined();
-      expect(played.end ?? 0).toBeGreaterThan(played.start);
-    }
+    const unended = playedNotes(file).filter((played) => !(played.end !== undefined && played.end > played.start));
+    expect(unended.map((played) => `${played.key}@${played.start}`)).toEqual([]);
   });
 });

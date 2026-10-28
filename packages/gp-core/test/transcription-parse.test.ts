@@ -4,12 +4,14 @@ import { parseTranscriptionPage } from '../src/transcription/parse-page';
 import {
   MAX_TRANSCRIBED_BEATS,
   MAX_TRANSCRIBED_MEASURES,
+  MAX_TRANSCRIBED_NAME_LENGTH,
+  MAX_TRANSCRIBED_TUNING_STRINGS,
   MAX_TRANSCRIBED_NOTES,
   MAX_TRANSCRIBED_PARTS,
   MAX_TRANSCRIBED_TRACKS,
 } from '../src/transcription/types';
 import { TRANSCRIPTION_TOOL } from '../src/transcription/tool';
-import { BASS, GUITAR, bar, page, play, rest, run, tab, written } from './helpers/transcription-pages';
+import { BASS, DRUMS, GUITAR, PIANO_LEFT, PIANO_RIGHT, VOCALS, bar, drum, page, play, rest, run, tab, written } from './helpers/transcription-pages';
 
 /** A measure as raw JSON, with one part for track 0. */
 function rawBar(beats: readonly unknown[], extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -252,7 +254,7 @@ describe('parseTranscriptionPage: harmless values are normalized', () => {
     // Act
     const parsed = parseTranscriptionPage({
       tracks: [
-        { name: 7, instrument: 'banjo', tuning: 'standard', capo: 'none' },
+        { name: 7, instrument: 'kazoo', tuning: 'standard', capo: 'none' },
         { name: ' Bass ', instrument: 'bass', tuning: ['E1', 33, ' D2 '], capo: 30 },
         { name: 'Capo', instrument: 'guitar', tuning: [], capo: 2.6 },
       ],
@@ -261,7 +263,7 @@ describe('parseTranscriptionPage: harmless values are normalized', () => {
 
     // Assert
     expect(parsed.tracks).toEqual([
-      { name: '', instrument: 'guitar', tuning: [], capo: 0 },
+      { name: '', instrument: 'other', tuning: [], capo: 0 },
       { name: 'Bass', instrument: 'bass', tuning: ['E1', '33', 'D2'], capo: 24 },
       { name: 'Capo', instrument: 'guitar', tuning: [], capo: 3 },
     ]);
@@ -318,7 +320,7 @@ describe('parseTranscriptionPage: structural problems throw a TranscriptionError
     const error = errorOf({ measures: [rawBar([{ duration: 'quarter', notes: [{ string: 1, fret: 0 }, note] }])] });
 
     // Assert
-    expect(error.message).toBe('measures[0].parts[0].beats[0].notes[1]: expected a string and fret, or a pitch such as "C#4"');
+    expect(error.message).toBe('measures[0].parts[0].beats[0].notes[1]: expected a string and fret, a pitch such as "C#4" or a drum such as "Acoustic Snare"');
   });
 
   it('rejects a note that is not an object', () => {
@@ -358,5 +360,119 @@ describe('parseTranscriptionPage: structural problems throw a TranscriptionError
 
     // Assert
     expect(error.message).toBe('measures[0].timeSignature: expected a numerator 1–32 over a denominator 1, 2, 4, 8, 16 or 32');
+  });
+});
+
+describe('parseTranscriptionPage: every kind of staff', () => {
+  it('returns a full band page as it was given: drums, guitars, bass, vocals and both hands of a piano', () => {
+    // Arrange
+    const value = page(
+      [
+        {
+          parts: [
+            { track: 0, beats: [play('quarter', drum('Bass Drum 1'), drum('Closed Hi-Hat', { effects: ['accent'] })), play('quarter', drum('Acoustic Snare', { effects: ['ghostNote'] }))] },
+            { track: 1, beats: [play('half', tab(6, 0))] },
+            { track: 2, beats: [play('half', written('E2'))] },
+            { track: 3, beats: [play('quarter', written('G4')), rest('quarter')] },
+            { track: 4, beats: [play('half', written('C5'), written('E5'), written('G5'))] },
+            { track: 5, beats: [play('half', written('C3'), written('G3'))] },
+          ],
+          lyrics: ['Love'],
+        },
+      ],
+      { song: { lyricsTrack: 3 }, tracks: [DRUMS, GUITAR, BASS, VOCALS, PIANO_RIGHT, PIANO_LEFT] },
+    );
+
+    // Act
+    const parsed = parseTranscriptionPage(JSON.parse(JSON.stringify(value)));
+
+    // Assert
+    expect(parsed).toEqual(value);
+  });
+
+  it('reads a drum by its General MIDI name in any case, and keeps the name as General MIDI spells it', () => {
+    expect(parseNote({ drum: ' closed hi-hat ' })).toEqual({ drum: 'Closed Hi-Hat' });
+    expect(parseNote({ drum: 'RIDE BELL', effects: ['accent', 'accent'] })).toEqual({ drum: 'Ride Bell', effects: ['accent'] });
+  });
+
+  it('rejects a note that names an unknown drum and has nothing else to read', () => {
+    expect(() => parseNote({ drum: 'Kick' })).toThrow(/a drum/);
+    expect(() => parseNote({ drum: 36 })).toThrow(TranscriptionError);
+  });
+
+  it('keeps a pitch or a tab position given beside an unknown drum', () => {
+    expect(parseNote({ drum: 'Kick', pitch: 'F4' })).toEqual({ pitch: 'F4' });
+  });
+
+  it('reads each instrument, a General MIDI program rounded into 0–127 and a treble or bass clef', () => {
+    // Act
+    const parsed = parseTranscriptionPage({
+      tracks: [
+        { name: 'Violin', instrument: 'other', program: 40.4, clef: 'treble' },
+        { name: 'Tuba', instrument: 'other', program: 200, clef: 'bass' },
+        { name: 'Synth', instrument: 'keys', program: -3, clef: 'alto' },
+        { name: 'Uke', instrument: 'ukulele', tuning: ['G4', 'C4', 'E4', 'A4'] },
+        { name: 'Banjo', instrument: 'banjo', program: 'banjo' },
+        { name: 'Drums', instrument: 'drums' },
+        { name: 'Voice', instrument: 'vocals' },
+      ],
+      measures: [],
+    });
+
+    // Assert
+    expect(parsed.tracks).toEqual([
+      { name: 'Violin', instrument: 'other', tuning: [], capo: 0, program: 40, clef: 'treble' },
+      { name: 'Tuba', instrument: 'other', tuning: [], capo: 0, program: 127, clef: 'bass' },
+      { name: 'Synth', instrument: 'keys', tuning: [], capo: 0, program: 0 },
+      { name: 'Uke', instrument: 'ukulele', tuning: ['G4', 'C4', 'E4', 'A4'], capo: 0 },
+      { name: 'Banjo', instrument: 'banjo', tuning: [], capo: 0 },
+      { name: 'Drums', instrument: 'drums', tuning: [], capo: 0 },
+      { name: 'Voice', instrument: 'vocals', tuning: [], capo: 0 },
+    ]);
+  });
+});
+
+describe('parseTranscriptionPage: odd tracks', () => {
+  it('reads an instrument it does not know as the kind it names, else as other, and says so', () => {
+    // Act
+    const parsed = parseTranscriptionPage({
+      tracks: [
+        { name: 'Piano', instrument: 'piano' },
+        { name: 'Violin', instrument: 'Violin' },
+        { name: 'Lead', instrument: 'lead vocal' },
+        { name: 'Kit', instrument: 'drum kit' },
+        { name: 'Rhythm', instrument: 'electric guitar' },
+        { name: 'Uke', instrument: 'uke' },
+        { name: 'Low', instrument: 'BASS' },
+        { name: 'Missing' },
+      ],
+      measures: [],
+    });
+
+    // Assert
+    expect(parsed.tracks?.map((track) => track.instrument)).toEqual(['keys', 'other', 'vocals', 'drums', 'guitar', 'ukulele', 'bass', 'guitar']);
+    expect(parsed.warnings).toEqual([
+      'Track 1 (Piano): instrument "piano" read as keys',
+      'Track 2 (Violin): instrument "Violin" read as other',
+      'Track 3 (Lead): instrument "lead vocal" read as vocals',
+      'Track 4 (Kit): instrument "drum kit" read as drums',
+      'Track 5 (Rhythm): instrument "electric guitar" read as guitar',
+      'Track 6 (Uke): instrument "uke" read as ukulele',
+      'Track 7 (Low): instrument "BASS" read as bass',
+    ]);
+  });
+
+  it('cuts an endless tuning and an endless name, so an answer cannot make them allocate without bound', () => {
+    // Act
+    const parsed = parseTranscriptionPage({
+      tracks: [{ name: 'N'.repeat(10000), instrument: 'guitar', tuning: Array.from({ length: 10000 }, () => 'E2'.repeat(100)) }],
+      measures: [],
+    });
+
+    // Assert
+    const [track] = parsed.tracks ?? [];
+    expect(track?.name).toHaveLength(MAX_TRANSCRIBED_NAME_LENGTH);
+    expect(track?.tuning).toHaveLength(MAX_TRANSCRIBED_TUNING_STRINGS);
+    expect(track?.tuning.every((text) => text.length <= 8)).toBe(true);
   });
 });

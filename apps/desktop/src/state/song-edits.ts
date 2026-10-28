@@ -13,9 +13,11 @@ import {
   type Voice,
   deleteBeat,
   deleteBeatNotes,
-  deleteMeasure,
+  deleteMeasures,
   deleteNote,
+  deleteRunNotes,
   findNote,
+  findVoice,
   insertBeat,
   insertMeasure,
   isSameTuplet,
@@ -27,8 +29,12 @@ import {
   setBeatText,
   tupletOf,
 } from '@gp-editor/core';
-import { type BarEdit, applyBarEdit } from './bar-edits';
+import { type BarEdit, applyBarEdit, isBarEdit } from './bar-edits';
+import { type BeatPlace, type MarkEdit, applyMarkEdit, isMarkEdit } from './mark-edits';
+import { type NotationEdit, applyNotationEdit, isNotationEdit } from './notation-edits';
 import { type NoteEdit, applyNoteEdit } from './note-edits';
+import { type VoiceEdit, applyVoiceEdit } from './voice-edits';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Duration edits of the cursor's beat (in the cursor's voice). */
 type DurationEdit =
@@ -40,7 +46,9 @@ type DurationEdit =
   | { readonly type: 'setTuplet'; readonly enters: number }
   /** A tuplet of `enters` notes inside the beat's tuplet (tupletOf); 1 = none. Only on a beat in a tuplet. */
   | { readonly type: 'setInnerTuplet'; readonly enters: number }
-  | { readonly type: 'toggleInnerTriplet' };
+  | { readonly type: 'toggleInnerTriplet' }
+  /** A whole duration at once, one undo step (the MCP server's set_duration): note value, dots, `enters` of tupletOf (1 = none). */
+  | { readonly type: 'setDuration'; readonly value: NoteValue; readonly dots: 0 | 1 | 2; readonly tuplet: number };
 
 /** Edits of the cursor's beat and voice. */
 type BeatEdit =
@@ -60,8 +68,14 @@ export type SongEdit =
   | BeatEdit
   | NoteEdit
   | BarEdit
+  | MarkEdit
+  | NotationEdit
+  | VoiceEdit
   | { readonly type: 'insertMeasure' }
-  | { readonly type: 'deleteMeasure' }
+  /** The cursor's bar, or every bar from `from` (the selection's start) to it, in one undo step (Guitar Pro's − Bar, ⌘D). */
+  | { readonly type: 'deleteMeasure'; readonly from?: BeatPlace }
+  /** D: the note at the cursor, or every note of the beats from `from` (the selection's start) to it in its voice; the beats stay as rests. */
+  | { readonly type: 'deleteNotes'; readonly from?: BeatPlace }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
   | { readonly type: 'erase' };
 
@@ -74,54 +88,48 @@ export function beatAddress(cursor: StringAddress): BeatAddress {
   return { trackIndex, measureIndex, beatIndex, voiceIndex };
 }
 
+/** The cursor's voice; voices 3 and 4 of a beat read from a GP3–GP5 file are empty voices. */
 export function cursorVoice(
   song: Song,
   cursor: StringAddress,
 ): Voice | undefined {
-  return song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[
-    cursor.beatIndex
-  ]?.voices[cursor.voiceIndex];
+  return findVoice(song, cursor);
 }
 
+const isDurationEdit = isOfTypes<DurationEdit>({
+  setNoteValue: true, shiftNoteValue: true, toggleDot: true, toggleTriplet: true, setTuplet: true, setInnerTuplet: true, toggleInnerTriplet: true, setDuration: true,
+});
+const isBeatEdit = isOfTypes<BeatEdit>({ insertBeat: true, deleteBeat: true, makeRest: true, setStroke: true, setPickStroke: true, setBeatText: true, setBeatChord: true });
+
 /** Applies one cursor edit to the song. */
-export function applySongEdit(
-  song: Song,
-  cursor: StringAddress,
-  edit: SongEdit,
-): Song {
+export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit): Song {
+  if (isDurationEdit(edit)) {
+    return editDuration(song, cursor, edit);
+  }
+  if (isBeatEdit(edit)) {
+    return editBeat(song, beatAddress(cursor), edit);
+  }
+  if (isBarEdit(edit)) {
+    return applyBarEdit(song, cursor, edit);
+  }
+  if (isNotationEdit(edit)) {
+    return applyNotationEdit(song, cursor, edit);
+  }
+  if (isMarkEdit(edit)) {
+    return applyMarkEdit(song, cursor, edit);
+  }
   switch (edit.type) {
-    case 'setNoteValue':
-    case 'shiftNoteValue':
-    case 'toggleDot':
-    case 'toggleTriplet':
-    case 'setTuplet':
-    case 'setInnerTuplet':
-    case 'toggleInnerTriplet':
-      return editDuration(song, cursor, edit);
-    case 'insertBeat':
-    case 'deleteBeat':
-    case 'makeRest':
-    case 'setStroke':
-    case 'setPickStroke':
-    case 'setBeatText':
-    case 'setBeatChord':
-      return editBeat(song, beatAddress(cursor), edit);
     case 'erase':
       return erase(song, cursor);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
-      return deleteMeasure(song, cursor.measureIndex);
-    case 'shiftTimeSignature':
-    case 'shiftTempo':
-    case 'shiftKeySignature':
-    case 'toggleRepeatOpen':
-    case 'toggleRepeatClose':
-    case 'toggleAlternateEnding':
-    case 'shiftRepeatCount':
-    case 'setTripletFeel':
-    case 'setSection':
-      return applyBarEdit(song, cursor, edit);
+      return deleteMeasures(song, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
+    case 'deleteNotes':
+      // Without a selection, the cursor's note alone; a note tied to a deleted one sounds again either way.
+      return deleteRunNotes(song, { ...beatAddress(cursor), ...edit.from }, beatAddress(cursor), edit.from === undefined ? [cursor.string] : undefined);
+    case 'moveToVoice':
+      return applyVoiceEdit(song, cursor, edit);
     default:
       return applyNoteEdit(song, cursor, edit);
   }
@@ -204,7 +212,15 @@ function nextDuration(
     }
     case 'toggleInnerTriplet':
       return isInTuplet(current) ? withInnerTuplet(current, isInnerTriplet(current) ? NORMAL_TUPLET : TRIPLET) : undefined;
+    case 'setDuration':
+      return typedDuration(current, edit.value, edit.dots, edit.tuplet);
   }
+}
+
+/** The duration typed as a whole; a tuplet inside the old one stays inside the new one (withTuplet). */
+function typedDuration(current: Duration, value: NoteValue, dots: 0 | 1 | 2, enters: number): Duration | undefined {
+  const tuplet = tupletOf(enters);
+  return tuplet === undefined ? undefined : withTuplet({ ...current, value, dotted: dots === 1, doubleDotted: dots === 2 }, tuplet);
 }
 
 /** True when the beat is in a tuplet (so a tuplet may go inside it). */

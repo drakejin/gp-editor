@@ -69,7 +69,7 @@ export const GM_BANJO_PROGRAM = 105;
 const GM_PERCUSSION_FIRST_KEY = 35;
 
 /** General MIDI percussion sounds, keys 35–81 (GM 1 sound set), the fret of a drum note. */
-const GM_PERCUSSION_NAMES: readonly string[] = [
+export const GM_PERCUSSION_NAMES: readonly string[] = [
   'Acoustic Bass Drum', 'Bass Drum 1', 'Side Stick', 'Acoustic Snare', 'Hand Clap', 'Electric Snare', 'Low Floor Tom',
   'Closed Hi-Hat', 'High Floor Tom', 'Pedal Hi-Hat', 'Low Tom', 'Open Hi-Hat', 'Low-Mid Tom', 'Hi-Mid Tom',
   'Crash Cymbal 1', 'High Tom', 'Ride Cymbal 1', 'Chinese Cymbal', 'Ride Bell', 'Tambourine', 'Splash Cymbal',
@@ -109,4 +109,11 @@ export const GM_DRUM_KEYS = {
 /** The General MIDI name of a percussion key (35–81); undefined for any other number. */
 export function gmPercussionName(key: number): string | undefined {
   return Number.isInteger(key) && key >= GM_PERCUSSION_FIRST_KEY ? GM_PERCUSSION_NAMES[key - GM_PERCUSSION_FIRST_KEY] : undefined;
+}
+
+const GM_PERCUSSION_KEYS: ReadonlyMap<string, number> = new Map(GM_PERCUSSION_NAMES.map((name, index) => [name.toLowerCase(), GM_PERCUSSION_FIRST_KEY + index]));
+
+/** The percussion key (35–81) of a General MIDI percussion name, in any case and trimmed; undefined for any other text. */
+export function gmPercussionKey(name: string): number | undefined {
+  return GM_PERCUSSION_KEYS.get(name.trim().toLowerCase());
 }

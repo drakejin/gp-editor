@@ -210,6 +210,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
+      trackIndex: 0,
     }, false);
   });
 
@@ -226,6 +227,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: undefined,
+      trackIndex: 0,
     }, false);
   });
 
@@ -248,6 +250,7 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 1,
       string: 2,
+      trackIndex: 0,
     }, false);
     expect(row.canvas().style).toEqual({
       width: ROW_WIDTH * 1.5,
@@ -264,7 +267,7 @@ describe('ScoreRow presses', () => {
     ReactTestRenderer.act(() => pressHandler(row.canvasNode())({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, shiftKey: true } }));
 
     // Assert
-    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2 }, true);
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, true);
   });
 
   it('follows a drag from where the mouse went down, in layout points, into the rows around it', () => {
@@ -279,7 +282,7 @@ describe('ScoreRow presses', () => {
     ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { locationX: 0, locationY: 0, pageX: 560, pageY: 600 } }));
 
     // Assert
-    expect(onDrag).toHaveBeenCalledWith(2, 80, 170);
+    expect(onDrag).toHaveBeenCalledWith(2, 80, 170, 0);
   });
 
   it('finds the string on a bass track in tab-only mode', () => {
@@ -296,6 +299,105 @@ describe('ScoreRow presses', () => {
       measureIndex: 0,
       beatIndex: 0,
       string: 4,
+      trackIndex: 0,
     }, false);
+  });
+});
+
+describe('ScoreRow as a staff of a multitrack system', () => {
+  const DECOR = { namesWidth: 90, label: 'Lead', isFirstStaff: false, isLastStaff: true, height: 400 };
+
+  it('draws the track’s label and its row without the heading, on a canvas as tall as the decor says', () => {
+    // Arrange
+    const row = render();
+
+    // Act
+    row.update({ ...row.props, trackIndex: 0, decor: DECOR, hasHeading: false });
+
+    // Assert
+    expect(textValues(row.canvas().commands)).toContain('Lead');
+    expect(textValues(row.canvas().commands)).not.toContain('1');
+    expect(row.canvas().style).toEqual({ width: ROW_WIDTH, height: DECOR.height });
+  });
+
+  it('hits the beat under a press past the names column and names the staff’s track', () => {
+    // Arrange
+    const row = render();
+    row.update({ ...row.props, decor: DECOR });
+    const { x, y } = tabPoint(row.props, 1, 2);
+
+    // Act
+    row.pressAt(x + DECOR.namesWidth, y);
+
+    // Assert
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, false);
+  });
+});
+
+describe('ScoreRow in Design Mode', () => {
+  it('is as tall as the staff’s room in its system when given one (the space under the system)', () => {
+    // Arrange
+    const row = render();
+
+    // Act
+    row.update({ ...row.props, height: row.props.geometry.height + 30 });
+
+    // Assert
+    expect(row.canvas().style).toMatchObject({ height: row.props.geometry.height + 30 });
+  });
+
+  it('draws its handles, and a press on one drags it instead of selecting', () => {
+    // Arrange
+    const row = render();
+    const onDesignPress = jest.fn();
+    const onDesignMove = jest.fn();
+    const onDesignRelease = jest.fn();
+    row.update({ ...row.props, design: { isTop: true, isLast: true }, onDesignPress, onDesignMove, onDesignRelease });
+    const [first] = placeRow(row.props.row, row.props.headerWidth);
+    const beatX = (first?.x ?? 0) + (first?.layout.beats[0]?.x ?? 0);
+    const pressable = pressableOf(row.canvasNode());
+
+    // Act
+    row.pressAt(beatX, 29);
+    ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { pageX: beatX + 10, pageY: 29 } }));
+    ReactTestRenderer.act(() => pressable.props.onPressOut());
+
+    // Assert
+    expect(row.canvas().commands.some((command: DrawCommand) => command.kind === 'circle' && command.y === 29)).toBe(true);
+    expect(onDesignPress).toHaveBeenCalledWith(0, expect.objectContaining({ kind: 'beat', measureIndex: 0, at: 0 }), beatX, 29);
+    expect(onDesignMove).toHaveBeenCalledWith(beatX + 10, 29);
+    expect(onDesignRelease).toHaveBeenCalledTimes(1);
+    expect(row.onPress).not.toHaveBeenCalled();
+  });
+});
+
+describe('ScoreRow context action', () => {
+  it('hands a right-click or a ⌃-click on a beat to onContextBeat (its annotation), not to a press', () => {
+    // Arrange
+    const onContextBeat = jest.fn<void, [RowHit]>();
+    const onPress = jest.fn<void, [RowHit, boolean]>();
+    const props = { ...rowProps(SONG, 'notationAndTab', onPress), onContextBeat };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<ScoreRow {...props} />);
+    });
+    const pressable = pressableOf(renderer.root.findByType(ScoreCanvas));
+    const { x, y } = tabPoint(props, 1, 2);
+
+    // Act
+    ReactTestRenderer.act(() => pressable.props.onAuxClick({ nativeEvent: { clientX: x, clientY: y } }));
+    ReactTestRenderer.act(() => pressable.props.onPressIn({ nativeEvent: { locationX: x, locationY: y, pageX: x, pageY: y, ctrlKey: true } }));
+
+    // Assert
+    expect(onContextBeat.mock.calls).toEqual([
+      [{ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }],
+      [{ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }],
+    ]);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('takes no right-click without a context action', () => {
+    const row = render();
+    expect(pressableOf(row.canvasNode()).props.onAuxClick).toBeUndefined();
   });
 });

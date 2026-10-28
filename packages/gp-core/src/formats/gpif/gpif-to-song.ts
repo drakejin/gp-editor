@@ -1,7 +1,9 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser (LGPL-2.1).
-import { RED, isNoteValue, measureTicks } from '../../model/defaults';
+import { normalizeBeamGrouping, parseBeamGrouping } from '../../model/beaming';
+import { FOUR_FOUR, RED, isNoteValue, measureTicks, roundTempo } from '../../model/defaults';
 import {
   type MeasureHeader,
+  type MusicalDirection,
   QUARTER_TIME,
   type Song,
   type SongInfo,
@@ -9,21 +11,25 @@ import {
   type TimeSignature,
   type TripletFeel,
 } from '../../model/song';
+import { directionFromGpif, sortDirections } from '../common/directions';
 import type { GpifAutomation, GpifDocument, GpifMasterBar, GpifScore } from './gpif-document';
+import { buildGpifAudioTrack } from './gpif-audio-track';
 import { buildMeasure } from './gpif-measure';
 import { buildTracks } from './gpif-song-tracks';
+import type { TrackView } from './part-configuration';
 
 const DEFAULT_TEMPO = 120;
-const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 const MAX_ALTERNATE_ENDING = 31;
 
-/** Build the song model from a GPIF document. */
-export function gpifToSong(doc: GpifDocument, source: SourceInfo): Song {
+/** Build the song model from a GPIF document and, when the container has one, its PartConfiguration's track views. */
+export function gpifToSong(doc: GpifDocument, source: SourceInfo, trackViews: readonly TrackView[] = []): Song {
   const headers = buildHeaders(doc);
-  const { channels, tracks } = buildTracks(doc, (layout) =>
+  const built = buildTracks(doc, (layout) =>
     headers.map((header, index) => buildMeasure(doc, header, index, layout)),
   );
-  return { source, info: buildInfo(doc.score), channels, measureHeaders: headers, tracks };
+  const tracks = built.tracks.map((track, index) => (trackViews[index]?.hasSlash === true ? { ...track, hasSlashNotation: true } : track));
+  const audioTrack = buildGpifAudioTrack(doc.audioTrack);
+  return { source, info: buildInfo(doc.score), channels: built.channels, measureHeaders: headers, tracks, ...(audioTrack === undefined ? {} : { audioTrack }) };
 }
 
 /**
@@ -60,26 +66,39 @@ function buildHeaders(doc: GpifDocument): MeasureHeader[] {
 
 function buildHeader(masterBar: GpifMasterBar, index: number, start: number, tempo: number): MeasureHeader {
   const marker = masterBar.markerText;
+  const timeSignature = timeSignatureOf(masterBar.time);
+  const grouping = masterBar.beamUnit === undefined ? undefined : parseBeamGrouping(masterBar.beamUnit, masterBar.beamGroups);
+  const beamGrouping = normalizeBeamGrouping(grouping, timeSignature);
+  const directions = directionsOf(masterBar);
   return {
     number: index + 1,
     start,
-    timeSignature: timeSignatureOf(masterBar.time),
+    timeSignature,
     tempo,
     ...(marker === undefined || marker === '' ? {} : { marker: { title: marker, color: RED } }),
     repeatOpen: masterBar.repeatStart,
     repeatClose: masterBar.repeatCount,
     repeatAlternative: alternativeMask(masterBar.alternateEndings),
     tripletFeel: tripletFeelOf(masterBar.tripletFeel),
+    ...(beamGrouping === undefined ? {} : { beamGrouping }),
+    ...(directions.length === 0 ? {} : { directions }),
   };
+}
+
+/** `<Directions>`: the known targets and jumps, each once, in GP5's order. */
+function directionsOf(masterBar: GpifMasterBar): readonly MusicalDirection[] {
+  const targets = masterBar.directionTargets.map((name) => directionFromGpif(name, 'target'));
+  const jumps = masterBar.directionJumps.map((name) => directionFromGpif(name, 'jump'));
+  return sortDirections([...targets, ...jumps].filter((direction): direction is MusicalDirection => direction !== undefined));
 }
 
 function timeSignatureOf(time: readonly number[] | undefined): TimeSignature {
   const numerator = time?.[0];
   const denominator = time?.[1];
   if (time?.length !== 2 || numerator === undefined || denominator === undefined) {
-    return DEFAULT_TIME_SIGNATURE;
+    return FOUR_FOUR;
   }
-  return numerator > 0 && isNoteValue(denominator) ? { numerator, denominator } : DEFAULT_TIME_SIGNATURE;
+  return numerator > 0 && isNoteValue(denominator) ? { numerator, denominator } : FOUR_FOUR;
 }
 
 /** Alternate endings "1 3" → bits 0 and 2. Endings outside 1–31 are ignored. */
@@ -142,18 +161,10 @@ function tempoOf(automation: GpifAutomation): number | undefined {
   return tempo > 0 ? tempo : undefined;
 }
 
-/** Reference: 1 = eighth, 2 = quarter, 3 = dotted quarter, 4 = half, 5 = dotted half. */
+/** Beats of each reference in quarter notes: 1 = eighth, 2 = quarter, 3 = dotted quarter, 4 = half, 5 = dotted half. */
+const REFERENCE_QUARTERS: Readonly<Record<number, number>> = { 1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3 };
+
+/** Quarter notes per minute of `value` beats of `reference` per minute, to two decimals (unknown reference: quarters). */
 function convertTempo(value: number, reference: number): number {
-  switch (reference) {
-    case 1:
-      return Math.trunc(value / 2);
-    case 3:
-      return value + Math.trunc(value / 2);
-    case 4:
-      return value * 2;
-    case 5:
-      return value * 3;
-    default:
-      return value;
-  }
+  return roundTempo(value * (REFERENCE_QUARTERS[reference] ?? 1));
 }

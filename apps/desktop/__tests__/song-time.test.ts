@@ -23,6 +23,15 @@ describe('song time', () => {
     expect(songSeconds(song, 0.5)).toBe(songSeconds(song) * 2);
   });
 
+  it('plays every bar at a locked tempo, whatever is written', () => {
+    // Arrange: 120 BPM bars locked at 60 BPM (4 s a bar)
+    const song = makeSong([[], [], []]);
+
+    // Act / Assert
+    expect(measureStartSeconds(song, 1, 60)).toEqual([0, 4, 8]);
+    expect(songSeconds(song, 0.5, 60)).toBe(24);
+  });
+
   it('formats a clock as mm:ss', () => {
     expect(formatClock(0)).toBe('00:00');
     expect(formatClock(61.9)).toBe('01:01');

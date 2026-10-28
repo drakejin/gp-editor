@@ -31,6 +31,29 @@ describe('cursor edits in the reducer', () => {
     expect(edit(start, { type: 'edit', edit: { type: 'setNoteValue', value: 2 } }).document!.song.tracks[0]!.measures[0]!.beats[0]!.voices[0]!.duration.value).toBe(2);
   });
 
+  it('sets a whole duration in one undo step: value, dots and tuplet', () => {
+    // Arrange
+    const start = loaded();
+
+    // Act
+    const dottedEighth = edit(start, { type: 'edit', edit: { type: 'setDuration', value: 8, dots: 1, tuplet: 1 } });
+    const triplet = edit(start, { type: 'edit', edit: { type: 'setDuration', value: 8, dots: 0, tuplet: 3 } });
+    const doubleDotted = edit(start, { type: 'edit', edit: { type: 'setDuration', value: 2, dots: 2, tuplet: 1 } });
+
+    // Assert
+    expect(voice(dottedEighth).duration).toMatchObject({ value: 8, dotted: true, doubleDotted: false, tuplet: { enters: 1, times: 1 } });
+    expect(dottedEighth.past).toHaveLength(1);
+    expect(isTriplet(voice(triplet).duration)).toBe(true);
+    expect(voice(doubleDotted).duration).toMatchObject({ value: 2, dotted: false, doubleDotted: true });
+  });
+
+  it('leaves the song as it was for a tuplet the editor does not know, or the same duration', () => {
+    const start = loaded();
+
+    expect(edit(start, { type: 'edit', edit: { type: 'setDuration', value: 8, dots: 0, tuplet: 4 } }).document).toBe(start.document);
+    expect(edit(start, { type: 'edit', edit: { type: 'setDuration', value: 4, dots: 0, tuplet: 1 } }).document).toBe(start.document);
+  });
+
   it('inserts a rest after the cursor and moves onto it; deleting pulls later beats left and pads the bar', () => {
     const inserted = edit(loaded(), { type: 'edit', edit: { type: 'insertBeat' } });
     expect(song(inserted).tracks[0]!.measures[0]!.beats).toHaveLength(3);
@@ -61,7 +84,10 @@ describe('cursor edits in the reducer', () => {
     const deleted = edit(inserted, { type: 'edit', edit: { type: 'deleteMeasure' } });
     expect(song(deleted).measureHeaders).toHaveLength(1);
     expect(deleted.cursor).toMatchObject({ measureIndex: 0 });
-    expect(edit(deleted, { type: 'edit', edit: { type: 'deleteMeasure' } })).toBe(deleted);
+    const refused = edit(deleted, { type: 'edit', edit: { type: 'deleteMeasure' } });
+    expect(refused.document).toBe(deleted.document);
+    expect(refused.past).toBe(deleted.past);
+    expect(refused.hint).toBe('A song keeps at least one bar: nothing was deleted.');
   });
 
   it('changes time signature, tempo, key and repeats of the cursor bar', () => {

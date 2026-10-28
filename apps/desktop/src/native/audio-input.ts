@@ -1,4 +1,6 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
+import { t } from '../lib/i18n/i18n';
+import { subscribeNativeEvents } from './native-events';
 
 interface GPAudioInputModule {
   start(): Promise<void>;
@@ -14,7 +16,7 @@ const native = NativeModules.GPAudioInput as GPAudioInputModule | undefined;
 
 /** Starts capture, asking for microphone access the first time; rejects with code "denied" when access is off. */
 export function startAudioInput(): Promise<void> {
-  return native === undefined ? Promise.reject(new Error('The microphone is not available on this platform.')) : native.start();
+  return native === undefined ? Promise.reject(new Error(t('window.native.microphoneUnavailable'))) : native.start();
 }
 
 /** Stops capture (also done natively when the app quits); a no-op where the module is missing. */
@@ -24,18 +26,10 @@ export function stopAudioInput(): Promise<void> {
 
 /** Each frame event's body (untrusted until parseAudioFrame checks it); returns the unsubscribe function. */
 export function subscribeAudioFrames(onFrame: (body: unknown) => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAudioInput).addListener('audioFrame', onFrame);
-  return () => subscription.remove();
+  return subscribeNativeEvents(native, { audioFrame: onFrame });
 }
 
 /** Tools ▸ Tuner…; returns the unsubscribe function. */
 export function subscribeTunerRequests(onTunerRequested: () => void): () => void {
-  if (native === undefined) {
-    return () => undefined;
-  }
-  const subscription = new NativeEventEmitter(NativeModules.GPAudioInput).addListener('tunerRequested', onTunerRequested);
-  return () => subscription.remove();
+  return subscribeNativeEvents(native, { tunerRequested: onTunerRequested });
 }

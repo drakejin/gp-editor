@@ -1,7 +1,8 @@
 import { CompositionError, TranscriptionError } from '../errors';
+import { FOUR_FOUR } from '../model/defaults';
 import type { TimeSignature } from '../model/song';
 import { isTimeSignature } from '../transcription/durations';
-import { parseTrack } from '../transcription/parse-page';
+import { parseTrack } from '../transcription/parse-track';
 import { type RawObject, isRawObject, toClampedInteger } from '../transcription/parse-values';
 import { MAX_TRANSCRIBED_KEY_ACCIDENTALS, type TranscribedTrack } from '../transcription/types';
 import {
@@ -18,7 +19,6 @@ import {
   type SongPlan,
 } from './types';
 
-const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 
 /** Trimmed text cut to `max` characters; "" for anything but text. */
 function text(value: unknown, max: number): string {
@@ -42,10 +42,15 @@ function parseTimeSignature(value: unknown): TimeSignature {
   return typeof numerator === 'number' && typeof denominator === 'number' && isTimeSignature({ numerator, denominator }) ? { numerator, denominator } : FOUR_FOUR;
 }
 
+/** The song writer writes tab for guitars and basses only: any other instrument is a guitar, with no program or clef. */
+function toComposedTrack({ name, instrument, tuning, capo }: TranscribedTrack): TranscribedTrack {
+  return { name, instrument: instrument === 'bass' ? 'bass' : 'guitar', tuning, capo };
+}
+
 function parseTracks(value: unknown): readonly TranscribedTrack[] {
   return readItems(value, 'tracks', MAX_PLAN_TRACKS).map((track, index) => {
     try {
-      return parseTrack(track, `tracks[${index}]`);
+      return toComposedTrack(parseTrack(track, `tracks[${index}]`));
     } catch (error: unknown) {
       throw error instanceof TranscriptionError ? new CompositionError(error.message) : error;
     }

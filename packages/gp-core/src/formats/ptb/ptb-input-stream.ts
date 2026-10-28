@@ -8,7 +8,7 @@ import { PtByteReader } from './ptb-byte-reader';
 import { PtSectionBuilder, readSection } from './ptb-section-reader';
 
 /** "ptab" and the 16-bit file version (PTFileFormatDetector). */
-export const PTB_HEADER_SIZE = 6;
+const PTB_HEADER_SIZE = 6;
 const CLASSIFICATION_SONG = 0;
 const CLASSIFICATION_LESSON = 1;
 const RELEASE_ALBUM = 0;

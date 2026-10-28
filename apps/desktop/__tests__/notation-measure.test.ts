@@ -557,6 +557,13 @@ describe('rests and dots', () => {
     ).toBeGreaterThan(lastSharp + SPACE);
   });
 
+  it('lights an empty measure’s whole rest in the cursor’s voice colour when the cursor stands there', () => {
+    const lit = engrave([[]], { highlight: { beatIndex: 0, string: 1, voiceIndex: 0 } });
+    const plain = engrave([[]]);
+    expect(texts(lit.commands, SMUFL.restWhole)[0]!.color).toBe(PALETTE.accent);
+    expect(texts(plain.commands, SMUFL.restWhole)[0]!.color).toBe(PALETTE.text);
+  });
+
   it('puts augmentation dots in the space right of the notehead', () => {
     const onLine = engrave([[beat(960, [note(1, 1)], DOTTED_QUARTER)]]);
     const [dot] = texts(onLine.commands, SMUFL.augmentationDot);
@@ -692,8 +699,9 @@ describe('key changes, percussion and bass clef', () => {
   });
 
   it('places drums on a percussion staff with x heads for cymbals and no accidentals', () => {
+    // A key Guitar Pro's drum kit lacks (27) stays on the middle line (notation-drums.test.ts: the kit's drums).
     const { commands } = engrave(
-      [[beat(960, [note(1, 36), note(2, 42)]), beat(1920, [note(1, 61)])]],
+      [[beat(960, [note(1, 36), note(2, 42)]), beat(1920, [note(1, 27)])]],
       { isPercussion: true },
     );
     const [kick, hiHat, unknown] = heads(commands);

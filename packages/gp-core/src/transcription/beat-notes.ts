@@ -1,15 +1,15 @@
+import { fretFromTab } from '../edit/banjo';
 import { MAX_FRET } from '../edit/edit-song';
 import { sortByString } from '../edit/song-paths';
 import { placeNotes } from '../edit/string-placement';
 import { DEFAULT_VELOCITY } from '../formats/common/velocity';
+import { clamp } from '../model/defaults';
 import type { Note } from '../model/song';
 import { toNoteEffect } from './note-effects';
 import { parsePitch } from './pitch';
 import type { TranscribedNote } from './types';
 
 const SEMITONES_PER_OCTAVE = 12;
-/** Guitar and bass music is written an octave above the sound. */
-const WRITTEN_ABOVE_SOUND = SEMITONES_PER_OCTAVE;
 
 /** The neck a track's notes go on. */
 export interface Neck {
@@ -18,6 +18,10 @@ export interface Neck {
   readonly capo: number;
   /** Last fret above the capo (neckFrets). */
   readonly lastFret: number;
+  /** Semitones the track's notes are written above their sound (writtenTransposition: an octave for guitars and basses). */
+  readonly writtenAbove: number;
+  /** A fretted instrument's tab positions are read; a keyboard's or voice's strings are the import's own, so only pitches are. */
+  readonly readsTab: boolean;
 }
 
 /** A note on the neck, with its pitch counted from the capo (open string + fret), so a tie can find it. */
@@ -75,22 +79,27 @@ interface FreeEntry {
 
 type Entry = FixedEntry | FreeEntry | { readonly kind: 'unreadable' };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
+/** A tab note on its string; a banjo's short 5th string fret read as banjo tab writes it (frets 1–5 do not exist there). */
+function toTabEntry(note: TranscribedNote & { readonly string: number; readonly fret: number }, voice: VoiceAtBeat, voiceIndex: number, neck: Neck): Entry {
+  const string = clamp(Math.round(note.string), 1, neck.tuning.length);
+  const fret = fretFromTab(neck.tuning, string, clamp(Math.round(note.fret), 0, MAX_FRET));
+  if (fret === undefined) {
+    return { kind: 'unreadable' };
+  }
+  const isTied = note.tied === true && voice.previous.some((previous) => previous.string === string && previous.fret === fret);
+  return { kind: 'fixed', voiceIndex, note, string, fret, isTied };
 }
 
 function toEntry(note: TranscribedNote, voice: VoiceAtBeat, voiceIndex: number, neck: Neck): Entry {
-  if (note.string !== undefined && note.fret !== undefined) {
-    const string = clamp(note.string, 1, neck.tuning.length);
-    const fret = clamp(note.fret, 0, MAX_FRET);
-    const isTied = note.tied === true && voice.previous.some((previous) => previous.string === string && previous.fret === fret);
-    return { kind: 'fixed', voiceIndex, note, string, fret, isTied };
+  const { string, fret } = note;
+  if (neck.readsTab && string !== undefined && fret !== undefined) {
+    return toTabEntry({ ...note, string, fret }, voice, voiceIndex, neck);
   }
   const written = note.pitch === undefined ? undefined : parsePitch(note.pitch);
   if (written === undefined) {
     return { kind: 'unreadable' };
   }
-  const pitch = written - WRITTEN_ABOVE_SOUND - neck.capo;
+  const pitch = written - neck.writtenAbove - neck.capo;
   const continued = note.tied === true ? voice.previous.find((previous) => previous.pitch === pitch) : undefined;
   return continued === undefined
     ? { kind: 'free', voiceIndex, note, pitch }
@@ -101,7 +110,7 @@ function toEntry(note: TranscribedNote, voice: VoiceAtBeat, voiceIndex: number, 
  * The string a written note would rather go on: the one whose open pitch is the highest at or below the note, so it
  * gets its lowest fret (a note below every string is first raised by octaves). 1 when there is no string.
  */
-function preferredString(pitch: number, tuning: readonly number[]): number {
+export function preferredString(pitch: number, tuning: readonly number[]): number {
   const lowest = Math.min(...tuning);
   const raised = pitch < lowest ? pitch + Math.ceil((lowest - pitch) / SEMITONES_PER_OCTAVE) * SEMITONES_PER_OCTAVE : pitch;
   const best = tuning.reduce<number | undefined>((found, open, index) => {
@@ -145,7 +154,7 @@ function toNote(entry: FixedEntry): Note {
 /**
  * Puts the notes every voice plays at one beat on the track's strings. Tab notes keep their string (clamped to the
  * track's strings) and fret; a tied written note keeps the string and fret of the note of the same pitch it continues;
- * the other written notes sound an octave below their written pitch and go on the strings left, each preferring the
+ * the other written notes sound `writtenAbove` below their written pitch and go on the strings left, each preferring the
  * string that holds it lowest (preferredString), moved by octaves when no string holds them. One note per string: what
  * does not fit is left out. A tie is kept only when the voice's previous event has the note it continues (same string
  * and fret for a tab note, same pitch for a written one).

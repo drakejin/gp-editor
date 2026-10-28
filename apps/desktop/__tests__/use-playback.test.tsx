@@ -1,7 +1,7 @@
-import type { Song } from '@gp-editor/core';
+import { type Song, buildEffect, setTrackEffects } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type Playback, usePlayback } from '../src/hooks/use-playback';
-import { beat, header, makeSong, note, toTux } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note, toTux } from '../test-support/songs';
 
 const mockPlayer = {
   play: jest.fn<Promise<void>, [string, number?]>(),
@@ -9,6 +9,8 @@ const mockPlayer = {
   position: jest.fn(() => Promise.resolve({ seconds: 0.1, isPlaying: true })),
   setProgram: jest.fn((_channel: number, _program: number) => Promise.resolve()),
   setController: jest.fn((_channel: number, _controller: number, _value: number) => Promise.resolve()),
+  setMutedTracks: jest.fn((_trackIndexes: readonly number[]) => Promise.resolve()),
+  setClickTracks: jest.fn((_trackIndexes: readonly number[]) => Promise.resolve()),
 };
 
 jest.mock('../src/native/player', () => ({
@@ -17,6 +19,8 @@ jest.mock('../src/native/player', () => ({
   playerPosition: () => mockPlayer.position(),
   setMidiProgram: (channel: number, program: number) => mockPlayer.setProgram(channel, program),
   setMidiController: (channel: number, controller: number, value: number) => mockPlayer.setController(channel, controller, value),
+  setMutedTracks: (trackIndexes: readonly number[]) => mockPlayer.setMutedTracks(trackIndexes),
+  setClickTracks: (trackIndexes: readonly number[]) => mockPlayer.setClickTracks(trackIndexes),
 }));
 
 const song = makeSong([[beat(960, [note(1, 0)])]]);
@@ -125,7 +129,7 @@ describe('usePlayback practice', () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderHook();
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1 }),
     );
     ReactTestRenderer.act(() => hook.current().start(0));
     await settle();
@@ -162,10 +166,10 @@ describe('usePlayback practice', () => {
     mockPlayer.play.mockResolvedValue(undefined);
     const hook = renderHook(threeBars);
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3 }),
     );
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'setLoopTo', measureIndex: 2, measureCount: 3, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'setLoopTo', measureIndex: 2, measureCount: 3 }),
     );
     ReactTestRenderer.act(() => hook.current().start(0));
     await settle();
@@ -181,6 +185,23 @@ describe('usePlayback practice', () => {
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
     expect(mockPlayer.play.mock.calls[0]?.[1]).toBe(0);
     expect(mockPlayer.play.mock.calls[1]?.[1]).toBeCloseTo(1.6, 6);
+    hook.unmount();
+  });
+
+  it('starts a loop at the bar and beat asked when they are inside it (a selection’s first beat)', async () => {
+    // Arrange: looping bars 2–3 of three bars at 120 BPM
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook(threeBars);
+    ReactTestRenderer.act(() =>
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 3, selection: { fromMeasureIndex: 1, toMeasureIndex: 2 } }),
+    );
+
+    // Act: from bar 3's second beat
+    ReactTestRenderer.act(() => hook.current().start(2, fromTux(9600)));
+    await settle();
+
+    // Assert: bar 2 lasts 2 s and bar 3's second beat is 0.5 s into bar 3
+    expect(mockPlayer.play.mock.calls[0]?.[1]).toBeCloseTo(2.5, 6);
     hook.unmount();
   });
 
@@ -202,7 +223,7 @@ describe('usePlayback practice', () => {
     // Arrange: a loop on a bar written at 0 BPM cannot be scaled.
     const hook = renderHook(makeSong([[beat(960, [note(1, 0)])]], [header(1, { tempo: 0 })]));
     ReactTestRenderer.act(() =>
-      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1, cursorMeasureIndex: 0 }),
+      hook.current().changePractice({ type: 'toggleLoop', measureCount: 1 }),
     );
 
     // Act
@@ -225,6 +246,90 @@ describe('usePlayback practice', () => {
     // Assert
     expect(hook.current().practice.trainerStep).toBe(5);
     expect(mockPlayer.play).not.toHaveBeenCalled();
+  });
+});
+
+describe('usePlayback metronome and count-in', () => {
+  it('mutes the metronome’s track before playing while the metronome is off, and unmutes it live without a restart', async () => {
+    // Arrange: one track, so the metronome is the file's third track (after the conductor)
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook();
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'toggleMetronome' }));
+    await settle();
+
+    // Assert
+    expect(mockPlayer.setMutedTracks.mock.calls).toEqual([[[2]], [[]]]);
+    expect(mockPlayer.setMutedTracks.mock.invocationCallOrder[0]).toBeLessThan(mockPlayer.play.mock.invocationCallOrder[0] ?? 0);
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    hook.unmount();
+  });
+
+  it('names the metronome and count-in tracks before playing, so the engine keeps them off the tracks’ effects', async () => {
+    // Arrange: one track — the metronome is the file's third track, the count-in its fourth
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook();
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'toggleCountIn' }));
+
+    // Act
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+
+    // Assert
+    expect(mockPlayer.setClickTracks.mock.calls).toEqual([[[2, 3]]]);
+    expect(mockPlayer.setClickTracks.mock.invocationCallOrder[0]).toBeLessThan(mockPlayer.play.mock.invocationCallOrder[0] ?? 0);
+    hook.unmount();
+  });
+
+  it('restarts for a new metronome volume, which the render holds', async () => {
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook();
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'shiftMetronomeVolume', delta: -10 }));
+    await settle();
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('counts in from 0 s when playback starts, showing the count-in beats, but not when it restarts', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'toggleCountIn' }));
+
+    // Act: 0.6 s into the count-in (a beat is 0.5 s at 120 BPM)
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+    mockPlayer.position.mockResolvedValue({ seconds: 0.6, isPlaying: true });
+    await poll();
+    const counting = hook.current().beat;
+    const playingDuringCountIn = hook.current().playing;
+    ReactTestRenderer.act(() => hook.current().changePractice({ type: 'shiftTempo', delta: 5, writtenTempo: 120 }));
+    await settle();
+    await poll();
+
+    // Assert
+    expect(mockPlayer.play.mock.calls[0]?.[1]).toBe(0);
+    expect(counting).toEqual({ index: 1, count: 4, isCountIn: true });
+    expect(playingDuringCountIn).toBeUndefined();
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    expect(hook.current().beat).toEqual({ index: 1, count: 4, isCountIn: false });
+    hook.unmount();
+  });
+
+  it('shows the beat of the bar being played', async () => {
+    mockPlayer.play.mockResolvedValue(undefined);
+    const hook = renderHook(threeBars);
+    ReactTestRenderer.act(() => hook.current().start(0));
+    await settle();
+    mockPlayer.position.mockResolvedValue({ seconds: 1.2, isPlaying: true });
+    await poll();
+    expect(hook.current().beat).toEqual({ index: 2, count: 4, isCountIn: false });
+    hook.unmount();
   });
 });
 
@@ -369,6 +474,44 @@ describe('usePlayback while the song is edited', () => {
 
     // Assert
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('restarts once when a track gets its first effect while playing (it moves to instruments of its own)', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withChannel = { ...threeBars, channels: [GUITAR] };
+    const hook = renderEditableHook(withChannel);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withChannel, 0, [buildEffect('reverb')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+    hook.unmount();
+  });
+
+  it('keeps playing when only an effect’s values change: the engine hears them live', async () => {
+    // Arrange
+    mockPlayer.play.mockResolvedValue(undefined);
+    const withEffect = setTrackEffects({ ...threeBars, channels: [GUITAR] }, 0, [buildEffect('reverb')]);
+    const hook = renderEditableHook(withEffect);
+    ReactTestRenderer.act(() => hook.current().start(1));
+    await settle();
+
+    // Act
+    hook.setSong(setTrackEffects(withEffect, 0, [buildEffect('reverb', false), buildEffect('delay')]));
+    await ReactTestRenderer.act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Assert
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
     hook.unmount();
   });
 

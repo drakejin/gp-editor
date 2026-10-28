@@ -1,4 +1,4 @@
-import { plural } from '../lib/wording';
+import { t } from '../lib/i18n/i18n';
 import { PRINT_PALETTE } from './paper';
 
 /**
@@ -61,7 +61,7 @@ export function pngFilesText(names: readonly string[]): string {
 /** The hint after a PNG export: what was saved, in which folder. */
 export function pngSavedHint(names: readonly string[], folderName: string): string {
   if (names.length === 1) {
-    return `Saved ${names[0] ?? ''} in “${folderName}”.`;
+    return t('window.pngExport.savedOne', { name: names[0] ?? '', folder: folderName });
   }
-  return `Saved ${plural(names.length, 'PNG image')} in “${folderName}”: ${pngFilesText(names)}.`;
+  return t('window.pngExport.savedMany', { count: names.length, folder: folderName, files: pngFilesText(names) });
 }

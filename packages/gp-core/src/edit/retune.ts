@@ -88,7 +88,7 @@ function clampFret(fret: number): number {
 }
 
 /** Grace, trill and tapped-harmonic frets sit on the note's string, so they move with its fret. */
-function shiftEffectFrets(effect: NoteEffect, delta: number): NoteEffect {
+export function shiftEffectFrets(effect: NoteEffect, delta: number): NoteEffect {
   if (delta === 0) {
     return effect;
   }
@@ -139,7 +139,7 @@ function retuneChord(chord: Chord, context: RetuneContext): Chord {
 const CHORD_DIAGRAM_FRETS = 5;
 
 /** The diagram keeps its window while the fretted notes fit in it; else it starts at the lowest one (1 when none is). */
-function diagramFirstFret(frets: readonly number[], current: number): number {
+export function diagramFirstFret(frets: readonly number[], current: number): number {
   const fretted = frets.filter((fret) => fret > 0);
   if (fretted.length === 0) {
     return 1;

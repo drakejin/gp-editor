@@ -1,5 +1,6 @@
 import {
-  type BendShape,
+  type Bend,
+  DEFAULT_NOTE_AUDIO,
   DYNAMICS,
   type Duration,
   type DynamicName,
@@ -8,19 +9,18 @@ import {
   type HarmonicType,
   MAX_FRET,
   type Note,
+  type NoteAudio,
   type NoteValue,
   QUARTER,
   type SlideType,
   type Song,
   type StringAddress,
-  TREMOLO_BAR_PRESETS,
   type ToggleableEffect,
-  type TremoloBarPresetName,
   type Trill,
   type VibratoKind,
-  buildBend,
   buildHarmonic,
   findNote,
+  setNoteAudio,
   setNoteBend,
   setNoteGrace,
   setNoteHarmonic,
@@ -33,6 +33,7 @@ import {
   setNoteVibrato,
   toggleNoteEffect,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of the note at the cursor; each returns the same song when there is no note there. */
 export type NoteEdit =
@@ -41,17 +42,11 @@ export type NoteEdit =
   | { readonly type: 'toggleSlide' }
   /** Adds or removes one slide type, keeping the others. */
   | { readonly type: 'toggleSlideType'; readonly slide: SlideType }
-  /** A bend of any shape, `amount` quarter tones high (1–12, rounded and clamped by buildBend). */
-  | {
-      readonly type: 'setBendShape';
-      readonly shape: BendShape | 'none';
-      readonly amount: number;
-    }
+  /** The bend panel's curve (setNoteBend keeps it on the grid, 0–12 quarter tones); undefined removes the bend. */
+  | { readonly type: 'setBend'; readonly bend: Bend | undefined }
   | { readonly type: 'setVibrato'; readonly vibrato: VibratoKind }
-  | {
-      readonly type: 'setTremoloBar';
-      readonly preset: TremoloBarPresetName | 'none';
-    }
+  /** The tremolo bar panel's curve (±24 quarter tones); undefined removes it. */
+  | { readonly type: 'setTremoloBar'; readonly tremoloBar: Bend | undefined }
   | { readonly type: 'toggleHarmonic' }
   | { readonly type: 'setHarmonic'; readonly harmonic: HarmonicType | 'none' }
   | { readonly type: 'setDynamic'; readonly dynamic: DynamicName }
@@ -63,15 +58,22 @@ export type NoteEdit =
   | {
       readonly type: 'setTremoloPicking';
       readonly speed: 8 | 16 | 32 | 'none';
-    };
+    }
+  /** One audio setting (play duration %, start offset %, velocity change) moved by `delta`, clamped by setNoteAudio. */
+  | {
+      readonly type: 'shiftNoteAudio';
+      readonly setting: keyof NoteAudio;
+      readonly delta: number;
+    }
+  /** The note plays as written again. */
+  | { readonly type: 'resetNoteAudio' };
 
-/** Every note edit; a Record, so the compiler keeps it in step with NoteEdit. */
-const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
+const isNoteEdit = isOfTypes<NoteEdit>({
   toggleEffect: true,
   toggleTie: true,
   toggleSlide: true,
   toggleSlideType: true,
-  setBendShape: true,
+  setBend: true,
   setVibrato: true,
   setTremoloBar: true,
   toggleHarmonic: true,
@@ -80,11 +82,13 @@ const NOTE_EDIT_TYPES: Readonly<Record<NoteEdit['type'], true>> = {
   setGrace: true,
   setTrill: true,
   setTremoloPicking: true,
-};
+  shiftNoteAudio: true,
+  resetNoteAudio: true,
+});
 
 /** Whether an edit sets something on the note at the cursor (a tie can also be typed on an empty string). */
 export function needsNote(edit: { readonly type: string }): boolean {
-  return edit.type !== 'toggleTie' && Object.prototype.hasOwnProperty.call(NOTE_EDIT_TYPES, edit.type);
+  return edit.type !== 'toggleTie' && isNoteEdit(edit);
 }
 
 /** A new grace note: two frets below the note, a 32nd (TuxGuitar's grace duration 2), hammered on. */
@@ -121,8 +125,8 @@ export function applyNoteEdit(
         cursor,
         toggled(note.effect.slides, edit.slide),
       );
-    case 'setBendShape':
-      return setNoteBend(song, cursor, edit.shape === 'none' ? undefined : buildBend(edit.shape, edit.amount));
+    case 'setBend':
+      return setNoteBend(song, cursor, edit.bend);
     case 'setVibrato':
       return setNoteVibrato(song, cursor, edit.vibrato);
     default:
@@ -139,11 +143,7 @@ function applyNoteDetail(
 ): Song {
   switch (edit.type) {
     case 'setTremoloBar':
-      return setNoteTremoloBar(
-        song,
-        cursor,
-        edit.preset === 'none' ? undefined : TREMOLO_BAR_PRESETS[edit.preset],
-      );
+      return setNoteTremoloBar(song, cursor, edit.tremoloBar);
     case 'toggleHarmonic':
       return setNoteHarmonic(
         song,
@@ -172,6 +172,27 @@ function applyNoteDetail(
         cursor,
         edit.speed === 'none' ? undefined : { duration: plain(edit.speed) },
       );
+    default:
+      return applyNoteAudio(song, cursor, note, edit);
+  }
+}
+
+/** The note's audio settings (play duration, start offset, velocity change). */
+function applyNoteAudio(
+  song: Song,
+  cursor: StringAddress,
+  note: Note,
+  edit: NoteEdit,
+): Song {
+  const audio = note.audio ?? DEFAULT_NOTE_AUDIO;
+  switch (edit.type) {
+    case 'shiftNoteAudio':
+      return setNoteAudio(song, cursor, {
+        ...audio,
+        [edit.setting]: audio[edit.setting] + edit.delta,
+      });
+    case 'resetNoteAudio':
+      return setNoteAudio(song, cursor, DEFAULT_NOTE_AUDIO);
     default:
       return song;
   }

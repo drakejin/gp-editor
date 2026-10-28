@@ -12,6 +12,40 @@ function loaded(first: Partial<MeasureHeader> = {}): EditorState {
 const edit = (state: EditorState, songEdit: SongEdit) => editorReducer(state, { type: 'edit', edit: songEdit });
 const bar = (state: EditorState, index = 0): MeasureHeader => state.document!.song.measureHeaders[index]!;
 
+describe('typed tempo', () => {
+  it('sets a decimal tempo on the bar and the bars after it with the same tempo', () => {
+    // Act
+    const typed = edit(loaded(), { type: 'setTempo', tempo: 92.5 });
+
+    // Assert
+    expect([bar(typed).tempo, bar(typed, 1).tempo]).toEqual([92.5, 92.5]);
+  });
+
+  it('keeps the song when the tempo is not a number', () => {
+    const state = loaded();
+    expect(edit(state, { type: 'setTempo', tempo: Number.NaN }).document).toBe(state.document);
+  });
+});
+
+describe('typed time signature', () => {
+  it('sets a time signature on the bar and the bars after it with the same one, in one undo step', () => {
+    // Act
+    const typed = edit(loaded(), { type: 'setTimeSignature', numerator: 6, denominator: 8 });
+
+    // Assert
+    expect([bar(typed).timeSignature, bar(typed, 1).timeSignature]).toEqual([
+      { numerator: 6, denominator: 8 },
+      { numerator: 6, denominator: 8 },
+    ]);
+    expect(typed.past).toHaveLength(1);
+  });
+
+  it('keeps the song for a denominator that is no note value', () => {
+    const state = loaded();
+    expect(edit(state, { type: 'setTimeSignature', numerator: 4, denominator: 5 }).document).toBe(state.document);
+  });
+});
+
 describe('bar edits at the cursor', () => {
   it('turns alternate endings on and off one at a time', () => {
     // Act
@@ -78,5 +112,30 @@ describe('bar edits at the cursor', () => {
   it('removes no marker where there is none', () => {
     const start = loaded();
     expect(edit(start, { type: 'setSection', title: '' })).toBe(start);
+  });
+});
+
+describe('clef and key signature at the cursor', () => {
+  const measures = (state: EditorState) => state.document!.song.tracks[0]!.measures;
+
+  it('sets the clef of the cursor’s bar and the bars after it, one undo step', () => {
+    // Act
+    const bass = edit(loaded(), { type: 'setClef', clef: 'bass' });
+
+    // Assert
+    expect(measures(bass).map((measure) => measure.clef)).toEqual(['bass', 'bass']);
+    expect(bass.past).toHaveLength(1);
+  });
+
+  it('sets a typed key signature from the cursor’s bar, and keeps the song for one out of range', () => {
+    // Arrange
+    const state = loaded();
+
+    // Act
+    const eFlat = edit(state, { type: 'setKeySignature', keySignature: -3 });
+
+    // Assert
+    expect(measures(eFlat).map((measure) => measure.keySignature)).toEqual([-3, -3]);
+    expect(edit(state, { type: 'setKeySignature', keySignature: Number.NaN }).document).toBe(state.document);
   });
 });

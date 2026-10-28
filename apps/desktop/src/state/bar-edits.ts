@@ -1,4 +1,5 @@
 import {
+  type Clef,
   type MeasureHeader,
   NOTE_VALUES,
   RED,
@@ -6,6 +7,7 @@ import {
   type StringAddress,
   type TripletFeel,
   setKeySignature,
+  setMeasureClef,
   setMeasureMarker,
   setRepeat,
   setTempo,
@@ -13,6 +15,7 @@ import {
   setTripletFeel,
   toNoteValue,
 } from '@gp-editor/core';
+import { isOfTypes } from '../lib/type-guards';
 
 /** Edits of the cursor's bar (its measure header, and its key in the cursor's track). */
 export type BarEdit =
@@ -21,8 +24,16 @@ export type BarEdit =
       readonly part: 'numerator' | 'denominator';
       readonly delta: number;
     }
+  /** A typed time signature (the MCP server's set_time_signature), from the cursor's bar, one undo step. */
+  | { readonly type: 'setTimeSignature'; readonly numerator: number; readonly denominator: number }
   | { readonly type: 'shiftTempo'; readonly delta: number }
+  /** A typed tempo (decimals kept to two places by setTempo). */
+  | { readonly type: 'setTempo'; readonly tempo: number }
   | { readonly type: 'shiftKeySignature'; readonly delta: number }
+  /** A key signature typed or picked (-7 flats … 7 sharps), from the cursor's bar. */
+  | { readonly type: 'setKeySignature'; readonly keySignature: number }
+  /** The clef of the cursor's track from the cursor's bar to its next clef change (G, F or C clef). */
+  | { readonly type: 'setClef'; readonly clef: Clef }
   | { readonly type: 'toggleRepeatOpen' }
   | { readonly type: 'toggleRepeatClose' }
   /** Ending 1…8: plays this bar on that pass of the repeat. */
@@ -32,6 +43,11 @@ export type BarEdit =
   | { readonly type: 'setTripletFeel'; readonly feel: TripletFeel }
   /** The bar's section marker; an empty title removes it. */
   | { readonly type: 'setSection'; readonly title: string };
+
+export const isBarEdit = isOfTypes<BarEdit>({
+  shiftTimeSignature: true, setTimeSignature: true, shiftTempo: true, setTempo: true, shiftKeySignature: true, setKeySignature: true, setClef: true, toggleRepeatOpen: true,
+  toggleRepeatClose: true, toggleAlternateEnding: true, shiftRepeatCount: true, setTripletFeel: true, setSection: true,
+});
 
 /** Repeat count a new repeat close gets (play twice), and the fewest a repeat plays. */
 const DEFAULT_REPEAT_COUNT = 2;
@@ -58,14 +74,22 @@ export function applyBarEdit(
         edit.part,
         edit.delta,
       );
+    case 'setTimeSignature':
+      return setTimeSignature(song, measureIndex, { numerator: edit.numerator, denominator: edit.denominator });
     case 'shiftTempo':
       return setTempo(song, measureIndex, header.tempo + edit.delta);
+    case 'setTempo':
+      return setTempo(song, measureIndex, edit.tempo);
     case 'shiftKeySignature': {
       const keySignature =
         song.tracks[cursor.trackIndex]?.measures[measureIndex]?.keySignature ??
         0;
       return setKeySignature(song, measureIndex, keySignature + edit.delta);
     }
+    case 'setKeySignature':
+      return setKeySignature(song, measureIndex, edit.keySignature);
+    case 'setClef':
+      return setMeasureClef(song, cursor.trackIndex, measureIndex, edit.clef);
     default:
       return applyRepeatOrMark(song, measureIndex, header, edit);
   }

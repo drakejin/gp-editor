@@ -2,19 +2,10 @@
 import { GpFormatError } from '../../errors';
 import { NORMAL_TUPLET, NOTE_VALUES } from '../../model/defaults';
 import { type Duration, QUARTER_TIME, type TimeSignature, type Tuplet } from '../../model/song';
+import { GTP_TUPLETS } from '../common/gtp-codes';
 
-const DIVISION_TYPES: readonly Tuplet[] = [
-  [1, 1],
-  [3, 2],
-  [5, 4],
-  [6, 4],
-  [7, 4],
-  [9, 8],
-  [10, 8],
-  [11, 8],
-  [12, 8],
-  [13, 8],
-].map(([enters = 1, times = 1]) => (enters === 1 ? NORMAL_TUPLET : { enters, times }));
+/** TGDivisionType.DIVISION_TYPES: no tuplet, then the tuplets GP3–GP5 store. */
+const DIVISION_TYPES: readonly Tuplet[] = [NORMAL_TUPLET, ...GTP_TUPLETS];
 
 const SHORTEST = 64;
 

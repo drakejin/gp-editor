@@ -1,8 +1,8 @@
-import { type Song, renderMidi, writeAsciiTab } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Song, readSong, renderMidi, setStylesheet, writeAsciiTab, writeMusicXml } from '@gp-editor/core';
 import ReactTestRenderer from 'react-test-renderer';
 import { type SongExport, asciiTabTrackIndexes, useSongExport } from '../src/hooks/use-song-export';
 import { base64ToBytes } from '../src/lib/base64';
-import { ASCII_TAB_FILE, MIDI_FILE } from '../src/lib/file-formats';
+import { ASCII_TAB_FILE, MIDI_FILE, MUSICXML_FILE, MXL_FILE } from '../src/lib/file-formats';
 import type { ChosenFile, SavePanelOptions, SavedFile, SongExportHandlers } from '../src/native/gp-files';
 import type { OpenDocument } from '../src/state/editor';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -164,6 +164,66 @@ describe('useSongExport: Export ASCII Tab…', () => {
   });
 });
 
+describe('useSongExport: Export MusicXML… and Export Compressed MusicXML…', () => {
+  it('saves the song as MusicXML text to the .musicxml chosen in the save panel', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml' });
+    renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportMusicXmlRequested());
+
+    // Assert
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Song.musicxml', formats: [MUSICXML_FILE], formatId: 'musicxml' });
+    expect(mockFiles.writeTextFile).toHaveBeenCalledWith('/out/Song.musicxml', writeMusicXml(SONG));
+  });
+
+  it('says in the hint strip that MusicXML keeps no stylesheet, when the song has one', async () => {
+    // Arrange
+    const styled = setStylesheet(SONG, { ...DEFAULT_STYLESHEET, lyrics: 'above' });
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml' });
+    const hook = renderHook({ ...DOCUMENT, song: styled });
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportMusicXmlRequested());
+
+    // Assert
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'MusicXML keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.' });
+  });
+
+  it('saves compressed MusicXML (.mxl) that reads back as the song', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.mxl', path: '/out/Song.mxl', formatId: 'mxl' });
+    mockFiles.writeFile.mockResolvedValueOnce({ name: 'Song.mxl', path: '/out/Song.mxl' });
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => mockFiles.handlers?.onExportCompressedMusicXmlRequested());
+
+    // Assert
+    expect(mockFiles.showSavePanel).toHaveBeenCalledWith({ suggestedName: 'Song.mxl', formats: [MXL_FILE], formatId: 'mxl' });
+    const again = readSong(base64ToBytes(mockFiles.writeFile.mock.calls[0]?.[1] ?? ''));
+    expect(again.source.format).toBe('musicxml');
+    expect(again.tracks[0]?.measures[0]?.beats[0]?.voices[0]?.notes.map((n) => [n.string, n.fret])).toEqual([[1, 3]]);
+    expect(hook.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('reports MusicXML that could not be written to the error banner', async () => {
+    // Arrange
+    mockFiles.showSavePanel.mockResolvedValueOnce({ name: 'Song.musicxml', path: '/out/Song.musicxml', formatId: 'musicxml' });
+    mockFiles.writeTextFile.mockRejectedValueOnce(new Error('disk full'));
+    const hook = renderHook(DOCUMENT);
+
+    // Act
+    await settle(() => hook.current().exportMusicXml());
+
+    // Assert
+    expect(hook.dispatch).toHaveBeenCalledWith({ type: 'exportFailed', what: 'the MusicXML file', message: 'disk full' });
+  });
+});
+
 describe('asciiTabTrackIndexes', () => {
   it('leaves the drum tracks out, unless the song has nothing else', () => {
     // Arrange
@@ -174,5 +234,33 @@ describe('asciiTabTrackIndexes', () => {
     expect(asciiTabTrackIndexes(song)).toEqual([0]);
     expect(asciiTabTrackIndexes(drumsOnly)).toEqual([0]);
     expect(asciiTabTrackIndexes(SONG)).toEqual([0]);
+  });
+});
+
+describe('useSongExport: exportTo (the MCP server’s export_file)', () => {
+  it('writes an export at the path given without the save panel', async () => {
+    // Arrange
+    mockFiles.writeTextFile.mockResolvedValueOnce({ name: 'Song.txt', path: '/out/Song.txt' });
+    const hook = renderHook(DOCUMENT);
+    let saved: SavedFile | undefined;
+
+    // Act
+    await settle(() => {
+      void hook.current().exportTo('ascii_tab', '/out/Song.txt').then((file) => (saved = file));
+    });
+
+    // Assert
+    expect(saved).toEqual({ name: 'Song.txt', path: '/out/Song.txt' });
+    expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
+    expect(mockFiles.writeTextFile).toHaveBeenCalledWith('/out/Song.txt', writeAsciiTab(SONG, { trackIndexes: [0] }));
+  });
+
+  it('rejects with the native error, and without a document', async () => {
+    mockFiles.writeFile.mockRejectedValueOnce(new Error('Operation not permitted'));
+    const hook = renderHook(DOCUMENT);
+    const empty = renderHook(undefined);
+
+    await expect(hook.current().exportTo('midi', '/System/a.mid')).rejects.toThrow('Operation not permitted');
+    await expect(empty.current().exportTo('midi', '/out/a.mid')).rejects.toThrow('No document is open');
   });
 });

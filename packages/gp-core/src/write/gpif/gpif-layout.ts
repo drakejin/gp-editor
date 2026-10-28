@@ -58,7 +58,7 @@ export function leadingShiftOf(measure: Measure, header: MeasureHeader): number 
 }
 
 /** Ticks a measure's voices take from their first beat to their last end (0 when it has no beats). */
-export function usedTicksOf(measure: Measure): number {
+function usedTicksOf(measure: Measure): number {
   let first = Number.POSITIVE_INFINITY;
   let end = Number.NEGATIVE_INFINITY;
   for (const beat of measure.beats) {

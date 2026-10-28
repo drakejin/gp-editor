@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '../../hooks/use-i18n';
 import type { Palette } from '../../theme';
 
 const MENU_WIDTH = 270;
@@ -69,12 +70,13 @@ interface MenuStepperProps {
 
 /** "Label  [−] value [+]" inside a menu; it stays open while stepping. */
 export function MenuStepper({ palette, label, value, onDecrease, onIncrease, tooltip }: MenuStepperProps) {
+  const t = useT();
   return (
     <View style={styles.stepperRow} tooltip={tooltip}>
       <Text style={[styles.stepperLabel, { color: palette.chromeText }]}>{label}</Text>
-      <MenuButton palette={palette} label="−" onPress={onDecrease} tooltip={`${tooltip}: less`} />
+      <MenuButton palette={palette} label="−" onPress={onDecrease} tooltip={t('window.menu.less', { what: tooltip })} />
       <Text style={[styles.stepperValue, { color: palette.chromeText }]}>{value}</Text>
-      <MenuButton palette={palette} label="+" onPress={onIncrease} tooltip={`${tooltip}: more`} />
+      <MenuButton palette={palette} label="+" onPress={onIncrease} tooltip={t('window.menu.more', { what: tooltip })} />
     </View>
   );
 }

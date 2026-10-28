@@ -22,6 +22,15 @@ describe('editor hints', () => {
     expect(next.hint).toBe('Bar 1 is full: its notes do not fit in 3/4. Delete or shorten beats first.');
   });
 
+  it('says why a typed shorter time signature was refused', () => {
+    const before = fullBar();
+
+    const next = editorReducer(before, { type: 'edit', edit: { type: 'setTimeSignature', numerator: 2, denominator: 4 } });
+
+    expect(next.document?.song).toBe(before.document?.song);
+    expect(next.hint).toBe('Bar 1 is full: its notes do not fit in 2/4. Delete or shorten beats first.');
+  });
+
   it('clears the hint after an edit that works', () => {
     const refused = editorReducer(fullBar(), { type: 'edit', edit: { type: 'shiftTimeSignature', part: 'denominator', delta: 1 } });
     expect(refused.hint).toBe('Bar 1 is full: its notes do not fit in 4/8. Delete or shorten beats first.');
@@ -45,7 +54,7 @@ describe('hints for a note key on an empty string', () => {
     { type: 'toggleEffect', effect: 'letRing' },
     { type: 'toggleSlide' },
     { type: 'setVibrato', vibrato: 'wide' },
-    { type: 'setBendShape', shape: 'bend', amount: 4 },
+    { type: 'setBend', bend: { points: [{ position: 0, value: 0 }, { position: 6, value: 4 }] } },
   ] as const)('says to type a fret first for $type', (edit) => {
     // Act
     const next = editorReducer(emptyString(), { type: 'edit', edit });

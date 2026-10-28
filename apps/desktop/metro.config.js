@@ -17,6 +17,11 @@ const config = {
     // Keep gp-core's tests and fixtures out of the bundle graph.
     blockList: [new RegExp(`${coreRoot.replace(/[/\\]/g, '[/\\\\]')}[/\\\\](test|coverage)[/\\\\].*`)],
   },
+  // Modules run at startup, not at their first use: Hermes then calls them directly in the hot loops (renderMidi,
+  // the engravers) — 14–19% faster there in the Hermes VM, for about 35 ms more CPU at launch (2026-10-26).
+  transformer: {
+    getTransformOptions: async () => ({ transform: { experimentalImportSupport: false, inlineRequires: false } }),
+  },
 };
 
 module.exports = mergeConfig(getDefaultConfig(__dirname), config);

@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { Song } from '@gp-editor/core';
-import { DEFAULT_PAPER, PAPER_IDS, PAPER_SIZES, type PaperId } from '../export/paper';
-import { exportBaseName, pdfPageCount } from '../export/pdf-document';
+import { type Song, hasAnnotations, stylesheetOf } from '@gp-editor/core';
+import { type ExportMode, exportBaseName, exportStaves, pdfPageCount, printedPage } from '../export/pdf-document';
 import { DEFAULT_PNG_OPTIONS, PNG_RESOLUTIONS, type PngOptions, pngFileNames, pngFilesText, pngPixelSize } from '../export/png-export';
+import { type Translate, useT } from '../hooks/use-i18n';
 import type { ExportFormat } from '../hooks/use-pdf-export';
-import { plural } from '../lib/wording';
+import { pageSummary } from '../lib/stylesheet-draft';
 import type { ChordDisplay } from '../score/chords';
 import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
+import type { StaffSpec } from '../score/score-layout';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 
@@ -16,6 +17,8 @@ interface ExportPanelProps {
   readonly song: Song;
   /** The shown track: the one exported. */
   readonly trackIndex: number;
+  /** The multitrack view's staves: with several, they are exported, each track as shown unless one mode is chosen. */
+  readonly staves?: readonly StaffSpec[];
   /** The open file's name, the title of a song without one. */
   readonly fileName: string;
   /** The score's view mode, selected when the panel opens. */
@@ -25,29 +28,51 @@ interface ExportPanelProps {
   /** A PDF, or PNG images (one per page of the same layout). */
   readonly format: ExportFormat;
   readonly isSaving: boolean;
-  readonly onSave: (mode: ScoreMode, paper: PaperId) => void;
-  readonly onSavePng: (mode: ScoreMode, paper: PaperId, png: PngOptions) => void;
+  readonly onSave: (mode: ExportMode) => void;
+  readonly onSavePng: (mode: ExportMode, png: PngOptions) => void;
   readonly onClose: () => void;
+  /** File ▸ Stylesheet…: the page the export prints on is the stylesheet's. */
+  readonly onOpenStylesheet?: () => void;
+  /** The annotations left out of the PDF and PNG images (the hook keeps the choice for the session; print prints them). */
+  readonly hidesAnnotations?: boolean;
+  readonly onChangeHidesAnnotations?: (hides: boolean) => void;
+}
+
+interface AnnotationsRowProps {
+  readonly palette: Palette;
+  readonly hidesAnnotations: boolean;
+  readonly onChange: (hides: boolean) => void;
+}
+
+/** Annotations: Print (as the score shows them) or Leave out — for the PDF and the PNG images (File ▸ Print… prints them as shown). */
+function AnnotationsRow({ palette, hidesAnnotations, onChange }: AnnotationsRowProps) {
+  const t = useT();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.export.annotations')}</Text>
+      <BarButton label={t('window.export.printAnnotations')} palette={palette} isActive={!hidesAnnotations} onPress={() => onChange(false)} />
+      <BarButton label={t('window.export.leaveOutAnnotations')} palette={palette} isActive={hidesAnnotations} onPress={() => onChange(true)} />
+      <Text style={[styles.hint, { color: palette.muted }]}>{t('window.export.annotationsHint')}</Text>
+    </View>
+  );
 }
 
 interface PngSummaryInput {
   readonly song: Song;
   readonly trackIndex: number;
+  readonly staves?: readonly StaffSpec[];
   readonly fileName: string;
   readonly mode: ScoreMode;
-  readonly paper: PaperId;
   readonly pageCount: number;
   readonly png: PngOptions;
 }
 
 /** "3 pages → Song (Tab)-1.png … Song (Tab)-3.png, 1240 × 1754 px each, into a folder you choose". */
-function pngSummary({ song, trackIndex, fileName, mode, paper, pageCount, png }: PngSummaryInput): string {
-  const names = pngFileNames(exportBaseName(song, trackIndex, mode, fileName), pageCount);
-  const { width, height } = pngPixelSize(PAPER_SIZES[paper], png.dpi);
+function pngSummary({ song, trackIndex, staves, fileName, mode, pageCount, png }: PngSummaryInput, t: Translate): string {
+  const names = pngFileNames(exportBaseName(song, trackIndex, mode, fileName, staves), pageCount);
+  const { width, height } = pngPixelSize(printedPage(stylesheetOf(song).page), png.dpi);
   const size = `${width} × ${height} px`;
-  return pageCount === 1
-    ? `1 page → ${pngFilesText(names)}, ${size}`
-    : `${plural(pageCount, 'page')} → ${pngFilesText(names)}, ${size} each, into a folder you choose`;
+  return pageCount === 1 ? t('window.export.pngSummaryOne', { files: pngFilesText(names), size }) : t('window.export.pngSummaryMany', { count: pageCount, files: pngFilesText(names), size });
 }
 
 interface PngOptionsRowProps {
@@ -58,61 +83,74 @@ interface PngOptionsRowProps {
 
 /** Resolution (72 / 150 / 300 dpi) and background (white paper or transparent). */
 function PngOptionsRow({ palette, png, onChange }: PngOptionsRowProps) {
+  const t = useT();
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: palette.text }]}>Resolution</Text>
+      <Text style={[styles.label, { color: palette.text }]}>{t('window.export.resolution')}</Text>
       {PNG_RESOLUTIONS.map((dpi) => (
+        // i18n-exempt: a unit
         <BarButton key={dpi} label={`${dpi} dpi`} palette={palette} isActive={dpi === png.dpi} onPress={() => onChange({ ...png, dpi })} />
       ))}
-      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>Background</Text>
-      <BarButton label="White" palette={palette} isActive={!png.isTransparent} onPress={() => onChange({ ...png, isTransparent: false })} />
-      <BarButton label="Transparent" palette={palette} isActive={png.isTransparent} onPress={() => onChange({ ...png, isTransparent: true })} />
+      <Text style={[styles.label, styles.spaced, { color: palette.text }]}>{t('window.export.background')}</Text>
+      <BarButton label={t('window.export.white')} palette={palette} isActive={!png.isTransparent} onPress={() => onChange({ ...png, isTransparent: false })} />
+      <BarButton label={t('window.export.transparent')} palette={palette} isActive={png.isTransparent} onPress={() => onChange({ ...png, isTransparent: true })} />
     </View>
   );
 }
 
 /**
- * Export (Export… button, File ▸ Export PDF… / Export PNG…): the shown track as Score + Tab, Score or Tab on A4 or US
- * Letter, with the number of pages it makes; Save PDF… asks where to save it. For PNG images, also the resolution and
- * the background, and the files it writes (one per page).
+ * Export (Export… button, File ▸ Export PDF… / Export PNG…): the shown track as Score + Tab, Score or Tab (the
+ * multitrack view's tracks As Shown, or all in one of those) on the stylesheet's page (Stylesheet… changes it), with the
+ * number of pages it makes; Save PDF… asks where to save it. For PNG images, also the resolution and the background, and
+ * the files it writes (one per page).
  */
-export function ExportPanel({ palette, song, trackIndex, fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose }: ExportPanelProps) {
-  const [mode, setMode] = useState<ScoreMode>(viewMode);
-  const [paper, setPaper] = useState<PaperId>(DEFAULT_PAPER);
+export function ExportPanel(props: ExportPanelProps) {
+  const { palette, song, trackIndex, staves = [], fileName, mode: viewMode, chordDisplay, format, isSaving, onSave, onSavePng, onClose, onOpenStylesheet } = props;
+  const { hidesAnnotations = false, onChangeHidesAnnotations } = props;
+  const t = useT();
+  const isMultitrack = staves.length > 1;
+  const [choice, setChoice] = useState<ExportMode>(isMultitrack ? 'asShown' : viewMode);
+  const mode = choice === 'asShown' ? viewMode : choice;
+  const printed = useMemo(() => exportStaves(staves, choice), [staves, choice]);
   const [png, setPng] = useState<PngOptions>(DEFAULT_PNG_OPTIONS);
-  const pageCount = useMemo(() => pdfPageCount(song, trackIndex, mode, { paper, fileName, chordDisplay }), [song, trackIndex, mode, paper, fileName, chordDisplay]);
+  const pageCount = useMemo(
+    () => pdfPageCount(song, trackIndex, mode, { fileName, chordDisplay, staves: printed, hidesAnnotations }),
+    [song, trackIndex, mode, fileName, chordDisplay, printed, hidesAnnotations],
+  );
   const trackName = song.tracks[trackIndex]?.name ?? '';
   const isPng = format === 'png';
-  const summary = isPng ? pngSummary({ song, trackIndex, fileName, mode, paper, pageCount, png }) : plural(pageCount, 'page');
+  const summary = isPng ? pngSummary({ song, trackIndex, staves: printed, fileName, mode, pageCount, png }, t) : t('common.pages', { count: pageCount });
+  const what = isMultitrack ? t('window.export.whatTracks', { count: staves.length }) : trackName === '' ? t('window.export.whatShownTrack') : t('window.export.whatTrack', { name: trackName });
   return (
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]}>
       <View style={styles.row}>
-        <Text style={[styles.title, { color: palette.text }]}>{isPng ? 'Export PNG' : 'Export PDF'}</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{isPng ? t('window.export.titlePng') : t('window.export.titlePdf')}</Text>
         <Text style={[styles.hint, { color: palette.muted }]}>
-          {trackName === '' ? 'The shown track' : `Track “${trackName}”`}, every bar, {isPng ? 'one image per page, as in the PDF.' : 'in black on white.'}
+          {isPng ? t('window.export.describePng', { what }) : t('window.export.describePdf', { what })}
         </Text>
       </View>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: palette.text }]}>Show</Text>
+        <Text style={[styles.label, { color: palette.text }]}>{t('window.export.show')}</Text>
+        {isMultitrack ? <BarButton label={t('window.export.asShown')} palette={palette} isActive={choice === 'asShown'} onPress={() => setChoice('asShown')} /> : null}
         {SCORE_MODES.map((option) => (
-          <BarButton key={option} label={SCORE_MODE_LABELS[option]} palette={palette} isActive={option === mode} onPress={() => setMode(option)} />
+          <BarButton key={option} label={SCORE_MODE_LABELS[option]} palette={palette} isActive={option === choice} onPress={() => setChoice(option)} />
         ))}
-        <Text style={[styles.label, styles.spaced, { color: palette.text }]}>Paper</Text>
-        {PAPER_IDS.map((option) => (
-          <BarButton key={option} label={PAPER_SIZES[option].name} palette={palette} isActive={option === paper} onPress={() => setPaper(option)} />
-        ))}
+        <Text style={[styles.label, styles.spaced, { color: palette.text }]}>{t('window.export.page')}</Text>
+        <Text style={[styles.hint, { color: palette.muted }]}>{pageSummary(stylesheetOf(song).page)}</Text>
+        {onOpenStylesheet === undefined ? null : <BarButton label={t('window.export.stylesheet')} palette={palette} onPress={onOpenStylesheet} />}
       </View>
       {isPng ? <PngOptionsRow palette={palette} png={png} onChange={setPng} /> : null}
+      {onChangeHidesAnnotations !== undefined && hasAnnotations(song) ? <AnnotationsRow palette={palette} hidesAnnotations={hidesAnnotations} onChange={onChangeHidesAnnotations} /> : null}
       <View style={styles.row}>
         <BarButton
-          label={isPng ? 'Save PNG…' : 'Save PDF…'}
+          label={isPng ? t('window.export.savePng') : t('window.export.savePdf')}
           palette={palette}
           isAccent
           isEnabled={!isSaving}
-          onPress={() => (isPng ? onSavePng(mode, paper, png) : onSave(mode, paper))}
+          onPress={() => (isPng ? onSavePng(choice, png) : onSave(choice))}
         />
-        <BarButton label="Close" palette={palette} onPress={onClose} />
-        <Text style={[styles.hint, { color: palette.muted }]}>{isSaving ? 'Saving…' : summary}</Text>
+        <BarButton label={t('common.close')} palette={palette} onPress={onClose} />
+        <Text style={[styles.hint, { color: palette.muted }]}>{isSaving ? t('window.export.saving') : summary}</Text>
       </View>
     </View>
   );

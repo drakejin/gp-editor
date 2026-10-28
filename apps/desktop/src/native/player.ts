@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import type { AudioPlayback } from '../lib/audio-track';
 
 export interface PlayerPosition {
   readonly seconds: number;
@@ -20,11 +21,15 @@ export interface SoundBanks {
 }
 
 interface GPPlayerModule {
-  play(base64Midi: string, fromSeconds: number): Promise<void>;
+  play(base64Midi: string, fromSeconds: number, audio: AudioPlayback | null): Promise<void>;
+  setAudioTrackMix(mix: { readonly gain: number; readonly detuneCents: number }): Promise<void>;
   stop(): Promise<void>;
   position(): Promise<PlayerPosition>;
   setProgram(channel: number, program: number): Promise<void>;
   setController(channel: number, controller: number, value: number): Promise<void>;
+  setMutedTracks(trackIndexes: readonly number[]): Promise<void>;
+  setClickTracks(trackIndexes: readonly number[]): Promise<void>;
+  previewNote(note: PreviewNote): Promise<void>;
   soundBanks(): Promise<SoundBanks>;
   selectSoundBank(id: string): Promise<SoundBanks>;
   addSoundBank(): Promise<SoundBanks | null>;
@@ -36,13 +41,20 @@ const native = NativeModules.GPPlayer as GPPlayerModule | undefined;
 
 function requireNative(): GPPlayerModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPPlayer native module is not available on this platform');
   }
   return native;
 }
 
-export function playMidi(base64Midi: string, fromSeconds = 0): Promise<void> {
-  return requireNative().play(base64Midi, fromSeconds);
+/** Plays a MIDI file from `fromSeconds`, with the audio track's stretches under it (`audio`; null: none). */
+export function playMidi(base64Midi: string, fromSeconds = 0, audio: AudioPlayback | null = null): Promise<void> {
+  return requireNative().play(base64Midi, fromSeconds, audio);
+}
+
+/** The playing audio track's gain (0–1) and detune, heard at once. */
+export function setAudioTrackMix(gain: number, detuneCents: number): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setAudioTrackMix({ gain, detuneCents });
 }
 
 export function stopMidi(): Promise<void> {
@@ -57,6 +69,37 @@ export function setMidiProgram(midiChannel: number, program: number): Promise<vo
 /** Sends a control change to a MIDI channel of the playing song now (a track's volume or pan changed). */
 export function setMidiController(midiChannel: number, controller: number, value: number): Promise<void> {
   return native === undefined ? Promise.resolve() : native.setController(midiChannel, controller, value);
+}
+
+/**
+ * The tracks of the MIDI file (indexes as renderMidi writes them) that stay silent: now in the playing song, and in
+ * every song played after, until changed (the metronome's track while the metronome is off).
+ */
+export function setMutedTracks(trackIndexes: readonly number[]): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setMutedTracks(trackIndexes);
+}
+
+/**
+ * The tracks of the MIDI file that play on the shared synth whatever the mix: renderMidi's metronome and count-in, which
+ * come after the song's tracks and must never go through a track's effects. For every song played after.
+ */
+export function setClickTracks(trackIndexes: readonly number[]): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.setClickTracks(trackIndexes);
+}
+
+/** A note to preview: `key` with `program` on `midiChannel` for `durationMs`, through song track `trackIndex`'s effects. */
+export interface PreviewNote {
+  readonly midiChannel: number;
+  readonly program: number;
+  readonly key: number;
+  readonly velocity: number;
+  readonly durationMs: number;
+  readonly trackIndex: number;
+}
+
+/** Plays one note now (a key or fret hovered in the instrument view), with the track's effects when it has some. */
+export function previewNote(note: PreviewNote): Promise<void> {
+  return native === undefined ? Promise.resolve() : native.previewNote(note);
 }
 
 export function playerPosition(): Promise<PlayerPosition> {

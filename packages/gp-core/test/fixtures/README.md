@@ -3,6 +3,9 @@
 `guitarpro3` … `guitarpro8` are copied unchanged from the alphaTab test suite
 (https://github.com/CoderLine/alphaTab, `packages/alphatab/test-data/`, commit in `ALPHATAB_COMMIT`).
 alphaTab is licensed under the Mozilla Public License 2.0; these files are used here only as test input.
+alphaTab itself (`@coderline/alphatab`, the version pinned in `packages/gp-core/package.json`, MPL-2.0) is a
+devDependency used only by `test/cross-check-alphatab.test.ts`, which reads every file the writers make from these
+fixtures; it is not part of the library and never bundled into the app.
 
 | folder | Guitar Pro version | extension |
 | --- | --- | --- |
@@ -39,3 +42,8 @@ from https://www.mutopiaproject.org/ftp/BachJS/BWVAnh114/anna-magdalena-04-guita
 (MD5 `a8e3d67c24348fb35c8a03ed02a354aa`). Its licence is **Public Domain**
 (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=102). Synthetic MIDI files are built in the tests by
 `test/helpers/smf-builder.ts`.
+
+`musicxml` (.xml, one .mxl) holds 32 files of the (unofficial) MusicXML test suite by Reinhold Kainhofer, as LilyPond
+ships it (https://gitlab.com/lilypond/lilypond, `input/regression/musicxml/`, commit
+`7a3188dd7b4886083f3d88d4fbcd1f5c048eee45`), copied unchanged. The suite is licensed under the MIT license; its
+notice is kept in `MUSICXML_TEST_SUITE_LICENSE` (outside the folder, so the fixture sweeps do not read it as a score).

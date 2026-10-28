@@ -1,7 +1,6 @@
 import type { Track } from '@gp-editor/core';
 import {
   clefKind,
-  drumPlacement,
   measureAccidentals,
   spellPitch,
   staffPosition,
@@ -55,32 +54,22 @@ describe('staff positions and clefs', () => {
   });
 
   it('writes guitar an octave above sounding pitch, including the capo', () => {
-    expect(writtenMidi(GUITAR, note(6, 0))).toBe(52); // low E sounds E2, written E3
-    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3))).toBe(
+    expect(writtenMidi(GUITAR, note(6, 0), 12)).toBe(52); // low E sounds E2, written E3
+    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3), 12)).toBe(
       64 + 2 + 3 + 12,
     );
-    expect(writtenMidi(GUITAR, note(9, 0))).toBe(60 + 12); // unknown string falls back to middle C
+    expect(writtenMidi(GUITAR, note(9, 0), 12)).toBe(60 + 12); // unknown string falls back to middle C
   });
 
-  it('chooses treble, bass or percussion staves', () => {
+  it('chooses treble, bass, C clef or percussion staves', () => {
     expect(clefKind(GUITAR, 'treble')).toBe('treble');
-    expect(clefKind(GUITAR, 'tenor')).toBe('treble');
-    expect(clefKind(GUITAR, 'alto')).toBe('treble');
+    expect(clefKind(GUITAR, 'tenor')).toBe('tenor');
+    expect(clefKind(GUITAR, 'alto')).toBe('alto');
     expect(clefKind(GUITAR, 'bass')).toBe('bass');
     expect(clefKind(GUITAR, 'neutral')).toBe('percussion');
     expect(clefKind({ ...GUITAR, isPercussion: true }, 'treble')).toBe(
       'percussion',
     );
-  });
-
-  it('places common drums and falls back to the middle line', () => {
-    expect(drumPlacement(36)).toEqual({ position: 1, isCross: false }); // kick
-    expect(drumPlacement(38)).toEqual({ position: 5, isCross: false }); // snare
-    expect(drumPlacement(42)).toEqual({ position: 9, isCross: true }); // closed hi-hat
-    expect(drumPlacement(49)).toEqual({ position: 10, isCross: true }); // crash
-    expect(drumPlacement(51)).toEqual({ position: 8, isCross: true }); // ride
-    expect(drumPlacement(44)).toEqual({ position: -1, isCross: true }); // pedal hi-hat
-    expect(drumPlacement(99)).toEqual({ position: 4, isCross: false });
   });
 });
 

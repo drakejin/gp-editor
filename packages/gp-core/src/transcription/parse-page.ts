@@ -1,5 +1,6 @@
 import { MAX_FRET } from '../edit/edit-song';
 import { TranscriptionError } from '../errors';
+import { GM_DRUM_KEYS, gmPercussionKey, gmPercussionName } from '../formats/common/channels';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { TRANSCRIBED_DURATIONS, isTimeSignature, isTranscribedDuration, isTupletSize } from './durations';
 import { isTranscribedEffect } from './note-effects';
@@ -16,6 +17,7 @@ import {
   withoutUndefined,
 } from './parse-values';
 import { parsePitch } from './pitch';
+import { instrumentWarning, parseTrack } from './parse-track';
 import {
   MAX_TRANSCRIBED_ALTERNATE_ENDING,
   MAX_TRANSCRIBED_BEATS,
@@ -25,15 +27,20 @@ import {
   MAX_TRANSCRIBED_MEASURES,
   MAX_TRANSCRIBED_NOTES,
   MAX_TRANSCRIBED_PARTS,
+  MAX_TRANSCRIBED_PROGRAM,
   MAX_TRANSCRIBED_REPEAT_PLAYS,
   MAX_TRANSCRIBED_SYLLABLE_LENGTH,
   MAX_TRANSCRIBED_TEMPO,
   MAX_TRANSCRIBED_TRACKS,
   MIN_TRANSCRIBED_TEMPO,
+  TRANSCRIBED_CLEFS,
+  TRANSCRIBED_INSTRUMENTS,
 } from './types';
 import type {
   TranscribedBeat,
+  TranscribedClef,
   TranscribedEffect,
+  TranscribedInstrument,
   TranscribedMeasure,
   TranscribedNote,
   TranscribedPart,
@@ -63,27 +70,25 @@ function parseSongInfo(value: unknown): TranscribedSongInfo | undefined {
   return Object.keys(info).length === 0 ? undefined : info;
 }
 
-/** A track; odd fields fall back (no name, a guitar, no tuning: standard, no capo) since the builder can do without them. */
-export function parseTrack(value: unknown, path: string): TranscribedTrack {
-  const track = readObject(value, path);
-  const tuning = Array.isArray(track.tuning) ? track.tuning.map((entry: unknown) => (typeof entry === 'string' ? entry.trim() : String(entry))) : [];
-  return {
-    name: toText(track.name) ?? '',
-    instrument: track.instrument === 'bass' ? 'bass' : 'guitar',
-    tuning,
-    capo: toClampedInteger(track.capo, 0, MAX_TRANSCRIBED_CAPO) ?? 0,
-  };
+interface ParsedTracks {
+  readonly tracks?: readonly TranscribedTrack[];
+  readonly warnings: readonly string[];
 }
 
-function parseTracks(value: unknown): readonly TranscribedTrack[] | undefined {
+function parseTracks(value: unknown): ParsedTracks {
   if (value === undefined || value === null) {
-    return undefined;
+    return { warnings: [] };
   }
-  const tracks = readList(value, 'tracks');
-  if (tracks.length > MAX_TRANSCRIBED_TRACKS) {
-    throw new TranscriptionError(`tracks: ${tracks.length} tracks (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
+  const raw = readList(value, 'tracks');
+  if (raw.length > MAX_TRANSCRIBED_TRACKS) {
+    throw new TranscriptionError(`tracks: ${raw.length} tracks (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
   }
-  return tracks.map((track, index) => parseTrack(track, `tracks[${index}]`));
+  const tracks = raw.map((track, index) => parseTrack(track, `tracks[${index}]`));
+  const warnings = tracks.flatMap((track, index) => {
+    const entry = raw[index];
+    return instrumentWarning(isRawObject(entry) ? entry.instrument : undefined, track, index) ?? [];
+  });
+  return { tracks, warnings };
 }
 
 /** Known effects in the order given, each once; anything else is left out. */
@@ -92,20 +97,31 @@ function parseEffects(value: unknown): readonly TranscribedEffect[] {
   return effects.filter(isTranscribedEffect).filter((effect, index, all) => all.indexOf(effect) === index);
 }
 
-/** A note needs a tab string and fret, or a written pitch it can read (the tab wins when it has both). */
+/** A drum's General MIDI percussion name as GM_PERCUSSION_NAMES spells it; undefined for anything else. */
+function parseDrum(value: unknown): string | undefined {
+  const key = typeof value === 'string' ? gmPercussionKey(value) : undefined;
+  return key === undefined ? undefined : gmPercussionName(key);
+}
+
+/**
+ * A note needs a tab string and fret, a written pitch it can read, or a drum it knows (the tab wins over a pitch when it
+ * has both; a drum is kept beside them, the builder taking what its track plays).
+ */
 function parseNote(value: unknown, path: string): TranscribedNote {
   const note = readObject(value, path);
   const string = toClampedInteger(note.string, 1, MAX_STRINGS);
   const fret = toClampedInteger(note.fret, 0, MAX_FRET);
   const pitch = typeof note.pitch === 'string' && parsePitch(note.pitch) !== undefined ? note.pitch.trim() : undefined;
+  const drum = parseDrum(note.drum);
   const hasTab = string !== undefined && fret !== undefined;
-  if (!hasTab && pitch === undefined) {
-    throw new TranscriptionError(`${path}: expected a string and fret, or a pitch such as "C#4"`);
+  if (!hasTab && pitch === undefined && drum === undefined) {
+    throw new TranscriptionError(`${path}: expected a string and fret, a pitch such as "C#4" or a drum such as "${gmPercussionName(GM_DRUM_KEYS.snare) ?? ''}"`);
   }
   const effects = parseEffects(note.effects);
   return withoutUndefined({
     ...(hasTab ? { string, fret } : {}),
     pitch,
+    drum,
     tied: toFlag(note.tied),
     effects: effects.length === 0 ? undefined : effects,
   });
@@ -203,9 +219,9 @@ function parseWarnings(value: unknown): readonly string[] {
  */
 export function parseTranscriptionPage(value: unknown): TranscriptionPage {
   const page = readObject(value, 'page');
-  const tracks = parseTracks(page.tracks);
+  const { tracks, warnings: trackWarnings } = parseTracks(page.tracks);
   const trackCount = tracks !== undefined && tracks.length > 0 ? tracks.length : undefined;
   const measures = readList(page.measures, 'measures', MAX_TRANSCRIBED_MEASURES).map((measure, index) => parseMeasure(measure, `measures[${index}]`, trackCount));
-  const warnings = parseWarnings(page.warnings);
+  const warnings = [...parseWarnings(page.warnings), ...trackWarnings];
   return withoutUndefined({ song: parseSongInfo(page.song), tracks, measures, warnings: warnings.length === 0 ? undefined : warnings });
 }

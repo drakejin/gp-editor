@@ -1,12 +1,16 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { type GestureResponderEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { useBarInView } from '../hooks/use-bar-in-view';
+import { useLanguage, useT } from '../hooks/use-i18n';
 import { trackInstrument } from '../lib/instruments';
 import { ScoreCanvas } from '../native/score-canvas';
-import { barMapHeight, barMapWidth, engraveBarMap, hitTestBarMap } from '../score/bar-map';
-import { instrumentIconKind } from '../score/panel-icons';
+import { BAR_MAP, barMapHeight, barMapWidth, engraveBarMap, hitTestBarMap } from '../score/bar-map';
+import { shownTrackIcon } from '../score/track-icons';
+import type { PanelAnchor } from '../hooks/use-track-info';
+import type { TrackPanelActions } from '../hooks/use-track-manager';
 import type { Palette } from '../theme';
+import { TrackActions } from './TrackActions';
 import { TRACK_TABLE, TrackMixerRow, TrackTableFooter, TrackTableHeader } from './TrackMixerRow';
 
 export const TRACKS_PANEL = {
@@ -17,6 +21,13 @@ export const TRACKS_PANEL = {
 export interface TracksPanelProps {
   readonly song: Song;
   readonly selectedTrackIndex: number;
+  /** The tracks the score shows (their eyes are lit); the selected one alone by default. */
+  readonly shownTrackIndexes?: readonly number[];
+  /** View ▸ Multitrack is on (the Multitrack button over the table is lit). */
+  readonly isMultitrack?: boolean;
+  /** A track's eye: shows or hides it in the multitrack view. */
+  readonly onToggleTrackShown: (trackIndex: number) => void;
+  readonly onToggleMultitrack: () => void;
   readonly cursorMeasureIndex?: number;
   readonly playingMeasureIndex?: number;
   readonly palette: Palette;
@@ -28,52 +39,30 @@ export interface TracksPanelProps {
   /** Called once when a drag ends (one undo step), not on every move. */
   readonly onSetTrackVolume: (trackIndex: number, volume: number) => void;
   readonly onSetTrackBalance: (trackIndex: number, balance: number) => void;
-  /** The track's instrument icon was clicked (opens the instrument picker). */
-  readonly onEditInstrument: (trackIndex: number) => void;
+  /** A track's colour strip or icon was clicked: its track information (name, short name, colour, icon) opens there. */
+  readonly onOpenTrackInfo?: (trackIndex: number, anchor: PanelAnchor) => void;
+  /** A track renamed in place (one undo step). */
+  readonly onRenameTrack?: (trackIndex: number, name: string) => void;
+  /** Renaming in place ended: the keyboard goes back to the score. */
+  readonly onRenameEnd?: () => void;
+  /** Add, duplicate, delete and move tracks (the footer's buttons, dragging a track's name); none: no buttons. */
+  readonly trackActions?: TrackPanelActions;
+  /** Guitar Pro's "Audio track" button, while the song has none (Track ▸ Add Audio Track…). */
+  readonly onAddAudioTrack?: () => void;
 }
 
 /**
- * Guitar Pro's tracks panel, dark in both appearances: the track table (instrument, name, show / mute / solo, volume,
- * pan) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
+ * Guitar Pro's tracks panel, dark in both appearances: the track table (colour strip and icon — both open the track's
+ * information —, name, show / mute / solo, volume, pan; Multitrack over it, the eyes choosing the tracks it shows) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
  * marked; clicking a cell goes there. The two halves share their row heights, and the whole panel scrolls vertically.
  */
 function TracksPanelView(props: TracksPanelProps) {
-  const { song, selectedTrackIndex, palette } = props;
-  const rows = useMemo(
-    () =>
-      song.tracks.map((track, trackIndex) => ({
-        channel: song.channels.find((channel) => channel.id === track.channelId),
-        instrumentName: trackInstrument(song, trackIndex)?.name,
-        iconKind: instrumentIconKind(song, trackIndex),
-      })),
-    [song],
-  );
+  const { palette } = props;
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
       <ScrollView style={styles.vertical}>
         <View style={styles.columns}>
-          <View style={[styles.table, { borderRightColor: palette.chromeBorder }]}>
-            <TrackTableHeader palette={palette} />
-            {song.tracks.map((track, trackIndex) => (
-              <TrackMixerRow
-                key={trackIndex}
-                track={track}
-                trackIndex={trackIndex}
-                channel={rows[trackIndex]?.channel}
-                instrumentName={rows[trackIndex]?.instrumentName}
-                iconKind={rows[trackIndex]?.iconKind ?? 'guitar'}
-                isSelected={trackIndex === selectedTrackIndex}
-                palette={palette}
-                onSelectTrack={props.onSelectTrack}
-                onSetTrackMute={props.onSetTrackMute}
-                onSetTrackSolo={props.onSetTrackSolo}
-                onSetTrackVolume={props.onSetTrackVolume}
-                onSetTrackBalance={props.onSetTrackBalance}
-                onEditInstrument={props.onEditInstrument}
-              />
-            ))}
-            <TrackTableFooter palette={palette} />
-          </View>
+          <TrackTable {...props} />
           <BarMap {...props} />
         </View>
       </ScrollView>
@@ -81,11 +70,75 @@ function TracksPanelView(props: TracksPanelProps) {
   );
 }
 
+/** The track table: Multitrack over it, a row per track (dragged by its name to move it), the buttons under it. */
+function TrackTable(props: TracksPanelProps) {
+  const { song, selectedTrackIndex, palette, trackActions, shownTrackIndexes = [selectedTrackIndex] } = props;
+  // The instrument names are in the shown language: the rows are rebuilt when it changes.
+  const language = useLanguage();
+  // A track's name being dragged: where it would go.
+  const [drag, setDrag] = useState<{ readonly fromIndex: number; readonly toIndex: number } | undefined>(undefined);
+  const onDragTrack = useCallback((fromIndex: number, toIndex: number | undefined) => setDrag(toIndex === undefined ? undefined : { fromIndex, toIndex }), []);
+  const rows = useMemo(
+    () =>
+      song.tracks.map((track, trackIndex) => ({
+        channel: song.channels.find((channel) => channel.id === track.channelId),
+        instrumentName: trackInstrument(song, trackIndex)?.name,
+        icon: shownTrackIcon(song, trackIndex),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` is read by trackInstrument's names (global t)
+    [song, language],
+  );
+  return (
+    <View style={[styles.table, { borderRightColor: palette.chromeBorder }]}>
+      <TrackTableHeader palette={palette} isMultitrack={props.isMultitrack === true} onToggleMultitrack={props.onToggleMultitrack} />
+      {song.tracks.map((track, trackIndex) => (
+        <TrackMixerRow
+          key={trackIndex}
+          track={track}
+          trackIndex={trackIndex}
+          channel={rows[trackIndex]?.channel}
+          instrumentName={rows[trackIndex]?.instrumentName}
+          icon={rows[trackIndex]?.icon ?? 'steelGuitar'}
+          isSelected={trackIndex === selectedTrackIndex}
+          isShown={shownTrackIndexes.includes(trackIndex)}
+          palette={palette}
+          onSelectTrack={props.onSelectTrack}
+          onToggleShown={props.onToggleTrackShown}
+          onSetTrackMute={props.onSetTrackMute}
+          onSetTrackSolo={props.onSetTrackSolo}
+          onSetTrackVolume={props.onSetTrackVolume}
+          onSetTrackBalance={props.onSetTrackBalance}
+          onOpenTrackInfo={props.onOpenTrackInfo}
+          onRenameTrack={props.onRenameTrack}
+          onRenameEnd={props.onRenameEnd}
+          trackCount={song.tracks.length}
+          isDragged={drag?.fromIndex === trackIndex}
+          onDragTrack={trackActions === undefined ? undefined : onDragTrack}
+          onMoveTrack={trackActions?.onMoveTrack}
+        />
+      ))}
+      {drag === undefined ? null : <DropMarker palette={palette} {...drag} />}
+      <TrackTableFooter
+        palette={palette}
+        onAddAudioTrack={props.onAddAudioTrack}
+        trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} actions={trackActions} />}
+      />
+    </View>
+  );
+}
+
+/** Where a dragged track would go: a line over the rows, above the target row (moving up) or below it (moving down). */
+function DropMarker({ palette, fromIndex, toIndex }: { readonly palette: Palette; readonly fromIndex: number; readonly toIndex: number }) {
+  const rowEdge = toIndex > fromIndex ? toIndex + 1 : toIndex;
+  return <View pointerEvents="none" style={[styles.dropMarker, { top: BAR_MAP.headerHeight + rowEdge * BAR_MAP.rowHeight - 1, backgroundColor: palette.chromeAccent }]} />;
+}
+
 /** Memoized: it re-renders when the song, selection, cursor bar, playing bar or palette changes, not on every beat. */
 export const TracksPanel = memo(TracksPanelView);
 
 /** The bar map on the native canvas, in a horizontal scroll view that keeps the playing (else the cursor's) bar in view. */
 function BarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette, onSelectBar }: TracksPanelProps) {
+  const t = useT();
   const commands = useMemo(
     () => engraveBarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette }),
     [song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette],
@@ -103,10 +156,10 @@ function BarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIn
       <Pressable
         testID="tracks-panel-bar-map"
         onPress={handlePress}
-        tooltip="Filled bars hold notes. Click a bar to go there."
+        tooltip={t('window.tracks.barMapTooltip')}
         accessibilityRole="button"
-        accessibilityLabel="Bar map"
-        accessibilityHint="Goes to the clicked track and bar"
+        accessibilityLabel={t('window.tracks.barMap')}
+        accessibilityHint={t('window.tracks.barMapHint')}
         style={size}
       >
         <ScoreCanvas commands={commands} style={size} />
@@ -122,4 +175,5 @@ const styles = StyleSheet.create({
   columns: { flexDirection: 'row' },
   table: { width: TRACK_TABLE.width, borderRightWidth: 1 },
   map: { flex: 1 },
+  dropMarker: { position: 'absolute', left: 0, right: 0, height: 2 },
 });

@@ -1,9 +1,9 @@
 // Measure property edits after TuxGuitar's TGSongManager.changeTimeSignature / changeTempos / changeTripletFeel,
 // TGTrackManager.changeKeySignature and TGUpdateMarkerAction / TGSongManager.removeMarker (LGPL-2.1), propagated the way
 // Guitar Pro does.
-import { NOTE_VALUES, measureTicks } from '../model/defaults';
+import { NOTE_VALUES, clamp, headerTicks, measureTicks, roundTempo } from '../model/defaults';
 import type { Marker, Measure, MeasureHeader, NoteValue, Song, TimeSignature, TripletFeel } from '../model/song';
-import { headerTicks, relayoutMeasures } from './relayout';
+import { relayoutMeasures } from './relayout';
 import { replaceAt, hasSameItems } from './song-paths';
 import { type VoiceEvents, eventsTicks, restEvents, hasSameEvents, toBeats, toMeasureVoices } from './timeline';
 import { fitLimits, settleVoice } from './voice-fit';
@@ -22,12 +22,8 @@ const TRIPLET_FEELS: readonly TripletFeel[] = ['none', 'eighth', 'sixteenth'];
 /** Largest red, green or blue value of a marker colour. */
 const MAX_COLOR_COMPONENT = 255;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 /** End (exclusive) of the run of measures from `from` that still have the value `from` has (GP's "until the next change"). */
-function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boolean): number {
+export function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boolean): number {
   let end = from + 1;
   while (end < items.length) {
     const item = items[end];
@@ -37,6 +33,11 @@ function runEnd<T>(items: readonly T[], from: number, isSame: (item: T) => boole
     end += 1;
   }
   return end;
+}
+
+function withoutBeamGrouping(header: MeasureHeader): MeasureHeader {
+  const { beamGrouping: _dropped, ...rest } = header;
+  return rest;
 }
 
 function nearestNoteValue(denominator: number): NoteValue {
@@ -110,7 +111,8 @@ export function setTimeSignature(song: Song, measureIndex: number, timeSignature
   if (fitted.some((measures, trackIndex) => measures.length !== measuresByTrack[trackIndex]?.length)) {
     return song;
   }
-  const headers = song.measureHeaders.map((other, index) => (isChanged(index) ? { ...other, timeSignature: next } : other));
+  // A bar's own beam grouping was for the old time signature.
+  const headers = song.measureHeaders.map((other, index) => (isChanged(index) ? { ...withoutBeamGrouping(other), timeSignature: next } : other));
   return relayoutMeasures(song, headers, fitted);
 }
 
@@ -128,14 +130,14 @@ function updateHeaderRun(
 
 /**
  * New song with the tempo of `measureIndex` and of the following measures that had the same tempo set, clamped to
- * 1…999. Same song when nothing changes.
+ * 1…999 and kept to two decimals. Same song when nothing changes.
  */
 export function setTempo(song: Song, measureIndex: number, tempo: number): Song {
   const header = song.measureHeaders[measureIndex];
   if (header === undefined || !Number.isFinite(tempo)) {
     return song;
   }
-  const next = clamp(tempo, MIN_TEMPO, MAX_TEMPO);
+  const next = clamp(roundTempo(tempo), MIN_TEMPO, MAX_TEMPO);
   if (next === header.tempo) {
     return song;
   }

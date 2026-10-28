@@ -2,12 +2,17 @@ import type { Measure, MeasureHeader, Track } from '@gp-editor/core';
 import { type MeasureLayout, TAB } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawCommand } from '../draw';
+import type { NextInRow } from '../symbols/links';
 import { type Highlight, engraveVoices } from './engrave-voices';
 import { buildVoiceEvents } from './events';
 import { keyChange } from './key-signature';
-import { type ClefKind, clefKind } from './pitch';
-import { measureRest } from './rests';
-import { barLines, staffLines, timeSignature } from './staff';
+import { CLEF_CHANGE_SCALE, MUSIC_FONT_SIZE, positionY } from './metrics';
+import { type ClefKind, GUITAR_TRANSPOSITION, clefKind } from './pitch';
+import { emptyVoiceRest, measureRest } from './rests';
+import { voiceTint } from '../voices';
+import { barLines, clefGlyph, staffLines, timeSignature } from './staff';
+import type { NextBar } from './voice-layout';
+import { nextMeasureHeads } from './voice-placement';
 
 export interface NotationContext {
   readonly track: Track;
@@ -18,6 +23,8 @@ export interface NotationContext {
   readonly previousMeasure?: Measure;
   /** For ties, slurs and slides leaving across the bar line (half arcs to the right edge, e.g. at the end of a row). */
   readonly nextMeasure?: Measure;
+  /** The next measure when it is on this row too: slurs and slides into it are drawn whole, notehead to notehead. */
+  readonly nextInRow?: NextInRow;
   /** y of the staff's top line, in measure-local coordinates (x = 0 is the measure's left edge). */
   readonly top: number;
   readonly palette: Palette;
@@ -25,6 +32,61 @@ export interface NotationContext {
   readonly highlight?: Highlight;
   /** Pick strokes above the staff; the row turns this on when no tab staff shows them. */
   readonly showsPickStrokes?: boolean;
+  /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
+  readonly isKeyboard?: boolean;
+  /** Semitones the track's notes are written above their sound (`trackTransposition`); absent: a guitar's octave. */
+  readonly transposition?: number;
+  /**
+   * The measure starts its row: the row header shows its clef, and an octave sign running into it is named again. Slurs
+   * and slides from the previous measure come in here unless this is false (the previous measure drew them whole).
+   */
+  readonly isRowStart?: boolean;
+  /** The voice being edited (the cursor's): the other voices faded, and its whole rest where it has nothing in the bar. */
+  readonly editedVoiceIndex?: number;
+  /** 4/4 written C and 2/2 ¢ (the stylesheet's choice). */
+  readonly showsCommonTime?: boolean;
+}
+
+/** The clef where it changes inside a row, cue size; none at a row start, whose header draws it. */
+function clefChangeCommands(
+  context: NotationContext,
+  clef: ClefKind,
+): DrawCommand[] {
+  const x = context.layout.clefChangeX;
+  if (x === undefined || context.isRowStart === true) {
+    return [];
+  }
+  const glyph = clefGlyph(clef, transpositionOf(context));
+  const y = positionY(context.top, glyph.position);
+  return [
+    {
+      kind: 'text',
+      x,
+      y,
+      text: glyph.text,
+      size: MUSIC_FONT_SIZE * CLEF_CHANGE_SCALE,
+      color: context.palette.text,
+      font: 'music',
+      align: 'left',
+    },
+  ];
+}
+
+/** The rest standing for the edited voice when it has no event in the bar (beats of other voices only). */
+function emptyVoiceMark(
+  context: NotationContext,
+  start: number,
+): DrawCommand[] {
+  const { measure, editedVoiceIndex, layout, top, palette } = context;
+  if (
+    editedVoiceIndex === undefined ||
+    measure.beats.length === 0 ||
+    measure.beats.some(beat => beat.voices[editedVoiceIndex]?.isEmpty === false)
+  ) {
+    return [];
+  }
+  const tint = voiceTint(editedVoiceIndex, palette);
+  return [emptyVoiceRest((start + layout.width) / 2, top, editedVoiceIndex, tint)];
 }
 
 function keyChangeCommands(
@@ -44,8 +106,11 @@ function keyChangeCommands(
   });
 }
 
+/** What places the beat area of a measure: its layout, header and key, and the key before it. */
+type BeatArea = Pick<NotationContext, 'layout' | 'header' | 'measure' | 'previousMeasure'>;
+
 /** Where the beat area starts: after the repeat sign, key change and time signature that layoutMeasure placed. */
-function beatAreaStart(context: NotationContext): number {
+function beatAreaStart(context: BeatArea): number {
   const { layout, header, measure, previousMeasure } = context;
   const changedKey =
     measure.keySignature === 0
@@ -61,11 +126,51 @@ function beatAreaStart(context: NotationContext): number {
     layout.timeSignatureX === undefined
       ? 0
       : layout.timeSignatureX + TAB.timeSignatureWidth;
+  const clefEnd =
+    layout.clefChangeX === undefined
+      ? 0
+      : layout.clefChangeX + TAB.clefChangeWidth;
   return Math.max(
     TAB.padLeft + (header.repeatOpen ? TAB.repeatWidth : 0),
     keyEnd,
     timeEnd,
+    clefEnd,
   );
+}
+
+/** Where ties, slurs and slides from the previous measure start: the bar line, or after the signs layoutMeasure put there. */
+function entryXOf(context: BeatArea): number {
+  const start = beatAreaStart(context);
+  return start > TAB.padLeft ? start : 0;
+}
+
+/** Where a bar without beats draws its whole rest (the tab draws the cursor there): the middle of its beat area. */
+export function measureRestX(context: BeatArea): number {
+  return (beatAreaStart(context) + context.layout.width) / 2;
+}
+
+/** A bar without beats: its whole rest, lit in the cursor's voice colour when the cursor stands there. */
+function emptyMeasureRest(context: NotationContext): DrawCommand {
+  const voiceIndex = context.highlight?.voiceIndex;
+  const color = voiceIndex === undefined ? context.palette.text : voiceTint(voiceIndex, context.palette);
+  return measureRest(measureRestX(context), context.top, color);
+}
+
+function transpositionOf(context: NotationContext): number {
+  return context.transposition ?? GUITAR_TRANSPOSITION;
+}
+
+/** The next measure when it is on this row, for the slurs and slides that reach into it. */
+function nextBarOf(context: NotationContext): NextBar | undefined {
+  const { track, measure, nextMeasure, nextInRow, top, layout } = context;
+  if (nextMeasure === undefined || nextInRow === undefined) {
+    return undefined;
+  }
+  const area = { layout: nextInRow.layout, header: nextInRow.header, measure: nextMeasure, previousMeasure: measure };
+  return {
+    headOn: nextMeasureHeads(track, nextMeasure, nextInRow, { top, offset: layout.width, transposition: transpositionOf(context) }),
+    entryX: layout.width + entryXOf(area),
+  };
 }
 
 /** One measure of the standard-notation staff: staff and bar lines, key / time signature changes, voices. */
@@ -79,22 +184,25 @@ export function engraveNotationMeasure(
     : undefined;
   const start = beatAreaStart(context);
   // Ties and slurs from the previous measure start at the bar line, or after a key / time signature drawn there.
-  const entryX = start > TAB.padLeft ? start : 0;
+  const entryX = entryXOf(context);
   const voices =
     measure.beats.length === 0
-      ? [measureRest((start + layout.width) / 2, top, palette.text)]
-      : engraveVoices(buildVoiceEvents(track, measure, layout, clef), {
+      ? [emptyMeasureRest(context)]
+      : engraveVoices(buildVoiceEvents(track, measure, layout, clef, transpositionOf(context)), {
           ...context,
           width: layout.width,
           entryX,
+          nextBar: nextBarOf(context),
         });
   return [
     ...staffLines(0, layout.width, top, palette.line),
     ...barLines(header, layout.width, top, palette.text),
+    ...clefChangeCommands(context, clef),
     ...keyChangeCommands(context, clef),
     ...(timeSignatureX === undefined
       ? []
-      : timeSignature(header, timeSignatureX, top, palette.text)),
+      : timeSignature(header, timeSignatureX, top, palette.text, context.showsCommonTime)),
     ...voices,
+    ...emptyVoiceMark(context, start),
   ];
 }

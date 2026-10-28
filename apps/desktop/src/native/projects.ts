@@ -39,6 +39,7 @@ const native = NativeModules.GPProjects as GPProjectsModule | undefined;
 
 function requireNative(): GPProjectsModule {
   if (native === undefined) {
+    // i18n-exempt: a developer's diagnostic naming the native module
     throw new Error('GPProjects native module is not available on this platform');
   }
   return native;

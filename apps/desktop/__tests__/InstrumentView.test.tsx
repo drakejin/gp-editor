@@ -1,9 +1,11 @@
 import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
+import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { DrumKit } from '../src/components/DrumKit';
 import { Fretboard } from '../src/components/Fretboard';
 import { InstrumentView } from '../src/components/InstrumentView';
 import { Keyboard } from '../src/components/Keyboard';
+import type { ScaleHighlight } from '../src/score/scale-marks';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -11,7 +13,7 @@ import { beat, makeSong, note } from '../test-support/songs';
 const SONG: Song = makeSong([[beat(960, [note(1, 0), note(2, 0)])]]);
 const CURSOR = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 };
 
-function render(parts: { readonly showsKeyboard: boolean; readonly showsFretboard: boolean }, song: Song = SONG) {
+function render(parts: { readonly showsKeyboard: boolean; readonly showsFretboard: boolean; readonly scale?: ScaleHighlight }, song: Song = SONG) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<InstrumentView song={song} trackIndex={0} cursor={CURSOR} palette={PALETTE} {...parts} />);
@@ -48,6 +50,24 @@ describe('InstrumentView', () => {
     expect(root.findByType(DrumKit).props.keys).toEqual([36, 42]);
   });
 
+  it('shows or hides the drum key from the drum kit', () => {
+    // Arrange
+    const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
+    const drumKey = { isOpen: false, toggle: jest.fn() };
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<InstrumentView song={percussion} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard drumKey={drumKey} />);
+    });
+
+    // Act
+    const button = renderer.root.findAllByType(ChromeButton).find((candidate) => candidate.props.testID === 'drum-kit-drum-key')!;
+    ReactTestRenderer.act(() => button.props.onPress());
+
+    // Assert
+    expect(button.props).toMatchObject({ label: 'Drum Key', isActive: false });
+    expect(drumKey.toggle).toHaveBeenCalled();
+  });
+
   it('enters the clicked drum through onDrumHit', () => {
     const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
     const hits: number[] = [];
@@ -64,5 +84,50 @@ describe('InstrumentView', () => {
   it('shows no drum kit when both instrument parts are switched off', () => {
     const percussion: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })) };
     expect(render({ showsKeyboard: false, showsFretboard: false }, percussion).findAllByType(DrumKit)).toHaveLength(0);
+  });
+
+  it('hands the Scales panel’s scale to the keyboard and the fretboard', () => {
+    // Arrange
+    const scale = { pitchClasses: [9, 0, 2, 4, 7], root: 9 };
+
+    // Act
+    const root = render({ showsKeyboard: true, showsFretboard: true, scale });
+
+    // Assert
+    expect(root.findByType(Keyboard).props.scale).toBe(scale);
+    expect(root.findByType(Fretboard).props.scale).toBe(scale);
+  });
+});
+
+describe('InstrumentView hover preview', () => {
+  /** The instrument view with the preview on, laid out 1000 points wide. */
+  function renderHovering(onHoverPitch?: (pitch: number) => void) {
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<InstrumentView song={SONG} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard onHoverPitch={onHoverPitch} />);
+    });
+    const layout = { nativeEvent: { layout: { width: 1048, height: 100, x: 0, y: 0 } } };
+    for (const part of renderer.root.findAll((node) => (node.type === Keyboard || node.type === Fretboard))) {
+      const container = part.findAll((node) => typeof node.props.onLayout === 'function')[0];
+      ReactTestRenderer.act(() => container?.props.onLayout(layout));
+    }
+    return renderer.root;
+  }
+
+  it('plays the pitch of a hovered piano key or fret', () => {
+    // Arrange
+    const hovered: number[] = [];
+    const root = renderHovering((pitch) => hovered.push(pitch));
+
+    // Act: the piano's middle C, then the open high E string
+    ReactTestRenderer.act(() => root.findByProps({ testID: 'hover-key-60' }).props.onHoverIn());
+    ReactTestRenderer.act(() => root.findAllByProps({ testID: 'hover-fret-64' })[0]?.props.onHoverIn());
+
+    // Assert
+    expect(hovered).toEqual([60, 64]);
+  });
+
+  it('has no hover areas while the preview is off', () => {
+    expect(renderHovering().findAll((node) => typeof node.props.testID === 'string' && node.props.testID.startsWith('hover-'))).toHaveLength(0);
   });
 });

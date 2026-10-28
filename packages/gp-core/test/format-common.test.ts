@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { instrumentSetOf, writtenTransposition } from '../src/formats/common/instrument-sets';
+import { MAX_TRACK_ICON_ID, TRACK_COLORS, TRACK_ICON_IDS, isTrackIconId, trackIconName } from '../src/formats/common/track-icons';
 import { bendPositionFromGp, bendValueFromGp, tremoloBarValueFromGp } from '../src/formats/common/bend-units';
-import { createChannelName, gmPercussionName } from '../src/formats/common/channels';
+import { GM_PERCUSSION_NAMES, createChannelName, gmPercussionKey, gmPercussionName } from '../src/formats/common/channels';
 import {
   artificialHarmonicOffset,
   artificialHarmonicOffsetAtFret,
@@ -221,6 +223,35 @@ describe('GM percussion names', () => {
   it('names no key outside the GM drum map', () => {
     expect([34, 82, -1, 36.5].map(gmPercussionName)).toEqual([undefined, undefined, undefined, undefined]);
   });
+
+  it('finds the key of every name, whatever its case and spaces, and no key for anything else', () => {
+    expect(GM_PERCUSSION_NAMES).toHaveLength(47);
+    expect(GM_PERCUSSION_NAMES.map(gmPercussionKey)).toEqual(Array.from({ length: 47 }, (_, index) => 35 + index));
+    expect(['closed hi-hat', '  BASS DRUM 1 ', 'Ride Cymbal 1'].map(gmPercussionKey)).toEqual([42, 36, 51]);
+    expect(['Kick', '', 'constructor', 'toString'].map(gmPercussionKey)).toEqual([undefined, undefined, undefined, undefined]);
+  });
+});
+
+describe('written transposition', () => {
+  const GUITAR_TUNING = [64, 59, 55, 50, 45, 40];
+
+  it('writes guitars, basses, the banjo and the contrabass an octave above their sound, as Guitar Pro shows them', () => {
+    const octaveUp = Array.from({ length: 128 }, (_, program) => program).filter((program) => writtenTransposition(program, false, GUITAR_TUNING) === 12);
+    expect(octaveUp).toEqual([...Array.from({ length: 16 }, (_, index) => 24 + index), 43, 105]);
+  });
+
+  it('writes pianos, voices, strings, winds and drums as they sound', () => {
+    expect([0, 16, 40, 52, 53, 56, 65, 73, 80].map((program) => writtenTransposition(program, false, GUITAR_TUNING))).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(writtenTransposition(25, true, GUITAR_TUNING)).toBe(0);
+  });
+
+  it('writes a ukulele as it sounds: a guitar sound on four strings tuned G3 or higher (standard and low G)', () => {
+    expect(writtenTransposition(24, false, [69, 64, 60, 67])).toBe(0);
+    expect(writtenTransposition(24, false, [69, 64, 60, 55])).toBe(0);
+    // A baritone ukulele's D G B E is a guitar's top four strings, written as a guitar's.
+    expect(writtenTransposition(24, false, [64, 59, 55, 50])).toBe(12);
+    expect(writtenTransposition(33, false, [43, 38, 33, 28])).toBe(12);
+  });
 });
 
 describe('durationFromTicks', () => {
@@ -252,5 +283,27 @@ describe('durationFromTicks', () => {
 
     // Assert
     expect(values).toEqual([1, 2, 4, 8, 16, 32, 64]);
+  });
+});
+
+describe('track icons and colours', () => {
+  it('names each Guitar Pro icon id, and nothing else', () => {
+    expect(trackIconName(TRACK_ICON_IDS.distortionGuitar)).toBe('distortionGuitar');
+    expect(trackIconName(TRACK_ICON_IDS.drums)).toBe('drums');
+    expect(trackIconName(3)).toBeUndefined();
+    expect(new Set(Object.values(TRACK_ICON_IDS)).size).toBe(Object.keys(TRACK_ICON_IDS).length);
+  });
+
+  it('takes whole numbers 0…MAX_TRACK_ICON_ID as icon ids', () => {
+    expect([0, 24, MAX_TRACK_ICON_ID].every(isTrackIconId)).toBe(true);
+    expect([-1, 2.5, MAX_TRACK_ICON_ID + 1, Number.NaN, '4', undefined].some(isTrackIconId)).toBe(false);
+  });
+
+  it('gives each instrument set an icon of the set, and offers nine of Guitar Pro 8’s track colours', () => {
+    const icons = Array.from({ length: 128 }, (_, program) => instrumentSetOf(program, false).iconId);
+    expect(icons.every((iconId) => trackIconName(iconId) !== undefined)).toBe(true);
+    expect(instrumentSetOf(0, true).iconId).toBe(TRACK_ICON_IDS.drums);
+    expect(TRACK_COLORS).toHaveLength(9);
+    expect(TRACK_COLORS.every((color) => [color.r, color.g, color.b].every((value) => Number.isInteger(value) && value >= 0 && value <= 255))).toBe(true);
   });
 });

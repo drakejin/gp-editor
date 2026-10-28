@@ -1,56 +1,39 @@
-import {
-  type Beat,
-  type BeatFragment,
-  type PlayedNote,
-  type Song,
-  type SongInfo,
-  type StringAddress,
-  buildNewSong,
-  deleteNote,
-  enterPlayedNotes,
-  findNote,
-  insertMeasure,
-  setNoteFret,
-  setNoteString,
-  setSongInfo,
-  setTrackBalance,
-  setTrackCapo,
-  setTrackMute,
-  setTrackName,
-  setTrackProgram,
-  setTrackSolo,
-  setTrackTuning,
-  setTrackVolume,
-  toggleDrumNote,
-} from '@gp-editor/core';
-import {
-  adjacentBeat,
-  adjacentString,
-  clampCursor,
-  firstCursor,
-} from '../lib/navigation';
-import { retuneNotice } from '../lib/tuning-hint';
+import { type PlayedNote, type BeatFragment, type Song, type StringAddress, type TranspositionOptions, type TranspositionScope, buildNewSong } from '@gp-editor/core';
+import { adjacentBeat, firstCursor, voiceWithNoteAt } from '../lib/navigation';
+import { t } from '../lib/i18n/i18n';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
-import { type SongEdit, applySongEdit } from './song-edits';
-import { DRONE_FRET_HINT, playedNotesHint, storedFret } from './note-entry';
-import { refusalHint } from './edit-hints';
+import type { AudioTrackAction } from './audio-track-edits';
 import {
-  type ClipboardEdit,
-  cutSelectionAt,
-  extendSelection,
-  selectTo,
-  pasteBeatsAt,
-  pasteRefusal,
-  settleSelection,
-} from './selection';
+  applyCursorEdit,
+  cutSelection,
+  deleteNoteAtCursor,
+  enterPlayed,
+  pasteBeats,
+  selectVoice,
+  shiftNoteFret,
+  shiftNoteString,
+  toggleDrumAtCursor,
+  typeFret,
+  withCursor,
+} from './cursor-edits';
+import { editAudioTrack, editLayout, editSong, editTracks, retune, selectTrack, transposeSong } from './document-edits';
+import { markSaved, redo, undo } from './editor-history';
+import { type LayoutAction, isLayoutAction } from './layout-edits';
+import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
+import { extendSelection, selectTo, settleSelection } from './selection';
+import { type SongAction, isSongAction } from './song-actions';
+import type { SongEdit } from './song-edits';
+import { INITIAL_TRACK_DISPLAY, type TrackDisplay } from './track-display';
+import type { TrackAction } from './track-edits';
 
-/** Undo depth kept in memory. */
-export const HISTORY_LIMIT = 200;
-/** Voices the cursor can be on: Guitar Pro 5 files hold two per beat. */
-const SELECTABLE_VOICES = 2;
-/** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"). */
-export const NEW_DOCUMENT_NAME = 'Untitled';
+// The shown tab's editor: its document, undo history, cursor and selection, view and hints, and the reducer routing each
+// action to the edits of cursor-edits.ts (at the cursor), document-edits.ts (the song, a track) and editor-history.ts.
+
+/** File name of a new sheet until it is saved (Save suggests "Untitled.gp5"), in the language shown when it is made. */
+function newDocumentName(): string {
+  return t('common.untitled');
+}
 
 export interface OpenDocument {
   readonly fileName: string;
@@ -73,6 +56,8 @@ export interface EditorState {
    */
   readonly selectionAnchor?: StringAddress;
   readonly mode: ScoreMode;
+  /** The tracks the score shows (View ▸ Multitrack, the tracks panel's eyes) and their staves in the multitrack view. */
+  readonly trackDisplay: TrackDisplay;
   /** What this score shows of its chords (the track inspector's Chords toggles); names and diagrams for a new score. */
   readonly chordDisplay: ChordDisplay;
   readonly isLoading: boolean;
@@ -81,25 +66,19 @@ export interface EditorState {
   readonly notice?: string;
   /** Why the last edit at the cursor changed nothing (e.g. a shorter time signature for a full bar). */
   readonly hint?: string;
+  /** Guitar Pro 8's multivoice edition: no voice faded, and a click on a note puts the cursor in that note's voice. */
+  readonly isMultivoice?: boolean;
+  /** Guitar Pro 8's Design Mode (View ▸ Design Mode): the score's handles to move beats, bar lines and systems. */
+  readonly isDesignMode?: boolean;
 }
-
-/** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
-type SongAction =
-  /** The General MIDI instrument a track plays (saved with the song). */
-  | { readonly type: 'setTrackProgram'; readonly trackIndex: number; readonly program: number }
-  | { readonly type: 'setTrackName'; readonly trackIndex: number; readonly name: string }
-  | { readonly type: 'setTrackMute'; readonly trackIndex: number; readonly isMute: boolean }
-  | { readonly type: 'setTrackSolo'; readonly trackIndex: number; readonly isSolo: boolean }
-  /** 0–127, on the track's channel (a channel shared with another track is copied first). */
-  | { readonly type: 'setTrackVolume'; readonly trackIndex: number; readonly volume: number }
-  /** Pan 0–127 (64 = centre), as the volume. */
-  | { readonly type: 'setTrackBalance'; readonly trackIndex: number; readonly balance: number }
-  /** Capo fret 0–24; the frets stay as written. */
-  | { readonly type: 'setTrackCapo'; readonly trackIndex: number; readonly capo: number }
-  | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export type EditorAction =
   | SongAction
+  | LayoutAction
+  | { readonly type: 'toggleDesignMode' }
+  | AudioTrackAction
+  | TrackAction
+  | TrackDisplayAction
   | { readonly type: 'loadStarted' }
   | { readonly type: 'loadCancelled' }
   | { readonly type: 'loaded'; readonly document: OpenDocument }
@@ -124,8 +103,9 @@ export type EditorAction =
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
-  /** The cursor on voice 1 (0) or 2 (1) of the same beat. */
+  /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
   | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
@@ -155,6 +135,8 @@ export type EditorAction =
   /** The system clipboard could not be read or written. */
   | { readonly type: 'clipboardFailed'; readonly message: string }
   | { readonly type: 'edit'; readonly edit: SongEdit }
+  /** Tools ▸ Transpose…: one undo step; the hint strip tells what moved and what could not. */
+  | { readonly type: 'transpose'; readonly scope: TranspositionScope; readonly options: TranspositionOptions }
   | { readonly type: 'undo' }
   | { readonly type: 'redo' };
 
@@ -163,17 +145,16 @@ export const INITIAL_EDITOR_STATE: EditorState = {
   future: [],
   trackIndex: 0,
   mode: 'notationAndTab',
+  trackDisplay: INITIAL_TRACK_DISPLAY,
   chordDisplay: DEFAULT_CHORD_DISPLAY,
   isLoading: false,
 };
 
-export function editorReducer(
-  state: EditorState,
-  action: EditorAction,
-): EditorState {
+export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   return settleSelection(state, reduceEditor(state, action), action);
 }
 
+/** Opening, saving, errors and hints. */
 function reduceEditor(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'loadStarted':
@@ -183,24 +164,17 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
     case 'loaded':
       return openDocument(action.document, state.mode);
     case 'created':
-      return openDocument(
-        { fileName: NEW_DOCUMENT_NAME, path: '', song: buildNewSong() },
-        action.mode,
-      );
+      return openDocument({ fileName: newDocumentName(), path: '', song: buildNewSong() }, action.mode);
     case 'saved':
       return markSaved(state, action.fileName, action.path, action.song);
     case 'saveFailed':
-      return { ...state, error: `Could not save: ${action.message}` };
+      return { ...state, error: t('palette.error.save', { message: action.message }) };
     case 'exportFailed':
-      return { ...state, error: `Could not export ${action.what ?? 'the PDF'}: ${action.message}` };
+      return { ...state, error: t('palette.error.export', { what: action.what ?? t('palette.error.thePdf'), message: action.message }) };
     case 'clipboardFailed':
-      return { ...state, error: `Could not use the clipboard: ${action.message}` };
+      return { ...state, error: t('palette.error.clipboard', { message: action.message }) };
     case 'loadFailed':
-      return {
-        ...state,
-        isLoading: false,
-        error: openFailedMessage(action.message),
-      };
+      return { ...state, isLoading: false, error: openFailedMessage(action.message) };
     case 'dismissError':
       return { ...state, error: undefined };
     case 'dismissNotice':
@@ -209,12 +183,26 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
       return state.hint === action.hint ? state : { ...state, hint: action.hint };
     case 'dismissHint':
       return state.hint === undefined ? state : { ...state, hint: undefined };
+    default:
+      return viewReducer(state, action);
+  }
+}
+
+/** The shown track and how the score shows it. */
+function viewReducer(state: EditorState, action: EditorAction): EditorState {
+  switch (action.type) {
     case 'selectTrack':
       return selectTrack(state, action.trackIndex);
     case 'setMode':
-      return { ...state, mode: action.mode };
+      return setScoreMode(state, action.mode);
+    case 'toggleMultitrack':
+    case 'toggleTrackShown':
+    case 'moveCursorTrack':
+      return reduceTrackDisplay(state, action);
     case 'setChordDisplay':
       return { ...state, chordDisplay: action.display };
+    case 'toggleDesignMode':
+      return { ...state, isDesignMode: state.isDesignMode !== true };
     default:
       return cursorReducer(state, action);
   }
@@ -223,17 +211,15 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
 function cursorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'placeCursor':
-      return withCursor(state, () => action.cursor);
+      return placeCursor(state, state.isMultivoice === true && state.document !== undefined ? voiceWithNoteAt(state.document.song, action.cursor) : action.cursor);
     case 'moveCursorBeat':
-      return withCursor(state, (song, cursor) =>
-        adjacentBeat(song, cursor, action.step),
-      );
+      return withCursor(state, (song, cursor) => adjacentBeat(song, cursor, action.step));
     case 'moveCursorString':
-      return withCursor(state, (song, cursor) =>
-        adjacentString(song, cursor, action.delta),
-      );
+      return moveCursorString(state, action.delta);
     case 'selectVoice':
       return selectVoice(state, action.voiceIndex);
+    case 'toggleMultivoice':
+      return { ...state, isMultivoice: state.isMultivoice !== true };
     case 'extendSelection':
       return extendSelection(state, action.step);
     case 'selectTo':
@@ -241,52 +227,61 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
     case 'clearSelection':
       return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:
-      return editReducer(state, action);
+      return cursorEditReducer(state, action);
   }
 }
 
-function editReducer(state: EditorState, action: EditorAction): EditorState {
+/** Edits at the cursor (one undo step each). */
+function cursorEditReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'setNoteFret':
       return typeFret(state, action.fret);
     case 'toggleDrumNote':
-      return followBeatStart(state, applyEdit(state, (song, at) => toggleDrumNote(song, at, action.key)));
+      return toggleDrumAtCursor(state, action.key);
     case 'enterPlayedNotes':
       return enterPlayed(state, action.notes);
     case 'shiftNoteFret':
-      return applyEdit(state, (song, at) => {
-        const note = findNote(song, at);
-        return note === undefined
-          ? song
-          : setNoteFret(song, at, note.fret + action.delta);
-      });
+      return shiftNoteFret(state, action.delta);
     case 'shiftNoteString':
       return shiftNoteString(state, action.delta);
     case 'deleteNote':
-      return applyEdit(state, deleteNote);
-    case 'setTrackTuning':
-      return retune(state, action.trackIndex, action.tuning);
-    case 'setTrackProgram':
-    case 'setTrackName':
-    case 'setTrackMute':
-    case 'setTrackSolo':
-    case 'setTrackVolume':
-    case 'setTrackBalance':
-    case 'setTrackCapo':
-    case 'setSongInfo':
-      return state.document === undefined
-        ? state
-        : recordSong(
-            state,
-            state.document,
-            applySongAction(state.document.song, action),
-          );
+      return deleteNoteAtCursor(state);
     case 'edit':
       return applyCursorEdit(state, action.edit);
     case 'cutSelection':
-      return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
+      return cutSelection(state);
     case 'pasteBeats':
       return pasteBeats(state, action.fragment);
+    default:
+      return songEditReducer(state, action);
+  }
+}
+
+/** Edits of the song, a track, its audio track or its layout (one undo step each), undo and redo. */
+function songEditReducer(state: EditorState, action: EditorAction): EditorState {
+  if (isSongAction(action)) {
+    return editSong(state, action);
+  }
+  if (isLayoutAction(action)) {
+    return editLayout(state, action);
+  }
+  switch (action.type) {
+    case 'setTrackTuning':
+      return retune(state, action.trackIndex, action.tuning);
+    case 'setAudioTrack':
+    case 'setAudioTrackMix':
+    case 'setAudioSyncPoint':
+    case 'deleteAudioSyncPoint':
+    case 'moveAudioSyncPoint':
+    case 'setTempoFromAudio':
+      return editAudioTrack(state, action);
+    case 'addTrack':
+    case 'duplicateTrack':
+    case 'deleteTrack':
+    case 'moveTrack':
+      return editTracks(state, action);
+    case 'transpose':
+      return transposeSong(state, action.scope, action.options);
     case 'undo':
       return undo(state);
     case 'redo':
@@ -296,313 +291,17 @@ function editReducer(state: EditorState, action: EditorAction): EditorState {
   }
 }
 
-function applySongAction(song: Song, action: SongAction): Song {
-  switch (action.type) {
-    case 'setTrackProgram':
-      return setTrackProgram(song, action.trackIndex, action.program);
-    case 'setTrackName':
-      return setTrackName(song, action.trackIndex, action.name);
-    case 'setTrackMute':
-      return setTrackMute(song, action.trackIndex, action.isMute);
-    case 'setTrackSolo':
-      return setTrackSolo(song, action.trackIndex, action.isSolo);
-    case 'setTrackVolume':
-      return setTrackVolume(song, action.trackIndex, action.volume);
-    case 'setTrackBalance':
-      return setTrackBalance(song, action.trackIndex, action.balance);
-    case 'setTrackCapo':
-      return setTrackCapo(song, action.trackIndex, action.capo);
-    case 'setSongInfo':
-      return setSongInfo(song, action.info);
-  }
-}
-
-/** The cursor on another voice of the same beat; the same state where the beat has no such voice. */
-function selectVoice(state: EditorState, voiceIndex: number): EditorState {
-  const { cursor } = state;
-  const beat = cursor === undefined ? undefined : cursorBeat(state, cursor);
-  const isSelectable =
-    Number.isInteger(voiceIndex) &&
-    voiceIndex >= 0 &&
-    voiceIndex < SELECTABLE_VOICES &&
-    beat?.voices[voiceIndex] !== undefined;
-  if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
-    return state;
-  }
-  return { ...state, cursor: { ...cursor, voiceIndex } };
-}
-
-function cursorBeat(state: EditorState, cursor: StringAddress): Beat | undefined {
-  return state.document?.song.tracks[cursor.trackIndex]?.measures[
-    cursor.measureIndex
-  ]?.beats[cursor.beatIndex];
-}
-
-/**
- * After an edit at the cursor, the cursor on the beat that starts where its beat started: rests a fret typed into an
- * empty voice adds before the note can shift the beat indexes.
- */
-function followBeatStart(before: EditorState, after: EditorState): EditorState {
-  const { cursor } = before;
-  const start = cursor === undefined ? undefined : cursorBeat(before, cursor)?.start;
-  if (after === before || cursor === undefined || start === undefined) {
-    return after;
-  }
-  const beats =
-    after.document?.song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]
-      ?.beats ?? [];
-  const beatIndex = beats.findIndex(beat => beat.start === start);
-  return beatIndex < 0 || beatIndex === cursor.beatIndex
-    ? after
-    : { ...after, cursor: { ...cursor, beatIndex } };
-}
-
-/** A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg) leaves a hint instead. */
-function typeFret(state: EditorState, typed: number): EditorState {
-  const { document, cursor } = state;
-  const fret = document === undefined || cursor === undefined ? typed : storedFret(document.song, cursor, typed);
-  if (fret === undefined) {
-    return { ...state, hint: DRONE_FRET_HINT };
-  }
-  const typedState = followBeatStart(state, applyEdit(state, (song, at) => setNoteFret(song, at, fret)));
-  return typedState.hint === DRONE_FRET_HINT ? { ...typedState, hint: undefined } : typedState;
-}
-
-/** MIDI step entry at the cursor: the played notes become its beat, then the cursor steps on; a hint names what was left out. */
-function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): EditorState {
-  const { document, cursor } = state;
-  if (document === undefined || cursor === undefined) {
-    return state;
-  }
-  const entry = enterPlayedNotes(document.song, cursor, notes);
-  const hint = playedNotesHint(entry.skipped);
-  const entered = followBeatStart(state, recordSong(state, document, entry.song));
-  if (entered === state || entered.cursor === undefined || entered.document === undefined) {
-    return hint === undefined ? state : { ...state, hint };
-  }
-  const next = adjacentBeat(entry.song, entered.cursor, 1);
-  if (next !== entered.cursor) {
-    return { ...entered, cursor: next, hint };
-  }
-  // The song's last beat: a new bar to go on writing in, in the same undo step.
-  const song = insertMeasure(entry.song, next.measureIndex, 'after');
-  const cursorInNewBar = clampCursor(song, { ...next, measureIndex: next.measureIndex + 1, beatIndex: 0 });
-  return { ...entered, document: { ...entered.document, song }, cursor: cursorInNewBar, hint };
-}
-
-/** The document under its new file name, `song` being what the file now holds. */
-function markSaved(
-  state: EditorState,
-  fileName: string,
-  path: string,
-  song: Song,
-): EditorState {
-  return state.document === undefined
-    ? state
-    : {
-        ...state,
-        document: { ...state.document, fileName, path },
-        savedSong: song,
-      };
-}
-
 /** A fresh editor (no history, cursor on the first beat) for a document just opened or created. */
 function openDocument(document: OpenDocument, mode: ScoreMode): EditorState {
-  return {
-    ...INITIAL_EDITOR_STATE,
-    mode,
-    document,
-    savedSong: document.song,
-    cursor: firstCursor(document.song, 0),
-  };
-}
-
-function selectTrack(state: EditorState, trackIndex: number): EditorState {
-  const song = state.document?.song;
-  if (
-    song === undefined ||
-    trackIndex < 0 ||
-    trackIndex >= song.tracks.length
-  ) {
-    return state;
-  }
-  // Keep the place in the song when switching tracks.
-  const cursor =
-    state.cursor === undefined
-      ? firstCursor(song, trackIndex)
-      : clampCursor(song, { ...state.cursor, trackIndex });
-  return { ...state, trackIndex, cursor };
-}
-
-function withCursor(
-  state: EditorState,
-  move: (song: Song, cursor: StringAddress) => StringAddress,
-): EditorState {
-  const song = state.document?.song;
-  const current =
-    state.cursor ??
-    (song === undefined ? undefined : firstCursor(song, state.trackIndex));
-  if (song === undefined || current === undefined) {
-    return state;
-  }
-  return { ...state, cursor: clampCursor(song, move(song, current)) };
-}
-
-/** Option-↑/↓: move the note at the cursor to the neighbouring string; the cursor follows it. */
-function shiftNoteString(state: EditorState, delta: number): EditorState {
-  const { cursor } = state;
-  if (cursor === undefined) {
-    return state;
-  }
-  const edited = applyEdit(state, (song, at) =>
-    setNoteString(song, at, at.string + delta),
-  );
-  return edited === state
-    ? state
-    : { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
-}
-
-/** A cursor edit; the cursor follows inserted beats and measures and stays inside the song after deletions. */
-function applyCursorEdit(state: EditorState, edit: SongEdit): EditorState {
-  const edited = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
-  if (edited === state) {
-    const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(state.document.song, state.cursor, edit);
-    return hint === state.hint ? state : { ...state, hint };
-  }
-  const song = edited.document?.song;
-  if (song === undefined || edited.cursor === undefined) {
-    return { ...edited, hint: undefined };
-  }
-  const cursor = edited.cursor;
-  const moved =
-    edit.type === 'insertBeat'
-      ? { ...cursor, beatIndex: cursor.beatIndex + 1 }
-      : edit.type === 'insertMeasure'
-      ? { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 }
-      : cursor;
-  return { ...edited, cursor: clampCursor(song, moved), hint: undefined };
-}
-
-/** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */
-function applyClipboardEdit(
-  state: EditorState,
-  edit: (song: Song, cursor: StringAddress) => ClipboardEdit,
-): EditorState {
-  const { document, cursor } = state;
-  if (document === undefined || cursor === undefined) {
-    return state;
-  }
-  const result = edit(document.song, cursor);
-  const recorded = recordSong(state, document, result.song);
-  return recorded === state
-    ? state
-    : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: undefined };
-}
-
-/** Pastes at the cursor; when the beats cannot go there (drums and other tracks), the hint says why. */
-function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
-  const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
-  const { document, cursor } = state;
-  const hint =
-    pasted !== state || document === undefined || cursor === undefined
-      ? undefined
-      : pasteRefusal(document.song, cursor, fragment);
-  return hint === undefined || hint === state.hint ? pasted : { ...state, hint };
-}
-
-/** Runs an edit at the cursor and records the previous song for undo. */
-function applyEdit(
-  state: EditorState,
-  edit: (song: Song, at: StringAddress) => Song,
-): EditorState {
-  const { document, cursor } = state;
-  if (document === undefined || cursor === undefined) {
-    return state;
-  }
-  return recordSong(state, document, edit(document.song, cursor));
-}
-
-/** The document with `next` as its song, the previous one kept for undo; the same state when nothing changed. */
-function recordSong(
-  state: EditorState,
-  document: OpenDocument,
-  next: Song,
-): EditorState {
-  if (next === document.song) {
-    return state;
-  }
-  return {
-    ...state,
-    document: { ...document, song: next },
-    past: [...state.past, document.song].slice(-HISTORY_LIMIT),
-    future: [],
-  };
-}
-
-/** Retunes a track (one undo step); the cursor stays on the track's strings and the notice tells what moved. */
-function retune(
-  state: EditorState,
-  trackIndex: number,
-  tuning: readonly number[],
-): EditorState {
-  const { document } = state;
-  if (document === undefined) {
-    return state;
-  }
-  const change = setTrackTuning(document.song, trackIndex, tuning);
-  const recorded = recordSong(state, document, change.song);
-  if (recorded === state) {
-    return state;
-  }
-  const cursor =
-    state.cursor === undefined
-      ? undefined
-      : clampCursor(change.song, state.cursor);
-  return { ...recorded, cursor, notice: retuneNotice(change) };
-}
-
-function undo(state: EditorState): EditorState {
-  const previous = state.past[state.past.length - 1];
-  if (state.document === undefined || previous === undefined) {
-    return state;
-  }
-  return {
-    ...state,
-    document: { ...state.document, song: previous },
-    past: state.past.slice(0, -1),
-    future: [state.document.song, ...state.future],
-    cursor:
-      state.cursor === undefined
-        ? undefined
-        : clampCursor(previous, state.cursor),
-    notice: undefined,
-  };
-}
-
-function redo(state: EditorState): EditorState {
-  const [next, ...rest] = state.future;
-  if (state.document === undefined || next === undefined) {
-    return state;
-  }
-  return {
-    ...state,
-    document: { ...state.document, song: next },
-    past: [...state.past, state.document.song].slice(-HISTORY_LIMIT),
-    future: rest,
-    cursor:
-      state.cursor === undefined ? undefined : clampCursor(next, state.cursor),
-    notice: undefined,
-  };
+  return { ...INITIAL_EDITOR_STATE, mode, document, savedSong: document.song, cursor: firstCursor(document.song, 0) };
 }
 
 /** The error banner's text for a file that could not be opened. */
 export function openFailedMessage(message: string): string {
-  return `Could not open the file: ${message}`;
+  return t('palette.error.open', { message });
 }
 
 /** True when the open song differs from the one last opened or saved. */
 export function isEdited(state: EditorState): boolean {
-  return (
-    state.document !== undefined && state.document.song !== state.savedSong
-  );
+  return state.document !== undefined && state.document.song !== state.savedSong;
 }

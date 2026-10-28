@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MAX_REFERENCE_A4, MIN_REFERENCE_A4, type TunerReading, toTunerReading } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { type TunerStrings, centsText, frequencyText, isInTune, noteParts, stringButtons, tunerStatusText } from '../../lib/tuner-display';
 import type { TunerStatus } from '../../lib/tuner-input';
 import type { Palette } from '../../theme';
@@ -38,14 +39,15 @@ function NoteDisplay({ palette, reading }: { readonly palette: Palette; readonly
 
 /** The track's strings from the lowest; the one nearest the note is lit and says how far off it is. */
 function StringRow({ palette, strings, reading }: { readonly palette: Palette; readonly strings: TunerStrings; readonly reading?: TunerReading }) {
+  const t = useT();
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: palette.chromeMuted }]}>STRINGS</Text>
+      <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.tuner.strings')}</Text>
       <View style={styles.strings}>
         {stringButtons(strings.tuning, reading).map((button) => (
           <View
             key={button.number}
-            accessibilityLabel={`String ${button.number}, ${button.label}${button.cents === undefined ? '' : `, nearest: ${centsText(button.cents)}`}`}
+            accessibilityLabel={t('tools.tuner.string', { number: button.number, name: button.label, nearest: button.cents === undefined ? '' : t('tools.tuner.nearest', { cents: centsText(button.cents) }) })}
             style={[styles.string, { backgroundColor: button.isNearest ? palette.chromeAccent : palette.chromeRaised }]}
           >
             <Text style={[styles.stringName, { color: button.isNearest ? palette.chromeAccentText : palette.chromeText }]}>{button.label}</Text>
@@ -60,12 +62,14 @@ function StringRow({ palette, strings, reading }: { readonly palette: Palette; r
 }
 
 function ReferenceRow({ palette, referenceA4, onShiftReferenceA4 }: Pick<TunerViewProps, 'palette' | 'referenceA4' | 'onShiftReferenceA4'>) {
+  const t = useT();
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: palette.chromeMuted }]}>REFERENCE</Text>
-      <ChromeButton palette={palette} label="−" tooltip="Lower the reference A4 by 1 Hz" minWidth={26} isEnabled={referenceA4 > MIN_REFERENCE_A4} onPress={() => onShiftReferenceA4(-1)} />
+      <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.tuner.reference')}</Text>
+      <ChromeButton palette={palette} label="−" tooltip={t('tools.tuner.referenceLower')} minWidth={26} isEnabled={referenceA4 > MIN_REFERENCE_A4} onPress={() => onShiftReferenceA4(-1)} />
+      {/* i18n-exempt: a pitch and its unit */}
       <Text style={[styles.reference, { color: palette.chromeText }]}>{`A4 = ${referenceA4} Hz`}</Text>
-      <ChromeButton palette={palette} label="+" tooltip="Raise the reference A4 by 1 Hz" minWidth={26} isEnabled={referenceA4 < MAX_REFERENCE_A4} onPress={() => onShiftReferenceA4(1)} />
+      <ChromeButton palette={palette} label="+" tooltip={t('tools.tuner.referenceRaise')} minWidth={26} isEnabled={referenceA4 < MAX_REFERENCE_A4} onPress={() => onShiftReferenceA4(1)} />
     </View>
   );
 }
@@ -78,23 +82,24 @@ export function TunerView(props: TunerViewProps) {
   const { palette, status, frequency, strings } = props;
   const reading = frequency === undefined ? undefined : toTunerReading(frequency, strings.tuning, props.referenceA4);
   const isProblem = status.kind === 'denied' || status.kind === 'failed';
+  const t = useT();
   return (
     <View style={styles.overlay}>
       <Pressable testID="tuner-backdrop" style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={props.onClose} />
-      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel="Tuner">
+      <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.tuner.title')}>
         <View style={[styles.header, { borderColor: palette.chromeBorder }]}>
           <View style={styles.titles}>
-            <Text style={[styles.title, { color: palette.chromeText }]}>Tuner</Text>
+            <Text style={[styles.title, { color: palette.chromeText }]}>{t('tools.tuner.title')}</Text>
             <Text style={[styles.subtitle, { color: palette.chromeMuted }]}>{strings.caption}</Text>
           </View>
-          <ChromeButton palette={palette} label="Close" tooltip="Close the tuner (Esc)" onPress={props.onClose} />
+          <ChromeButton palette={palette} label={t('common.close')} tooltip={t('tools.tuner.closeTooltip')} onPress={props.onClose} />
         </View>
         <View style={styles.body}>
           <NoteDisplay palette={palette} reading={reading} />
           <CentsNeedle palette={palette} cents={reading?.cents} />
           <StringRow palette={palette} strings={strings} reading={reading} />
           <View style={styles.row}>
-            <Text style={[styles.label, { color: palette.chromeMuted }]}>INPUT</Text>
+            <Text style={[styles.label, { color: palette.chromeMuted }]}>{t('tools.tuner.input')}</Text>
             <LevelMeter palette={palette} levelDb={props.levelDb} />
           </View>
           <ReferenceRow palette={palette} referenceA4={props.referenceA4} onShiftReferenceA4={props.onShiftReferenceA4} />

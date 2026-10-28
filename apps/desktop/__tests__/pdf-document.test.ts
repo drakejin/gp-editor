@@ -1,11 +1,12 @@
-import { DYNAMICS, type DynamicName, QUARTER, type Song } from '@gp-editor/core';
+import { DYNAMICS, type DynamicName, QUARTER, type Song, readSong } from '@gp-editor/core';
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE } from '../src/export/paper';
-import { buildPdfDocument, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
+import { buildPdfDocument, exportStaves, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
 import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
-import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
+import { SCORE_MODES, type ScoreMode } from '../src/score/geometry';
 import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
+import { readFixture } from '../test-support/fixtures';
 import { textValues } from '../test-support/score-helpers';
-import { beat, header, makeSong, note, toTux } from '../test-support/songs';
+import { beat, header, makeSong, note, toTux, withTrack } from '../test-support/songs';
 
 const BEATS_PER_BAR = 4;
 const QUARTER_TICKS = 960;
@@ -98,7 +99,7 @@ describe('packRows', () => {
     const rows = Array.from({ length: 10 }, (_, i) => i);
 
     // Act
-    const pages = packRows(rows, 100, 300, 0, 750);
+    const pages = packRows(rows, () => 100, 300, 0, 750);
 
     // Assert
     expect(pages).toEqual([
@@ -108,16 +109,38 @@ describe('packRows', () => {
   });
 
   it('starts a new page after every seven rows on the following pages', () => {
-    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), 100, 0, 0, 750);
+    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), () => 100, 0, 0, 750);
     expect(pages.map((page) => page.length)).toEqual([7, 7, 6]);
   });
 
   it('returns one empty page when there are no rows', () => {
-    expect(packRows([], 100, 300, 0, 750)).toEqual([[]]);
+    expect(packRows([], () => 100, 300, 0, 750)).toEqual([[]]);
+  });
+
+  it('packs rows of different heights by their own heights', () => {
+    // Arrange: 300 pt under the first title, 750 pt on the others
+    const heights = [200, 100, 150, 400, 400, 300];
+
+    // Act
+    const pages = packRows(heights.map((_, i) => i), (i) => heights[i] ?? 0, 450, 0, 750);
+
+    // Assert
+    expect(pages).toEqual([[0, 1], [2, 3], [4, 5]]);
+  });
+
+  it('keeps a row that fills the room under the title block to the last bit on the first page', () => {
+    // Arrange: a row scaled to the first page's 450 pt, its height off by the last bit
+    const rowHeight = 450.00000000000006;
+
+    // Act
+    const pages = packRows(['a', 'b'], () => rowHeight, 300, 0, 750);
+
+    // Assert
+    expect(pages[0]).toEqual(['a']);
   });
 
   it('gives a row taller than the page a page of its own', () => {
-    expect(packRows(['a', 'b'], 900, 0, 0, 750)).toEqual([['a'], ['b']]);
+    expect(packRows(['a', 'b'], () => 900, 0, 0, 750)).toEqual([['a'], ['b']]);
   });
 });
 
@@ -275,19 +298,6 @@ describe('buildPdfDocument', () => {
     expect(textValues(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages.flatMap((page) => page.commands))).not.toContain(DYNAMIC_GLYPHS.p.text);
   });
 
-  it('keeps one row height on every page when only one bar changes dynamic, the band reserved in each row', () => {
-    // Arrange
-    const quiet = withDynamicFrom(song, 29, 1, 'p');
-
-    // Act
-    const plainPitches = rowPitches(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-    const quietPitches = rowPitches(buildPdfDocument(quiet, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-
-    // Assert
-    expect(new Set(quietPitches).size).toBe(1);
-    expect(quietPitches[0]! - plainPitches[0]!).toBeCloseTo(ROW.dynamics * PRINT_SCALE);
-  });
-
   it('prints the chord names and diagrams the screen shows, and leaves out those it hides', () => {
     // Arrange: an Am chord on bar 2's first beat.
     const [track] = song.tracks;
@@ -304,7 +314,8 @@ describe('buildPdfDocument', () => {
     // Assert
     expect(textValues(both.pages[0]!.commands)).toContain('Am');
     expect(textValues(hidden.pages[0]!.commands)).not.toContain('Am');
-    expect(rowPitches(both.pages[1]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[1]!)[0]!);
+    // The row holding the chord (the first) makes room for it.
+    expect(rowPitches(both.pages[0]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[0]!)[0]!);
     expect(buildPdfDocument(chorded, 0, 'tab', { paper: 'a4' })).toEqual(both);
   });
 
@@ -312,6 +323,101 @@ describe('buildPdfDocument', () => {
     const pdf = buildPdfDocument(song, 5, 'tab', { paper: 'a4' });
     expect(pdf.pages).toHaveLength(1);
     expect(textValues(pdf.pages[0]?.commands ?? [])).toContain('Etude');
+  });
+});
+
+describe('buildPdfDocument with several tracks (the multitrack view)', () => {
+  const twoTracks = withTrack(withInfo(songOfBars(24), { title: 'Duet' }), songOfBars(24).tracks[0]!.measures.map((m) => m.beats), { name: 'Second Guitar' });
+  const staves = [{ trackIndex: 0, mode: 'notationAndTab' as const }, { trackIndex: 1, mode: 'tab' as const }];
+
+  it('prints every shown track in each system, named in full on the first and short after, counting pages like pdfPageCount', () => {
+    // Act
+    const pdf = buildPdfDocument(twoTracks, 0, 'notation', { paper: 'a4', staves });
+    const texts = pdf.pages.flatMap((page) => textValues(page.commands));
+
+    // Assert
+    expect(texts.filter((text) => text === 'Second Guitar')).toHaveLength(1);
+    expect(texts.filter((text) => text === 'Seco. Guit.').length).toBeGreaterThan(0);
+    expect(pdfPageCount(twoTracks, 0, 'notation', { paper: 'a4', staves })).toBe(pdf.pages.length);
+  });
+
+  it('prints a system taller than the page smaller, laid out wider so it still fills the printable width', () => {
+    // Arrange
+    const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: a bar line close to the right margin on every page but the last (its system is not stretched)
+    pdf.pages.slice(0, -1).forEach((page) => {
+      const right = Math.max(...page.commands.slice(1).filter((c) => c.kind === 'line').map((c) => bounds(c).maxX));
+      expect(right).toBeGreaterThan(page.width - PAGE.margin - 40);
+      expect(right).toBeLessThanOrEqual(page.width - PAGE.margin + 1);
+    });
+  });
+
+  it('prints a system made smaller to fit under the title block on the first page, not after an empty one', () => {
+    // Arrange: eight tracks make a system taller than the room under the title block, so it is scaled to fill it
+    const song = readSong(readFixture('guitarpro1', 'carulli-allegro.gtp'));
+    const modes = ['tab', 'notation', 'notationAndTab'] as const;
+    const mixed = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: modes[trackIndex % 3] ?? 'tab' }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed });
+
+    // Assert: the first page holds staff lines under its title, as many pages as pdfPageCount counts
+    const firstPageLines = pdf.pages[0]?.commands.filter((c) => c.kind === 'line') ?? [];
+    expect(firstPageLines.length).toBeGreaterThan(20);
+    expect(pdfPageCount(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed })).toBe(pdf.pages.length);
+  });
+
+  it('prints a system made smaller to fit under the title on the first page however the wider rows group the bars', () => {
+    // Arrange: six tracks with a band every few bars (palm muting, a bend, let ring, a quieter dynamic), so a system
+    // laid out across a wider row (to fill the page once printed smaller) gathers more bands than before
+    const quiet = DYNAMICS.find((entry) => entry.name === 'pp')?.velocity ?? 0;
+    const effects = [{ palmMute: true }, {}, { bend: { points: [{ position: 0, value: 0 }, { position: 6, value: 4 }] } }, {}, { letRing: true }, {}, {}, {}];
+    const bars = Array.from({ length: 48 }, (_, i) =>
+      Array.from({ length: 4 }, (__, b) => beat(toTux(header(i + 1).start) + b * QUARTER_TICKS, [{ ...note(1 + (b % 3), 5, effects[i % 8]), velocity: i % 8 === 6 ? quiet : 95 }])),
+    );
+    const one = makeSong(bars);
+    const song = Array.from({ length: 5 }).reduce<Song>((each) => withTrack(each, bars), one);
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: staff lines under the title of the first page
+    expect(pdf.pages[0]?.commands.filter((c) => c.kind === 'line').length ?? 0).toBeGreaterThan(20);
+  });
+
+  it('keeps a system taller than the page inside it', () => {
+    // Arrange: eleven tracks in Score + Tab make a system taller than an A4 page
+    const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: everything but the paper itself
+    pdf.pages.forEach((page) => {
+      page.commands.slice(1).forEach((command) => {
+        const box = bounds(command);
+        expect(box.minY).toBeGreaterThanOrEqual(0);
+        expect(box.maxY).toBeLessThanOrEqual(page.height - PAGE.margin);
+        expect(box.maxX).toBeLessThanOrEqual(page.width);
+      });
+    });
+  });
+
+  it('exports the shown tracks as shown or all in one mode, and one track as it is', () => {
+    expect(exportStaves(staves, 'asShown')).toBe(staves);
+    expect(exportStaves(staves, 'notation')).toEqual([{ trackIndex: 0, mode: 'notation' }, { trackIndex: 1, mode: 'notation' }]);
+    expect(exportStaves([staves[0]!], 'asShown')).toBeUndefined();
+  });
+
+  it('names the file after the multitrack view', () => {
+    expect(pdfFileName(twoTracks, 0, 'tab', 'Duet.gp', staves)).toBe('Duet (Multitrack).pdf');
   });
 });
 

@@ -9,6 +9,7 @@
 
 #import "GPCommandPainter.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 /** Pixels per point: 600 dpi at most (the app offers 72, 150 and 300). */
 static const double kMaxScale = 600.0 / 72.0;
@@ -132,11 +133,11 @@ RCT_EXPORT_MODULE();
     return YES;
   }
   NSAlert *alert = [NSAlert new];
-  alert.messageText = existing == 1 ? [NSString stringWithFormat:@"Replace a file in “%@”?", folder.lastPathComponent]
-                                    : [NSString stringWithFormat:@"Replace %lu files in “%@”?", (unsigned long)existing, folder.lastPathComponent];
-  alert.informativeText = @"PNG images with these names are already in the folder. Replacing them overwrites them.";
-  [alert addButtonWithTitle:@"Replace"];
-  [alert addButtonWithTitle:@"Cancel"];
+  alert.messageText = existing == 1 ? [NSString stringWithFormat:GPLocalizedString(@"Replace a file in “%@”?"), folder.lastPathComponent]
+                                    : [NSString stringWithFormat:GPLocalizedString(@"Replace %lu files in “%@”?"), (unsigned long)existing, folder.lastPathComponent];
+  alert.informativeText = GPLocalizedString(@"PNG images with these names are already in the folder. Replacing them overwrites them.");
+  [alert addButtonWithTitle:GPLocalizedString(@"Replace")];
+  [alert addButtonWithTitle:GPLocalizedString(@"Cancel")];
   return [alert runModal] == NSAlertFirstButtonReturn;
 }
 
@@ -163,8 +164,8 @@ RCT_EXPORT_MODULE();
   panel.canChooseDirectories = YES;
   panel.canCreateDirectories = YES;
   panel.allowsMultipleSelection = NO;
-  panel.prompt = @"Export";
-  panel.message = [NSString stringWithFormat:@"Choose a folder for the %lu PNG images, one per page: %@ … %@", (unsigned long)names.count, names.firstObject, names.lastObject];
+  panel.prompt = GPLocalizedString(@"Export");
+  panel.message = [NSString stringWithFormat:GPLocalizedString(@"Choose a folder for the %lu PNG images, one per page: %@ … %@"), (unsigned long)names.count, names.firstObject, names.lastObject];
   if ([panel runModal] != NSModalResponseOK || panel.URL == nil) {
     return nil;
   }
@@ -186,7 +187,7 @@ RCT_EXPORT_MODULE();
       }
       if (png == nil) {
         if (error != NULL) {
-          NSString *message = [NSString stringWithFormat:@"Could not draw page %lu", (unsigned long)index + 1];
+          NSString *message = [NSString stringWithFormat:GPLocalizedString(@"Could not draw page %lu"), (unsigned long)index + 1];
           *error = [NSError errorWithDomain:@"GPPngExport" code:1 userInfo:@{NSLocalizedDescriptionKey : message}];
         }
         return NO;
@@ -207,7 +208,7 @@ RCT_EXPORT_METHOD(savePngs : (NSString *)documentJson fileNames : (NSArray *)fil
 {
   NSArray<NSDictionary *> *pages = [GPPngExport pagesFromJson:documentJson];
   if (pages == nil || ![GPPngExport areFileNames:fileNames forPageCount:pages.count] || !(scale > 0 && scale <= kMaxScale)) {
-    reject(@"bad_document", @"Nothing to export", nil);
+    reject(@"bad_document", GPLocalizedString(@"Nothing to export"), nil);
     return;
   }
   NSArray<NSURL *> *urls = [GPPngExport destinationsFor:fileNames];
@@ -217,7 +218,7 @@ RCT_EXPORT_METHOD(savePngs : (NSString *)documentJson fileNames : (NSArray *)fil
   }
   NSError *error = nil;
   if (![GPPngExport write:pages to:urls scale:scale eraseColor:eraseColor error:&error]) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not save the PNG images", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not save the PNG images"), error);
     return;
   }
   NSURL *folder = urls.firstObject.URLByDeletingLastPathComponent;

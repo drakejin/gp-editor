@@ -1,4 +1,5 @@
 import { STANDARD_TUNING, type Track, type TunerReading, trackTuning } from '@gp-editor/core';
+import { t } from './i18n/i18n';
 import { pitchClassName, pitchName, pitchOctave, tuningLabel } from './pitch';
 import type { TunerStatus } from './tuner-input';
 
@@ -46,7 +47,7 @@ export function centsText(cents: number): string {
 }
 
 export function frequencyText(frequency: number): string {
-  return `${frequency.toFixed(1)} Hz`;
+  return `${frequency.toFixed(1)} Hz`; // i18n-exempt: unit
 }
 
 /** The note's name and octave, shown apart: "A" and 2. */
@@ -62,10 +63,10 @@ export function levelFraction(levelDb: number): number {
 /** The shown track's open strings (no capo: the tuner tunes the strings themselves); standard guitar without one. */
 export function tunerStrings(track: Track | undefined): TunerStrings {
   if (track === undefined || track.isPercussion || track.strings.length === 0) {
-    return { tuning: STANDARD_TUNING, caption: 'Standard guitar tuning' };
+    return { tuning: STANDARD_TUNING, caption: t('tools.tuner.standardGuitar') };
   }
   const tuning = trackTuning(track);
-  return { tuning, caption: `${track.name.trim() || `Track ${track.number}`} · ${tuningLabel(tuning)}` };
+  return { tuning, caption: `${track.name.trim() || t('common.trackNumber', { number: track.number })} · ${tuningLabel(tuning)}` };
 }
 
 /**
@@ -88,11 +89,11 @@ export function stringButtons(tuning: readonly number[], reading: TunerReading |
 export function tunerStatusText(status: TunerStatus, hasTone: boolean): string {
   switch (status.kind) {
     case 'starting':
-      return 'Starting the microphone…';
+      return t('tools.tuner.starting');
     case 'listening':
-      return hasTone ? 'Listening.' : 'Play one string at a time.';
+      return hasTone ? t('tools.tuner.listening') : t('tools.tuner.playOneString');
     case 'denied':
-      return 'Microphone access is off. Allow GP Editor in System Settings ▸ Privacy & Security ▸ Microphone, then open the tuner again.';
+      return t('tools.tuner.denied');
     case 'failed':
       return status.message;
   }

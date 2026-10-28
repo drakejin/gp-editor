@@ -1,19 +1,28 @@
 import {
   type Channel,
   type Duration,
+  type Hairpin,
   type Measure,
   type MeasureHeader,
+  type NoteAudio,
   type NoteEffect,
   type NoteValue,
+  type Ottava,
+  type PedalMark,
   QUARTER_TIME,
   type Rgb,
   type SongInfo,
   type Stroke,
+  type TimeSignature,
   type Tuplet,
   type VibratoKind,
+  type Voice,
 } from './song';
 
 export const NORMAL_TUPLET: Tuplet = { enters: 1, times: 1 };
+
+/** 4/4: a new song's meter, and a bar's when nothing says otherwise. */
+export const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 
 /** "n notes in the time of …" for every tuplet Guitar Pro stores (TGDivisionType.DIVISION_TYPES but GP5's 13:8), by n. */
 const TUPLET_TIMES: ReadonlyMap<number, number> = new Map([
@@ -69,6 +78,15 @@ export const QUARTER: Duration = {
   tuplet: NORMAL_TUPLET,
 };
 
+/**
+ * Voices a beat can hold: Guitar Pro 6–8 write four, GP3–GP5 two. A beat read from a GP3–GP5 file has two voice slots;
+ * an edit of voice 3 or 4 gives the bar's beats the slots up to it (empty voices).
+ */
+export const MAX_VOICES = 4;
+
+/** A voice slot without an event (not a rest), as the readers fill the slots a beat does not use. */
+export const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
+
 export const NO_STROKE: Stroke = { direction: 'none', value: 0 };
 
 /** The speeds a stroke may have (Stroke.value), as note values. */
@@ -93,6 +111,36 @@ export const EMPTY_NOTE_EFFECT: NoteEffect = {
   fadeIn: false,
   letRing: false,
 };
+
+/** A note playing as written: Note.audio is left out for it. */
+export const DEFAULT_NOTE_AUDIO: NoteAudio = { durationPercent: 100, offsetPercent: 0, velocityOffset: 0 };
+
+/** The ranges of NoteAudio's settings (a velocity change spans the whole MIDI velocity range, 127). */
+export const NOTE_AUDIO_LIMITS = { minDurationPercent: 1, maxDurationPercent: 200, maxOffsetPercent: 99, maxVelocityOffset: 127 } as const;
+
+/** `value` kept within min…max. */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/** Same audio settings (undefined = the defaults are left out, so only undefined matches it). */
+export function isSameNoteAudio(a: NoteAudio | undefined, b: NoteAudio | undefined): boolean {
+  return a?.durationPercent === b?.durationPercent && a?.offsetPercent === b?.offsetPercent && a?.velocityOffset === b?.velocityOffset;
+}
+
+/** The settings rounded and clamped to NOTE_AUDIO_LIMITS; undefined for the defaults or a value that is not a number. */
+export function toNoteAudio(audio: NoteAudio): NoteAudio | undefined {
+  if (![audio.durationPercent, audio.offsetPercent, audio.velocityOffset].every(Number.isFinite)) {
+    return undefined;
+  }
+  const limits = NOTE_AUDIO_LIMITS;
+  const clamped: NoteAudio = {
+    durationPercent: clamp(Math.round(audio.durationPercent), limits.minDurationPercent, limits.maxDurationPercent),
+    offsetPercent: clamp(Math.round(audio.offsetPercent), 0, limits.maxOffsetPercent),
+    velocityOffset: clamp(Math.round(audio.velocityOffset), -limits.maxVelocityOffset, limits.maxVelocityOffset),
+  };
+  return isSameNoteAudio(clamped, DEFAULT_NOTE_AUDIO) ? undefined : clamped;
+}
 
 /** The note's vibrato: wide wins should a note (against the model's rule) have both flags. */
 export function vibratoOf(effect: NoteEffect): VibratoKind {
@@ -178,10 +226,23 @@ export function measureTicks(numerator: number, denominator: number): number {
   return Math.round((numerator * QUARTER_TIME * 4) / denominator);
 }
 
+/** Length of a header's measure in ticks (a reader's draft header too: only its time signature counts). */
+export function headerTicks(header: Pick<MeasureHeader, 'timeSignature'>): number {
+  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+}
+
 /** True when a voice of the measure runs past its end (an over-full measure; Guitar Pro allows and marks them). */
 export function isMeasureOverfull(measure: Measure, header: MeasureHeader): boolean {
-  const end = header.start + measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  const end = header.start + headerTicks(header);
   return measure.beats.some((beat) => beat.voices.some((voice) => !voice.isEmpty && beat.start + durationTicks(voice.duration) > end));
+}
+
+/** Hundredths of a beat per minute: tempos keep two decimals (Guitar Pro 7/8 hold e.g. 92.5). */
+const TEMPO_PRECISION = 100;
+
+/** A tempo (quarter notes per minute) rounded to two decimals, the precision MeasureHeader.tempo keeps. */
+export function roundTempo(tempo: number): number {
+  return Math.round(tempo * TEMPO_PRECISION) / TEMPO_PRECISION;
 }
 
 /** Every note value, longest (whole) first. */
@@ -220,4 +281,44 @@ export function durationFromTicks(ticks: number): Duration {
     }
   }
   return SHORTEST_DURATION;
+}
+
+/** Whether the sustain pedal is held where measure `measureIndex` starts: the last pedal mark before it presses it. */
+export function isPedalDownBefore(measures: readonly Measure[], measureIndex: number): boolean {
+  for (let index = Math.min(measureIndex, measures.length) - 1; index >= 0; index--) {
+    const last = measures[index]?.pedals?.at(-1);
+    if (last !== undefined) {
+      return last.action === 'down';
+    }
+  }
+  return false;
+}
+
+/** Sustain pedal marks by offset; at the same offset a release comes before a press (a pedal change). */
+export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
+  if (a.offset !== b.offset) {
+    return a.offset - b.offset;
+  }
+  return a.action === b.action ? 0 : a.action === 'up' ? -1 : 1;
+}
+
+/** A crescendo or decrescendo over a run of beats (Beat.hairpin). */
+const HAIRPINS: readonly Hairpin[] = ['crescendo', 'decrescendo'];
+
+export function isHairpin(value: unknown): value is Hairpin {
+  return HAIRPINS.some((hairpin) => hairpin === value);
+}
+
+/** Guitar Pro's octave signs (GPIF's `<Ottavia>` values). */
+export const OTTAVAS: readonly Ottava[] = ['8va', '8vb', '15ma', '15mb'];
+
+const OTTAVA_OCTAVES: Readonly<Record<Ottava, number>> = { '8va': 1, '8vb': -1, '15ma': 2, '15mb': -2 };
+
+export function isOttava(value: unknown): value is Ottava {
+  return OTTAVAS.some((ottava) => ottava === value);
+}
+
+/** Octaves the notes sound above where an octave sign writes them (8vb, 15mb: below); 0 without a sign. */
+export function ottavaOctaves(ottava: Ottava | undefined): number {
+  return ottava === undefined ? 0 : OTTAVA_OCTAVES[ottava];
 }

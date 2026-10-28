@@ -40,6 +40,12 @@ describe('measureSyllables', () => {
     expect(measureSyllables(track, 1)).toEqual([{ beatIndex: 0, text: 'two' }, { beatIndex: 1, text: 'three' }]);
   });
 
+  it('splits words after their hyphens and sings words joined by "+" on one note, as Guitar Pro does', () => {
+    const track = sungSong('Pa-per boats+on the').tracks[0]!;
+    expect(measureSyllables(track, 0)).toEqual([{ beatIndex: 0, text: 'Pa-' }, { beatIndex: 2, text: 'per' }]);
+    expect(measureSyllables(track, 1)).toEqual([{ beatIndex: 0, text: 'boats on' }, { beatIndex: 1, text: 'the' }]);
+  });
+
   it('starts at the lyrics’ first bar', () => {
     const track = sungSong('late start', 2).tracks[0]!;
     expect(measureSyllables(track, 0)).toEqual([]);

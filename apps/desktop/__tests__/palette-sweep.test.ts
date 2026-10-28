@@ -1,5 +1,5 @@
 import { readSong } from '@gp-editor/core';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
 import { type PaletteContext, isToolEnabled, paletteContext } from '../src/components/palette/palette-tools';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
@@ -15,10 +15,11 @@ function onRealNote(): EditorState {
 const BASE = onRealNote();
 const CONTEXT: PaletteContext = paletteContext(BASE.document!.song, BASE.cursor);
 
-/** The press changed the song or the cursor, or said why it could not (a hint). */
+/** The press changed the song, the cursor or the editing mode (multivoice, Design Mode), or said why it could not (a hint). */
 function changesOrExplains(action: EditorAction): boolean {
   const next = editorReducer(BASE, action);
-  return next.document?.song !== BASE.document?.song || next.cursor !== BASE.cursor || next.hint !== undefined;
+  const isModeChanged = next.isMultivoice !== BASE.isMultivoice || next.isDesignMode !== BASE.isDesignMode;
+  return next.document?.song !== BASE.document?.song || next.cursor !== BASE.cursor || isModeChanged || next.hint !== undefined;
 }
 
 /** Choosing what is already set (a duration, a dynamic, a stroke) rightly does nothing; a toggle always changes. */
@@ -30,7 +31,7 @@ const asEdit = (edit: SongEdit): EditorAction => ({ type: 'edit', edit });
 
 /** Every button the palette shows, as "group / tool [/ option]" with what pressing it dispatches. */
 function everyPress(): readonly { readonly name: string; readonly action: EditorAction; readonly isAlreadySo: boolean }[] {
-  return PALETTE_GROUPS.flatMap((group) => [
+  return paletteGroups().flatMap((group) => [
     ...group.tools.flatMap((tool) => {
       const name = `${group.title} / ${tool.id}`;
       const isActive = tool.isActive?.(CONTEXT) ?? false;
@@ -45,7 +46,12 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
           return [{ name, action: asEdit(tool.run.edit('Verse 1')), isAlreadySo: tool.run.value(CONTEXT) === 'Verse 1' }];
         case 'panel':
         case 'chordPanel':
-          // Opens the vibrato, bend or chord panel (no edit by itself); their choices are checked in NotePanels.test and ChordPanel.test.
+        case 'expressionText':
+        case 'annotationPanel':
+        case 'lyricsPanel':
+          // Opens the vibrato, bend, chord, annotation or lyrics panel or Expression Text (no edit by itself); their
+          // choices are checked in NotePanels.test, ChordPanel.test, expression-text.test, use-annotation-editor.test
+          // and use-lyrics-editor.test.
           return [];
       }
     }),
@@ -62,7 +68,7 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
 
 describe('edition palette: every button does something on a real note', () => {
   it('has every tool enabled with the cursor on a note', () => {
-    const disabled = PALETTE_GROUPS.flatMap((group) => group.tools).filter((tool) => !isToolEnabled(tool, CONTEXT)).map((tool) => tool.id);
+    const disabled = paletteGroups().flatMap((group) => group.tools).filter((tool) => !isToolEnabled(tool, CONTEXT)).map((tool) => tool.id);
     expect(disabled).toEqual([]);
   });
 

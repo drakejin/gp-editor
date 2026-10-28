@@ -4,30 +4,30 @@ const SECONDS_PER_MINUTE = 60;
 
 /**
  * When each bar starts, in seconds from the first, played straight through (repeats not followed) at `tempoScale`
- * times the written tempos — the bar times the top bar's display shows.
+ * times the written tempos, or times `fixedTempo` (the tempo lock) — the bar times the top bar's display shows.
  */
-export function measureStartSeconds(song: Song, tempoScale = 1): readonly number[] {
+export function measureStartSeconds(song: Song, tempoScale = 1, fixedTempo?: number): readonly number[] {
   let elapsed = 0;
   return song.measureHeaders.map((measureHeader) => {
     const start = elapsed;
-    elapsed += barSeconds(measureHeader, tempoScale);
+    elapsed += barSeconds(measureHeader, tempoScale, fixedTempo);
     return start;
   });
 }
 
 /** Length of the song played straight through, in seconds. */
-export function songSeconds(song: Song, tempoScale = 1): number {
+export function songSeconds(song: Song, tempoScale = 1, fixedTempo?: number): number {
   const last = song.measureHeaders.at(-1);
   if (last === undefined) {
     return 0;
   }
-  const starts = measureStartSeconds(song, tempoScale);
-  return (starts.at(-1) ?? 0) + barSeconds(last, tempoScale);
+  const starts = measureStartSeconds(song, tempoScale, fixedTempo);
+  return (starts.at(-1) ?? 0) + barSeconds(last, tempoScale, fixedTempo);
 }
 
-function barSeconds(measureHeader: MeasureHeader, tempoScale: number): number {
+function barSeconds(measureHeader: MeasureHeader, tempoScale: number, fixedTempo: number | undefined): number {
   const { numerator, denominator } = measureHeader.timeSignature;
-  const tempo = measureHeader.tempo * tempoScale;
+  const tempo = (fixedTempo ?? measureHeader.tempo) * tempoScale;
   return tempo > 0 ? (measureTicks(numerator, denominator) / QUARTER_TIME) * (SECONDS_PER_MINUTE / tempo) : 0;
 }
 

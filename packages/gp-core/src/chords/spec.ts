@@ -1,6 +1,6 @@
 // A chord as TuxGuitar's chord selector picks it (TGChordSelector's lists: tonic, chord, alteration, +/−, add, /5, /9,
 // /11, bass), as one value, and the notes TGChordCreatorUtil#getChords derives from it (LGPL-2.1).
-import { CHORD_TYPES, type ChordTypeName, FIFTH_DEGREE, canAlterFifth, canExtend, chordType, isSixthChord, seventhDegree } from './database';
+import { type ChordTypeName, FIFTH_DEGREE, canAlterFifth, canExtend, chordType, isChordTypeName, isSixthChord, seventhDegree } from './database';
 
 /** A degree as written, raised (+, ♯) or lowered (−, ♭): TuxGuitar's plus-minus lists. */
 export type DegreeShift = 'natural' | 'sharp' | 'flat';
@@ -48,7 +48,11 @@ export function shiftSemitones(shift: DegreeShift): number {
 }
 
 function toShift(value: unknown): DegreeShift {
-  return SHIFTS.find((shift) => shift === value) ?? 'natural';
+  return isOneOf(value, SHIFTS) ? value : 'natural';
+}
+
+function isOneOf<T extends string>(value: unknown, values: readonly T[]): value is T {
+  return (values as readonly unknown[]).includes(value);
 }
 
 /**
@@ -57,8 +61,8 @@ function toShift(value: unknown): DegreeShift {
  * chord's extension is always added (C6/9).
  */
 export function normalizeChordSpec(spec: ChordSpec): ChordSpec {
-  const type = CHORD_TYPES.some((candidate) => candidate.name === spec.type) ? spec.type : 'M';
-  const extension = canExtend(type) ? (EXTENSIONS.find((candidate) => candidate === spec.extension) ?? 'none') : 'none';
+  const type = isChordTypeName(spec.type) ? spec.type : 'M';
+  const extension = canExtend(type) && isOneOf(spec.extension, EXTENSIONS) ? spec.extension : 'none';
   const hasExtension = extension !== 'none';
   const isAdd = hasExtension && (spec.isAdd === true || isSixthChord(type));
   const level = isAdd ? 0 : EXTENSION_LEVEL[extension];

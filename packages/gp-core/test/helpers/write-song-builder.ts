@@ -1,11 +1,11 @@
 import { createChannelName } from '../../src/formats/common/channels';
 import { DEFAULT_VELOCITY } from '../../src/formats/common/velocity';
-import { EMPTY_VOICE } from '../../src/formats/gtp/shared';
 import {
   DEFAULT_CHANNEL,
   DEFAULT_PERCUSSION_BANK,
   durationTicks,
   EMPTY_NOTE_EFFECT,
+  EMPTY_VOICE,
   EMPTY_SONG_INFO,
   measureTicks,
   NO_STROKE,

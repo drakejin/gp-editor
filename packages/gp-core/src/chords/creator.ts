@@ -90,7 +90,7 @@ function combineStrings(potential: readonly (readonly StringValue[])[], context:
       const nextLow = counts ? Math.min(low, value.fret) : low;
       const nextHigh = counts ? Math.max(high, value.fret) : high;
       if (!(nextHigh - nextLow >= MAX_FRET_SPAN)) {
-        visit(string + 1, [...chosen, value], nextLow, nextHigh);
+        visit(string + 1, chosen.concat(value), nextLow, nextHigh);
       }
     }
   };
@@ -103,15 +103,50 @@ function isDuplicate(combination: readonly StringValue[], chosen: readonly (read
   return chosen.some((better) => better.every((value) => combination.every((other) => other.string !== value.string || other.fret === value.fret)));
 }
 
-/** takeBest: the best voicings, skipping those that only repeat a better one. */
-function takeBest(ranked: readonly (readonly StringValue[])[], maximum: number): readonly (readonly StringValue[])[] {
-  const best: (readonly StringValue[])[] = [];
-  for (const combination of ranked) {
-    if (best.length >= maximum) {
-      break;
+/** A voicing with its place in the search and its rounded priority. */
+interface RankedVoicing {
+  readonly combination: readonly StringValue[];
+  readonly order: number;
+  readonly priority: number;
+}
+
+/**
+ * TuxGuitar's comparator, within one rounded priority (priorities within half a point tie): the fuller voicing first
+ * (320003 before 32000x, which then only repeats it), then the order they were built in.
+ */
+function byFullness(a: RankedVoicing, b: RankedVoicing): number {
+  return b.combination.length - a.combination.length || a.order - b.order;
+}
+
+/** The voicings grouped by priority, best first; each group in the order the search built them. */
+function priorityGroups(voicings: readonly RankedVoicing[]): readonly (readonly RankedVoicing[])[] {
+  const groups = new Map<number, RankedVoicing[]>();
+  for (const voicing of voicings) {
+    const group = groups.get(voicing.priority);
+    if (group === undefined) {
+      groups.set(voicing.priority, [voicing]);
+    } else {
+      group.push(voicing);
     }
-    if (!isDuplicate(combination, best)) {
-      best.push(combination);
+  }
+  return [...groups.keys()].sort((a, b) => b - a).map((priority) => groups.get(priority) ?? []);
+}
+
+/**
+ * takeBest: the best voicings in TuxGuitar's ranking, skipping those that only repeat a better one. The ranking is
+ * walked one priority at a time, each group sorted only when reached: a search finds up to MAX_COMBINATIONS voicings
+ * and the walk usually stops within the first few groups.
+ */
+function takeBest(voicings: readonly RankedVoicing[], maximum: number): readonly (readonly StringValue[])[] {
+  const best: (readonly StringValue[])[] = [];
+  for (const group of priorityGroups(voicings)) {
+    for (const { combination } of [...group].sort(byFullness)) {
+      if (best.length >= maximum) {
+        return best;
+      }
+      if (!isDuplicate(combination, best)) {
+        best.push(combination);
+      }
     }
   }
   return best;
@@ -132,12 +167,7 @@ export function buildChordVoicings(spec: ChordSpec, tuning: readonly number[], o
   const strings = [...tuning].reverse();
   const context = voicingContext(normalized, strings, options);
   const combinations = combineStrings(potentialNotes(context, Math.max(0, options.minFret ?? 0)), context);
-  // TuxGuitar's comparator rounds the difference: priorities within half a point tie. A tie goes to the fuller voicing
-  // (320003 before 32000x, which then only repeats it), then to the order they were built in.
-  const ranked = combinations
-    .map((combination, order) => ({ combination, order, priority: Math.round(voicingPriority(combination, context)) }))
-    .sort((a, b) => b.priority - a.priority || b.combination.length - a.combination.length || a.order - b.order)
-    .map((item) => item.combination);
+  const voicings = combinations.map((combination, order) => ({ combination, order, priority: Math.round(voicingPriority(combination, context)) }));
   const name = chordName(normalized, options.spelling);
-  return takeBest(ranked, options.maxVoicings ?? DEFAULT_MAX_VOICINGS).map((combination) => toChord(combination, strings.length, name));
+  return takeBest(voicings, options.maxVoicings ?? DEFAULT_MAX_VOICINGS).map((combination) => toChord(combination, strings.length, name));
 }

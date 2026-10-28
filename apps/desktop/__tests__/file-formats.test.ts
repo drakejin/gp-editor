@@ -1,5 +1,5 @@
-import { readSong, writeSong } from '@gp-editor/core';
-import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, saveFormatOf } from '../src/lib/file-formats';
+import { DEFAULT_MASTER, DEFAULT_STYLESHEET, TRACK_ICON_IDS, buildAudioTrack, buildEffect, readSong, setBeatAnnotation, setBeatOffset, setMasterMix, setNoteFret, setStylesheet, setTrackColor, setTrackEffects, setTrackIcon, setTrackShortName, writeSong } from '@gp-editor/core';
+import { ASCII_TAB_FILE, MIDI_FILE, SAVE_FORMATS, defaultSaveFormat, fileNameIn, hasOwnLayout, saveFormatOf, saveHint } from '../src/lib/file-formats';
 import { makeSong, beat, note } from '../test-support/songs';
 
 describe('SAVE_FORMATS', () => {
@@ -22,7 +22,7 @@ describe('SAVE_FORMATS', () => {
 
     // Assert
     expect(notes[0]).toBeUndefined();
-    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits.*audio tracks are not kept/);
+    expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits, the audio track, the stylesheet and Design Mode layout and the annotations.*RSE.*not kept/);
     expect(notes[2]).toMatch(/^Guitar Pro 4 keeps one voice per bar/);
     expect(notes[3]).toMatch(/^Guitar Pro 3 keeps one voice per bar.*no lyrics/);
   });
@@ -77,5 +77,98 @@ describe('fileNameIn', () => {
     expect(fileNameIn('Song.gpx', SAVE_FORMATS[0])).toBe('Song.gp5');
     expect(fileNameIn('my.song.gp', MIDI_FILE)).toBe('my.song.mid');
     expect(fileNameIn('Untitled', ASCII_TAB_FILE)).toBe('Untitled.txt');
+  });
+});
+
+describe('saveHint', () => {
+  const song = makeSong([[beat(960, [note(1, 0)])]]);
+  const format = (id: string) => SAVE_FORMATS.find((candidate) => candidate.id === id)!;
+
+  it('is the format’s note, and says where effects go when the format cannot keep them', () => {
+    // Arrange
+    const withEffects = setTrackEffects(song, 0, [buildEffect('drive')]);
+    const withMaster = setMasterMix(song, { ...DEFAULT_MASTER, gainDb: -3 });
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), song)).toBeUndefined();
+    expect(saveHint(format('gp'), withEffects)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), withEffects)).toBe('Guitar Pro 5 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp4'), withMaster)).toBe(`${format('gp4').note} Guitar Pro 4 keeps no playback effects: save as Guitar Pro 7/8 (.gp) to keep them.`);
+  });
+
+  it('warns that GP5 leaves voices 3 and 4 out when the song plays them, GP4 and GP3 joining every voice into voice 1', () => {
+    // Arrange: voice 3 plays in bar 1
+    const inVoice3 = setNoteFret(song, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 2, string: 3 }, 5);
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), inVoice3)).toBe('Guitar Pro 5 keeps two voices: the notes of voices 3 and 4 are left out; save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp5'), song)).toBeUndefined();
+    expect(saveHint(format('gp'), inVoice3)).toBe(format('gp').note);
+    expect(saveHint(format('gp4'), inVoice3)).toBe(format('gp4').note);
+    expect(format('gp4').note).toContain('voices 2, 3 and 4 join voice 1');
+    expect(format('gp3').note).toContain('voices 2, 3 and 4 join voice 1');
+  });
+
+  it('says that GP5, GP4 and GP3 leave out a stylesheet or a Design Mode layout, only when the song has one', () => {
+    // Arrange
+    const styled = setStylesheet(song, { ...DEFAULT_STYLESHEET, scale: 1.2 });
+    const designed = setBeatOffset(song, 0, 0, 5);
+
+    // Act / Assert
+    expect(hasOwnLayout(song)).toBe(false);
+    expect(hasOwnLayout(setStylesheet(song, DEFAULT_STYLESHEET))).toBe(false);
+    expect(saveHint(format('gp5'), styled)).toBe('Guitar Pro 5 keeps no stylesheet or Design Mode layout: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp3'), designed)).toContain('Guitar Pro 3 keeps no stylesheet or Design Mode layout');
+    expect(saveHint(format('gp'), styled)).toBe(format('gp').note);
+  });
+
+  it('says that GP5, GP4 and GP3 keep the tracks’ names and colours but not an icon or short name of their own', () => {
+    // Arrange
+    const withIcon = setTrackIcon(song, 0, TRACK_ICON_IDS.banjo);
+    const withShortName = setTrackShortName(song, 0, 'Gt');
+    const coloured = setTrackColor(song, 0, { r: 1, g: 2, b: 3 });
+
+    // Act / Assert
+    const hint = 'Guitar Pro 5 keeps the tracks’ names and colours but not their icons or short names: save as Guitar Pro 7/8 (.gp) to keep them.';
+    expect(saveHint(format('gp5'), withIcon)).toBe(hint);
+    expect(saveHint(format('gp5'), withShortName)).toBe(hint);
+    expect(saveHint(format('gp5'), coloured)).toBeUndefined();
+    expect(saveHint(format('gp3'), withIcon)).toContain('Guitar Pro 3 keeps the tracks’ names and colours');
+    expect(saveHint(format('gp'), withIcon)).toBe(format('gp').note);
+  });
+
+  it('says that GP5, GP4 and GP3 leave the audio track out', () => {
+    // Arrange
+    const withAudio = { ...song, audioTrack: buildAudioTrack({ assetId: 'take' }) };
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), withAudio)).toBe('Guitar Pro 5 keeps no audio track: save as Guitar Pro 7/8 (.gp) to keep it.');
+    expect(saveHint(format('gp3'), withAudio)).toContain('Guitar Pro 3 keeps no audio track');
+    expect(saveHint(format('gp'), withAudio)).toBe(format('gp').note);
+  });
+
+  it('says that GP5, GP4 and GP3 keep one clef per track when the clef changes', () => {
+    // Arrange
+    const twoBars = makeSong([[beat(960, [note(1, 0)])], [beat(4800, [note(1, 0)])]]);
+    const track = twoBars.tracks[0]!;
+    const changed = { ...twoBars, tracks: [{ ...track, measures: track.measures.map((measure, index) => ({ ...measure, clef: index === 1 ? ('bass' as const) : measure.clef })) }] };
+
+    // Act / Assert
+    expect(saveHint(format('gp5'), changed)).toBe('Guitar Pro 5 keeps one clef per track (from its tuning): save as Guitar Pro 7/8 (.gp) to keep the clef changes.');
+    expect(saveHint(format('gp4'), changed)).toContain('Guitar Pro 4 keeps one clef per track');
+    expect(saveHint(format('gp'), changed)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), twoBars)).toBeUndefined();
+  });
+});
+
+describe('saveHint and annotations', () => {
+  const song = setBeatAnnotation(makeSong([[beat(960, [note(1, 0)])]]), { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 }, { text: 'breathe', placement: 'above' });
+  const format = (id: string) => SAVE_FORMATS.find((candidate) => candidate.id === id)!;
+
+  it('says that GP5, GP4 and GP3 leave the annotations out, a .gp file keeping them', () => {
+    expect(saveHint(format('gp5'), song)).toBe('Guitar Pro 5 keeps no annotations: save as Guitar Pro 7/8 (.gp) to keep them.');
+    expect(saveHint(format('gp3'), song)).toContain('Guitar Pro 3 keeps no annotations');
+    expect(saveHint(format('gp'), song)).toBe(format('gp').note);
+    expect(saveHint(format('gp5'), makeSong([[beat(960, [note(1, 0)])]]))).toBeUndefined();
   });
 });

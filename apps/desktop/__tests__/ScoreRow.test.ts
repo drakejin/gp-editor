@@ -1,3 +1,4 @@
+import { DEFAULT_CHANNEL, DEFAULT_STYLESHEET, setStylesheet } from '@gp-editor/core';
 import { isSameRow, type ScoreRowProps } from '../src/components/ScoreRow';
 import { layoutMeasure } from '../src/lib/layout';
 import { rowGeometry } from '../src/score/geometry';
@@ -23,6 +24,17 @@ describe('isSameRow', () => {
 
     // Assert
     expect(isSameRow(before, after)).toBe(true);
+  });
+
+  it('redraws every row of the track when the cursor goes to another voice (the other voices fade)', () => {
+    const before = { ...rowProps(), editedVoiceIndex: 0 };
+    expect(isSameRow(before, { ...before, editedVoiceIndex: 2 })).toBe(false);
+    expect(isSameRow(before, { ...before, editedVoiceIndex: 0 })).toBe(true);
+  });
+
+  it('redraws a row when the song gets another stylesheet', () => {
+    const before = rowProps();
+    expect(isSameRow(before, { ...before, song: setStylesheet(before.song, { ...DEFAULT_STYLESHEET, barNumbers: 'hidden' }) })).toBe(false);
   });
 
   it('redraws a row when the zoom changes', () => {
@@ -83,3 +95,18 @@ describe('isSameRow', () => {
     expect(isSameRow(before, same)).toBe(true);
   });
 });
+
+describe('isSameRow: notation marks of the track', () => {
+  it('redraws a row when the track goes into slash notation or onto a keyboard instrument', () => {
+    // Arrange
+    const before = rowProps();
+    const [track] = before.song.tracks;
+    const slashed = { ...before.song, tracks: [{ ...track!, hasSlashNotation: true }] };
+    const piano = { ...before.song, channels: [{ ...DEFAULT_CHANNEL, id: track!.channelId, program: 0 }] };
+
+    // Act / Assert
+    expect(isSameRow(before, { ...before, song: slashed })).toBe(false);
+    expect(isSameRow(before, { ...before, song: piano })).toBe(false);
+  });
+});
+

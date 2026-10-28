@@ -5,6 +5,7 @@ import { buildTranscriptionRequest } from './request';
 import { readTranscriptionResponse } from './response';
 import { NO_USAGE, type TokenUsage, addUsage } from '../lib/tool-answer';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 
 /** What an import needs from the outside world; injected so the run can be tested without native code or network. */
 export interface ImportDeps {
@@ -38,12 +39,12 @@ async function attemptPage(project: ImportProject, page: number, firstPage: Tran
   }
   const answer = readTranscriptionResponse(response);
   if (!answer.isOk) {
-    return { isOk: false, isRetryable: answer.isRetryable, isFatal: answer.isFatal === true, message: answer.message, usage: NO_USAGE };
+    return { isOk: false, isRetryable: answer.isRetryable, isFatal: answer.isFatal === true, message: answer.message, usage: answer.usage ?? NO_USAGE };
   }
   try {
     return { isOk: true, isRetryable: false, page: parseTranscriptionPage(answer.input), usage: answer.usage };
   } catch (error: unknown) {
-    return { isOk: false, isRetryable: true, isFatal: false, message: `The transcription did not fit the format: ${errorMessage(error)}`, usage: answer.usage };
+    return { isOk: false, isRetryable: true, isFatal: false, message: t('window.pdfImport.badFormat', { detail: errorMessage(error) }), usage: answer.usage };
   }
 }
 

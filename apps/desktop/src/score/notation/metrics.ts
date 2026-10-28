@@ -23,6 +23,9 @@ export const STAFF = {
   lineWidth: 1,
 } as const;
 
+/** A staff's height, top line to bottom line. */
+export const STAFF_HEIGHT = (STAFF.lineCount - 1) * SPACE;
+
 /** Bravura is drawn at four staff spaces, so one em spans the staff. */
 export const MUSIC_FONT_SIZE = 4 * SPACE;
 
@@ -37,8 +40,12 @@ export const GLYPH_WIDTH = {
   rest: 1.13 * SPACE,
   gClef8vb: 2.684 * SPACE,
   fClef8vb: 2.736 * SPACE,
+  cClef8vb: 2.796 * SPACE,
   percussionClef: 1.528 * SPACE,
 } as const;
+
+/** A clef where the clef changes inside a row is drawn smaller (a cue-size clef), at this share of the full size. */
+export const CLEF_CHANGE_SCALE = 0.75;
 
 export const STEM = {
   width: 1,

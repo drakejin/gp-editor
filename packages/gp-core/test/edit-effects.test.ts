@@ -354,6 +354,11 @@ describe('setNoteTremoloBar', () => {
     ]);
   });
 
+  it('keeps one point per position, as the curve editor does (normalizeCurvePoints)', () => {
+    const edited = setNoteTremoloBar(makeSong(), AT, { points: [{ position: 0, value: 0 }, { position: 0, value: 0 }, { position: 6, value: -4 }, { position: 12, value: 0 }] });
+    expect(findNote(edited, AT)?.effect.tremoloBar).toEqual(TREMOLO_BAR_PRESETS.dip);
+  });
+
   it('returns the same song for the same curve, no curve to clear or a missing note', () => {
     const song = makeSong();
     expect(setNoteTremoloBar(song, AT, undefined)).toBe(song);

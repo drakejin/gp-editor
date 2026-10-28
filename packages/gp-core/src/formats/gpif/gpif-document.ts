@@ -1,5 +1,6 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.score.* (LGPL-2.1): the intermediate GPIF document.
 import type { VibratoKind } from '../../model/song';
+import type { GpifAudioTrack } from './gpif-audio-track';
 
 /** Which GPIF dialect: 6 = Guitar Pro 6 (.gpx), 7 = Guitar Pro 7/8 (.gp). */
 export type GpifVersion = 6 | 7;
@@ -23,6 +24,7 @@ export interface GpifAutomation {
   readonly barId: number;
   /** Position inside the bar, 0–1. */
   readonly position: number;
+  /** The numbers of `<Value>` (a tempo: "92.5 2" = 92.5 per quarter note), fractions kept. */
   readonly value: readonly number[] | undefined;
 }
 
@@ -51,7 +53,11 @@ export type GpifPlaybackState = 'default' | 'solo' | 'mute';
 export interface GpifTrack {
   readonly id: number;
   readonly name: string;
+  /** `<ShortName>` as written (GP7/8). */
+  readonly shortName: string | undefined;
   readonly color: readonly number[] | undefined;
+  /** `<IconId>`, -1 when it is not a number (GP7/8). */
+  readonly iconId: number | undefined;
   /** Open-string pitches, lowest string first. */
   readonly tuningPitches: readonly number[] | undefined;
   readonly capo: number;
@@ -68,6 +74,8 @@ export interface GpifTrack {
   readonly staffCount: number;
   readonly lyrics: readonly GpifLyricsLine[];
   readonly chords: ReadonlyMap<number, GpifChord>;
+  /** The track's own `<Automations>` (GP7: the sound, the sustain pedal). */
+  readonly automations: readonly GpifAutomation[];
 }
 
 export interface GpifMasterBar {
@@ -82,6 +90,13 @@ export interface GpifMasterBar {
   readonly tripletFeel: string | undefined;
   readonly alternateEndings: readonly number[] | undefined;
   readonly markerText: string | undefined;
+  /** Beam grouping (XProperty 1124139010): the note value the groups count. */
+  readonly beamUnit: number | undefined;
+  /** Group sizes (XProperties 1124139264 …), 0 for an empty slot. */
+  readonly beamGroups: readonly number[];
+  /** `<Directions>`: the `<Target>` and `<Jump>` names, as written. */
+  readonly directionTargets: readonly string[];
+  readonly directionJumps: readonly string[];
 }
 
 export interface GpifBar {
@@ -122,6 +137,12 @@ export interface GpifBeat {
   readonly pickStroke: string;
   readonly tremolo: readonly number[] | undefined;
   readonly fadding: string | undefined;
+  /** `<Hairpin>`: Crescendo or Decrescendo. */
+  readonly hairpin: string | undefined;
+  /** The Rasgueado property's pattern id (ii_1 … peami_1). */
+  readonly rasgueado: string | undefined;
+  /** `<Ottavia>`: the beat's octave sign (8va, 8vb, 15ma, 15mb). */
+  readonly ottava: string | undefined;
   readonly text: string;
   readonly chordId: number | undefined;
   readonly graceNotes: string | undefined;
@@ -129,6 +150,12 @@ export interface GpifBeat {
   readonly whammyBar: GpifBendCurve;
   /** Whammy-bar vibrato (VibratoWTremBar) and its strength. */
   readonly vibrato: VibratoKind;
+  /** `<Slashed/>`: a rhythm slash. */
+  readonly slashed: boolean;
+  /** Beaming to the next beat (XProperty 1124204546): 1 joined, 2 broken. */
+  readonly beamMode: number | undefined;
+  /** Secondary beams broken before the next beat (XProperty 1124204552 = 1). */
+  readonly secondaryBeamBreak: number | undefined;
 }
 
 export interface GpifNote {
@@ -163,6 +190,9 @@ export interface GpifNote {
   readonly harmonicFret: number;
   /** '' when absent. */
   readonly harmonicType: string;
+  /** `<LeftFingering>` / `<RightFingering>` letters (P I M A C). */
+  readonly leftFingering: string | undefined;
+  readonly rightFingering: string | undefined;
 }
 
 export interface GpifRhythm {
@@ -191,6 +221,8 @@ export interface GpifDocument {
   readonly beats: ReadonlyMap<number, GpifBeat>;
   readonly notes: ReadonlyMap<number, GpifNote>;
   readonly rhythms: ReadonlyMap<number, GpifRhythm>;
+  /** Guitar Pro 7/8's audio track (`<BackingTrack>`), when the document has one. */
+  readonly audioTrack?: GpifAudioTrack;
 }
 
 /** Index items by id; the first item with a given id wins, as TuxGuitar's linear lookups do. */

@@ -46,12 +46,26 @@ function decodeWithRuntime(bytes: Uint8Array, label: string): string | undefined
   }
 }
 
-export function decodeWindows1252(bytes: Uint8Array): string {
-  let out = '';
-  for (const byte of bytes) {
-    out += String.fromCharCode(byte >= 0x80 && byte <= 0x9f ? (CP1252_HIGH[byte - 0x80] ?? REPLACEMENT) : byte);
+/** windows-1252 bytes 0x80–0x9F by code point (CP1252_HIGH inverted; the other bytes equal their latin-1 code point). */
+const CP1252_HIGH_BYTES: ReadonlyMap<number, number> = new Map(
+  CP1252_HIGH.flatMap((codePoint, index): [number, number][] => (codePoint === REPLACEMENT ? [] : [[codePoint, 0x80 + index]])),
+);
+
+/** The windows-1252 byte of a code point, or undefined when windows-1252 has none. */
+export function windows1252Byte(codePoint: number): number | undefined {
+  if (codePoint < 0x80 || (codePoint >= 0xa0 && codePoint <= 0xff)) {
+    return codePoint;
   }
-  return out;
+  return CP1252_HIGH_BYTES.get(codePoint);
+}
+
+export function decodeWindows1252(bytes: Uint8Array): string {
+  const units = new Uint16Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i] ?? 0;
+    units[i] = byte >= 0x80 && byte <= 0x9f ? (CP1252_HIGH[byte - 0x80] ?? REPLACEMENT) : byte;
+  }
+  return unitsToString(units, units.length);
 }
 
 /** UTF-8 decode that returns undefined on any malformed sequence. */
@@ -64,60 +78,80 @@ export function decodeUtf8Lenient(bytes: Uint8Array): string {
   return decodeUtf8(bytes, false) ?? '';
 }
 
+/** Not a code point: what utf8SequenceAt returns for a malformed sequence. */
+const MALFORMED = -1;
+const SUPPLEMENTARY_START = 0x10000;
+
+/**
+ * Decodes into UTF-16 code units, written straight into one buffer: no object or string per character, which is what
+ * a large GPIF or MusicXML document costs in Hermes (no JIT). A byte never yields more than one unit (a four-byte
+ * sequence yields two), so the buffer is as long as the bytes.
+ */
 function decodeUtf8(bytes: Uint8Array, strict: boolean): string | undefined {
-  const codePoints: number[] = [];
+  const units = new Uint16Array(bytes.length);
+  let length = 0;
   let i = 0;
   while (i < bytes.length) {
-    const decoded = decodeUtf8CodePoint(bytes, i);
-    if (decoded === undefined) {
-      if (strict) {
-        return undefined;
-      }
-      codePoints.push(REPLACEMENT);
+    const first = bytes[i] ?? 0;
+    if (first < 0x80) {
+      units[length++] = first;
       i += 1;
       continue;
     }
-    codePoints.push(decoded.codePoint);
-    i += decoded.length;
+    const sequenceLength = utf8SequenceLength(first);
+    const codePoint = utf8SequenceAt(bytes, i, sequenceLength);
+    if (codePoint === MALFORMED) {
+      if (strict) {
+        return undefined;
+      }
+      units[length++] = REPLACEMENT;
+      i += 1;
+    } else if (codePoint >= SUPPLEMENTARY_START) {
+      units[length++] = 0xd800 + ((codePoint - SUPPLEMENTARY_START) >> 10);
+      units[length++] = 0xdc00 + ((codePoint - SUPPLEMENTARY_START) & 0x3ff);
+      i += sequenceLength;
+    } else {
+      units[length++] = codePoint;
+      i += sequenceLength;
+    }
   }
-  return codePointsToString(codePoints);
+  return unitsToString(units, length);
 }
 
-interface DecodedCodePoint {
-  readonly codePoint: number;
-  readonly length: number;
+/** Bytes of the sequence a lead byte (>= 0x80) starts; 0 when it cannot start one (80–C1, F5–FF). */
+function utf8SequenceLength(first: number): number {
+  return first >= 0xf0 && first <= 0xf4 ? 4 : first >= 0xe0 && first <= 0xef ? 3 : first >= 0xc2 && first < 0xe0 ? 2 : 0;
 }
 
-function decodeUtf8CodePoint(bytes: Uint8Array, at: number): DecodedCodePoint | undefined {
-  const first = bytes[at] ?? 0;
-  if (first < 0x80) {
-    return { codePoint: first, length: 1 };
-  }
-  const length = first >= 0xf0 && first <= 0xf4 ? 4 : first >= 0xe0 ? 3 : first >= 0xc2 && first < 0xe0 ? 2 : 0;
+/** The code point of the multi-byte sequence at `at`, or MALFORMED (truncated, bad continuation, overlong, surrogate, too large). */
+function utf8SequenceAt(bytes: Uint8Array, at: number, length: number): number {
   if (length === 0 || at + length > bytes.length) {
-    return undefined;
+    return MALFORMED;
   }
-  let codePoint = first & (0xff >> (length + 1));
+  let codePoint = (bytes[at] ?? 0) & (0xff >> (length + 1));
   for (let k = 1; k < length; k++) {
     const next = bytes[at + k] ?? 0;
     if ((next & 0xc0) !== 0x80) {
-      return undefined;
+      return MALFORMED;
     }
     codePoint = (codePoint << 6) | (next & 0x3f);
   }
-  const minimum = length === 2 ? 0x80 : length === 3 ? 0x800 : 0x10000;
+  const minimum = length === 2 ? 0x80 : length === 3 ? 0x800 : SUPPLEMENTARY_START;
   if (codePoint < minimum || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
-    return undefined;
+    return MALFORMED;
   }
-  return { codePoint, length };
+  return codePoint;
 }
 
+/** Code units per String.fromCharCode call: well under any engine's argument limit. */
 const CHUNK = 0x1000;
 
-function codePointsToString(codePoints: readonly number[]): string {
+function unitsToString(units: Uint16Array, length: number): string {
   let out = '';
-  for (let i = 0; i < codePoints.length; i += CHUNK) {
-    out += String.fromCodePoint(...codePoints.slice(i, i + CHUNK));
+  for (let i = 0; i < length; i += CHUNK) {
+    // A typed array is an argument list as it is: copying each chunk into an array (Array.from) costs ~20x in Hermes.
+    const chunk: string = Reflect.apply(String.fromCharCode, undefined, units.subarray(i, Math.min(i + CHUNK, length)));
+    out += chunk;
   }
   return out;
 }
@@ -143,25 +177,45 @@ export function encodeUtf8(text: string): Uint8Array {
   const bytes = new Uint8Array(text.length * UTF8_MAX_BYTES_PER_UNIT);
   let length = 0;
   for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i);
+    if (unit < 0x80) {
+      // ASCII, most of any XML document: no call per character (Hermes does not inline).
+      bytes[length++] = unit;
+      continue;
+    }
     const codePoint = codePointAt(text, i);
-    if (codePoint >= 0x10000) {
+    if (codePoint >= SUPPLEMENTARY_START) {
       i++;
     }
-    if (codePoint < 0x80) {
-      bytes[length++] = codePoint;
-    } else if (codePoint < 0x800) {
-      bytes[length++] = 0xc0 | (codePoint >> 6);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    } else if (codePoint < 0x10000) {
-      bytes[length++] = 0xe0 | (codePoint >> 12);
-      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    } else {
-      bytes[length++] = 0xf0 | (codePoint >> 18);
-      bytes[length++] = 0x80 | ((codePoint >> 12) & 0x3f);
-      bytes[length++] = 0x80 | ((codePoint >> 6) & 0x3f);
-      bytes[length++] = 0x80 | (codePoint & 0x3f);
-    }
+    length = writeUtf8(codePoint, bytes, length);
   }
   return bytes.slice(0, length);
+}
+
+/** Bytes UTF-8 takes for a code point. */
+export function utf8Length(codePoint: number): number {
+  if (codePoint < 0x80) {
+    return 1;
+  }
+  if (codePoint < 0x800) {
+    return 2;
+  }
+  return codePoint < SUPPLEMENTARY_START ? 3 : 4;
+}
+
+/** The first byte's marker of a UTF-8 sequence, by its length. */
+const UTF8_LEADS: readonly number[] = [0, 0, 0xc0, 0xe0, 0xf0];
+
+/** Writes a code point's UTF-8 bytes into `bytes` at `at`; returns the index after them. */
+export function writeUtf8(codePoint: number, bytes: Uint8Array, at: number): number {
+  const length = utf8Length(codePoint);
+  if (length === 1) {
+    bytes[at] = codePoint;
+    return at + 1;
+  }
+  bytes[at] = (UTF8_LEADS[length] ?? 0) | (codePoint >> (6 * (length - 1)));
+  for (let k = 1; k < length; k++) {
+    bytes[at + k] = 0x80 | ((codePoint >> (6 * (length - 1 - k))) & 0x3f);
+  }
+  return at + length;
 }

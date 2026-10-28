@@ -9,6 +9,7 @@ import {
   type GpifVersion,
   indexById,
 } from './gpif-document';
+import { readAutomation } from './gpif-automation';
 import {
   type XmlElement,
   attribute,
@@ -50,7 +51,9 @@ function readTrack(node: XmlElement, version: GpifVersion, previous: readonly Gp
   return {
     id: parseJavaInt(attribute(node, 'id'), 0),
     name: (childText(node, 'Name') ?? '').replaceAll('\n', '').trim(),
+    shortName: childText(node, 'ShortName'),
     color: parseIntList(childText(node, 'Color'), ' '),
+    iconId: readIconId(childText(node, 'IconId')),
     tuningPitches: parseIntList(childText(property(properties, 'Tuning'), 'Pitches'), ' '),
     capo: parseJavaInt(childText(property(properties, 'CapoFret'), 'Fret'), 0),
     gmProgram: midi.program,
@@ -63,7 +66,12 @@ function readTrack(node: XmlElement, version: GpifVersion, previous: readonly Gp
     staffCount: version === 6 ? 1 : Math.max(1, childList(node, 'Staves', 'Staff').length),
     lyrics: childList(node, 'Lyrics', 'Line').map(readLyricsLine),
     chords: readChords(properties),
+    automations: childList(node, 'Automations', 'Automation').map(readAutomation),
   };
+}
+
+function readIconId(text: string | undefined): number | undefined {
+  return text === undefined ? undefined : parseJavaInt(text, -1);
 }
 
 function staffProperties(node: XmlElement): readonly XmlElement[] {

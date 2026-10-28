@@ -1,5 +1,5 @@
-import { renderMidi } from '@gp-editor/core';
-import { loopPassAt, nextLoopBatch, passesPerBatch, planPlayback, startSeconds } from '../src/lib/practice-plan';
+import { buildAudioTrack, renderMidi } from '@gp-editor/core';
+import { loopPassAt, nextLoopBatch, passesPerBatch, planPlayback, playerStartSeconds, startSeconds } from '../src/lib/practice-plan';
 import { INITIAL_PRACTICE, type PracticeSettings } from '../src/state/practice';
 import { beat, fromTux, header, makeSong, note, toTux } from '../test-support/songs';
 
@@ -11,6 +11,7 @@ const song = makeSong(
 
 /** Bars 2–3 looped from 80 BPM (written 100), +10 BPM a pass up to 110. */
 const TRAINER: PracticeSettings = {
+  ...INITIAL_PRACTICE,
   tempoScale: 0.8,
   isLooping: true,
   loop: { fromMeasureIndex: 1, toMeasureIndex: 2 },
@@ -24,7 +25,7 @@ describe('planPlayback without loop', () => {
     const plan = planPlayback(song, { ...INITIAL_PRACTICE, tempoScale: 1.25 }, { measureIndex: 2 });
 
     // Assert
-    expect(plan.options).toEqual({ fromHeaderIndex: 2, passTempoScales: [1.25] });
+    expect(plan.options).toEqual({ fromHeaderIndex: 2, passTempoScales: [1.25], metronome: { velocity: 102 } });
     expect(plan.startMeasureIndex).toBe(2);
     expect(plan.loop).toBeUndefined();
   });
@@ -37,7 +38,7 @@ describe('planPlayback without loop', () => {
     const plan = planPlayback(empty, TRAINER, { measureIndex: 0 });
 
     // Assert
-    expect(plan.options).toEqual({ fromHeaderIndex: 0, passTempoScales: [0.8] });
+    expect(plan.options).toEqual({ fromHeaderIndex: 0, passTempoScales: [0.8], metronome: { velocity: 102 } });
     expect(plan.loop).toBeUndefined();
   });
 
@@ -66,6 +67,20 @@ describe('planPlayback with loop', () => {
       expect(scale).toBeCloseTo((plan.loop?.passTempos[index] ?? 0) / 100, 10);
     });
     expect(plan.startMeasureIndex).toBe(1);
+  });
+
+  it('renders a pass at a time while the trainer raises the tempo of a song with an audio track', () => {
+    // Arrange: the time-pitch unit changes its rate only roughly in time, so a render keeps one rate
+    const withAudio = { ...song, audioTrack: buildAudioTrack({ assetId: 'take' }) };
+
+    // Act
+    const rising = planPlayback(withAudio, TRAINER, {});
+    const steady = planPlayback(withAudio, { ...TRAINER, trainerStep: 0 }, {});
+
+    // Assert
+    expect(rising.loop?.passTempos).toEqual([80]);
+    expect(planPlayback(withAudio, TRAINER, nextLoopBatch(rising)).loop?.passTempos).toEqual([90]);
+    expect(steady.loop?.passTempos).toHaveLength(8);
   });
 
   it('starts at a bar inside the loop, or at the loop start for a bar outside it', () => {
@@ -135,5 +150,51 @@ describe('startSeconds and loopPassAt', () => {
     expect(loopPassAt(plan, timeline, 7)).toEqual({ passIndex: 1, tempo: 90 });
     expect(loopPassAt(plan, timeline, 10_000)).toBeUndefined();
     expect(loopPassAt(planPlayback(song, INITIAL_PRACTICE, {}), timeline, 1)).toBeUndefined();
+  });
+});
+
+describe('planPlayback metronome, count-in and tempo lock', () => {
+  it('always renders the metronome (muted while off) at the metronome volume', () => {
+    expect(planPlayback(song, { ...INITIAL_PRACTICE, metronomeVolume: 50 }, {}).options.metronome).toEqual({ velocity: 64 });
+  });
+
+  it('counts in only when asked, from the start of the bar (a beat inside it is dropped), and starts the player at 0 s', () => {
+    // Arrange
+    const request = { measureIndex: 2, tick: header(3).start + fromTux(960), withCountIn: true };
+
+    // Act
+    const plan = planPlayback(song, INITIAL_PRACTICE, request);
+    const render = renderMidi(song, plan.options);
+
+    // Assert
+    expect(plan.options.countIn).toEqual({ velocity: 102 });
+    expect(plan.startTick).toBeUndefined();
+    expect(playerStartSeconds(plan, render.timeline)).toBe(0);
+    expect(planPlayback(song, INITIAL_PRACTICE, { measureIndex: 2 }).options.countIn).toBeUndefined();
+  });
+
+  it('counts a loop in from its first bar, even when asked to start inside it', () => {
+    const plan = planPlayback(song, TRAINER, { measureIndex: 2, withCountIn: true });
+    expect(plan.startMeasureIndex).toBe(1);
+    expect(plan.options.countIn).toBeDefined();
+  });
+
+  it('starts the player where the bar plays without a count-in', () => {
+    const plan = planPlayback(song, INITIAL_PRACTICE, { measureIndex: 1 });
+    expect(playerStartSeconds(plan, renderMidi(song, plan.options).timeline)).toBe(0);
+    const inside = planPlayback(song, TRAINER, { measureIndex: 2 });
+    expect(playerStartSeconds(inside, renderMidi(song, inside.options).timeline)).toBeCloseTo(3, 6);
+  });
+
+  it('plays a locked tempo for every bar and scales the speed trainer’s passes from it', () => {
+    // Act
+    const songPlan = planPlayback(song, { ...INITIAL_PRACTICE, lockedTempo: 90 }, {});
+    const loopPlan = planPlayback(song, { ...TRAINER, lockedTempo: 100, trainerMaxTempo: 300 }, {});
+
+    // Assert
+    expect(songPlan.options.fixedTempo).toBe(90);
+    expect(loopPlan.options.fixedTempo).toBe(100);
+    expect(loopPlan.loop?.passTempos.slice(0, 3)).toEqual([80, 90, 100]);
+    expect(loopPlan.options.passTempoScales?.[1]).toBeCloseTo(0.9, 10);
   });
 });

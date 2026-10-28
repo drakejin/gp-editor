@@ -1,6 +1,6 @@
 {
   "name": "@gp-editor/core",
-  "version": "0.12.0",
+  "version": "0.19.0",
   "private": true,
   "description": "Guitar Pro file readers (gp1–gp5, gpx, gp7/8), GP3/GP4/GP5 and GP7 (.gp) writers, a format-independent song model with immutable edits, MIDI rendering and PDF transcription → song",
   "license": "LGPL-2.1-or-later",
@@ -22,6 +22,7 @@
     "fflate": "^0.8.3"
   },
   "devDependencies": {
+    "@coderline/alphatab": "1.8.4",
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.1.12",
     "typescript": "^5.9.3",

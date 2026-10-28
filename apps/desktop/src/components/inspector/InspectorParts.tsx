@@ -35,10 +35,14 @@ interface InspectorTextFieldProps {
 /** A text field that edits the song when the user is done typing, not on every key (one undo step per change). */
 export function InspectorTextField({ palette, label, value, placeholder, onCommit }: InspectorTextFieldProps) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  // Counts commits: the field shows the value again after one the edit kept otherwise (a blank name, a short name
+  // the name already gives), even when the value itself did not change.
+  const [commits, setCommits] = useState(0);
+  useEffect(() => setDraft(value), [value, commits]);
   const commit = () => {
     if (draft !== value) {
       onCommit(draft);
+      setCommits((count) => count + 1);
     }
   };
   return (

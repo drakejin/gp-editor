@@ -19,7 +19,7 @@ function lastEventBefore(beats: readonly Beat[], beforeIndex: number, voiceIndex
  * The note a tie at the address continues: the note on that string in the previous event of the same voice (in this
  * measure, else the last event of the previous measure). None when that event is a rest or has no note on the string.
  */
-function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
+export function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
   const measures = song.tracks[at.trackIndex]?.measures;
   const beats = measures?.[at.measureIndex]?.beats;
   if (measures === undefined || beats?.[at.beatIndex] === undefined) {
@@ -29,6 +29,17 @@ function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
   const previousBeats = measures[at.measureIndex - 1]?.beats ?? [];
   const previous = inMeasure ?? lastEventBefore(previousBeats, previousBeats.length, at.voiceIndex);
   return previous?.notes.find((note) => note.string === at.string);
+}
+
+/**
+ * The song with each tied note at `addresses` untied when its tie has nothing left to continue (previousNoteForTie):
+ * what an edit that removed or moved the notes before them leaves (Move Voice, deleting a run's notes).
+ */
+export function untieOrphanNotes(song: Song, addresses: readonly StringAddress[]): Song {
+  return addresses.reduce(
+    (current, address) => (previousNoteForTie(current, address) === undefined ? updateNote(current, address, (note) => (note.isTied ? { ...note, isTied: false } : note)) : current),
+    song,
+  );
 }
 
 /** The note tied to `previous`: its fret, no dead note, and its harmonic when it has one. */

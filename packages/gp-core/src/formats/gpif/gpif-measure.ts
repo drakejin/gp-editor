@@ -1,28 +1,35 @@
 // Port of TuxGuitar app.tuxguitar.io.gpx.GPXDocumentParser#parseBar / #fixFirstMeasureStartPositions (LGPL-2.1).
-import { NO_STROKE, QUARTER, durationTicks, measureTicks } from '../../model/defaults';
+import { EMPTY_VOICE, MAX_VOICES, NO_STROKE, durationTicks, isOttava, measureTicks } from '../../model/defaults';
 import type {
   Beat,
   Chord,
   Clef,
   GuitarString,
+  Hairpin,
   Measure,
   MeasureHeader,
   Note,
+  Ottava,
+  RasgueadoPattern,
   Stroke,
+  BeamLink,
   StrokeDirection,
   Voice,
 } from '../../model/song';
-import type { GpifBar, GpifBeat, GpifChord, GpifDocument, GpifVoice } from './gpif-document';
+import type { GpifAutomation, GpifBar, GpifBeat, GpifChord, GpifDocument, GpifVoice } from './gpif-document';
 import { rhythmDuration, strokeValueFromTicks } from './gpif-duration';
 import { type GraceSource, buildNote, notePosition } from './gpif-note';
+import { rasgueadoFromGpif } from '../common/rasgueado';
+import { pedalMarksOf } from './gpif-pedals';
 import { lookupName } from './xml';
 
 /** Guitar Pro 6+ bars have up to four voices; every beat keeps all four slots. */
-export const MAX_VOICES = 4;
+export { MAX_VOICES };
 
-const EMPTY_VOICE: Voice = { duration: QUARTER, notes: [], isEmpty: true, direction: 'none' };
 
 const SIMILE_STEPS: Readonly<Record<string, number>> = { Simple: 1, FirstOfDouble: 2, SecondOfDouble: 2 };
+
+const HAIRPINS: Readonly<Record<string, Hairpin>> = { Crescendo: 'crescendo', Decrescendo: 'decrescendo' };
 
 export const CLEFS: Readonly<Record<string, Clef>> = { F4: 'bass', C3: 'alto', C4: 'tenor', Neutral: 'neutral' };
 
@@ -35,6 +42,8 @@ export interface TrackLayout {
   /** Index of the track's (first) staff in MasterBar.barIds. */
   readonly barIndex: number;
   readonly chords: ReadonlyMap<number, GpifChord>;
+  /** The track's SustainPedal automations, by bar index (`pedalAutomationsByBar`). */
+  readonly pedalAutomations: ReadonlyMap<number, readonly GpifAutomation[]>;
 }
 
 /** A beat under construction: voices are filled in voice by voice. */
@@ -46,6 +55,9 @@ interface BeatDraft {
   pickStroke: StrokeDirection;
   chord: Chord | undefined;
   text: string | undefined;
+  hairpin: Hairpin | undefined;
+  rasgueado: RasgueadoPattern | undefined;
+  ottava: Ottava | undefined;
 }
 
 export function buildMeasure(
@@ -58,11 +70,13 @@ export function buildMeasure(
   const bar = resolveBar(doc, headerIndex, layout.barIndex);
   const drafts = bar === undefined ? [] : buildDrafts(doc, bar, header, layout);
   const shift = header.number === 1 ? firstMeasureShift(drafts, header) : 0;
+  const pedals = pedalMarksOf(layout.pedalAutomations.get(headerIndex), header);
   return {
     headerIndex,
     clef: lookupName(CLEFS, bar?.clef) ?? 'treble',
     keySignature: layout.isPercussion || Math.abs(accidentals) > MAX_ACCIDENTALS ? 0 : accidentals,
     beats: drafts.map((draft) => toBeat(draft, shift)),
+    ...(pedals === undefined ? {} : { pedals }),
   };
 }
 
@@ -120,10 +134,29 @@ function addVoice(
     }
     const draft = draftAt(drafts, start);
     applyBeatProperties(draft, beat, layout);
-    draft.voices[slot] = { duration, notes: buildNotes(doc, beat, grace, draft, layout), isEmpty: false, direction: 'none' };
+    draft.voices[slot] = { duration, notes: buildNotes(doc, beat, grace, draft, layout), isEmpty: false, direction: 'none', ...voiceMarks(beat) };
     start += durationTicks(duration);
     grace = undefined;
   }
+}
+
+/** XProperty 1124204546: 1 = beam joined to the next beat, 2 = broken. */
+const BEAM_MODES: Readonly<Record<number, BeamLink>> = { 1: 'join', 2: 'break' };
+const SECONDARY_BEAM_BREAK = 1;
+
+/** A broken beam wins over a secondary break, which wins over a joined beam (alphaTab's reading). */
+function beamLinkOf(beat: GpifBeat): BeamLink | undefined {
+  const mode = beat.beamMode === undefined ? undefined : BEAM_MODES[beat.beamMode];
+  if (mode === 'break') {
+    return mode;
+  }
+  return beat.secondaryBeamBreak === SECONDARY_BEAM_BREAK ? 'breakSecondary' : mode;
+}
+
+/** A voice's slash and beam marks, only when set. */
+function voiceMarks(beat: GpifBeat): Pick<Voice, 'isSlashed' | 'beamToNext'> {
+  const beamToNext = beamLinkOf(beat);
+  return { ...(beat.slashed ? { isSlashed: true } : {}), ...(beamToNext === undefined ? {} : { beamToNext }) };
 }
 
 function beatNotes(doc: GpifDocument, beat: GpifBeat): GraceSource['notes'] {
@@ -146,6 +179,9 @@ function draftAt(drafts: Map<number, BeatDraft>, start: number): BeatDraft {
     pickStroke: 'none',
     chord: undefined,
     text: undefined,
+    hairpin: undefined,
+    rasgueado: undefined,
+    ottava: undefined,
   };
   drafts.set(start, draft);
   return draft;
@@ -171,6 +207,10 @@ function applyBeatProperties(draft: BeatDraft, beat: GpifBeat, layout: TrackLayo
   if (chord !== undefined) {
     draft.chord = buildChord(chord, layout.strings.length);
   }
+  draft.hairpin ??= lookupName(HAIRPINS, beat.hairpin);
+  draft.rasgueado ??= beat.rasgueado === undefined ? undefined : rasgueadoFromGpif(beat.rasgueado);
+  const ottava = beat.ottava?.trim();
+  draft.ottava ??= isOttava(ottava) ? ottava : undefined;
 }
 
 function strokeDirection(direction: string): StrokeDirection {
@@ -237,5 +277,8 @@ function toBeat(draft: BeatDraft, shift: number): Beat {
     pickStroke: draft.pickStroke,
     ...(draft.chord === undefined ? {} : { chord: draft.chord }),
     ...(draft.text === undefined ? {} : { text: draft.text }),
+    ...(draft.hairpin === undefined ? {} : { hairpin: draft.hairpin }),
+    ...(draft.rasgueado === undefined ? {} : { rasgueado: draft.rasgueado }),
+    ...(draft.ottava === undefined ? {} : { ottava: draft.ottava }),
   };
 }

@@ -1,4 +1,6 @@
-import { engraveFretboard, FRETBOARD, fretboardHeight, fretX, neckFret } from '../src/score/fretboard';
+import type { CircleCommand } from '../src/score/draw';
+import { engraveFretboard, FRETBOARD, fretboardHeight, fretboardHoverRegions, fretX, neckFret } from '../src/score/fretboard';
+import { SCALE_COLORS } from '../src/score/scale-marks';
 import { makeSong, note } from '../test-support/songs';
 import { PALETTE, allFinite, texts } from '../test-support/score-helpers';
 
@@ -40,6 +42,38 @@ describe('engraveFretboard', () => {
     expect(fretX({ nutX: 30, fretWidth: 20 }, 12)).toBe(260);
   });
 
+  it('colours the chosen scale’s positions on all 24 frets, the roots apart, under the current notes', () => {
+    // Arrange: A minor pentatonic (A C D E G)
+    const scale = { pitchClasses: [9, 0, 2, 4, 7], root: 9 };
+
+    // Act
+    const commands = engraveFretboard({ track: guitar, width: 1000, palette: PALETTE, notes: [note(1, 5)], scale });
+
+    // Assert: A on E 5/17, A 0/12/24, D 7/19, G 2/14, B 10/22, e 5/17
+    const circles = commands.filter((command): command is CircleCommand => command.kind === 'circle');
+    expect(circles.filter((circle) => circle.color === SCALE_COLORS.root)).toHaveLength(13);
+    expect(circles.filter((circle) => circle.color === SCALE_COLORS.note).length).toBeGreaterThan(40);
+    const circleColors = commands.map((command) => (command.kind === 'circle' ? command.color : ''));
+    expect(circleColors.indexOf(PALETTE.accent)).toBeGreaterThan(circleColors.lastIndexOf(SCALE_COLORS.root));
+    expect(texts(commands).filter((text) => text.size === 7.5 && text.color === SCALE_COLORS.text && text.text === 'A')).toHaveLength(13);
+  });
+
+  it('names a scale’s positions as the scale spells them', () => {
+    const scale = { pitchClasses: [3, 5, 7, 8, 10, 0, 2], root: 3, names: ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'] };
+    const names = texts(engraveFretboard({ track: guitar, width: 1000, palette: PALETTE, notes: [], scale })).filter((text) => text.color === SCALE_COLORS.text);
+    expect(new Set(names.map((text) => text.text))).toEqual(new Set(scale.names));
+  });
+
+  it('draws necks of 3 to 10 strings, every string named on all 24 frets', () => {
+    for (const count of [3, 4, 5, 6, 7, 8, 9, 10]) {
+      const track = { ...guitar, strings: Array.from({ length: count }, (_, i) => ({ number: i + 1, tuning: 64 - i * 5 })) };
+      const commands = engraveFretboard({ track, width: 1000, palette: PALETTE, notes: [] });
+      expect(texts(commands).filter((text) => text.size === 7.5)).toHaveLength(count * 25);
+      expect(fretboardHeight(count)).toBe(FRETBOARD.top + (count - 1) * FRETBOARD.stringGap + FRETBOARD.bottom);
+      expect(allFinite(commands)).toBe(true);
+    }
+  });
+
   it('starts a 5-string banjo’s short 5th string at the 5th fret: no positions before it, its peg named as the open g', () => {
     // Act
     const commands = engraveFretboard({ track: banjo, width: 1000, palette: PALETTE, notes: [] });
@@ -65,5 +99,25 @@ describe('engraveFretboard', () => {
   it('outlines the cursor string at the nut', () => {
     const commands = engraveFretboard({ track: guitar, width: 800, palette: PALETTE, notes: [], cursorString: 3 });
     expect(commands.some((c) => c.kind === 'rect' && c.color === `${PALETTE.accent}40`)).toBe(true);
+  });
+});
+
+describe('fretboardHoverRegions', () => {
+  it('gives every position of every string its cell and the pitch it sounds', () => {
+    // Act
+    const regions = fretboardHoverRegions(guitar, 1000);
+    const lowE5 = regions.find((region) => region.x <= fretX(NECK_1000, 5) && region.x + region.width > fretX(NECK_1000, 5) && region.pitch === 45);
+
+    // Assert: six strings × 25 positions; the open high E is 64, the 12th fret of the low E is 52
+    expect(regions).toHaveLength(6 * (FRETBOARD.frets + 1));
+    expect(regions[0]).toEqual({ pitch: 64, x: 0, y: FRETBOARD.top - FRETBOARD.stringGap / 2, width: FRETBOARD.openWidth, height: FRETBOARD.stringGap });
+    expect(regions.some((region) => region.pitch === 52 && Math.abs(region.x + region.width / 2 - fretX(NECK_1000, 12)) < 1e-6)).toBe(true);
+    expect(lowE5).toBeDefined();
+  });
+
+  it('starts a banjo’s short string at its peg', () => {
+    const fifth = fretboardHoverRegions(banjo, 1000).filter((region) => region.y > FRETBOARD.top + 3 * FRETBOARD.stringGap);
+    expect(fifth).toHaveLength(FRETBOARD.frets + 1 - 5);
+    expect(fifth[0]?.pitch).toBe(67);
   });
 });

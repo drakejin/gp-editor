@@ -1,10 +1,11 @@
-import type { Beat, Grace, Measure, Note, SlideType } from '@gp-editor/core';
+import { type Beat, DEFAULT_STYLESHEET, type Grace, type Measure, type NotationStyle, type Note, type SlideType } from '@gp-editor/core';
 import type { BeatLayout, MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawCommand, LineCommand } from '../draw';
 import { bendArrows } from './bends';
 import {
   type LinkedNote,
+  type NextInRow,
   nextNoteOnString,
   previousNoteOnString,
 } from './links';
@@ -24,9 +25,21 @@ export interface TabNotesContext {
   readonly layout: MeasureLayout;
   readonly previousMeasure?: Measure;
   readonly nextMeasure?: Measure;
+  /** The next measure when it is on this row too: links into it are drawn whole, from fret to fret. */
+  readonly nextInRow?: NextInRow;
+  /** Links from the previous measure come in here only at a row start (or when that is not known). */
+  readonly isRowStart?: boolean;
   /** Y of the first (highest) string. */
   readonly top: number;
   readonly palette: Palette;
+  /** The voice being edited: the other voices' techniques are drawn faded. */
+  readonly editedVoiceIndex?: number;
+  /** The stylesheet's H / P and "sl." labels and voice colours; the defaults when absent. */
+  readonly notation?: NotationStyle;
+}
+
+function notationOf(context: TabNotesContext): NotationStyle {
+  return context.notation ?? DEFAULT_STYLESHEET.notation;
 }
 
 const LEGATO = {
@@ -83,20 +96,32 @@ function placedNotes(
       position,
       x: beatLayout.x,
       y: tabStringY(context.top, note.string),
-      color: voiceColor(voiceIndex, context.palette),
+      color: voiceColor(voiceIndex, context.palette, context.editedVoiceIndex, notationOf(context).showsVoiceColors),
     })),
   );
 }
 
-/** x of the linked note: its beat in this measure, or the bar line on the side of the other measure. */
-function linkX(
+/** Where a link to the next note ends: at that note's fret (`isWhole`), or at the bar line when the note is on the next row. */
+interface LinkEnd {
+  readonly x: number;
+  readonly isWhole: boolean;
+}
+
+/** The linked note's fret column: its beat in this measure or in the next measure on the row, else (a row's end) the bar line. */
+function linkEnd(
   context: TabNotesContext,
   link: LinkedNote,
-  edge: number,
-): number | undefined {
-  return link.isInOtherMeasure
-    ? edge
-    : context.layout.beats.find(b => b.beatIndex === link.beatIndex)?.x;
+): LinkEnd | undefined {
+  const { layout, nextInRow } = context;
+  if (!link.isInOtherMeasure) {
+    const x = layout.beats.find(b => b.beatIndex === link.beatIndex)?.x;
+    return x === undefined ? undefined : { x, isWhole: true };
+  }
+  if (nextInRow === undefined) {
+    return { x: layout.width, isWhole: false };
+  }
+  const next = nextInRow.layout.beats.find(b => b.beatIndex === link.beatIndex);
+  return next === undefined ? undefined : { x: layout.width + next.x, isWhole: true };
 }
 
 function legatoHeight(length: number): number {
@@ -113,33 +138,39 @@ function legatoArc(
   link: LinkedNote,
   isLabelled: boolean,
 ): DrawCommand[] {
-  const toX = linkX(context, link, context.layout.width);
-  if (toX === undefined) {
+  const end = linkEnd(context, link);
+  if (end === undefined) {
     return [];
   }
+  const toX = end.x;
   const y = placed.y - FRET_BOX.height / 2 - 1;
   const height = legatoHeight(toX - placed.x);
-  const arc = link.isInOtherMeasure
-    ? halfArc(placed.x, toX, y, -height, LEGATO.width, placed.color)
-    : bowCurve(placed.x, y, toX, y, -height, LEGATO.width, placed.color);
+  const arc = end.isWhole
+    ? bowCurve(placed.x, y, toX, y, -height, LEGATO.width, placed.color)
+    : halfArc(placed.x, toX, y, -height, LEGATO.width, placed.color);
   if (!isLabelled) {
     return [arc];
   }
-  const text = link.note.fret >= placed.note.fret ? 'H' : 'P';
+  const { labels } = notationOf(context);
+  const text = link.note.fret >= placed.note.fret ? labels.hammerOn : labels.pullOff;
   const labelY = y - height - LEGATO.labelGap;
-  return [
-    arc,
-    {
-      kind: 'text',
-      x: (placed.x + toX) / 2,
-      y: labelY,
-      text,
-      size: LEGATO.labelSize,
-      color: placed.color,
-      font: 'ui',
-      align: 'center',
-    },
-  ];
+  return [arc, linkLabel(text, (placed.x + toX) / 2, labelY, placed.color)];
+}
+
+/** A small label over a link between two notes: H, P, sl. */
+function linkLabel(text: string, x: number, y: number, color: string): DrawCommand {
+  return { kind: 'text', x, y, text, size: LEGATO.labelSize, color, font: 'ui', align: 'center' };
+}
+
+/** "sl." over a slide to the next note, when the stylesheet asks for it (Guitar Pro's "Add sl. for slide effects"). */
+function slideLabel(context: TabNotesContext, placed: PlacedNote, link: LinkedNote): DrawCommand[] {
+  const end = linkEnd(context, link);
+  const notation = notationOf(context);
+  if (end === undefined || !notation.showsSlideLabels) {
+    return [];
+  }
+  const y = placed.y - FRET_BOX.height / 2 - LEGATO.maxHeight - LEGATO.labelGap;
+  return [linkLabel(notation.labels.slide, (placed.x + end.x) / 2, y, placed.color)];
 }
 
 function slideLine(
@@ -166,18 +197,17 @@ function shiftSlide(
   placed: PlacedNote,
   link: LinkedNote,
 ): DrawCommand[] {
-  const toX = linkX(context, link, context.layout.width);
-  if (toX === undefined) {
+  const end = linkEnd(context, link);
+  if (end === undefined) {
     return [];
   }
   const from = placed.x + FRET_BOX.width / 2 - LEGATO.inset;
-  const to = link.isInOtherMeasure
-    ? toX
-    : toX - FRET_BOX.width / 2 + LEGATO.inset;
   const rising = link.note.fret >= placed.note.fret;
-  if (!link.isInOtherMeasure) {
+  if (end.isWhole) {
+    const to = end.x - FRET_BOX.width / 2 + LEGATO.inset;
     return [slideLine(from, to, placed.y, rising, placed.color)];
   }
+  const to = end.x;
   // Half way across the string at the bar line, where the next measure's half goes on.
   const side = rising ? 1 : -1;
   return [
@@ -249,11 +279,11 @@ function noteLinks(
   const isLegatoSlide = note.effect.slides.includes('legato');
   return [
     ...(link !== undefined && (note.effect.hammer || isLegatoSlide)
-      ? legatoArc(context, placed, link, note.effect.hammer)
+      ? legatoArc(context, placed, link, note.effect.hammer && notationOf(context).showsHopoLabels)
       : []),
     ...(link !== undefined &&
     note.effect.slides.some(s => s === 'shift' || s === 'legato')
-      ? shiftSlide(context, placed, link)
+      ? [...shiftSlide(context, placed, link), ...slideLabel(context, placed, link)]
       : []),
     ...note.effect.slides.flatMap(slide => shortSlide(placed, slide)),
   ];
@@ -440,7 +470,9 @@ export function engraveTabTechniques(context: TabNotesContext): DrawCommand[] {
   return [
     ...incomingLinks(
       context,
-      context.previousMeasure === undefined ? [] : firstOnEachString(notes),
+      context.previousMeasure === undefined || context.isRowStart === false
+        ? []
+        : firstOnEachString(notes),
     ),
     ...notes.flatMap(placed => noteTechniques(context, placed)),
     ...context.layout.beats.flatMap(beatLayout =>

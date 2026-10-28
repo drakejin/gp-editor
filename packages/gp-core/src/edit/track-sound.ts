@@ -7,7 +7,8 @@ import { replaceAt, updateTrack } from './song-paths';
 /** Highest MIDI program, volume and balance. */
 const MAX_MIDI_VALUE = 127;
 
-function isProgram(value: number): boolean {
+/** A whole MIDI data value, 0…127 (a program, a pitch). */
+export function isMidiValue(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= MAX_MIDI_VALUE;
 }
 
@@ -44,7 +45,7 @@ function updateTrackChannel(song: Song, trackIndex: number, change: (channel: Ch
  */
 export function setTrackProgram(song: Song, trackIndex: number, program: number): Song {
   const track = song.tracks[trackIndex];
-  if (track === undefined || track.isPercussion || !isProgram(program)) {
+  if (track === undefined || track.isPercussion || !isMidiValue(program)) {
     return song;
   }
   return updateTrackChannel(song, trackIndex, (channel) => (channel.program === program ? channel : { ...channel, program }));

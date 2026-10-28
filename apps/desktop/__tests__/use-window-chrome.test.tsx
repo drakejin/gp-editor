@@ -1,5 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { type WindowChrome, useWindowChrome } from '../src/hooks/use-window-chrome';
+import { currentSettings } from '../src/state/settings-store';
 
 /** The hook's latest value, re-read after every act(). */
 function renderChrome(): () => WindowChrome {
@@ -76,5 +77,45 @@ describe('useWindowChrome: closeOverlay (Esc)', () => {
   it('reports that nothing was open', () => {
     const current = renderChrome();
     expect(closeOverlay(current)).toBe(false);
+  });
+});
+
+describe('useWindowChrome: Focus / Unfocus', () => {
+  it('hides every panel, then brings back the ones that were shown', () => {
+    // Arrange: the tracks panel hidden
+    const current = renderChrome();
+    ReactTestRenderer.act(() => current().togglePanel('tracks'));
+    const before = current().panels;
+
+    // Act
+    ReactTestRenderer.act(() => current().toggleFocus());
+    const focused = { panels: current().panels, isFocused: current().isFocused };
+    ReactTestRenderer.act(() => current().toggleFocus());
+
+    // Assert
+    expect(focused).toEqual({ panels: { palette: false, inspector: false, tracks: false, keyboard: false, neck: false, mixer: false }, isFocused: true });
+    expect(current().panels).toEqual(before);
+    expect(current().isFocused).toBe(false);
+  });
+});
+
+describe('useWindowChrome: the score’s zoom', () => {
+  it('keeps the zoom as an app setting and steps a level from the zoom a fit shows', () => {
+    // Arrange
+    const current = renderChrome();
+
+    // Act: fit the page's width, which comes to 62 % in the view, then one level out
+    ReactTestRenderer.act(() => current().setZoom('fitWidth'));
+    const fitted = current().zoom;
+    ReactTestRenderer.act(() => current().showZoom(0.62));
+    const shown = current().shownZoom;
+    ReactTestRenderer.act(() => current().stepZoom(-1));
+
+    // Assert
+    expect(fitted).toBe('fitWidth');
+    expect(shown).toBe(0.62);
+    expect(current().zoom).toBe(0.6);
+    expect(currentSettings().settings.scoreZoom).toBe(0.6);
+    ReactTestRenderer.act(() => current().setZoom(1));
   });
 });

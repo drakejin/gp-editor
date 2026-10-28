@@ -3,7 +3,7 @@ import type { RectCommand } from '../src/score/draw';
 import { rowGeometry } from '../src/score/geometry';
 import { engraveRow } from '../src/score/row';
 import { type BeatRange, clipRange, engraveSelection, isSameRange } from '../src/score/selection-tint';
-import { stringY } from '../src/score/tab';
+import { tabStringY } from '../src/score/symbols/tab-geometry';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -40,6 +40,14 @@ describe('engraveSelection', () => {
     expect(tint(selection, 2)).toMatchObject({ x: 0, width: 100 });
   });
 
+  it('tints the whole of a bar without beats the selection reaches, and none outside it', () => {
+    const empty: MeasureLayout = { ...measure(1), beats: [] };
+    const tintOf = (selection: BeatRange) => engraveSelection(selection, empty, rowGeometry('tab', 6), 6, PALETTE)[0];
+    expect(tintOf(range([1, 0], [1, 0]))).toMatchObject({ kind: 'rect', x: 0, width: 200 });
+    expect(tintOf(range([0, 2], [2, 0]))).toMatchObject({ kind: 'rect', x: 0, width: 200 });
+    expect(tintOf(range([2, 0], [3, 0]))).toBeUndefined();
+  });
+
   it('goes a little past the first and last beat of a bar when the selection ends there', () => {
     expect(tint(range([0, 0], [0, 3]), 0)).toMatchObject({ x: 28, width: 144 });
   });
@@ -56,7 +64,7 @@ describe('engraveSelection', () => {
     const notation = tint(selection, 0, 'notation');
 
     // Assert
-    expect(tabOnly).toMatchObject({ y: tabGeometry.tabTop! - 10, height: stringY(tabGeometry.tabTop!, 6) - tabGeometry.tabTop! + 20 });
+    expect(tabOnly).toMatchObject({ y: tabGeometry.tabTop! - 10, height: tabStringY(tabGeometry.tabTop!, 6) - tabGeometry.tabTop! + 20 });
     expect(both?.y).toBe(bothGeometry.notationTop! - 10);
     expect(notation?.height).toBe(32 + 20);
   });

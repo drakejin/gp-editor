@@ -1,93 +1,50 @@
 // Song → Standard MIDI File + timeline: TuxGuitar's MidiSongWriter flow (LGPL-2.1) with playback options.
+import { type SyncMap, buildSyncMap } from '../audio-track/sync-map';
 import { measureTicks } from '../model/defaults';
 import { QUARTER_TIME, type Song } from '../model/song';
+import { type AudioRun, audioRunsOf, syncToAudio } from './audio-sync';
 import { buildConductorEvents, buildTrackEvents } from './build-sequence';
 import { buildChannelRoutes } from './channel-routes';
-import { writeMidiFile } from './midi-file';
+import type { SequenceEvent } from './midi-events';
+import { type MidiMessage, writeMidiFile } from './midi-file';
 import { toMidiMessages } from './midi-messages';
+import { type MidiOptions, SINGLE_PASS, validateOptions } from './midi-options';
 import { MIDI_PPQ, fromMidiTicks, toMidiTick } from './midi-ticks';
+import { CLICK_ROUTES, type CountIn, buildCountInEvents, buildMetronomeEvents, resolveCountIn } from './metronome';
 import { buildPlaybackOrder, type PlayedMeasure } from './playback-order';
 import { buildPasses, buildRangeOrder } from './practice-loop';
 import { buildTimeline, secondsFromTicks, type TimelineEntry } from './timeline';
 
-export interface MidiOptions {
-  /** Tracks to play (0-based). Default: every track, honouring Track.solo / Track.mute like TuxGuitar. */
-  readonly trackIndexes?: readonly number[];
-  /** Start playback at this measure header (0-based); earlier measures are skipped. Default 0. */
-  readonly fromHeaderIndex?: number;
-  /**
-   * Last measure header to play (0-based, inclusive). When set, fromHeaderIndex…toHeaderIndex play straight through
-   * in written order: repeat signs and alternate endings inside the range are ignored (a practice loop). Default: play
-   * to the end of the song, repeats expanded.
-   */
-  readonly toHeaderIndex?: number;
-  /**
-   * One entry per pass: the played measures are played once per entry, one pass right after the other, with every
-   * tempo of the song multiplied by the pass's scale (so tempo changes keep their proportions). Each scale lies in
-   * 0.1…10; at most 64 passes. Default [1]: played once, as written.
-   */
-  readonly passTempoScales?: readonly number[];
-}
+export type { MidiOptions } from './midi-options';
 
 export interface MidiRender {
-  /** Standard MIDI File, format 1, MIDI_PPQ (960) ticks per quarter: a conductor track, then one track per song track. */
+  /**
+   * Standard MIDI File, format 1, MIDI_PPQ (960) ticks per quarter: a conductor track, one track per song track, then
+   * the metronome's and the count-in's tracks when asked for.
+   */
   readonly bytes: Uint8Array;
   /** One entry per played measure, in playback order (repeats expanded), pass after pass. */
   readonly timeline: readonly TimelineEntry[];
   readonly durationSeconds: number;
+  /** Index of the metronome's track among the file's tracks (MidiOptions.metronome), so a player can mute it live. */
+  readonly metronomeTrackIndex?: number;
+  /** Index of the count-in's track among the file's tracks (MidiOptions.countIn): the last one. */
+  readonly countInTrackIndex?: number;
+  /** Seconds the count-in lasts before the first played measure (0 without one); the timeline starts after it. */
+  readonly countInSeconds: number;
+  /** With `syncToAudioTrack` and an audio track: the stretches of the audio to play under the render, in order. */
+  readonly audioRuns?: readonly AudioRun[];
 }
 
-/** Bounds of a pass's tempo scale: a tenth to ten times the written speed. */
-const MIN_TEMPO_SCALE = 0.1;
-const MAX_TEMPO_SCALE = 10;
-/** Most passes one render holds (a caller looping for longer renders the next passes when these end). */
-const MAX_PASSES = 64;
-const SINGLE_PASS: readonly number[] = [1];
-
-function isIndex(value: number, length: number): boolean {
-  return Number.isInteger(value) && value >= 0 && value < length;
-}
-
-function validateRange(song: Song, options: MidiOptions): void {
-  const fromHeaderIndex = options.fromHeaderIndex ?? 0;
-  const last = song.measureHeaders.length - 1;
-  if (fromHeaderIndex !== 0 && !isIndex(fromHeaderIndex, song.measureHeaders.length)) {
-    throw new RangeError(`fromHeaderIndex ${fromHeaderIndex} is not a measure of this song (0…${last})`);
-  }
-  const { toHeaderIndex } = options;
-  const isRange = toHeaderIndex === undefined || (isIndex(toHeaderIndex, last + 1) && toHeaderIndex >= fromHeaderIndex);
-  if (!isRange) {
-    throw new RangeError(`toHeaderIndex ${toHeaderIndex} is not a measure of this song (${fromHeaderIndex}…${last})`);
-  }
-}
-
-function validatePasses(passTempoScales: readonly number[]): void {
-  if (passTempoScales.length === 0 || passTempoScales.length > MAX_PASSES) {
-    throw new RangeError(`passTempoScales has ${passTempoScales.length} passes (1…${MAX_PASSES})`);
-  }
-  const invalid = passTempoScales.find((scale) => !(scale >= MIN_TEMPO_SCALE && scale <= MAX_TEMPO_SCALE));
-  if (invalid !== undefined) {
-    throw new RangeError(
-      `passTempoScales contains ${invalid}, not a tempo scale (${MIN_TEMPO_SCALE}…${MAX_TEMPO_SCALE})`,
-    );
-  }
-}
-
-function validateOptions(song: Song, options: MidiOptions): void {
-  validateRange(song, options);
-  validatePasses(options.passTempoScales ?? SINGLE_PASS);
-  const invalid = options.trackIndexes?.find((index) => !isIndex(index, song.tracks.length));
-  if (invalid !== undefined) {
-    throw new RangeError(`trackIndexes contains ${invalid}, not a track of this song (0…${song.tracks.length - 1})`);
-  }
-}
-
-/** MidiSequenceParser.parse: muted tracks are silent; when any track is solo only solo tracks play. */
-function resolvePlayedTracks(song: Song, trackIndexes: readonly number[] | undefined): ReadonlySet<number> {
+/**
+ * MidiSequenceParser.parse: muted tracks are silent; when any track is solo only solo tracks play. A solo audio track
+ * counts when playback follows it.
+ */
+function resolvePlayedTracks(song: Song, trackIndexes: readonly number[] | undefined, isAudioSynced: boolean): ReadonlySet<number> {
   if (trackIndexes !== undefined) {
     return new Set(trackIndexes);
   }
-  const hasSolo = song.tracks.some((track) => track.solo);
+  const hasSolo = song.tracks.some((track) => track.solo) || (isAudioSynced && song.audioTrack?.solo === true);
   return new Set(song.tracks.flatMap((track, index) => (!track.mute && (!hasSolo || track.solo) ? [index] : [])));
 }
 
@@ -109,33 +66,82 @@ function resolvePlaybackOrder(
     : buildRangeOrder(fromHeaderIndex, toHeaderIndex);
 }
 
+/** The song with every measure at `fixedTempo` (MidiOptions.fixedTempo), or the song itself. */
+function withFixedTempo(song: Song, fixedTempo: number | undefined): Song {
+  if (fixedTempo === undefined) {
+    return song;
+  }
+  return { ...song, measureHeaders: song.measureHeaders.map((header) => ({ ...header, tempo: fixedTempo })) };
+}
+
+/** The clicks' tracks: the metronome's, then the count-in's (each when asked for). */
+function clickTracks(song: Song, played: readonly PlayedMeasure[], origin: number, options: MidiOptions, countIn: CountIn | undefined): SequenceEvent[][] {
+  const metronome = options.metronome === undefined ? [] : [buildMetronomeEvents(song.measureHeaders, played, origin, options.metronome)];
+  const counting = countIn === undefined || options.countIn === undefined ? [] : [buildCountInEvents(countIn, origin, options.countIn)];
+  return [...metronome, ...counting];
+}
+
+/** Where the click tracks are among the file's tracks: after the conductor and the song's tracks, metronome first. */
+function clickTrackIndexes(songTracks: number, options: MidiOptions, countIn: CountIn | undefined): Pick<MidiRender, 'metronomeTrackIndex' | 'countInTrackIndex'> {
+  const metronomeTrackIndex = options.metronome === undefined ? undefined : 1 + songTracks;
+  const countInTrackIndex = countIn === undefined || options.countIn === undefined ? undefined : 1 + songTracks + (metronomeTrackIndex === undefined ? 0 : 1);
+  return {
+    ...(metronomeTrackIndex === undefined ? {} : { metronomeTrackIndex }),
+    ...(countInTrackIndex === undefined ? {} : { countInTrackIndex }),
+  };
+}
+
 /** Turns a song into a MIDI file and a timeline mapping playback time back to measures. */
-export function renderMidi(song: Song, options: MidiOptions = {}): MidiRender {
-  validateOptions(song, options);
+export function renderMidi(written: Song, options: MidiOptions = {}): MidiRender {
+  validateOptions(written, options);
+  const song = withFixedTempo(written, options.fixedTempo);
   const fromHeaderIndex = options.fromHeaderIndex ?? 0;
-  const playedTracks = resolvePlayedTracks(song, options.trackIndexes);
+  const syncMap = options.syncToAudioTrack === true && song.audioTrack !== undefined ? buildSyncMap(song) : undefined;
+  const playedTracks = resolvePlayedTracks(song, options.trackIndexes, syncMap !== undefined);
   const order = resolvePlaybackOrder(song, fromHeaderIndex, options.toHeaderIndex);
-  const played = buildPasses(song.measureHeaders, order, options.passTempoScales ?? SINGLE_PASS);
-  const origin = playbackOrigin(song, played, fromHeaderIndex);
+  const synced = followAudio(song, buildPasses(song.measureHeaders, order, options.passTempoScales ?? SINGLE_PASS), syncMap);
+  const { played } = synced;
+  const countIn = options.countIn === undefined ? undefined : resolveCountIn(song.measureHeaders, played);
+  const origin = playbackOrigin(song, played, fromHeaderIndex) - (countIn?.ticks ?? 0);
   const routes = buildChannelRoutes(song.channels);
   const conductor = buildConductorEvents(song, played, origin);
   const tracks = song.tracks.map((track, index) => {
     const channel = song.channels.find((candidate) => candidate.id === track.channelId);
     return buildTrackEvents({ track, headers: song.measureHeaders, played, origin }, channel, playedTracks.has(index));
   });
-  const messages = [conductor, ...tracks].map((events) => toMidiMessages(events, routes, origin));
-  const timeline = buildTimeline(song.measureHeaders, played);
+  const messages = [
+    ...[conductor, ...tracks].map((events) => toMidiMessages(events, routes, origin)),
+    ...clickTracks(song, played, origin, options, countIn).map((events) => toMidiMessages(events, CLICK_ROUTES, origin)),
+  ];
+  const countInSeconds = countIn?.seconds ?? 0;
+  const timeline = buildTimeline(song.measureHeaders, played, countInSeconds);
   const measuresEnd = toMidiTick(playbackEnd(song, played, origin));
-  const lastEvent = messages.reduce(
-    (tick, track) => track.reduce((latest, message) => Math.max(latest, message.tick), tick),
-    0,
-  );
+  const lastEvent = lastTick(messages);
   const tail = fromMidiTicks(Math.max(0, lastEvent - measuresEnd));
   return {
     bytes: writeMidiFile(messages, MIDI_PPQ, measuresEnd),
     timeline: timeline.entries,
     durationSeconds: timeline.endSeconds + secondsFromTicks(tail, timeline.lastTempo),
+    ...clickTrackIndexes(song.tracks.length, options, countIn),
+    countInSeconds,
+    ...(syncMap === undefined ? {} : { audioRuns: audioRunsOf(synced, timeline.entries, syncMap) }),
   };
+}
+
+/** The latest tick of any message (0 for none). */
+function lastTick(tracks: readonly (readonly MidiMessage[])[]): number {
+  let latest = 0;
+  for (const track of tracks) {
+    for (const message of track) {
+      latest = Math.max(latest, message.tick);
+    }
+  }
+  return latest;
+}
+
+/** The played measures at the audio track's pace when following it, else as they are. */
+function followAudio(song: Song, played: readonly PlayedMeasure[], syncMap: SyncMap | undefined): ReturnType<typeof syncToAudio> {
+  return syncMap === undefined ? { played, bars: [] } : syncToAudio(song.measureHeaders, played, syncMap);
 }
 
 /** Sequence tick (from the origin) where the last played measure ends. */

@@ -1,11 +1,11 @@
 // Port of TuxGuitar GTPOutputStream / GP5OutputStream song-level helpers (LGPL-2.1): what every GP3–GP5 writer derives from the song.
-import { EMPTY_VOICE } from '../formats/gtp/shared';
+import { EMPTY_VOICE } from '../model/defaults';
 import type { Beat, GuitarString, Lyrics, Measure, Note, Song, Track, Voice } from '../model/song';
 
 /** GP3–GP5 tracks have at most seven strings. */
 export const MAX_STRINGS = 7;
 /** GP3–GP5 frets are signed bytes and the readers turn frets of 100 or more into 0. */
-export const MAX_GP_FRET = 99;
+const MAX_GP_FRET = 99;
 /** Guitar Pro 3–5 hold two voices per beat (GP6+ up to four: the others are left out). */
 export const MAX_GP_VOICES = 2;
 const MAX_KEY = 7;
@@ -79,13 +79,19 @@ export function isBeatCarrier(beat: Beat, voiceIndex: number): boolean {
   return first === voiceIndex;
 }
 
+/** GP3–GP5 store a tempo as a whole number: a decimal tempo (92.5) is rounded. */
+export function writtenTempo(song: Song, index: number): number | undefined {
+  const tempo = song.measureHeaders[index]?.tempo;
+  return tempo === undefined ? undefined : Math.round(tempo);
+}
+
 /**
  * Tempo to write as a mix-table change at the start of measure `index`, if any. The readers give each
  * measure header the tempo in effect after the measure, so a change on the first beat restores it;
- * the first measure takes the song tempo.
+ * the first measure takes the song tempo. Tempos are compared as written (rounded).
  */
 export function tempoChangeAt(song: Song, index: number): number | undefined {
-  const tempo = song.measureHeaders[index]?.tempo;
-  const previous = song.measureHeaders[index - 1]?.tempo;
+  const tempo = writtenTempo(song, index);
+  const previous = writtenTempo(song, index - 1);
   return index > 0 && tempo !== undefined && tempo !== previous ? tempo : undefined;
 }

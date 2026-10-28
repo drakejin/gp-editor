@@ -1,8 +1,11 @@
+import type { CurveCommand } from '../src/score/draw';
 import {
   arrowhead,
   bowCurve,
+  curveAround,
   dashedSpan,
   halfArc,
+  lineAround,
   textWidth,
   verticalArrow,
   wavyLine,
@@ -163,5 +166,63 @@ describe('textWidth', () => {
   it('estimates the advance of a label from its length and size', () => {
     expect(textWidth('P.M.', 10)).toBeCloseTo(22.4);
     expect(textWidth('', 10)).toBe(0);
+  });
+});
+
+describe('curveAround and lineAround', () => {
+  /** A point of a quadratic curve at parameter t. */
+  const pointAt = (c: CurveCommand, t: number) => ({
+    x: (1 - t) ** 2 * c.x1 + 2 * (1 - t) * t * c.cx + t ** 2 * c.x2,
+    y: (1 - t) ** 2 * c.y1 + 2 * (1 - t) * t * c.cy + t ** 2 * c.y2,
+  });
+  /** y of the whole curve where it passes x (a bowCurve's x runs linearly). */
+  const yOn = (c: CurveCommand, x: number) => pointAt(c, (x - c.x1) / (c.x2 - c.x1)).y;
+
+  it('leaves out the part of a slur over the gap, its two pieces still on the slur', () => {
+    // Arrange
+    const slur = bowCurve(0, 50, 100, 60, -8, 1, INK);
+
+    // Act
+    const pieces = curveAround(slur, { from: 40, to: 55 });
+
+    // Assert
+    expect(pieces).toHaveLength(2);
+    const [before, after] = pieces as [CurveCommand, CurveCommand];
+    expect(before).toMatchObject({ x1: 0, y1: 50, width: 1, color: INK });
+    expect(before.x2).toBeCloseTo(40);
+    expect(after.x1).toBeCloseTo(55);
+    expect(after).toMatchObject({ x2: 100, y2: 60 });
+    [0.25, 0.5, 0.75].forEach((t) => {
+      const a = pointAt(before, t);
+      const b = pointAt(after, t);
+      expect(a.y).toBeCloseTo(yOn(slur, a.x));
+      expect(b.y).toBeCloseTo(yOn(slur, b.x));
+    });
+  });
+
+  it('keeps a slur whole when the gap is empty or beside it, and keeps one piece when the gap covers an end', () => {
+    const slur = bowCurve(10, 50, 100, 50, 6, 1, INK);
+    expect(curveAround(slur, { from: 100, to: 100 })).toEqual([slur]);
+    expect(curveAround(slur, { from: 120, to: 140 })).toEqual([slur]);
+    const [piece, ...others] = curveAround(slur, { from: 0, to: 30 });
+    expect(others).toHaveLength(0);
+    expect(piece!.x1).toBeCloseTo(30);
+    expect(piece!.y1).toBeCloseTo(yOn(slur, 30));
+  });
+
+  it('leaves out the part of a slide line over the gap, its pieces on the one line', () => {
+    // Act
+    const pieces = lineAround({ kind: 'line', x1: 0, y1: 10, x2: 100, y2: 30, width: 1.2, color: INK }, { from: 50, to: 70 });
+
+    // Assert
+    expect(pieces).toEqual([
+      { kind: 'line', x1: 0, y1: 10, x2: 50, y2: 20, width: 1.2, color: INK },
+      { kind: 'line', x1: 70, y1: 24, x2: 100, y2: 30, width: 1.2, color: INK },
+    ]);
+  });
+
+  it('keeps a line whole when the gap is empty', () => {
+    const slide = { kind: 'line', x1: 0, y1: 10, x2: 100, y2: 30, width: 1, color: INK } as const;
+    expect(lineAround(slide, { from: 100, to: 100 })).toEqual([slide]);
   });
 });

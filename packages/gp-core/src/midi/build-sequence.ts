@@ -11,8 +11,9 @@ import {
   toDataValue,
 } from './midi-events';
 import { buildNoteEvents } from './note-events';
-import type { TrackContext } from './note-search';
-import { type PlayedMeasure, playedTempo } from './playback-order';
+import { type TrackContext, buildPlaybackBeats } from './note-search';
+import { pedalEvents } from './pedals';
+import { type PlayedMeasure, playedTempo, playedTempoPieces } from './playback-order';
 import { usqFromTempo } from './timeline';
 
 /** ADD_DEFAULT_CONTROLS: pitch-bend range of 12 semitones (RPN 0) on every channel. */
@@ -33,21 +34,35 @@ function headerOf(headers: readonly MeasureHeader[], played: PlayedMeasure | und
   return played === undefined ? undefined : headers[played.headerIndex];
 }
 
-/** Microseconds per quarter note a played measure sounds at (its pass's tempo scale applied). */
+/** Microseconds per quarter note a played measure ends at (its pass's tempo scale applied). */
 function playedUsq(headers: readonly MeasureHeader[], measure: PlayedMeasure | undefined): number | undefined {
   const header = headerOf(headers, measure);
-  return header === undefined || measure === undefined ? undefined : usqFromTempo(playedTempo(header, measure));
+  const last = header === undefined || measure === undefined ? undefined : playedTempoPieces(header, measure).at(-1);
+  return last === undefined ? undefined : usqFromTempo(last.tempo);
 }
 
-/** addTimeSignature / addTempo: a meta event wherever a played measure changes them. */
-function measureChanges(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[]): SequenceEvent[] {
+/** A tempo event where a measure following the audio track changes tempo inside (midi/audio-sync.ts). */
+function innerTempoEvents(header: MeasureHeader, measure: PlayedMeasure, tick: number): SequenceEvent[] {
+  const pieces = playedTempoPieces(header, measure);
+  return pieces.flatMap((piece, index): SequenceEvent[] => {
+    const previous = pieces[index - 1];
+    const usq = usqFromTempo(piece.tempo);
+    return previous === undefined || usqFromTempo(previous.tempo) === usq ? [] : [{ type: 'tempo', tick: tick + piece.offset, usq }];
+  });
+}
+
+/**
+ * addTimeSignature / addTempo: a meta event wherever a played measure changes them. The first played measure's go at
+ * `origin`, where the file starts (before that measure when a count-in plays first).
+ */
+function measureChanges(headers: readonly MeasureHeader[], played: readonly PlayedMeasure[], origin: number): SequenceEvent[] {
   return played.flatMap((measure, index): SequenceEvent[] => {
     const header = headerOf(headers, measure);
     if (header === undefined) {
       return [];
     }
     const previous = headerOf(headers, played[index - 1]);
-    const tick = header.start + measure.move;
+    const tick = index === 0 ? origin : header.start + measure.move;
     const { numerator, denominator } = header.timeSignature;
     const isNewSignature =
       previous?.timeSignature.numerator !== numerator || previous.timeSignature.denominator !== denominator;
@@ -56,13 +71,14 @@ function measureChanges(headers: readonly MeasureHeader[], played: readonly Play
     return [
       ...(isNewSignature ? [{ type: 'timeSignature' as const, tick, numerator, denominator }] : []),
       ...(isNewTempo ? [{ type: 'tempo' as const, tick, usq }] : []),
+      ...innerTempoEvents(header, measure, header.start + measure.move),
     ];
   });
 }
 
 /** The conductor track (TuxGuitar's info track): default controls, time signatures and tempos. */
 export function buildConductorEvents(song: Song, played: readonly PlayedMeasure[], origin: number): SequenceEvent[] {
-  return [...defaultControls(song.channels, origin), ...measureChanges(song.measureHeaders, played)];
+  return [...defaultControls(song.channels, origin), ...measureChanges(song.measureHeaders, played, origin)];
 }
 
 /**
@@ -90,39 +106,50 @@ function channelSetup(channel: Channel, track: Track, tick: number): SequenceEve
   ];
 }
 
-/** addBeats / addNotes for one played measure: every struck note of every beat and voice. */
-function measureEvents(context: TrackContext, playedIndex: number): SequenceEvent[] {
+/**
+ * Pushes `items` onto the end of `target` one by one: `target.push(...items)` copies `items` into an argument list
+ * (Hermes runs it through array helpers) and fails on very long arrays.
+ */
+function appendAll<T>(target: T[], items: readonly T[]): void {
+  for (const item of items) {
+    target.push(item);
+  }
+}
+
+/** addBeats / addNotes for one played measure: every struck note of every beat and voice, added to `events`. */
+function addMeasureEvents(context: TrackContext, playedIndex: number, events: SequenceEvent[]): void {
   const played = context.played[playedIndex];
   const header = headerOf(context.headers, played);
   const beats = played === undefined ? undefined : context.track.measures[played.headerIndex]?.beats;
   if (played === undefined || header === undefined || beats === undefined) {
-    return [];
+    return;
   }
   const tempo = playedTempo(header, played);
-  return beats.flatMap((beat, beatIndex) => {
+  beats.forEach((beat, beatIndex) => {
     const strokes = strokeOffsets(beat, context.track.strings.length);
-    return beat.voices.flatMap((voice, voiceIndex) => {
+    beat.voices.forEach((voice, voiceIndex) => {
+      const struck = voice.notes.filter((note) => !note.isTied);
+      if (struck.length === 0) {
+        return;
+      }
       const timing = tripletFeelTiming(beats, beatIndex, voiceIndex, header.tripletFeel);
-      return voice.notes
-        .filter((note) => !note.isTied)
-        .flatMap((note) => {
-          const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
-          return buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0);
-        });
+      for (const note of struck) {
+        const placed = { note, voice, beat, header, tempo, move: played.move, playedIndex, beatIndex, voiceIndex };
+        appendAll(events, buildNoteEvents(context, placed, timing, strokes[note.string - 1] ?? 0));
+      }
     });
   });
 }
 
 /** addTrack: the channel setup, then the notes when the track is played. A track without channel stays silent. */
 export function buildTrackEvents(
-  context: Omit<TrackContext, 'channel'>,
+  context: Omit<TrackContext, 'channel' | 'playback'>,
   channel: Channel | undefined,
   isPlayed: boolean,
 ): SequenceEvent[] {
   if (channel === undefined) {
     return [];
   }
-  const full: TrackContext = { ...context, channel };
   const setup = [
     pitchBendEvent({ channelId: channel.id, bendMode: false }, context.origin, DEFAULT_BEND),
     ...channelSetup(channel, context.track, context.origin),
@@ -130,5 +157,8 @@ export function buildTrackEvents(
   if (!isPlayed) {
     return setup;
   }
-  return [...setup, ...context.played.flatMap((_, playedIndex) => measureEvents(full, playedIndex))];
+  const full: TrackContext = { ...context, channel, playback: buildPlaybackBeats(context.track, context.played) };
+  const events = [...setup, ...pedalEvents(full)];
+  context.played.forEach((_, playedIndex) => addMeasureEvents(full, playedIndex, events));
+  return events;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setTrackLyrics } from '../src/edit/lyrics';
 import { detectFormat } from '../src/formats/detect';
 import { decodeWindows1252 } from '../src/io/text';
 import { plainDuration } from '../src/model/defaults';
@@ -138,6 +139,22 @@ describe('writeSong song and track data', () => {
     // Assert
     expect(again.measureHeaders.map((header) => header.tempo)).toEqual(tempos);
     expect(songDifference(song, again)).toBeUndefined();
+  });
+
+  it('rounds decimal tempos to whole numbers (GP5 stores integers), writing a change only where the rounded tempo changes', () => {
+    // Arrange
+    const tempos = [92.5, 92.4, 92.2, 100.25];
+    const song = buildSong({
+      headers: tempos.map((tempo) => ({ tempo })),
+      tracks: [{ measures: tempos.map(() => [{ voice: buildVoice([buildNote(1, 0)]) }]) }],
+    });
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(again.measureHeaders.map((header) => header.tempo)).toEqual([93, 92, 92, 100]);
+    expect(songDifference(expectedAfterGp5(song), again)).toBeUndefined();
   });
 
   it('restores a tempo change in a measure whose first track has no beats', () => {
@@ -350,6 +367,39 @@ describe('writeSong note effects', () => {
 });
 
 describe('writeSong losses (what GP5 cannot hold)', () => {
+  it('keeps a note’s play duration percent (note flag 0x01) but not its start offset or velocity change', () => {
+    // Arrange
+    const song = songWithNotes([
+      buildNote(1, 1, { audio: { durationPercent: 60, offsetPercent: 10, velocityOffset: 5 } }),
+      buildNote(2, 3, { audio: { durationPercent: 100, offsetPercent: 20, velocityOffset: -8 } }),
+    ]);
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(notesOf(again).map((note) => note.audio)).toEqual([{ durationPercent: 60, offsetPercent: 0, velocityOffset: 0 }, undefined]);
+    expect(songDifference(expectedAfterGp5(song, again), again)).toBeUndefined();
+  });
+
+  it('reads the duration percent GP5 writes for palm mutes (75 %) and staccato (50 %) as no setting, since the effect implies it', () => {
+    // Arrange
+    const song = songWithNotes([
+      buildNote(1, 1, { effect: { palmMute: true }, audio: { durationPercent: 75, offsetPercent: 0, velocityOffset: 0 } }),
+      buildNote(2, 1, { effect: { staccato: true }, audio: { durationPercent: 40, offsetPercent: 0, velocityOffset: 0 } }),
+    ]);
+    const effects = readSong(loadFixture('guitarpro5', 'effects.gp5'));
+    const palmMuted = effects.tracks[0]?.measures[17]?.beats[0]?.voices[0]?.notes[0];
+
+    // Act
+    const again = roundTrip(song);
+
+    // Assert
+    expect(notesOf(again).map((note) => note.audio?.durationPercent)).toEqual([undefined, 40]);
+    expect(palmMuted?.effect.palmMute).toBe(true);
+    expect(palmMuted).not.toHaveProperty('audio');
+  });
+
   it('keeps the first two voices only', () => {
     // Arrange
     const base = songWithNotes([buildNote(1, 1)]);
@@ -503,6 +553,19 @@ describe('writeSong losses (what GP5 cannot hold)', () => {
     // Assert
     expect(again.tracks[0]?.lyrics).toEqual({ from: 1, text: '종 이  배 를' });
     expect(again.info.title).toBe('종이배');
+  });
+
+  it('keeps lyrics edited on the second track: first bar, hyphens, joined words, line breaks and Japanese', () => {
+    // Arrange: lyrics as the lyrics editor applies them (setTrackLyrics)
+    const song = buildSong({ headers: [{}, {}, {}], tracks: [{ measures: [] }, { measures: [] }] });
+    const text = 'Beau-ti-ful a+lot\nき ょ う  は';
+    const edited = setTrackLyrics(song, 1, { from: 2, text });
+
+    // Act
+    const again = roundTrip(edited);
+
+    // Assert
+    expect(again.tracks.map((track) => track.lyrics)).toEqual([undefined, { from: 2, text }]);
   });
 
   it('puts the melodic channels beyond the fifteenth on MIDI channel 16, with the fifteenth', () => {

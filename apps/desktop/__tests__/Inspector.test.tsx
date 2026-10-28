@@ -1,9 +1,10 @@
 import { Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import type { Song } from '@gp-editor/core';
+import { type Song, buildEffect } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { Inspector, type InspectorProps } from '../src/components/inspector/Inspector';
 import { DEFAULT_MIDI_INPUT } from '../src/lib/midi-input';
+import { answerMeasure } from '../test-support/measure';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -42,7 +43,7 @@ function render(overrides: Partial<InspectorProps> = {}) {
   });
   const button = (tooltip: string) => renderer.root.findAllByType(ChromeButton).find((candidate) => candidate.props.tooltip === tooltip);
   const press = (tooltip: string) => ReactTestRenderer.act(() => button(tooltip)?.props.onPress());
-  const openTab = (label: 'SONG' | 'TRACK') =>
+  const openTab = (label: 'SONG' | 'TRACK' | 'NOTE') =>
     ReactTestRenderer.act(() =>
       renderer.root.findAll((node) => node.props.tooltip === `${label} settings` && typeof node.props.onPress === 'function')[0]?.props.onPress(),
     );
@@ -52,8 +53,38 @@ function render(overrides: Partial<InspectorProps> = {}) {
     ReactTestRenderer.act(() => field(label)?.props.onSubmitEditing());
   };
   const texts = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join(''));
-  return { props, button, press, openTab, field, edit, texts };
+  return { renderer, props, button, press, openTab, field, edit, texts };
 }
+
+/** The pressable with this accessibility label. */
+function inspectorControl(inspector: ReturnType<typeof render>, label: string) {
+  const [found] = inspector.renderer.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function' && node.props.accessibilityRole !== undefined);
+  if (found === undefined) {
+    throw new Error(`no control "${label}"`);
+  }
+  return found;
+}
+
+describe('Inspector TRACK tab: effects', () => {
+  it('edits the track’s effects in its EFFECTS section, heard while a slider is dragged', () => {
+    // Arrange
+    const onSetTrackEffects = jest.fn();
+    const onPreviewMix = jest.fn();
+    const inspector = render({ onSetTrackEffects, onPreviewMix });
+
+    // Act
+    inspector.press('Add an effect at the end');
+    inspector.press('Add Reverb');
+
+    // Assert
+    expect(inspector.texts()).toEqual(expect.arrayContaining(['EFFECTS', 'No effects: the track plays its instrument as it is.']));
+    expect(onSetTrackEffects).toHaveBeenCalledWith(0, [buildEffect('reverb')]);
+  });
+
+  it('has no EFFECTS section where effects cannot be edited', () => {
+    expect(render().texts()).not.toContain('EFFECTS');
+  });
+});
 
 describe('Inspector TRACK tab', () => {
   it('opens on the track: its name, notation toggles and instrument', () => {
@@ -77,6 +108,41 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Show chord names over the staff')?.props.isActive).toBe(true);
     expect(inspector.button('Show chord diagrams over the staff')?.props.isActive).toBe(false);
     expect(onChangeChordDisplay.mock.calls).toEqual([[{ showsNames: true, showsDiagrams: true }], [{ showsNames: false, showsDiagrams: false }]]);
+  });
+
+  it('shows Guitar Pro 8’s INFORMATION: name, short name, the colour and icon, which open the track’s information', () => {
+    // Arrange
+    const onOpenTrackInfo = jest.fn();
+    const onSetTrackShortName = jest.fn();
+    const named: Song = { ...SONG, tracks: [{ ...SONG.tracks[0]!, shortName: 'D.Gt', iconId: 24 }] };
+    const inspector = render({ song: named, onOpenTrackInfo, onSetTrackShortName });
+    const control = (label: string) => inspectorControl(inspector, label);
+    const click = { nativeEvent: { pageX: 1100, pageY: 90 } };
+
+    // Act
+    inspector.edit('Short name', 'Dist');
+    ReactTestRenderer.act(() => control('Colour of track 1').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(control('Colour of track 1'), 1090, 80));
+    ReactTestRenderer.act(() => control('Icon of track 1').props.onPress(click));
+    ReactTestRenderer.act(() => answerMeasure(control('Icon of track 1'), 1112, 78));
+
+    // Assert
+    expect(inspector.field('Short name')?.props.placeholder).toBe('Guit.');
+    expect(onSetTrackShortName).toHaveBeenCalledWith(0, 'Dist');
+    expect(onOpenTrackInfo.mock.calls).toEqual([[0, { x: 1090, y: 80 }], [0, { x: 1112, y: 78 }]]);
+    expect(control('Icon of track 1').props.tooltip).toBe('Distortion guitar: click for the track’s colour, icon and names');
+  });
+
+  it('shows the track’s name again after a commit the edit did not keep (a blank name)', () => {
+    // Arrange
+    const inspector = render();
+
+    // Act: the song is unchanged, as setTrackName leaves it for a blank name
+    inspector.edit('Name', '   ');
+
+    // Assert
+    expect(inspector.props.onSetTrackName).toHaveBeenCalledWith(0, '   ');
+    expect(inspector.field('Name')?.props.value).toBe('Guitar');
   });
 
   it('renames the track when typing ends, not on every key', () => {
@@ -114,6 +180,22 @@ describe('Inspector TRACK tab', () => {
     const inspector = render({ song: drums });
     expect(inspector.button('Guitar Pro 3–5 files hold no drum-kit setting')?.props.isEnabled).toBe(false);
     expect(inspector.button('Capo one fret higher')).toBeUndefined();
+  });
+
+  it('shows or hides the drum key from a drum track’s notation, not a guitar’s', () => {
+    // Arrange
+    const drums: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })), channels: [{ ...GUITAR, isPercussion: true }] };
+    const drumKey = { isOpen: true, toggle: jest.fn() };
+    const tooltip = "How this track's drums are written on the staff (View ▸ Drum Key)";
+
+    // Act
+    const inspector = render({ song: drums, drumKey });
+    inspector.press(tooltip);
+
+    // Assert
+    expect(inspector.button(tooltip)?.props).toMatchObject({ label: 'Drum Key', isActive: true });
+    expect(drumKey.toggle).toHaveBeenCalled();
+    expect(render({ drumKey }).button(tooltip)).toBeUndefined();
   });
 });
 
@@ -180,5 +262,82 @@ describe('Inspector SONG tab', () => {
     expect(inspector.texts()).toContain('MIDI INPUT');
     inspector.press('Enter notes at the cursor from a MIDI keyboard or MIDI guitar');
     expect(midiInput.changeSettings).toHaveBeenCalledWith({ isEnabled: true });
+  });
+});
+
+describe('Inspector NOTE tab', () => {
+  it('shows the cursor note’s audio settings and steps each of them', () => {
+    // Arrange
+    const onEditNote = jest.fn();
+    const inspector = render({ note: { ...note(1, 3), audio: { durationPercent: 80, offsetPercent: 10, velocityOffset: -5 } }, onEditNote });
+
+    // Act
+    inspector.openTab('NOTE');
+    inspector.press('Play duration: longer');
+    inspector.press('Start offset: earlier');
+    inspector.press('Velocity change: more');
+    inspector.press('Play the note as written');
+
+    // Assert
+    expect(inspector.texts()).toEqual(expect.arrayContaining(['AUDIO', '80%', '10%', '−5']));
+    expect(onEditNote.mock.calls).toEqual([
+      [{ type: 'shiftNoteAudio', setting: 'durationPercent', delta: 5 }],
+      [{ type: 'shiftNoteAudio', setting: 'offsetPercent', delta: -5 }],
+      [{ type: 'shiftNoteAudio', setting: 'velocityOffset', delta: 5 }],
+      [{ type: 'resetNoteAudio' }],
+    ]);
+  });
+
+  it('shows a note playing as written, and says when the cursor is on no note', () => {
+    const withNote = render({ note: note(1, 3), onEditNote: jest.fn() });
+    withNote.openTab('NOTE');
+    expect(withNote.texts()).toEqual(expect.arrayContaining(['100%', '0%', '+0']));
+    const without = render();
+    without.openTab('NOTE');
+    expect(without.texts()).toContain('Put the cursor on a note to set how it plays back.');
+  });
+});
+
+describe('Inspector TRACK tab: slash notation', () => {
+  it('writes the whole track in rhythm slashes, lit while it is', () => {
+    // Arrange
+    const onSetTrackSlashNotation = jest.fn();
+    const plain = render({ onSetTrackSlashNotation });
+    const slashed = render({ song: { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, hasSlashNotation: true })) }, onSetTrackSlashNotation });
+
+    // Act
+    plain.press('Write the whole track in rhythm slashes');
+    slashed.press('Write the whole track in rhythm slashes');
+
+    // Assert
+    expect(plain.button('Write the whole track in rhythm slashes')?.props.isActive).toBe(false);
+    expect(slashed.button('Write the whole track in rhythm slashes')?.props.isActive).toBe(true);
+    expect(onSetTrackSlashNotation.mock.calls).toEqual([[0, true], [0, false]]);
+  });
+});
+
+describe('Inspector TRACK tab: lyrics', () => {
+  const tooltip = 'Edit the track’s lyrics (Edit ▸ Lyrics…)';
+
+  it('says how many syllables the track sings from which bar, and opens the lyrics panel', () => {
+    // Arrange
+    const onOpenLyrics = jest.fn();
+    const sung: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, lyrics: { from: 3, text: 'Pa-per boats  on the\nsea' } })) };
+
+    // Act
+    const inspector = render({ song: sung, onOpenLyrics });
+    inspector.press(tooltip);
+
+    // Assert
+    expect(inspector.texts()).toContain('6 syllables from bar 3');
+    expect(inspector.button(tooltip)?.props.label).toBe('Edit…');
+    expect(onOpenLyrics).toHaveBeenCalled();
+  });
+
+  it('says the track has none, and still offers to write them (a vocal track starts without)', () => {
+    const inspector = render({ onOpenLyrics: jest.fn() });
+    expect(inspector.texts()).toContain('No lyrics on this track');
+    expect(inspector.button(tooltip)).toBeDefined();
+    expect(render().button(tooltip)).toBeUndefined();
   });
 });

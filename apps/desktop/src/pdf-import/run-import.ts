@@ -1,5 +1,6 @@
 import { type TranscriptionPage, buildSongFromTranscription, parseTranscriptionPage, writeSong } from '@gp-editor/core';
 import { bytesToBase64 } from '../lib/base64';
+import { t } from '../lib/i18n/i18n';
 import { type ImportProject, PROJECT_FILE, type PageFailure, pageFile, serializeImportProject } from './project-file';
 import { type ImportDeps, type PageResult, addUsage, transcribePage } from './transcribe-page';
 
@@ -87,14 +88,14 @@ async function finish(run: Run, deps: ImportDeps, options: ImportOptions): Promi
     return;
   }
   if (ordered.length === 0 || run.project.error !== undefined) {
-    const error = run.project.error ?? run.project.failedPages[0]?.message ?? 'No page could be transcribed';
+    const error = run.project.error ?? run.project.failedPages[0]?.message ?? t('window.pdfImport.noPage');
     await update(run, { status: 'failed', error }, deps, options);
     return;
   }
   const { song, warnings } = buildSongFromTranscription(ordered, { title: run.project.name });
   const songFile = `${run.project.name}.gp5`;
   await deps.writeBase64(songFile, bytesToBase64(writeSong(song, 'gp5')));
-  const missing = run.project.failedPages.map((failure) => `Page ${failure.page} was not transcribed: ${failure.message}`);
+  const missing = run.project.failedPages.map((failure) => t('window.pdfImport.pageFailed', { page: failure.page, message: failure.message }));
   const status = run.project.failedPages.length > 0 ? 'partial' : 'done';
   await update(run, { status, songFile, warnings: [...missing, ...warnings], error: undefined }, deps, options);
 }

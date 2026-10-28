@@ -1,0 +1,116 @@
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { type Bend, type CurveEffect, type Note, canGpifHoldCurve } from '@gp-editor/core';
+import {
+  type CurveDraft,
+  describeDraftPoint,
+  draftCurve,
+  draftFromCurve,
+  isDraftOf,
+  isSameDraft,
+  loadDraftCurve,
+  removeDraftPoint,
+  stepDraftPoint,
+} from '../../lib/curve-draft';
+import { useT } from '../../hooks/use-i18n';
+import type { MessageKey } from '../../lib/i18n/i18n';
+import type { NoteEdit } from '../../state/note-edits';
+import type { Palette } from '../../theme';
+import { ChromeButton } from '../chrome/ChromeButton';
+import { CurveEditor } from './CurveEditor';
+import { NotePanelFrame } from './NotePanelFrame';
+
+export interface CurveNotePanelProps {
+  readonly palette: Palette;
+  readonly effect: CurveEffect;
+  /** The note at the cursor. */
+  readonly note: Note;
+  /** The rows of presets over the grid; `onLoad` puts a curve (undefined: none) in the draft. */
+  readonly renderPresets: (draft: CurveDraft, onLoad: (curve: Bend | undefined) => void) => ReactNode;
+  /** Apply and Remove: one edit, one undo step. */
+  readonly onEdit: (edit: NoteEdit) => void;
+  /** The draft as an edit for the score to show while it differs from the note; undefined when there is none to show. */
+  readonly onPreview?: (edit: NoteEdit | undefined) => void;
+  readonly onClose: () => void;
+}
+
+const TITLES: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.bendTitle', tremoloBar: 'tools.notePanels.tremoloBarTitle' };
+const REMOVE_TOOLTIPS: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.removeBend', tremoloBar: 'tools.notePanels.removeTremoloBar' };
+const APPLY_TOOLTIPS: Readonly<Record<CurveEffect, MessageKey>> = { bend: 'tools.notePanels.applyBend', tremoloBar: 'tools.notePanels.applyTremoloBar' };
+/** The readout and the .gp note take two lines of 11-point text whatever they say. */
+const LINE_HEIGHT = 15;
+const TWO_LINES = LINE_HEIGHT * 2;
+
+/** The note edit that puts `curve` (undefined: none) on the note as its bend or tremolo bar. */
+export function curveEdit(effect: CurveEffect, curve: Bend | undefined): NoteEdit {
+  return effect === 'bend' ? { type: 'setBend', bend: curve } : { type: 'setTremoloBar', tremoloBar: curve };
+}
+
+/**
+ * Guitar Pro 8's bend and tremolo bar editors for the note at the cursor: presets, the curve on a grid to change point
+ * by point, the selected point stepped with buttons. The score previews the draft; Apply puts it on the note (one undo
+ * step), Done leaves the note as it was.
+ */
+export function CurveNotePanel({ palette, effect, note, renderPresets, onEdit, onPreview, onClose }: CurveNotePanelProps) {
+  const t = useT();
+  const original = note.effect[effect];
+  const [draft, setDraft] = useState(() => draftFromCurve(effect, original));
+  const change = useCallback((next: CurveDraft) => setDraft((current) => (isSameDraft(current, next) ? current : next)), []);
+  const curve = draftCurve(draft);
+  const isChanged = !isDraftOf(draft, original);
+  useEffect(() => {
+    onPreview?.(isChanged ? curveEdit(effect, draftCurve(draft)) : undefined);
+  }, [draft, isChanged, effect, onPreview]);
+  useEffect(() => () => onPreview?.(undefined), [onPreview]);
+  const apply = (next: Bend | undefined) => {
+    onEdit(curveEdit(effect, next));
+    onClose();
+  };
+  return (
+    <NotePanelFrame palette={palette} title={t(TITLES[effect])} subtitle={t('tools.notePanels.noteAt', { string: note.string, fret: note.fret })} closeTooltip={t('tools.notePanels.closeTooltip')} onClose={onClose}>
+      {renderPresets(draft, (preset) => change(loadDraftCurve(draft, preset)))}
+      <CurveEditor palette={palette} draft={draft} onChange={change} />
+      <PointControls palette={palette} draft={draft} onChange={change} />
+      {/* Always there, two lines high: the panel keeps its size, so the grid stays under the pointer while a drag changes the curve. */}
+      <Text testID="curve-gpif-hint" numberOfLines={2} style={[styles.hint, { color: palette.chromeMuted }]}>
+        {curve !== undefined && !canGpifHoldCurve(effect, curve) ? t('tools.notePanels.gpifHint') : ''}
+      </Text>
+      <View style={styles.footer}>
+        <ChromeButton testID="curve-remove" palette={palette} label={t('common.remove')} tooltip={t(REMOVE_TOOLTIPS[effect])} isEnabled={original !== undefined} onPress={() => apply(undefined)} />
+        <ChromeButton testID="curve-apply" palette={palette} label={t('common.apply')} tooltip={t(APPLY_TOOLTIPS[effect])} isActive isEnabled={isChanged} onPress={() => apply(curve)} />
+      </View>
+    </NotePanelFrame>
+  );
+}
+
+interface PointControlsProps {
+  readonly palette: Palette;
+  readonly draft: CurveDraft;
+  readonly onChange: (draft: CurveDraft) => void;
+}
+
+/** The selected point (or how to edit), moved a position or a quarter tone at a time, or removed. */
+function PointControls({ palette, draft, onChange }: PointControlsProps) {
+  const isSelected = draft.selectedIndex !== undefined;
+  const step = (positionStep: number, valueStep: number) => onChange(stepDraftPoint(draft, positionStep, valueStep));
+  const t = useT();
+  return (
+    <View style={styles.points}>
+      <Text testID="curve-readout" numberOfLines={2} style={[styles.readout, { color: palette.chromeText }]}>
+        {describeDraftPoint(draft)}
+      </Text>
+      <ChromeButton palette={palette} label="◀" tooltip={t('tools.notePanels.pointEarlier')} isEnabled={isSelected} onPress={() => step(-1, 0)} />
+      <ChromeButton palette={palette} label="▶" tooltip={t('tools.notePanels.pointLater')} isEnabled={isSelected} onPress={() => step(1, 0)} />
+      <ChromeButton palette={palette} label="▼" tooltip={t('tools.notePanels.pointLower')} isEnabled={isSelected} onPress={() => step(0, -1)} />
+      <ChromeButton palette={palette} label="▲" tooltip={t('tools.notePanels.pointHigher')} isEnabled={isSelected} onPress={() => step(0, 1)} />
+      <ChromeButton testID="curve-delete-point" palette={palette} label={t('common.delete')} tooltip={t('tools.notePanels.deletePointTooltip')} isEnabled={isSelected} onPress={() => onChange(removeDraftPoint(draft))} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  points: { flexDirection: 'row', alignItems: 'center', columnGap: 2, height: TWO_LINES },
+  readout: { flex: 1, fontSize: 11 },
+  hint: { fontSize: 11, lineHeight: LINE_HEIGHT, height: TWO_LINES },
+  footer: { flexDirection: 'row', justifyContent: 'flex-end', columnGap: 6 },
+});

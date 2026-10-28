@@ -1,6 +1,6 @@
 import { DYNAMICS, type Beat, type DynamicName, type Song, type StrokeDirection } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
-import type { DrawCommand, TextCommand } from '../src/score/draw';
+import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
 import { DYNAMIC_MUSIC_SIZE, hasDynamicChanges } from '../src/score/dynamics';
 import { SCORE_MODES, type ScoreMode, rowGeometry } from '../src/score/geometry';
 import { NOTATION } from '../src/score/notation';
@@ -165,5 +165,26 @@ describe('triplet feel in a row', () => {
     expect(swing).toHaveLength(1);
     expect(swing[0]!.x).toBeGreaterThanOrEqual(secondBar.x);
     expect(swing[0]!.y).toBeLessThan(geometry.notationTop!);
+  });
+});
+
+describe('the voice being edited in a row', () => {
+  it('fades the other voices in every bar of the row and lights the cursor’s note in its voice', () => {
+    // Arrange: two bars, voice 1 only; the cursor in voice 2 of bar 2
+    const song = makeSong([bar(1, ['f', 'f', 'f', 'f']), bar(2, ['f', 'f', 'f', 'f'])]);
+    const track = song.tracks[0]!;
+    const geometry = rowGeometry('notationAndTab', track.strings.length, {});
+    const row = { measures: song.measureHeaders.map((_, i) => layoutMeasure(song, 0, i)) };
+    const cursor = { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 1, string: 3 };
+
+    // Act
+    const commands = engraveRow({ song, trackIndex: 0, row, headerWidth: rowHeaderWidth('notationAndTab', track), mode: 'notationAndTab', geometry, palette: PALETTE, cursor, editedVoiceIndex: 1 });
+
+    // Assert: voice 1's frets (and the one on the cursor) faded in both bars; each bar shows voice 2's empty whole rest
+    const frets = texts(commands).filter((c) => c.font === 'mono' && c.text === '2');
+    expect(frets).toHaveLength(9);
+    expect(frets.every((c) => c.color === PALETTE.muted)).toBe(true);
+    expect(glyphsOf(commands, SMUFL.noteheadBlack).every((c) => c.color === PALETTE.muted)).toBe(true);
+    expect(glyphsOf(commands, SMUFL.restWhole)).toHaveLength(2);
   });
 });

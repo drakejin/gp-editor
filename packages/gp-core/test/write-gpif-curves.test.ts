@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bendFromCurve, tremoloBarFromCurve } from '../src/formats/gpif/gpif-note';
 import type { Bend, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
-import { bendCurveOf, whammyCurveOf } from '../src/write/gpif/gpif-curves';
+import { bendCurveOf, canGpifHoldCurve, toGpifCurve, whammyCurveOf } from '../src/write/gpif/gpif-curves';
 import { listFixtures, loadFixture } from './helpers/fixtures';
 
 const points = (...pairs: readonly (readonly [number, number])[]): Bend => ({
@@ -176,4 +176,34 @@ describe('curve sweep over every fixture', () => {
     // Assert
     expect(unreadable).toEqual([]);
   }, SWEEP_TIMEOUT);
+});
+
+describe('toGpifCurve and canGpifHoldCurve', () => {
+  it('gives the curve a .gp file reads back, as the writer and the reader make it', () => {
+    // Arrange
+    const bar = points([0, 0], [3, -4], [6, 2], [9, -2], [12, 0]);
+
+    // Act
+    const kept = toGpifCurve('tremoloBar', bar);
+
+    // Assert
+    expect(kept).toEqual(tremoloBarFromCurve(whammyCurveOf(bar)));
+    expect(toGpifCurve('bend', points([0, 0], [6, 4], [12, 4]))).toEqual(points([0, 0], [6, 4], [12, 4]));
+  });
+
+  it.each([
+    ['the tremolo bar presets’ shapes (read back with their start twice)', 'tremoloBar', points([0, 0], [6, -4], [12, 0])],
+    ['a hand-made dive, hold and rise', 'tremoloBar', points([0, 0], [3, 0], [6, -6], [9, -6], [12, 2])],
+    ['a bend and release', 'bend', points([0, 0], [3, 4], [6, 4], [9, 0], [12, 0])],
+  ] as const)('holds %s', (_name, effect, curve) => {
+    expect(canGpifHoldCurve(effect, curve)).toBe(true);
+  });
+
+  it.each([
+    ['a tremolo bar with two dips', 'tremoloBar', points([0, 0], [3, -4], [6, 2], [9, -2], [12, 0])],
+    ['a curve that does not start at 0', 'tremoloBar', points([3, 0], [9, -4], [12, -4])],
+    ['a bend with three heights', 'bend', points([0, 0], [3, 2], [6, 4], [9, 6], [12, 6])],
+  ] as const)('cannot hold %s', (_name, effect, curve) => {
+    expect(canGpifHoldCurve(effect, curve)).toBe(false);
+  });
 });

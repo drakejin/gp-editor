@@ -1,12 +1,14 @@
-import { neckFrets } from '../edit/string-placement';
 import { TranscriptionError } from '../errors';
 import { EMPTY_SONG_INFO, RED } from '../model/defaults';
 import type { Song, SongInfo, Track } from '../model/song';
 import { GP5_VERSION } from '../write/gp5-writer';
 import { DEFAULT_TEMPO, type PlannedMeasure, buildMeasureHeaders } from './header-plan';
+import { buildBeatNotes } from './beat-notes';
+import { buildDrumBeatNotes } from './drum-notes';
 import { type TrackPlan, buildChannels, resolveTrackPlans } from './track-plans';
 import { resolveLyricsTrack, withLyrics } from './lyrics';
-import { buildTrackMeasures } from './track-measures';
+import { type TrackLayout, buildTrackMeasures } from './track-measures';
+import { isFrettedInstrument } from './instruments';
 import type { TranscribedMeasure, TranscribedSongInfo, TranscriptionPage } from './types';
 
 export interface TranscriptionOptions {
@@ -52,13 +54,20 @@ interface TrackBuild {
   readonly warnings: readonly string[];
 }
 
-function buildTrack(plan: TrackPlan, trackIndex: number, trackCount: number, measures: readonly PlannedMeasure[]): TrackBuild {
-  const { measures: built, warnings } = buildTrackMeasures(measures, {
+/** How a track's measures are built: drums by the drum map, other notes on its strings as tab or by their pitch. */
+function trackLayout(plan: TrackPlan, trackIndex: number, trackCount: number): TrackLayout {
+  const neck = { tuning: plan.tuning, capo: plan.capo, lastFret: plan.lastFret, writtenAbove: plan.writtenAbove, readsTab: isFrettedInstrument(plan.instrument) };
+  return {
     trackIndex,
-    neck: { tuning: plan.tuning, capo: plan.capo, lastFret: neckFrets(plan.capo) },
-    clef: plan.instrument === 'bass' ? 'bass' : 'treble',
+    placeBeat: plan.isPercussion ? buildDrumBeatNotes : (voices) => buildBeatNotes(voices, neck),
+    isPercussion: plan.isPercussion,
+    clef: plan.clef,
     where: (barNumber) => (trackCount > 1 ? `Bar ${barNumber}, ${plan.name}` : `Bar ${barNumber}`),
-  });
+  };
+}
+
+function buildTrack(plan: TrackPlan, trackIndex: number, trackCount: number, measures: readonly PlannedMeasure[]): TrackBuild {
+  const { measures: built, warnings } = buildTrackMeasures(measures, trackLayout(plan, trackIndex, trackCount));
   const track: Track = {
     number: trackIndex + 1,
     name: plan.name,
@@ -66,7 +75,7 @@ function buildTrack(plan: TrackPlan, trackIndex: number, trackCount: number, mea
     strings: plan.tuning.map((tuning, index) => ({ number: index + 1, tuning })),
     color: RED,
     offset: plan.capo,
-    isPercussion: false,
+    isPercussion: plan.isPercussion,
     solo: false,
     mute: false,
     measures: built,
@@ -75,10 +84,11 @@ function buildTrack(plan: TrackPlan, trackIndex: number, trackCount: number, mea
 }
 
 /**
- * Builds a song from the transcribed pages of one score, in page order: the tracks the pages list (tuning, capo,
- * General MIDI program from the name), every page's measures one after another (time signature, tempo and key held
- * until they change), each track's parts as its voices with notes placed on its strings. The song is a GP5 song, ready
- * to be saved. Throws a TranscriptionError when no page has a measure.
+ * Builds a song from the transcribed pages of one score, in page order: the tracks the pages list (guitars, basses,
+ * ukuleles and banjos with their tuning and capo, drums on the percussion bank, voices, keyboards and other instruments
+ * on their General MIDI program and clef), every page's measures one after another (time signature, tempo and key held
+ * until they change), each track's parts as its voices with notes placed on its strings (a drum's fret = its General
+ * MIDI key). The song is a GP5 song, ready to be saved. Throws a TranscriptionError when no page has a measure.
  */
 export function buildSongFromTranscription(pages: readonly TranscriptionPage[], options: TranscriptionOptions = {}): TranscribedSong {
   const measures = pages.flatMap((page) => page.measures);
@@ -91,7 +101,7 @@ export function buildSongFromTranscription(pages: readonly TranscriptionPage[], 
   const sung = withLyrics(
     tracks.map((built) => built.track),
     measures,
-    resolveLyricsTrack(pages),
+    resolveLyricsTrack(pages, plans),
   );
   const song: Song = {
     source: { format: 'gp5', version: GP5_VERSION },

@@ -17,6 +17,12 @@ export const MAX_TRANSCRIBED_BEATS = 128;
 export const MAX_TRANSCRIBED_NOTES = 12;
 /** A sung syllable longer than this is cut. */
 export const MAX_TRANSCRIBED_SYLLABLE_LENGTH = 32;
+/** A track name longer than this is cut. */
+export const MAX_TRANSCRIBED_NAME_LENGTH = 64;
+/** More open strings than any instrument has; a longer tuning list is cut (and the builder then uses standard tuning). */
+export const MAX_TRANSCRIBED_TUNING_STRINGS = 12;
+/** A pitch's text ("C#-1", "Bb3"): an open string's text is cut to this. */
+export const MAX_TRANSCRIBED_PITCH_LENGTH = 8;
 
 /** Ranges of the contract: the tool's JSON schema states them and parseTranscriptionPage clamps to them. */
 export const MIN_TRANSCRIBED_TEMPO = 10;
@@ -29,8 +35,19 @@ export const MAX_TRANSCRIBED_CAPO = 24;
 export const MAX_TRANSCRIBED_NUMERATOR = 32;
 export const TRANSCRIBED_DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32];
 
-export const TRANSCRIBED_INSTRUMENTS = ['guitar', 'bass'] as const;
+/**
+ * Every kind of staff a page holds: fretted instruments read from tab or notation (guitar, bass, ukulele, banjo), a drum
+ * staff, a sung melody, a keyboard and any other pitched instrument (strings, winds, brass, synths … by General MIDI program).
+ */
+export const TRANSCRIBED_INSTRUMENTS = ['guitar', 'bass', 'ukulele', 'banjo', 'drums', 'vocals', 'keys', 'other'] as const;
 export type TranscribedInstrument = (typeof TRANSCRIBED_INSTRUMENTS)[number];
+
+/** The clef of a vocal, keyboard or other staff (a fretted instrument's and a drum staff's follow from the instrument). */
+export const TRANSCRIBED_CLEFS = ['treble', 'bass'] as const;
+export type TranscribedClef = (typeof TRANSCRIBED_CLEFS)[number];
+
+/** General MIDI programs a track may name. */
+export const MAX_TRANSCRIBED_PROGRAM = 127;
 
 export type TranscribedDuration = 'whole' | 'half' | 'quarter' | 'eighth' | '16th' | '32nd' | '64th';
 
@@ -51,27 +68,37 @@ export interface TranscribedSongInfo {
   readonly artist?: string;
   /** Quarter-note BPM at the start. */
   readonly tempo?: number;
-  /** Index of the track the lyrics are sung on (the melody); 0 when absent. */
+  /** Index of the track the lyrics are sung on (the melody); absent: the first vocal track, else track 0. */
   readonly lyricsTrack?: number;
 }
 
 export interface TranscribedTrack {
   readonly name: string;
   readonly instrument: TranscribedInstrument;
-  /** Open-string pitches, lowest string first, in scientific pitch notation ("E2", "A2", … "E4"). */
+  /**
+   * A fretted instrument's open-string pitches from the bottom tab line up (lowest first; a ukulele's G4 C4 E4 A4), in
+   * scientific pitch notation ("E2", "A2", … "E4"); [] for standard tuning and for the others.
+   */
   readonly tuning: readonly string[];
   /** Capo fret; 0 for none. */
   readonly capo: number;
+  /** General MIDI program 0–127 it plays; absent: chosen from the instrument (and a fretted instrument's name). */
+  readonly program?: number;
+  /** A vocal, keyboard or other staff's clef; absent: treble. */
+  readonly clef?: TranscribedClef;
 }
 
 /**
- * One note. From a tab staff: `string` (1 = highest, the top tab line) and `fret`. Without a tab staff: `pitch`, the
- * written pitch on the staff ("C#4", "Bb3"); guitar and bass sound an octave lower than written.
+ * One note. From a tab staff: `string` (1 = highest, the top tab line) and `fret`. Without a tab staff: `pitch` ("C#4",
+ * "Bb3"), as PAGE_PITCH_RULE says: the written pitch of a guitar, bass or banjo (they sound an octave lower), the
+ * sounding pitch of any other staff. On a drum staff: `drum`, the drum played.
  */
 export interface TranscribedNote {
   readonly string?: number;
   readonly fret?: number;
   readonly pitch?: string;
+  /** A drum note: the drum's General MIDI percussion name ("Acoustic Snare", "Closed Hi-Hat"), GM_PERCUSSION_NAMES. */
+  readonly drum?: string;
   /** Continues the note of the same pitch before it (a tie). */
   readonly tied?: boolean;
   readonly effects?: readonly TranscribedEffect[];

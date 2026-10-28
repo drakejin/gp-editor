@@ -63,7 +63,7 @@ describe('useSongWriter', () => {
 
   it('writes the song from the draft, hands it over and closes', async () => {
     // Arrange
-    mockSend.mockImplementation(async (body) => (JSON.parse(body).tool_choice.name === 'plan_song' ? answer('plan_song', PLAN) : answer('write_section', { measures: [{ parts: [{ track: 0, beats: [{ duration: 'whole', notes: [{ string: 1, fret: 0 }] }] }] }] })));
+    mockSend.mockImplementation(async (body) => (JSON.parse(body).tools[0].name === 'plan_song' ? answer('plan_song', PLAN) : answer('write_section', { measures: [{ parts: [{ track: 0, beats: [{ duration: 'whole', notes: [{ string: 1, fret: 0 }] }] }] }] })));
     const writer = render();
     ReactTestRenderer.act(() => {
       writer.current().open();

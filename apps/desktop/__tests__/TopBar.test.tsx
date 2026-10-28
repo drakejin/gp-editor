@@ -19,6 +19,10 @@ function render(overrides: Partial<TopBarProps> = {}) {
     onTogglePanel: jest.fn(),
     onOpenMenu: jest.fn(),
     onToggleLoop: jest.fn(),
+    isMetronomeOn: false,
+    isCountInOn: false,
+    onTogglePractice: jest.fn(),
+    onShiftSpeed: jest.fn(),
     onShowShortcuts: jest.fn(),
     onCommand: jest.fn(),
     ...overrides,
@@ -78,7 +82,7 @@ describe('TopBar transport', () => {
   it('shows Stop while playing and marks the loop and a playback speed other than 100%', () => {
     const bar = render({ isPlaying: true, isLooping: true, speedLabel: '80%' });
     expect(bar.button('Stop').props.isActive).toBe(true);
-    expect(bar.button('Loop the bars').props.isActive).toBe(true);
+    expect(bar.button('Loop the selected bars').props.isActive).toBe(true);
     expect(bar.button('Playback speed').props.label).toBe('♩ 80% ▾');
     expect(bar.button('Playback speed').props.isActive).toBe(true);
   });
@@ -88,13 +92,47 @@ describe('TopBar transport', () => {
     const bar = render();
 
     // Act
-    bar.press('Loop the bars');
+    bar.press('Loop the selected bars');
     bar.press('Playback speed', 700);
     bar.press('Zoom', 300);
 
     // Assert
     expect(bar.props.onToggleLoop).toHaveBeenCalledTimes(1);
     expect((bar.props.onOpenMenu as jest.Mock).mock.calls).toEqual([['speed', 700], ['zoom', 300]]);
+  });
+});
+
+describe('TopBar metronome, count-in and relative speed', () => {
+  it('toggles the metronome and the count-in, lit while on', () => {
+    // Arrange
+    const bar = render({ isMetronomeOn: true });
+
+    // Act
+    bar.press('Metronome');
+    bar.press('Count-in');
+
+    // Assert
+    expect(bar.button('Metronome').props.isActive).toBe(true);
+    expect(bar.button('Count-in').props.isActive).toBe(false);
+    expect((bar.props.onTogglePractice as jest.Mock).mock.calls).toEqual([['metronome'], ['countIn']]);
+  });
+
+  it('opens the practice menu beside the count-in', () => {
+    const bar = render();
+    bar.press('Metronome volume, count-in', 640);
+    expect(bar.props.onOpenMenu).toHaveBeenCalledWith('practice', 640);
+  });
+
+  it('steps the playback speed 5% down and up beside the speed menu', () => {
+    // Arrange
+    const bar = render();
+
+    // Act
+    bar.press('Slower');
+    bar.press('Faster');
+
+    // Assert
+    expect((bar.props.onShiftSpeed as jest.Mock).mock.calls).toEqual([[-5], [5]]);
   });
 });
 

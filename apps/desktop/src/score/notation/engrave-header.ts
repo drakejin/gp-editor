@@ -4,8 +4,8 @@ import type { DrawCommand } from '../draw';
 import { musicGlyph } from './glyphs';
 import { keyAccidentalCount, keySignature } from './key-signature';
 import { NOTATION, positionY } from './metrics';
-import { type ClefKind, clefKind } from './pitch';
-import { CLEF_GLYPHS } from './staff';
+import { type ClefKind, GUITAR_TRANSPOSITION, clefKind } from './pitch';
+import { CLEF_GLYPHS, clefGlyph } from './staff';
 
 const HEADER = {
   padLeft: 6,
@@ -15,11 +15,22 @@ const HEADER = {
   padRight: 2,
 } as const;
 
-/** Pitched tracks reserve the wider of the treble and bass clefs, so a clef change does not move the key signature. */
+/**
+ * Pitched tracks reserve the wider of the treble and bass clefs (and of a C clef when the track has one), so a clef
+ * change does not move the key signature.
+ */
 function clefColumnWidth(track: Track): number {
-  return track.isPercussion
-    ? CLEF_GLYPHS.percussion.width
-    : Math.max(CLEF_GLYPHS.treble.width, CLEF_GLYPHS.bass.width);
+  if (track.isPercussion) {
+    return CLEF_GLYPHS.percussion.width;
+  }
+  const hasCClef = track.measures.some(
+    measure => measure.clef === 'alto' || measure.clef === 'tenor',
+  );
+  return Math.max(
+    CLEF_GLYPHS.treble.width,
+    CLEF_GLYPHS.bass.width,
+    hasCClef ? CLEF_GLYPHS.alto.width : 0,
+  );
 }
 
 function headerClef(track: Track): ClefKind {
@@ -34,15 +45,20 @@ export function notationRowHeaderWidth(track: Track, key: number): number {
   return HEADER.padLeft + clefColumnWidth(track) + HEADER.clefGap + keyWidth;
 }
 
-/** Clef and key signature at the start of a row (x = 0); the caller draws the staff lines under them. */
+/**
+ * Clef and key signature at the start of a row (x = 0); the caller draws the staff lines under them. `transposition`:
+ * semitones the track is written above its sound (`trackTransposition`; a guitar's octave unless given), which the
+ * clef's 8 says.
+ */
 export function engraveNotationRowHeader(
   track: Track,
   measure: Measure,
   top: number,
   palette: Palette,
+  transposition: number = GUITAR_TRANSPOSITION,
 ): DrawCommand[] {
   const clef = clefKind(track, measure.clef);
-  const glyph = CLEF_GLYPHS[clef];
+  const glyph = clefGlyph(clef, transposition);
   const keyX = HEADER.padLeft + clefColumnWidth(track) + HEADER.clefGap;
   return [
     musicGlyph(

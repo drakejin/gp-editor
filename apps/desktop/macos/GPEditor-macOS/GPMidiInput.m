@@ -9,6 +9,8 @@
 #import <React/RCTEventEmitter.h>
 #import <os/log.h>
 
+#import "GPAppStrings.h"
+
 static NSString *const kNoteEvent = @"midiNote";
 static NSString *const kSourcesChangedEvent = @"midiSourcesChanged";
 static NSString *const kSettingsDefault = @"GPMidiInputSettings";
@@ -137,7 +139,7 @@ static NSString *SourceName(MIDIEndpointRef source)
 {
   CFStringRef name = NULL;
   if (MIDIObjectGetStringProperty(source, kMIDIPropertyDisplayName, &name) != noErr || name == NULL) {
-    return @"MIDI source";
+    return GPLocalizedString(@"MIDI source");
   }
   return (__bridge_transfer NSString *)name;
 }
@@ -146,7 +148,7 @@ static NSString *SourceName(MIDIEndpointRef source)
 RCT_EXPORT_METHOD(sources : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   if (![self ensureClient]) {
-    reject(@"midi", @"MIDI is not available on this Mac.", nil);
+    reject(@"midi", GPLocalizedString(@"MIDI is not available on this Mac."), nil);
     return;
   }
   NSMutableArray<NSDictionary *> *sources = [NSMutableArray array];
@@ -165,7 +167,7 @@ RCT_EXPORT_METHOD(sources : (RCTPromiseResolveBlock)resolve reject : (RCTPromise
 RCT_EXPORT_METHOD(listen : (NSArray<NSNumber *> *)sourceIds resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   if (![self ensureClient]) {
-    reject(@"midi", @"MIDI is not available on this Mac.", nil);
+    reject(@"midi", GPLocalizedString(@"MIDI is not available on this Mac."), nil);
     return;
   }
   [self disconnectAll];

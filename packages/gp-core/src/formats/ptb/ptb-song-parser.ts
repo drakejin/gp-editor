@@ -14,7 +14,7 @@ import {
 } from '../../model/song';
 import { type DraftTrack, SongDraft } from '../common/song-draft';
 import { DEFAULT_VELOCITY } from '../common/velocity';
-import { clefFromTuning } from '../gtp/shared';
+import { clefFromTuning } from '../gtp/gtp-tracks';
 import {
   type PtBar,
   type PtBeat,

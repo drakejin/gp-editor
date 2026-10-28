@@ -1,10 +1,13 @@
 // GPIF `<Track>` elements (no TuxGuitar counterpart): the inverse of the reader's readTracks / buildTracks.
+import { instrumentIconId, trackShortName } from '../../edit/track-properties';
+import { instrumentSetOf } from '../../formats/common/instrument-sets';
 import { DEFAULT_CHANNEL } from '../../model/defaults';
 import type { Channel, Song, Track } from '../../model/song';
 import type { TrackPlan } from './gpif-bars';
 import { chordPropertiesOf } from './gpif-chords';
+import { pedalAutomationNodes } from './gpif-marks';
 import { flagProperty, property } from './gpif-properties';
-import { type MidiChannels, channelOf, instrumentSetOf, soundNameOf, tuningInstrumentOf } from './gpif-sounds';
+import { type MidiChannels, channelOf, soundNameOf, tuningInstrumentOf } from './gpif-sounds';
 import type { DrumElement } from './drum-kit';
 import { type XmlNode, xmlCdata, xmlElement, xmlText } from './xml-writer';
 
@@ -85,8 +88,8 @@ function instrumentSetNode(program: number, plan: TrackPlan): XmlNode {
   ]);
 }
 
-/** The track's sound: `<Sounds>` and the Sound automation that selects it at the start. */
-function soundNodes(channel: Channel, isPercussion: boolean): readonly [XmlNode, XmlNode] {
+/** The track's sound: `<Sounds>` and the Sound automation that selects it at the start (then `extra` automations). */
+function soundNodes(channel: Channel, isPercussion: boolean, extra: readonly XmlNode[]): readonly [XmlNode, XmlNode] {
   const program = isPercussion ? 0 : Math.min(MAX_MIDI_VALUE, Math.max(0, channel.program));
   const bank = isPercussion ? 0 : Math.max(0, channel.bank);
   const name = soundNameOf(program, isPercussion);
@@ -106,7 +109,7 @@ function soundNodes(channel: Channel, isPercussion: boolean): readonly [XmlNode,
     xmlText('Visible', 'true'),
     xmlCdata('Value', `${path};${name};${SOUND_ROLE}`),
   ]);
-  return [xmlElement('Sounds', [sound]), xmlElement('Automations', [automation])];
+  return [xmlElement('Sounds', [sound]), xmlElement('Automations', [automation, ...extra])];
 }
 
 /** Five lyrics lines; the model's lyrics on the first, left for Guitar Pro to place on the beats (not dispatched). */
@@ -159,12 +162,13 @@ function trackNode(song: Song, plan: TrackPlan, index: number, midi: MidiChannel
   const isPercussion = plan.noteContext.isPercussion;
   const program = isPercussion ? 0 : channel.program;
   const set = instrumentSetOf(program, isPercussion);
-  const [sounds, automations] = soundNodes(channel, isPercussion);
+  const iconId = track.iconId ?? instrumentIconId({ name: track.name, isPercussion }, { program, isPercussion });
+  const [sounds, automations] = soundNodes(channel, isPercussion, pedalAutomationNodes(track, song.measureHeaders));
   return xmlElement(
     'Track',
     [
       xmlCdata('Name', track.name),
-      xmlCdata('ShortName', track.name),
+      xmlCdata('ShortName', trackShortName(track)),
       xmlText('Color', `${track.color.r} ${track.color.g} ${track.color.b}`),
       xmlText('SystemsDefautLayout', 3), // sic: Guitar Pro's spelling
       xmlText('SystemsLayout', 3),
@@ -173,7 +177,7 @@ function trackNode(song: Song, plan: TrackPlan, index: number, midi: MidiChannel
       xmlText('AutoAccentuation', 0.2),
       xmlText('PlayingStyle', set.isStringed ? 'StringedPick' : 'Default'),
       xmlElement('UseOneChannelPerString'),
-      xmlText('IconId', set.iconId),
+      xmlText('IconId', iconId),
       instrumentSetNode(program, plan),
       xmlElement('Transpose', [xmlText('Chromatic', 0), xmlText('Octave', 0)]),
       channelStripNode(channel),

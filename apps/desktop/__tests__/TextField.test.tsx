@@ -33,6 +33,22 @@ describe('TextField', () => {
     expect(event.stopPropagation).toHaveBeenCalledTimes(1);
   });
 
+  it('never makes a secure field: react-native-macos’s makes AppKit abort the app when it takes focus (macOS 26)', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+
+    // Act: the type refuses the prop; at run time it is overridden anyway
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        // @ts-expect-error secureTextEntry is not a TextField prop
+        <TextField value="" onChangeText={() => undefined} secureTextEntry />,
+      );
+    });
+
+    // Assert
+    expect(renderer.root.findByType(TextInput).props.secureTextEntry).toBe(false);
+  });
+
   it('lets Esc go on, so it closes the panel the field is in', () => {
     const event = { nativeEvent: { key: 'Escape' }, stopPropagation: jest.fn() };
     const field = render();

@@ -3,7 +3,8 @@ import ReactTestRenderer from 'react-test-renderer';
 import { BEND_PRESETS, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { EditionPalette } from '../src/components/palette/EditionPalette';
-import { PALETTE_GROUPS } from '../src/components/palette/palette-groups';
+import { paletteGroups } from '../src/components/palette/palette-groups';
+import { voiceTint } from '../src/score/voices';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -13,7 +14,7 @@ const ON_NOTE: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, v
 const ON_EMPTY_STRING: StringAddress = { ...ON_NOTE, string: 4 };
 
 /** `null`: no cursor. */
-function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
+function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false, hasSelection = false) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
   const onOpenPanel = jest.fn();
@@ -21,7 +22,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
+      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} isMultivoice={isMultivoice} hasSelection={hasSelection} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
     );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
@@ -36,7 +37,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
   const press = (id: string) => ReactTestRenderer.act(() => tool(id).props.onPress());
   const pressLabel = (label: string) => ReactTestRenderer.act(() => byLabel(label)?.props.onPress());
   const pressTooltip = (tooltip: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.tooltip === tooltip)?.props.onPress());
-  const groupTitles = new Set(PALETTE_GROUPS.map((group) => group.title.toUpperCase()));
+  const groupTitles = new Set(paletteGroups().map((group) => group.title.toUpperCase()));
   const titles = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join('')).filter((text) => groupTitles.has(text));
   return { renderer, onEdit, onAction, onOpenPanel, onOpenChordPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
 }
@@ -44,12 +45,12 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG) {
 describe('EditionPalette layout', () => {
   it('puts the note’s techniques right under the rhythm, where they show without scrolling', () => {
     expect(render().titles()).toEqual(['VOICE', 'RHYTHM', 'TECHNIQUES', 'ARTICULATION', 'DYNAMICS', 'NOTE', 'BEAT', 'BAR']);
-    expect(PALETTE_GROUPS.flatMap((group) => group.tools).length).toBeGreaterThan(45);
+    expect(paletteGroups().flatMap((group) => group.tools).length).toBeGreaterThan(45);
   });
 
   it('keeps every guitar technique in the techniques group, each with its key', () => {
     // Act
-    const techniques = PALETTE_GROUPS.find((group) => group.title === 'Techniques')?.tools ?? [];
+    const techniques = paletteGroups().find((group) => group.title === 'Techniques')?.tools ?? [];
 
     // Assert
     expect(techniques.map((tool) => [tool.id, tool.key])).toEqual(
@@ -76,7 +77,7 @@ describe('EditionPalette layout', () => {
   it('gives every tool a tooltip and draws music symbols as Bravura glyphs on the score canvas', () => {
     const palette = render();
     expect(palette.tool('value4').props.icon.props).toMatchObject({ glyph: '\uE1D5', kind: 'note' });
-    expect(PALETTE_GROUPS.flatMap((group) => group.tools).every((tool) => tool.tooltip.length > 0)).toBe(true);
+    expect(paletteGroups().flatMap((group) => group.tools).every((tool) => tool.tooltip.length > 0)).toBe(true);
   });
 });
 
@@ -100,6 +101,33 @@ describe('EditionPalette state at the cursor', () => {
     expect(palette.tool('dynamic-f').props.isEnabled).toBe(false);
     expect(palette.tool('value8').props.isEnabled).toBe(true);
     expect(palette.tool('repeatOpen').props.isEnabled).toBe(true);
+  });
+
+  it('keeps Delete (D) on with a selection, whose notes it deletes, even where the cursor’s string has no note', () => {
+    // Arrange
+    const alone = render(ON_EMPTY_STRING);
+    const selected = render(ON_EMPTY_STRING, SONG, false, true);
+
+    // Act
+    selected.press('deleteNotes');
+
+    // Assert
+    expect(alone.tool('deleteNotes').props.isEnabled).toBe(false);
+    expect(selected.tool('deleteNotes').props.isEnabled).toBe(true);
+    expect(selected.onEdit.mock.calls).toEqual([[{ type: 'deleteNotes' }]]);
+  });
+
+  it('shows the delete keys in the buttons’ corners and says where + Bar adds its bar', () => {
+    // Arrange
+    const palette = render();
+    const texts = (id: string) => palette.tool(id).findAllByType(Text).map((text) => text.props.children);
+
+    // Act / Assert
+    expect(texts('deleteNotes')).toEqual(['Del.', 'D']);
+    expect(texts('deleteMeasure')).toEqual(['−Bar', '⌘D']);
+    expect(palette.tool('deleteNotes').props.tooltip).toBe('Delete the note at the cursor, or the selected notes — the beats stay as rests (D)');
+    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars (⌘D)');
+    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked — the cursor’s bar');
   });
 
   it('disables everything without a cursor', () => {
@@ -133,7 +161,84 @@ describe('EditionPalette edits', () => {
     const palette = render();
     palette.press('fretUp');
     palette.press('voice2');
-    expect(palette.onAction.mock.calls.map(([action]) => action)).toEqual([{ type: 'shiftNoteFret', delta: 1 }, { type: 'selectVoice', voiceIndex: 1 }]);
+    palette.press('voice4');
+    expect(palette.onAction.mock.calls.map(([action]) => action)).toEqual([
+      { type: 'shiftNoteFret', delta: 1 },
+      { type: 'selectVoice', voiceIndex: 1 },
+      { type: 'selectVoice', voiceIndex: 3 },
+    ]);
+  });
+
+  it('offers voices 1 to 4 in one row, each in its voice’s colour, with its key in the tooltip', () => {
+    // Arrange / Act
+    const voices = paletteGroups().find((group) => group.title === 'Voice')?.tools.slice(0, 4) ?? [];
+    const palette = render();
+
+    // Assert
+    expect(voices.map((tool) => tool.face)).toEqual(['1', '2', '3', '4']);
+    expect(voices.map((tool) => tool.tooltip)).toEqual([
+      'Voice 1: edit the first voice of the bar (⌘1)',
+      'Voice 2: edit the second voice of the bar (⌘2)',
+      'Voice 3: edit the third voice of the bar (⌘3)',
+      'Voice 4: edit the fourth voice of the bar (⌘4)',
+    ]);
+    expect(voices.map((tool) => tool.tint?.(PALETTE))).toEqual([0, 1, 2, 3].map((index) => voiceTint(index, PALETTE)));
+    expect(palette.tool('voice3').findAllByProps({ testID: 'palette-voice3-tint' })).not.toHaveLength(0);
+  });
+
+  it('moves the note to another voice from the ⇄ tool’s options', () => {
+    // Arrange
+    const palette = render();
+
+    // Act
+    palette.press('moveVoice');
+    palette.pressTooltip('Move the note (or the selected beats) to voice 3 (⌥3)');
+
+    // Assert
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'moveToVoice', voiceIndex: 2 });
+  });
+
+  it('turns multivoice on and off, lit while it is on', () => {
+    expect(render().tool('multivoice').props.isActive).toBe(false);
+    const palette = render(ON_NOTE, SONG, true);
+    expect(palette.tool('multivoice').props.isActive).toBe(true);
+    palette.press('multivoice');
+    expect(palette.onAction).toHaveBeenCalledWith({ type: 'toggleMultivoice' });
+  });
+
+  it('turns Design Mode on, lit while it is on', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    const onAction = jest.fn();
+
+    // Act
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<EditionPalette palette={PALETTE} song={SONG} cursor={ON_NOTE} isDesignMode onEdit={jest.fn()} onAction={onAction} onOpenPanel={jest.fn()} />);
+    });
+    const tool = renderer.root.findAllByType(ChromeButton).find((button) => button.props.testID === 'palette-designMode');
+    ReactTestRenderer.act(() => tool?.props.onPress());
+
+    // Assert
+    expect(tool?.props.isActive).toBe(true);
+    expect(onAction).toHaveBeenCalledWith({ type: 'toggleDesignMode' });
+  });
+
+  it('keeps the Voice group on one row: four voices, ⇄, multivoice and Design Mode (Guitar Pro 8’s, right of the voices)', () => {
+    const group = paletteGroups().find((candidate) => candidate.id === 'voice');
+    expect(group?.tools.map((tool) => tool.id)).toEqual(['voice1', 'voice2', 'voice3', 'voice4', 'moveVoice', 'multivoice', 'designMode']);
+    expect((group?.toolWidth ?? 0) * 7 + 2 * 7).toBeLessThanOrEqual(198);
+  });
+
+  it('lights the cursor’s voice and keeps the beat’s tools on in voice 3 of a beat read with one voice slot', () => {
+    // Act
+    const palette = render({ ...ON_NOTE, voiceIndex: 2 });
+
+    // Assert
+    expect(palette.tool('voice3').props.isActive).toBe(true);
+    expect(palette.tool('voice1').props.isActive).toBe(false);
+    expect(palette.tool('voice4').props.isEnabled).toBe(true);
+    expect(palette.tool('value8').props.isEnabled).toBe(true);
+    expect(palette.tool('palmMute').props.isEnabled).toBe(false);
   });
 
   it('opens a tool’s options under its group, lights the current one, and applies a choice', () => {
@@ -191,7 +296,8 @@ describe('EditionPalette edits', () => {
     palette.press('tuplet');
     const sizes = labels();
     palette.press('innerTuplet');
-    palette.pressLabel('3');
+    // The Voice group's third button is labelled 3 too.
+    palette.pressTooltip('3-tuplet inside the beat’s tuplet');
 
     // Assert
     expect(sizes).toEqual(expect.arrayContaining(['None', '3', '5', '6', '7', '9', '10', '11', '12']));
@@ -219,6 +325,24 @@ describe('EditionPalette edits', () => {
 
     // Assert
     expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setSection', title: 'Chorus 1' });
+  });
+
+  it('types the bar’s tempo with decimals: a click on the tempo opens a field', () => {
+    // Arrange
+    const palette = render();
+    const value = palette.renderer.root.findByProps({ testID: 'palette-value-tempo' });
+    ReactTestRenderer.act(() => value.props.onPress());
+    const field = () => palette.renderer.root.findByType(TextInput);
+
+    // Act
+    const initial = field().props.value;
+    ReactTestRenderer.act(() => field().props.onChangeText('92,5'));
+    ReactTestRenderer.act(() => field().props.onSubmitEditing());
+
+    // Assert
+    expect(initial).toBe('120');
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setTempo', tempo: 92.5 });
+    expect(palette.renderer.root.findAllByType(TextInput)).toHaveLength(0);
   });
 
   it('steps the bar’s tempo, and only steps repeats on a bar that closes a repeat', () => {

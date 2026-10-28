@@ -2,6 +2,7 @@ import { NECK_FRETS, type Note, type Track, stringStartFret, trackTuning } from 
 import { pitchClassName } from '../lib/pitch';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
+import { SCALE_COLORS, type ScaleHighlight, scaleMarkColor, scaleMarkName } from './scale-marks';
 
 /** Fretboard geometry, in points. */
 export const FRETBOARD = {
@@ -29,6 +30,8 @@ export interface FretboardInput {
   readonly notes: readonly Note[];
   /** String of the editor cursor, outlined at the nut. */
   readonly cursorString?: number;
+  /** The Scales panel's scale: its positions are coloured, the roots apart, under the current notes. */
+  readonly scale?: ScaleHighlight;
 }
 
 export function fretboardHeight(stringCount: number): number {
@@ -41,7 +44,7 @@ export function neckFret(track: Track, fret: number): number {
 }
 
 /** Where a note sits on the neck: neckFret, and a banjo's short 5th string counts from its peg at the 5th fret. */
-export function neckPosition(track: Track, string: number, fret: number): number {
+function neckPosition(track: Track, string: number, fret: number): number {
   return neckFret(track, fret) + stringStartFret(trackTuning(track), string);
 }
 
@@ -57,7 +60,7 @@ export function engraveFretboard(input: FretboardInput): DrawCommand[] {
     ...fretLines(geometry, palette),
     ...stringLines(geometry, track, palette),
     ...pegs(geometry, track, palette),
-    ...noteNames(geometry, track, palette),
+    ...noteNames(geometry, track, palette, input.scale),
     ...capo(geometry, track, palette),
     ...currentNotes(geometry, input),
     ...cursorString(geometry, input),
@@ -127,8 +130,11 @@ function pegs(geometry: NeckGeometry, track: Track, palette: Palette): DrawComma
   });
 }
 
-/** Each position's note name sits on its string, on a small pill in the neck's background colour; a string that starts up the neck has none before its peg. */
-function noteNames(geometry: NeckGeometry, track: Track, palette: Palette): DrawCommand[] {
+/**
+ * Each position's note name sits on its string, on a small pill in the neck's background colour; a string that starts
+ * up the neck has none before its peg. A position of the chosen scale sits on a disc of the scale's colour instead.
+ */
+function noteNames(geometry: NeckGeometry, track: Track, palette: Palette, scale: ScaleHighlight | undefined): DrawCommand[] {
   const tuning = trackTuning(track);
   return track.strings.flatMap((guitarString) => {
     const y = stringY(guitarString.number);
@@ -136,11 +142,47 @@ function noteNames(geometry: NeckGeometry, track: Track, palette: Palette): Draw
     return Array.from({ length: FRETBOARD.frets + 1 - start }, (_, i): DrawCommand[] => {
       const x = fretX(geometry, start + i);
       const isOpen = i === 0;
+      const pitch = guitarString.tuning + i;
+      const scaleColor = scaleMarkColor(pitch, scale);
+      if (scaleColor !== undefined) {
+        return [
+          { kind: 'circle', x, y, radius: FRETBOARD.noteRadius - 1, color: scaleColor },
+          { kind: 'text', x, y, text: scaleMarkName(pitch, scale), size: 7.5, color: SCALE_COLORS.text, font: 'ui', align: 'center', bold: true },
+        ];
+      }
       return [
         { kind: 'rect', x: x - NAME_PILL.width / 2, y: y - NAME_PILL.height / 2, width: NAME_PILL.width, height: NAME_PILL.height, color: palette.sidebar, radius: NAME_PILL.height / 2 },
-        { kind: 'text', x, y, text: pitchClassName(guitarString.tuning + i), size: 7.5, color: isOpen ? palette.text : palette.muted, font: 'ui', align: 'center', bold: isOpen },
+        { kind: 'text', x, y, text: pitchClassName(pitch), size: 7.5, color: isOpen ? palette.text : palette.muted, font: 'ui', align: 'center', bold: isOpen },
       ];
     }).flat();
+  });
+}
+
+/** Where a pitch can be pointed at on an instrument view (canvas points): a key of the piano, a position of the neck. */
+export interface PitchRegion {
+  readonly pitch: number;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * Every position of every string as a cell around its note (the open string left of the nut), with the pitch it sounds
+ * as the names show it — for previewing notes on hover. A string that starts up the neck starts at its peg.
+ */
+export function fretboardHoverRegions(track: Track, width: number): PitchRegion[] {
+  const geometry = neckGeometry(width, track.strings.length);
+  const tuning = trackTuning(track);
+  return track.strings.flatMap((guitarString) => {
+    const start = stringStartFret(tuning, guitarString.number);
+    const y = stringY(guitarString.number) - FRETBOARD.stringGap / 2;
+    return Array.from({ length: FRETBOARD.frets + 1 - start }, (_, i): PitchRegion => {
+      const position = start + i;
+      const x = position === 0 ? 0 : geometry.nutX + (position - 1) * geometry.fretWidth;
+      const cellWidth = position === 0 ? geometry.nutX : geometry.fretWidth;
+      return { pitch: guitarString.tuning + i, x, y, width: cellWidth, height: FRETBOARD.stringGap };
+    });
   });
 }
 

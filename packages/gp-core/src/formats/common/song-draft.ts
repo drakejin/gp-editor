@@ -1,7 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.song.managers.TGSongManager / TGTrackManager / TGMeasureManager (LGPL-2.1): the parts
 // the Power Tab and TablEdit readers build their song with, on drafts that change while the reader runs and become a Song once.
 import { GpFormatError } from '../../errors';
-import { NO_STROKE, QUARTER, RED, measureTicks } from '../../model/defaults';
+import { FOUR_FOUR, NO_STROKE, QUARTER, RED, headerTicks } from '../../model/defaults';
 import {
   type Beat,
   type Channel,
@@ -32,7 +32,6 @@ export const MAX_DRAFT_TRACKS = 128;
 
 /** TGTempo's default. */
 const DEFAULT_TEMPO = 120;
-const FOUR_FOUR: TimeSignature = { numerator: 4, denominator: 4 };
 
 /** A measure header while the reader still sets its tempo, repeats and triplet feel. */
 export interface DraftHeader {
@@ -110,7 +109,7 @@ export class SongDraft {
     const last = this.headers[this.headers.length - 1];
     const header: DraftHeader = {
       number: this.headers.length + 1,
-      start: last === undefined ? QUARTER_TIME : last.start + headerLength(last),
+      start: last === undefined ? QUARTER_TIME : last.start + headerTicks(last),
       timeSignature: timeSignature ?? last?.timeSignature ?? FOUR_FOUR,
       tempo: last?.tempo ?? DEFAULT_TEMPO,
       tripletFeel: last?.tripletFeel ?? 'none',
@@ -224,7 +223,7 @@ export class SongDraft {
       }
       if (start < header.start) {
         high = middle - 1;
-      } else if (start >= header.start + headerLength(header)) {
+      } else if (start >= header.start + headerTicks(header)) {
         low = middle + 1;
       } else {
         return middle;
@@ -232,10 +231,6 @@ export class SongDraft {
     }
     return undefined;
   }
-}
-
-export function headerLength(header: Pick<MeasureHeader, 'timeSignature'>): number {
-  return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
 }
 
 function newMeasure(header: DraftHeader, clef: Clef, keySignature: number): DraftMeasure {

@@ -1,12 +1,14 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP5OutputStream (LGPL-2.1), writing "v5.10" files.
+import { gp5BeamBytes, gp5DefaultBeamBytes } from '../formats/gtp/gp5-beams';
 import { DEFAULT_PERCUSSION_BANK } from '../model/defaults';
-import type { Channel, MeasureHeader, Song, SongInfo, TimeSignature, Track, TripletFeel } from '../model/song';
+import type { Channel, MeasureHeader, Song, SongInfo, Track, TripletFeel } from '../model/song';
 import { ByteWriter } from './byte-writer';
 import { buildChannelTable, type ChannelTable, writeChannelTable } from './gp-channels';
 import { writeMeasureGp5 } from './gp5-beats';
+import { writeDirectionsGp5 } from './gp5-directions';
 import { readOrderGp5 } from './gp5-voices';
 import { writeColor, writeLyrics, writeTrackBlock } from './gtp-blocks';
-import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings } from './gtp-song';
+import { assertWritable, resolveKeySignatures, tempoChangeAt, writableStrings, writtenTempo } from './gtp-song';
 import { resolveKeptTies } from './gtp-ties';
 
 /** Version string of the files this writer produces (and of a new song, which is saved as one). */
@@ -14,7 +16,6 @@ export const GP5_VERSION = 'FICHIER GUITAR PRO v5.10';
 const VERSION_BLOCK = 30;
 /** Track clef value GP5 uses for bass-clef tunings (the reader's GP5_BASS_CLEF). */
 const GP5_BASS_CLEF = 12;
-const DIRECTION_COUNT = 19;
 /** Score size, page and margins in millimetres (A4), as Guitar Pro 5 and TuxGuitar write them. */
 const PAGE_SETUP = [210, 297, 10, 10, 15, 10, 100] as const;
 /** Header/footer flags: every element shown. */
@@ -54,10 +55,11 @@ export function writeGp5(song: Song): Uint8Array {
   writeLyrics(writer, song.tracks);
   writeRseMasterEffect(writer);
   writePageSetup(writer);
-  writer.writeInt(song.measureHeaders[0]?.tempo ?? 0).writeByte(0); // tempo, "hide tempo"
+  writer.writeInt(writtenTempo(song, 0) ?? 0).writeByte(0); // tempo, "hide tempo"
   writer.writeByte(keys[0] ?? 0).writeInt(0); // key signature, octave
   writeChannelTable(writer, channels);
-  writer.writeBytes(new Array<number>(DIRECTION_COUNT * 2).fill(0xff)).writeInt(0); // no directions, master reverb
+  writeDirectionsGp5(writer, song.measureHeaders);
+  writer.writeInt(0); // master reverb
   writer.writeInt(song.measureHeaders.length).writeInt(song.tracks.length);
   song.measureHeaders.forEach((header, index) => writeMeasureHeader(writer, header, index, { song, keys }));
   song.tracks.forEach((track) => writeTrack(writer, track, song.channels, channels));
@@ -90,10 +92,26 @@ interface HeaderContext {
   readonly keys: readonly number[];
 }
 
-function headerFlags(header: MeasureHeader, previous: TimeSignature | undefined, keyChanges: boolean): number {
+/** The four beam bytes of a bar: its own grouping when GP5 can hold it, else the time signature's. */
+function beamBytesOf(header: MeasureHeader): readonly number[] {
+  const own = header.beamGrouping === undefined ? undefined : gp5BeamBytes(header.beamGrouping);
+  return own ?? gp5DefaultBeamBytes(header.timeSignature);
+}
+
+function isSameBytes(a: readonly number[], b: readonly number[] | undefined): boolean {
+  return b !== undefined && a.length === b.length && a.every((value, i) => value === b[i]);
+}
+
+/** Flags 0x01 / 0x02 when the time signature changes; 0x01 (the time signature again) when only the beaming does. */
+function timeFlags(header: MeasureHeader, previous: MeasureHeader | undefined): number {
+  const time = previous?.timeSignature;
+  const flags = (time === undefined || time.numerator !== header.timeSignature.numerator ? 0x01 : 0) | (time === undefined || time.denominator !== header.timeSignature.denominator ? 0x02 : 0);
+  return flags === 0 && !isSameBytes(beamBytesOf(header), previous === undefined ? undefined : beamBytesOf(previous)) ? 0x01 : flags;
+}
+
+function headerFlags(header: MeasureHeader, previous: MeasureHeader | undefined, keyChanges: boolean): number {
   return (
-    (previous === undefined || previous.numerator !== header.timeSignature.numerator ? 0x01 : 0) |
-    (previous === undefined || previous.denominator !== header.timeSignature.denominator ? 0x02 : 0) |
+    timeFlags(header, previous) |
     (header.repeatOpen ? 0x04 : 0) |
     (header.repeatClose !== 0 ? 0x08 : 0) |
     ((header.repeatAlternative & 0xff) !== 0 ? 0x10 : 0) |
@@ -102,33 +120,10 @@ function headerFlags(header: MeasureHeader, previous: TimeSignature | undefined,
   );
 }
 
-/** Bytes of the default beam grouping (eighth notes per group, four groups) Guitar Pro writes with a time signature. */
-function beamGroupBytes(timeSignature: TimeSignature): readonly number[] {
-  const { numerator, denominator } = timeSignature;
-  const isCompound = denominator === 8 && numerator % 3 === 0;
-  const groups = isCompound ? numerator / 3 : numerator;
-  const groupSize = isCompound ? 3 : 8 / denominator;
-  if (denominator <= 8 && groups <= 4 && Number.isInteger(groupSize) && (isCompound || denominator <= 4)) {
-    return Array.from({ length: 4 }, (_, i) => (i < groups ? groupSize : 0));
-  }
-  return tuxGuitarBeamBytes(timeSignature);
-}
-
-/** GP5OutputStream#makeBeamEighthNoteBytes. */
-function tuxGuitarBeamBytes({ numerator, denominator }: TimeSignature): readonly number[] {
-  if (denominator > 8) {
-    return [0, 0, 0, 0];
-  }
-  const total = (8 / denominator) * numerator;
-  const value = Math.floor(total / 4);
-  const missing = total - 4 * value;
-  return [value + missing, value, value, value];
-}
-
 function writeMeasureHeader(writer: ByteWriter, header: MeasureHeader, index: number, context: HeaderContext): void {
   const key = context.keys[index] ?? 0;
   const keyChanges = index === 0 || key !== context.keys[index - 1];
-  const flags = headerFlags(header, context.song.measureHeaders[index - 1]?.timeSignature, keyChanges);
+  const flags = headerFlags(header, context.song.measureHeaders[index - 1], keyChanges);
   writer.writeUnsignedByte(flags);
   if ((flags & 0x01) !== 0) {
     writer.writeByte(header.timeSignature.numerator);
@@ -147,7 +142,7 @@ function writeMeasureHeader(writer: ByteWriter, header: MeasureHeader, index: nu
     writer.writeByte(key).writeByte(0); // key, major
   }
   if ((flags & 0x03) !== 0) {
-    writer.writeBytes(beamGroupBytes(header.timeSignature));
+    writer.writeBytes(beamBytesOf(header));
   }
   writer.writeUnsignedByte(header.repeatAlternative & 0xff);
   writer.writeByte(TRIPLET_FEEL_BYTES[header.tripletFeel]);

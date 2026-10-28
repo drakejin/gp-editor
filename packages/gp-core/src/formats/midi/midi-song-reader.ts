@@ -17,7 +17,7 @@ import { PERCUSSION_STRING_COUNT, placePercussionNotes, placePitchedNotes, resol
 import { type ParsedTracks, type PitchRange, type RawTrack, parseTracks } from './midi-track-parser';
 
 /** Most song tracks an import makes. */
-export const MAX_IMPORT_TRACKS = 128;
+const MAX_IMPORT_TRACKS = 128;
 /** Most measures over all tracks (tracks × measures), so a hostile file cannot build a huge song. */
 const MAX_TRACK_MEASURES = 1 << 18;
 const PERCUSSION_TRACK_NAME = 'Drums';

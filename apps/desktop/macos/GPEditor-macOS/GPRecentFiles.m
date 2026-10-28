@@ -10,6 +10,7 @@
 
 #import "GPEditorNotifications.h"
 #import "GPRecentFiles.h"
+#import "GPAppStrings.h"
 
 NSString *const GPRecentFilesDefaultsKey = @"GPRecentFiles";
 /** User defaults key of the bookmarks: path → bookmark data, for the listed files only. */
@@ -243,7 +244,7 @@ RCT_EXPORT_METHOD(saveRecentFiles : (NSString *)filesJson touchedPath : (NSStrin
     }
   }
   if (![parsed isKindOfClass:[NSArray class]] || files.count != [parsed count] || files.count > kMaxFiles) {
-    reject(@"bad_list", @"The recent files list is not valid", nil);
+    reject(@"bad_list", GPLocalizedString(@"The recent files list is not valid"), nil);
     return;
   }
   NSMutableDictionary<NSString *, NSData *> *bookmarks = [StoredBookmarks() mutableCopy];
@@ -287,12 +288,12 @@ RCT_EXPORT_METHOD(readRecentFile : (NSString *)path resolve : (RCTPromiseResolve
     [[NSUserDefaults standardUserDefaults] setObject:bookmarks forKey:kBookmarksKey];
   }
   if (!exists) {
-    NSString *message = [NSString stringWithFormat:@"“%@” is no longer there: it was deleted or moved to the Trash, or its disk is not connected", path.lastPathComponent];
+    NSString *message = [NSString stringWithFormat:GPLocalizedString(@"“%@” is no longer there: it was deleted or moved to the Trash, or its disk is not connected"), path.lastPathComponent];
     reject(@"missing", message, nil);
     return;
   }
   if (data == nil) {
-    reject(@"read_failed", error.localizedDescription ?: @"Could not read the file", error);
+    reject(@"read_failed", error.localizedDescription ?: GPLocalizedString(@"Could not read the file"), error);
     return;
   }
   resolve(@{@"name" : url.lastPathComponent, @"path" : url.path, @"base64" : [data base64EncodedStringWithOptions:0]});

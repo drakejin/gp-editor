@@ -1,7 +1,7 @@
 // The Guitar Pro 7/8 container (no TuxGuitar counterpart: it only reads it, GPXFileSystem): a zip of the GPIF document
 // and the binary view settings Guitar Pro keeps next to it.
-import { zipSync } from 'fflate';
-import { GP7_SCORE_ENTRY, GP7_VERSION_ENTRY } from '../../formats/gpif/container-gp7';
+import { type Zippable, zipSync } from 'fflate';
+import { GP7_EFFECTS_ENTRY, GP7_SCORE_ENTRY, GP7_VERSION_ENTRY } from '../../formats/gpif/container-gp7';
 import { encodeUtf8 } from '../../io/text';
 
 /** VERSION of a Guitar Pro 7 file (Guitar Pro 8 writes the same). */
@@ -11,9 +11,10 @@ const ENTRY_TIME = new Date(1980, 0, 1);
 /** Fast deflating: most of the time Hermes spends writing a .gp file goes into compressing it. */
 const DEFLATE_LEVEL = 1;
 
-/** PartConfiguration track flags: standard notation 1, tablature 2. */
+/** PartConfiguration track flags: standard notation 1, tablature 2, slash 4. */
 const NOTATION = 0x01;
 const NOTATION_AND_TAB = 0x03;
+const SLASH = 0x04;
 /** LayoutConfiguration: zoom 100 % (4), the page view Guitar Pro opens files in (1), multi-voice cursor off. */
 const LAYOUT_ZOOM = 4;
 const LAYOUT_VIEW = 0x01;
@@ -33,10 +34,11 @@ function int32(value: number): readonly number[] {
  * Content/PartConfiguration, the staves each score view shows (big-endian):
  * int32 view count; per view: byte multi-rest flag, int32 track count, one flag byte per track
  * (1 notation, 2 tablature, 4 slash, 8 numbered); then int32 the active view.
- * The views are the multi-track view (every track) and one view per track; drum tracks show notation only.
+ * The views are the multi-track view (every track) and one view per track; drum tracks show notation only, tracks
+ * written in slashes (`slashTracks`) slash notation too.
  */
-export function partConfigurationOf(percussionTracks: readonly boolean[]): Uint8Array {
-  const flags = percussionTracks.map((isPercussion) => (isPercussion ? NOTATION : NOTATION_AND_TAB));
+export function partConfigurationOf(percussionTracks: readonly boolean[], slashTracks: readonly boolean[] = []): Uint8Array {
+  const flags = percussionTracks.map((isPercussion, index) => (isPercussion ? NOTATION : NOTATION_AND_TAB) | (slashTracks[index] === true ? SLASH : 0));
   const views = [flags, ...flags.map((flag) => [flag])];
   const bytes = [...int32(views.length), ...views.flatMap((view) => [0, ...int32(view.length), ...view]), ...int32(0)];
   return Uint8Array.from(bytes);
@@ -71,17 +73,44 @@ export function binaryStylesheet(): Uint8Array {
   return Uint8Array.from([...int32(entries.length), ...bytes]);
 }
 
-/** The .gp file: the entries a Guitar Pro 7 file has, in its order. */
-export function zipGp7(score: Uint8Array, percussionTracks: readonly boolean[]): Uint8Array {
+/** Guitar Pro 8's meta.json of a file with an audio track. */
+const AUDIO_META_JSON = '{\n    "hasAudio": true,\n    "version": "1.0.0"\n}\n';
+
+/** The audio track's file inside the archive. */
+export interface Gp7Asset {
+  readonly path: string;
+  readonly data: Uint8Array;
+}
+
+/** Guitar Pro 8's entries of the audio track: its file (stored as it is: audio does not deflate) and meta.json. */
+function audioEntries(asset: Gp7Asset | undefined): Zippable {
+  return asset === undefined ? {} : { [asset.path]: [asset.data, { level: 0 }], 'meta.json': encodeUtf8(AUDIO_META_JSON) };
+}
+
+/**
+ * The .gp file: the entries a Guitar Pro 7 file has, in its order, the app's effects JSON when there is one, and the
+ * audio track's file with Guitar Pro 8's meta.json; `appEntries` are more of the app's JSON (stylesheet, layout) by name.
+ */
+export function zipGp7(
+  score: Uint8Array,
+  percussionTracks: readonly boolean[],
+  effectsJson?: string,
+  slashTracks: readonly boolean[] = [],
+  asset?: Gp7Asset,
+  appEntries: Readonly<Record<string, string>> = {},
+): Uint8Array {
   return zipSync(
     {
       'Content/': new Uint8Array(0),
       'Content/BinaryStylesheet': binaryStylesheet(),
       'Content/LayoutConfiguration': layoutConfigurationOf(percussionTracks.length),
-      'Content/PartConfiguration': partConfigurationOf(percussionTracks),
+      'Content/PartConfiguration': partConfigurationOf(percussionTracks, slashTracks),
       'Content/Preferences.json': encodeUtf8(PREFERENCES_JSON),
       [GP7_SCORE_ENTRY]: score,
       [GP7_VERSION_ENTRY]: encodeUtf8(CONTAINER_VERSION),
+      ...(effectsJson === undefined ? {} : { [GP7_EFFECTS_ENTRY]: encodeUtf8(effectsJson) }),
+      ...Object.fromEntries(Object.entries(appEntries).map(([name, json]) => [name, encodeUtf8(json)])),
+      ...audioEntries(asset),
     },
     { level: DEFLATE_LEVEL, mtime: ENTRY_TIME },
   );

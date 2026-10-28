@@ -93,3 +93,50 @@ export const GRACE_NOTEHEAD_WIDTH = 0.78;
 export function staffSpace(size: number): number {
   return size / 4;
 }
+
+/**
+ * Rhythm-slash noteheads (noteheadSlashHorizontalEnds, noteheadSlashWhiteHalf, noteheadSlashWhiteWhole): ink from the
+ * origin to `advance`, rising from one space below the baseline (left end) to one space above it (right end).
+ */
+export const SLASH_GLYPHS = {
+  black: glyph(0xe101, 2.124, 1, -1),
+  half: glyph(0xe103, 3.12, 1, -1),
+  whole: glyph(0xe102, 3.92, 1, -1),
+} as const;
+
+/** Fingering digits and letters (fingering0 … fingering5, fingeringTUpper, fingeringPLower, …ILower …), standing on their baseline. */
+export const FINGERING_GLYPHS = {
+  '0': glyph(0xed10, 1.02, 1.004, 0),
+  '1': glyph(0xed11, 0.628, 1.016, 0),
+  '2': glyph(0xed12, 0.968, 1.012, 0),
+  '3': glyph(0xed13, 0.9, 1.008, 0),
+  '4': glyph(0xed14, 0.944, 1.012, 0),
+  '5': glyph(0xed15, 0.9, 1.032, 0),
+  T: glyph(0xed16, 0.984, 1, 0),
+  p: glyph(0xed17, 1.088, 1.028, -0.612),
+  i: glyph(0xed19, 0.656, 1.54, 0),
+  m: glyph(0xed1a, 1.66, 1.028, 0),
+  a: glyph(0xed1b, 1.068, 1.032, 0),
+  c: glyph(0xed1c, 0.888, 1.044, 0),
+} as const;
+
+export type FingeringLabel = keyof typeof FINGERING_GLYPHS;
+
+/** accidentalParensLeft / accidentalParensRight, around a cautionary accidental; centred on the baseline. */
+export const ACCIDENTAL_PAREN_GLYPHS = {
+  left: glyph(0xe26a, 0.564, 0.988, -0.992),
+  right: glyph(0xe26b, 0.564, 0.988, -0.992),
+} as const;
+
+/** Directions, hairpins, fades and the piano pedal (Bravura's metrics, measured from the bundled font). */
+export const MARK_GLYPHS = {
+  segno: glyph(0xe047, 2.228, 3.036, -0.108),
+  coda: glyph(0xe048, 3.816, 3.592, -0.632),
+  dynamicCrescendoHairpin: glyph(0xe53e, 3, 1.424, 0.372),
+  dynamicDiminuendoHairpin: glyph(0xe53f, 3, 1.424, 0.372),
+  guitarFadeIn: glyph(0xe843, 1.448, 1.46, 0),
+  guitarFadeOut: glyph(0xe844, 1.448, 1.46, 0),
+  guitarVolumeSwell: glyph(0xe845, 2.896, 1.46, 0),
+  keyboardPedalPed: glyph(0xe650, 4.076, 2.22, -0.032),
+  keyboardPedalUp: glyph(0xe655, 1.8, 1.8, 0),
+} as const;

@@ -1,12 +1,17 @@
+import { FINGERS } from '../formats/common/fingering';
 import { MAX_VELOCITY } from '../formats/common/velocity';
-import { NO_STROKE, STROKE_VALUES } from '../model/defaults';
-import type { Note, Stroke, StrokeDirection } from '../model/song';
-import { isRawObject } from '../transcription/parse-values';
+import { MAX_ANNOTATION_LENGTH, isAnnotationPlacement, toAnnotation } from '../annotations/annotation-text';
+import { NO_STROKE, STROKE_VALUES, isHairpin, isOttava } from '../model/defaults';
+import { isRasgueadoPattern } from '../formats/common/rasgueado';
+import type { Annotation, Note, Stroke, StrokeDirection } from '../model/song';
+import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
 import { MAX_FRET } from './edit-song';
+import { ACCIDENTAL_DISPLAYS } from './notation-marks';
 import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
+import { parseNoteAudio } from './note-audio';
 import { sortByString } from './song-paths';
 
 /** What a serialized fragment says it is, so text from elsewhere on the clipboard is never taken for one. */
@@ -24,15 +29,41 @@ export function serializeBeatFragment(fragment: BeatFragment): string {
   return JSON.stringify({ format: FRAGMENT_FORMAT, version: FRAGMENT_VERSION, isPercussion: fragment.isPercussion, items: fragment.items });
 }
 
+/** A note's optional marks, each absent or one of `allowed`; `null` when one holds anything else. */
+function parseNoteMarks(value: Readonly<Record<string, unknown>>): Pick<Note, 'leftFinger' | 'rightFinger' | 'accidentalDisplay'> | null {
+  const pick = <T extends string>(key: string, allowed: readonly T[]): { readonly ok: boolean; readonly found?: T } => {
+    const raw = value[key];
+    const found = allowed.find((candidate) => candidate === raw);
+    return { ok: raw === undefined || found !== undefined, ...(found === undefined ? {} : { found }) };
+  };
+  const left = pick('leftFinger', FINGERS);
+  const right = pick('rightFinger', FINGERS);
+  const display = pick('accidentalDisplay', ACCIDENTAL_DISPLAYS);
+  if (!left.ok || !right.ok || !display.ok) {
+    return null;
+  }
+  return {
+    ...(left.found === undefined ? {} : { leftFinger: left.found }),
+    ...(right.found === undefined ? {} : { rightFinger: right.found }),
+    ...(display.found === undefined ? {} : { accidentalDisplay: display.found }),
+  };
+}
+
 function parseNote(value: unknown, maxFret: number): Note | undefined {
   if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_STRINGS) || !isIntegerIn(value.fret, 0, maxFret)) {
     return undefined;
   }
   const effect = parseNoteEffect(value.effect, maxFret);
-  if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined) {
+  const marks = parseNoteMarks(value);
+  if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined || marks === null) {
     return undefined;
   }
-  return { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect };
+  const note: Note = { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect, ...marks };
+  if (value.audio === undefined) {
+    return note;
+  }
+  const audio = parseNoteAudio(value.audio);
+  return audio === undefined ? undefined : { ...note, audio };
 }
 
 /** Up to one note per string, ordered by string. */
@@ -71,27 +102,56 @@ function parseText(value: unknown): { readonly text?: string } | null {
   return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_TEXT_LENGTH ? { text: value } : null;
 }
 
+/** No annotation, or a placed text of 1…MAX_ANNOTATION_LENGTH characters with something to show (normalized); `null` stands for invalid. */
+function parseAnnotation(value: unknown): { readonly annotation?: Annotation } | null {
+  if (value === undefined) {
+    return {};
+  }
+  const text = isRawObject(value) ? value.text : undefined;
+  const placement = isRawObject(value) ? value.placement : undefined;
+  if (typeof text !== 'string' || text.length > MAX_ANNOTATION_LENGTH || !isAnnotationPlacement(placement)) {
+    return null;
+  }
+  const annotation = toAnnotation(text, placement);
+  return annotation === undefined ? null : { annotation };
+}
+
+/** No mark, or a known one; `null` stands for invalid. */
+function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgueado' | 'ottava'> | null {
+  const hairpin = isHairpin(value.hairpin) ? value.hairpin : undefined;
+  const rasgueado = isRasgueadoPattern(value.rasgueado) ? value.rasgueado : undefined;
+  const ottava = isOttava(value.ottava) ? value.ottava : undefined;
+  if ((value.hairpin !== undefined && hairpin === undefined) || (value.rasgueado !== undefined && rasgueado === undefined) || (value.ottava !== undefined && ottava === undefined)) {
+    return null;
+  }
+  return { ...(hairpin === undefined ? {} : { hairpin }), ...(rasgueado === undefined ? {} : { rasgueado }), ...(ottava === undefined ? {} : { ottava }) };
+}
+
 function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefined {
   if (!isRawObject(value)) {
     return undefined;
   }
+  const marks = parseMarks(value);
   const duration = parseDuration(value.duration);
   const notes = parseNotes(value.notes, maxFret);
   const stroke = parseStroke(value.stroke);
   const pickStroke = parseDirection(value.pickStroke);
   const text = parseText(value.text);
+  const annotation = parseAnnotation(value.annotation);
   const chord = value.chord === undefined ? undefined : parseChord(value.chord);
-  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || text === null || (value.chord !== undefined && chord === undefined)) {
+  const isMarked = text !== null && marks !== null && annotation !== null;
+  if (duration === undefined || notes === undefined || stroke === undefined || pickStroke === undefined || !isMarked || (value.chord !== undefined && chord === undefined)) {
     return undefined;
   }
-  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text };
+  return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text, ...marks, ...annotation };
 }
 
 /**
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
  * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
  * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
- * diagrams and texts up to 1024 characters. Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * diagrams, texts up to 1024 characters, hairpins, rasgueado patterns, octave signs and annotations (annotations/annotation-text.ts).
+ * Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {

@@ -1,11 +1,19 @@
 #import "GPCommandPainter.h"
 
 #import <CoreText/CoreText.h>
+#import <os/log.h>
 
 static NSString *const kMusicFontName = @"Bravura";
+/** The most texts' attributes and widths kept; past it both caches start again empty (a width is kept by its attributes). */
+static const NSUInteger kMaxCachedTexts = 4096;
 
 @implementation GPCommandPainter {
   NSMutableDictionary<NSString *, NSColor *> *_colors;
+  /// A text's font and colour by what makes them: the same few come back for every glyph and fret number of a score.
+  NSMutableDictionary<NSString *, NSDictionary *> *_textAttributes;
+  /// A centred or right-aligned text's width by its attributes and characters: measuring lays the text out, as drawing it
+  /// does again, and the same noteheads and numbers are measured over and over.
+  NSMutableDictionary<NSString *, NSNumber *> *_textWidths;
 }
 
 + (void)initialize
@@ -41,9 +49,10 @@ static NSString *const kMusicFontName = @"Bravura";
   return color;
 }
 
-- (void)drawCommands:(NSArray<NSDictionary *> *)commands
+- (BOOL)drawCommands:(NSArray<NSDictionary *> *)commands
 {
   CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+  BOOL isComplete = YES;
   for (NSDictionary *command in commands) {
     NSString *kind = command[@"kind"];
     if ([kind isEqualToString:@"line"]) {
@@ -53,13 +62,14 @@ static NSString *const kMusicFontName = @"Bravura";
     } else if ([kind isEqualToString:@"circle"]) {
       [self drawCircle:command in:context];
     } else if ([kind isEqualToString:@"text"]) {
-      [self drawText:command];
+      isComplete = [self drawText:command] && isComplete;
     } else if ([kind isEqualToString:@"curve"]) {
       [self drawCurve:command in:context];
     } else if ([kind isEqualToString:@"polygon"]) {
       [self drawPolygon:command in:context];
     }
   }
+  return isComplete;
 }
 
 - (void)drawLine:(NSDictionary *)c in:(CGContextRef)context
@@ -157,20 +167,98 @@ static NSString *const kMusicFontName = @"Bravura";
   return [NSFont systemFontOfSize:size weight:weight];
 }
 
-/** Music text sits on its baseline (SMuFL); UI text is centred vertically on y. */
-- (void)drawText:(NSDictionary *)c
+/**
+ * A text's font: the stylesheet's family (an installed family's name; the system font when it is not installed) and
+ * italic over the command's own font (src/score/draw.ts TextCommand.family / italic).
+ */
+- (NSFont *)fontFor:(NSDictionary *)c
+{
+  NSString *kind = c[@"font"];
+  CGFloat size = [c[@"size"] doubleValue];
+  BOOL bold = [c[@"bold"] boolValue];
+  NSFont *font = [self font:kind size:size bold:bold];
+  NSString *family = [c[@"family"] isKindOfClass:[NSString class]] ? c[@"family"] : nil;
+  BOOL italic = [c[@"italic"] boolValue];
+  if (family.length == 0 && !italic) {
+    return font;
+  }
+  NSFontManager *manager = NSFontManager.sharedFontManager;
+  NSFontTraitMask traits = (bold ? NSBoldFontMask : 0) | (italic ? NSItalicFontMask : 0);
+  if (family.length > 0) {
+    font = [manager fontWithFamily:family traits:traits weight:(bold ? 9 : 5) size:size]
+      ?: [manager fontWithFamily:family traits:0 weight:5 size:size] ?: font;
+  }
+  if (!italic) {
+    return font;
+  }
+  // The system font has its italic as a descriptor trait; other families answer the font manager.
+  NSFontDescriptor *slanted = [font.fontDescriptor fontDescriptorWithSymbolicTraits:font.fontDescriptor.symbolicTraits | NSFontDescriptorTraitItalic];
+  return [NSFont fontWithDescriptor:slanted size:size] ?: [manager convertFont:font toHaveTrait:NSItalicFontMask];
+}
+
+/**
+ * The text's font and colour, kept by the command's font, size (to the bit: sizes a hair apart draw apart), bold,
+ * italic, family and colour; nil — and nothing kept — when AppKit makes no font for it.
+ */
+- (nullable NSDictionary *)attributesFor:(NSDictionary *)c
+{
+  if (_textAttributes == nil || _textAttributes.count >= kMaxCachedTexts) {
+    _textAttributes = [NSMutableDictionary dictionary];
+    _textWidths = [NSMutableDictionary dictionary];
+  }
+  NSString *key = [NSString stringWithFormat:@"%@|%a|%@|%@|%@|%@", c[@"font"], [c[@"size"] doubleValue], c[@"bold"], c[@"italic"], c[@"family"], c[@"color"]];
+  NSDictionary *attributes = _textAttributes[key];
+  if (attributes != nil) {
+    return attributes;
+  }
+  NSFont *font = [self fontFor:c];
+  if (font == nil) {
+    os_log_error(OS_LOG_DEFAULT, "GPCommandPainter: no font for a %{public}@ text, size %g, family %{public}@, bold %{public}@, italic %{public}@",
+                 c[@"font"], [c[@"size"] doubleValue], c[@"family"], c[@"bold"], c[@"italic"]);
+    return nil;
+  }
+  attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
+  _textAttributes[key] = attributes;
+  return attributes;
+}
+
+/** The text's width in `attributes` (one of attributesFor:'s, kept as long as the widths measured in it). */
+- (CGFloat)widthOf:(NSString *)text attributes:(NSDictionary *)attributes
+{
+  if (_textWidths.count >= kMaxCachedTexts) {
+    [_textWidths removeAllObjects];
+  }
+  NSString *key = [NSString stringWithFormat:@"%p|%@", attributes, text];
+  NSNumber *width = _textWidths[key];
+  if (width == nil) {
+    width = @([text sizeWithAttributes:attributes].width);
+    _textWidths[key] = width;
+  }
+  return width.doubleValue;
+}
+
+/**
+ * Music text sits on its baseline (SMuFL); UI text is centred vertically on y. A left-aligned text is not measured. NO
+ * when it is left out: no font.
+ */
+- (BOOL)drawText:(NSDictionary *)c
 {
   NSString *family = c[@"font"];
-  NSFont *font = [self font:family size:[c[@"size"] doubleValue] bold:[c[@"bold"] boolValue]];
-  NSDictionary *attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : [self color:c[@"color"]]};
+  NSDictionary *attributes = [self attributesFor:c];
+  if (attributes == nil) {
+    return NO;
+  }
+  NSFont *font = attributes[NSFontAttributeName];
   NSString *text = c[@"text"];
-  CGFloat width = [text sizeWithAttributes:attributes].width;
   NSString *align = c[@"align"];
-  CGFloat x = [c[@"x"] doubleValue];
-  x -= [align isEqualToString:@"center"] ? width / 2 : [align isEqualToString:@"right"] ? width : 0;
+  BOOL isCentred = [align isEqualToString:@"center"];
+  BOOL isRight = [align isEqualToString:@"right"];
+  CGFloat width = isCentred || isRight ? [self widthOf:text attributes:attributes] : 0;
+  CGFloat x = [c[@"x"] doubleValue] - (isCentred ? width / 2 : isRight ? width : 0);
   CGFloat y = [c[@"y"] doubleValue];
   CGFloat top = [family isEqualToString:@"music"] ? y - font.ascender : y - (font.ascender - font.descender) / 2;
   [text drawAtPoint:NSMakePoint(x, top) withAttributes:attributes];
+  return YES;
 }
 
 @end

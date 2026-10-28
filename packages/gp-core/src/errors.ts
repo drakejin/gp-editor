@@ -1,3 +1,8 @@
+/** The message of anything thrown: an Error's message, else the value as text. */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /** Base class for every error raised while reading a Guitar Pro file. */
 export class GpFormatError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {

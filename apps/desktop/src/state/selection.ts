@@ -1,8 +1,9 @@
 import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '@gp-editor/core';
-import { adjacentBeat, clampCursor } from '../lib/navigation';
-import { plural } from '../lib/wording';
+import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
+import { t } from '../lib/i18n/i18n';
 import type { BeatRange } from '../score/selection-tint';
 import type { EditorAction, EditorState } from './editor';
+import type { LoopRange } from './practice';
 import { beatAddress } from './song-edits';
 
 /** What the selection helpers read of the editor state. */
@@ -28,13 +29,22 @@ export function selectionRange(state: SelectionState): BeatRange | undefined {
   return { first: { measureIndex: first.measureIndex, beatIndex: first.beatIndex }, last: { measureIndex: last.measureIndex, beatIndex: last.beatIndex } };
 }
 
-/** Where playing a selection starts: its first beat's bar and song tick; undefined without a selection. */
+/** Where playing a selection starts: its first beat's bar and song tick (a bar without beats: its start); undefined without a selection. */
 export function selectionStart(state: SelectionState): { readonly measureIndex: number; readonly tick: number } | undefined {
+  const first = selectionRange(state)?.first;
+  const { cursor, document } = state;
+  const measure = first === undefined || cursor === undefined ? undefined : document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex];
+  if (first === undefined || measure === undefined) {
+    return undefined;
+  }
+  const tick = measure.beats.length === 0 ? document?.song.measureHeaders[first.measureIndex]?.start : measure.beats[first.beatIndex]?.start;
+  return tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
+}
+
+/** The bars a selection spans, first to last: what the loop plays; undefined without a selection. */
+export function selectionBars(state: SelectionState): LoopRange | undefined {
   const range = selectionRange(state);
-  const cursor = state.cursor;
-  const first = range?.first;
-  const tick = first === undefined || cursor === undefined ? undefined : state.document?.song.tracks[cursor.trackIndex]?.measures[first.measureIndex]?.beats[first.beatIndex]?.start;
-  return first === undefined || tick === undefined ? undefined : { measureIndex: first.measureIndex, tick };
+  return range === undefined ? undefined : { fromMeasureIndex: range.first.measureIndex, toMeasureIndex: range.last.measureIndex };
 }
 
 /** The selected beats in the cursor's voice — the cursor's beat when nothing is selected; undefined when there are none. */
@@ -53,7 +63,8 @@ export function selectionSummary(state: SelectionState, fragment: BeatFragment):
   const anchorBar = state.selectionAnchor === undefined ? cursorBar : state.selectionAnchor.measureIndex + 1;
   const first = Math.min(cursorBar, anchorBar);
   const last = Math.max(cursorBar, anchorBar);
-  return `${plural(fragment.items.length, 'beat')} from ${first === last ? `bar ${first}` : `bars ${first}–${last}`}`;
+  const count = fragment.items.length;
+  return first === last ? t('palette.selection.oneBar', { count, bar: first }) : t('palette.selection.bars', { count, first, last });
 }
 
 /** Shift-←/→: the cursor a beat further (as moveCursorBeat), the selection anchored where it started. */
@@ -69,7 +80,8 @@ export function extendSelection(state: EditorState, step: -1 | 1): EditorState {
 
 /**
  * A mouse drag, or a shift-click: the cursor on `target`, the selection anchored where it started (the cursor before
- * the first such move). Back on the anchor's beat nothing is selected.
+ * the first such move). Back on the anchor's beat nothing is selected. A target on another track (a shift-click in the
+ * multitrack view) selects to the beat of the cursor's track at that moment: a selection stays on one track.
  */
 export function selectTo(state: EditorState, target: StringAddress): EditorState {
   const song = state.document?.song;
@@ -77,7 +89,8 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
   if (song === undefined || cursor === undefined) {
     return state;
   }
-  const moved = clampCursor(song, target) ?? cursor;
+  const onTrack = target.trackIndex === cursor.trackIndex ? target : cursorInTrack(song, target, cursor.trackIndex, cursor.string);
+  const moved = (onTrack === undefined ? undefined : clampCursor(song, onTrack)) ?? cursor;
   const anchor = state.selectionAnchor ?? cursor;
   const isAnchorBeat = moved.measureIndex === anchor.measureIndex && moved.beatIndex === anchor.beatIndex;
   return { ...state, cursor: moved, selectionAnchor: isAnchorBeat ? undefined : anchor };
@@ -85,10 +98,11 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
 
 /**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
- * changed the song or showed another track (a plain cursor move, a click, an edit, undo).
+ * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo') {
+  // A transposition changes no beat, so the selection stays for another one.
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'transpose') {
     return after;
   }
   const isKept = after.cursor === before.cursor && after.document?.song === before.document?.song && after.trackIndex === before.trackIndex;
@@ -120,7 +134,7 @@ export function pasteRefusal(song: Song, cursor: StringAddress, fragment: BeatFr
   if (track === undefined || track.isPercussion === fragment.isPercussion) {
     return undefined;
   }
-  return fragment.isPercussion ? 'Beats copied from a drum track paste into drum tracks only.' : 'Only beats copied from a drum track paste into a drum track.';
+  return t(fragment.isPercussion ? 'palette.hint.pasteDrumsOnly' : 'palette.hint.pasteIntoDrums');
 }
 
 /** ⌘V: the beats inserted at the cursor, what follows moved on; the cursor on the first pasted beat. */

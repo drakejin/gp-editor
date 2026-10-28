@@ -1,53 +1,54 @@
 // Port of TuxGuitar app.tuxguitar.io.gtp.GP3InputStream (LGPL-2.1).
 import { ByteReader } from '../../io/byte-reader';
-import { durationTicks, EMPTY_NOTE_EFFECT, NO_STROKE, toNoteValue } from '../../model/defaults';
+import { durationTicks, EMPTY_NOTE_EFFECT, EMPTY_VOICE, NO_STROKE, toNoteValue } from '../../model/defaults';
 import type { Beat, Chord, Grace, Note, NoteEffect, Song, TimeSignature, TripletFeel } from '../../model/song';
 import { BEND_MAX_POSITION, bendValueFromGp, tremoloBarValueFromGp } from '../common/bend-units';
+import { GRACE_TRANSITIONS } from '../common/gtp-codes';
 import { artificialHarmonicOffset } from '../common/harmonics';
+import { DEFAULT_RASGUEADO } from '../common/rasgueado';
 import { DEFAULT_VELOCITY, velocityFromGp } from '../common/velocity';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import {
   type BeatEffects,
   buildChord,
-  type ChannelRegistry,
-  type ChannelSlot,
-  clefFromTuning,
-  EMPTY_VOICE,
   findTiedFret,
-  GRACE_TRANSITIONS,
+  type NoteContext,
+  readDuration,
+  readFingers,
+  readMixTableValues,
+  readSimpleChord,
+  readStringNotes,
+  readStroke,
+  resolveFret,
+  skipMixTransitions,
+} from './gtp-beats';
+import { type ChannelRegistry, type ChannelSlot, readChannelSlots, readTrackChannel } from './gtp-channels';
+import { readBendPoints, withBend } from './gtp-note-effects';
+import {
+  clefFromTuning,
   type HeaderDraft,
   type HeaderRead,
   type HeadersRead,
-  type MeasureBeats,
-  type MeasureJob,
-  type NoteContext,
   parseRepeatAlternative,
-  readBendPoints,
-  readChannelSlots,
-  readColor,
-  readDuration,
-  readInts,
-  readKeySignature,
-  readMarker,
   readMeasureHeaders,
-  readMixTableValues,
-  readSimpleChord,
-  readSongInfo,
-  readSongMeasures,
-  readStringNotes,
   readStrings,
-  readStroke,
-  readTrackChannel,
   readTrackList,
-  resolveFret,
-  skipMixTransitions,
-  skipVersion,
   type TrackDraft,
   type TrackListRead,
   type TrackLyrics,
   type TrackStep,
-  withBend,
+} from './gtp-tracks';
+import {
+  type MeasureBeats,
+  type MeasureJob,
+  readColor,
+  readInts,
+  readKeySignature,
+  readMarker,
+  readSongInfo,
+  readSongMeasures,
+  skipVersion,
 } from './shared';
 
 export function readGp3(bytes: Uint8Array, detected: DetectedFormat, options: ResolvedReadOptions): Song {
@@ -198,6 +199,7 @@ function readBeatGp34(
     pickStroke: effects.pickStroke ?? 'none',
     ...(chord === undefined ? {} : { chord }),
     ...(text === undefined ? {} : { text }),
+    ...(effects.isRasgueado === true ? { rasgueado: DEFAULT_RASGUEADO } : {}),
   };
   return { beat, ticks: durationTicks(duration), ...(tempo === undefined ? {} : { tempo }) };
 }
@@ -225,13 +227,11 @@ export function readNoteGp34(
   }
   const velocity = (flags & 0x10) !== 0 ? velocityFromGp(reader.readByte()) : DEFAULT_VELOCITY;
   const fret = (flags & 0x20) !== 0 ? resolveFret(reader.readByte(), isTied, context.tiedFret) : 0;
-  if ((flags & 0x80) !== 0) {
-    reader.skip(2); // fingering
-  }
+  const fingers = (flags & 0x80) !== 0 ? readFingers(reader) : {};
   if ((flags & 0x08) !== 0) {
     effect = readEffects(reader, effect, fret);
   }
-  return { fret, velocity, string: context.string, isTied, effect };
+  return { fret, velocity, string: context.string, isTied, effect, ...fingers };
 }
 
 /** GP3/GP4 grace note: fret (255 = dead), dynamic, transition, duration. */

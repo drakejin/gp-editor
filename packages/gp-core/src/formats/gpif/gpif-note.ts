@@ -16,6 +16,7 @@ import type {
   VibratoKind,
 } from '../../model/song';
 import { QUARTER_TIME } from '../../model/song';
+import { fingerFromGpif } from '../common/fingering';
 import { artificialHarmonicOffsetAtFret } from '../common/harmonics';
 import {
   BEND_MAX_POSITION,
@@ -101,12 +102,16 @@ export interface NoteContext {
 }
 
 export function buildNote(note: GpifNote, position: NotePosition, context: NoteContext): Note {
+  const leftFinger = fingerFromGpif(note.leftFingering);
+  const rightFinger = fingerFromGpif(note.rightFingering);
   return {
     fret: position.fret,
     velocity: dynamicVelocity(context.beat.dynamic),
     string: position.string,
     isTied: note.tieDestination,
     effect: buildEffect(note, position, context),
+    ...(leftFinger === undefined ? {} : { leftFinger }),
+    ...(rightFinger === undefined ? {} : { rightFinger }),
   };
 }
 
@@ -135,6 +140,8 @@ function buildEffect(note: GpifNote, position: NotePosition, context: NoteContex
     slapping: beat.slapped,
     popping: beat.popped,
     fadeIn: beat.fadding === 'FadeIn',
+    ...(beat.fadding === 'FadeOut' ? { fadeOut: true } : {}),
+    ...(beat.fadding === 'VolumeSwell' ? { volumeSwell: true } : {}),
     letRing: note.letRing,
   };
 }

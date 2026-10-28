@@ -1,5 +1,7 @@
 import type { DrawCommand } from '../src/score/draw';
-import { inkBottom, inkSpan } from '../src/score/ink';
+import { SMUFL } from '../src/score/draw';
+import { inkBottom, inkBox, inkExtent, inkSpan } from '../src/score/ink';
+import { GLYPH_INK } from '../src/score/symbols/glyph-ink';
 
 const COLOR = '#000000';
 
@@ -61,5 +63,59 @@ describe('inkBottom', () => {
     expect(inkBottom(commands, 90, 110)).toBe(40);
     expect(inkBottom(commands, 0, 200)).toBe(90);
     expect(inkBottom([], 0, 200)).toBeUndefined();
+  });
+});
+
+describe('inkBox', () => {
+  it('reaches as far up and down as Bravura draws a music glyph: a treble clef well above and below its baseline', () => {
+    // Arrange: drawn at 32 points (one em = four staff spaces)
+    const clef: DrawCommand = { kind: 'text', x: 0, y: 100, text: SMUFL.gClef, size: 32, color: COLOR, font: 'music', align: 'left' };
+    const [top, bottom] = GLYPH_INK[SMUFL.gClef.codePointAt(0) ?? 0] ?? [0, 0];
+
+    // Act
+    const box = inkBox(clef);
+
+    // Assert: about 4.4 staff spaces above the G line, 2.6 below (Bravura's metadata)
+    expect(box.top).toBeCloseTo(100 - top * 32);
+    expect(box.bottom).toBeCloseTo(100 - bottom * 32);
+    expect(100 - box.top).toBeCloseTo(4.39 * 8, 0);
+    expect(box.bottom - 100).toBeCloseTo(2.63 * 8, 0);
+  });
+
+  it('takes several glyphs as their tallest and text by its size around its centre', () => {
+    // Arrange
+    const digits: DrawCommand = { kind: 'text', x: 0, y: 50, text: String.fromCodePoint(0xe081, 0xe082), size: 32, color: COLOR, font: 'music', align: 'center' };
+    const label: DrawCommand = { kind: 'text', x: 0, y: 50, text: 'P.M.', size: 9, color: COLOR, font: 'ui', align: 'left' };
+
+    // Act
+    const [digitBox, labelBox] = [inkBox(digits), inkBox(label)];
+
+    // Assert
+    expect(digitBox.top).toBeLessThan(50);
+    expect(digitBox.bottom).toBeGreaterThan(50);
+    expect(labelBox).toMatchObject({ top: 45.5, bottom: 54.5 });
+  });
+
+  it('reaches a curve’s bulge half way to its control point, either way', () => {
+    // Act
+    const box = inkBox({ kind: 'curve', x1: 0, y1: 10, cx: 10, cy: -10, x2: 20, y2: 10, width: 2, color: COLOR });
+
+    // Assert
+    expect(box.top).toBe(-1);
+    expect(box.bottom).toBe(11);
+  });
+});
+
+describe('inkExtent', () => {
+  it('is the highest and lowest ink of all the commands, none for no commands', () => {
+    // Arrange
+    const commands: DrawCommand[] = [
+      { kind: 'rect', x: 0, y: 4, width: 3, height: 4, color: COLOR },
+      { kind: 'line', x1: 0, y1: 20, x2: 9, y2: 30, width: 2, color: COLOR },
+    ];
+
+    // Act / Assert
+    expect(inkExtent(commands)).toEqual({ top: 4, bottom: 31 });
+    expect(inkExtent([])).toBeUndefined();
   });
 });

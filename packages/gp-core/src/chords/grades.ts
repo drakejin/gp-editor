@@ -67,14 +67,42 @@ const pitchOf = (value: StringValue, context: VoicingContext): number => (contex
  * The notes from the lowest pitch up (string order breaks ties). TuxGuitar goes by string, lowest string first: the
  * same on a guitar, but a re-entrant tuning (ukulele) has its lowest note on an inner string.
  */
-export function byPitch(combination: readonly StringValue[], context: VoicingContext): readonly StringValue[] {
-  return [...combination].sort((a, b) => pitchOf(a, context) - pitchOf(b, context) || a.string - b.string);
+function byPitch(combination: readonly StringValue[], context: VoicingContext): readonly StringValue[] {
+  // An insertion sort: a voicing has a few notes, and a search sorts up to 120 000 of them (Array#sort calls back per comparison).
+  const sorted = [...combination];
+  for (let i = 1; i < sorted.length; i++) {
+    const value = sorted[i] as StringValue;
+    let j = i - 1;
+    for (let other = sorted[j]; other !== undefined && isBelow(value, other, context); other = sorted[j]) {
+      sorted[j + 1] = other;
+      j--;
+    }
+    sorted[j + 1] = value;
+  }
+  return sorted;
+}
+
+/** True when `a` sounds lower than `b`, or as low on a lower string. */
+function isBelow(a: StringValue, b: StringValue, context: VoicingContext): boolean {
+  const difference = pitchOf(a, context) - pitchOf(b, context);
+  return difference < 0 || (difference === 0 && a.string < b.string);
+}
+
+/** How many of the chord's own notes (distinct roles 0, 1, …) the voicing holds. */
+function requiredNotesFound(combination: readonly StringValue[]): number {
+  const roles: number[] = [];
+  for (const value of combination) {
+    if (value.role >= 0 && !roles.includes(value.role)) {
+      roles.push(value.role);
+    }
+  }
+  return roles.length;
 }
 
 /** Points for having all the chord's own notes; a sus chord may miss its fifth for a small penalty. */
 function requiredNotesGrade(combination: readonly StringValue[], context: VoicingContext): number {
   const grade = context.grades.requiredBasics;
-  const found = new Set(combination.filter((value) => value.role >= 0).map((value) => value.role)).size;
+  const found = requiredNotesFound(combination);
   if (found === context.required.length) {
     return grade;
   }
@@ -91,14 +119,33 @@ function requiredNotesGrade(combination: readonly StringValue[], context: Voicin
 
 /** Points for strings in a row, a penalty for a skipped string. */
 function subsequentStringsGrade(combination: readonly StringValue[], context: VoicingContext): number {
-  const strings = combination.map((value) => value.string);
-  const span = Math.max(...strings) - Math.min(...strings) + 1;
-  return new Set(strings).size === span ? context.grades.subsequent : -context.grades.subsequent;
+  let lowest = Number.POSITIVE_INFINITY;
+  let highest = Number.NEGATIVE_INFINITY;
+  const strings: number[] = [];
+  for (const { string } of combination) {
+    lowest = Math.min(lowest, string);
+    highest = Math.max(highest, string);
+    if (!strings.includes(string)) {
+      strings.push(string);
+    }
+  }
+  return strings.length === highest - lowest + 1 ? context.grades.subsequent : -context.grades.subsequent;
 }
 
-/** Points when the lowest note is the bass the chord asks for. */
-function bassGrade(combination: readonly StringValue[], context: VoicingContext): number {
-  const lowest = byPitch(combination, context)[0];
+/** The fret played on each string (index 0 = the lowest), -1 where none is. */
+function stringFrets(combination: readonly StringValue[], context: VoicingContext): readonly number[] {
+  const frets = new Array<number>(context.tuning.length).fill(-1);
+  for (const value of combination) {
+    if (frets[value.string] === -1) {
+      frets[value.string] = value.fret;
+    }
+  }
+  return frets;
+}
+
+/** Points when the lowest note is the bass the chord asks for (`ordered`: the voicing byPitch). */
+function bassGrade(ordered: readonly StringValue[], context: VoicingContext): number {
+  const lowest = ordered[0];
   if (lowest === undefined) {
     return 0;
   }
@@ -120,13 +167,22 @@ function manyStringsGrade(combination: readonly StringValue[], context: VoicingC
 /** Points for a narrow hand: a short span, few fingers, a finger that can bar. */
 function fingeringGrade(combination: readonly StringValue[], context: VoicingContext): number {
   const grade = context.grades.fingering;
-  const positions = context.tuning.map((_, string) => combination.find((value) => value.string === string)?.fret ?? -1);
-  const fretted = positions.filter((fret) => fret > 0);
-  const min = fretted.length > 0 ? Math.min(...fretted) : context.maxFret + 2;
-  const max = Math.max(0, ...positions);
-  const maxCount = positions.filter((fret) => fret === max).length;
-  const hasOpenString = positions.includes(0);
-  const canBar = hasOpenString || positions.filter((fret) => fret === min).length >= 2;
+  const positions = stringFrets(combination, context);
+  // Loops rather than filters and spreads: a search grades up to 120 000 voicings.
+  let lowestFretted = Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (const fret of positions) {
+    lowestFretted = fret > 0 ? Math.min(lowestFretted, fret) : lowestFretted;
+    max = Math.max(max, fret);
+  }
+  const min = lowestFretted === Number.POSITIVE_INFINITY ? context.maxFret + 2 : lowestFretted;
+  let maxCount = 0;
+  let minCount = 0;
+  for (const fret of positions) {
+    maxCount += fret === max ? 1 : 0;
+    minCount += fret === min ? 1 : 0;
+  }
+  const canBar = positions.includes(0) || minCount >= 2;
   return (canBar ? grade / 8 : 0) + spreadGrade(Math.abs(max - min), min, maxCount, grade) + fingersGrade(positions, min, grade);
 }
 
@@ -157,23 +213,23 @@ function fingersGrade(positions: readonly number[], min: number, grade: number):
 
 /**
  * Points for theory: no extension below the root or within its octave, no slash bass above the bass, and every
- * extension present (the essential ones at least).
+ * extension present (the essential ones at least). `ordered`: the voicing byPitch.
  */
-function semanticsGrade(combination: readonly StringValue[], context: VoicingContext): number {
+function semanticsGrade(ordered: readonly StringValue[], context: VoicingContext): number {
   const grade = context.grades.goodChordSemantics;
-  const ordered = byPitch(combination, context);
   const tonicIndex = ordered.findIndex((value) => value.role === 0);
   const tonic = tonicIndex < 0 ? undefined : pitchOf(ordered[tonicIndex] as StringValue, context);
   const upper = ordered.slice(1);
-  const placement = upper.reduce((sum, value, index) => {
-    const bassPenalty = value.role === BASS_ROLE ? -grade : 0;
+  let placement = 0;
+  upper.forEach((value, index) => {
     if (value.role >= 0) {
-      return sum;
+      return;
     }
+    const bassPenalty = value.role === BASS_ROLE ? -grade : 0;
     const isBeforeTonic = tonic === undefined || tonicIndex > index + 1;
     const isLow = !isBeforeTonic && (tonic ?? 0) + PERFECT_OCTAVE_LESS_ONE > pitchOf(value, context);
-    return sum + bassPenalty + (isBeforeTonic ? -grade / 2 : isLow ? -grade / 3 : 0);
-  }, 0);
+    placement = placement + bassPenalty + (isBeforeTonic ? -grade / 2 : isLow ? -grade / 3 : 0);
+  });
   return placement + (context.extensionLevel === 0 ? 0 : extensionsGrade(upper, context));
 }
 
@@ -196,11 +252,13 @@ function extensionsGrade(upper: readonly StringValue[], context: VoicingContext)
 
 /** TuxGuitar's priority of a voicing: the sum of its grades. */
 export function voicingPriority(combination: readonly StringValue[], context: VoicingContext): number {
+  // Sorted once for the two grades that read the notes by pitch (a search grades up to 120 000 voicings).
+  const ordered = byPitch(combination, context);
   return (
     requiredNotesGrade(combination, context) +
-    semanticsGrade(combination, context) +
+    semanticsGrade(ordered, context) +
     subsequentStringsGrade(combination, context) +
-    bassGrade(combination, context) +
+    bassGrade(ordered, context) +
     manyStringsGrade(combination, context) +
     fingeringGrade(combination, context) +
     positionGrade(combination, context)

@@ -1,5 +1,6 @@
 // PDF export for the JS side: JS lays the score out into pages of DrawCommands (src/export/), this module draws each
-// page with GPCommandPainter — the code that draws the score on screen — into a PDF and saves it where the user says.
+// page with GPCommandPainter — the code that draws the score on screen — into a PDF and saves it where the user says
+// (savePdf), or at a path an MCP client gave (writePdf: no panel; the sandboxed app may write only where it is allowed).
 
 #import <AppKit/AppKit.h>
 #import <PDFKit/PDFKit.h>
@@ -7,7 +8,9 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #import "GPCommandPainter.h"
+#import "GPRecentFiles.h"
 #import "GPSandbox.h"
+#import "GPAppStrings.h"
 
 @interface GPPdfExport : NSObject <RCTBridgeModule>
 @end
@@ -85,7 +88,7 @@ RCT_EXPORT_METHOD(savePdf : (NSString *)documentJson suggestedName : (NSString *
 {
   NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
   if (document == nil) {
-    reject(@"bad_document", @"Nothing to export", nil);
+    reject(@"bad_document", GPLocalizedString(@"Nothing to export"), nil);
     return;
   }
   NSURL *destination = [GPPdfExport destinationFor:suggestedName];
@@ -95,10 +98,33 @@ RCT_EXPORT_METHOD(savePdf : (NSString *)documentJson suggestedName : (NSString *
   }
   NSError *error = nil;
   if (![[GPPdfExport pdfDataFor:document] writeToURL:destination options:NSDataWritingAtomic error:&error]) {
-    reject(@"write_failed", error.localizedDescription ?: @"Could not save the PDF", error);
+    reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not save the PDF"), error);
     return;
   }
   resolve(@{@"name" : destination.lastPathComponent, @"path" : destination.path});
+}
+
+/** The pages written as a PDF at `path`, without a panel (the MCP server's export_file); a recent file through its bookmark. */
+RCT_EXPORT_METHOD(writePdf : (NSString *)documentJson path : (NSString *)path resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
+  if (document == nil) {
+    reject(@"bad_document", GPLocalizedString(@"Nothing to export"), nil);
+    return;
+  }
+  NSData *data = [GPPdfExport pdfDataFor:document];
+  __block BOOL isWritten = NO;
+  __block NSError *writeError = nil;
+  GPWithRecentFileAccess(path, ^{
+    NSError *error = nil;
+    isWritten = [data writeToFile:path options:NSDataWritingAtomic error:&error];
+    writeError = error;
+  });
+  if (!isWritten) {
+    reject(@"write_failed", writeError.localizedDescription ?: GPLocalizedString(@"Could not save the PDF"), writeError);
+    return;
+  }
+  resolve(@{@"name" : path.lastPathComponent, @"path" : path});
 }
 
 /** The system print panel for the pages (printer, copies, or Save as PDF); resolves whether they were printed. */
@@ -106,14 +132,14 @@ RCT_EXPORT_METHOD(printPdf : (NSString *)documentJson resolve : (RCTPromiseResol
 {
   NSDictionary *document = [GPPdfExport documentFromJson:documentJson];
   if (document == nil) {
-    reject(@"bad_document", @"Nothing to print", nil);
+    reject(@"bad_document", GPLocalizedString(@"Nothing to print"), nil);
     return;
   }
   PDFDocument *pdf = [[PDFDocument alloc] initWithData:[GPPdfExport pdfDataFor:document]];
   NSPrintInfo *info = [[NSPrintInfo sharedPrintInfo] copy];
   NSPrintOperation *operation = [pdf printOperationForPrintInfo:info scalingMode:kPDFPrintPageScaleToFit autoRotate:YES];
   if (operation == nil) {
-    reject(@"print_failed", @"Could not print the score", nil);
+    reject(@"print_failed", GPLocalizedString(@"Could not print the score"), nil);
     return;
   }
   NSString *title = document[@"title"];

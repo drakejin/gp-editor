@@ -191,6 +191,21 @@ describe('gpifToSong: master bars', () => {
     expect(song.measureHeaders.map((h) => h.tempo)).toEqual([50, 150, 200, 300, 90, 140, 140]);
   });
 
+  it('reads decimal tempos and converts other references exactly, to two decimals', () => {
+    // Arrange
+    const automation = (bar: number, value: string) =>
+      `<Automation><Type>Tempo</Type><Bar>${bar}</Bar><Position>0</Position><Value>${value}</Value></Automation>`;
+    const head = '<MasterTrack><Automations>'
+      + automation(0, '92.5 2') + automation(1, '121 1') + automation(2, '61 3') + automation(3, '100.333 2') + '</Automations></MasterTrack>';
+    const bars = Array.from({ length: 4 }, () => masterBar('0')).join('');
+
+    // Act
+    const song = toSong({ head, masterBars: bars });
+
+    // Assert
+    expect(song.measureHeaders.map((h) => h.tempo)).toEqual([92.5, 60.5, 91.5, 100.33]);
+  });
+
   it('defaults to 120 bpm, keeps triplet feel, markers, clefs and ignores out-of-range key signatures', () => {
     // Arrange
     const bars = masterBar('0', '<TripletFeel>Triplet8th</TripletFeel><Key><AccidentalCount>-9</AccidentalCount></Key>'

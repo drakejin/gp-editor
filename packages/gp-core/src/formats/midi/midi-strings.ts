@@ -125,19 +125,33 @@ function nearestFreeString(free: readonly number[], preferred: number): number |
   return best;
 }
 
-/** allocatePercussionNotesToStrings for one beat: each drum on its preferred string, else the nearest free one, else dropped. */
-export function placePercussionNotes(notes: readonly RawNote[], previous: readonly Note[]): Note[] {
-  const preferredOf = (raw: RawNote): number => DRUM_STRINGS.get(raw.pitch) ?? DEFAULT_DRUM_STRING;
-  const ordered = [...notes].sort((a, b) => preferredOf(a) - preferredOf(b));
+/**
+ * allocatePercussionNotesToStrings' strings for one beat's drum keys, in the keys' order: each drum on its preferred
+ * string, else the nearest free one; undefined for a drum left without one (more drums than strings).
+ */
+export function percussionStrings(keys: readonly number[]): readonly (number | undefined)[] {
+  const preferredOf = (key: number): number => DRUM_STRINGS.get(key) ?? DEFAULT_DRUM_STRING;
+  const order = keys.map((_, index) => index).sort((a, b) => preferredOf(keys[a] ?? 0) - preferredOf(keys[b] ?? 0));
+  const strings: (number | undefined)[] = keys.map(() => undefined);
   let free: readonly number[] = Array.from({ length: PERCUSSION_STRING_COUNT }, (_, index) => index + 1);
-  const placed: Note[] = [];
-  for (const raw of ordered) {
-    const preferred = preferredOf(raw);
+  for (const index of order) {
+    const preferred = preferredOf(keys[index] ?? 0);
     const string = free.includes(preferred) ? preferred : nearestFreeString(free, preferred);
     if (string !== undefined) {
       free = free.filter((other) => other !== string);
-      placed.push(newNote(raw, string, raw.pitch, previous));
+      strings[index] = string;
     }
   }
-  return placed.sort((a, b) => a.string - b.string);
+  return strings;
+}
+
+/** allocatePercussionNotesToStrings for one beat: each drum on its preferred string, else the nearest free one, else dropped. */
+export function placePercussionNotes(notes: readonly RawNote[], previous: readonly Note[]): Note[] {
+  const strings = percussionStrings(notes.map((raw) => raw.pitch));
+  return notes
+    .flatMap((raw, index) => {
+      const string = strings[index];
+      return string === undefined ? [] : [newNote(raw, string, raw.pitch, previous)];
+    })
+    .sort((a, b) => a.string - b.string);
 }

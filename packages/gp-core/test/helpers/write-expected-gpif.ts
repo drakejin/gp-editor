@@ -1,3 +1,4 @@
+import { instrumentIconId, normalizeIconId, normalizeShortName, trackShortName } from '../../src/edit/track-properties';
 import { createChannelName } from '../../src/formats/common/channels';
 import {
   DEFAULT_CHANNEL,
@@ -10,11 +11,12 @@ import {
   QUARTER,
   RED,
   STROKE_VALUES,
+  roundTempo,
 } from '../../src/model/defaults';
 import {
+  type AudioTrack,
   type Beat,
   type Bend,
-  type BendPoint,
   type Channel,
   type Chord,
   type Duration,
@@ -25,6 +27,7 @@ import {
   type Note,
   type NoteEffect,
   type NoteValue,
+  type PedalMark,
   QUARTER_TIME,
   type SlideType,
   type Song,
@@ -34,6 +37,9 @@ import {
   type Tuplet,
   type Voice,
 } from '../../src/model/song';
+import { MUSICAL_DIRECTIONS } from '../../src/formats/common/directions';
+import { AUDIO_TRACK_NAME, normalizeSyncPoints } from '../../src/audio-track/audio-track';
+import { normalizeBeamGrouping } from '../../src/model/beaming';
 import { expectedCurve } from './write-expected-curves';
 
 /*
@@ -49,17 +55,25 @@ import { expectedCurve } from './write-expected-curves';
  *   from their program by the reader; no chorus, reverb, phaser or tremolo (GPIF has RSE effects instead); percussion
  *   channels all play on MIDI channel 10, so they read back as one (program 0, bank 128); channels no track uses are gone;
  * - tracks: solo wins over mute; lyrics only with some text; the key signature is the measure header's (the first
- *   pitched track's, 0 on percussion tracks);
- * - measure headers: marker colours are red (GPIF sections have none); tempos are whole numbers;
+ *   pitched track's, 0 on percussion tracks); a short name the (sanitized) name makes redundant and an icon its
+ *   instrument read back gives are none;
+ * - measure headers: marker colours are red (GPIF sections have none); tempos keep two decimals, at least 1;
  * - beats: four voices, empty ones the reader's placeholder (an empty quarter); beats without a voice are gone; voice
  *   directions (stem orientations) are not read; strokes at 4…128 (32 for a stroke without speed); measure 1, when its
  *   voices do not fill it, is laid out against its end (the reader's anacrusis);
  * - per voice (GPIF keeps them per beat): one dynamic (the first note's, on the eight dynamics), the whammy bar and
- *   tremolo picking of the first note that has one, slap / pop / fade in when any note has them, one grace duration,
- *   dynamic and placement (the first grace's);
+ *   tremolo picking of the first note that has one, slap / pop when any note has them, one fade (fade in, else fade
+ *   out, else volume swell, when a note has it), one grace duration, dynamic and placement (the first grace's);
+ * - marks: directions each once in GP5's order; sustain pedal marks inside their bar, a release before a press at the
+ *   same place;
  * - effects: bend and whammy curves as the reader can read them back (write-expected-curves.ts); tremolo picking at
  *   8/16/32; trill speeds as plain durations; slides in flag order; artificial harmonics on the harmonic table's frets,
- *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot.
+ *   tapped ones at or above the note, the others without data; a double-dotted dotted duration keeps its single dot;
+ * - the audio track (written only with its audio file, writeSong's `audioTrackData`; a song read from GP8 keeps it all):
+ *   the volume to six decimals, solo wins over mute, the start and the sync points on Guitar Pro's 44.1 kHz frames;
+ * - notes: no audio settings (play duration, start offset, velocity change: GPIF has no property for them).
+ * - notation marks: no cautionary or forced accidental (accidentalDisplay); a bar's beam grouping only when it is not
+ *   the time signature's own; a track's slash notation only when on.
  */
 
 const CONTROL_CHARACTERS = /[\ud800-\udbff][\udc00-\udfff]|[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\ud800-\udfff]/g;
@@ -143,12 +157,16 @@ function expectedChannels(song: Song): ChannelPlan {
 }
 
 function expectedHeader(header: MeasureHeader, start: number): MeasureHeader {
-  const { marker, ...rest } = header;
+  const { marker, directions, beamGrouping: grouping, ...rest } = header;
   const title = marker === undefined ? '' : sanitized(marker.title).replaceAll('\n', '').trim();
+  const sorted = MUSICAL_DIRECTIONS.filter((direction) => directions?.includes(direction) === true);
+  const beamGrouping = normalizeBeamGrouping(grouping, header.timeSignature);
   return {
     ...rest,
+    ...(sorted.length === 0 ? {} : { directions: sorted }),
+    ...(beamGrouping === undefined ? {} : { beamGrouping }),
     start,
-    tempo: Math.max(1, Math.round(header.tempo)),
+    tempo: Math.max(1, roundTempo(header.tempo)),
     repeatAlternative: header.repeatAlternative & 0x7fffffff,
     ...(title === '' ? {} : { marker: { title, color: RED } }),
   };
@@ -207,8 +225,18 @@ interface VoiceShared {
   readonly tremoloPicking: Duration | undefined;
   readonly slapping: boolean;
   readonly popping: boolean;
-  readonly fadeIn: boolean;
+  readonly fade: 'in' | 'out' | 'swell' | undefined;
   readonly grace: Grace | undefined;
+}
+
+function voiceFade(notes: readonly Note[]): VoiceShared['fade'] {
+  if (notes.some((note) => note.effect.fadeIn)) {
+    return 'in';
+  }
+  if (notes.some((note) => note.effect.fadeOut === true)) {
+    return 'out';
+  }
+  return notes.some((note) => note.effect.volumeSwell === true) ? 'swell' : undefined;
 }
 
 function voiceShared(notes: readonly Note[]): VoiceShared {
@@ -219,13 +247,13 @@ function voiceShared(notes: readonly Note[]): VoiceShared {
     tremoloPicking: picking === undefined ? undefined : plainDuration(nearest([8, 16, 32], picking.value) as NoteValue),
     slapping: notes.some((note) => note.effect.slapping),
     popping: notes.some((note) => note.effect.popping),
-    fadeIn: notes.some((note) => note.effect.fadeIn),
+    fade: voiceFade(notes),
     grace: notes.find((note) => note.effect.grace !== undefined)?.effect.grace,
   };
 }
 
 function expectedEffect(note: Note, shared: VoiceShared, tuning: number, capo: number): NoteEffect {
-  const { bend, tremoloBar: _bar, tremoloPicking: _picking, harmonic, grace, trill, ...rest } = note.effect;
+  const { bend, tremoloBar: _bar, tremoloPicking: _picking, harmonic, grace, trill, fadeOut: _out, volumeSwell: _swell, ...rest } = note.effect;
   const trillPitch = trill === undefined ? 0 : tuning + capo + note.fret + trill.fret - note.fret;
   const expectedBend = bend === undefined ? undefined : expectedCurve(bend, 'bend');
   const expectedBar = shared.tremoloBar === undefined ? undefined : expectedCurve(shared.tremoloBar, 'whammy');
@@ -243,7 +271,9 @@ function expectedEffect(note: Note, shared: VoiceShared, tuning: number, capo: n
     vibrato: rest.vibrato && !rest.wideVibrato,
     slapping: shared.slapping,
     popping: shared.popping,
-    fadeIn: shared.fadeIn,
+    fadeIn: shared.fade === 'in',
+    ...(shared.fade === 'out' ? { fadeOut: true } : {}),
+    ...(shared.fade === 'swell' ? { volumeSwell: true } : {}),
   };
 }
 
@@ -255,7 +285,8 @@ interface TrackRules {
 function expectedNote(note: Note, shared: VoiceShared, rules: TrackRules): Note {
   const tuning = rules.isPercussion ? 0 : (rules.track.strings.find((s) => s.number === note.string)?.tuning ?? 0);
   const capo = rules.isPercussion ? 0 : rules.track.offset;
-  return { ...note, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
+  const { audio: _audio, accidentalDisplay: _dropped, ...kept } = note;
+  return { ...kept, velocity: shared.velocity, effect: expectedEffect(note, shared, tuning, capo) };
 }
 
 function isNormal(tuplet: Tuplet): boolean {
@@ -282,6 +313,8 @@ function expectedVoice(voice: Voice | undefined, rules: TrackRules): Voice {
     notes: voice.notes.map((note) => expectedNote(note, shared, rules)),
     isEmpty: false,
     direction: 'none',
+    ...(voice.isSlashed === true ? { isSlashed: true } : {}),
+    ...(voice.beamToNext === undefined ? {} : { beamToNext: voice.beamToNext }),
   };
 }
 
@@ -333,24 +366,54 @@ function anacrusisStarts(beats: readonly Beat[], header: MeasureHeader): Beat[] 
   return beats.map((beat) => ({ ...beat, start: beat.start + shift }));
 }
 
+/** Pedal marks inside the bar (the reader clamps the position), a release before a press at the same place. */
+function expectedPedals(pedals: readonly PedalMark[] | undefined, header: MeasureHeader): readonly PedalMark[] | undefined {
+  if (pedals === undefined || pedals.length === 0) {
+    return undefined;
+  }
+  const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
+  const inside = pedals.map((pedal) => ({ ...pedal, offset: Math.min(length, Math.max(0, pedal.offset)) }));
+  return inside.sort((a, b) => a.offset - b.offset || (a.action === b.action ? 0 : a.action === 'up' ? -1 : 1));
+}
+
 function expectedMeasure(measure: Measure, header: MeasureHeader, rules: TrackRules, keySignature: number): Measure {
   const beats = measure.beats.filter(hasVoice).map((beat) => expectedBeat(beat, rules));
+  const { pedals: _pedals, ...rest } = measure;
+  const pedals = expectedPedals(measure.pedals, header);
   return {
-    ...measure,
+    ...rest,
+    ...(pedals === undefined ? {} : { pedals }),
     keySignature: rules.isPercussion ? 0 : keySignature,
     beats: header.number === 1 ? anacrusisStarts(beats, header) : beats,
   };
 }
 
+/**
+ * The short name and icon read back. The writer writes the name abbreviated and the instrument's icon when the track has
+ * none; the reader takes them as none — unless the channel read back plays another program (merged channels).
+ */
+function expectedAppearance(track: Track, song: Song, name: string, channel: Channel | undefined): Pick<Track, 'shortName' | 'iconId'> {
+  const shortName = normalizeShortName(sanitized(trackShortName(track)), name);
+  const written = channel?.isPercussion === true ? undefined : song.channels.find((candidate) => candidate.id === track.channelId);
+  const isPercussion = channel?.isPercussion ?? false;
+  const writtenIcon = track.iconId ?? instrumentIconId({ name: track.name, isPercussion }, written ?? { ...DEFAULT_CHANNEL, isPercussion });
+  const iconId = normalizeIconId(writtenIcon, instrumentIconId({ name, isPercussion }, channel));
+  return { ...(shortName === undefined ? {} : { shortName }), ...(iconId === undefined ? {} : { iconId }) };
+}
+
 function expectedTrack(track: Track, song: Song, plan: ChannelPlan, keys: readonly number[], headers: readonly MeasureHeader[]): Track {
   const channelId = plan.ids.get(track.channelId) ?? track.channelId;
-  const isPercussion = plan.channels.find((channel) => channel.id === channelId)?.isPercussion ?? false;
+  const channel = plan.channels.find((candidate) => candidate.id === channelId);
+  const isPercussion = channel?.isPercussion ?? false;
   const rules: TrackRules = { track, isPercussion };
-  const { lyrics, ...rest } = track;
+  const { lyrics, hasSlashNotation, shortName: _shortName, iconId: _iconId, ...rest } = track;
   const lyricsText = lyrics === undefined ? '' : sanitized(lyrics.text);
+  const name = sanitized(track.name).replaceAll('\n', '').trim();
   return {
     ...rest,
-    name: sanitized(track.name).replaceAll('\n', '').trim(),
+    ...(hasSlashNotation === true ? { hasSlashNotation } : {}),
+    name,
+    ...expectedAppearance(track, song, name, channel),
     channelId,
     isPercussion,
     mute: track.mute && !track.solo,
@@ -370,6 +433,24 @@ function keySignatures(song: Song): readonly number[] {
   });
 }
 
+/** Seconds on Guitar Pro's frames of 44.1 kHz. */
+function onFrames(seconds: number): number {
+  return Math.round(seconds * 44100) / 44100 || 0;
+}
+
+function expectedAudioTrack(track: AudioTrack): AudioTrack {
+  const name = sanitized(track.name).trim();
+  return {
+    ...track,
+    name: name === '' ? AUDIO_TRACK_NAME : name,
+    originalFilePath: sanitized(track.originalFilePath),
+    volume: Number(track.volume.toFixed(6)),
+    mute: track.mute && !track.solo,
+    startSeconds: onFrames(track.startSeconds),
+    syncPoints: normalizeSyncPoints(track.syncPoints.map((point) => ({ ...point, seconds: onFrames(point.seconds) }))),
+  };
+}
+
 /** The song a 'gp' round trip of `song` should read back. */
 export function expectedAfterGp(song: Song): Song {
   const plan = expectedChannels(song);
@@ -377,6 +458,7 @@ export function expectedAfterGp(song: Song): Song {
   const keys = keySignatures(song);
   return {
     ...song,
+    ...(song.audioTrack === undefined ? {} : { audioTrack: expectedAudioTrack(song.audioTrack) }),
     info: expectedInfo(song.info),
     channels: plan.channels,
     measureHeaders: headers,

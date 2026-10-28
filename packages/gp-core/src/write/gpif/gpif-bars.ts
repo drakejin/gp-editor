@@ -173,8 +173,9 @@ function writeItem(builder: PoolBuilder, item: VoiceItem, voiceIndex: number, co
   const noteIds = writeNotes(builder, item, voiceIndex, context);
   const rhythmId = builder.rhythm(item.voice.duration);
   const carrier = carrierOf(item, voiceIndex, context.plan);
-  const key = beatNodeKey(item.voice, rhythmId, noteIds, carrier);
-  const beatId = builder.addShared(builder.beats, key, (id) => beatNode(id, item.voice, rhythmId, noteIds, carrier));
+  const { ottava } = item.beat;
+  const key = beatNodeKey(item.voice, rhythmId, noteIds, carrier, ottava);
+  const beatId = builder.addShared(builder.beats, key, (id) => beatNode(id, item.voice, rhythmId, noteIds, carrier, ottava));
   return graceId === undefined ? [beatId] : [graceId, beatId];
 }
 

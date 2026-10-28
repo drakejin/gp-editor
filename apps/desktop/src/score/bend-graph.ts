@@ -1,22 +1,5 @@
-import type { Bend } from '@gp-editor/core';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
-
-/** The bend panel's graph, in points: positions 0–12 across, quarter tones up. */
-export const BEND_GRAPH = {
-  width: 320,
-  height: 150,
-  left: 40,
-  top: 14,
-  plotWidth: 264,
-  plotHeight: 116,
-  /** Bend positions run 0…12 across the note (TuxGuitar's units). */
-  lastPosition: 12,
-  dotRadius: 3.5,
-  lineWidth: 2,
-  gridWidth: 0.5,
-  labelSize: 10,
-} as const;
 
 /** The amount in tones as Guitar Pro writes it: ¼, ½, ¾, full, 1¼ … */
 export function bendAmountLabel(quarterTones: number): string {
@@ -26,43 +9,6 @@ export function bendAmountLabel(quarterTones: number): string {
     return rest;
   }
   return whole === 1 && rest === '' ? 'full' : `${whole}${rest}`;
-}
-
-function gridLines(maxValue: number, palette: Palette): DrawCommand[] {
-  const { left, top, plotWidth, plotHeight, lastPosition, gridWidth } = BEND_GRAPH;
-  const columns = [0, 3, 6, 9, 12].map((position) => {
-    const x = left + (position / lastPosition) * plotWidth;
-    return { kind: 'line' as const, x1: x, y1: top, x2: x, y2: top + plotHeight, width: gridWidth, color: palette.chromeRaised };
-  });
-  const rows = Array.from({ length: maxValue + 1 }, (_, value) => {
-    const y = top + plotHeight - (value / maxValue) * plotHeight;
-    return { kind: 'line' as const, x1: left, y1: y, x2: left + plotWidth, y2: y, width: gridWidth, color: palette.chromeRaised };
-  });
-  const labels = [Math.ceil(maxValue / 2), maxValue].map((value) => ({
-    kind: 'text' as const,
-    x: left - 6,
-    y: top + plotHeight - (value / maxValue) * plotHeight,
-    text: bendAmountLabel(value),
-    size: BEND_GRAPH.labelSize,
-    color: palette.chromeMuted,
-    font: 'ui' as const,
-    align: 'right' as const,
-  }));
-  return [...columns, ...rows, ...labels];
-}
-
-/** The bend panel's graph: a grid up to `maxValue` quarter tones and the bend's curve with a dot on each point. */
-export function engraveBendGraph(bend: Bend | undefined, maxValue: number, palette: Palette): DrawCommand[] {
-  const { left, top, plotWidth, plotHeight, lastPosition } = BEND_GRAPH;
-  const scale = Math.max(1, maxValue);
-  const at = (position: number, value: number) => ({ x: left + (position / lastPosition) * plotWidth, y: top + plotHeight - (value / scale) * plotHeight });
-  const points = (bend?.points ?? []).map((point) => at(point.position, point.value));
-  const segments: DrawCommand[] = points.slice(1).map((point, index) => {
-    const from = points[index] ?? point;
-    return { kind: 'line', x1: from.x, y1: from.y, x2: point.x, y2: point.y, width: BEND_GRAPH.lineWidth, color: palette.chromeAccent };
-  });
-  const dots: DrawCommand[] = points.map((point) => ({ kind: 'circle', x: point.x, y: point.y, radius: BEND_GRAPH.dotRadius, color: palette.chromeText }));
-  return [...gridLines(scale, palette), ...segments, ...dots];
 }
 
 /** The vibrato panel's preview: a flat line, a slight wave or a wide one. */

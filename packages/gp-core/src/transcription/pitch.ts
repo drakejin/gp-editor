@@ -1,10 +1,8 @@
+import { letterPitchClass } from '../edit/key-spelling';
 import { lookupName } from '../formats/gpif/xml';
 
 const SEMITONES_PER_OCTAVE = 12;
 const MAX_MIDI_PITCH = 127;
-
-/** Semitones of each natural note above C. */
-const LETTER_SEMITONES: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 /** Accidentals as written in text or with music symbols. */
 const ACCIDENTAL_SEMITONES: Readonly<Record<string, number>> = {
@@ -32,7 +30,7 @@ const PITCH_PATTERN = /^([A-Ga-g])([^\d-]*)(-1|\d)$/;
  */
 export function parsePitch(text: string): number | undefined {
   const match = PITCH_PATTERN.exec(text.trim());
-  const letter = lookupName(LETTER_SEMITONES, match?.[1]?.toUpperCase());
+  const letter = letterPitchClass(match?.[1]?.toUpperCase());
   const accidental = lookupName(ACCIDENTAL_SEMITONES, match?.[2]);
   if (match === null || letter === undefined || accidental === undefined) {
     return undefined;

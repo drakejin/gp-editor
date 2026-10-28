@@ -1,8 +1,7 @@
-import type { Clef, Note, Track } from '@gp-editor/core';
-import { STAFF } from './metrics';
+import { type Clef, type Note, type Song, type Track, writtenTransposition } from '@gp-editor/core';
 
-/** The staff a measure is written on. Guitar and bass staves sound an octave below the written notes. */
-export type ClefKind = 'treble' | 'bass' | 'percussion';
+/** The staff a measure is written on. Guitar and bass staves sound an octave below the written notes (trackTransposition). */
+export type ClefKind = 'treble' | 'bass' | 'alto' | 'tenor' | 'percussion';
 export type PitchedClef = Exclude<ClefKind, 'percussion'>;
 
 export type Alter = -1 | 0 | 1;
@@ -18,11 +17,6 @@ export interface StaffPitch extends SpelledPitch {
   readonly isTied: boolean;
 }
 
-export interface DrumPlacement {
-  readonly position: number;
-  readonly isCross: boolean;
-}
-
 const OCTAVE = 12;
 const LETTERS = 7;
 const MAX_KEY = 7;
@@ -31,54 +25,21 @@ const LETTER_PITCH_CLASSES: readonly number[] = [0, 2, 4, 5, 7, 9, 11];
 /** Letters in the order a key signature adds sharps (F C G D A E B) and flats (B E A D G C F). */
 const SHARP_ORDER: readonly number[] = [3, 0, 4, 1, 5, 2, 6];
 const FLAT_ORDER: readonly number[] = [6, 2, 5, 1, 4, 0, 3];
-/** Guitar and bass music is written an octave above where it sounds. */
-const WRITTEN_OCTAVE = 12;
+/** Guitar music is written an octave above where it sounds: a track without a channel is written so. */
+export const GUITAR_TRANSPOSITION = 12;
 const FALLBACK_TUNING = 60;
-/** Diatonic step of the bottom line: E4 on the treble staff, G2 on the bass staff. */
+/** Diatonic step of the bottom line: E4 on the treble staff, G2 on the bass staff, F3 (alto) and D3 (tenor) under a C clef. */
 const BOTTOM_LINE_STEP: Readonly<Record<PitchedClef, number>> = {
   treble: 30,
   bass: 18,
+  alto: 24,
+  tenor: 22,
 };
 
 const ACCIDENTAL_OF: Readonly<Record<Alter, Accidental>> = {
   [-1]: 'flat',
   0: 'natural',
   1: 'sharp',
-};
-
-const CROSS = true;
-/** General MIDI drums on a five-line percussion staff (positions as on a treble staff). */
-const DRUM_PLACEMENTS: ReadonlyMap<number, DrumPlacement> = new Map(
-  (
-    [
-      [35, 0, !CROSS], // acoustic bass drum
-      [36, 1, !CROSS], // bass drum
-      [37, 5, CROSS], // side stick
-      [38, 5, !CROSS], // snare
-      [39, 5, CROSS], // hand clap
-      [40, 5, !CROSS], // electric snare
-      [41, 2, !CROSS], // low floor tom
-      [42, 9, CROSS], // closed hi-hat
-      [43, 3, !CROSS], // high floor tom
-      [44, -1, CROSS], // pedal hi-hat
-      [45, 4, !CROSS], // low tom
-      [46, 9, CROSS], // open hi-hat
-      [47, 6, !CROSS], // low-mid tom
-      [48, 6, !CROSS], // hi-mid tom
-      [49, 10, CROSS], // crash 1
-      [50, 7, !CROSS], // high tom
-      [51, 8, CROSS], // ride
-      [52, 10, CROSS], // china
-      [53, 8, CROSS], // ride bell
-      [55, 10, CROSS], // splash
-      [57, 10, CROSS], // crash 2
-      [59, 8, CROSS], // ride 2
-    ] as const
-  ).map(([drum, position, isCross]) => [drum, { position, isCross }]),
-);
-const UNKNOWN_DRUM: DrumPlacement = {
-  position: STAFF.middleLine,
-  isCross: false,
 };
 
 function mod(value: number, divisor: number): number {
@@ -137,23 +98,30 @@ export function staffPosition(step: number, clef: PitchedClef): number {
   return step - BOTTOM_LINE_STEP[clef];
 }
 
-/** Written MIDI pitch of a note: string tuning + capo + fret, an octave up. */
-export function writtenMidi(track: Track, note: Note): number {
-  const tuning = track.strings[note.string - 1]?.tuning ?? FALLBACK_TUNING;
-  return tuning + track.offset + note.fret + WRITTEN_OCTAVE;
-}
-
-/** Tenor and alto clefs are written on the treble staff; neutral clefs and drum tracks use the percussion staff. */
-export function clefKind(track: Track, clef: Clef): ClefKind {
-  if (track.isPercussion || clef === 'neutral') {
-    return 'percussion';
+/**
+ * Semitones a track's notes are written above their sound: an octave for guitars and basses, none for a ukulele, a piano,
+ * a voice or any other instrument, by its channel's program and its strings as Guitar Pro writes them (gp-core
+ * `writtenTransposition`).
+ */
+export function trackTransposition(song: Song, trackIndex: number): number {
+  const track = song.tracks[trackIndex];
+  const channel = song.channels.find((candidate) => candidate.id === track?.channelId);
+  if (track === undefined || channel === undefined) {
+    return GUITAR_TRANSPOSITION;
   }
-  return clef === 'bass' ? 'bass' : 'treble';
+  const tuning = track.strings.map((guitarString) => guitarString.tuning);
+  return writtenTransposition(channel.program, track.isPercussion || channel.isPercussion, tuning);
 }
 
-/** Staff position and notehead of a General MIDI drum note; unknown drums sit on the middle line. */
-export function drumPlacement(drumNote: number): DrumPlacement {
-  return DRUM_PLACEMENTS.get(drumNote) ?? UNKNOWN_DRUM;
+/** Written MIDI pitch of a note: string tuning + capo + fret, `transposition` above that sound (trackTransposition). */
+export function writtenMidi(track: Track, note: Note, transposition: number): number {
+  const tuning = track.strings[note.string - 1]?.tuning ?? FALLBACK_TUNING;
+  return tuning + track.offset + note.fret + transposition;
+}
+
+/** The staff of a clef; neutral clefs and drum tracks use the percussion staff. */
+export function clefKind(track: Track, clef: Clef): ClefKind {
+  return track.isPercussion || clef === 'neutral' ? 'percussion' : clef;
 }
 
 /**

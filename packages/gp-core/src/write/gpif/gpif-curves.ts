@@ -1,4 +1,5 @@
 // Bend and whammy curves for GPIF (no TuxGuitar counterpart): the inverse of the reader's parseBend / parseTremoloBar.
+import { CURVE_VALUE_RANGES, type CurveEffect, normalizeCurvePoints } from '../../edit/curve-points';
 import { BEND_MAX_POSITION, TREMOLO_BAR_LIMIT } from '../../formats/common/bend-units';
 import type { GpifBendCurve } from '../../formats/gpif/gpif-document';
 import { bendFromCurve, tremoloBarFromCurve } from '../../formats/gpif/gpif-note';
@@ -181,4 +182,19 @@ export function whammyCurveOf(tremoloBar: Bend): CompleteCurve {
     fitCurve(shape, candidates, build, tremoloBarFromCurve, points) ??
     build({ origin: undefined, middle: extremeRun(shape.interior), destination: undefined })
   );
+}
+
+/** The curve a Guitar Pro 7/8 (.gp) file keeps of `curve`: what the reader gives back for the curve the writer writes. */
+export function toGpifCurve(effect: CurveEffect, curve: Bend): Bend | undefined {
+  return effect === 'bend' ? bendFromCurve(bendCurveOf(curve)) : tremoloBarFromCurve(whammyCurveOf(curve));
+}
+
+/**
+ * Whether a .gp file keeps the curve's shape: its points (one per position, as the curve editor keeps them) read back
+ * the same. GPIF holds a start, a middle of one value at one or two places and an end, each with an offset.
+ */
+export function canGpifHoldCurve(effect: CurveEffect, curve: Bend): boolean {
+  const range = CURVE_VALUE_RANGES[effect];
+  const kept = normalizeCurvePoints(toGpifCurve(effect, curve)?.points ?? [], range);
+  return isSameCurve({ points: kept }, normalizeCurvePoints(curve.points, range));
 }

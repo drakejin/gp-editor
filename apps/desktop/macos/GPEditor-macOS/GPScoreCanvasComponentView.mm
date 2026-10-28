@@ -19,8 +19,13 @@ using namespace facebook::react;
 @property (nonatomic, copy) NSArray<NSDictionary *> *commands;
 @end
 
+/** A drawing that left a text out (no font) is drawn again this much later, at most kMaxRedraws times per command list. */
+static const NSTimeInterval kRedrawDelay = 0.25;
+static const NSInteger kMaxRedraws = 4;
+
 @implementation GPScoreCanvasDrawingView {
   GPCommandPainter *_painter;
+  NSInteger _redraws;
 }
 
 - (BOOL)isFlipped
@@ -36,6 +41,7 @@ using namespace facebook::react;
 - (void)setCommands:(NSArray<NSDictionary *> *)commands
 {
   _commands = [commands copy];
+  _redraws = 0;
   [self setNeedsDisplay:YES];
 }
 
@@ -44,7 +50,22 @@ using namespace facebook::react;
   if (_painter == nil) {
     _painter = [GPCommandPainter new];
   }
-  [_painter drawCommands:self.commands];
+  if (![_painter drawCommands:self.commands]) {
+    [self redrawLater];
+  }
+}
+
+/** AppKit made no font for a text this time: draw again a moment later, so the text shows once a font is made. */
+- (void)redrawLater
+{
+  if (_redraws >= kMaxRedraws) {
+    return;
+  }
+  _redraws += 1;
+  __weak GPScoreCanvasDrawingView *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRedrawDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [weakSelf setNeedsDisplay:YES];
+  });
 }
 
 @end
@@ -56,6 +77,10 @@ using namespace facebook::react;
 
 @implementation GPScoreCanvasComponentView {
   GPScoreCanvasDrawingView *_canvas;
+  /// The canvas was emptied for recycling: the next props draw even when their commands equal `_props`' (Fabric keeps
+  /// a recycled view's last props, so a row remounted with the same drawing — a track moved in the multitrack view —
+  /// would stay blank).
+  BOOL _isCleared;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -78,7 +103,8 @@ using namespace facebook::react;
 {
   const auto &previous = *std::static_pointer_cast<GPScoreCanvasProps const>(_props);
   const auto &next = *std::static_pointer_cast<GPScoreCanvasProps const>(props);
-  if (previous.commands != next.commands) {
+  if (_isCleared || previous.commands != next.commands) {
+    _isCleared = NO;
     NSData *json = [NSData dataWithBytes:next.commands.data() length:next.commands.size()];
     id parsed = json.length == 0 ? nil : [NSJSONSerialization JSONObjectWithData:json options:0 error:nil];
     _canvas.commands = [parsed isKindOfClass:[NSArray class]] ? parsed : @[];
@@ -90,6 +116,7 @@ using namespace facebook::react;
 {
   [super prepareForRecycle];
   _canvas.commands = @[];
+  _isCleared = YES;
 }
 
 @end

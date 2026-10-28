@@ -10,6 +10,11 @@ export function replaceAt<T>(items: readonly T[], index: number, item: T): reado
   return items.map((existing, i) => (i === index ? item : existing));
 }
 
+/** `items` with `item` inserted at `index`. */
+export function insertAt<T>(items: readonly T[], index: number, item: T): readonly T[] {
+  return [...items.slice(0, index), item, ...items.slice(index)];
+}
+
 /** True when both lists hold the same objects in the same order. */
 export function hasSameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   return a.length === b.length && a.every((item, i) => item === b[i]);

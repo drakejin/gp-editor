@@ -1,15 +1,19 @@
-import type {
-  Beat,
-  BendPoint,
-  HarmonicType,
-  Measure,
-  Note,
-  NoteEffect,
+import {
+  type Beat,
+  type BendPoint,
+  DEFAULT_STYLESHEET,
+  type HarmonicType,
+  type Measure,
+  type NotationStyle,
+  type Note,
+  type NoteEffect,
+  type SymbolLabel,
 } from '@gp-editor/core';
 import type { MeasureLayout } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawAlign, DrawCommand, LineCommand, TextCommand } from '../draw';
 import { hasPickStroke, tabPickStrokes } from './pick-strokes';
+import { rasgueadoLabel } from './rasgueado-label';
 import { dashedSpan, textWidth, wavyLine } from './shapes';
 import {
   type MusicGlyph,
@@ -43,7 +47,7 @@ export type TabMarkKind =
 type NoteMarkKind = Exclude<TabMarkKind, 'pickStroke'>;
 
 /** Lane order, nearest the staff first; pick strokes go outermost, like bowing marks. */
-const KIND_ORDER: readonly TabMarkKind[] = [
+export const TAB_MARK_KINDS: readonly TabMarkKind[] = [
   'labels',
   'vibrato',
   'trill',
@@ -53,17 +57,17 @@ const KIND_ORDER: readonly TabMarkKind[] = [
   'pickStroke',
 ];
 
-const SPAN_LABELS = { palmMute: 'P.M.', letRing: 'let ring' } as const;
 const HARMONIC_LABELS: Readonly<Partial<Record<HarmonicType, string>>> = {
   artificial: 'A.H.',
   pinch: 'P.H.',
   tapped: 'T.H.',
   semi: 'S.H.',
 };
-const TEXT_LABELS: ReadonlyArray<readonly [keyof NoteEffect, string]> = [
-  ['tapping', 'T'],
-  ['slapping', 'S'],
-  ['popping', 'P'],
+/** Effects written as words over the beat, by the stylesheet's labels (T, S, P by default). */
+const TEXT_LABELS: ReadonlyArray<readonly [keyof NoteEffect, SymbolLabel]> = [
+  ['tapping', 'tapping'],
+  ['slapping', 'slap'],
+  ['popping', 'pop'],
 ];
 
 const MARK = {
@@ -88,6 +92,8 @@ const HAS: Readonly<Record<NoteMarkKind, (effect: NoteEffect) => boolean>> = {
     e.slapping ||
     e.popping ||
     e.fadeIn ||
+    e.fadeOut === true ||
+    e.volumeSwell === true ||
     e.staccato ||
     e.accentuatedNote ||
     e.heavyAccentuatedNote ||
@@ -105,15 +111,21 @@ function beatNotes(beat: Beat | undefined): readonly Note[] {
   return beat?.voices.flatMap(voice => voice.notes) ?? [];
 }
 
+/** Whether the beat has a mark of `kind` (its notes looked at where they are: every beat of a track is asked, per kind). */
 function beatHas(beat: Beat | undefined, kind: TabMarkKind): boolean {
-  return kind === 'pickStroke'
-    ? hasPickStroke(beat)
-    : beatNotes(beat).some(note => HAS[kind](note.effect));
+  if (kind === 'labels' && beat?.rasgueado !== undefined) {
+    return true;
+  }
+  if (kind === 'pickStroke') {
+    return hasPickStroke(beat);
+  }
+  const has = HAS[kind];
+  return beat?.voices.some(voice => voice.notes.some(note => has(note.effect))) ?? false;
 }
 
 /** The kinds of marks in `measures`, in lane order: pass a row's measures to keep each kind at one height across the row. */
 export function tabMarkLanes(measures: readonly Measure[]): TabMarkKind[] {
-  return KIND_ORDER.filter(kind =>
+  return TAB_MARK_KINDS.filter(kind =>
     measures.some(measure => measure.beats.some(beat => beatHas(beat, kind))),
   );
 }
@@ -128,6 +140,12 @@ export interface TabMarksContext {
   readonly marksY: number;
   readonly markLanes?: readonly TabMarkKind[];
   readonly palette: Palette;
+  /** The stylesheet's labels and whether symbol lines go on over rests; the defaults when absent. */
+  readonly notation?: NotationStyle;
+}
+
+function labelsOf(context: Pick<TabMarksContext, 'notation'>): NotationStyle['labels'] {
+  return (context.notation ?? DEFAULT_STYLESHEET.notation).labels;
 }
 
 /** Consecutive beats (positions in layout order) with one kind of mark. */
@@ -138,8 +156,20 @@ interface Run {
   readonly goesOn: boolean;
 }
 
+/** No note in any voice of the beat. */
+function isRest(beat: Beat | undefined): boolean {
+  return beatNotes(beat).length === 0;
+}
+
+/** Whether every beat between two places of the layout (both left out) is a rest. */
+function restsBetween(context: TabMarksContext, from: number, to: number): boolean {
+  return context.layout.beats.slice(from + 1, Math.max(from + 1, to)).every((placed) => isRest(context.measure.beats[placed.beatIndex]));
+}
+
 function runs(context: TabMarksContext, kind: TabMarkKind): Run[] {
   const { layout, measure } = context;
+  // The stylesheet's "extend symbol lines over rests": a let ring or palm mute line bridges the rests between its notes.
+  const bridges = context.notation?.showsLinesOverRests === true && (kind === 'palmMute' || kind === 'letRing');
   const spans = layout.beats.reduce<
     ReadonlyArray<{ readonly first: number; readonly last: number }>
   >((found, beatLayout, position) => {
@@ -147,15 +177,17 @@ function runs(context: TabMarksContext, kind: TabMarkKind): Run[] {
       return found;
     }
     const previous = found[found.length - 1];
-    return previous !== undefined && previous.last === position - 1
+    const joins = previous !== undefined && (previous.last === position - 1 || (bridges && restsBetween(context, previous.last, position)));
+    return previous !== undefined && joins
       ? [...found.slice(0, -1), { ...previous, last: position }]
       : [...found, { first: position, last: position }];
   }, []);
+  const lastPosition = layout.beats.length - 1;
   return spans.map(span => ({
     ...span,
-    isContinued: span.first === 0 && beatHas(context.previousBeat, kind),
+    isContinued: (span.first === 0 || (bridges && restsBetween(context, -1, span.first))) && beatHas(context.previousBeat, kind),
     goesOn:
-      span.last === layout.beats.length - 1 &&
+      (span.last === lastPosition || (bridges && restsBetween(context, span.last, lastPosition + 1))) &&
       beatHas(context.nextMeasure?.beats[0], kind),
   }));
 }
@@ -218,7 +250,7 @@ function dashedSpans(
   y: number,
 ): DrawCommand[] {
   const color = context.palette.muted;
-  const text = SPAN_LABELS[kind];
+  const text = labelsOf(context)[kind];
   return runs(context, kind).flatMap(run => {
     const end = runEnd(context, run);
     const style = { hook: run.goesOn ? undefined : MARK.hook, color };
@@ -328,7 +360,7 @@ function whammy(context: TabMarksContext, y: number): DrawCommand[] {
     .filter(run => !run.isContinued)
     .map(run =>
       label(
-        'w/bar',
+        labelsOf(context).whammyBar,
         (layout.beats[run.first]?.x ?? 0) - MARK.whammyLabelGap,
         y,
         color,
@@ -418,10 +450,10 @@ function tremoloItem(effects: readonly NoteEffect[]): LabelItem[] {
       ];
 }
 
-function textItem(effects: readonly NoteEffect[]): LabelItem[] {
+function textItem(effects: readonly NoteEffect[], labels: NotationStyle['labels']): LabelItem[] {
   const words = [
     ...TEXT_LABELS.filter(([key]) => effects.some(e => e[key] === true)).map(
-      ([, word]) => word,
+      ([, name]) => labels[name],
     ),
     ...new Set(
       effects
@@ -443,34 +475,62 @@ function textItem(effects: readonly NoteEffect[]): LabelItem[] {
   ];
 }
 
+/** A small wedge: opening to the right (fade in, `opens`) or closing (fade out). */
+function wedge(x: number, y: number, color: string, opens: boolean): DrawCommand[] {
+  return [-1, 1].map(side => ({
+    kind: 'line',
+    x1: x,
+    y1: y + (opens ? 0 : side * MARK.hairpinOpening),
+    x2: x + MARK.hairpinLength,
+    y2: y + (opens ? side * MARK.hairpinOpening : 0),
+    width: MARK.lineWidth,
+    color,
+  }));
+}
+
+/** Fade in (<), fade out (>) or volume swell (<>), as Guitar Pro marks them over the tab. */
 function hairpinItem(effects: readonly NoteEffect[]): LabelItem[] {
-  if (!effects.some(e => e.fadeIn)) {
+  if (effects.some(e => e.fadeIn)) {
+    return [{ width: MARK.hairpinLength, draw: (x, y, color) => wedge(x, y, color, true) }];
+  }
+  if (effects.some(e => e.fadeOut === true)) {
+    return [{ width: MARK.hairpinLength, draw: (x, y, color) => wedge(x, y, color, false) }];
+  }
+  if (!effects.some(e => e.volumeSwell === true)) {
     return [];
   }
-  const draw = (x: number, y: number, color: string): DrawCommand[] =>
-    [-1, 1].map(side => ({
-      kind: 'line',
-      x1: x,
-      y1: y,
-      x2: x + MARK.hairpinLength,
-      y2: y + side * MARK.hairpinOpening,
-      width: MARK.lineWidth,
-      color,
-    }));
-  return [{ width: MARK.hairpinLength, draw }];
+  const draw = (x: number, y: number, color: string): DrawCommand[] => [
+    ...wedge(x, y, color, true),
+    ...wedge(x + MARK.hairpinLength, y, color, false),
+  ];
+  return [{ width: MARK.hairpinLength * 2, draw }];
+}
+
+/** "rasg." and the pattern's fingers (³ for a triplet, an. for an anapaest), over a rasgueado beat. */
+function rasgueadoItem(beat: Beat | undefined, labels: NotationStyle['labels']): LabelItem[] {
+  if (beat?.rasgueado === undefined) {
+    return [];
+  }
+  const text = rasgueadoLabel(beat.rasgueado, labels.rasgueado);
+  return [
+    {
+      width: textWidth(text, TAB_MARKS.fontSize),
+      draw: (x, y, color) => [label(text, x, y, color)],
+    },
+  ];
 }
 
 function beatLabels(context: TabMarksContext, y: number): DrawCommand[] {
   const color = context.palette.muted;
   return context.layout.beats.flatMap(beatLayout => {
-    const effects = beatNotes(context.measure.beats[beatLayout.beatIndex]).map(
-      note => note.effect,
-    );
+    const beat = context.measure.beats[beatLayout.beatIndex];
+    const effects = beatNotes(beat).map(note => note.effect);
     const items = [
       ...articulationItem(effects),
       ...tremoloItem(effects),
-      ...textItem(effects),
+      ...textItem(effects, labelsOf(context)),
       ...hairpinItem(effects),
+      ...rasgueadoItem(beat, labelsOf(context)),
     ];
     const start = {
       commands: [] as readonly DrawCommand[],

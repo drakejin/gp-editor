@@ -1,8 +1,7 @@
 // A note typed into an empty voice, after TuxGuitar's TGMeasureManager.addNote and autoCompleteSilences (LGPL-2.1).
-import { durationTicks } from '../model/defaults';
-import type { Measure, Note, Song } from '../model/song';
+import { durationTicks, headerTicks } from '../model/defaults';
+import type { Measure, Note, Song, Voice } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
-import { headerTicks } from './relayout';
 import { replaceAt, updateMeasure } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, measureGapRests, toBeats, toMeasureVoices } from './timeline';
 import { takeRestsAfter, trimTrailingRests } from './voice-fit';
@@ -49,19 +48,41 @@ export function fillEmptyVoice(song: Song, at: BeatAddress, note: Note): Song {
   if (location === undefined || !location.voice.isEmpty || duration === undefined) {
     return song;
   }
-  const { header, measure, beat, voice } = location;
-  const measureVoices = toMeasureVoices(measure, header.start, at.voiceIndex);
-  const events = measureVoices?.voices[at.voiceIndex];
-  const split = events === undefined ? undefined : splitAt(events, beat.start - header.start, measure);
-  if (measureVoices === undefined || split === undefined) {
+  return placeVoiceEvent(song, at, { ...location.voice, duration, notes: [note], isEmpty: false }, true);
+}
+
+/** Free time from `offset` on in a voice whose events from there are `after`: up to its next fixed event, else to the bar line. */
+function freeTicksFrom(after: VoiceEvents, offset: number, length: number): number {
+  const firstFixed = after.findIndex((event) => !isFreeRest(event));
+  return firstFixed < 0 ? Math.max(length - offset, eventsTicks(after)) : eventsTicks(after.slice(0, firstFixed));
+}
+
+/**
+ * New song where voice `at.voiceIndex` plays `voice` from where the addressed beat starts, in time the voice leaves
+ * empty or rests in (free rests are taken over, cut where needed), filled with rests to the bar lines. A later note of
+ * the voice moves right when `mayMoveNotes`; otherwise the same song when the free time there is too short. Same song
+ * when the position lies inside another event of that voice.
+ */
+export function placeVoiceEvent(song: Song, at: BeatAddress, voice: Voice, mayMoveNotes: boolean): Song {
+  const location = locateVoice(song, at);
+  if (location === undefined) {
     return song;
   }
-  const event: VoiceEvent = { voice: { ...voice, duration, notes: [note], isEmpty: false } };
+  const { header, measure, beat } = location;
+  const { duration } = voice;
+  const offset = beat.start - header.start;
+  const length = headerTicks(header);
+  const measureVoices = toMeasureVoices(measure, header.start, at.voiceIndex);
+  const events = measureVoices?.voices[at.voiceIndex];
+  const split = events === undefined ? undefined : splitAt(events, offset, measure);
+  if (measureVoices === undefined || split === undefined || (!mayMoveNotes && freeTicksFrom(split.after, offset, length) < durationTicks(duration))) {
+    return song;
+  }
+  const event: VoiceEvent = { voice };
   const placed = takeRestsAfter([...split.before, event, ...split.after], split.before.length, durationTicks(duration), duration);
   if (placed === undefined) {
     return song;
   }
-  const length = headerTicks(header);
   const filled = [...placed, ...(measureGapRests(measure, length - eventsTicks(placed)) ?? [])];
   const voices = replaceAt(measureVoices.voices, at.voiceIndex, trimTrailingRests(filled, length, duration));
   const beats = toBeats(header.start, { ...measureVoices, voices }, measure.beats);

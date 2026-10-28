@@ -1,8 +1,7 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import type { Palette } from '../theme';
+import { useT } from '../hooks/use-i18n';
+import { type Palette, STRIP_COLORS } from '../theme';
 
-const HINT_BACKGROUND = '#4A3B12';
-const HINT_TEXT = '#FFE08A';
 
 interface HintBarProps {
   readonly palette: Palette;
@@ -12,14 +11,15 @@ interface HintBarProps {
 
 /** Why the last edit did nothing, under the tab strip; a click dismisses it. */
 export function HintBar({ palette, message, onDismiss }: HintBarProps) {
+  const t = useT();
   return (
-    <Pressable onPress={onDismiss} tooltip="Dismiss" accessibilityRole="alert" style={[styles.bar, { borderColor: palette.chromeBorder }]}>
+    <Pressable onPress={onDismiss} tooltip={t('common.dismiss')} accessibilityRole="alert" style={[styles.bar, { borderColor: palette.chromeBorder }]}>
       <Text style={styles.text}>{message}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: HINT_BACKGROUND, paddingHorizontal: 14, paddingVertical: 5, borderBottomWidth: 1 },
-  text: { color: HINT_TEXT, fontSize: 12, fontWeight: '600' },
+  bar: { backgroundColor: STRIP_COLORS.hintBackground, paddingHorizontal: 14, paddingVertical: 5, borderBottomWidth: 1 },
+  text: { color: STRIP_COLORS.hintText, fontSize: 12, fontWeight: '600' },
 });

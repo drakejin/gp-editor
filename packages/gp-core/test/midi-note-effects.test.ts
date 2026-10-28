@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSong, renderMidi, type Song } from '../src/index';
+import { CURVE_VALUE_RANGES, TREMOLO_BAR_PRESETS, addCurvePoint, moveCurvePoint, readSong, renderMidi, setNoteTremoloBar, type Song } from '../src/index';
 import { loadFixture } from './helpers/fixtures';
 import { eventsOf, type MidiFile, type PlayedNote, playedNotes, readMidi } from './helpers/midi-reader';
 import { type BeatSpec, duration, type HeaderSpec, makeSong, note, type NoteSpec } from './helpers/midi-song';
@@ -111,6 +111,26 @@ describe('renderMidi tremolo bar, vibrato and slides', () => {
       '960:64',
       '960:64',
       '960:64',
+    ]);
+  });
+
+  it('plays a tremolo bar curve edited point by point in its shape: down, above the note, back', () => {
+    // Arrange: TuxGuitar's dip, its point moved and a point added (the tremolo bar panel's edits).
+    const range = CURVE_VALUE_RANGES.tremoloBar;
+    const points = addCurvePoint(moveCurvePoint(TREMOLO_BAR_PRESETS.dip.points, 1, { position: 3, value: -2 }, range), { position: 6, value: 1 }, range);
+    const song = setNoteTremoloBar(oneNote({ fret: 0, string: 1 }), { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 }, { points });
+
+    // Act
+    const events = bends(midi(song), 1);
+
+    // Assert: −2 quarter tones (64 − 5) at position 3 of 12 (tick 240), +1 (64 + 2) at 6 (tick 480), back to the centre
+    // by 12 (tick 960); one wheel step at a time in between.
+    expect(points.map((point) => [point.position, point.value])).toEqual([[0, 0], [3, -2], [6, 1], [12, 0]]);
+    expect(events).toEqual([
+      ...['0:64', '48:63', '96:62', '144:61', '192:60', '240:59'],
+      ...['240:59', '274:60', '308:61', '342:62', '376:63', '410:64', '444:65', '478:66'],
+      ...['480:66', '720:65', '960:64'],
+      ...['960:64', '960:64'],
     ]);
   });
 

@@ -1,7 +1,9 @@
 import type { GlyphKind } from './MusicIcon';
-import { type Beat, type Bend, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
+import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
 import type { NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
+import type { Palette } from '../../theme';
+import { withBarRests } from '../../state/empty-bars';
 import { type SongEdit, cursorVoice } from '../../state/song-edits';
 
 /** What the palette knows about the cursor: its note, voice, beat and bar. */
@@ -12,12 +14,24 @@ export interface PaletteContext {
   readonly beat?: Beat;
   readonly header?: MeasureHeader;
   readonly keySignature: number;
+  /** The cursor's measure (its sustain pedal marks). */
+  readonly measure?: Measure;
+  /** The measure before it (where the clef changes). */
+  readonly previousMeasure?: Measure;
+  /** Multivoice edition is on (the editor's, not the cursor's). */
+  readonly isMultivoice?: boolean;
+  /** Design Mode is on (the editor's). */
+  readonly isDesignMode?: boolean;
+  /** Beats are selected (the editor's): the tools over a selection act on it. */
+  readonly hasSelection?: boolean;
 }
 
-export function paletteContext(song: Song, cursor: StringAddress | undefined): PaletteContext {
+export function paletteContext(edited: Song, cursor: StringAddress | undefined): PaletteContext {
   if (cursor === undefined) {
     return { keySignature: 0 };
   }
+  // A bar without beats reads as the rest drawn there, which the tools act on.
+  const song = withBarRests(edited, cursor);
   const measure = song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex];
   return {
     cursor,
@@ -26,11 +40,13 @@ export function paletteContext(song: Song, cursor: StringAddress | undefined): P
     beat: measure?.beats[cursor.beatIndex],
     header: song.measureHeaders[cursor.measureIndex],
     keySignature: measure?.keySignature ?? 0,
+    measure,
+    previousMeasure: song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex - 1],
   };
 }
 
-/** What a tool needs to act on: the note at the cursor, its beat (voice), or its bar. */
-export type ToolScope = 'note' | 'beat' | 'bar';
+/** What a tool needs to act on: the note at the cursor, its beat (voice), its bar, or the note or the selected beats' notes. */
+export type ToolScope = 'note' | 'beat' | 'bar' | 'notes';
 
 /** A choice in a tool's option strip (bend presets, slide kinds, tuplet sizes …). */
 export interface PaletteOption {
@@ -48,10 +64,16 @@ export type PaletteRun =
   | { readonly kind: 'options'; readonly options: readonly PaletteOption[] }
   /** Opens a text field under the group (section name, beat text). */
   | { readonly kind: 'text'; readonly placeholder: string; readonly value: (context: PaletteContext) => string; readonly edit: (text: string) => SongEdit }
-  /** Opens the vibrato or bend panel for the note, as B and C do. */
+  /** Opens the vibrato, bend or tremolo bar panel for the note (B and C open the first two). */
   | { readonly kind: 'panel'; readonly panel: NotePanel }
   /** Opens the chord diagram panel for the beat, as K does. */
-  | { readonly kind: 'chordPanel' };
+  | { readonly kind: 'chordPanel' }
+  /** Opens the command palette's Expression Text (Tools ▸ Expression Text…). */
+  | { readonly kind: 'expressionText' }
+  /** Opens the annotation panel for the beat, as J does. */
+  | { readonly kind: 'annotationPanel' }
+  /** Opens the lyrics panel (Edit ▸ Lyrics…). */
+  | { readonly kind: 'lyricsPanel' };
 
 export interface PaletteTool {
   readonly id: string;
@@ -65,6 +87,10 @@ export interface PaletteTool {
   readonly scope: ToolScope;
   readonly isActive?: (context: PaletteContext) => boolean;
   readonly run: PaletteRun;
+  /** A fixed width, for a one-character face that must fit the end of a full row (the Beat group's >). */
+  readonly width?: number;
+  /** A colour strip under the face (each Voice button in its voice's colour). */
+  readonly tint?: (palette: Palette) => string;
 }
 
 /** "Label  [−] value [+]" for a bar setting. */
@@ -76,9 +102,15 @@ export interface PaletteStepper {
   readonly minus: SongEdit;
   readonly plus: SongEdit;
   readonly isEnabled?: (context: PaletteContext) => boolean;
+  /** A click on the value opens a text field to type it (the tempo, decimals allowed). */
+  readonly typed?: Omit<Extract<PaletteRun, { kind: 'text' }>, 'kind'>;
+  /** Drawn on the previous stepper's row, without its label (the time signature's two numbers); the label stays a command keyword. */
+  readonly isBesidePrevious?: boolean;
 }
 
 export interface PaletteGroup {
+  /** Stable whatever the language (the command palette's ids, React keys). */
+  readonly id: string;
   readonly title: string;
   readonly tools: readonly PaletteTool[];
   /** Every tool this wide, for an even grid (tools with a key need the room); default: as narrow as the face. */
@@ -94,14 +126,7 @@ export function isToolEnabled(tool: Pick<PaletteTool, 'scope'>, context: Palette
       return context.voice !== undefined;
     case 'bar':
       return context.header !== undefined;
+    case 'notes':
+      return context.note !== undefined || context.hasSelection === true;
   }
-}
-
-export function isSameBend(a: Bend | undefined, b: Bend | undefined): boolean {
-  return (
-    a !== undefined &&
-    b !== undefined &&
-    a.points.length === b.points.length &&
-    a.points.every((point, i) => point.position === b.points[i]?.position && point.value === b.points[i]?.value)
-  );
 }

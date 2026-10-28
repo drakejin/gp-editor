@@ -14,7 +14,7 @@ const MEASURE_RECORD = 8;
 /** A track record: the fields below, 12 tuning bytes, then the name. */
 const TRACK_TUNING_OFFSET = 20;
 const TRACK_NAME_OFFSET = 32;
-export const MAX_TEF_STRINGS = 12;
+const MAX_TEF_STRINGS = 12;
 /** A chord record: 7 frets, 7 unused bytes, a 17-byte name, the anchor fret and 4 padding bytes. */
 const CHORD_STRINGS = 7;
 const CHORD_NAME_OFFSET = 14;

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { DEFAULT_GATE_DB, SILENCE_DB } from '@gp-editor/core';
+import { useT } from '../../hooks/use-i18n';
 import { IN_TUNE_CENTS, isInTune, levelFraction, needleFraction } from '../../lib/tuner-display';
 import type { Palette } from '../../theme';
 
@@ -27,10 +28,11 @@ interface CentsNeedleProps {
 
 /** A strip from -50 to +50 cents: the in-tune zone in green around 0, the ticks, and the needle. */
 export function CentsNeedle({ palette, cents }: CentsNeedleProps) {
+  const t = useT();
   const zone = needleFraction(IN_TUNE_CENTS) - needleFraction(-IN_TUNE_CENTS);
   return (
     <View>
-      <View style={[styles.strip, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]} accessibilityLabel="Cents strip">
+      <View style={[styles.strip, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]} accessibilityLabel={t('tools.tuner.centsStrip')}>
         <View style={[styles.zone, { left: percent(needleFraction(-IN_TUNE_CENTS)), width: percent(zone) }]} />
         {TICKS.map((tick) => (
           <View key={tick} style={[tick === 0 ? styles.centreTick : styles.tick, { left: percent(needleFraction(tick)), backgroundColor: palette.chromeMuted }]} />
@@ -60,10 +62,11 @@ interface LevelMeterProps {
 
 /** The input level, -60 … 0 dBFS, lit green over the noise gate; the gate is a tick. */
 export function LevelMeter({ palette, levelDb }: LevelMeterProps) {
+  const t = useT();
   const isOverGate = levelDb >= DEFAULT_GATE_DB;
   const text = levelDb <= SILENCE_DB ? '– dB' : `${Math.round(levelDb)} dB`;
   return (
-    <View style={styles.meterRow} accessibilityLabel={`Input level ${text}`}>
+    <View style={styles.meterRow} accessibilityLabel={t('tools.tuner.inputLevel', { level: text })}>
       <View style={[styles.meter, { backgroundColor: palette.chromeDeep, borderColor: palette.chromeBorder }]}>
         <View style={[styles.fill, { width: percent(levelFraction(levelDb)), backgroundColor: isOverGate ? IN_TUNE_COLOR : palette.chromeMuted }]} />
         <View style={[styles.gate, { left: percent(levelFraction(DEFAULT_GATE_DB)), backgroundColor: palette.chromeText }]} />

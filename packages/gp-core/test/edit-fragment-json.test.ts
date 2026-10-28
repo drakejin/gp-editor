@@ -212,3 +212,103 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     expect(parsed?.items[0]?.stroke).toEqual(NO_STROKE);
   });
 });
+
+describe('parseBeatFragment: notation marks of a note', () => {
+  it('reads back fingers and a shown accidental', () => {
+    // Arrange
+    const marked: Note = { ...n(2, 3), leftFinger: 'annular', rightFinger: 'thumb', accidentalDisplay: 'cautionary' };
+    const fragment: BeatFragment = { isPercussion: false, items: [item([marked])] };
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)));
+
+    // Assert
+    expect(parsed).toEqual(fragment);
+  });
+
+  it.each([
+    ['leftFinger', 'pinky'],
+    ['rightFinger', 3],
+    ['accidentalDisplay', 'loud'],
+  ])('refuses a note whose %s is %o', (key, value) => {
+    // Act
+    const parsed = parseTampered((raw) => (rawNote(raw)[key] = value));
+
+    // Assert
+    expect(parsed).toBeUndefined();
+  });
+});
+
+describe('fragment marks', () => {
+  const marked = (extra: Partial<BeatFragmentItem>, effect: Partial<NoteEffect> = {}): BeatFragment => ({
+    isPercussion: false,
+    items: [{ duration: dur(4), notes: [{ ...n(1, 5), effect: { ...EMPTY_NOTE_EFFECT, ...effect } }], stroke: NO_STROKE, pickStroke: 'none', ...extra }],
+  });
+  const reparse = (fragment: BeatFragment) => parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)));
+  const rawOf = (fragment: BeatFragment) => JSON.parse(serializeBeatFragment(fragment)) as { items: { notes: { effect: Record<string, unknown> }[] }[] };
+
+  it('keeps a beat’s hairpin and rasgueado and a note’s fade out or volume swell', () => {
+    // Arrange
+    const fadeOut = marked({ hairpin: 'decrescendo', rasgueado: 'peiAnapaest' }, { fadeOut: true });
+    const swell = marked({}, { volumeSwell: true });
+
+    // Act / Assert
+    expect(reparse(fadeOut)).toEqual(fadeOut);
+    expect(reparse(swell)).toEqual(swell);
+  });
+
+  it('keeps a beat’s octave sign', () => {
+    // Arrange
+    const signed = marked({ ottava: '15mb' });
+
+    // Act / Assert
+    expect(reparse(signed)).toEqual(signed);
+  });
+
+  it('keeps a beat’s annotation, its text normalized as an edit stores it', () => {
+    // Arrange
+    const annotated = marked({ annotation: { text: 'Watch the bend\nsofter', placement: 'below' } });
+    const raw = rawOf(marked({}));
+
+    // Act
+    const loose = parseBeatFragment({ ...raw, items: [{ ...raw.items[0], annotation: { text: '\n  slow \r\n', placement: 'above' } }] });
+
+    // Assert
+    expect(reparse(annotated)).toEqual(annotated);
+    expect(loose?.items[0]?.annotation).toEqual({ text: 'slow', placement: 'above' });
+  });
+
+  it.each([
+    ['an unknown hairpin', { hairpin: 'swell' }],
+    ['an unknown rasgueado', { rasgueado: 'ii_1' }],
+    ['an unknown octave sign', { ottava: '22ma' }],
+    ['an annotation of no text', { annotation: { text: ' \n ', placement: 'above' } }],
+    ['an annotation whose text is no string', { annotation: { text: 7, placement: 'above' } }],
+    ['an annotation placed sideways', { annotation: { text: 'x', placement: 'left' } }],
+    ['an annotation that is no object', { annotation: 'x' }],
+    ['an annotation too long for an edit to keep', { annotation: { text: 'x'.repeat(5000), placement: 'above' } }],
+  ])('rejects %s', (_label, extra) => {
+    const raw = rawOf(marked({}));
+    expect(parseBeatFragment({ ...raw, items: [{ ...raw.items[0], ...extra }] })).toBeUndefined();
+  });
+
+  it('rejects a fade flag that is no boolean, and keeps one fade (fade in first)', () => {
+    // Arrange
+    const several = rawOf(marked({}, { fadeIn: true }));
+    const wrong = rawOf(marked({}));
+    const severalNote = several.items[0]?.notes[0];
+    const wrongNote = wrong.items[0]?.notes[0];
+    if (severalNote === undefined || wrongNote === undefined) {
+      throw new Error('no note');
+    }
+    severalNote.effect = { ...severalNote.effect, fadeOut: true, volumeSwell: true };
+    wrongNote.effect = { ...wrongNote.effect, volumeSwell: 'yes' };
+
+    // Act
+    const parsed = parseBeatFragment(several);
+
+    // Assert
+    expect(parsed?.items[0]?.notes[0]?.effect).toEqual({ ...EMPTY_NOTE_EFFECT, fadeIn: true });
+    expect(parseBeatFragment(wrong)).toBeUndefined();
+  });
+});

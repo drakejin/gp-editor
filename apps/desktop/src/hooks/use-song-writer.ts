@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Song } from '@gp-editor/core';
-import { plural } from '../lib/wording';
+import { t } from '../lib/i18n/i18n';
 import { sendMessages } from '../native/anthropic';
 import type { SongIdea } from '../song-writer/request';
 import { type SongWriterStep, writeSong } from '../song-writer/run-song-writer';
@@ -36,24 +36,24 @@ export interface SongWriter {
 }
 
 const IDLE: SongWriterStatus = { kind: 'idle' };
-const NEW_SONG_NAME = 'New song';
 
 /** "Planning the song…", "Writing Chorus, Verse 2… (3 of 8 sections done)". */
 export function stepLabel(step: SongWriterStep): string {
-  return step.kind === 'planning' ? 'Planning the song…' : `Writing ${step.writing.join(', ')}… (${step.written} of ${step.total} sections done)`;
+  return step.kind === 'planning' ? t('tools.songWriter.planning') : t('tools.songWriter.writing', { sections: step.writing.join(', '), written: step.written, total: step.total });
 }
 
 /** The document name of a written song: its title, without the characters a file name cannot hold. */
 export function songFileName(title: string): string {
   const name = title.trim().replace(/[/:]/g, '-');
-  return name === '' ? NEW_SONG_NAME : name;
+  return name === '' ? t('tools.songWriter.newSong') : name;
 }
 
 /** The hint strip's line about a written song: what it is, and the first of any warnings. */
 export function writtenSummary(song: Song, warnings: readonly string[]): string {
-  const what = `Song Writer: “${song.info.title || NEW_SONG_NAME}” — ${plural(song.measureHeaders.length, 'bar')}, ${plural(song.tracks.length, 'track')}`;
+  const bars = t('common.bars', { count: song.measureHeaders.length });
+  const what = t('tools.songWriter.summary', { title: song.info.title || t('tools.songWriter.newSong'), bars, tracks: t('common.tracks', { count: song.tracks.length }) });
   const first = warnings[0];
-  return first === undefined ? `${what}.` : `${what}. ${plural(warnings.length, 'note')}: ${first}${warnings.length > 1 ? ' …' : ''}`;
+  return first === undefined ? `${what}.` : `${what}. ${t('tools.songWriter.warnings', { count: warnings.length })}: ${first}${warnings.length > 1 ? ' …' : ''}`;
 }
 
 const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));

@@ -1,6 +1,8 @@
 import { memo, useDeferredValue, useMemo, useState } from 'react';
 import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { type Song, suggestTrackTunings } from '@gp-editor/core';
+import { useT } from '../hooks/use-i18n';
+import { tuningName } from '../lib/instruments';
 import { neckTitle, tuningHint } from '../lib/tuning-hint';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
@@ -30,6 +32,7 @@ function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDi
   const { channels } = song;
   const advice = useMemo(() => (advised === undefined ? undefined : suggestTrackTunings(advised, channels)), [advised, channels]);
   const [isOpen, setIsOpen] = useState(false);
+  const t = useT();
   if (advice === undefined || track === undefined || advice.instrument === 'percussion') {
     return null;
   }
@@ -38,11 +41,11 @@ function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDi
     <View style={[styles.container, { backgroundColor: palette.sidebar }, style]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>{neckTitle(advice, track)}</Text>
-        <BarButton label={isOpen ? 'Tunings ▴' : 'Tunings ▾'} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />
+        <BarButton label={`${t('window.neck.tunings')} ${isOpen ? '▴' : '▾'}`} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />
         {(isOpen ? advice.presets : []).map(({ preset, unplayableNotes }) => (
           <BarButton
             key={preset.id}
-            label={unplayableNotes === 0 ? `${preset.name} ✓` : preset.name}
+            label={unplayableNotes === 0 ? `${tuningName(preset)} ✓` : tuningName(preset)}
             palette={palette}
             isActive={advice.current?.id === preset.id}
             onPress={() => onSetTuning(preset.tuning)}
@@ -55,14 +58,14 @@ function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDi
             {hint.message} {hint.lead}
           </Text>
           {hint.presets.map((preset) => (
-            <BarButton key={preset.id} label={`Use ${preset.name}`} palette={palette} isAccent onPress={() => onSetTuning(preset.tuning)} />
+            <BarButton key={preset.id} label={t('window.neck.use', { tuning: tuningName(preset) })} palette={palette} isAccent onPress={() => onSetTuning(preset.tuning)} />
           ))}
         </View>
       )}
       {notice === undefined ? null : (
         <View style={styles.row}>
           <Text style={[styles.message, { color: palette.muted }]}>{notice}</Text>
-          <BarButton label="Dismiss" palette={palette} onPress={onDismissNotice} />
+          <BarButton label={t('common.dismiss')} palette={palette} onPress={onDismissNotice} />
         </View>
       )}
     </View>

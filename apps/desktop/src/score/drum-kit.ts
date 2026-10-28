@@ -1,4 +1,6 @@
-import { GM_DRUM_KEYS, gmPercussionName } from '@gp-editor/core';
+import { GM_DRUM_KEYS } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
+import { drumPieceLabel, gmPercussionLabel } from '../lib/instruments';
 import type { Palette } from '../theme';
 import { type DrawCommand, scaleCommands, translateCommands } from './draw';
 
@@ -6,14 +8,14 @@ import { type DrawCommand, scaleCommands, translateCommands } from './draw';
 export const DRUM_KIT = { width: 600, height: 172, labelSize: 9, smallLabelSize: 8 } as const;
 
 /** Drums and cymbals have their colours whatever the theme, as the piano's keys do. */
-export const DRUM_COLORS = { head: '#E4E1DA', rim: '#6E6E73', cymbal: '#C8A24A', cymbalEdge: '#8C6E22', label: '#2C2E33', pedal: '#9A9AA0' } as const;
+const DRUM_COLORS = { head: '#E4E1DA', rim: '#6E6E73', cymbal: '#C8A24A', cymbalEdge: '#8C6E22', label: '#2C2E33', pedal: '#9A9AA0' } as const;
 
 export type DrumPieceKind = 'drum' | 'cymbal' | 'pedal';
 
 /** A piece of the kit: where it is drawn (kit points), the drums that light it and the one a click enters. */
 export interface DrumPiece {
+  /** Also names its label in the catalogues (`instruments.kit.<id>`, lib/instruments.ts' drumPieceLabel). */
   readonly id: string;
-  readonly label: string;
   /** The General MIDI key a click enters. */
   readonly key: number;
   /** Keys that light the piece (the kick for both bass drums). */
@@ -29,30 +31,30 @@ export interface DrumPiece {
 
 const K = GM_DRUM_KEYS;
 
-function piece(id: string, label: string, keys: readonly number[], kind: DrumPieceKind, at: readonly [number, number, number], labelOffset?: number): DrumPiece {
+function piece(id: string, keys: readonly number[], kind: DrumPieceKind, at: readonly [number, number, number], labelOffset?: number): DrumPiece {
   const [x, y, radius] = at;
-  return { id, label, key: keys[0] ?? K.bassDrum, keys, kind, x, y, radius, labelOffset };
+  return { id, key: keys[0] ?? K.bassDrum, keys, kind, x, y, radius, labelOffset };
 }
 
 /** The kit, in drawing order (a piece drawn on another comes after it). */
 export const DRUM_PIECES: readonly DrumPiece[] = [
-  piece('splash', 'Splash', [K.splash], 'cymbal', [52, 30, 18]),
-  piece('crash', 'Crash', [K.crash1], 'cymbal', [158, 32, 26]),
-  piece('openHiHat', 'Open', [K.openHiHat], 'cymbal', [30, 92, 12], 20),
-  piece('hiHat', 'Hi-hat', [K.closedHiHat], 'cymbal', [92, 92, 26]),
-  piece('pedalHiHat', 'Pedal', [K.pedalHiHat], 'pedal', [92, 140, 18]),
-  piece('snare', 'Snare', [K.snare, K.electricSnare], 'drum', [182, 108, 25]),
-  piece('sideStick', 'Rim', [K.sideStick], 'drum', [205, 128, 8], 0),
-  piece('tom1', 'Tom 1', [K.highTom], 'drum', [240, 48, 19]),
-  piece('tom2', 'Tom 2', [K.hiMidTom], 'drum', [302, 40, 19]),
-  piece('kick', 'Kick', [K.bassDrum, K.acousticBassDrum], 'drum', [300, 112, 34]),
-  piece('tom3', 'Tom 3', [K.lowTom, K.lowMidTom], 'drum', [364, 48, 20]),
-  piece('floorTom', 'Floor', [K.highFloorTom, K.lowFloorTom], 'drum', [418, 112, 27]),
-  piece('crash2', 'Crash 2', [K.crash2], 'cymbal', [440, 30, 24]),
-  piece('ride', 'Ride', [K.ride, K.ride2], 'cymbal', [508, 92, 34], -20),
-  piece('rideBell', 'Bell', [K.rideBell], 'cymbal', [508, 92, 11], 0),
-  piece('china', 'China', [K.china], 'cymbal', [566, 30, 20]),
-  piece('cowbell', 'Cowbell', [K.cowbell], 'pedal', [572, 140, 18]),
+  piece('splash', [K.splash], 'cymbal', [52, 30, 18]),
+  piece('crash', [K.crash1], 'cymbal', [158, 32, 26]),
+  piece('openHiHat', [K.openHiHat], 'cymbal', [30, 92, 12], 20),
+  piece('hiHat', [K.closedHiHat], 'cymbal', [92, 92, 26]),
+  piece('pedalHiHat', [K.pedalHiHat], 'pedal', [92, 140, 18]),
+  piece('snare', [K.snare, K.electricSnare], 'drum', [182, 108, 25]),
+  piece('sideStick', [K.sideStick], 'drum', [205, 128, 8], 0),
+  piece('tom1', [K.highTom], 'drum', [240, 48, 19]),
+  piece('tom2', [K.hiMidTom], 'drum', [302, 40, 19]),
+  piece('kick', [K.bassDrum, K.acousticBassDrum], 'drum', [300, 112, 34]),
+  piece('tom3', [K.lowTom, K.lowMidTom], 'drum', [364, 48, 20]),
+  piece('floorTom', [K.highFloorTom, K.lowFloorTom], 'drum', [418, 112, 27]),
+  piece('crash2', [K.crash2], 'cymbal', [440, 30, 24]),
+  piece('ride', [K.ride, K.ride2], 'cymbal', [508, 92, 34], -20),
+  piece('rideBell', [K.rideBell], 'cymbal', [508, 92, 11], 0),
+  piece('china', [K.china], 'cymbal', [566, 30, 20]),
+  piece('cowbell', [K.cowbell], 'pedal', [572, 140, 18]),
 ];
 
 const ALL_KIT_KEYS: ReadonlySet<number> = new Set(DRUM_PIECES.flatMap((drum) => drum.keys));
@@ -112,17 +114,17 @@ function engravePiece(drum: DrumPiece, isLit: boolean, palette: Palette): DrawCo
   const isInside = drum.labelOffset === undefined || Math.abs(drum.labelOffset) < drum.radius;
   const size = drum.radius < 15 ? DRUM_KIT.smallLabelSize : DRUM_KIT.labelSize;
   const color = isLit && isInside ? palette.accentText : isInside ? DRUM_COLORS.label : palette.text;
-  const label: DrawCommand = { kind: 'text', x: drum.x, y: drum.y + (drum.labelOffset ?? 0), text: drum.label, size, color, font: 'ui', align: 'center', bold: isLit };
+  const label: DrawCommand = { kind: 'text', x: drum.x, y: drum.y + (drum.labelOffset ?? 0), text: drumPieceLabel(drum.id), size, color, font: 'ui', align: 'center', bold: isLit };
   return [...shape, label];
 }
 
 /** "Also: Hi Bongo, Maracas": sounding drums the kit has no piece for, in the corner. */
 function otherDrums(keys: readonly number[], palette: Palette): DrawCommand[] {
-  const names = [...new Set(keys)].filter((key) => !ALL_KIT_KEYS.has(key)).flatMap((key) => gmPercussionName(key) ?? []);
+  const names = [...new Set(keys)].filter((key) => !ALL_KIT_KEYS.has(key)).flatMap((key) => gmPercussionLabel(key) ?? []);
   if (names.length === 0) {
     return [];
   }
-  return [{ kind: 'text', x: 0, y: DRUM_KIT.height - 7, text: `Also: ${names.join(', ')}`, size: DRUM_KIT.labelSize, color: palette.accent, font: 'ui', align: 'left', bold: true }];
+  return [{ kind: 'text', x: 0, y: DRUM_KIT.height - 7, text: t('instruments.kit.also', { names: names.join(', ') }), size: DRUM_KIT.labelSize, color: palette.accent, font: 'ui', align: 'left', bold: true }];
 }
 
 function contains(drum: DrumPiece, x: number, y: number): boolean {

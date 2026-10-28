@@ -4,6 +4,7 @@ import { setBeatPickStroke, setBeatStroke, setBeatText } from '../src/edit/beat-
 import { deleteBeatNotes } from '../src/edit/beats';
 import { findNote, setNoteFret, setNoteVelocity } from '../src/edit/edit-song';
 import { BEND_SHAPES, buildBend } from '../src/edit/bend-shapes';
+import { CURVE_VALUE_RANGES, addCurvePoint, curveFromPoints, moveCurvePoint, normalizeCurvePoints, removeCurvePoint } from '../src/edit/curve-points';
 import { BEND_PRESETS, TREMOLO_BAR_PRESETS, buildHarmonic, setNoteBend, setNoteHarmonic, setNoteTremoloBar, setNoteVibrato } from '../src/edit/effects';
 import { setMeasureMarker, setRepeat, setTripletFeel } from '../src/edit/measure-headers';
 import { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from '../src/edit/ornaments';
@@ -11,11 +12,13 @@ import { setSongInfo } from '../src/edit/song-info';
 import { setTrackCapo, setTrackName } from '../src/edit/track-properties';
 import { setTrackBalance, setTrackMute, setTrackSolo, setTrackVolume } from '../src/edit/track-sound';
 import { TUPLET_SIZES, plainDuration, tupletOf } from '../src/model/defaults';
-import type { Song } from '../src/model/song';
+import type { Bend, BendPoint, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write';
+import { canGpifHoldCurve, toGpifCurve } from '../src/write/gpif/gpif-curves';
 import { songDifference } from './helpers/write-compare';
 import { expectedAfterGp5 } from './helpers/write-expected';
+import { expectedAfterGp } from './helpers/write-expected-gpif';
 import { buildNote, buildSong, buildVoice, restVoice } from './helpers/write-song-builder';
 
 /*
@@ -224,5 +227,86 @@ describe('GP5 round trip of the palette edits', () => {
 
     // Assert
     expect(findNote(again, { ...beatAt(1), voiceIndex: 1, string: 4 })?.fret).toBe(2);
+  });
+});
+
+describe('round trip of a curve edited point by point (the tremolo bar and bend panels)', () => {
+  const WHAMMY = CURVE_VALUE_RANGES.tremoloBar;
+
+  /** A dip changed by hand: a deeper first dip, a rise above the note, a second dip, then the first point taken out. */
+  function handMadeWhammy(): Bend {
+    let points: readonly BendPoint[] = TREMOLO_BAR_PRESETS.dip.points;
+    points = addCurvePoint(points, { position: 3, value: -10 }, WHAMMY);
+    points = moveCurvePoint(points, 2, { position: 7, value: 3 }, WHAMMY);
+    points = addCurvePoint(points, { position: 10, value: -6 }, WHAMMY);
+    points = addCurvePoint(points, { position: 1, value: 0 }, WHAMMY);
+    points = removeCurvePoint(points, 1);
+    return curveFromPoints(points) ?? TREMOLO_BAR_PRESETS.dip;
+  }
+
+  /** The tremolo bar as the editor sees it: one point per position. */
+  function whammyAt(song: Song, at: StringAddress): readonly BendPoint[] {
+    return normalizeCurvePoints(findNote(song, at)?.effect.tremoloBar?.points ?? [], WHAMMY);
+  }
+
+  function saveAndReadGp(edited: Song): Song {
+    const again = readSong(writeSong(edited, 'gp'));
+    expect(songDifference(expectedAfterGp(edited), again)).toBeUndefined();
+    return again;
+  }
+
+  it('keeps every point of a hand-made tremolo bar in a .gp5 file', () => {
+    // Arrange
+    const whammy = handMadeWhammy();
+    const song = setNoteTremoloBar(makeSong(), AT, whammy);
+
+    // Act
+    const again = saveAndRead(song);
+
+    // Assert
+    expect(whammy.points.map((point) => [point.position, point.value])).toEqual([[0, 0], [3, -10], [7, 3], [10, -6], [12, 0]]);
+    expect(findNote(again, AT)?.effect.tremoloBar).toEqual(whammy);
+  });
+
+  it('keeps a hand-made tremolo bar of the shape Guitar Pro 7/8 holds in a .gp file', () => {
+    // Arrange: dip from the third position, hold, then come back above the note.
+    const whammy: Bend = { points: [{ position: 0, value: 0 }, { position: 3, value: 0 }, { position: 6, value: -6 }, { position: 9, value: -6 }, { position: 12, value: 2 }] };
+    const song = setNoteTremoloBar(makeSong(), AT, whammy);
+
+    // Act
+    const again = saveAndReadGp(song);
+
+    // Assert
+    expect(canGpifHoldCurve('tremoloBar', whammy)).toBe(true);
+    expect(whammyAt(again, AT)).toEqual(whammy.points);
+  });
+
+  it('reduces a hand-made tremolo bar a .gp file cannot hold the documented way (toGpifCurve)', () => {
+    // Arrange
+    const whammy = handMadeWhammy();
+
+    // Act
+    const again = saveAndReadGp(setNoteTremoloBar(makeSong(), AT, whammy));
+
+    // Assert
+    expect(canGpifHoldCurve('tremoloBar', whammy)).toBe(false);
+    expect(findNote(again, AT)?.effect.tremoloBar).toEqual(toGpifCurve('tremoloBar', whammy));
+    expect(whammyAt(again, AT).map((point) => [point.position, point.value])).toEqual([[0, 0], [3, -10], [12, 0]]);
+  });
+
+  it('keeps a hand-made bend in .gp5 and, when GPIF can hold it, in .gp', () => {
+    // Arrange: a bend and release whose release stops at a quarter tone, its points moved by hand.
+    const bend = curveFromPoints(moveCurvePoint(buildBend('bendRelease', 6).points, 3, { position: 10, value: 1 }, CURVE_VALUE_RANGES.bend));
+    const song = setNoteBend(makeSong(), AT, bend);
+
+    // Act
+    const fromGp5 = saveAndRead(song);
+    const fromGp = saveAndReadGp(song);
+
+    // Assert
+    expect(bend?.points.map((point) => [point.position, point.value])).toEqual([[0, 0], [3, 6], [6, 6], [10, 1], [12, 0]]);
+    expect(findNote(fromGp5, AT)?.effect.bend).toEqual(bend);
+    expect(canGpifHoldCurve('bend', bend ?? { points: [] })).toBe(false);
+    expect(findNote(fromGp, AT)?.effect.bend).toEqual(bend === undefined ? undefined : toGpifCurve('bend', bend));
   });
 });

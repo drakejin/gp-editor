@@ -1,6 +1,9 @@
 import {
+  metronomeVelocity,
+  parseTempoText,
   playbackTempo,
   resolveTrainerMaxTempo,
+  shiftSpeedScale,
   shiftTempoScale,
   tempoBounds,
   tempoPercent,
@@ -72,5 +75,40 @@ describe('speed trainer', () => {
     expect(resolveTrainerMaxTempo(140, 100, 0.95)).toBe(140);
     expect(resolveTrainerMaxTempo(500, 100, 0.95)).toBe(300);
     expect(resolveTrainerMaxTempo(undefined, 100, 2.9)).toBe(300);
+  });
+});
+
+describe('decimal tempos', () => {
+  it('shows a decimal written tempo with its decimals, a scaled one to two decimals', () => {
+    expect(playbackTempo(92.5, 1)).toBe(92.5);
+    expect(playbackTempo(92.5, 0.8)).toBe(74);
+    expect(playbackTempo(100, 0.333)).toBe(33.3);
+  });
+
+  it('reads a typed tempo: decimals with a point or a comma, two kept; nothing else', () => {
+    expect(parseTempoText('92.5')).toBe(92.5);
+    expect(parseTempoText(' 92,25 ')).toBe(92.25);
+    expect(parseTempoText('120.456')).toBe(120.46);
+    expect(parseTempoText('140 bpm')).toBeUndefined();
+    expect(parseTempoText('')).toBeUndefined();
+    expect(parseTempoText('0')).toBeUndefined();
+    expect(parseTempoText('-90')).toBeUndefined();
+  });
+});
+
+describe('relative speed and metronome volume', () => {
+  it('steps the speed on the 5% grid within 25%–200%', () => {
+    expect(shiftSpeedScale(1, 5)).toBeCloseTo(1.05, 10);
+    expect(shiftSpeedScale(0.83, -5)).toBeCloseTo(0.8, 10);
+    expect(shiftSpeedScale(0.27, -5)).toBeCloseTo(0.25, 10);
+    expect(shiftSpeedScale(1.98, 5)).toBeCloseTo(2, 10);
+    expect(shiftSpeedScale(2.5, 5)).toBe(2.5);
+    expect(shiftSpeedScale(0.2, -5)).toBe(0.2);
+  });
+
+  it('turns the metronome volume into the accent’s MIDI velocity', () => {
+    expect(metronomeVelocity(100)).toBe(127);
+    expect(metronomeVelocity(50)).toBe(64);
+    expect(metronomeVelocity(0)).toBe(1);
   });
 });
