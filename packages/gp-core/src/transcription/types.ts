@@ -69,7 +69,10 @@ export interface TranscribedSongInfo {
 export interface TranscribedTrack {
   readonly name: string;
   readonly instrument: TranscribedInstrument;
-  /** A fretted instrument's open-string pitches, lowest string first, in scientific pitch notation ("E2", "A2", … "E4"); [] for standard tuning and for the others. */
+  /**
+   * A fretted instrument's open-string pitches from the bottom tab line up (lowest first; a ukulele's G4 C4 E4 A4), in
+   * scientific pitch notation ("E2", "A2", … "E4"); [] for standard tuning and for the others.
+   */
   readonly tuning: readonly string[];
   /** Capo fret; 0 for none. */
   readonly capo: number;

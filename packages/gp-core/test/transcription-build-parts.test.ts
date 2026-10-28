@@ -233,6 +233,22 @@ describe('buildSongFromTranscription: ukulele and banjo', () => {
     expect(notesOf(song, 0)).toEqual([[[1, 3], [2, 0], [3, 0], [4, 0]]]);
   });
 
+  it('reads a banjo’s re-entrant tuning listed from the bottom tab line up, the short fifth string first', () => {
+    // Act
+    const { song } = build([soloPage({ name: 'Banjo', instrument: 'banjo', tuning: ['G4', 'D3', 'G3', 'B3', 'D4'], capo: 0 }, [rest('whole')])]);
+
+    // Assert
+    expect(song.tracks[0]?.strings.map((guitarString) => guitarString.tuning)).toEqual([62, 59, 55, 50, 67]);
+  });
+
+  it('reads a ukulele’s re-entrant tuning listed from the bottom tab line up', () => {
+    // Act
+    const { song } = build([soloPage({ name: 'Ukulele', instrument: 'ukulele', tuning: ['G4', 'C4', 'E4', 'A4'], capo: 0 }, [rest('whole')])]);
+
+    // Assert
+    expect(song.tracks[0]?.strings.map((guitarString) => guitarString.tuning)).toEqual([69, 64, 60, 67]);
+  });
+
   it('builds a five-string banjo in open G, its short fifth string’s frets read as banjo tab writes them', () => {
     // Act
     const { song, warnings } = build([

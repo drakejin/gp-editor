@@ -30,10 +30,16 @@ function standardTuningOf(instrument: TranscribedInstrument): readonly number[] 
   return trackTuningChoices(kind, trackKindSpec(kind)?.stringCounts[0] ?? 0)[0]?.tuning ?? STANDARD_TUNING;
 }
 
+/** True when every pitch is below the one before it: a list given highest string first. */
+function isDescending(pitches: readonly number[]): boolean {
+  return pitches.every((pitch, index) => index === 0 || pitch < (pitches[index - 1] ?? pitch));
+}
+
 /**
- * A fretted instrument's open-string pitches, string 1 first. The contract lists them lowest first; a list given highest
- * first is read that way too (and a re-entrant ukulele's G C E A, whose first string is not its lowest). Standard tuning
- * when none is given, or (with a warning) when it cannot be read or has more strings than Guitar Pro 5 holds.
+ * A fretted instrument's open-string pitches, string 1 first. The contract lists them from the bottom tab line up: lowest
+ * first, and a re-entrant ukulele's G C E A or a banjo's G D G B D (the short 5th string on the bottom line) as written.
+ * A list given highest first (strictly falling) is read that way too. Standard tuning when none is given, or (with a
+ * warning) when it cannot be read or has more strings than Guitar Pro 5 holds.
  */
 export function resolveFrettedTuning(track: TranscribedTrack, name: string): ResolvedTuning {
   const standard = standardTuningOf(track.instrument);
@@ -41,12 +47,10 @@ export function resolveFrettedTuning(track: TranscribedTrack, name: string): Res
     return { tuning: standard };
   }
   const pitches = track.tuning.flatMap((text) => parsePitch(text) ?? []);
-  const first = pitches[0];
-  const last = pitches[pitches.length - 1];
-  if (pitches.length !== track.tuning.length || pitches.length > MAX_STRINGS || first === undefined || last === undefined) {
+  if (pitches.length !== track.tuning.length || pitches.length > MAX_STRINGS) {
     return { tuning: standard, warning: `${name}: tuning ${track.tuning.join(' ')} could not be read; standard tuning used` };
   }
-  return { tuning: first > last ? pitches : [...pitches].reverse() };
+  return { tuning: isDescending(pitches) ? pitches : [...pitches].reverse() };
 }
 
 /** The written pitches of a part's notes that have one it can read. */

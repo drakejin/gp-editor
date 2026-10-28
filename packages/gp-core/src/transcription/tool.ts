@@ -136,7 +136,11 @@ export const TRANSCRIPTION_TOOL = {
           properties: {
             name: { type: 'string' },
             instrument: { type: 'string', enum: TRANSCRIBED_INSTRUMENTS },
-            tuning: { type: 'array', items: { type: 'string' }, description: 'Guitar, bass, ukulele or banjo only: open strings, lowest first, e.g. ["E2","A2","D3","G3","B3","E4"].' },
+            tuning: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Guitar, bass, ukulele or banjo only: open strings from the bottom tab line up (lowest first), e.g. ["E2","A2","D3","G3","B3","E4"], ukulele ["G4","C4","E4","A4"].',
+            },
             capo: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_CAPO, description: 'Guitar, bass, ukulele or banjo only.' },
             program: {
               type: 'integer',
