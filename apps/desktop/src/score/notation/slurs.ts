@@ -5,11 +5,11 @@ import {
   nextNoteOnString,
   previousNoteOnString,
 } from '../symbols/links';
-import { bowCurve, halfArc } from '../symbols/shapes';
+import { type Gap, bowCurve, curveAround, halfArc, lineAround } from '../symbols/shapes';
 import { type Chord, type NoteHead, chordInkLeft } from './chords';
 import type { VoiceEvent } from './events';
 import { SLIDE, SLUR } from './metrics';
-import { type VoiceLayout, headOnString } from './voice-layout';
+import { type ChordHead, type VoiceLayout, headOnString } from './voice-layout';
 import { isUpperVoice } from '../voices';
 
 /** Slurs of hammer-ons, pull-offs and legato slides, and slide lines, between noteheads on the notation staff. */
@@ -53,17 +53,23 @@ function linkedHead(
   layout: VoiceLayout,
   from: PlacedHead,
   link: LinkedNote,
-): { readonly chord: Chord; readonly head: NoteHead } | undefined {
+): ChordHead | undefined {
   const { voiceIndex } = from.event;
   const { string } = from.head.note;
   return link.isInOtherMeasure
-    ? layout.nextHeads?.(link.beatIndex, voiceIndex, string)
+    ? layout.nextBar?.headOn(link.beatIndex, voiceIndex, string)
     : headOnString(layout, link.beatIndex, voiceIndex, string);
 }
 
 /** A link into the next measure at a row's end: it runs to the bar line, and the next row's start draws it coming in. */
 function runsToBarLine(layout: VoiceLayout, link: LinkedNote): boolean {
-  return link.isInOtherMeasure && layout.nextHeads === undefined;
+  return link.isInOtherMeasure && layout.nextBar === undefined;
+}
+
+/** What a link into the next measure leaves out: the signs at its start (key or time signature, clef change, repeat). */
+function gapOf(layout: VoiceLayout, link: LinkedNote): Gap {
+  const entryX = link.isInOtherMeasure ? layout.nextBar?.entryX : undefined;
+  return { from: layout.width, to: entryX ?? layout.width };
 }
 
 function slur(
@@ -95,17 +101,16 @@ function slur(
     SLUR.maxHeight,
     SLUR.minHeight + (x2 - x1) * SLUR.curvature,
   );
-  return [
-    bowCurve(
-      x1,
-      y1,
-      x2,
-      to.head.y + side * SLUR.offset,
-      side * height,
-      SLUR.width,
-      layout.color,
-    ),
-  ];
+  const arc = bowCurve(
+    x1,
+    y1,
+    x2,
+    to.head.y + side * SLUR.offset,
+    side * height,
+    SLUR.width,
+    layout.color,
+  );
+  return curveAround(arc, gapOf(layout, link));
 }
 
 function slideTo(
@@ -133,15 +138,14 @@ function slideTo(
   }
   const rise =
     to.head.y === y1 ? (isRising ? SLIDE.minRise : -SLIDE.minRise) : 0;
-  return [
-    line(
-      x1,
-      y1 + rise,
-      chordInkLeft(to.chord) - SLIDE.gap,
-      to.head.y - rise,
-      layout.color,
-    ),
-  ];
+  const slide = line(
+    x1,
+    y1 + rise,
+    chordInkLeft(to.chord) - SLIDE.gap,
+    to.head.y - rise,
+    layout.color,
+  );
+  return lineAround(slide, gapOf(layout, link));
 }
 
 function line(

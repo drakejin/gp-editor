@@ -2,7 +2,23 @@ import type { Measure } from '@gp-editor/core';
 import type { Chord, NoteHead } from './chords';
 import type { VoiceEvent } from './events';
 import { NOTATION, ORNAMENT, OTTAVA, STAFF, positionY } from './metrics';
-import type { HeadLookup } from './voice-placement';
+
+/** A notehead with the chord it belongs to. */
+export interface ChordHead {
+  readonly chord: Chord;
+  readonly head: NoteHead;
+}
+
+/**
+ * The next measure when it is on this row, as the slurs and slides that reach into it see it, in this measure's
+ * coordinates (its bar line at this measure's width).
+ */
+export interface NextBar {
+  /** Its notehead on `string` in voice `voiceIndex` at beat `beatIndex`, placed as its own engraving places it. */
+  readonly headOn: (beatIndex: number, voiceIndex: number, string: number) => ChordHead | undefined;
+  /** Where its own signs at the bar line end (key or time signature, clef change, repeat sign): links leave a gap from the bar line to here. */
+  readonly entryX: number;
+}
 
 /** The measure's voices once noteheads, stems and beams are placed: what technique marks are positioned against. */
 export interface VoiceLayout {
@@ -20,8 +36,8 @@ export interface VoiceLayout {
   readonly measure: Measure;
   readonly previousMeasure?: Measure;
   readonly nextMeasure?: Measure;
-  /** The next measure's noteheads when it is on this row: slurs and slides across the bar line end on them. */
-  readonly nextHeads?: HeadLookup;
+  /** The next measure when it is on this row: slurs and slides across the bar line end on its noteheads. */
+  readonly nextBar?: NextBar;
   /** False when the previous measure is on this row: it drew the slurs and slides into this one whole. */
   readonly isRowStart?: boolean;
   readonly color: string;
@@ -43,11 +59,11 @@ export function eventEndX(layout: VoiceLayout, index: number): number {
 
 /** The chord of the event at `beatIndex` in voice `voiceIndex`, and its notehead on `string`. */
 export function headOnString(
-  layout: VoiceLayout,
+  layout: Pick<VoiceLayout, 'events' | 'chords'>,
   beatIndex: number,
   voiceIndex: number,
   string: number,
-): { readonly chord: Chord; readonly head: NoteHead } | undefined {
+): ChordHead | undefined {
   const index = layout.events.findIndex(
     event => event.beatIndex === beatIndex && event.voiceIndex === voiceIndex,
   );

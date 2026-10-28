@@ -107,7 +107,7 @@ interface LinkEnd {
   readonly isWhole: boolean;
 }
 
-/** The linked note's fret column: its beat in this measure, in the next measure on the row, else the bar line. */
+/** The linked note's fret column: its beat in this measure or in the next measure on the row, else (a row's end) the bar line. */
 function linkEnd(
   context: TabNotesContext,
   link: LinkedNote,
@@ -117,10 +117,11 @@ function linkEnd(
     const x = layout.beats.find(b => b.beatIndex === link.beatIndex)?.x;
     return x === undefined ? undefined : { x, isWhole: true };
   }
-  const next = nextInRow?.layout.beats.find(b => b.beatIndex === link.beatIndex);
-  return next === undefined
-    ? { x: layout.width, isWhole: false }
-    : { x: layout.width + next.x, isWhole: true };
+  if (nextInRow === undefined) {
+    return { x: layout.width, isWhole: false };
+  }
+  const next = nextInRow.layout.beats.find(b => b.beatIndex === link.beatIndex);
+  return next === undefined ? undefined : { x: layout.width + next.x, isWhole: true };
 }
 
 function legatoHeight(length: number): number {

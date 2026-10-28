@@ -29,8 +29,8 @@ import { rest } from './rests';
 import { legatoMarks } from './slurs';
 import { ties } from './ties';
 import { tupletGroups, tupletMarks } from './tuplets';
-import type { VoiceLayout } from './voice-layout';
-import { type HeadLookup, layoutChords, placeVoices } from './voice-placement';
+import type { NextBar, VoiceLayout } from './voice-layout';
+import { layoutChords, placeVoices } from './voice-placement';
 import { voiceTint } from '../voices';
 
 export interface Highlight {
@@ -56,12 +56,15 @@ export interface VoicesContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track: fingers are written 1–5 (piano fingering). */
   readonly isKeyboard?: boolean;
-  /** The measure starts its row: an octave sign running into it is named again. */
+  /**
+   * The measure starts its row: an octave sign running into it is named again. Slurs and slides from the previous
+   * measure come in here unless this is false (the previous measure is on this row and drew them whole).
+   */
   readonly isRowStart?: boolean;
   /** The voice being edited (the cursor's): the other voices are drawn faded, as Guitar Pro 8 does. */
   readonly editedVoiceIndex?: number;
-  /** The noteheads of the next measure when it is on this row: slurs and slides into it end there, not at the bar line. */
-  readonly nextHeads?: HeadLookup;
+  /** The next measure when it is on this row: slurs and slides into it end on its noteheads, not at the bar line. */
+  readonly nextBar?: NextBar;
 }
 
 function isHighlighted(

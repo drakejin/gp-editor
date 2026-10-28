@@ -3,12 +3,12 @@ import { DEFAULT_CHORD_DISPLAY } from '../src/score/chords';
 import { type CurveCommand, type DrawCommand, type LineCommand, SMUFL, type TextCommand } from '../src/score/draw';
 import type { ScoreMode } from '../src/score/geometry';
 import { GLYPH_WIDTH } from '../src/score/notation/metrics';
-import { engraveRow, placeRow } from '../src/score/row';
+import { type RowContext, engraveRow, placeRow } from '../src/score/row';
 import { type ScoreLayout, layoutScore } from '../src/score/score-layout';
 import { engraveSystemStaff, staffDecor } from '../src/score/system-staff';
 import { FRET_BOX, tabStringY, voiceColor } from '../src/score/symbols/tab-geometry';
 import { PALETTE } from '../test-support/score-helpers';
-import { beat, makeSong, note, withTrack } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note, withTrack } from '../test-support/songs';
 
 /** Hammer-ons, pull-offs and slides as the score draws them, row by row: in a bar, across a bar line, across a system break. */
 
@@ -29,12 +29,15 @@ interface EngravedStaff {
 }
 
 /** Every staff of every system, engraved as the score view does it (`[system][staff]`). */
-function engraveScore(song: Song, mode: ScoreMode = 'notationAndTab', trackIndexes: readonly number[] = [0]): EngravedStaff[][] {
+function engraveScore(song: Song, mode: ScoreMode = 'notationAndTab', trackIndexes: readonly number[] = [0], extra: Partial<RowContext> = {}): EngravedStaff[][] {
   const layout: ScoreLayout = layoutScore(song, trackIndexes.map((trackIndex) => ({ trackIndex, mode })), DEFAULT_CHORD_DISPLAY, WIDTH);
   return layout.systems.map((system, systemIndex) =>
     layout.staves.map((staff, staffIndex) => {
       const row = system.rows[staffIndex]!;
-      const context = { song, trackIndex: staff.trackIndex, row, headerWidth: layout.clefWidth, mode: staff.mode, geometry: staff.geometry, palette: PALETTE, markLanes: staff.markLanes, hasHeading: staff.hasHeading };
+      const context = {
+        song, trackIndex: staff.trackIndex, row, headerWidth: layout.clefWidth, mode: staff.mode, geometry: staff.geometry, palette: PALETTE,
+        markLanes: staff.markLanes, hasHeading: staff.hasHeading, ...extra,
+      };
       const decor = staffDecor(song, layout, systemIndex, staffIndex);
       const placed = placeRow(row, layout.clefWidth + (decor?.namesWidth ?? 0));
       const find = (measureIndex: number) => placed.find((p) => p.layout.measureIndex === measureIndex);
@@ -303,5 +306,98 @@ describe('more links at bar lines', () => {
     expect(into!.x1).toBe(second!.edges(1)!.left);
     expect(into!.y2).toBeLessThan(into!.y1);
     expect(onTabString(curves(second!.commands), second!, 4)[0]!.x2).toBe(second!.edges(1)!.left);
+  });
+});
+
+describe('links into a bar that starts with signs of its own', () => {
+  /** Bar 2 changes to 3/4, so its time signature stands at its start; bar 3 follows it. */
+  function intoThreeFour(last: Note[], first: Note[]): Song {
+    const threeFour = { timeSignature: { numerator: 3, denominator: 4 } };
+    const barThree = 960 + 3840 + 3 * 960;
+    return makeSong(
+      [
+        [at(1, 0, [note(1, 0)]), at(1, 3, last)],
+        [at(2, 0, first), at(2, 1, [note(1, 0)]), at(2, 2, [note(1, 0)])],
+        [beat(barThree, [note(1, 0)])],
+      ],
+      [header(1), header(2, threeFour), header(3, { ...threeFour, start: fromTux(barThree) })],
+    );
+  }
+
+  it('leaves the time signature clear: the slide is one line with a gap over it, the slur one curve with a gap', () => {
+    // Arrange
+    const song = intoThreeFour([note(4, 5, { slides: ['legato'] })], [note(4, 9)]);
+
+    // Act
+    const [staff] = engraveScore(song)[0]!;
+
+    // Assert
+    const barLine = staff!.edges(0)!.right;
+    const pieces = inNotation(slanted(staff!.commands), staff!);
+    expect(pieces).toHaveLength(2);
+    expect(pieces[0]!.x2).toBeCloseTo(barLine);
+    expect(pieces[1]!.x1).toBeGreaterThan(barLine + 10);
+    const slope = (l: LineCommand) => (l.y2 - l.y1) / (l.x2 - l.x1);
+    expect(slope(pieces[1]!)).toBeCloseTo(slope(pieces[0]!));
+    expect(pieces[1]!.y1).toBeCloseTo(pieces[0]!.y1 + slope(pieces[0]!) * (pieces[1]!.x1 - pieces[0]!.x1));
+    const arcs = inNotation(curves(staff!.commands), staff!);
+    expect(arcs).toHaveLength(2);
+    expect(arcs[0]!.x2).toBeCloseTo(barLine);
+    expect(arcs[1]!.x1).toBeCloseTo(pieces[1]!.x1);
+    // The tab draws over its bar's start as it always did: one line, one arc.
+    expect(onTabString(slanted(staff!.commands), staff!, 4)).toHaveLength(1);
+  });
+});
+
+describe('links into a written octave sign, a rest and a faded voice', () => {
+  it('ends the slur on the notehead as written under an 8va', () => {
+    // Arrange: the target is written an octave lower under its 8va.
+    const song = acrossBarLine([note(1, 12, H)], [note(1, 17)]);
+    const track = song.tracks[0]!;
+    const measures = track.measures.map((m, i) => (i === 1 ? { ...m, beats: m.beats.map((b, k) => (k === 0 ? { ...b, ottava: '8va' as const } : b)) } : m));
+    const marked: Song = { ...song, tracks: [{ ...track, measures }] };
+
+    // Act
+    const [staff] = engraveScore(marked)[0]!;
+
+    // Assert
+    const [slur, ...others] = inNotation(curves(staff!.commands), staff!);
+    expect(others).toHaveLength(0);
+    const from = headAt(staff!.commands, staff!, staff!.beatX(0, 3)!);
+    const to = headAt(staff!.commands, staff!, staff!.beatX(1, 0)!);
+    expect(slur!.x2).toBeCloseTo(to!.x + GLYPH_WIDTH.noteheadBlack / 2);
+    expect(slur!.y2 - to!.y).toBeCloseTo(slur!.y1 - from!.y);
+  });
+
+  it('draws no link when the next bar starts with a rest on the way', () => {
+    // Arrange
+    const song = makeSong([
+      [at(1, 0, [note(1, 0)]), at(1, 3, [note(3, 5, H)])],
+      [at(2, 0, []), at(2, 1, [note(3, 7)])],
+    ]);
+
+    // Act
+    const [staff] = engraveScore(song)[0]!;
+
+    // Assert
+    expect(curves(staff!.commands)).toHaveLength(0);
+    expect(labels(staff!.commands, 'H')).toHaveLength(0);
+  });
+
+  it('draws a faded voice’s link whole, in the faded ink, while another voice is edited', () => {
+    // Arrange
+    const inVoice2 = (b: Beat, notes: Note[]): Beat => ({ ...b, voices: [b.voices[0]!, { ...b.voices[0]!, notes }] });
+    const song = makeSong([
+      [at(1, 0, [note(1, 0)]), inVoice2(at(1, 3, [note(1, 0)]), [note(5, 3, H)])],
+      [inVoice2(at(2, 0, [note(1, 0)]), [note(5, 5)])],
+    ]);
+
+    // Act
+    const [staff] = engraveScore(song, 'notationAndTab', [0], { editedVoiceIndex: 0 })[0]!;
+
+    // Assert
+    const slurs = inNotation(curves(staff!.commands), staff!);
+    expect(slurs).toEqual([expect.objectContaining({ color: PALETTE.muted })]);
+    expect(slurs[0]!.x2).toBeGreaterThan(staff!.edges(1)!.left);
   });
 });

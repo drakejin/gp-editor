@@ -88,7 +88,7 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
     }
   });
   commands.push(...engraveTabMarks({ ...context, previousBeat: context.previousBeat ?? lastBeat(context.previousMeasure) }));
-  commands.push(...engraveTabTechniques({ ...context, measure: withoutSlashedNotes(context.track, context.measure) }));
+  commands.push(...engraveTabTechniques(withoutSlashes(context)));
   if (context.cursor !== undefined) {
     commands.push(...cursorBox(context, context.cursor));
   }
@@ -111,6 +111,13 @@ function withoutSlashedNotes(track: Track, measure: Measure): Measure {
       : beat,
   );
   return { ...measure, beats };
+}
+
+/** The measure and its neighbours without slashed notes: no technique is drawn at a slash, nor a link to or from one. */
+function withoutSlashes(context: TabContext): TabContext {
+  const { track, measure, previousMeasure, nextMeasure } = context;
+  const strip = (m: Measure | undefined) => (m === undefined ? undefined : withoutSlashedNotes(track, m));
+  return { ...context, measure: withoutSlashedNotes(track, measure), previousMeasure: strip(previousMeasure), nextMeasure: strip(nextMeasure) };
 }
 
 /** A rhythm slash across the middle of the tab staff. */

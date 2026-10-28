@@ -133,7 +133,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     track, header, measure, layout,
     previousMeasure: track.measures[layout.measureIndex - 1],
     nextMeasure: track.measures[layout.measureIndex + 1],
-    nextInRow: followingInRow(context.song, nextLayout),
+    nextInRow: followingInRow(context.song, layout.measureIndex, nextLayout),
     cursor: context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined,
     playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
     isRowStart,
@@ -158,8 +158,8 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
 }
 
 /** The measure after this one on the row (none at the row's end), for the links drawn whole across the bar line. */
-function followingInRow(song: Song, layout: MeasureLayout | undefined): NextInRow | undefined {
-  const header = layout === undefined ? undefined : song.measureHeaders[layout.measureIndex];
+function followingInRow(song: Song, measureIndex: number, layout: MeasureLayout | undefined): NextInRow | undefined {
+  const header = layout?.measureIndex === measureIndex + 1 ? song.measureHeaders[layout.measureIndex] : undefined;
   return layout === undefined || header === undefined ? undefined : { header, layout };
 }
 

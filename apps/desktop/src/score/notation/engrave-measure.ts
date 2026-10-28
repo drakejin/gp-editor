@@ -11,7 +11,8 @@ import { type ClefKind, clefKind } from './pitch';
 import { emptyVoiceRest, measureRest } from './rests';
 import { voiceTint } from '../voices';
 import { CLEF_GLYPHS, barLines, staffLines, timeSignature } from './staff';
-import { type HeadLookup, nextMeasureHeads } from './voice-placement';
+import type { NextBar } from './voice-layout';
+import { nextMeasureHeads } from './voice-placement';
 
 export interface NotationContext {
   readonly track: Track;
@@ -135,6 +136,12 @@ function beatAreaStart(context: BeatArea): number {
   );
 }
 
+/** Where ties, slurs and slides from the previous measure start: the bar line, or after the signs layoutMeasure put there. */
+function entryXOf(context: BeatArea): number {
+  const start = beatAreaStart(context);
+  return start > TAB.padLeft ? start : 0;
+}
+
 /** Where a bar without beats draws its whole rest (the tab draws the cursor there): the middle of its beat area. */
 export function measureRestX(context: BeatArea): number {
   return (beatAreaStart(context) + context.layout.width) / 2;
@@ -147,12 +154,17 @@ function emptyMeasureRest(context: NotationContext): DrawCommand {
   return measureRest(measureRestX(context), context.top, color);
 }
 
-/** The next measure's noteheads when it is on this row, for the slurs and slides that reach them. */
-function nextHeadsOf(context: NotationContext): HeadLookup | undefined {
-  const { track, nextMeasure, nextInRow, top, layout } = context;
-  return nextMeasure === undefined || nextInRow === undefined
-    ? undefined
-    : nextMeasureHeads(track, nextMeasure, nextInRow, top, layout.width);
+/** The next measure when it is on this row, for the slurs and slides that reach into it. */
+function nextBarOf(context: NotationContext): NextBar | undefined {
+  const { track, measure, nextMeasure, nextInRow, top, layout } = context;
+  if (nextMeasure === undefined || nextInRow === undefined) {
+    return undefined;
+  }
+  const area = { layout: nextInRow.layout, header: nextInRow.header, measure: nextMeasure, previousMeasure: measure };
+  return {
+    headOn: nextMeasureHeads(track, nextMeasure, nextInRow, top, layout.width),
+    entryX: layout.width + entryXOf(area),
+  };
 }
 
 /** One measure of the standard-notation staff: staff and bar lines, key / time signature changes, voices. */
@@ -166,7 +178,7 @@ export function engraveNotationMeasure(
     : undefined;
   const start = beatAreaStart(context);
   // Ties and slurs from the previous measure start at the bar line, or after a key / time signature drawn there.
-  const entryX = start > TAB.padLeft ? start : 0;
+  const entryX = entryXOf(context);
   const voices =
     measure.beats.length === 0
       ? [emptyMeasureRest(context)]
@@ -174,7 +186,7 @@ export function engraveNotationMeasure(
           ...context,
           width: layout.width,
           entryX,
-          nextHeads: nextHeadsOf(context),
+          nextBar: nextBarOf(context),
         });
   return [
     ...staffLines(0, layout.width, top, palette.line),
