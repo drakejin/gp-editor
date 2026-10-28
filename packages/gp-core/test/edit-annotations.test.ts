@@ -116,6 +116,22 @@ describe('moveBeatAnnotation', () => {
     expect(places(moveBeatAnnotation(annotated(), at(1, 2), at(0, 1, 1)))).toEqual(['1:0:1 Watch the bend']);
   });
 
+  it('moves it onto a bar without beats, on the rest it gets', () => {
+    // Arrange: track 2's bar 3 has no beats.
+    const song = annotated();
+    const empty: Song = deepFreeze({
+      ...song,
+      tracks: song.tracks.map((track, i) => (i === 1 ? { ...track, measures: track.measures.map((m, j) => (j === 2 ? { ...m, beats: [] } : m)) } : track)),
+    });
+
+    // Act
+    const moved = moveBeatAnnotation(empty, at(1, 2), at(2, 0, 1));
+
+    // Assert
+    expect(places(moved)).toEqual(['1:2:0 Watch the bend']);
+    assertEditInvariants(moved);
+  });
+
   it('leaves the song as it is when there is nothing to move, nowhere to go or the target has one', () => {
     const song = setBeatAnnotation(annotated(), at(2, 0), BELOW);
     expect(moveBeatAnnotation(song, at(0, 0), at(0, 1))).toBe(song);

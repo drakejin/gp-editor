@@ -76,6 +76,7 @@ describe('songAnnotationsToJson / readSongAnnotations', () => {
       { trackIndex: 0, measureIndex: 0, offset: -1, text: 'before the bar', placement: 'above' },
       { trackIndex: 0.5, measureIndex: 0, offset: 0, text: 'half a track', placement: 'above' },
       { trackIndex: 0, measureIndex: 0, offset: '0', text: 'a string offset', placement: 'above' },
+      { trackIndex: 0, measureIndex: 0, offset: 0.5, text: 'half a tick', placement: 'above' },
       { trackIndex: 0, measureIndex: 0, offset: 0, text: 42, placement: 'above' },
       { trackIndex: 0, measureIndex: 0, offset: 0, text: '   ', placement: 'above' },
       'not an entry',

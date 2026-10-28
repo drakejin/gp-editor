@@ -4,7 +4,7 @@ import { ownValue, parseJsonText } from '../effects/effects-json';
 import { songAnnotations } from '../edit/annotations';
 import type { Annotation, Beat, Measure, Song, Track } from '../model/song';
 import { isRawObject } from '../transcription/parse-values';
-import { isAnnotationPlacement, toAnnotation } from './annotation-text';
+import { MAX_ANNOTATION_LENGTH, isAnnotationPlacement, toAnnotation } from './annotation-text';
 
 export const SONG_ANNOTATIONS_VERSION = 1;
 /** Entries read from a file at most (a file is untrusted: what it costs to read stays bounded). */
@@ -24,7 +24,10 @@ export function songAnnotationsToJson(song: Song): string | undefined {
   return annotations.length === 0 ? undefined : JSON.stringify({ version: SONG_ANNOTATIONS_VERSION, annotations });
 }
 
-/** One entry checked: whole indexes in range, a finite offset, a text with something to show; undefined otherwise. */
+/** A text read from a file is cut to this before it is normalized (normalizing keeps MAX_ANNOTATION_LENGTH of it). */
+const MAX_READ_TEXT = MAX_ANNOTATION_LENGTH * 4;
+
+/** One entry checked: whole indexes in range, a whole non-negative offset, a text with something to show; undefined otherwise. */
 interface ReadEntry {
   readonly trackIndex: number;
   readonly measureIndex: number;
@@ -41,10 +44,10 @@ function readEntry(song: Song, entry: unknown): ReadEntry | undefined {
     return undefined;
   }
   const [trackIndex, measureIndex, offset, text, placement] = ['trackIndex', 'measureIndex', 'offset', 'text', 'placement'].map((key) => ownValue(entry, key));
-  if (!isIndexIn(trackIndex, song.tracks.length) || !isIndexIn(measureIndex, song.measureHeaders.length) || typeof offset !== 'number' || !Number.isFinite(offset) || offset < 0 || typeof text !== 'string') {
+  if (!isIndexIn(trackIndex, song.tracks.length) || !isIndexIn(measureIndex, song.measureHeaders.length) || typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0 || typeof text !== 'string') {
     return undefined;
   }
-  const annotation = toAnnotation(text, isAnnotationPlacement(placement) ? placement : 'above');
+  const annotation = toAnnotation(text.slice(0, MAX_READ_TEXT), isAnnotationPlacement(placement) ? placement : 'above');
   return annotation === undefined ? undefined : { trackIndex, measureIndex, offset, annotation };
 }
 

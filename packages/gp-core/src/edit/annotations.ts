@@ -52,16 +52,18 @@ export function setBeatAnnotation(song: Song, at: BeatAddress, annotation: Annot
 }
 
 /**
- * New song with the annotation of `from` on the beat at `to` instead (any track, bar or beat), as one edit. Same song
- * when `from` has none, `to` is the same beat or no beat, or already has an annotation of its own.
+ * New song with the annotation of `from` on the beat at `to` instead (any track, bar or beat; beat 0 of a bar without
+ * beats gets its rests first), as one edit. Same song when `from` has none, `to` is the same beat or no beat, or
+ * already has an annotation of its own.
  */
 export function moveBeatAnnotation(song: Song, from: BeatAddress, to: BeatAddress): Song {
   const annotation = annotationAt(song, from);
   const isSameBeat = from.trackIndex === to.trackIndex && from.measureIndex === to.measureIndex && from.beatIndex === to.beatIndex;
-  if (annotation === undefined || isSameBeat || !hasBeat(song, to) || annotationAt(song, to) !== undefined) {
+  const filled = to.beatIndex === 0 ? fillEmptyMeasure(song, to.trackIndex, to.measureIndex) : song;
+  if (annotation === undefined || isSameBeat || !hasBeat(filled, to) || annotationAt(filled, to) !== undefined) {
     return song;
   }
-  return updateBeat(updateBeat(song, from, withoutAnnotation), to, (beat) => ({ ...beat, annotation }));
+  return updateBeat(updateBeat(filled, from, withoutAnnotation), to, (beat) => ({ ...beat, annotation }));
 }
 
 /** Every annotation of the song with its beat, track by track, bar by bar, beat by beat. */
