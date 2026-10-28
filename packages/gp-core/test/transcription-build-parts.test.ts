@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PERCUSSION_BANK, STANDARD_TUNING, TRACK_ICON_IDS, type Song, type TranscriptionPage, readSong, trackIconId, writeSong } from '../src/index';
+import { DEFAULT_PERCUSSION_BANK, STANDARD_TUNING, TRACK_ICON_IDS, type Song, type TranscriptionPage, readSong, trackIconId, writeSong, writtenTransposition } from '../src/index';
 import { buildSongFromTranscription } from '../src/transcription/build-song';
 import { parseTranscriptionPage } from '../src/transcription/parse-page';
 import type { TranscribedTrack } from '../src/transcription/types';
@@ -224,13 +224,25 @@ describe('buildSongFromTranscription: piano and other instruments', () => {
     expect(pitchesOf(song, 0)).toEqual([[81]]);
   });
 
-  it('plays a contrabass an octave below its written notes, as Guitar Pro writes it', () => {
+  it('plays a contrabass at the pitch it sounds, as the page’s pitches give it, and writes it an octave above that', () => {
     // Act
-    const { song } = build([soloPage({ name: 'Contrabass', instrument: 'other', tuning: [], capo: 0, program: 43, clef: 'bass' }, [play('whole', written('E3'))])]);
+    const { song } = build([soloPage({ name: 'Contrabass', instrument: 'other', tuning: [], capo: 0, program: 43, clef: 'bass' }, [play('whole', written('E2'))])]);
 
     // Assert
     expect(pitchesOf(song, 0)).toEqual([[40]]);
     expect(song.tracks[0]?.measures[0]?.clef).toBe('bass');
+    expect(writtenTransposition(43, false, song.tracks[0]?.strings.map((guitarString) => guitarString.tuning) ?? [])).toBe(12);
+  });
+
+  it('keeps every open string within MIDI for a part from the very bottom of the range to the top', () => {
+    // Act
+    const { song, warnings } = build([soloPage({ name: 'X', instrument: 'other', tuning: [], capo: 0, program: 43 }, [play('quarter', written('C-1')), play('quarter', written('C7')), rest('half')])]);
+
+    // Assert
+    const tuning = song.tracks[0]?.strings.map((guitarString) => guitarString.tuning) ?? [];
+    expect(tuning.every((open) => open >= 0 && open <= 127)).toBe(true);
+    expect(pitchesOf(song, 0)).toEqual([[0], [96], []]);
+    expect(warnings).toEqual([]);
   });
 
   it('plays an instrument the page gives no program on the string ensemble, and a keyboard on the piano', () => {
@@ -243,6 +255,17 @@ describe('buildSongFromTranscription: piano and other instruments', () => {
 });
 
 describe('buildSongFromTranscription: ukulele and banjo', () => {
+  it('plays a ukulele read from notation as written: ukulele music sounds where it is written', () => {
+    // Act
+    const { song, warnings } = build([
+      soloPage({ name: 'Ukulele', instrument: 'ukulele', tuning: [], capo: 0 }, [play('quarter', written('A4')), play('quarter', written('C5')), play('quarter', written('E5')), play('quarter', written('G4'))]),
+    ]);
+
+    // Assert
+    expect(pitchesOf(song, 0)).toEqual([[69], [72], [76], [67]]);
+    expect(warnings).toEqual([]);
+  });
+
   it('builds a ukulele in its re-entrant standard tuning on the nylon guitar’s sound', () => {
     // Act
     const { song } = build([soloPage({ name: 'Ukulele', instrument: 'ukulele', tuning: [], capo: 0 }, [play('whole', tab(4, 0), tab(3, 0), tab(2, 0), tab(1, 3))])]);

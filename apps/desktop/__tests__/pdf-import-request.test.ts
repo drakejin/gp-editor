@@ -1,4 +1,4 @@
-import { TRANSCRIPTION_TOOL, type TranscriptionPage } from '@gp-editor/core';
+import { PAGE_PITCH_RULE, TRANSCRIPTION_TOOL, type TranscriptionPage } from '@gp-editor/core';
 import { drumStaffGuide } from '../src/pdf-import/drum-staff-guide';
 import { DEFAULT_TRANSCRIPTION_MODEL, TRANSCRIPTION_MODELS, TRANSCRIPTION_SYSTEM_PROMPT, buildTranscriptionRequest } from '../src/pdf-import/request';
 
@@ -75,6 +75,11 @@ describe('the transcription prompt: every staff', () => {
     for (const instrument of ['drums', 'vocals', 'keys', 'other', 'ukulele', 'banjo']) {
       expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain(instrument);
     }
+  });
+
+  it('asks for each staff’s pitches by the one rule the song is built by: written for a guitar, bass or banjo, sounding for the rest', () => {
+    expect(TRANSCRIPTION_SYSTEM_PROMPT).toContain(PAGE_PITCH_RULE);
+    expect(JSON.stringify(TRANSCRIPTION_TOOL)).toContain(JSON.stringify(PAGE_PITCH_RULE).slice(1, -1));
   });
 
   it('makes a grand staff two keys tracks, right hand then left hand', () => {

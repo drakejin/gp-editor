@@ -99,13 +99,18 @@ export function staffPosition(step: number, clef: PitchedClef): number {
 }
 
 /**
- * Semitones a track's notes are written above their sound: an octave for guitars and basses, none for a piano, a voice or
- * any other instrument, by its channel's program as Guitar Pro writes them (gp-core `writtenTransposition`).
+ * Semitones a track's notes are written above their sound: an octave for guitars and basses, none for a ukulele, a piano,
+ * a voice or any other instrument, by its channel's program and its strings as Guitar Pro writes them (gp-core
+ * `writtenTransposition`).
  */
 export function trackTransposition(song: Song, trackIndex: number): number {
   const track = song.tracks[trackIndex];
   const channel = song.channels.find((candidate) => candidate.id === track?.channelId);
-  return track === undefined || channel === undefined ? GUITAR_TRANSPOSITION : writtenTransposition(channel.program, track.isPercussion || channel.isPercussion);
+  if (track === undefined || channel === undefined) {
+    return GUITAR_TRANSPOSITION;
+  }
+  const tuning = track.strings.map((guitarString) => guitarString.tuning);
+  return writtenTransposition(channel.program, track.isPercussion || channel.isPercussion, tuning);
 }
 
 /** Written MIDI pitch of a note: string tuning + capo + fret, `transposition` above that sound (trackTransposition). */

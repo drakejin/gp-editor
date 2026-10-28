@@ -60,13 +60,24 @@ export function instrumentSetOf(program: number, isPercussion: boolean): Instrum
 const CONTRABASS_PROGRAM = 43;
 /** Semitones in the octave the guitars are written above their sound. */
 const WRITTEN_OCTAVE = 12;
+/** A ukulele's strings (the Add Track ukulele's standard and low-G tunings: none below G3). */
+const UKULELE_STRINGS = 4;
+const UKULELE_LOWEST_OPEN = 55;
+
+/** A guitar sound on four strings tuned G3 or higher: a ukulele (General MIDI has none; the app plays it as a guitar). */
+function isUkuleleTuning(tuning: readonly number[]): boolean {
+  return tuning.length === UKULELE_STRINGS && tuning.every((open) => open >= UKULELE_LOWEST_OPEN);
+}
 
 /**
  * Semitones a track's notes are written above their sound: an octave for the guitars, the basses (General MIDI 24–39),
- * the banjo and the contrabass, none for every other instrument and for drums — as Guitar Pro writes them (alphaTab, the
- * tests' independent reader, gives Guitar Pro 3–5 tracks the same display transposition: `GeneralMidi.isGuitar`).
+ * the banjo and the contrabass, none for every other instrument, for drums and for a ukulele (a guitar sound on a
+ * ukulele's strings, `tuning` string 1 first), whose music is written where it sounds — as Guitar Pro writes them
+ * (alphaTab, the tests' independent reader, gives Guitar Pro 3–5 tracks the same display transposition by program:
+ * `GeneralMidi.isGuitar`). The score, the MusicXML writer and the PDF import's builder all take it from here.
  */
-export function writtenTransposition(program: number, isPercussion: boolean): number {
-  const isWrittenOctaveUp = gmFamilyIndex(program) === GUITAR_FAMILY || isGmBassProgram(program) || program === GM_BANJO_PROGRAM || program === CONTRABASS_PROGRAM;
+export function writtenTransposition(program: number, isPercussion: boolean, tuning: readonly number[]): number {
+  const isGuitar = gmFamilyIndex(program) === GUITAR_FAMILY && !isUkuleleTuning(tuning);
+  const isWrittenOctaveUp = isGuitar || isGmBassProgram(program) || program === GM_BANJO_PROGRAM || program === CONTRABASS_PROGRAM;
   return !isPercussion && isWrittenOctaveUp ? WRITTEN_OCTAVE : 0;
 }

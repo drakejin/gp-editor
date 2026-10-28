@@ -40,6 +40,14 @@ const NOTE_PROPERTIES = {
   effects: { type: 'array', items: { type: 'string', enum: TRANSCRIBED_EFFECTS } },
 } as const;
 
+/**
+ * What a page note's `pitch` is: the rule the prompt quotes and the builder follows (track-plans.ts `writtenAbove`).
+ * Guitar, bass and banjo music is written an octave above the sound and kept as written, so the score shows it as the
+ * page does; any other staff's pitch is its sound, which the model works out where a clef or instrument transposes.
+ */
+export const PAGE_PITCH_RULE =
+  'Guitar, bass and banjo: the written pitch (their music is written an octave above how it sounds). Ukulele, vocals, keys and other instruments: the pitch it sounds — the written pitch, except under a clef with a small 8 below it (a tenor voice: an octave lower) or for a transposing instrument (contrabass an octave lower; B♭ trumpet or clarinet, E♭ alto sax, horn in F as they sound).';
+
 /** A note of a tab or pitched staff: the song writer's notes. */
 const NOTE_SCHEMA = { type: 'object', properties: NOTE_PROPERTIES, additionalProperties: false } as const;
 
@@ -48,6 +56,7 @@ const PAGE_NOTE_SCHEMA = {
   type: 'object',
   properties: {
     ...NOTE_PROPERTIES,
+    pitch: { type: 'string', description: `When there is no tab, e.g. "C#4", "Bb3". ${PAGE_PITCH_RULE}` },
     drum: { type: 'string', enum: GM_PERCUSSION_NAMES, description: 'On a drum staff instead of a pitch: the drum played, by its General MIDI percussion name.' },
   },
   additionalProperties: false,

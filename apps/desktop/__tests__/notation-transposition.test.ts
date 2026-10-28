@@ -52,6 +52,13 @@ describe('trackTransposition', () => {
     expect([trackTransposition(songOn(25), 0), trackTransposition(songOn(33), 0), trackTransposition(songOn(undefined), 0)]).toEqual([12, 12, 12]);
   });
 
+  it('writes a ukulele as it sounds: a guitar sound on four strings tuned G3 or higher', () => {
+    const song = songOn(24);
+    const ukulele = { ...song, tracks: [{ ...song.tracks[0]!, strings: [69, 64, 60, 67].map((tuning, i) => ({ number: i + 1, tuning })) }] };
+    expect(trackTransposition(ukulele, 0)).toBe(0);
+    expect(trackTransposition(song, 0)).toBe(12);
+  });
+
   it('writes a piano, a voice, a violin and a drum kit as they sound', () => {
     expect([0, 53, 40].map((program) => trackTransposition(songOn(program), 0))).toEqual([0, 0, 0]);
     expect(trackTransposition(songOn(0, true), 0)).toBe(0);

@@ -83,9 +83,9 @@ export interface TranscribedTrack {
 }
 
 /**
- * One note. From a tab staff: `string` (1 = highest, the top tab line) and `fret`. Without a tab staff: `pitch`, the
- * written pitch on the staff ("C#4", "Bb3"); guitars, basses, the banjo and the contrabass sound an octave lower than
- * written, other instruments as written (writtenTransposition). On a drum staff: `drum`, the drum played.
+ * One note. From a tab staff: `string` (1 = highest, the top tab line) and `fret`. Without a tab staff: `pitch` ("C#4",
+ * "Bb3"), as PAGE_PITCH_RULE says: the written pitch of a guitar, bass or banjo (they sound an octave lower), the
+ * sounding pitch of any other staff. On a drum staff: `drum`, the drum played.
  */
 export interface TranscribedNote {
   readonly string?: number;

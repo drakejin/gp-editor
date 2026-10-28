@@ -23,7 +23,7 @@ export interface TrackPlan {
   /** General MIDI program of its channel. */
   readonly program: number;
   readonly clef: Clef;
-  /** Semitones its notes are written above their sound (writtenTransposition). */
+  /** Semitones the page's pitches for it are above its sound (pagePitchAbove, PAGE_PITCH_RULE). */
   readonly writtenAbove: number;
 }
 
@@ -36,19 +36,26 @@ export interface TrackPlans {
  * The strings a track's notes go on: a fretted instrument's tuning, a drum track's six silent strings, else strings that
  * hold the pitches its parts sound (pitchedPartTuning).
  */
-function resolveTuning(track: TranscribedTrack, name: string, measures: readonly TranscribedMeasure[], trackIndex: number, writtenAbove: number): ResolvedTuning {
+function resolveTuning(track: TranscribedTrack, name: string, measures: readonly TranscribedMeasure[], trackIndex: number): ResolvedTuning {
   if (isFrettedInstrument(track.instrument)) {
     return resolveFrettedTuning(track, name);
   }
-  return { tuning: track.instrument === 'drums' ? DRUM_TUNING : pitchedPartTuning(partPitchRange(measures, trackIndex, writtenAbove)) };
+  return { tuning: track.instrument === 'drums' ? DRUM_TUNING : pitchedPartTuning(partPitchRange(measures, trackIndex)) };
+}
+
+/**
+ * Semitones the page's pitches for a track are above its sound (PAGE_PITCH_RULE): a guitar's, bass's or banjo's written
+ * pitches by its writtenTransposition (an octave; a ukulele's none), every other track's pitches are its sound.
+ */
+function pagePitchAbove(track: TranscribedTrack, program: number, tuning: readonly number[]): number {
+  return isFrettedInstrument(track.instrument) ? writtenTransposition(program, false, tuning) : 0;
 }
 
 function toPlan(track: TranscribedTrack, trackIndex: number, measures: readonly TranscribedMeasure[]): { readonly plan: TrackPlan; readonly warning?: string } {
   const name = track.name.trim() === '' ? `Track ${trackIndex + 1}` : track.name;
   const isPercussion = track.instrument === 'drums';
   const program = resolveProgram(track, name);
-  const writtenAbove = writtenTransposition(program, isPercussion);
-  const { tuning, warning } = resolveTuning(track, name, measures, trackIndex, writtenAbove);
+  const { tuning, warning } = resolveTuning(track, name, measures, trackIndex);
   const isFretted = isFrettedInstrument(track.instrument);
   const capo = isFretted ? track.capo : 0;
   const plan: TrackPlan = {
@@ -60,7 +67,7 @@ function toPlan(track: TranscribedTrack, trackIndex: number, measures: readonly 
     lastFret: isFretted ? neckFrets(capo) : MAX_FRET,
     program,
     clef: resolveClef(track),
-    writtenAbove,
+    writtenAbove: pagePitchAbove(track, program, tuning),
   };
   return warning === undefined ? { plan } : { plan, warning };
 }

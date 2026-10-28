@@ -330,7 +330,7 @@ export type {
   TranscribedTrack,
   TranscriptionPage,
 } from './transcription/types';
-export { TRANSCRIPTION_TOOL } from './transcription/tool';
+export { PAGE_PITCH_RULE, TRANSCRIPTION_TOOL } from './transcription/tool';
 export { parseTranscriptionPage } from './transcription/parse-page';
 export { type TranscribedSong, type TranscriptionOptions, buildSongFromTranscription } from './transcription/build-song';
 export {

@@ -63,6 +63,7 @@ function trackViolations(song: Song, track: Track, trackIndex: number, channelId
   if (!(track.strings.length > 0)) problems.push(`${where}: no strings`);
   track.strings.forEach((guitarString, i) => {
     if (!Object.is(guitarString.number, i + 1)) problems.push(`${where} string ${i}: number ${guitarString.number}`);
+    if (!(Number.isInteger(guitarString.tuning) && guitarString.tuning >= 0 && guitarString.tuning <= 127)) problems.push(`${where} string ${i}: tuning ${guitarString.tuning}`);
   });
   if (!Object.is(track.measures.length, song.measureHeaders.length)) problems.push(`${where}: ${track.measures.length} measures, ${song.measureHeaders.length} headers`);
   track.measures.forEach((measure, measureIndex) => problems.push(...measureViolations(track, measure, measureIndex, song.measureHeaders[measureIndex])));

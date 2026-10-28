@@ -56,14 +56,17 @@ function writtenPitches(beats: readonly TranscribedBeat[]): readonly number[] {
   return beats.flatMap((beat) => (beat.rest === true ? [] : (beat.notes ?? [])).flatMap((note) => (note.pitch === undefined ? [] : (parsePitch(note.pitch) ?? []))));
 }
 
-/** The pitches a track's parts sound, from their written pitches; undefined when it has none. */
-export function partPitchRange(measures: readonly TranscribedMeasure[], trackIndex: number, writtenAbove: number): PitchRange | undefined {
+/**
+ * The pitches a pitched part without tab sounds (its page pitches are its sound, PAGE_PITCH_RULE; every one MIDI 0–127,
+ * parsePitch's range); undefined when it has none.
+ */
+export function partPitchRange(measures: readonly TranscribedMeasure[], trackIndex: number): PitchRange | undefined {
   const pitches = measures.flatMap((measure) => measure.parts.filter((part) => part.track === trackIndex).flatMap((part) => writtenPitches(part.beats)));
   // A reduce, not Math.min(...pitches): an answer may hold more notes than a call takes arguments.
-  return pitches.reduce<PitchRange | undefined>((range, written) => {
-    const pitch = written - writtenAbove;
-    return { min: Math.min(range?.min ?? pitch, pitch), max: Math.max(range?.max ?? pitch, pitch) };
-  }, undefined);
+  return pitches.reduce<PitchRange | undefined>(
+    (range, pitch) => ({ min: Math.min(range?.min ?? pitch, pitch), max: Math.max(range?.max ?? pitch, pitch) }),
+    undefined,
+  );
 }
 
 function holdsRange(tuning: readonly number[], range: PitchRange): boolean {

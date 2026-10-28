@@ -233,14 +233,24 @@ describe('GM percussion names', () => {
 });
 
 describe('written transposition', () => {
+  const GUITAR_TUNING = [64, 59, 55, 50, 45, 40];
+
   it('writes guitars, basses, the banjo and the contrabass an octave above their sound, as Guitar Pro shows them', () => {
-    const octaveUp = Array.from({ length: 128 }, (_, program) => program).filter((program) => writtenTransposition(program, false) === 12);
+    const octaveUp = Array.from({ length: 128 }, (_, program) => program).filter((program) => writtenTransposition(program, false, GUITAR_TUNING) === 12);
     expect(octaveUp).toEqual([...Array.from({ length: 16 }, (_, index) => 24 + index), 43, 105]);
   });
 
   it('writes pianos, voices, strings, winds and drums as they sound', () => {
-    expect([0, 16, 40, 52, 53, 56, 65, 73, 80].map((program) => writtenTransposition(program, false))).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    expect(writtenTransposition(25, true)).toBe(0);
+    expect([0, 16, 40, 52, 53, 56, 65, 73, 80].map((program) => writtenTransposition(program, false, GUITAR_TUNING))).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(writtenTransposition(25, true, GUITAR_TUNING)).toBe(0);
+  });
+
+  it('writes a ukulele as it sounds: a guitar sound on four strings tuned G3 or higher (standard and low G)', () => {
+    expect(writtenTransposition(24, false, [69, 64, 60, 67])).toBe(0);
+    expect(writtenTransposition(24, false, [69, 64, 60, 55])).toBe(0);
+    // A baritone ukulele's D G B E is a guitar's top four strings, written as a guitar's.
+    expect(writtenTransposition(24, false, [64, 59, 55, 50])).toBe(12);
+    expect(writtenTransposition(33, false, [43, 38, 33, 28])).toBe(12);
   });
 });
 
