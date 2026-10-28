@@ -3,7 +3,7 @@ import { type Song, stylesheetOf } from '@gp-editor/core';
 import type { ChordDisplay } from '../score/chords';
 import { useLanguage } from './use-i18n';
 import {
-  type MeasureCache, type PlanCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans, systemHeightOf,
+  type MeasureCache, type PlanCache, type ScoreLayout, type StaffSpec, scoreMeasures, scoreSystems, stackStaves, staffPlans,
 } from '../score/score-layout';
 
 /** `value` while `key` stays the same: the rows compare geometries by identity, so an edit keeping them redraws nothing. */
@@ -17,8 +17,8 @@ function useStable<T>(value: T, key: string): T {
 
 /**
  * The score's layout (`layoutScore`) for the view, recomputed in parts: the staves' geometries only when their bands
- * change (not on every edit), the bars an edit touched (the others kept from the last layout), the systems when the
- * bars or the width change.
+ * change (not on every edit), the bars an edit touched (the others kept from the last layout), the systems — and each
+ * system's staves, equal geometries shared (`stackStaves`) — when the bars or the width change.
  */
 export function useScoreLayout(song: Song, specs: readonly StaffSpec[], chordDisplay: ChordDisplay, rowWidth: number): ScoreLayout {
   const shown = useStable(specs, specs.map((spec) => `${spec.trackIndex}:${spec.mode}`).join(','));
@@ -43,5 +43,5 @@ export function useScoreLayout(song: Song, specs: readonly StaffSpec[], chordDis
   const language = useLanguage();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `language` is read by scoreSystems' labels (global t)
   const systems = useMemo(() => scoreSystems(song, staves, measures, rowWidth), [song, staves, measures, rowWidth, language]);
-  return useMemo(() => ({ staves, systemHeight: systemHeightOf(staves), ...systems }), [staves, systems]);
+  return useMemo(() => ({ staves, ...systems }), [staves, systems]);
 }

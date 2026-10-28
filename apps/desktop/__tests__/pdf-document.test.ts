@@ -99,7 +99,7 @@ describe('packRows', () => {
     const rows = Array.from({ length: 10 }, (_, i) => i);
 
     // Act
-    const pages = packRows(rows, 100, 300, 0, 750);
+    const pages = packRows(rows, () => 100, 300, 0, 750);
 
     // Assert
     expect(pages).toEqual([
@@ -109,16 +109,38 @@ describe('packRows', () => {
   });
 
   it('starts a new page after every seven rows on the following pages', () => {
-    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), 100, 0, 0, 750);
+    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), () => 100, 0, 0, 750);
     expect(pages.map((page) => page.length)).toEqual([7, 7, 6]);
   });
 
   it('returns one empty page when there are no rows', () => {
-    expect(packRows([], 100, 300, 0, 750)).toEqual([[]]);
+    expect(packRows([], () => 100, 300, 0, 750)).toEqual([[]]);
+  });
+
+  it('packs rows of different heights by their own heights', () => {
+    // Arrange: 300 pt under the first title, 750 pt on the others
+    const heights = [200, 100, 150, 400, 400, 300];
+
+    // Act
+    const pages = packRows(heights.map((_, i) => i), (i) => heights[i] ?? 0, 450, 0, 750);
+
+    // Assert
+    expect(pages).toEqual([[0, 1], [2, 3], [4, 5]]);
+  });
+
+  it('keeps a row that fills the room under the title block to the last bit on the first page', () => {
+    // Arrange: a row scaled to the first page's 450 pt, its height off by the last bit
+    const rowHeight = 450.00000000000006;
+
+    // Act
+    const pages = packRows(['a', 'b'], () => rowHeight, 300, 0, 750);
+
+    // Assert
+    expect(pages[0]).toEqual(['a']);
   });
 
   it('gives a row taller than the page a page of its own', () => {
-    expect(packRows(['a', 'b'], 900, 0, 0, 750)).toEqual([['a'], ['b']]);
+    expect(packRows(['a', 'b'], () => 900, 0, 0, 750)).toEqual([['a'], ['b']]);
   });
 });
 
@@ -345,6 +367,21 @@ describe('buildPdfDocument with several tracks (the multitrack view)', () => {
       expect(right).toBeGreaterThan(page.width - PAGE.margin - 40);
       expect(right).toBeLessThanOrEqual(page.width - PAGE.margin + 1);
     });
+  });
+
+  it('prints a system made smaller to fit under the title block on the first page, not after an empty one', () => {
+    // Arrange: eight tracks make a system taller than the room under the title block, so it is scaled to fill it
+    const song = readSong(readFixture('guitarpro1', 'carulli-allegro.gtp'));
+    const modes = ['tab', 'notation', 'notationAndTab'] as const;
+    const mixed = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: modes[trackIndex % 3] ?? 'tab' }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed });
+
+    // Assert: the first page holds staff lines under its title, as many pages as pdfPageCount counts
+    const firstPageLines = pdf.pages[0]?.commands.filter((c) => c.kind === 'line') ?? [];
+    expect(firstPageLines.length).toBeGreaterThan(20);
+    expect(pdfPageCount(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed })).toBe(pdf.pages.length);
   });
 
   it('keeps a system taller than the page inside it', () => {

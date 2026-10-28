@@ -106,8 +106,9 @@ function lineRowProps(item: ScoreLine, staff: ScoreStaff, row: RowLayout, view: 
 
 /** One line of the page: a staff of a system on the paper, with the system's + − × over its top staff in Design Mode. */
 function renderScoreLine(item: ScoreLine, view: LineView): ReactElement | null {
-  const staff = view.layout.staves[item.staffIndex];
-  const row = view.layout.systems[item.systemIndex]?.rows[item.staffIndex];
+  const system = view.layout.systems[item.systemIndex];
+  const staff = system?.staves[item.staffIndex];
+  const row = system?.rows[item.staffIndex];
   if (staff === undefined || row === undefined) {
     return null;
   }
