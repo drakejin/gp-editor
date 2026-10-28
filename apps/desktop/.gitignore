@@ -80,3 +80,6 @@ scripts/audio-check/fixtures.generated.js
 macos/GPEditor-macOS/SoundFonts/*.sf2
 # LAME, libogg and libvorbis built from pinned sources by scripts/audio-codecs/fetch.sh
 macos/ThirdParty/
+
+# Windows build: Vite output (npm run web:build)
+web-dist/

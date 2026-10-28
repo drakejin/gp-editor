@@ -1,0 +1,16 @@
+{
+  // The Windows (Tauri) build: the app as Vite bundles it, with each module's `.web.ts(x)` twin in place of the macOS
+  // one (moduleSuffixes), so a twin that drifts from its macOS module's API fails here. `react-native` stays typed
+  // against react-native-macos (the app's props); web/react-native.tsx provides them on react-native-web.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "moduleSuffixes": [".web", ""],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "noEmit": true
+  },
+  "include": ["web/**/*.ts", "web/**/*.tsx", "src/**/*.ts", "src/**/*.tsx", "types/**/*.d.ts", "vite.config.ts"],
+  "exclude": ["**/node_modules", "src/**/__tests__", "src/native/specs"]
+}

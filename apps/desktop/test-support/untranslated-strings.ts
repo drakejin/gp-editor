@@ -12,6 +12,7 @@ interface PathUtils {
   join(...parts: string[]): string;
   resolve(...parts: string[]): string;
   relative(from: string, to: string): string;
+  readonly sep: string;
 }
 declare const require: (id: string) => unknown;
 declare const __dirname: string;
@@ -53,7 +54,8 @@ function listSources(folder: string): readonly string[] {
   return fs.readdirSync(folder).flatMap((name) => {
     const full = path.join(folder, name);
     if (fs.statSync(full).isDirectory()) {
-      return SKIPPED_FOLDERS.includes(path.relative(SOURCE_ROOT, full)) ? [] : listSources(full);
+      // "/" whatever the platform's separator (Windows' relative paths use "\").
+      return SKIPPED_FOLDERS.includes(path.relative(SOURCE_ROOT, full).split(path.sep).join('/')) ? [] : listSources(full);
     }
     return /\.tsx?$/.test(name) ? [full] : [];
   });

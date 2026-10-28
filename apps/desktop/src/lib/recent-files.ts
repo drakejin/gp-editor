@@ -1,3 +1,5 @@
+import { baseName, folderName, isAbsolutePath } from './file-name';
+
 /**
  * The recent files list (File ▸ Open Recent, the Recent Files panel, the start screen): pinned files on top in the order
  * they were pinned, then the others newest first, one entry per path, at most MAX_RECENT_FILES. The native side
@@ -90,10 +92,13 @@ export function markRecentFileMissing(files: readonly RecentFile[], path: string
   return files.map((each) => (each === file ? { ...file, isMissing: true } : each));
 }
 
-/** The folder of a file as the lists show it: "~/Music/Tabs" for a home folder, else the full path. */
+/**
+ * The folder of a file as the lists show it: "~/Music/Tabs" for a home folder (macOS /Users/name, Windows
+ * C:\Users\name), else the full path.
+ */
 export function recentFileFolder(path: string): string {
-  const folder = path.slice(0, path.lastIndexOf('/'));
-  return folder === '' ? '/' : folder.replace(/^\/Users\/[^/]+/, '~');
+  const folder = folderName(path);
+  return folder === '' ? '/' : folder.replace(/^\/Users\/[^/]+/, '~').replace(/^[A-Za-z]:\\Users\\[^\\]+/, '~');
 }
 
 function readRecentFile(value: unknown): RecentFile | undefined {
@@ -101,12 +106,12 @@ function readRecentFile(value: unknown): RecentFile | undefined {
     return undefined;
   }
   const { path, name, isPinned, openedAt, isMissing } = value as Record<string, unknown>;
-  if (typeof path !== 'string' || !path.startsWith('/')) {
+  if (typeof path !== 'string' || !isAbsolutePath(path)) {
     return undefined;
   }
   return {
     path,
-    name: typeof name === 'string' && name !== '' ? name : path.slice(path.lastIndexOf('/') + 1),
+    name: typeof name === 'string' && name !== '' ? name : baseName(path),
     isPinned: isPinned === true,
     openedAt: typeof openedAt === 'number' && Number.isFinite(openedAt) ? openedAt : 0,
     isMissing: isMissing === true,

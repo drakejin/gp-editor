@@ -4,6 +4,7 @@ import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
 import type { ScoreZoom } from '../lib/score-zoom';
 import { focusView } from '../native/focus-view';
+import { claimKey, keyPressOf } from '../native/key-event';
 import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
 import { type AppCommand, type BarJump, jumpTarget } from '../state/app-command';
@@ -196,12 +197,13 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   });
   const onDragBeat = useCallback((hit: RowHit) => onPressBeat(hit, true), [onPressBeat]);
   const onKeyDown = useStableCallback((event: KeyEvent) => {
-    const { key, metaKey, shiftKey, altKey } = event.nativeEvent;
-    if (sources.isOverlayOpen === true && key !== 'Escape') {
+    const press = keyPressOf(event);
+    if (press === undefined || (sources.isOverlayOpen === true && press.key !== 'Escape')) {
       return;
     }
-    const command = keyCommand({ key, metaKey, shiftKey, altKey }, lastDigit, Date.now());
+    const command = keyCommand(press, lastDigit, Date.now());
     if (command !== undefined) {
+      claimKey(event);
       runCommand(command);
     }
   });

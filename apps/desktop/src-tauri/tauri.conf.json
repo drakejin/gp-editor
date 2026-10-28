@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GP Editor",
+  "version": "0.19.0",
+  "identifier": "com.gpeditor.app",
+  "build": {
+    "beforeDevCommand": "npm run web:dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run web:build",
+    "frontendDist": "../web-dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "GP Editor",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "dragDropEnabled": true,
+        "zoomHotkeysEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "publisher": "GP Editor",
+    "category": "Music",
+    "shortDescription": "Guitar Pro editor",
+    "copyright": "LGPL-2.1-or-later",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"],
+    "resources": {
+      "../macos/GPEditor-macOS/SoundFonts/GeneralUser-GS.sf2": "SoundFonts/GeneralUser-GS.sf2",
+      "../macos/GPEditor-macOS/SoundFonts/GeneralUser-GS-LICENSE.txt": "SoundFonts/GeneralUser-GS-LICENSE.txt"
+    },
+    "fileAssociations": [
+      { "ext": ["gp"], "name": "Guitar Pro 7 file", "description": "Guitar Pro 7/8 file", "role": "Editor" },
+      { "ext": ["gpx"], "name": "Guitar Pro 6 file", "description": "Guitar Pro 6 file", "role": "Editor" },
+      { "ext": ["gp5"], "name": "Guitar Pro 5 file", "description": "Guitar Pro 5 file", "role": "Editor" },
+      { "ext": ["gp4"], "name": "Guitar Pro 4 file", "description": "Guitar Pro 4 file", "role": "Editor" },
+      { "ext": ["gp3"], "name": "Guitar Pro 3 file", "description": "Guitar Pro 3 file", "role": "Editor" },
+      { "ext": ["gtp"], "name": "Guitar Pro 1-2 file", "description": "Guitar Pro 1/2 file", "role": "Editor" },
+      { "ext": ["ptb"], "name": "Power Tab file", "description": "Power Tab file", "role": "Viewer" },
+      { "ext": ["tef"], "name": "TablEdit file", "description": "TablEdit file", "role": "Viewer" },
+      { "ext": ["musicxml", "mxl"], "name": "MusicXML file", "description": "MusicXML file", "role": "Editor" }
+    ],
+    "windows": {
+      "nsis": { "installMode": "currentUser" }
+    }
+  }
+}

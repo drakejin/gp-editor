@@ -48,7 +48,7 @@ so the first launch is blocked: open **System Settings ▸ Privacy & Security** 
 ```
 packages/gp-core   pure TypeScript: format detection, readers, GP3/GP4/GP5, GP7 (.gp) and ASCII tab writers, song model, immutable edit operations
                    (incl. tunings), MIDI rendering, PDF transcription → song
-apps/desktop       React Native app; macOS project in apps/desktop/macos
+apps/desktop       React Native app; macOS project in apps/desktop/macos, Windows (Tauri) in apps/desktop/src-tauri + web/
 ```
 
 `gp-core` has no React or Node dependencies at runtime (only `fflate` and `fast-xml-parser`, both pure JS),
@@ -86,6 +86,26 @@ Development with Metro and fast refresh:
 npm start                                   # Metro
 npm --prefix apps/desktop run macos         # Debug build + launch
 ```
+
+### Windows
+
+The Windows build runs the same React app in a [Tauri](https://tauri.app) v2 window (WebView2) on
+[react-native-web](https://necolas.github.io/react-native-web/): Vite bundles `apps/desktop/web/` and picks each native
+module's `.web.ts(x)` twin, and `apps/desktop/src-tauri/` (Rust) does what a page cannot (files, the API key, sound
+banks, project folders). Needs Node 24, the Rust toolchain (`rustup`) and the MSVC build tools; WebView2 ships with
+Windows 10/11.
+
+```bash
+npm --prefix packages/gp-core install
+npm --prefix apps/desktop install
+npm run build:win                           # NSIS + MSI installers → apps/desktop/src-tauri/target/release/bundle/
+npm --prefix apps/desktop run tauri:dev     # dev window with fast refresh (Vite on port 1420)
+npm --prefix apps/desktop run web:dev       # the app in a browser, without the native side
+```
+
+`build:win` fetches GeneralUser GS first (`soundfont:win`, the Node twin of `fetch.sh`) and bundles it.
+`.github/workflows/windows.yml` builds the installers on every push. Tauri also builds for macOS and Linux from the same
+code; what that still needs, and what the Windows build does not have yet, is in `WINDOWS_PORT.md`.
 
 ## Test
 
