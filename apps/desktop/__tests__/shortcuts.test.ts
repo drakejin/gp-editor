@@ -28,6 +28,12 @@ describe('the shortcut sheet', () => {
     expect(move).toMatchObject({ action: 'Move the note (or the selected beats) to voice 1, 2, 3 or 4', press: { key: '2', altKey: true } });
   });
 
+  it('lists D (the note, or the selected notes, to rests) and ⌘D (the bar, or the selected bars) with the beat keys', () => {
+    const beats = shortcutGroups().find((group) => group.title === 'Beats and rests')?.shortcuts;
+    expect(beats?.find((shortcut) => shortcut.keys === 'D')).toMatchObject({ action: 'Delete the note, or the selected notes (the beats stay as rests)', press: { key: 'd' } });
+    expect(beats?.find((shortcut) => shortcut.keys === '⌘D')).toMatchObject({ action: 'Delete the bar, or the selected bars', press: { key: 'd', metaKey: true } });
+  });
+
   it('lists the practice keys and View ▸ Focus', () => {
     const keys = shortcutGroups().find((group) => group.title === 'Practice')?.shortcuts.map((shortcut) => shortcut.keys);
     expect(keys).toEqual(['⌥- / ⌥=', '⌥M', '⌥C', '⌥L', '⇧⌘F']);

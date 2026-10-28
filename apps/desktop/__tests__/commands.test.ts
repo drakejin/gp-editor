@@ -156,6 +156,13 @@ describe('command registry', () => {
     expect(find('play.toggle').shortcut).toBe('Space');
   });
 
+  it('lists Edit ▸ Delete Notes (D) and Delete Bars (⌘D), the palette’s Delete and − Bar being the same commands', () => {
+    expect(find('edit.deleteNotes')).toMatchObject({ title: 'Delete Notes', shortcut: 'D', command: { type: 'edit', edit: { type: 'deleteNotes' } } });
+    expect(find('edit.deleteBars')).toMatchObject({ title: 'Delete Bars', shortcut: '⌘D', command: { type: 'edit', edit: { type: 'deleteMeasure' } } });
+    expect(allCommands().some((command) => command.id === 'palette.deleteNotes' || command.id === 'palette.deleteMeasure')).toBe(false);
+    expect(find('palette.insertMeasure').title).toBe('Add a bar after the bar you clicked — the cursor’s bar');
+  });
+
   it('lists a palette tool that does what a key does once, with the key', () => {
     const commands = allCommands().flatMap((command) => (command.command === undefined ? [] : [JSON.stringify(command.command)]));
     expect(new Set(commands).size).toBe(commands.length);
@@ -213,6 +220,11 @@ describe('command registry: when a command can run', () => {
     expect(find('file.nextTab').isEnabled(ON_NOTE)).toBe(false);
     expect(find('file.nextTab').isEnabled({ ...ON_NOTE, tabCount: 2 })).toBe(true);
     expect(find('tools.instrument').isEnabled({ ...ON_NOTE, isPercussion: true })).toBe(false);
+    expect(find('edit.deleteNotes').isEnabled(ON_NOTE)).toBe(true);
+    expect(find('edit.deleteNotes').isEnabled(noNote)).toBe(false);
+    expect(find('edit.deleteNotes').isEnabled({ ...noNote, hasSelection: true })).toBe(true);
+    expect(find('edit.deleteBars').isEnabled(noNote)).toBe(true);
+    expect(find('edit.deleteBars').isEnabled(NO_DOCUMENT)).toBe(false);
     expect(find('palette.repeats.plus').isEnabled(ON_NOTE)).toBe(false);
     expect(find('palette.repeats.plus').isEnabled({ ...ON_NOTE, palette: { ...ON_NOTE.palette, header: header(1, { repeatClose: 2 }) } })).toBe(true);
   });

@@ -105,6 +105,12 @@ FOUNDATION_EXPORT NSString *const GPEditorUndoStateNotification;
  */
 FOUNDATION_EXPORT NSString *const GPEditorClipboardCommandNotification;
 
+/**
+ * Edit ▸ Delete Notes (D on the score) / Delete Bars (⌘D) for the score (EditMenu.swift); GPFiles.m forwards it to JS as
+ * "deleteRequested" { what }. Object: NSString "notes" or "bars".
+ */
+FOUNDATION_EXPORT NSString *const GPEditorDeleteCommandNotification;
+
 /** View ▸ Multitrack (F3) was chosen; GPFiles.m forwards it to JS as "multitrackRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMultitrackCommandNotification;
 

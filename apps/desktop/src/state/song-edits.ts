@@ -15,6 +15,7 @@ import {
   deleteBeatNotes,
   deleteMeasures,
   deleteNote,
+  deleteRunNotes,
   findNote,
   findVoice,
   insertBeat,
@@ -71,8 +72,10 @@ export type SongEdit =
   | NotationEdit
   | VoiceEdit
   | { readonly type: 'insertMeasure' }
-  /** The cursor's bar, or every bar from `from` (the selection's start) to it, in one undo step (Guitar Pro's − Bar). */
+  /** The cursor's bar, or every bar from `from` (the selection's start) to it, in one undo step (Guitar Pro's − Bar, ⌘D). */
   | { readonly type: 'deleteMeasure'; readonly from?: BeatPlace }
+  /** D: the note at the cursor, or every note of the beats from `from` (the selection's start) to it in its voice; the beats stay as rests. */
+  | { readonly type: 'deleteNotes'; readonly from?: BeatPlace }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
   | { readonly type: 'erase' };
 
@@ -122,6 +125,9 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'deleteMeasure':
       return deleteMeasures(song, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
+    case 'deleteNotes':
+      // Without a selection, the cursor's note alone; a note tied to a deleted one sounds again either way.
+      return deleteRunNotes(song, { ...beatAddress(cursor), ...edit.from }, beatAddress(cursor), edit.from === undefined ? [cursor.string] : undefined);
     case 'moveToVoice':
       return applyVoiceEdit(song, cursor, edit);
     default:

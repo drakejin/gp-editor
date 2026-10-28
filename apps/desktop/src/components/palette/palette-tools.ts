@@ -22,6 +22,8 @@ export interface PaletteContext {
   readonly isMultivoice?: boolean;
   /** Design Mode is on (the editor's). */
   readonly isDesignMode?: boolean;
+  /** Beats are selected (the editor's): the tools over a selection act on it. */
+  readonly hasSelection?: boolean;
 }
 
 export function paletteContext(edited: Song, cursor: StringAddress | undefined): PaletteContext {
@@ -43,8 +45,8 @@ export function paletteContext(edited: Song, cursor: StringAddress | undefined):
   };
 }
 
-/** What a tool needs to act on: the note at the cursor, its beat (voice), or its bar. */
-export type ToolScope = 'note' | 'beat' | 'bar';
+/** What a tool needs to act on: the note at the cursor, its beat (voice), its bar, or the note or the selected beats' notes. */
+export type ToolScope = 'note' | 'beat' | 'bar' | 'notes';
 
 /** A choice in a tool's option strip (bend presets, slide kinds, tuplet sizes …). */
 export interface PaletteOption {
@@ -120,5 +122,7 @@ export function isToolEnabled(tool: Pick<PaletteTool, 'scope'>, context: Palette
       return context.voice !== undefined;
     case 'bar':
       return context.header !== undefined;
+    case 'notes':
+      return context.note !== undefined || context.hasSelection === true;
   }
 }

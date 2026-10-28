@@ -3,10 +3,12 @@
 // and swallowed ⌘Z, ⌘X, ⌘C and ⌘V before the score saw them. These items post GPEditorUndoCommand / GPEditorRedoCommand
 // (GPFiles.m forwards them to JS; enabled from JS's undo state, GPFiles' setUndoState) and GPEditorClipboardCommand
 // (GPClipboard.m forwards it). While a text field has the keyboard they are its own, as AppKit's items are; Delete and
-// Select All stay the text's alone, as SwiftUI's were.
+// Select All stay the text's alone, as SwiftUI's were. Delete Notes and Delete Bars (⌘D) post GPEditorDeleteCommand for
+// the score (GPFiles.m forwards it); D has no key equivalent: the menu bar takes a key equivalent before the text field
+// with the keyboard, so a bare D would swallow every "d" typed — the score's own keys answer D.
 // SwiftUI refreshes a menu item's enabled state when its menu opens, not when a key equivalent is looked up, so the
-// score's ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V, and ⌘A in a text field, are taken by a local key monitor (from state that is current) before
-// the menu sees them.
+// score's ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘D, and ⌘A in a text field, are taken by a local key monitor (from state that is current)
+// before the menu sees them.
 
 import AppKit
 import SwiftUI
@@ -78,8 +80,8 @@ final class EditMenuModel: ObservableObject {
     focusedText != nil
   }
 
-  /// The score's keys in the editor's window, outside a text field: ⌘X / ⌘C / ⌘V, and ⌘Z / ⇧⌘Z with something to undo /
-  /// redo, posted for the score. Else the key goes on (a text field's own, the menu's beep).
+  /// The score's keys in the editor's window, outside a text field: ⌘X / ⌘C / ⌘V, ⌘D, and ⌘Z / ⇧⌘Z with something to
+  /// undo / redo, posted for the score. Else the key goes on (a text field's own, the menu's beep).
   private func takeScoreKey(_ event: NSEvent) -> Bool {
     guard let window = event.window, window == EditMenuModel.editorWindow, !(window.firstResponder is NSText),
           let key = event.charactersIgnoringModifiers?.lowercased() else {
@@ -96,6 +98,9 @@ final class EditMenuModel: ObservableObject {
       return true
     case ("z", [.command, .shift]) where canRedo:
       NotificationCenter.default.post(name: .GPEditorRedoCommand, object: nil)
+      return true
+    case ("d", [.command]):
+      NotificationCenter.default.post(name: .GPEditorDeleteCommand, object: "bars" as NSString)
       return true
     default:
       return false
@@ -133,6 +138,13 @@ final class EditMenuModel: ObservableObject {
       NotificationCenter.default.post(name: .GPEditorClipboardCommand, object: command as NSString)
     } else {
       NSApp.sendAction(textAction, to: nil, from: nil)
+    }
+  }
+
+  /// Delete Notes / Delete Bars ("notes" or "bars"): the score's, in the editor's window while no text has the keyboard.
+  static func performScoreDelete(_ what: String) {
+    if !isTextFocused && keyboardWindow == editorWindow {
+      NotificationCenter.default.post(name: .GPEditorDeleteCommand, object: what as NSString)
     }
   }
 
@@ -190,5 +202,25 @@ struct PasteboardCommands: View {
       EditMenuModel.performClipboard(textAction, command: command)
     }
     .keyboardShortcut(key)
+  }
+}
+
+/// Edit ▸ Delete Notes (the note at the cursor, or the selected notes: the beats stay as rests; D on the score) and Delete
+/// Bars ⌘D (the cursor's bar, or the selected bars), after the pasteboard's items; off while a text field has the keyboard.
+struct ScoreDeleteCommands: View {
+  @ObservedObject var model: EditMenuModel
+  @ObservedObject var strings: AppLanguageModel
+
+  var body: some View {
+    Divider()
+    Button(strings("Delete Notes")) {
+      EditMenuModel.performScoreDelete("notes")
+    }
+    .disabled(model.isTextFocused)
+    Button(strings("Delete Bars")) {
+      EditMenuModel.performScoreDelete("bars")
+    }
+    .keyboardShortcut("d")
+    .disabled(model.isTextFocused)
   }
 }

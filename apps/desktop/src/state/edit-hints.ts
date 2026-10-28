@@ -25,6 +25,9 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
     // − Bar changes nothing only where it would delete every bar.
     return t('palette.hint.lastBar');
   }
+  if (edit.type === 'deleteNotes') {
+    return edit.from === undefined ? noNoteHint(cursor.string) : t('palette.hint.noSelectedNotes');
+  }
   const header = song.measureHeaders[cursor.measureIndex];
   const next = header === undefined ? undefined : nextTimeSignature(header.timeSignature, edit);
   if (header === undefined || next === undefined) {

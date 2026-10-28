@@ -1,5 +1,6 @@
 // i18n-exempt-file: key names (react-native's KeyEvent.key values) and editor commands, nothing shown
 import type { HandledKeyEvent } from 'react-native';
+import type { DeleteCommand } from '../native/gp-files';
 import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
@@ -96,14 +97,14 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: ']', altKey: true },
   { key: '/', altKey: true },
   ...[...Object.keys(PRACTICE_KEYS), '-', '='].map((key) => ({ key, altKey: true })),
-  ...['c', 'x', 'v'].map((key) => ({ key, metaKey: true })),
+  ...['c', 'x', 'v', 'd'].map((key) => ({ key, metaKey: true })),
   ...['1', '2', '3', '4'].flatMap((key) => [{ key, metaKey: true }, { key, altKey: true }]),
   { key: ' ' },
   { key: 'Escape' },
   { key: 'z', metaKey: true },
   { key: 'z', metaKey: true, shiftKey: true },
   { key: 'Backspace', shiftKey: true },
-  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k', 'y'].map((key) => ({ key })),
+  ...['[', ']', '.', '/', 'r', 's', 'h', 'p', 'm', 'x', 'b', 'c', 'g', 'a', 'n', 't', 'i', 'k', 'y', 'd'].map((key) => ({ key })),
 ];
 
 /**
@@ -124,6 +125,7 @@ const EDIT_KEYS: Readonly<Record<string, SongEdit>> = {
   n: { type: 'toggleHarmonic' },
   t: { type: 'toggleTie' },
   i: { type: 'insertBeat' },
+  d: { type: 'deleteNotes' },
   Backspace: { type: 'erase' },
   Delete: { type: 'erase' },
 };
@@ -134,6 +136,15 @@ const CHORD_PANEL_KEY = 'k';
 const SYNC_POINT_KEY = 'y';
 
 const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy' }, x: { type: 'cut' }, v: { type: 'paste' } };
+
+/**
+ * D and ⌘D, and Edit ▸ Delete Notes / Delete Bars: the note at the cursor or the selected notes (the beats stay as
+ * rests); the cursor's bar or the selected bars (the palette's − Bar).
+ */
+export const DELETE_COMMANDS: Readonly<Record<DeleteCommand, KeyCommand>> = {
+  notes: { type: 'edit', edit: { type: 'deleteNotes' } },
+  bars: { type: 'edit', edit: { type: 'deleteMeasure' } },
+};
 /** ⌘1–⌘4: the cursor on voice 1–4 (Guitar Pro 8's Edit Voice keys). */
 const VOICE_KEYS: Readonly<Record<string, KeyCommand>> = Object.fromEntries(
   ['1', '2', '3', '4'].map((key, voiceIndex): [string, KeyCommand] => [key, { type: 'selectVoice', voiceIndex }]),
@@ -170,10 +181,13 @@ function practiceKey(key: string): KeyCommand | undefined {
 const isUpDown = (key: string): boolean => key === 'ArrowUp' || key === 'ArrowDown';
 const isLeftRight = (key: string): boolean => key === 'ArrowLeft' || key === 'ArrowRight';
 
-/** ⌘ presses: undo / redo, zoom, the track, the clipboard, the voice; nothing else answers ⌘. */
+/** ⌘ presses: undo / redo, zoom, the track, the clipboard, the bars, the voice; nothing else answers ⌘. */
 function metaKeyCommand(key: string, shiftKey: boolean): KeyCommand | undefined {
   if (key.toLowerCase() === 'z') {
     return shiftKey ? { type: 'redo' } : { type: 'undo' };
+  }
+  if (key.toLowerCase() === 'd' && !shiftKey) {
+    return DELETE_COMMANDS.bars;
   }
   if (key === '=' || key === '-') {
     return { type: 'zoom', direction: key === '=' ? 1 : -1 };
@@ -228,8 +242,9 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
  * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
  * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord), ⌫ / ⌦ turn a note into
- * a rest and remove a rest, ⇧⌫ deletes the beat, ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's
- * tuplet), I inserts a beat, Space plays,
+ * a rest and remove a rest, D deletes the note (or the selected notes: the beats stay as rests), ⇧⌫ deletes the beat,
+ * ⌘D the bar (or the selected bars), ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's tuplet), I inserts a
+ * beat, Space plays,
  * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste, ⌘1–⌘4 put the cursor on voice 1–4 and ⌥1–⌥4 move the note there.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.

@@ -84,8 +84,8 @@ export interface Command {
   readonly run: (actions: CommandActions) => void;
 }
 
-/** When a command can run. */
-export type Requirement = 'always' | 'document' | 'note' | 'beat' | 'bar' | 'undo' | 'redo' | 'tabs' | 'pitched';
+/** When a command can run (`notes`: a note at the cursor or a selection, as the palette's Delete). */
+export type Requirement = 'always' | 'document' | 'note' | 'beat' | 'bar' | 'notes' | 'undo' | 'redo' | 'tabs' | 'pitched';
 
 export function isRequirementMet(requirement: Requirement, state: CommandState): boolean {
   switch (requirement) {
@@ -94,7 +94,8 @@ export function isRequirementMet(requirement: Requirement, state: CommandState):
     case 'note':
     case 'beat':
     case 'bar':
-      return state.hasDocument && isToolEnabled({ scope: requirement }, state.palette);
+    case 'notes':
+      return state.hasDocument && isToolEnabled({ scope: requirement }, { ...state.palette, hasSelection: state.hasSelection });
     case 'undo':
       return state.canUndo;
     case 'redo':

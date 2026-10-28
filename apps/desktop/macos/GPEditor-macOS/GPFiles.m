@@ -3,9 +3,10 @@
 // EditMenu.swift post (GPEditorNotifications.h), forwarded to JS as events by one table, GPMenuEvents: the File menu
 // (New, Open…, Import PDF…, Export PDF… / PNG… / MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… / Audio…,
 // Print…, Save, Save As…, Close Tab, Next Tab, Previous Tab), Edit ▸ Undo / Redo (with JS's undo state back:
-// setUndoState), Lyrics… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…, Command Palette… / Expression
-// Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸ Keyboard Shortcuts. Export's
-// files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads MusicXML files too.
+// setUndoState), Delete Notes / Delete Bars, Lyrics… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
+// Command Palette… / Expression Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸
+// Keyboard Shortcuts. Export's files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads
+// MusicXML files too.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
@@ -44,6 +45,12 @@ static NSDictionary *GPSaveBody(NSNotification *note)
 static NSDictionary *GPSaveAsBody(NSNotification *note)
 {
   return @{@"saveAs" : @YES};
+}
+
+/** Edit ▸ Delete Notes / Delete Bars: what goes, "notes" or "bars" (JS checks it and ignores anything else). */
+static NSDictionary *GPDeleteBody(NSNotification *note)
+{
+  return @{@"what" : [note.object isKindOfClass:[NSString class]] ? note.object : @""};
 }
 
 /** Tools ▸ Command Palette… (⇧⌘P), or Expression Text… (⌥⌘E: the notification's object is @"expression"). */
@@ -102,6 +109,8 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       // The score's undo and redo (EditMenu.swift: not while a text field edits, its own undo then).
       GPEditorUndoCommandNotification : GPEvent(@"undoRequested", GPNoBody),
       GPEditorRedoCommandNotification : GPEvent(@"redoRequested", GPNoBody),
+      // The score's notes (D) or bars (⌘D) deleted (EditMenu.swift: not while a text field has the keyboard).
+      GPEditorDeleteCommandNotification : GPEvent(@"deleteRequested", GPDeleteBody),
       GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
       GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
       GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),

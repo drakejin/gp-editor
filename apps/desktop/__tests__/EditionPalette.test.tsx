@@ -14,7 +14,7 @@ const ON_NOTE: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, v
 const ON_EMPTY_STRING: StringAddress = { ...ON_NOTE, string: 4 };
 
 /** `null`: no cursor. */
-function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false) {
+function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false, hasSelection = false) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
   const onOpenPanel = jest.fn();
@@ -22,7 +22,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMul
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} isMultivoice={isMultivoice} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
+      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} isMultivoice={isMultivoice} hasSelection={hasSelection} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
     );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
@@ -101,6 +101,33 @@ describe('EditionPalette state at the cursor', () => {
     expect(palette.tool('dynamic-f').props.isEnabled).toBe(false);
     expect(palette.tool('value8').props.isEnabled).toBe(true);
     expect(palette.tool('repeatOpen').props.isEnabled).toBe(true);
+  });
+
+  it('keeps Delete (D) on with a selection, whose notes it deletes, even where the cursor’s string has no note', () => {
+    // Arrange
+    const alone = render(ON_EMPTY_STRING);
+    const selected = render(ON_EMPTY_STRING, SONG, false, true);
+
+    // Act
+    selected.press('deleteNotes');
+
+    // Assert
+    expect(alone.tool('deleteNotes').props.isEnabled).toBe(false);
+    expect(selected.tool('deleteNotes').props.isEnabled).toBe(true);
+    expect(selected.onEdit.mock.calls).toEqual([[{ type: 'deleteNotes' }]]);
+  });
+
+  it('shows the delete keys in the buttons’ corners and says where + Bar adds its bar', () => {
+    // Arrange
+    const palette = render();
+    const texts = (id: string) => palette.tool(id).findAllByType(Text).map((text) => text.props.children);
+
+    // Act / Assert
+    expect(texts('deleteNotes')).toEqual(['Del.', 'D']);
+    expect(texts('deleteMeasure')).toEqual(['−Bar', '⌘D']);
+    expect(palette.tool('deleteNotes').props.tooltip).toBe('Delete the note at the cursor, or the selected notes — the beats stay as rests (D)');
+    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars (⌘D)');
+    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked — the cursor’s bar');
   });
 
   it('disables everything without a cursor', () => {

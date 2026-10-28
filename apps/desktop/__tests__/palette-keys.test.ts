@@ -3,11 +3,20 @@ import { keyCommand } from '../src/lib/key-commands';
 
 const TOOLS_WITH_KEYS = paletteGroups().flatMap((group) => group.tools).filter((tool) => tool.key !== undefined);
 
-const pressOf = (key: string) => keyCommand({ key: key.toLowerCase(), metaKey: false, shiftKey: false, altKey: false }, { current: undefined }, 0);
+/** The press a button's key names: "D", or "⌘D" with the command key. */
+const pressOf = (key: string) => {
+  const metaKey = key.startsWith('⌘');
+  return keyCommand({ key: key.replace('⌘', '').toLowerCase(), metaKey, shiftKey: false, altKey: false }, { current: undefined }, 0);
+};
 
 describe('palette buttons and their keys', () => {
   it('shows keys on the techniques and accents', () => {
     expect(TOOLS_WITH_KEYS.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('shows D on the Note group’s Delete and ⌘D on the Bar group’s − Bar', () => {
+    const keys = new Map(TOOLS_WITH_KEYS.map((tool) => [tool.id, tool.key]));
+    expect([keys.get('deleteNotes'), keys.get('deleteMeasure')]).toEqual(['D', '⌘D']);
   });
 
   it.each(TOOLS_WITH_KEYS.map((tool) => [tool.id, tool] as const))('%s: the key does what the button does and the tooltip names it', (_id, tool) => {

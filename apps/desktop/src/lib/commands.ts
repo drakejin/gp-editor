@@ -74,6 +74,8 @@ const editRows = (): readonly Command[] => [
   appKeyRow('edit.copy', 'edit', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
   appKeyRow('edit.cut', 'edit', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
   appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
+  appKeyRow('edit.deleteNotes', 'edit', press('d'), { when: 'notes', keywords: ['erase', 'remove', 'clear', 'rests', 'selection'] }),
+  appKeyRow('edit.deleteBars', 'edit', press('d', { metaKey: true }), { when: 'bar', keywords: ['measures', 'remove', 'selection'] }),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.voice${number}`, 'edit', press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.moveToVoice${number}`, 'edit', press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
   appEditorRow('edit.multivoice', 'edit', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all', 'voices', 'polyphony', 'fade'] }),

@@ -35,7 +35,8 @@ describe('the edition palette in Korean', () => {
 
     // Assert
     expect(groups.map((group) => group.title)).toEqual(['성부', '리듬', '주법', '아티큘레이션', '셈여림', '음표', '박', '마디']);
-    expect([faces.get('bend'), faces.get('slide'), faces.get('dead'), faces.get('insertMeasure'), faces.get('stringUp'), faces.get('clef')]).toEqual(['벤딩', '슬라이드', '데드', '+ 마디', '줄 ↑', '음자리표']);
+    expect([faces.get('bend'), faces.get('slide'), faces.get('dead'), faces.get('insertMeasure'), faces.get('stringUp'), faces.get('clef')]).toEqual(['벤딩', '슬라이드', '데드', '+마디', '줄 ↑', '음자리표']);
+    expect([faces.get('deleteNotes'), faces.get('deleteMeasure')]).toEqual(['삭제', '−마디']);
     expect([faces.get('palmMute'), faces.get('letRing'), faces.get('hammer'), faces.get('whammy'), faces.get('rasgueado')]).toEqual(['P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.']);
   });
 

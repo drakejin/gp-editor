@@ -185,8 +185,9 @@ function barGroup(): PaletteGroup {
     id: 'bar',
     title: t('palette.group.bar'),
     tools: [
+      // + Bar adds after the bar clicked (the cursor's): the mouse is on the palette when it is pressed, not on a bar.
       { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }) },
-      { id: 'deleteMeasure', face: t('palette.face.deleteMeasure'), tooltip: t('palette.tool.deleteMeasure'), scope: 'bar', run: edit({ type: 'deleteMeasure' }) },
+      { id: 'deleteMeasure', face: t('palette.face.deleteMeasure'), key: '⌘D', tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'), scope: 'bar', run: edit({ type: 'deleteMeasure' }) },
       { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
       { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
       endingsTool(),
@@ -250,7 +251,7 @@ function noteGroup(): PaletteGroup {
       { id: 'fretUp', face: t('palette.face.fretUp'), tooltip: t('palette.tool.fretUp'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteFret', delta: 1 } } },
       { id: 'stringUp', face: t('palette.face.stringUp'), tooltip: t('palette.tool.stringUp'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: -1 } } },
       { id: 'stringDown', face: t('palette.face.stringDown'), tooltip: t('palette.tool.stringDown'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: 1 } } },
-      { id: 'deleteNote', face: t('palette.face.deleteNote'), tooltip: t('palette.tool.deleteNote'), scope: 'note', run: { kind: 'action', action: { type: 'deleteNote' } } },
+      { id: 'deleteNotes', face: t('palette.face.deleteNotes'), key: 'D', tooltip: withKey(t('palette.tool.deleteNotes'), 'D'), scope: 'notes', run: edit({ type: 'deleteNotes' }) },
       ...fingeringTools(),
       accidentalTool(),
     ],

@@ -180,6 +180,32 @@ export function setUndoState(canUndo: boolean, canRedo: boolean): void {
   native?.setUndoState(canUndo, canRedo);
 }
 
+const DELETE_COMMAND_NAMES = ['notes', 'bars'] as const;
+
+/** Edit ▸ Delete Notes (D on the score) or Delete Bars (⌘D). */
+export type DeleteCommand = (typeof DELETE_COMMAND_NAMES)[number];
+
+/** What a "deleteRequested" event deletes (`{ what }`); undefined for anything else. */
+export function toDeleteCommand(body: unknown): DeleteCommand | undefined {
+  const what = typeof body === 'object' && body !== null ? (body as { readonly what?: unknown }).what : undefined;
+  return DELETE_COMMAND_NAMES.find((each) => each === what);
+}
+
+/**
+ * Edit ▸ Delete Notes or Delete Bars chosen while no text field has the keyboard, or ⌘D pressed then (the menu bar sees
+ * it before the score: EditMenu.swift); returns the unsubscribe function.
+ */
+export function subscribeDeleteRequests(onDeleteRequested: (command: DeleteCommand) => void): () => void {
+  return subscribeNativeEvents(native, {
+    deleteRequested: (body: unknown) => {
+      const command = toDeleteCommand(body);
+      if (command !== undefined) {
+        onDeleteRequested(command);
+      }
+    },
+  });
+}
+
 export interface TrackViewEventHandlers {
   /** View ▸ Multitrack (F3). */
   readonly onMultitrackRequested: () => void;

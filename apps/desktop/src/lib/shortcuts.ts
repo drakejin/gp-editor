@@ -61,10 +61,12 @@ const NOTE_ROWS: readonly ShortcutRow[] = [
   row('⌥↑ / ⌥↓', 'commands.shortcuts.noteString', key(KEYS.arrowUp, { altKey: true })),
 ];
 
-/** The cursor's beat: erase, delete, insert, its length. */
+/** The cursor's beat: erase, delete (its notes, the selected ones, the bars), insert, its length. */
 const BEAT_ROWS: readonly ShortcutRow[] = [
   row('⌫ / ⌦', 'commands.shortcuts.erase', key(KEYS.backspace)),
   row('⇧⌫', 'commands.shortcuts.deleteBeat', key(KEYS.backspace, { shiftKey: true })),
+  row('D', 'commands.shortcuts.deleteNotes', key('d')),
+  row('⌘D', 'commands.shortcuts.deleteBars', key('d', { metaKey: true })),
   row('I', 'commands.shortcuts.insertBeat', key('i')),
   row('K', 'commands.shortcuts.chord', key('k')),
   row('Y', 'commands.shortcuts.syncPoint', key('y')),

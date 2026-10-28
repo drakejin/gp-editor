@@ -27,6 +27,8 @@ export interface EditionPaletteProps {
   readonly isMultivoice?: boolean;
   /** Design Mode is on: its palette button is lit. */
   readonly isDesignMode?: boolean;
+  /** Beats are selected: Delete (D) deletes their notes, even where the cursor's string has none. */
+  readonly hasSelection?: boolean;
   readonly onEdit: (edit: SongEdit) => void;
   readonly onAction: (action: EditorAction) => void;
   /** The bend and vibrato tools open the same panels as C and B. */
@@ -44,10 +46,10 @@ export interface EditionPaletteProps {
  * dynamics, strokes, and the bar's time signature, tempo, key, repeats and section. A lit button is what the cursor's
  * note, beat or bar has.
  */
-function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDesignMode = false, onEdit, onAction, onOpenPanel, onOpenChordPanel, onOpenExpressionText, isExpressionTextOpen = false }: EditionPaletteProps) {
+function EditionPaletteView({ palette, song, cursor, isMultivoice = false, isDesignMode = false, hasSelection = false, onEdit, onAction, onOpenPanel, onOpenChordPanel, onOpenExpressionText, isExpressionTextOpen = false }: EditionPaletteProps) {
   // The groups' texts are built in the shown language (useT re-renders the palette when it changes).
   useT();
-  const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode };
+  const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode, hasSelection };
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
   // The same function on every render: the tool buttons (memoised) redraw only when they change.

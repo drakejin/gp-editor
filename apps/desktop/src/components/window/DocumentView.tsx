@@ -42,6 +42,7 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
       cursor={state.cursor}
       isMultivoice={state.isMultivoice}
       isDesignMode={state.isDesignMode}
+      hasSelection={state.selectionAnchor !== undefined}
       onEdit={cursorTools.editAtCursor}
       onAction={cursorTools.actAtCursor}
       onOpenPanel={cursorTools.openNotePanel}

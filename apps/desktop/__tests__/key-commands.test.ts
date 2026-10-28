@@ -1,5 +1,5 @@
 import { DIGIT_WINDOW_MS } from '../src/lib/fret-input';
-import { HANDLED_KEYS, keyCommand } from '../src/lib/key-commands';
+import { DELETE_COMMANDS, HANDLED_KEYS, keyCommand } from '../src/lib/key-commands';
 
 const press = (key: string, modifiers: Partial<{ metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) => ({
   key,
@@ -161,5 +161,24 @@ describe('keyCommand tracks', () => {
     expect(keyCommand(press('ArrowDown', { metaKey: true }), digit, 0)).toEqual({ type: 'moveCursorTrack', step: 1 });
     expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowUp', metaKey: true });
     expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowDown', metaKey: true });
+  });
+});
+
+describe('keyCommand delete keys', () => {
+  it('deletes the note, or the selected notes, with D, and the bar, or the selected bars, with ⌘D (− Bar’s edit)', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('d'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteNotes' } });
+    expect(keyCommand(press('d', { metaKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteMeasure' } });
+  });
+
+  it('claims D and ⌘D from react-native-macos', () => {
+    expect(HANDLED_KEYS).toContainEqual({ key: 'd' });
+    expect(HANDLED_KEYS).toContainEqual({ key: 'd', metaKey: true });
+  });
+
+  it('gives Edit ▸ Delete Notes and Delete Bars the commands of their keys', () => {
+    const digit = { current: undefined };
+    expect(DELETE_COMMANDS.notes).toEqual(keyCommand(press('d'), digit, 0));
+    expect(DELETE_COMMANDS.bars).toEqual(keyCommand(press('d', { metaKey: true }), digit, 0));
   });
 });
