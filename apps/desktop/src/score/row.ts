@@ -14,6 +14,7 @@ import { type RowGeometry, type ScoreMode, showsNotation, showsTab, stavesSpan }
 import { type HeadingStyle, engraveHeading } from './heading';
 import { engraveLyrics } from './lyrics';
 import { STAFF_HEIGHT, engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth, staffLines } from './notation';
+import { trackTransposition } from './notation/pitch';
 import { type BeatRange, engraveSelection } from './selection-tint';
 import type { NextInRow } from './symbols/links';
 import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader } from './tab';
@@ -184,9 +185,10 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   // Pick strokes go over the tab when it is shown, else over the notation.
   const showsPickStrokes = !showsTab(context.mode);
   const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
+  const transposition = trackTransposition(context.song, context.trackIndex);
   const { editedVoiceIndex } = context;
   const { showsCommonTime } = scope.sheet.notation;
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex, showsCommonTime });
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, transposition, editedVoiceIndex, showsCommonTime });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */

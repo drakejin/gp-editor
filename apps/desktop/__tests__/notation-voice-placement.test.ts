@@ -2,6 +2,7 @@ import { type Song, readSong } from '@gp-editor/core';
 import { layoutMeasure } from '../src/lib/layout';
 import type { DrawCommand } from '../src/score/draw';
 import { NOTATION, engraveNotationMeasure } from '../src/score/notation';
+import { GUITAR_TRANSPOSITION } from '../src/score/notation/pitch';
 import { nextMeasureHeads } from '../src/score/notation/voice-placement';
 import { readFixture } from '../test-support/fixtures';
 import { PALETTE } from '../test-support/score-helpers';
@@ -32,7 +33,7 @@ function compare(song: Song): { readonly found: number; readonly missing: string
       const layout = layoutMeasure(song, trackIndex, measureIndex);
       const previousMeasure = track.measures[measureIndex - 1];
       const drawn = drawnGlyphs(engraveNotationMeasure({ track, header, measure, layout, previousMeasure, top: TOP, palette: PALETTE }));
-      const headOn = nextMeasureHeads(track, measure, { header, layout }, TOP, 0);
+      const headOn = nextMeasureHeads(track, measure, { header, layout }, { top: TOP, offset: 0, transposition: GUITAR_TRANSPOSITION });
       measure.beats.forEach((beat, beatIndex) =>
         beat.voices.forEach((voice, voiceIndex) =>
           voice.notes.forEach((note) => {
@@ -83,8 +84,8 @@ describe('nextMeasureHeads', () => {
     const string = measure.beats[beatIndex]!.voices[0]!.notes[0]!.string;
 
     // Act
-    const atZero = nextMeasureHeads(track, measure, next, TOP, 0)(beatIndex, 0, string);
-    const shifted = nextMeasureHeads(track, measure, next, TOP, 250)(beatIndex, 0, string);
+    const atZero = nextMeasureHeads(track, measure, next, { top: TOP, offset: 0, transposition: GUITAR_TRANSPOSITION })(beatIndex, 0, string);
+    const shifted = nextMeasureHeads(track, measure, next, { top: TOP, offset: 250, transposition: GUITAR_TRANSPOSITION })(beatIndex, 0, string);
 
     // Assert
     expect(shifted!.head.x).toBeCloseTo(atZero!.head.x + 250);

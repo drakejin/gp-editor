@@ -54,11 +54,11 @@ describe('staff positions and clefs', () => {
   });
 
   it('writes guitar an octave above sounding pitch, including the capo', () => {
-    expect(writtenMidi(GUITAR, note(6, 0))).toBe(52); // low E sounds E2, written E3
-    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3))).toBe(
+    expect(writtenMidi(GUITAR, note(6, 0), 12)).toBe(52); // low E sounds E2, written E3
+    expect(writtenMidi({ ...GUITAR, offset: 2 }, note(1, 3), 12)).toBe(
       64 + 2 + 3 + 12,
     );
-    expect(writtenMidi(GUITAR, note(9, 0))).toBe(60 + 12); // unknown string falls back to middle C
+    expect(writtenMidi(GUITAR, note(9, 0), 12)).toBe(60 + 12); // unknown string falls back to middle C
   });
 
   it('chooses treble, bass, C clef or percussion staves', () => {

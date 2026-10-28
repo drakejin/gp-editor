@@ -7,7 +7,7 @@ import { type Highlight, engraveVoices } from './engrave-voices';
 import { buildVoiceEvents } from './events';
 import { keyChange } from './key-signature';
 import { CLEF_CHANGE_SCALE, MUSIC_FONT_SIZE, positionY } from './metrics';
-import { type ClefKind, clefKind } from './pitch';
+import { type ClefKind, GUITAR_TRANSPOSITION, clefKind } from './pitch';
 import { emptyVoiceRest, measureRest } from './rests';
 import { voiceTint } from '../voices';
 import { CLEF_GLYPHS, barLines, staffLines, timeSignature } from './staff';
@@ -34,6 +34,8 @@ export interface NotationContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
   readonly isKeyboard?: boolean;
+  /** Semitones the track's notes are written above their sound (`trackTransposition`); absent: a guitar's octave. */
+  readonly transposition?: number;
   /**
    * The measure starts its row: the row header shows its clef, and an octave sign running into it is named again. Slurs
    * and slides from the previous measure come in here unless this is false (the previous measure drew them whole).
@@ -154,6 +156,10 @@ function emptyMeasureRest(context: NotationContext): DrawCommand {
   return measureRest(measureRestX(context), context.top, color);
 }
 
+function transpositionOf(context: NotationContext): number {
+  return context.transposition ?? GUITAR_TRANSPOSITION;
+}
+
 /** The next measure when it is on this row, for the slurs and slides that reach into it. */
 function nextBarOf(context: NotationContext): NextBar | undefined {
   const { track, measure, nextMeasure, nextInRow, top, layout } = context;
@@ -162,7 +168,7 @@ function nextBarOf(context: NotationContext): NextBar | undefined {
   }
   const area = { layout: nextInRow.layout, header: nextInRow.header, measure: nextMeasure, previousMeasure: measure };
   return {
-    headOn: nextMeasureHeads(track, nextMeasure, nextInRow, top, layout.width),
+    headOn: nextMeasureHeads(track, nextMeasure, nextInRow, { top, offset: layout.width, transposition: transpositionOf(context) }),
     entryX: layout.width + entryXOf(area),
   };
 }
@@ -182,7 +188,7 @@ export function engraveNotationMeasure(
   const voices =
     measure.beats.length === 0
       ? [emptyMeasureRest(context)]
-      : engraveVoices(buildVoiceEvents(track, measure, layout, clef), {
+      : engraveVoices(buildVoiceEvents(track, measure, layout, clef, transpositionOf(context)), {
           ...context,
           width: layout.width,
           entryX,

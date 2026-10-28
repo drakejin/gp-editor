@@ -95,18 +95,22 @@ type RawEvent = Omit<VoiceEvent, 'notes' | 'ottava'> & {
   readonly notes: readonly Note[];
 };
 
-/** The measure's voices in playing order, notes placed on the staff with their accidentals. */
+/**
+ * The measure's voices in playing order, notes placed on the staff with their accidentals, each written `transposition`
+ * above its sound (trackTransposition).
+ */
 export function buildVoiceEvents(
   track: Track,
   measure: Measure,
   layout: MeasureLayout,
   clef: ClefKind,
+  transposition: number,
 ): VoiceEvent[] {
   const raw = rawEvents(measure, layout, track.hasSlashNotation === true);
   const placed =
     clef === 'percussion'
       ? raw.map(event => event.notes.map(placeDrum))
-      : placePitched(raw, track, measure.keySignature, clef);
+      : placePitched(raw, track, measure.keySignature, clef, transposition);
   const sorted = placed.map(notes =>
     [...notes].sort((a, b) => a.position - b.position),
   );
@@ -279,13 +283,14 @@ function placeGrace(
   note: Note,
   keySignature: number,
   clef: PitchedClef,
+  transposition: number,
 ): GraceNote | undefined {
   const { grace } = note.effect;
   if (grace === undefined) {
     return undefined;
   }
   const pitch = spellPitch(
-    writtenMidi(track, { ...note, fret: grace.fret }),
+    writtenMidi(track, { ...note, fret: grace.fret }, transposition),
     keySignature,
   );
   const letter =
@@ -302,12 +307,13 @@ function placePitched(
   track: Track,
   keySignature: number,
   clef: PitchedClef,
+  transposition: number,
 ): StaffNote[][] {
   const pitches = raw.map(event =>
     event.notes.map(note => ({
       note,
       pitch: {
-        ...spellPitch(writtenMidi(track, note), keySignature),
+        ...spellPitch(writtenMidi(track, note, transposition), keySignature),
         isTied: note.isTied,
       },
     })),
@@ -325,7 +331,7 @@ function placePitched(
       isCross: note.effect.deadNote,
       isTied: note.isTied,
       effect: note.effect,
-      grace: placeGrace(track, note, keySignature, clef),
+      grace: placeGrace(track, note, keySignature, clef, transposition),
       ...fingersOf(note),
     })),
   );
