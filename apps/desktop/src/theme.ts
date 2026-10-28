@@ -45,6 +45,12 @@ export interface Palette {
    */
   readonly designHandle?: string;
   readonly designGuide?: string;
+  /**
+   * A musician's annotation on the score: its box (a sticky-note yellow, tinted apart from the paper) and its text and
+   * outline (apart from the notation's ink). The sidebar and text when absent (score/annotations.ts `annotationColors`).
+   */
+  readonly annotationFill?: string;
+  readonly annotationInk?: string;
 }
 
 type ChromeColors = Pick<Palette, 'chrome' | 'chromeDeep' | 'chromeRaised' | 'chromeBorder' | 'chromeText' | 'chromeMuted' | 'chromeAccent' | 'chromeAccentText' | 'chromeHighlight' | 'chromeDanger'>;
@@ -97,6 +103,8 @@ const LIGHT: PaperColors = {
   voices: ['#C04A1E', '#23964A', '#D2397F', '#8650D6'],
   designHandle: '#1F5FC8',
   designGuide: '#A67C00',
+  annotationFill: '#FFF0B0',
+  annotationInk: '#5C4300',
 };
 
 const DARK: PaperColors = {
@@ -115,6 +123,8 @@ const DARK: PaperColors = {
   voices: ['#F07A4A', '#5CC97C', '#F06EAE', '#B28CFF'],
   designHandle: '#6FA8FF',
   designGuide: '#E8B400',
+  annotationFill: '#4D3D10',
+  annotationInk: '#FFE08A',
 };
 
 const LIGHT_HIGH: PaperColors = {
@@ -133,6 +143,8 @@ const LIGHT_HIGH: PaperColors = {
   voices: ['#A63F17', '#16703A', '#A8235F', '#6B36B8'],
   designHandle: '#1A4FB0',
   designGuide: '#8F6B00',
+  annotationFill: '#FFE680',
+  annotationInk: '#5E3E00',
 };
 
 const DARK_HIGH: PaperColors = {
@@ -151,6 +163,8 @@ const DARK_HIGH: PaperColors = {
   voices: ['#FF8A5C', '#6EDB8E', '#FF85BF', '#C4A3FF'],
   designHandle: '#8DBBFF',
   designGuide: '#FFD24A',
+  annotationFill: '#4A3800',
+  annotationInk: '#FFD966',
 };
 
 /** The LCD in the top bar (Guitar Pro's dark display): its glass, digits and the visual metronome's dots. */

@@ -17,8 +17,8 @@ export function isAnnotationPlacement(value: unknown): value is AnnotationPlacem
 
 /**
  * The text as an annotation keeps it: \n between lines (from \r\n and \r too), tabs as spaces, no other control
- * characters, each line without spaces at its end, no blank lines before the first line or after the last, at most
- * MAX_ANNOTATION_LINES lines and MAX_ANNOTATION_LENGTH characters. Spaces at a line's start stay (an indented line).
+ * characters, each line without spaces at its end, no blank lines or spaces before the text or after it, at most
+ * MAX_ANNOTATION_LINES lines and MAX_ANNOTATION_LENGTH characters. A later line keeps the spaces it starts with (indented).
  */
 export function normalizeAnnotationText(text: string): string {
   const lines = text
@@ -32,7 +32,7 @@ export function normalizeAnnotationText(text: string): string {
     return '';
   }
   const last = lines.length - 1 - [...lines].reverse().findIndex((line) => line !== '');
-  return cutAt(lines.slice(first, last + 1).slice(0, MAX_ANNOTATION_LINES).join('\n'), MAX_ANNOTATION_LENGTH).trimEnd();
+  return cutAt(lines.slice(first, last + 1).slice(0, MAX_ANNOTATION_LINES).join('\n').trimStart(), MAX_ANNOTATION_LENGTH).trimEnd();
 }
 
 /** At most `length` UTF-16 units, never half of a character written as two (an emoji). */

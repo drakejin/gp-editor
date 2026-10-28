@@ -275,7 +275,7 @@ describe('fragment marks', () => {
 
     // Assert
     expect(reparse(annotated)).toEqual(annotated);
-    expect(loose?.items[0]?.annotation).toEqual({ text: '  slow', placement: 'above' });
+    expect(loose?.items[0]?.annotation).toEqual({ text: 'slow', placement: 'above' });
   });
 
   it.each([

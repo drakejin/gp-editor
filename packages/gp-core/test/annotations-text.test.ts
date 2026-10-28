@@ -9,15 +9,15 @@ import {
 } from '../src/annotations/annotation-text';
 
 describe('normalizeAnnotationText', () => {
-  it('keeps the lines, trimmed at their ends, with the blank lines around them left out', () => {
+  it('keeps the lines, trimmed at their ends, with the blank lines and spaces around the text left out', () => {
     // Arrange
-    const typed = '\n\n  Watch the bend  \n\nsofter on the repeat\t\n\n';
+    const typed = '\n\n  Watch the bend  \n\nsofter on the repeat\t\n   indented\n\n';
 
     // Act
     const text = normalizeAnnotationText(typed);
 
     // Assert
-    expect(text).toBe('  Watch the bend\n\nsofter on the repeat');
+    expect(text).toBe('Watch the bend\n\nsofter on the repeat\n   indented');
   });
 
   it('turns Windows and old Mac line breaks into \\n and tabs into spaces', () => {
@@ -50,7 +50,7 @@ describe('normalizeAnnotationText', () => {
 
 describe('toAnnotation', () => {
   it('is an annotation of the normalized text', () => {
-    expect(toAnnotation(' Intro: let it ring \n', 'below')).toEqual({ text: ' Intro: let it ring', placement: 'below' });
+    expect(toAnnotation(' Intro: let it ring \n', 'below')).toEqual({ text: 'Intro: let it ring', placement: 'below' });
   });
 
   it('is none for a text with nothing to show', () => {

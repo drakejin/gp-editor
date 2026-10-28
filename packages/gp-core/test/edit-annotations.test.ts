@@ -56,9 +56,9 @@ describe('setBeatAnnotation', () => {
     assertEditInvariants(edited);
   });
 
-  it('stores the text normalized: line ends trimmed, the blank lines around it left out', () => {
+  it('stores the text normalized: trimmed, line ends trimmed, the blank lines around it left out', () => {
     const edited = setBeatAnnotation(twoTracks(), at(0, 0), { text: '\n  slow down \r\n\n', placement: 'below' });
-    expect(annotationAt(edited, at(0, 0))).toEqual({ text: '  slow down', placement: 'below' });
+    expect(annotationAt(edited, at(0, 0))).toEqual({ text: 'slow down', placement: 'below' });
   });
 
   it('changes the text or the placement, and takes the annotation away with none or a blank text', () => {
