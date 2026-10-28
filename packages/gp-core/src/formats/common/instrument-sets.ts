@@ -1,6 +1,6 @@
 // Guitar Pro 7/8's instrument sets (no TuxGuitar counterpart): how Guitar Pro presents a General MIDI program — the
 // `<InstrumentSet>` the .gp writer writes and the track icon (`<IconId>`) it gives an instrument.
-import { gmFamilyIndex, isGmBassProgram } from './channels';
+import { GM_BANJO_PROGRAM, gmFamilyIndex, isGmBassProgram } from './channels';
 import { TRACK_ICON_IDS } from './track-icons';
 
 /** How Guitar Pro presents a track's instrument: its instrument set, icon and playing style. */
@@ -54,4 +54,19 @@ export function instrumentSetOf(program: number, isPercussion: boolean): Instrum
   const family = gmFamilyIndex(program);
   const [name, iconId] = PROGRAM_SETS.get(program) ?? FAMILY_SETS[family] ?? ['Steel Guitar', ICON.steelGuitar];
   return { name, type: typeOf(name), iconId, isStringed: family === GUITAR_FAMILY || isGmBassProgram(program) };
+}
+
+/** General MIDI program 43: the contrabass, written an octave above its sound like the guitars and basses. */
+const CONTRABASS_PROGRAM = 43;
+/** Semitones in the octave the guitars are written above their sound. */
+const WRITTEN_OCTAVE = 12;
+
+/**
+ * Semitones a track's notes are written above their sound: an octave for the guitars, the basses (General MIDI 24–39),
+ * the banjo and the contrabass, none for every other instrument and for drums — as Guitar Pro writes them (alphaTab, the
+ * tests' independent reader, gives Guitar Pro 3–5 tracks the same display transposition: `GeneralMidi.isGuitar`).
+ */
+export function writtenTransposition(program: number, isPercussion: boolean): number {
+  const isWrittenOctaveUp = gmFamilyIndex(program) === GUITAR_FAMILY || isGmBassProgram(program) || program === GM_BANJO_PROGRAM || program === CONTRABASS_PROGRAM;
+  return !isPercussion && isWrittenOctaveUp ? WRITTEN_OCTAVE : 0;
 }

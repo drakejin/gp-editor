@@ -1,7 +1,8 @@
 import { type VoiceEvents, distinctTuplets, gapRests, toBeats } from '../edit/timeline';
+import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
 import { durationTicks, measureTicks } from '../model/defaults';
 import type { Clef, Duration, Measure, Note } from '../model/song';
-import { type Neck, NO_COUNTS, type PlacedNote, type PlacementCounts, addCounts, buildBeatNotes } from './beat-notes';
+import { type BeatNotes, NO_COUNTS, type PlacedNote, type PlacementCounts, type VoiceAtBeat, addCounts } from './beat-notes';
 import { toDuration } from './durations';
 import type { PlannedMeasure } from './header-plan';
 import type { TranscribedBeat } from './types';
@@ -10,10 +11,13 @@ import { countOf } from './wording';
 /** Voices per beat, as Guitar Pro 5 files have; a track's first part in a measure is voice 1, its second voice 2. */
 const VOICE_COUNT = 2;
 
-/** A track's measures are built with its neck, clef and the label its bar warnings start with. */
+/** A track's measures are built with how it places a beat's notes, its clef and the label its bar warnings start with. */
 export interface TrackLayout {
   readonly trackIndex: number;
-  readonly neck: Neck;
+  /** The notes every voice plays at one beat, on the track's strings (buildBeatNotes, or buildDrumBeatNotes on drums). */
+  readonly placeBeat: (voices: readonly VoiceAtBeat[]) => BeatNotes;
+  /** A drum track: its notes name drums, which its warnings say. */
+  readonly isPercussion: boolean;
   readonly clef: Clef;
   /** "Bar 3", or "Bar 3, Bass" when the song has several tracks. */
   readonly where: (barNumber: number) => string;
@@ -60,7 +64,7 @@ function isRest(beat: TranscribedBeat): boolean {
 }
 
 /** Every voice's notes, beat by beat in time order, so a tie finds the event before it in its voice. */
-function placeVoices(voices: readonly (readonly PlannedEvent[])[], neck: Neck, memory: VoiceMemory): VoiceNotes {
+function placeVoices(voices: readonly (readonly PlannedEvent[])[], placeBeat: TrackLayout['placeBeat'], memory: VoiceMemory): VoiceNotes {
   const notes: (readonly Note[])[][] = voices.map((events) => events.map(() => []));
   const last: (readonly PlacedNote[])[] = voices.map((_, voiceIndex) => memory[voiceIndex] ?? []);
   let counts = NO_COUNTS;
@@ -71,7 +75,7 @@ function placeVoices(voices: readonly (readonly PlannedEvent[])[], neck: Neck, m
       const event = events[eventIndex];
       return event === undefined ? [] : [{ voiceIndex, eventIndex, notes: isRest(event.beat) ? [] : (event.beat.notes ?? []) }];
     });
-    const placed = buildBeatNotes(playing.map((voice) => ({ notes: voice.notes, previous: last[voice.voiceIndex] ?? [] })), neck);
+    const placed = placeBeat(playing.map((voice) => ({ notes: voice.notes, previous: last[voice.voiceIndex] ?? [] })));
     playing.forEach(({ voiceIndex, eventIndex }, index) => {
       const voiceNotes = notes[voiceIndex];
       if (voiceNotes !== undefined) {
@@ -97,13 +101,20 @@ function toVoiceEvents(events: readonly PlannedEvent[], notes: readonly (readonl
   return isPadded ? [...played, ...padRests(length - used, events)] : played;
 }
 
-function measureWarnings(where: string, counts: PlacementCounts, extraParts: number, isOverfull: boolean): readonly string[] {
+/** Why a note was left out: no string free for it, or nothing to read — said as a drum track or a pitched track has it. */
+const LEFT_OUT_REASONS = {
+  pitched: { leftOut: 'no free string', unreadable: 'unreadable pitch' },
+  drums: { leftOut: `more than ${PERCUSSION_STRING_COUNT} drums at once`, unreadable: 'no drum named' },
+} as const;
+
+function measureWarnings(where: string, counts: PlacementCounts, extraParts: number, isOverfull: boolean, isPercussion: boolean): readonly string[] {
+  const reasons = isPercussion ? LEFT_OUT_REASONS.drums : LEFT_OUT_REASONS.pitched;
   return [
     ...(extraParts > 0 ? [`${where}: ${countOf(extraParts, 'part')} left out (a track holds two voices)`] : []),
     ...(isOverfull ? [`${where}: the beats run past the end of the bar`] : []),
     ...(counts.octaveMoved > 0 ? [`${where}: ${countOf(counts.octaveMoved, 'note')} moved an octave to fit the tuning`] : []),
-    ...(counts.leftOut > 0 ? [`${where}: ${countOf(counts.leftOut, 'note')} left out (no free string)`] : []),
-    ...(counts.unreadable > 0 ? [`${where}: ${countOf(counts.unreadable, 'note')} left out (unreadable pitch)`] : []),
+    ...(counts.leftOut > 0 ? [`${where}: ${countOf(counts.leftOut, 'note')} left out (${reasons.leftOut})`] : []),
+    ...(counts.unreadable > 0 ? [`${where}: ${countOf(counts.unreadable, 'note')} left out (${reasons.unreadable})`] : []),
   ];
 }
 
@@ -116,7 +127,7 @@ interface MeasureBuild {
 function buildMeasure({ source, header, headerIndex, keySignature }: PlannedMeasure, layout: TrackLayout, memory: VoiceMemory): MeasureBuild {
   const parts = source.parts.filter((part) => part.track === layout.trackIndex);
   const voices = parts.slice(0, VOICE_COUNT).map((part) => planVoice(part.beats));
-  const placed = placeVoices(voices, layout.neck, memory);
+  const placed = placeVoices(voices, layout.placeBeat, memory);
   const length = measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
   const events = Array.from({ length: VOICE_COUNT }, (_, voiceIndex) => toVoiceEvents(voices[voiceIndex] ?? [], placed.notes[voiceIndex] ?? [], length, voiceIndex));
   const isOverfull = voices.some((voice) => voiceTicks(voice) > length);
@@ -124,14 +135,14 @@ function buildMeasure({ source, header, headerIndex, keySignature }: PlannedMeas
   return {
     measure: { headerIndex, clef: layout.clef, keySignature, beats },
     memory: events.map((voiceEvents, voiceIndex) => (voiceEvents.length === (voices[voiceIndex]?.length ?? 0) ? (placed.memory[voiceIndex] ?? []) : [])),
-    warnings: measureWarnings(layout.where(header.number), placed.counts, parts.length - voices.length, isOverfull),
+    warnings: measureWarnings(layout.where(header.number), placed.counts, parts.length - voices.length, isOverfull, layout.isPercussion),
   };
 }
 
 /**
  * One track's measures: in each measure the track's parts become its voices (beats laid end to end from the measure
  * start, a short voice padded with rests, a long one kept over-full), a measure without a part a measure of rests.
- * Notes go on strings beat by beat (buildBeatNotes), ties reaching back across the bar line.
+ * Notes go on strings beat by beat (`layout.placeBeat`), ties reaching back across the bar line.
  */
 export function buildTrackMeasures(measures: readonly PlannedMeasure[], layout: TrackLayout): TrackMeasures {
   let memory: VoiceMemory = [];

@@ -6,6 +6,9 @@ import type { TranscribedTrack } from '../transcription/types';
  * WRITE_SECTION_TOOL (whose measures are the transcription contract's). parseSongPlan checks it field by field.
  */
 
+/** The instruments the song writer writes for (the transcription's guitar and bass): its tool offers only these. */
+export const COMPOSED_INSTRUMENTS = ['guitar', 'bass'] as const;
+
 export const MAX_PLAN_TRACKS = 4;
 export const MAX_PLAN_SECTIONS = 16;
 /** A section is written in one answer: a long one would not fit. */

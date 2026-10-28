@@ -79,7 +79,8 @@ function newChannel(song: Song, program: number, isPercussion: boolean): Channel
   };
 }
 
-function clefOf(kind: TrackKind): Clef {
+/** The clef a new track of `kind` is written on: the bass's bass clef, the drums' neutral clef, else the treble clef. */
+export function trackKindClef(kind: TrackKind): Clef {
   return kind === 'bass' ? 'bass' : kind === 'drums' ? 'neutral' : 'treble';
 }
 
@@ -106,7 +107,7 @@ export function addTrack(song: Song, newTrack: NewTrack): Song {
   }
   const isPercussion = resolved.spec.kind === 'drums';
   const channel = newChannel(song, resolved.program, isPercussion);
-  const clef = clefOf(resolved.spec.kind);
+  const clef = trackKindClef(resolved.spec.kind);
   const track: Track = {
     number: song.tracks.length + 1,
     name: resolved.name,

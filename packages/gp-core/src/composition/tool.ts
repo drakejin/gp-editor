@@ -4,8 +4,8 @@
  */
 
 import { MEASURE_SCHEMA } from '../transcription/tool';
-import { MAX_TRANSCRIBED_CAPO, MAX_TRANSCRIBED_KEY_ACCIDENTALS, MAX_TRANSCRIBED_NUMERATOR, TRANSCRIBED_DENOMINATORS, TRANSCRIBED_INSTRUMENTS } from '../transcription/types';
-import { MAX_PLAN_SECTIONS, MAX_PLAN_TEMPO, MAX_PLAN_TRACKS, MAX_SECTION_BARS, MIN_PLAN_TEMPO } from './types';
+import { MAX_TRANSCRIBED_CAPO, MAX_TRANSCRIBED_KEY_ACCIDENTALS, MAX_TRANSCRIBED_NUMERATOR, TRANSCRIBED_DENOMINATORS } from '../transcription/types';
+import { COMPOSED_INSTRUMENTS, MAX_PLAN_SECTIONS, MAX_PLAN_TEMPO, MAX_PLAN_TRACKS, MAX_SECTION_BARS, MIN_PLAN_TEMPO } from './types';
 
 export const PLAN_SONG_TOOL = {
   name: 'plan_song',
@@ -30,7 +30,7 @@ export const PLAN_SONG_TOOL = {
           type: 'object',
           properties: {
             name: { type: 'string', description: 'e.g. "Lead guitar (melody)", "Rhythm guitar", "Bass".' },
-            instrument: { type: 'string', enum: TRANSCRIBED_INSTRUMENTS },
+            instrument: { type: 'string', enum: COMPOSED_INSTRUMENTS },
             tuning: { type: 'array', items: { type: 'string' }, description: 'Open strings, lowest first, e.g. ["E2","A2","D3","G3","B3","E4"].' },
             capo: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_CAPO },
           },

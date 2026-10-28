@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { instrumentSetOf } from '../src/formats/common/instrument-sets';
+import { instrumentSetOf, writtenTransposition } from '../src/formats/common/instrument-sets';
 import { MAX_TRACK_ICON_ID, TRACK_COLORS, TRACK_ICON_IDS, isTrackIconId, trackIconName } from '../src/formats/common/track-icons';
 import { bendPositionFromGp, bendValueFromGp, tremoloBarValueFromGp } from '../src/formats/common/bend-units';
-import { createChannelName, gmPercussionName } from '../src/formats/common/channels';
+import { GM_PERCUSSION_NAMES, createChannelName, gmPercussionKey, gmPercussionName } from '../src/formats/common/channels';
 import {
   artificialHarmonicOffset,
   artificialHarmonicOffsetAtFret,
@@ -222,6 +222,25 @@ describe('GM percussion names', () => {
 
   it('names no key outside the GM drum map', () => {
     expect([34, 82, -1, 36.5].map(gmPercussionName)).toEqual([undefined, undefined, undefined, undefined]);
+  });
+
+  it('finds the key of every name, whatever its case and spaces, and no key for anything else', () => {
+    expect(GM_PERCUSSION_NAMES).toHaveLength(47);
+    expect(GM_PERCUSSION_NAMES.map(gmPercussionKey)).toEqual(Array.from({ length: 47 }, (_, index) => 35 + index));
+    expect(['closed hi-hat', '  BASS DRUM 1 ', 'Ride Cymbal 1'].map(gmPercussionKey)).toEqual([42, 36, 51]);
+    expect(['Kick', '', 'constructor', 'toString'].map(gmPercussionKey)).toEqual([undefined, undefined, undefined, undefined]);
+  });
+});
+
+describe('written transposition', () => {
+  it('writes guitars, basses, the banjo and the contrabass an octave above their sound, as Guitar Pro shows them', () => {
+    const octaveUp = Array.from({ length: 128 }, (_, program) => program).filter((program) => writtenTransposition(program, false) === 12);
+    expect(octaveUp).toEqual([...Array.from({ length: 16 }, (_, index) => 24 + index), 43, 105]);
+  });
+
+  it('writes pianos, voices, strings, winds and drums as they sound', () => {
+    expect([0, 16, 40, 52, 53, 56, 65, 73, 80].map((program) => writtenTransposition(program, false))).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(writtenTransposition(25, true)).toBe(0);
   });
 });
 

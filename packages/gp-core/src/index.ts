@@ -254,7 +254,8 @@ export {
   syncPointSecondsRange,
 } from './edit/audio-track';
 export { setSongInfo } from './edit/song-info';
-export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionName } from './formats/common/channels';
+export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionKey, gmPercussionName } from './formats/common/channels';
+export { writtenTransposition } from './formats/common/instrument-sets';
 export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';
 export { toggleDrumNote } from './edit/drum-notes';
 export {
@@ -318,6 +319,7 @@ export {
 } from './midi/index';
 export type {
   TranscribedBeat,
+  TranscribedClef,
   TranscribedDuration,
   TranscribedEffect,
   TranscribedInstrument,

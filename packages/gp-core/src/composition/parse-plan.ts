@@ -42,10 +42,15 @@ function parseTimeSignature(value: unknown): TimeSignature {
   return typeof numerator === 'number' && typeof denominator === 'number' && isTimeSignature({ numerator, denominator }) ? { numerator, denominator } : FOUR_FOUR;
 }
 
+/** The song writer writes tab for guitars and basses only: any other instrument is a guitar, with no program or clef. */
+function toComposedTrack({ name, instrument, tuning, capo }: TranscribedTrack): TranscribedTrack {
+  return { name, instrument: instrument === 'bass' ? 'bass' : 'guitar', tuning, capo };
+}
+
 function parseTracks(value: unknown): readonly TranscribedTrack[] {
   return readItems(value, 'tracks', MAX_PLAN_TRACKS).map((track, index) => {
     try {
-      return parseTrack(track, `tracks[${index}]`);
+      return toComposedTrack(parseTrack(track, `tracks[${index}]`));
     } catch (error: unknown) {
       throw error instanceof TranscriptionError ? new CompositionError(error.message) : error;
     }

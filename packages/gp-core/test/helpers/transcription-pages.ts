@@ -11,6 +11,16 @@ import type {
 
 export const GUITAR: TranscribedTrack = { name: 'Guitar', instrument: 'guitar', tuning: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'], capo: 0 };
 export const BASS: TranscribedTrack = { name: 'Bass', instrument: 'bass', tuning: ['E1', 'A1', 'D2', 'G2'], capo: 0 };
+export const DRUMS: TranscribedTrack = { name: 'Drums', instrument: 'drums', tuning: [], capo: 0 };
+export const VOCALS: TranscribedTrack = { name: 'Vocals', instrument: 'vocals', tuning: [], capo: 0 };
+/** A grand staff: the upper staff (right hand) and the lower staff (left hand), each a track of its own. */
+export const PIANO_RIGHT: TranscribedTrack = { name: 'Piano (right hand)', instrument: 'keys', tuning: [], capo: 0, clef: 'treble' };
+export const PIANO_LEFT: TranscribedTrack = { name: 'Piano (left hand)', instrument: 'keys', tuning: [], capo: 0, clef: 'bass' };
+
+/** A note on a drum staff: the drum played, by its General MIDI percussion name. */
+export function drum(name: string, extra: Omit<TranscribedNote, 'drum'> = {}): TranscribedNote {
+  return { drum: name, ...extra };
+}
 
 /** A note from a tab staff. */
 export function tab(string: number, fret: number, extra: Omit<TranscribedNote, 'string' | 'fret'> = {}): TranscribedNote {

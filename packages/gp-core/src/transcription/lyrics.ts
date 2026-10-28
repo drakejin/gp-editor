@@ -1,13 +1,15 @@
 import type { Measure, Track } from '../model/song';
-import type { TranscribedMeasure, TranscriptionPage } from './types';
+import type { TranscribedInstrument, TranscribedMeasure, TranscriptionPage } from './types';
 import { countOf } from './wording';
 
 /** Guitar Pro's lyrics separate syllables with single spaces: two in a row leave a note without one. */
 const SYLLABLE_SEPARATOR = ' ';
 
-/** The track the lyrics are sung on: the first page that names it, else the first track. */
-export function resolveLyricsTrack(pages: readonly TranscriptionPage[]): number {
-  return pages.map((page) => page.song?.lyricsTrack).find((track) => track !== undefined) ?? 0;
+/** The track the lyrics are sung on: the first page that names it, else the first vocal track, else the first track. */
+export function resolveLyricsTrack(pages: readonly TranscriptionPage[], instruments: readonly TranscribedInstrument[]): number {
+  const named = pages.map((page) => page.song?.lyricsTrack).find((track) => track !== undefined);
+  const firstVocals = instruments.indexOf('vocals');
+  return named ?? (firstVocals >= 0 ? firstVocals : 0);
 }
 
 /** Beats with notes in any voice: each takes one syllable, as in Guitar Pro (TuxGuitar's TGLyricImpl). */

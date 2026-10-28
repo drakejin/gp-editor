@@ -38,6 +38,18 @@ describe('parseSongPlan', () => {
     expect(parsed.warnings).toEqual([]);
   });
 
+  it('keeps the song writer to guitar and bass tracks: any other instrument is written for a guitar, without a program or clef', () => {
+    // Act
+    const parsed = parseSongPlan(plan({ tracks: [{ ...GUITAR, instrument: 'drums', program: 0, clef: 'bass' }, { ...BASS, instrument: 'vocals' }, BASS] }));
+
+    // Assert
+    expect(parsed.tracks).toEqual([
+      { name: 'Lead guitar', instrument: 'guitar', tuning: GUITAR.tuning, capo: 0 },
+      { name: 'Bass', instrument: 'guitar', tuning: BASS.tuning, capo: 0 },
+      { name: 'Bass', instrument: 'bass', tuning: BASS.tuning, capo: 0 },
+    ]);
+  });
+
   it('clamps what is out of range and falls back where a value is unusable', () => {
     // Act
     const parsed = parseSongPlan(
