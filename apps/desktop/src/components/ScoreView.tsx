@@ -3,7 +3,8 @@ import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, 
 import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
 import { useDesignDrag } from '../hooks/use-design-drag';
 import type { DesignGuide } from '../lib/design-drag';
-import { type ScoreFit, type ScoreZoom, fitScoreZoom, printArea } from '../lib/score-zoom';
+import { type ScoreFit, fitScoreZoom, printArea } from '../lib/score-fit';
+import type { ScoreZoom } from '../lib/score-zoom';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
 import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';

@@ -1,7 +1,7 @@
 import { type Measure, type MeasureHeader, type Song, type Track, stylesheetOf } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
 import { type MeasureLayout, type RowLayout, TAB, layoutMeasure, stretchMeasure } from '../lib/layout';
-import { paletteFor } from '../theme';
+import { type Palette, paletteFor } from '../theme';
 import type { DrawCommand } from './draw';
 import { ROW, type ScoreMode, showsTab } from './geometry';
 import { inkExtent } from './ink';
@@ -20,8 +20,15 @@ export interface StaffReach {
   readonly below: number;
 }
 
-/** Colours do not move ink: any palette engraves the same shapes. */
-const PALETTE = paletteFor({ appearance: 'light', contrast: 'standard', paper: 'light' });
+/** Colours do not move ink: any palette engraves the same shapes (made on first use, not while the modules load). */
+let measuringPalette: Palette | undefined;
+
+function palette(): Palette {
+  if (measuringPalette === undefined) {
+    measuringPalette = paletteFor({ appearance: 'light', contrast: 'standard', paper: 'light' });
+  }
+  return measuringPalette;
+}
 
 const NONE: StaffReach = { above: 0, below: 0 };
 
@@ -180,13 +187,13 @@ export function notationReach(song: Song, trackIndex: number, mode: ScoreMode, r
   const engrave = ({ measure, layout, inputs, nextInRow }: BarToEngrave): DrawCommand[] => {
     const notation = engraveNotationMeasure({
       track, header: inputs.header, measure, layout, previousMeasure: inputs.previousMeasure, nextMeasure: inputs.nextMeasure, nextInRow,
-      isRowStart: false, top: 0, palette: PALETTE, showsPickStrokes: !isTabShown, isKeyboard, showsCommonTime: sheet.notation.showsCommonTime,
+      isRowStart: false, top: 0, palette: palette(), showsPickStrokes: !isTabShown, isKeyboard, showsCommonTime: sheet.notation.showsCommonTime,
     });
     // Without a tab staff, the fades and rasgueados go over the notation.
-    return isTabShown ? notation : [...notation, ...engraveNotationExpressions(measure, layout, 0, PALETTE, sheet.notation)];
+    return isTabShown ? notation : [...notation, ...engraveNotationExpressions(measure, layout, 0, palette(), sheet.notation)];
   };
   const scope: RowScope = { song, track, trackIndex, showsTab: isTabShown, isKeyboard, part: 'notation', height: STAFF_HEIGHT, engrave };
-  const header = headerReach(`notation ${clefKind(track, first.clef)} ${first.keySignature}`, STAFF_HEIGHT, () => engraveNotationRowHeader(track, first, 0, PALETTE));
+  const header = headerReach(`notation ${clefKind(track, first.clef)} ${first.keySignature}`, STAFF_HEIGHT, () => engraveNotationRowHeader(track, first, 0, palette()));
   return rowReach(scope, row, header);
 }
 
@@ -204,11 +211,11 @@ export function tabReach(song: Song, trackIndex: number, mode: ScoreMode, row: R
     const previousBeat = inputs.previousMeasure?.beats[inputs.previousMeasure.beats.length - 1];
     return engraveTabMeasure({
       track, header: inputs.header, measure, layout, previousBeat, previousMeasure: inputs.previousMeasure, nextMeasure: inputs.nextMeasure, nextInRow,
-      isRowStart: false, markLanes: [], top: 0, marksY: -ROW.marks / 2, showRhythm: mode === 'tab', palette: PALETTE, notation: sheet.notation,
+      isRowStart: false, markLanes: [], top: 0, marksY: -ROW.marks / 2, showRhythm: mode === 'tab', palette: palette(), notation: sheet.notation,
     });
   };
   const part = mode === 'tab' ? 'tabWithRhythm' : 'tab';
   const height = Math.max(0, track.strings.length - 1) * TAB.stringGap;
   const scope: RowScope = { song, track, trackIndex, showsTab: true, isKeyboard: false, part, height, engrave };
-  return rowReach(scope, row, headerReach(`tab ${track.strings.length}`, height, () => engraveTabRowHeader(track, 0, PALETTE)));
+  return rowReach(scope, row, headerReach(`tab ${track.strings.length}`, height, () => engraveTabRowHeader(track, 0, palette())));
 }
