@@ -2,6 +2,7 @@ import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 import type { DragEvent, KeyEvent, View } from 'react-native';
 import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
+import type { ScoreZoom } from '../lib/score-zoom';
 import { focusView } from '../native/focus-view';
 import type { ScoreMode } from '../score/geometry';
 import type { RowHit } from '../score/hit-test';
@@ -36,6 +37,8 @@ interface EditorCommandSources {
   readonly save: (saveAs: boolean) => void;
   /** ⌘- / ⌘=: one zoom level down or up. */
   readonly onZoom: (direction: 1 | -1) => void;
+  /** ⌘0: a zoom of its own (100 %). */
+  readonly onZoomTo: (zoom: ScoreZoom) => void;
   /** B / C: the vibrato or bend panel for the note at the cursor. */
   readonly onNotePanel: (panel: NotePanel) => void;
   /** K: the chord diagram panel for the beat at the cursor. */
@@ -116,7 +119,7 @@ type WindowCommand = Exclude<AppCommand | KeyCommand, EditorAction>;
 
 const isWindowCommand = isOfTypes<WindowCommand>({
   newFile: true, openFile: true, importPdf: true, saveFile: true, exportPdf: true, togglePlayback: true, stopPlayback: true, goToBar: true,
-  shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, openNotePanel: true, openChordPanel: true,
+  shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, zoomTo: true, openNotePanel: true, openChordPanel: true,
   markSyncPoint: true, copy: true, cut: true, paste: true,
 });
 
@@ -128,6 +131,8 @@ function runWindowCommand(sources: EditorCommandSources, command: WindowCommand)
       return goToBar(sources, command.jump);
     case 'zoom':
       return sources.onZoom(command.direction);
+    case 'zoomTo':
+      return sources.onZoomTo(command.zoom);
     case 'openNotePanel':
       return sources.onNotePanel(command.panel);
     case 'openChordPanel':

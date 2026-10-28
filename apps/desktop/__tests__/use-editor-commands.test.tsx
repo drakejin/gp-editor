@@ -15,6 +15,7 @@ interface Sources {
   readonly exportPdf: jest.Mock;
   readonly save: jest.Mock;
   readonly onZoom: jest.Mock;
+  readonly onZoomTo: jest.Mock;
   readonly onNotePanel: jest.Mock;
   readonly onChordPanel: jest.Mock;
   readonly start: jest.Mock;
@@ -45,6 +46,7 @@ function renderCommands(
     exportPdf: jest.fn(),
     save: jest.fn(),
     onZoom: jest.fn(),
+    onZoomTo: jest.fn(),
     onNotePanel: jest.fn(),
     onChordPanel: jest.fn(),
     start: jest.fn(),
@@ -113,8 +115,10 @@ describe('useEditorCommands: transport and zoom', () => {
   it('zooms with ⌘- / ⌘= and creates a sheet in the chosen view', () => {
     const { commands, sources } = renderCommands();
     commands.runCommand({ type: 'zoom', direction: -1 });
+    commands.runCommand({ type: 'zoomTo', zoom: 1 });
     commands.runCommand({ type: 'newFile', mode: 'tab' });
     expect(sources.onZoom).toHaveBeenCalledWith(-1);
+    expect(sources.onZoomTo).toHaveBeenCalledWith(1);
     expect(sources.create).toHaveBeenCalledWith('tab');
   });
 });

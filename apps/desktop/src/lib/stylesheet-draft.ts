@@ -2,6 +2,7 @@ import {
   type HeaderElement,
   type NotationStyle,
   PAGE_FORMATS,
+  STYLESHEET_LIMITS,
   type PageFormatId,
   type PageMargins,
   type PageSetup,
@@ -65,6 +66,14 @@ export function stepNumber(value: number, delta: number, step: number, range: { 
   return Math.round(Math.min(range.max, Math.max(range.min, value + delta * step)) * factor) / factor;
 }
 
+/** The steppers' steps: the scale by 5 %, a spacing by 2 pt. */
+export const STYLESHEET_STEPS = { scale: 0.05, spacing: 2 } as const;
+
+/** "+12 pt" of room added to the app's own, "−8 pt" taken from it (between systems). */
+export function spacingText(value: number): string {
+  return value < 0 ? `−${-value} pt` : `+${value} pt`;
+}
+
 /** "125 %". */
 export function percentText(value: number): string {
   return `${Math.round(value * 100)} %`;
@@ -93,6 +102,20 @@ export function withPage(sheet: Stylesheet, patch: Partial<PageSetup>): Styleshe
 
 export function withMargin(sheet: Stylesheet, side: keyof PageMargins, value: number): Stylesheet {
   return withPage(sheet, { margins: { ...sheet.page.margins, [side]: value } });
+}
+
+/** The stylesheet with its scale `delta` steps smaller or larger (the whole score drawn smaller or larger). */
+export function stepScale(sheet: Stylesheet, delta: number): Stylesheet {
+  return { ...sheet, scale: stepNumber(sheet.scale, delta, STYLESHEET_STEPS.scale, STYLESHEET_LIMITS.scale) };
+}
+
+/** The stylesheet with a spacing (between systems, tracks, the staff and the tab) `delta` steps less or more. */
+export function stepSpacing(sheet: Stylesheet, key: 'systemSpacing' | 'trackSpacing' | 'staffSpacing', delta: number): Stylesheet {
+  return withSystems(sheet, { [key]: stepNumber(sheet.systems[key], delta, STYLESHEET_STEPS.spacing, STYLESHEET_LIMITS[key], 1) });
+}
+
+export function stepSystemSpacing(sheet: Stylesheet, delta: number): Stylesheet {
+  return stepSpacing(sheet, 'systemSpacing', delta);
 }
 
 export function withSystems(sheet: Stylesheet, patch: Partial<SystemsStyle>): Stylesheet {

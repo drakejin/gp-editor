@@ -5,7 +5,10 @@ import {
   millimetresText,
   pageSummary,
   percentText,
+  spacingText,
   stepNumber,
+  stepScale,
+  stepSystemSpacing,
   textStyleText,
   withHeaderShown,
   withLabel,
@@ -27,6 +30,24 @@ describe('stylesheet-draft', () => {
     expect(pageSummary(DEFAULT_STYLESHEET.page)).toBe('A4 · portrait · 210 × 297 mm');
     expect(pageSummary({ ...DEFAULT_STYLESHEET.page, format: 'custom', orientation: 'landscape', customWidth: 200, customHeight: 300 })).toBe('Custom · landscape · 300 × 200 mm');
     expect(textStyleText({ family: '', size: 11, isBold: true, isItalic: true })).toBe('System font, 11 pt, bold, italic');
+  });
+
+  it('steps the scale by 5 % and the room between systems by 2 pt, below the app’s own down to its least', () => {
+    // Act
+    const smaller = stepScale(DEFAULT_STYLESHEET, -1);
+    const closer = [1, 2, 3, 4, 5, 6, 7].reduce((sheet) => stepSystemSpacing(sheet, -1), DEFAULT_STYLESHEET);
+
+    // Assert
+    expect(smaller.scale).toBe(0.95);
+    expect(stepSystemSpacing(DEFAULT_STYLESHEET, 1).systems.systemSpacing).toBe(2);
+    expect(closer.systems.systemSpacing).toBe(-12);
+    expect(closer.systems.staffSpacing).toBe(DEFAULT_STYLESHEET.systems.staffSpacing);
+  });
+
+  it('writes a spacing as room added to the app’s own, or taken from it', () => {
+    expect(spacingText(12)).toBe('+12 pt');
+    expect(spacingText(0)).toBe('+0 pt');
+    expect(spacingText(-8)).toBe('−8 pt');
   });
 
   it('changes one value of the stylesheet and leaves the others', () => {

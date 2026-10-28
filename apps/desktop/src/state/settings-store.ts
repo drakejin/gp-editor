@@ -1,4 +1,5 @@
 import { type AppSettings, DEFAULT_SETTINGS, parseAppSettings, serializeAppSettings } from '../lib/app-settings';
+import type { ScoreZoom } from '../lib/score-zoom';
 import { errorMessage } from '../lib/errors';
 import { setLanguage, t } from '../lib/i18n/i18n';
 import { resolveLanguage } from '../lib/i18n/language-setting';
@@ -60,13 +61,25 @@ export async function loadSettings(): Promise<void> {
   }
 }
 
+/** Keeps settings in user defaults; a failure is shown in the settings panel. */
+async function keepSettings(settings: AppSettings, alsoApply: Promise<void>): Promise<void> {
+  try {
+    await Promise.all([alsoApply, saveStoredSettings(serializeAppSettings(settings))]);
+  } catch (reason: unknown) {
+    publish({ ...snapshot, error: t('common.errorWithDetail', { summary: t('settings.saveFailed'), detail: errorMessage(reason) }) });
+  }
+}
+
+/** The score's zoom (the top bar's zoom menu, ⌘- ⌘= ⌘0): shown at once and kept, as Guitar Pro keeps its zoom. */
+export async function changeScoreZoom(scoreZoom: ScoreZoom): Promise<void> {
+  const settings: AppSettings = { ...snapshot.settings, scoreZoom };
+  publish({ ...snapshot, settings });
+  await keepSettings(settings, Promise.resolve());
+}
+
 /** Changes settings: shown at once, then kept in user defaults (a failure is shown in the settings panel). */
 export async function changeSettings(change: Partial<AppSettings>): Promise<void> {
   const settings: AppSettings = { ...snapshot.settings, ...change };
   publish({ ...snapshot, settings, error: undefined });
-  try {
-    await Promise.all([applyLanguage(settings), saveStoredSettings(serializeAppSettings(settings))]);
-  } catch (reason: unknown) {
-    publish({ ...snapshot, error: t('common.errorWithDetail', { summary: t('settings.saveFailed'), detail: errorMessage(reason) }) });
-  }
+  await keepSettings(settings, applyLanguage(settings));
 }

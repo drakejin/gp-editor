@@ -52,3 +52,12 @@ describe('stepZoom', () => {
     expect(stepZoom(1.05, 1)).toBe(1.1);
   });
 });
+
+describe('ZOOM_LEVELS', () => {
+  it('zooms out to 25 % — four times the systems on a screen — and in to 400 %, as Guitar Pro’s zoom does', () => {
+    expect(ZOOM_LEVELS[0]).toBe(0.25);
+    expect(ZOOM_LEVELS.at(-1)).toBe(4);
+    expect([...ZOOM_LEVELS].sort((a, b) => a - b)).toEqual(ZOOM_LEVELS);
+    expect(stepZoom(0.5, -1)).toBeLessThan(0.5);
+  });
+});

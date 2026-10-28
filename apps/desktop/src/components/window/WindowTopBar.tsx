@@ -17,7 +17,7 @@ export function WindowTopBar({ model }: { readonly model: WindowModel }) {
       isPlaying={playback.isPlaying}
       isEdited={isEdited(state)}
       isLooping={practice.isLooping}
-      zoom={chrome.zoom}
+      zoom={chrome.shownZoom}
       speedLabel={topBar.speedLabel}
       lcd={topBar.lcd}
       trackColor={topBar.trackColor}

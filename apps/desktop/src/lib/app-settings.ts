@@ -1,4 +1,5 @@
 import { LANGUAGE_SETTINGS, type LanguageSetting } from './i18n/language-setting';
+import { type ScoreZoom, parseScoreZoom } from './score-zoom';
 
 /** Settings ▸ Interface contrast: the chrome's (and the paper's) text and borders as they are, or stronger. */
 export const CONTRASTS = ['standard', 'high'] as const;
@@ -8,14 +9,15 @@ export type Contrast = (typeof CONTRASTS)[number];
 export const PAPER_SETTINGS = ['system', 'light', 'dark'] as const;
 export type PaperSetting = (typeof PAPER_SETTINGS)[number];
 
-/** GP Editor ▸ Settings… (⌘,): kept in user defaults as this object's JSON. */
+/** GP Editor ▸ Settings… (⌘,), and the score's zoom (the top bar's zoom menu), as Guitar Pro keeps it: in user defaults as this object's JSON. */
 export interface AppSettings {
   readonly language: LanguageSetting;
   readonly contrast: Contrast;
   readonly paper: PaperSetting;
+  readonly scoreZoom: ScoreZoom;
 }
 
-export const DEFAULT_SETTINGS: AppSettings = { language: 'system', contrast: 'standard', paper: 'system' };
+export const DEFAULT_SETTINGS: AppSettings = { language: 'system', contrast: 'standard', paper: 'system', scoreZoom: 1 };
 
 function oneOf<T extends string>(choices: readonly T[], value: unknown, fallback: T): T {
   return choices.find((choice) => choice === value) ?? fallback;
@@ -34,9 +36,10 @@ export function parseAppSettings(json: string | null | undefined): AppSettings {
     language: oneOf(LANGUAGE_SETTINGS, fields.language, DEFAULT_SETTINGS.language),
     contrast: oneOf(CONTRASTS, fields.contrast, DEFAULT_SETTINGS.contrast),
     paper: oneOf(PAPER_SETTINGS, fields.paper, DEFAULT_SETTINGS.paper),
+    scoreZoom: parseScoreZoom(fields.scoreZoom),
   };
 }
 
 export function serializeAppSettings(settings: AppSettings): string {
-  return JSON.stringify({ language: settings.language, contrast: settings.contrast, paper: settings.paper });
+  return JSON.stringify({ language: settings.language, contrast: settings.contrast, paper: settings.paper, scoreZoom: settings.scoreZoom });
 }

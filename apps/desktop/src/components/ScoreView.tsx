@@ -1,8 +1,9 @@
-import { type ReactElement, type RefObject, useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactElement, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, type LayoutChangeEvent, type ListRenderItemInfo, StyleSheet, View } from 'react-native';
 import { type Song, type StringAddress, stylesheetOf } from '@gp-editor/core';
 import { useDesignDrag } from '../hooks/use-design-drag';
 import type { DesignGuide } from '../lib/design-drag';
+import { type ScoreFit, type ScoreZoom, fitScoreZoom, printArea } from '../lib/score-zoom';
 import { useDragSelection } from '../hooks/use-drag-selection';
 import { useScoreLayout } from '../hooks/use-score-layout';
 import { type ScoreLine, lineAt, linePlace, useScoreScroll } from '../hooks/use-score-scroll';
@@ -39,8 +40,10 @@ interface ScoreViewProps {
   /** Selected beats of the selected track (selectionRange), tinted; keep it the same object while it does not change. */
   readonly selection?: BeatRange;
   readonly palette: Palette;
-  /** Screen points per layout point (the stylesheet's scale multiplies it). */
-  readonly zoom: number;
+  /** Screen points per layout point (the stylesheet's scale multiplies it), or a fit to the stylesheet's printed page. */
+  readonly zoom: ScoreZoom;
+  /** The zoom a fit comes to in the view, each time it changes (the top bar shows it, ⌘- / ⌘= step from it). */
+  readonly onShownZoom?: (zoom: number) => void;
   /** The page's title block, above the first row. */
   readonly header?: ReactElement;
   /** The mouse went down on a beat (`isExtending`: with shift); the hit names the staff's track. */
@@ -130,13 +133,29 @@ function lineKey(layout: ScoreLayout, line: ScoreLine): string {
   return layout.staves.length === 1 ? firstBar : `${firstBar}:${layout.staves[line.staffIndex]?.trackIndex ?? 0}`;
 }
 
+/** The zoom the view shows for its setting (a fit to the printed page from the view's size), reported when it changes. */
+function useShownZoom(props: ScoreViewProps, song: Song, width: number, height: number): ScoreFit {
+  const sheet = stylesheetOf(song);
+  const area = useMemo(() => printArea(sheet), [sheet]);
+  const fit = fitScoreZoom(props.zoom, { width, height, deskMargin: DESK_MARGIN, sidePadding: ROW.sidePadding }, area);
+  const { onShownZoom } = props;
+  useEffect(() => {
+    if (width > 0) {
+      onShownZoom?.(fit.zoom);
+    }
+  }, [width, fit.zoom, onShownZoom]);
+  return fit;
+}
+
 /** The page's size and the score's layout across it, zoomed by the stylesheet's scale too. */
 function usePageLayout(props: ScoreViewProps, song: Song) {
-  // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
-  const zoom = props.zoom * stylesheetOf(song).scale;
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
-  const pageWidth = Math.max(0, width - DESK_MARGIN * 2);
+  const fit = useShownZoom(props, song, width, height);
+  // The stylesheet's overall proportions draw the whole score larger or smaller, as the zoom does.
+  const zoom = fit.zoom * stylesheetOf(song).scale;
+  // A fit to the whole page shows a page as wide as the paper's at that zoom, on the desk's middle.
+  const pageWidth = fit.pageWidth ?? Math.max(0, width - DESK_MARGIN * 2);
   // Rows are laid out in unzoomed points: a zoomed page holds fewer bars per line, as in Guitar Pro.
   const rowWidth = Math.max(0, (pageWidth - ROW.sidePadding * 2) / zoom);
   const layout = useScoreLayout(song, props.staves, props.chordDisplay ?? DEFAULT_CHORD_DISPLAY, rowWidth);
@@ -144,7 +163,7 @@ function usePageLayout(props: ScoreViewProps, song: Song) {
     setWidth(event.nativeEvent.layout.width);
     setHeight(event.nativeEvent.layout.height);
   }, []);
-  return { zoom, rowWidth, layout, viewportHeight: height, onLayout };
+  return { zoom, rowWidth, layout, viewportHeight: height, onLayout, deskSide: Math.max(DESK_MARGIN, (width - pageWidth) / 2) };
 }
 
 /** The page's lines, how each is drawn, and what follows the cursor and playback into view. */
@@ -153,7 +172,7 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
   // A Design Mode drag shows its edit on the score before it becomes one.
   const designDrag = useDesignDrag(props.song, onLayoutEdit);
   const { song, guide } = designDrag;
-  const { zoom, rowWidth, layout, viewportHeight, onLayout } = usePageLayout(props, song);
+  const { zoom, rowWidth, layout, viewportHeight, onLayout, deskSide } = usePageLayout(props, song);
   const lines = useMemo(
     () => layout.systems.flatMap((_, systemIndex) => layout.staves.map((__, staffIndex): ScoreLine => ({ systemIndex, staffIndex }))),
     [layout],
@@ -173,7 +192,7 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
     }),
     [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
   );
-  return { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged };
+  return { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged, deskSide };
 }
 
 /**
@@ -185,7 +204,7 @@ export function ScoreView(props: ScoreViewProps) {
   const { palette, header } = props;
   const listRef = useRef<FlatList<ScoreLine>>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged } = useScorePage(props, listRef, headerHeight);
+  const { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged, deskSide } = useScorePage(props, listRef, headerHeight);
   return (
     <View style={[styles.desk, { backgroundColor: palette.desk }]} onLayout={onLayout}>
       <FlatList
@@ -204,7 +223,7 @@ export function ScoreView(props: ScoreViewProps) {
           </View>
         }
         ListFooterComponent={<View style={[styles.pageRow, styles.pageFoot, { backgroundColor: palette.paper }]} />}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingHorizontal: deskSide }]}
         initialNumToRender={INITIAL_ROWS}
         windowSize={WINDOW_SIZE}
         onViewableItemsChanged={onViewableItemsChanged}

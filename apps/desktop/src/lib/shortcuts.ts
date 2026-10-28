@@ -88,6 +88,7 @@ const MOVING_ROWS: readonly ShortcutRow[] = [
   // i18n-exempt: key caps as the Mac keyboard prints them
   row('Home / End', 'commands.shortcuts.firstLastBar', key(KEYS.home)),
   row('⌘- / ⌘=', 'commands.shortcuts.zoom', key('=', { metaKey: true })),
+  row('⌘0', 'commands.shortcuts.zoomActual', key('0', { metaKey: true })),
   row('F3', 'commands.shortcuts.multitrack'),
 ];
 

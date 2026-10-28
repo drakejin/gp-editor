@@ -2,7 +2,6 @@ import { StyleSheet, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import { TEMPO_STEP, playbackTempo, resolveTrainerMaxTempo, tempoPercent } from '../lib/practice-tempo';
 import { type PracticeAction, type PracticeSettings, resolveLoopRange } from '../state/practice';
-import { ZOOM_LEVELS } from '../state/panels';
 import type { Palette } from '../theme';
 import { MenuButton, MenuHeading, MenuItem, MenuSeparator, MenuStepper } from './chrome/ChromeMenu';
 
@@ -110,25 +109,6 @@ function TrainerSection({ palette, practice, writtenTempo, onChangePractice }: S
         onDecrease={() => onChangePractice({ type: 'shiftTrainerMaxTempo', delta: -TEMPO_STEP, writtenTempo })}
         onIncrease={() => onChangePractice({ type: 'shiftTrainerMaxTempo', delta: TEMPO_STEP, writtenTempo })}
       />
-    </>
-  );
-}
-
-export function ZoomMenu({ palette, zoom, onZoom, onClose }: { readonly palette: Palette; readonly zoom: number; readonly onZoom: (zoom: number) => void; readonly onClose: () => void }) {
-  return (
-    <>
-      {ZOOM_LEVELS.map((level) => (
-        <MenuItem
-          key={level}
-          palette={palette}
-          label={`${Math.round(level * 100)}%`}
-          isChecked={Math.abs(level - zoom) < 1e-9}
-          onPress={() => {
-            onZoom(level);
-            onClose();
-          }}
-        />
-      ))}
     </>
   );
 }

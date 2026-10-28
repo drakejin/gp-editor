@@ -1,5 +1,4 @@
 import { runMcpServerCommand } from '../native/mcp-server';
-import { stepZoom } from '../state/panels';
 import type { CommandActions } from '../lib/command-types';
 import type { CursorTools } from './use-cursor-tools';
 import { useEditMenu } from './use-edit-menu';
@@ -36,7 +35,8 @@ export function useWindowCommands({ base, media, files, overlays, cursorTools }:
     exportPdf: files.pdfExport.open,
     openPath: documents.openPath,
     save: documents.save,
-    onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
+    onZoom: chrome.stepZoom,
+    onZoomTo: chrome.setZoom,
     onNotePanel: cursorTools.openNotePanel,
     onChordPanel: cursorTools.openChordPanel,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,

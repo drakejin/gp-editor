@@ -77,6 +77,14 @@ describe('keyCommand', () => {
     expect(keyCommand(press('End'), digit, 0)).toEqual({ type: 'goToBar', jump: 'last' });
   });
 
+  it('zooms in with ⌘+ (⇧⌘=) too, and back to 100 % with ⌘0', () => {
+    const digit = { current: undefined };
+    expect(keyCommand(press('+', { metaKey: true, shiftKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: 1 });
+    expect(keyCommand(press('0', { metaKey: true }), digit, 0)).toEqual({ type: 'zoomTo', zoom: 1 });
+    expect(HANDLED_KEYS).toContainEqual({ key: '0', metaKey: true });
+    expect(HANDLED_KEYS).toContainEqual({ key: '+', metaKey: true, shiftKey: true });
+  });
+
   it('zooms the score with ⌘- and ⌘= (- and = alone step the fret)', () => {
     const digit = { current: undefined };
     expect(keyCommand(press('=', { metaKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: 1 });

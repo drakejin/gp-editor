@@ -71,6 +71,7 @@ function DocumentScore({ model, document }: DocumentPartProps) {
       selection={cursorTools.selection}
       palette={palette}
       zoom={chrome.zoom}
+      onShownZoom={chrome.showZoom}
       header={<SongHeader song={document.song} trackIndex={trackIndex} fileName={document.fileName} palette={palette} />}
       onPressBeat={commands.editor.onPressBeat}
       onDragBeat={commands.editor.onDragBeat}

@@ -1,5 +1,5 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { type Song, setBarWidthScale, setBeatOffset, stylesheetOf } from '@gp-editor/core';
+import { STYLESHEET_LIMITS, type Song, setBarWidthScale, setBeatOffset, stylesheetOf } from '@gp-editor/core';
 import { SystemDesignButtons } from '../src/components/SystemDesignButtons';
 import { type DesignDrag, useDesignDrag } from '../src/hooks/use-design-drag';
 import { type DesignDragStart, SNAP_DISTANCE, designDragStep } from '../src/lib/design-drag';
@@ -142,7 +142,7 @@ describe('designDragStep', () => {
     expect(layout.systems[0]!.headerWidth + first.width).toBeCloseTo(line.x + 30, 0);
   });
 
-  it('changes the space under the systems by the pointer’s rise or fall', () => {
+  it('changes the space under the systems by the pointer’s rise or fall, up to systems closer than the app’s own', () => {
     // Arrange
     const grip = handles.find((handle) => handle.kind === 'spacing' && handle.spacing === 'systemSpacing')!;
 
@@ -152,7 +152,7 @@ describe('designDragStep', () => {
 
     // Assert
     expect(step.action?.type === 'setStylesheet' ? step.action.stylesheet.systems.systemSpacing : undefined).toBe(15);
-    expect(up.action?.type === 'setStylesheet' ? up.action.stylesheet.systems.systemSpacing : undefined).toBe(0);
+    expect(up.action?.type === 'setStylesheet' ? up.action.stylesheet.systems.systemSpacing : undefined).toBe(STYLESHEET_LIMITS.systemSpacing.min);
   });
 });
 

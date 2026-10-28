@@ -156,7 +156,7 @@ export function printedPage(page: PageSetup, paper?: PaperId): PaperSize {
 }
 
 /** The stylesheet's margins (millimetres) in points. */
-function pageMargins(page: PageSetup): PageMarginPoints {
+export function pageMargins(page: PageSetup): PageMarginPoints {
   const { top, right, bottom, left } = page.margins;
   return { top: millimetresToPoints(top), right: millimetresToPoints(right), bottom: millimetresToPoints(bottom), left: millimetresToPoints(left) };
 }

@@ -51,7 +51,7 @@ describe('settings store', () => {
     unsubscribe();
 
     expect(i18n.currentLanguage()).toBe('en');
-    expect(JSON.parse(mockNative.save.mock.calls[0]?.[0] ?? '{}')).toEqual({ language: 'en', contrast: 'standard', paper: 'system' });
+    expect(JSON.parse(mockNative.save.mock.calls[0]?.[0] ?? '{}')).toEqual({ language: 'en', contrast: 'standard', paper: 'system', scoreZoom: 1 });
     expect(heard).toHaveBeenCalled();
   });
 
@@ -61,6 +61,16 @@ describe('settings store', () => {
     await store.changeSettings({ language: 'ko' });
 
     expect(store.currentSettings().needsRestart).toBe(true);
+  });
+
+  it('keeps the score’s zoom without applying the language again', async () => {
+    // Act
+    await store.changeScoreZoom(0.5);
+
+    // Assert
+    expect(store.currentSettings().settings.scoreZoom).toBe(0.5);
+    expect(JSON.parse(mockNative.save.mock.calls.at(-1)?.[0] ?? '{}')).toMatchObject({ scoreZoom: 0.5 });
+    expect(mockNative.applyLanguage).not.toHaveBeenCalled();
   });
 
   it('shows why the settings could not be kept', async () => {
