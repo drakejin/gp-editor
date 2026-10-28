@@ -3,9 +3,9 @@ import type { Note, Song, Voice } from '../model/song';
 import { type BeatAddress, findVoice, isVoiceIndex, locateVoice } from './addresses';
 import { isInRun, orderRun } from './beat-runs';
 import { deleteBeatNotes } from './beats';
-import { sortByString, updateNote, updateVoice } from './song-paths';
+import { sortByString, updateVoice } from './song-paths';
 import { isSameDuration } from './timeline';
-import { previousNoteForTie } from './ties';
+import { untieOrphanNotes } from './ties';
 import { placeVoiceEvent } from './voice-entry';
 
 /** Where a beat of the run starts: its bar and tick (beat indexes shift as rests are added). */
@@ -72,10 +72,7 @@ function untieOrphans(song: Song, at: BeatAddress, voiceIndexes: readonly number
       ),
     ),
   );
-  return tied.reduce(
-    (current, address) => (previousNoteForTie(current, address) === undefined ? updateNote(current, address, (note) => ({ ...note, isTied: false })) : current),
-    song,
-  );
+  return untieOrphanNotes(song, tied);
 }
 
 /** Where each beat from `from` to `to` (either order, inclusive, across bars) of `from`'s track starts. */

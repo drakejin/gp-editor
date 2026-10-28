@@ -90,6 +90,7 @@ export {
 export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency } from './tuner/tuner-queue';
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
+export { deleteRunNotes } from './edit/run-notes';
 export { findVoice, isVoiceIndex, voiceOf } from './edit/addresses';
 export { moveBeatsToVoice, moveNotesToVoice } from './edit/voice-moves';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';

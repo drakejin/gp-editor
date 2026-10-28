@@ -31,6 +31,17 @@ export function previousNoteForTie(song: Song, at: StringAddress): Note | undefi
   return previous?.notes.find((note) => note.string === at.string);
 }
 
+/**
+ * The song with each tied note at `addresses` untied when its tie has nothing left to continue (previousNoteForTie):
+ * what an edit that removed or moved the notes before them leaves (Move Voice, deleting a run's notes).
+ */
+export function untieOrphanNotes(song: Song, addresses: readonly StringAddress[]): Song {
+  return addresses.reduce(
+    (current, address) => (previousNoteForTie(current, address) === undefined ? updateNote(current, address, (note) => (note.isTied ? { ...note, isTied: false } : note)) : current),
+    song,
+  );
+}
+
 /** The note tied to `previous`: its fret, no dead note, and its harmonic when it has one. */
 function tiedTo(note: Note, previous: Note): Note {
   const harmonic = previous.effect.harmonic ?? note.effect.harmonic;
