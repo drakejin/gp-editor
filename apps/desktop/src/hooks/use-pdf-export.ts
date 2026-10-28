@@ -35,7 +35,7 @@ export interface PdfExport {
   readonly print: () => void;
   /** The PDF of the shown track (tracks) as the view shows it, written at `path` without a panel (the MCP server's export_file). */
   readonly saveTo: (path: string) => Promise<SavedFile>;
-  /** The export panel's choice for the session: the annotations left out of the PDF, the PNG images and print. */
+  /** The export panel's choice for the session: the annotations left out of the PDF and the PNG images (print prints them as shown). */
   readonly hidesAnnotations: boolean;
   readonly changeHidesAnnotations: (hides: boolean) => void;
 }
@@ -149,12 +149,12 @@ export function usePdfExport(
   return { ...panel, isSaving, save, savePng, print, saveTo, hidesAnnotations, changeHidesAnnotations };
 }
 
-/** File ▸ Print… and the MCP server's PDF at a path: the pages as the view shows them (print without the annotations when the export panel leaves them out). */
+/** File ▸ Print… and the MCP server's PDF at a path: the pages as the view shows them, annotations included. */
 function useAsShownOutputs(source: PrintSource | undefined, dispatch: Dispatch<EditorAction>): Pick<PdfExport, 'print' | 'saveTo'> {
   // The same function after every edit, so File ▸ Print…'s listener is added once.
   const print = useStableCallback(() => {
     if (source !== undefined) {
-      printPdf(exportPages(source, 'asShown').pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
+      printPdf(exportPages({ ...source, hidesAnnotations: false }, 'asShown').pdf).catch((error: unknown) => dispatch({ type: 'exportFailed', message: errorMessage(error) }));
     }
   });
   useEffect(() => subscribePrintRequests(print), [print]);

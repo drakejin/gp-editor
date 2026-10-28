@@ -1,5 +1,5 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { type Song, type StringAddress, setBeatAnnotation } from '@gp-editor/core';
+import { type Song, type StringAddress, deleteMeasures, insertBeat, setBeatAnnotation } from '@gp-editor/core';
 import { type AnnotationEditor, useAnnotationEditor } from '../src/hooks/use-annotation-editor';
 import type { SongAction } from '../src/state/song-actions';
 import type { WorkspaceAction } from '../src/state/workspace';
@@ -168,6 +168,41 @@ describe('useAnnotationEditor', () => {
     // Assert
     expect(editor.current().draft).toMatchObject({ text: 'still here', isEdited: true });
     expect(editor.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('shows the beat now under the cursor when an edit moved the annotated one away (nothing typed)', () => {
+    // Arrange: the panel on bar 1's second beat, "breathe".
+    const editor = renderEditor(cursorAt(0, 1));
+    act(() => editor.current().open());
+
+    // Act: a beat comes before it; the cursor stays where it was, on the beat that slid under it.
+    editor.rerender(insertBeat(SONG, { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 }, 'after'), cursorAt(0, 1));
+
+    // Assert
+    expect(editor.current().draft).toMatchObject({ at: place(0, 1), text: '', isEdited: false });
+    expect(editor.current().hasAnnotation).toBe(false);
+  });
+
+  it('writes nothing, and says so, when the bar the typing was for is gone', () => {
+    // Arrange
+    const editor = renderEditor(cursorAt(1, 0));
+    act(() => editor.current().open());
+    act(() => editor.current().changeText('lost'));
+
+    // Act: bar 2 deleted, the cursor back in bar 1.
+    editor.rerender(deleteMeasures(SONG, 1, 1), cursorAt(0, 0));
+
+    // Assert
+    expect(editor.dispatch.mock.calls).toEqual([[{ type: 'inTab', tabId: 'tab-1', action: { type: 'showHint', hint: 'The annotation’s beat is gone: what was typed was not written.' } }]]);
+  });
+
+  it('forgets the annotation it could move once it closes', () => {
+    const editor = renderEditor(cursorAt(0, 1));
+    act(() => editor.current().open());
+    act(() => editor.current().close());
+    editor.rerender(SONG, cursorAt(1, 0));
+    act(() => editor.current().open());
+    expect(editor.current().movable).toBeUndefined();
   });
 
   it('closes without a cursor (no document)', () => {

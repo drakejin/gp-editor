@@ -1,6 +1,5 @@
 import { stylesheetOf } from '@gp-editor/core';
 import type { WindowModel } from '../../hooks/use-window';
-import { beatAnnotation } from '../../lib/annotation-draft';
 import { selectedFragment, selectionSummary } from '../../state/selection';
 import { type TranspositionDraft, noSelectionHint, toTranspositionOptions, transpositionScope } from '../../state/transposition';
 import { AudioExportPanel } from '../AudioExportPanel';
@@ -150,7 +149,7 @@ function AnnotationPanelPart({ model }: WindowPartProps) {
     <AnnotationPanel
       palette={base.palette}
       draft={editor.draft}
-      hasAnnotation={beatAnnotation(song, editor.draft.at) !== undefined}
+      hasAnnotation={editor.hasAnnotation}
       movable={editor.movable}
       onChangeText={editor.changeText}
       onChangePlacement={editor.changePlacement}

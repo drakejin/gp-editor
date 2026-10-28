@@ -33,7 +33,7 @@ interface ExportPanelProps {
   readonly onClose: () => void;
   /** File ▸ Stylesheet…: the page the export prints on is the stylesheet's. */
   readonly onOpenStylesheet?: () => void;
-  /** The annotations left out (the hook keeps the choice for the session; print follows it too). */
+  /** The annotations left out of the PDF and PNG images (the hook keeps the choice for the session; print prints them). */
   readonly hidesAnnotations?: boolean;
   readonly onChangeHidesAnnotations?: (hides: boolean) => void;
 }
@@ -44,7 +44,7 @@ interface AnnotationsRowProps {
   readonly onChange: (hides: boolean) => void;
 }
 
-/** Annotations: Print (as the score shows them) or Leave out — for the PDF, the PNG images and print alike. */
+/** Annotations: Print (as the score shows them) or Leave out — for the PDF and the PNG images (File ▸ Print… prints them as shown). */
 function AnnotationsRow({ palette, hidesAnnotations, onChange }: AnnotationsRowProps) {
   const t = useT();
   return (

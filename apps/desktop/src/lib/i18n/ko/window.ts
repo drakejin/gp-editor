@@ -76,7 +76,7 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.export.annotations': '메모',
   'window.export.printAnnotations': '인쇄',
   'window.export.leaveOutAnnotations': '빼기',
-  'window.export.annotationsHint': 'PDF, PNG 이미지, 파일 ▸ 인쇄… 모두에 적용됩니다.',
+  'window.export.annotationsHint': 'PDF와 PNG 이미지에 적용됩니다. 파일 ▸ 인쇄…는 악보에 보이는 대로 메모를 인쇄합니다.',
   'window.export.transparent': '투명',
   'window.export.whatTracks': '악보에 보이는 대로 트랙 {count}개',
   'window.export.whatShownTrack': '보이는 트랙',

@@ -329,6 +329,7 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.annotation.placeholder': '이 박에 남길 메모: 주의할 점, 숨 쉴 곳, 운지 아이디어 …',
   'tools.annotation.hint':
     '이 박에 상자로 표시되고 PDF, PNG 이미지와 인쇄에도 나옵니다 (내보내기 패널에서 메모를 뺄 수 있습니다). Guitar Pro 7/8(.gp) 파일에는 저장되고, Guitar Pro 5, 4, 3 파일에는 저장되지 않습니다. 다른 박을 클릭하면 그 박에 씁니다.',
+  'tools.annotation.lost': '메모를 쓸 박이 없어져서 입력한 내용은 써지지 않았습니다.',
   'tools.annotation.edited': '아직 쓰지 않았습니다: 적용(⌘↩)을 누르거나 다른 박을 클릭하면 입력한 내용이 이 박에 써집니다.',
   // 음표 패널: 비브라토, 벤딩, 트레몰로 바
   'tools.notePanels.vibrato': '비브라토',

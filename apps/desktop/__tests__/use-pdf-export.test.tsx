@@ -361,7 +361,7 @@ describe('usePdfExport and annotations', () => {
   };
   const printedTexts = (document: PdfDocument | undefined) => (document?.pages ?? []).flatMap((page) => textValues(page.commands));
 
-  it('prints them as the score shows them until the export panel leaves them out; then saving, PNG images and print leave them out', async () => {
+  it('exports them as the score shows them until the export panel leaves them out (PDF and PNG); print always prints them', async () => {
     // Arrange
     mockSavePdf.mockResolvedValue({ name: 'a.pdf', path: '/a.pdf' });
     mockPrintPdf.mockResolvedValue(true);
@@ -385,7 +385,7 @@ describe('usePdfExport and annotations', () => {
     expect(printedTexts(mockSavePdf.mock.calls[0]?.[0])).toContain('Watch the bend');
     expect(printedTexts(mockSavePdf.mock.calls[1]?.[0])).not.toContain('Watch the bend');
     expect(printedTexts(mockSavePngs.mock.calls[0]?.[0])).not.toContain('Watch the bend');
-    expect(printedTexts(mockPrintPdf.mock.calls[0]?.[0])).not.toContain('Watch the bend');
+    expect(printedTexts(mockPrintPdf.mock.calls[0]?.[0])).toContain('Watch the bend');
   });
 
   it('writes them at a path as the score shows them (the MCP server’s export)', async () => {

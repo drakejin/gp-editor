@@ -1,5 +1,5 @@
 import type { Annotation, AnnotationPlacement, Track } from '@gp-editor/core';
-import type { MeasureLayout } from '../lib/layout';
+import type { MeasureLayout, RowLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand } from './draw';
 import type { RowBands } from './geometry';
@@ -20,6 +20,9 @@ export const ANNOTATION_BOX = {
   /** Between boxes side by side, and between the boxes and the band's edges. */
   gap: 4,
 } as const;
+
+/** Lines a box draws at most (a longer note wraps into more; the panel shows it all): the last one ends with "…". */
+export const MAX_BOX_LINES = 12;
 
 /** How far (CIE76 ΔE) an annotation's box is tinted from the paper: seen at a glance (theme-contrast test). */
 export const ANNOTATION_TINT_DIFFERENCE = 25;
@@ -104,9 +107,21 @@ export interface AnnotationBox {
   readonly height: number;
 }
 
+/** The wrapped lines kept to MAX_BOX_LINES, the last one cut short with an ellipsis when some were left out. */
+function boxLines(text: string): string[] {
+  const lines = wrapAnnotation(text);
+  if (lines.length <= MAX_BOX_LINES) {
+    return lines;
+  }
+  const last = lines[MAX_BOX_LINES - 1] ?? '';
+  const room = ANNOTATION_BOX.maxTextWidth - annotationTextWidth('…', ANNOTATION_BOX.fontSize);
+  const cut = [...last].reduce((kept, character) => (fits(kept + character, room) ? kept + character : kept), '');
+  return [...lines.slice(0, MAX_BOX_LINES - 1), `${cut.trimEnd()}…`];
+}
+
 export function measureAnnotation(annotation: Annotation): AnnotationBox {
   const { fontSize, lineHeight, padding } = ANNOTATION_BOX;
-  const lines = wrapAnnotation(annotation.text);
+  const lines = boxLines(annotation.text);
   const textWidth = Math.max(0, ...lines.map((line) => annotationTextWidth(line, fontSize)));
   return { lines, width: textWidth + 2 * padding, height: lines.length * lineHeight + 2 * padding };
 }
@@ -118,8 +133,9 @@ export interface AnnotationBands {
 }
 
 /**
- * The bands a staff's row needs for the annotations of its bars (`measureIndexes`): each as tall as its tallest box
- * with a gap either side, none where no beat of those bars has an annotation there — a row without one keeps its height.
+ * One lane of boxes for each placement in `measureIndexes`: each band as tall as its tallest box with a gap either
+ * side, none where no beat of those bars has an annotation there. A track's bands (for the PDF's fit): a row's own
+ * may hold more lanes (annotationRowBands).
  */
 export function annotationBands(track: Track | undefined, measureIndexes: readonly number[]): AnnotationBands {
   const heights = { above: 0, below: 0 };
@@ -134,15 +150,45 @@ export function annotationBands(track: Track | undefined, measureIndexes: readon
   return { above: band(heights.above), below: band(heights.below) };
 }
 
-/** The bands as a row's geometry takes them (RowBands): the room for the bars' annotations over and under the staves. */
-export function annotationRowBands(track: Track | undefined, measureIndexes: readonly number[]): Pick<RowBands, 'annotationsAbove' | 'annotationsBelow'> {
-  const { above, below } = annotationBands(track, measureIndexes);
+/** The track's bands as a row's geometry takes them (RowBands), one lane each: what the whole track needs at most in one lane. */
+export function annotationTrackBands(track: Track): Pick<RowBands, 'annotationsAbove' | 'annotationsBelow'> {
+  const { above, below } = annotationBands(track, track.measures.map((_, measureIndex) => measureIndex));
   return { annotationsAbove: above, annotationsBelow: below };
+}
+
+/**
+ * The bands a staff's row needs for the annotations of its bars (RowBands): the boxes laid out in lanes as they are
+ * drawn (annotationLanes), each band as tall as its lanes with gaps; none where no beat of the row has an annotation
+ * there — a row without one keeps its height.
+ */
+export function annotationRowBands(track: Track | undefined, row: RowLayout): Pick<RowBands, 'annotationsAbove' | 'annotationsBelow'> {
+  if (track === undefined) {
+    return { annotationsAbove: 0, annotationsBelow: 0 };
+  }
+  let x = 0;
+  const placed = row.measures.map((layout) => {
+    const measure = { layout, x };
+    x += layout.width;
+    return measure;
+  });
+  const band = (placement: AnnotationPlacement) => bandHeight(annotationLanes(track, placed, placement));
+  return { annotationsAbove: band('above'), annotationsBelow: band('below') };
 }
 
 /** A box and where it goes across the row. */
 interface PlacedBox extends AnnotationBox {
   readonly x: number;
+}
+
+/** Boxes side by side, as tall as the tallest. */
+interface Lane {
+  readonly boxes: readonly PlacedBox[];
+  readonly height: number;
+}
+
+/** A band of lanes: its lanes' heights with a gap before each and after the last; 0 without a box. */
+function bandHeight(lanes: readonly Lane[]): number {
+  return lanes.length === 0 ? 0 : lanes.reduce<number>((sum, lane) => sum + lane.height + ANNOTATION_BOX.gap, ANNOTATION_BOX.gap);
 }
 
 /** A measure of the row with its x (row.ts' PlacedMeasure). */
@@ -161,20 +207,38 @@ function rowBoxes(track: Track, placed: readonly RowMeasure[], placement: Annota
   );
 }
 
-/** Boxes kept apart (each pushed right of the one before) and inside [start, end] (pulled back left from the end). */
-function spreadBoxes(boxes: readonly PlacedBox[], start: number, end: number): PlacedBox[] {
-  const { gap } = ANNOTATION_BOX;
-  const pushed = boxes.reduce<PlacedBox[]>((done, box) => {
-    const previous = done.at(-1);
-    return [...done, { ...box, x: Math.max(box.x, start, previous === undefined ? start : previous.x + previous.width + gap) }];
-  }, []);
-  const pulled: PlacedBox[] = [];
-  for (let index = pushed.length - 1; index >= 0; index--) {
-    const box = pushed[index] as PlacedBox;
-    const limit = pulled[0] === undefined ? end : pulled[0].x - gap;
-    pulled.unshift({ ...box, x: Math.max(start, Math.min(box.x, limit - box.width)) });
+/**
+ * The row's boxes of one placement in lanes, left to right: each box at its beat, inside the row, in the first lane where
+ * it fits after the boxes already there (pushed right if need be); a box no lane has room for starts another lane.
+ */
+function annotationLanes(track: Track, placed: readonly RowMeasure[], placement: AnnotationPlacement): Lane[] {
+  const first = placed[0];
+  const last = placed.at(-1);
+  if (first === undefined || last === undefined) {
+    return [];
   }
-  return pulled;
+  const [start, end] = [first.x, last.x + last.layout.width];
+  const lanes: PlacedBox[][] = [];
+  for (const box of rowBoxes(track, placed, placement)) {
+    const wanted = Math.max(start, Math.min(box.x, end - box.width));
+    const placedBox = lanes.reduce<PlacedBox | undefined>((found, lane) => found ?? fitInLane(lane, box, wanted, end), undefined);
+    if (placedBox === undefined) {
+      lanes.push([{ ...box, x: wanted }]);
+    }
+  }
+  return lanes.map((boxes) => ({ boxes, height: Math.max(...boxes.map((box) => box.height)) }));
+}
+
+/** The box at `wanted` (or pushed right of the lane's last box) added to the lane when it fits before `end`. */
+function fitInLane(lane: PlacedBox[], box: PlacedBox, wanted: number, end: number): PlacedBox | undefined {
+  const previous = lane.at(-1);
+  const x = previous === undefined ? wanted : Math.max(wanted, previous.x + previous.width + ANNOTATION_BOX.gap);
+  if (x + box.width > end && previous !== undefined) {
+    return undefined;
+  }
+  const fitted = { ...box, x };
+  lane.push(fitted);
+  return fitted;
 }
 
 function engraveBox(box: PlacedBox, y: number, palette: Palette): DrawCommand[] {
@@ -194,24 +258,23 @@ export interface AnnotationBandInput {
   /** The row's measures with their x (row.ts' placeRow). */
   readonly placed: readonly RowMeasure[];
   readonly placement: AnnotationPlacement;
-  /** Where the boxes hang from: the band's bottom over the staves, its top under them (the row's geometry). */
+  /** The band's edge next to the staves (the row's geometry): its bottom over them, its top under them; lanes go away from it. */
   readonly edge: number;
   readonly palette: Palette;
 }
 
 /**
- * The row's annotations of one placement as outlined boxes in the annotation colours, their lines inside: over the
- * staves they hang from the band's bottom (near the staff), under them from its top.
+ * The row's annotations of one placement as outlined boxes in the annotation colours, their lines inside, in their
+ * lanes (annotationLanes). The band over the staves lies under the heading, over the directions, texts and chords: its
+ * boxes hang from its bottom; the band under the staves lies before the row's gap: its boxes hang from its top.
  */
 export function engraveAnnotationBand({ track, placed, placement, edge, palette }: AnnotationBandInput): DrawCommand[] {
-  const first = placed[0];
-  const last = placed.at(-1);
-  const boxes = rowBoxes(track, placed, placement);
-  if (first === undefined || last === undefined || boxes.length === 0) {
-    return [];
-  }
   const { gap } = ANNOTATION_BOX;
-  return spreadBoxes(boxes, first.x, last.x + last.layout.width).flatMap((box) =>
-    engraveBox(box, placement === 'above' ? edge - gap - box.height : edge + gap, palette),
-  );
+  // Lane 0 next to the staves; each further lane farther away (up over them, down under them).
+  let laneEdge = edge;
+  return annotationLanes(track, placed, placement).flatMap((lane) => {
+    const top = placement === 'above' ? laneEdge - gap - lane.height : laneEdge + gap;
+    laneEdge = placement === 'above' ? top : top + lane.height;
+    return lane.boxes.flatMap((box) => engraveBox(box, placement === 'above' ? top + lane.height - box.height : top, palette));
+  });
 }

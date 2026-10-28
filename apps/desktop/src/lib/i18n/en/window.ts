@@ -76,7 +76,7 @@ export const EN_WINDOW = {
   'window.export.annotations': 'Annotations',
   'window.export.printAnnotations': 'Print',
   'window.export.leaveOutAnnotations': 'Leave out',
-  'window.export.annotationsHint': 'For the PDF, the PNG images and File ▸ Print… alike.',
+  'window.export.annotationsHint': 'For the PDF and the PNG images; File ▸ Print… prints them as the score shows them.',
   'window.export.transparent': 'Transparent',
   'window.export.whatTracks': { one: '{count} track as the score shows them', other: '{count} tracks as the score shows them' },
   'window.export.whatShownTrack': 'The shown track',

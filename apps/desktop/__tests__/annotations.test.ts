@@ -3,8 +3,10 @@ import { buildPdfDocument, pdfPageCount } from '../src/export/pdf-document';
 import type { MeasureLayout } from '../src/lib/layout';
 import {
   ANNOTATION_BOX,
+  MAX_BOX_LINES,
   annotationBands,
   annotationColors,
+  annotationRowBands,
   annotationTextWidth,
   engraveAnnotationBand,
   measureAnnotation,
@@ -105,6 +107,50 @@ describe('measureAnnotation', () => {
   });
 });
 
+describe('a long annotation', () => {
+  it(`draws at most ${MAX_BOX_LINES} lines, the last cut with an ellipsis`, () => {
+    // Act
+    const box = measureAnnotation({ text: 'word '.repeat(200), placement: 'above' });
+
+    // Assert
+    expect(box.lines).toHaveLength(MAX_BOX_LINES);
+    expect(box.lines.at(-1)?.endsWith('…')).toBe(true);
+    expect(box.height).toBe(MAX_BOX_LINES * ANNOTATION_BOX.lineHeight + 2 * ANNOTATION_BOX.padding);
+  });
+});
+
+describe('annotationRowBands', () => {
+  it('puts boxes that do not fit side by side in a second lane, and makes room for both lanes', () => {
+    // Arrange: four long annotations on the four beats of one 200-point bar.
+    const text = 'a long annotation on this beat';
+    const song = [0, 1, 2, 3].reduce((current, beatIndex) => annotate(current, 0, beatIndex, { text, placement: 'above' }), quarters());
+    const row = { measures: [measureLayout(0)] };
+    const box = measureAnnotation({ text, placement: 'above' });
+    const { gap } = ANNOTATION_BOX;
+
+    // Act
+    const bands = annotationRowBands(song.tracks[0], row);
+    const commands = engraveAnnotationBand({ track: song.tracks[0]!, placed: [{ layout: measureLayout(0), x: 40 }], placement: 'above', edge: 400, palette: INKED });
+
+    // Assert
+    const boxes = outlines(commands);
+    const lanes = new Set(boxes.map((rect) => rect.y));
+    expect(lanes.size).toBeGreaterThan(1);
+    expect(bands.annotationsAbove).toBe(lanes.size * (box.height + gap) + gap);
+    boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
+      const isApart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+      expect(isApart).toBe(true);
+    }));
+    expect(Math.min(...boxes.map((rect) => rect.y))).toBe(400 - bands.annotationsAbove + gap);
+  });
+
+  it('is one lane, as tall as its tallest box, when the boxes fit side by side', () => {
+    const song = annotate(annotate(quarters(), 0, 0, { text: 'a', placement: 'below' }), 0, 3, { text: 'b\nc', placement: 'below' });
+    const bands = annotationRowBands(song.tracks[0], { measures: [measureLayout(0)] });
+    expect(bands).toEqual({ annotationsAbove: 0, annotationsBelow: measureAnnotation({ text: 'b\nc', placement: 'below' }).height + 2 * ANNOTATION_BOX.gap });
+  });
+});
+
 describe('annotationBands', () => {
   it('is no room for bars without annotations', () => {
     const track = quarters().tracks[0];
@@ -160,7 +206,7 @@ describe('engraveAnnotationBand', () => {
     expect(texts(band('below')).map((text) => text.text)).toEqual(['two', 'lines']);
   });
 
-  it('keeps boxes side by side apart, and inside the row', () => {
+  it('keeps boxes apart (in another lane when they do not fit side by side), and inside the row', () => {
     // Arrange: long annotations on two neighbouring beats of the last bar.
     const crowded = annotate(annotate(quarters(), 1, 2, { text: 'a long annotation here', placement: 'above' }), 1, 3, { text: 'and another long one', placement: 'above' });
     const commands = engraveAnnotationBand({ track: crowded.tracks[0]!, placed, placement: 'above', edge: 40, palette: PALETTE });
@@ -169,8 +215,12 @@ describe('engraveAnnotationBand', () => {
     const [first, , second] = rects(commands);
 
     // Assert
-    expect((second?.x ?? 0)).toBeGreaterThanOrEqual((first?.x ?? 0) + (first?.width ?? 0) + ANNOTATION_BOX.gap);
-    expect((second?.x ?? 0) + (second?.width ?? 0)).toBeLessThanOrEqual(240 + 200);
+    const [a, b] = [first!, second!];
+    expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
+    [a, b].forEach((box) => {
+      expect(box.x).toBeGreaterThanOrEqual(40);
+      expect(box.x + box.width).toBeLessThanOrEqual(240 + 200);
+    });
   });
 
   it('draws nothing for a placement without annotations', () => {
@@ -257,8 +307,13 @@ describe('annotation bands in the layout', () => {
     // Assert
     const span = (staff: typeof top.staff) => stavesSpan(staff.geometry, 6)!;
     const [aboveBox] = outlines(top.commands);
+    const aboveBand = annotationBands(song.tracks[0], layout.systems[systemOf(layout, 9)]!.rows[0]!.measures.map((m) => m.measureIndex)).above;
+    const bandTop = (top.staff.geometry.annotationsAboveBottom ?? 0) - aboveBand;
+    const barNumber = texts(top.commands).find((text) => text.text === '10');
     expect(textValues(top.commands)).toEqual(expect.arrayContaining(['Watch the bend', 'softer the second time']));
-    expect(aboveBox!.y).toBeGreaterThanOrEqual(ROW.heading);
+    // Under the heading (the bar number's ink above the band), over everything under it.
+    expect(barNumber!.y + barNumber!.size / 2).toBeLessThanOrEqual(bandTop);
+    expect(aboveBox!.y).toBeGreaterThanOrEqual(bandTop);
     expect(aboveBox!.y + aboveBox!.height).toBeLessThan(span(top.staff).top);
     const [belowBox] = outlines(bottom.commands);
     expect(belowBox!.y).toBeGreaterThan(span(bottom.staff).bottom);

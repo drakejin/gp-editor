@@ -1,4 +1,4 @@
-import { type Song, insertMeasure, setBeatAnnotation, setBeatDuration } from '@gp-editor/core';
+import { type Song, deleteMeasures, deleteTrack, insertMeasure, moveTrack, setBeatAnnotation, setBeatDuration } from '@gp-editor/core';
 import { annotationExcerpt, canMoveAnnotation, cursorBeat, draftEdit, draftOf, locateDraftBeat } from '../src/lib/annotation-draft';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -28,18 +28,21 @@ describe('draftOf', () => {
 describe('draftEdit', () => {
   it('writes what the beat does not show yet, and nothing when it shows it', () => {
     // Arrange
-    const draft = draftOf(annotated(), at(0, 1));
+    const base = annotated();
+    const plain = song();
+    const draft = draftOf(base, at(0, 1));
 
     // Act + Assert
-    expect(draftEdit(annotated(), draft)).toBeUndefined();
-    expect(draftEdit(annotated(), { ...draft, text: 'louder', isEdited: true })).toEqual({ type: 'setBeatAnnotation', at: at(0, 1), annotation: { text: 'louder', placement: 'below' } });
-    expect(draftEdit(annotated(), { ...draft, text: '  ', isEdited: true })).toEqual({ type: 'setBeatAnnotation', at: at(0, 1), annotation: undefined });
-    expect(draftEdit(song(), draftOf(song(), at(0, 0)))).toBeUndefined();
+    expect(draftEdit(base, draft)).toBeUndefined();
+    expect(draftEdit(base, { ...draft, text: 'louder', isEdited: true })).toEqual({ type: 'setBeatAnnotation', at: at(0, 1), annotation: { text: 'louder', placement: 'below' } });
+    expect(draftEdit(base, { ...draft, text: '  ', isEdited: true })).toEqual({ type: 'setBeatAnnotation', at: at(0, 1), annotation: undefined });
+    expect(draftEdit(plain, draftOf(plain, at(0, 0)))).toBeUndefined();
   });
 
   it('writes on the bar without beats (its rest gets the annotation)', () => {
-    const draft = { ...draftOf(song(), at(2, 0)), text: 'tacet', isEdited: true };
-    expect(draftEdit(song(), draft)).toEqual({ type: 'setBeatAnnotation', at: at(2, 0), annotation: { text: 'tacet', placement: 'above' } });
+    const plain = song();
+    const draft = { ...draftOf(plain, at(2, 0)), text: 'tacet', isEdited: true };
+    expect(draftEdit(plain, draft)).toEqual({ type: 'setBeatAnnotation', at: at(2, 0), annotation: { text: 'tacet', placement: 'above' } });
   });
 });
 
@@ -57,6 +60,34 @@ describe('locateDraftBeat', () => {
     expect(locateDraftBeat(afterInsert, draft)).toEqual(at(2, 0));
     expect(locateDraftBeat(afterOwnEdit, draft)).toEqual(at(1, 0));
     expect(locateDraftBeat(base, draft)).toEqual(at(1, 0));
+  });
+
+  it('follows the beat to another track when tracks are deleted or moved, never onto another track’s beat', () => {
+    // Arrange: a track like it (beats of its own) before it, drafting the second track's bar 2.
+    const base = annotated();
+    const track = base.tracks[0]!;
+    const alike = { ...track, strings: [...track.strings], measures: track.measures.map((m) => ({ ...m, beats: m.beats.map((b) => ({ ...b, voices: [...b.voices] })) })) };
+    const two: Song = { ...base, tracks: [alike, track] };
+    const draft = draftOf(two, { trackIndex: 1, measureIndex: 1, beatIndex: 0 });
+
+    // Act
+    const deleted = deleteTrack(two, 0);
+    const moved = moveTrack(two, 1, 0);
+    const ownGone = deleteTrack(two, 1);
+
+    // Assert
+    expect(locateDraftBeat(deleted, draft)).toEqual({ trackIndex: 0, measureIndex: 1, beatIndex: 0 });
+    expect(locateDraftBeat(moved, draft)).toEqual({ trackIndex: 0, measureIndex: 1, beatIndex: 0 });
+    expect(locateDraftBeat(ownGone, draft)).toBeUndefined();
+  });
+
+  it('is none when its bar was deleted, not the beat of the bar that took its place', () => {
+    const base = annotated();
+    const draft = draftOf(base, at(0, 2));
+    expect(locateDraftBeat(deleteMeasures(base, 0, 0), draft)).toBeUndefined();
+    const emptyBar = draftOf(base, at(2, 0));
+    expect(locateDraftBeat(base, emptyBar)).toEqual(at(2, 0));
+    expect(locateDraftBeat(insertMeasure(base, 0, 'before'), emptyBar)).toBeUndefined();
   });
 
   it('is none when the beat is gone', () => {

@@ -331,6 +331,7 @@ export const EN_TOOLS = {
   'tools.annotation.placeholder': 'A note on this beat: what to watch, where to breathe, a fingering idea …',
   'tools.annotation.hint':
     'Shown in a box at this beat and printed in PDFs, PNG images and print (the export panel can leave annotations out). Guitar Pro 7/8 (.gp) files keep them; Guitar Pro 5, 4 and 3 files cannot. Click another beat to write there.',
+  'tools.annotation.lost': 'The annotation’s beat is gone: what was typed was not written.',
   'tools.annotation.edited': 'Not written yet: Apply (⌘↩), or click another beat — what was typed goes on this one.',
   // Note panels: vibrato, bend, tremolo bar
   'tools.notePanels.vibrato': 'Vibrato',

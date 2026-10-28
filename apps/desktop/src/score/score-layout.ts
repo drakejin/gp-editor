@@ -3,7 +3,7 @@ import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measure
 import { t } from '../lib/i18n/i18n';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { withBeatOffsets } from '../lib/system-design';
-import { annotationRowBands } from './annotations';
+import { annotationRowBands, annotationTrackBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
 import { hasDirections } from './directions';
 import { hasDynamicChanges } from './dynamics';
@@ -105,7 +105,7 @@ function staffBands(song: Song, track: Track, markLaneCount: number, isTop: bool
     hasLyricsAbove: sheet.lyrics === 'above',
     staffSpacing: sheet.systems.staffSpacing,
     ...textBandHeights(sheet),
-    ...annotationRowBands(track, measures.map((_, measureIndex) => measureIndex)),
+    ...annotationTrackBands(track),
   };
 }
 
@@ -183,7 +183,7 @@ export function systemBands(song: Song, plan: StaffPlan, row: RowLayout): RowBan
   const track = song.tracks[plan.trackIndex];
   return track === undefined ? plan.bands : {
     ...plan.bands,
-    ...annotationRowBands(track, row.measures.map((measure) => measure.measureIndex)),
+    ...annotationRowBands(track, row),
   };
 }
 

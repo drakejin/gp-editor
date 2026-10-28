@@ -1,4 +1,4 @@
-import { type Annotation, type AnnotationPlacement, type Beat, type Song, type StringAddress, isSameAnnotation, toAnnotation } from '@gp-editor/core';
+import { type Annotation, type AnnotationPlacement, type Beat, type GuitarString, type MeasureHeader, type Song, type StringAddress, isSameAnnotation, toAnnotation } from '@gp-editor/core';
 import type { SongAction, TrackBeat } from '../state/song-actions';
 
 /** Characters of an annotation's first line a button quotes ("Move “Watch the bend” here"). */
@@ -9,8 +9,10 @@ export interface AnnotationDraft {
   readonly at: TrackBeat;
   /** The beat when the draft was made: found again if an edit moves it before the typing is written (none in an empty bar). */
   readonly beat?: Beat;
-  /** Where that beat started in its bar, in ticks: its place, should the beat itself change. */
+  /** Where that beat started in its bar, in ticks, the bar's header and the track's strings (no beat edit replaces them): its place, should the beat itself change. */
   readonly offset?: number;
+  readonly header?: MeasureHeader;
+  readonly strings?: readonly GuitarString[];
   readonly text: string;
   readonly placement: AnnotationPlacement;
   /** Typed (or placed) and not written to the beat yet. */
@@ -38,30 +40,58 @@ export function beatAnnotation(song: Song, at: TrackBeat | undefined): Annotatio
 export function draftOf(song: Song, at: TrackBeat, placement: AnnotationPlacement = 'above'): AnnotationDraft {
   const beat = beatAt(song, at);
   const annotation = beat?.annotation;
-  const offset = beat === undefined ? undefined : beat.start - (song.measureHeaders[at.measureIndex]?.start ?? 0);
-  return { at, beat, offset, text: annotation?.text ?? '', placement: annotation?.placement ?? placement, isEdited: false };
+  const header = song.measureHeaders[at.measureIndex];
+  const offset = beat === undefined ? undefined : beat.start - (header?.start ?? 0);
+  const strings = song.tracks[at.trackIndex]?.strings;
+  return { at, beat, offset, header, strings, text: annotation?.text ?? '', placement: annotation?.placement ?? placement, isEdited: false };
+}
+
+/** The draft's beat is the one at its place still (a bar without beats: still that bar of that track, still empty). */
+export function isDraftHere(song: Song, draft: AnnotationDraft): boolean {
+  return beatAt(song, draft.at) === draft.beat && (draft.beat !== undefined || isSamePlace(song, draft));
+}
+
+/** The draft's place is still the same bar of the same track (its header and the track's strings are the same objects). */
+function isSamePlace(song: Song, { at, header, strings }: AnnotationDraft): boolean {
+  return song.measureHeaders[at.measureIndex] === header && song.tracks[at.trackIndex]?.strings === strings;
 }
 
 /**
- * Where the drafted beat is now: its place while the beat there is it, or starts where it did (the beat itself was
- * edited); else where an edit moved it in its track (bars inserted or deleted before it shift its start but keep its
- * voices); undefined once it is gone. A draft in a bar without beats keeps its place.
+ * Where a beat is now, by its voices (bars inserted or deleted before it, track moves and deletions keep them): in the
+ * drafted track first (its strings), then at its index, then any track.
+ */
+function findBeat(song: Song, draft: AnnotationDraft, beat: Beat): TrackBeat | undefined {
+  const own = song.tracks.findIndex((track) => track.strings === draft.strings);
+  const first = [own, draft.at.trackIndex].filter((index) => index >= 0);
+  const trackIndexes = [...first, ...song.tracks.map((_, index) => index).filter((index) => !first.includes(index))];
+  for (const trackIndex of trackIndexes) {
+    const measures = song.tracks[trackIndex]?.measures ?? [];
+    for (let measureIndex = 0; measureIndex < measures.length; measureIndex++) {
+      const beatIndex = measures[measureIndex]?.beats.findIndex((candidate) => candidate.voices === beat.voices) ?? -1;
+      if (beatIndex >= 0) {
+        return { trackIndex, measureIndex, beatIndex };
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Where the drafted beat is now: its place while the beat there is it; else wherever an edit moved it (any track); else
+ * its place when that is still the same bar of the same track and a beat starts where it did (the beat itself was
+ * edited). Undefined once it is gone: the typing is never written to another bar's or track's beat.
  */
 export function locateDraftBeat(song: Song, draft: AnnotationDraft): TrackBeat | undefined {
   const { at, beat, offset } = draft;
-  const here = beatAt(song, at);
-  if (beat === undefined || here === beat) {
+  if (isDraftHere(song, draft)) {
     return at;
   }
-  const measures = song.tracks[at.trackIndex]?.measures ?? [];
-  for (let measureIndex = 0; measureIndex < measures.length; measureIndex++) {
-    const beatIndex = measures[measureIndex]?.beats.findIndex((candidate) => candidate.voices === beat.voices) ?? -1;
-    if (beatIndex >= 0) {
-      return { trackIndex: at.trackIndex, measureIndex, beatIndex };
-    }
+  const found = beat === undefined ? undefined : findBeat(song, draft, beat);
+  if (found !== undefined || !isSamePlace(song, draft)) {
+    return found;
   }
-  const headerStart = song.measureHeaders[at.measureIndex]?.start ?? 0;
-  return here !== undefined && here.start - headerStart === offset ? at : undefined;
+  const here = beatAt(song, at);
+  return here !== undefined && beat !== undefined && here.start - (draft.header?.start ?? 0) === offset ? at : undefined;
 }
 
 /** The edit that writes the draft to its beat (a blank text takes the annotation away); undefined when the beat shows it already or is gone. */
