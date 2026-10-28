@@ -194,6 +194,26 @@ describe('buildSongFromTranscription: piano and other instruments', () => {
     expect(warnings).toEqual([]);
   });
 
+  it('spreads seven strings over a part wider than six strings reach, from its lowest note', () => {
+    // Act
+    const { song, warnings } = build([soloPage(PIANO_LEFT, [play('half', written('A0'), written('C8')), play('half', written('C4'), written('E4'), written('G4'))])]);
+
+    // Assert
+    expect(song.tracks[0]?.strings).toHaveLength(7);
+    expect(pitchesOf(song, 0)).toEqual([[21, 108], [60, 64, 67]]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('never tunes a string below MIDI 0 for a part at the bottom of the range', () => {
+    // Act
+    const { song, warnings } = build([soloPage(PIANO_LEFT, [play('whole', written('C0'), written('E0'))])]);
+
+    // Assert
+    expect(Math.min(...(song.tracks[0]?.strings.map((guitarString) => guitarString.tuning) ?? []))).toBe(0);
+    expect(pitchesOf(song, 0)).toEqual([[12, 16]]);
+    expect(warnings).toEqual([]);
+  });
+
   it('plays another instrument on the General MIDI program the page gives, as written', () => {
     // Act
     const { song } = build([soloPage({ name: 'Violin', instrument: 'other', tuning: [], capo: 0, program: 40 }, [play('whole', written('A5'))])]);

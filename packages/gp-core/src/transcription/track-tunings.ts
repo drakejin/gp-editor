@@ -7,8 +7,6 @@ import { trackKindOf } from './instruments';
 import { parsePitch } from './pitch';
 import type { TranscribedBeat, TranscribedInstrument, TranscribedMeasure, TranscribedTrack } from './types';
 
-const MAX_MIDI_PITCH = 127;
-
 export interface ResolvedTuning {
   /** Open-string MIDI pitches, string 1 (highest) first. */
   readonly tuning: readonly number[];
@@ -90,8 +88,8 @@ export function pitchedPartTuning(range: PitchRange | undefined): readonly numbe
   }
   const width = range.max - range.min;
   if (width <= STANDARD_REACH) {
-    const centered = range.min - Math.floor((STANDARD_REACH - width) / 2);
-    const lowest = Math.min(Math.max(0, centered), MAX_MIDI_PITCH - (STANDARD_REACH - MAX_FRET));
+    // Never below MIDI 0 for a part at the bottom of the range; at most 101, so the top string stays within MIDI.
+    const lowest = Math.max(0, range.min - Math.floor((STANDARD_REACH - width) / 2));
     return STANDARD_TUNING.map((open) => open + lowest - STANDARD_LOWEST);
   }
   const spacing = Math.ceil((width - MAX_FRET) / (MAX_STRINGS - 1));
