@@ -10,6 +10,12 @@ import {
 } from '../src/pdf-import/project-file';
 import { runImport } from '../src/pdf-import/run-import';
 import type { ImportDeps } from '../src/pdf-import/transcribe-page';
+import {
+  cutStream,
+  streamEndingInError,
+  streamedMessage,
+  toolMessage,
+} from '../test-support/message-stream';
 
 const QUARTER_BAR = {
   parts: [
@@ -365,5 +371,69 @@ describe('runImport', () => {
     });
     expect(finished).toMatchObject({ status: 'cancelled', pagesDone: [1] });
     expect(run.sent).toHaveLength(1);
+  });
+});
+
+describe('runImport with streamed answers', () => {
+  const streamed = (input: unknown) =>
+    streamedMessage(
+      toolMessage('record_transcription', input, {
+        input_tokens: 1000,
+        output_tokens: 200,
+      }),
+      { chunk: 9 },
+    );
+
+  it('builds the song from streamed pages, asking again for a page whose stream was cut off or ended in an error', async () => {
+    // Arrange: page 2's stream stops half-way, then ends in overloaded_error, then arrives whole
+    const page2 = toolMessage('record_transcription', BAND_LATER_PAGE);
+    const run = fake((page, attempt) => {
+      if (page === 1) {
+        return streamed(BAND_FIRST_PAGE);
+      }
+      return [
+        cutStream(page2, 12),
+        streamEndingInError(page2, 20, 'overloaded_error', 'Overloaded'),
+        streamed(BAND_LATER_PAGE),
+      ][attempt] as ApiResponse;
+    });
+
+    // Act
+    const finished = await runImport(project(2), run.deps, OPTIONS);
+
+    // Assert
+    expect(finished).toMatchObject({
+      status: 'done',
+      pagesDone: [1, 2],
+      failedPages: [],
+      usage: { inputTokens: 4000, outputTokens: 402 },
+    });
+    expect(run.waits).toEqual([2000, 4000]);
+    expect(run.sent.every(body => JSON.parse(body).stream === true)).toBe(
+      true,
+    );
+    const song = readSong(base64ToBytes(run.files.get('Etude.gp5') ?? ''));
+    expect(song.tracks.map(track => track.name)).toEqual([
+      'Drums',
+      'Vocals',
+      'Guitar',
+    ]);
+    expect(song.measureHeaders).toHaveLength(2);
+  });
+
+  it('records the page as failed when its streams keep being cut off', async () => {
+    const run = fake(page =>
+      page === 1
+        ? streamed(FIRST_PAGE)
+        : cutStream(toolMessage('record_transcription', LATER_PAGE), 5),
+    );
+    const finished = await runImport(project(2), run.deps, OPTIONS);
+    expect(finished).toMatchObject({
+      status: 'partial',
+      pagesDone: [1],
+      failedPages: [
+        { page: 2, message: 'The answer stopped before it was complete' },
+      ],
+    });
   });
 });

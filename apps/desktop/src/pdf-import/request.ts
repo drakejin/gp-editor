@@ -1,5 +1,6 @@
 // i18n-exempt-file: prompts and requests sent to Claude (never shown), and the models' product names
 import { TRANSCRIPTION_TOOL, type TranscribedMeasure, type TranscribedTrack, type TranscriptionPage } from '@gp-editor/core';
+import { STREAMED_ANSWER, type StreamedAnswerFields, type StreamedTool, streamedTool } from '../lib/streamed-request';
 import { plural } from '../lib/wording';
 import { drumStaffGuide } from './drum-staff-guide';
 
@@ -20,8 +21,8 @@ export const DEFAULT_TRANSCRIPTION_MODEL = 'claude-opus-5-5';
  * Room for a dense full-band page and the thinking before it (Claude Opus 5.5 always thinks, and thinking counts toward
  * max_tokens). Measured: the 12 densest bars of a band score (vocals, two guitars, keys, bass, drums: 460 beats) are
  * 33,000 characters of tool input, about 11,000–13,000 tokens; 8 bars are 20,000–24,000 characters. Both models take
- * up to 128,000. The request is not streamed and its 600 s idle timeout ends a page the model is still writing: see the
- * README's PDF import section.
+ * up to 128,000. The answer is streamed (lib/streamed-request.ts), so a page the model is still writing keeps the
+ * connection busy until it is done.
  */
 const MAX_TOKENS = 64000;
 
@@ -67,11 +68,11 @@ interface DocumentBlock {
   readonly source: { readonly type: 'base64'; readonly media_type: 'application/pdf'; readonly data: string };
 }
 
-export interface TranscriptionRequest {
+export interface TranscriptionRequest extends StreamedAnswerFields {
   readonly model: string;
   readonly max_tokens: number;
   readonly system: string;
-  readonly tools: readonly (typeof TRANSCRIPTION_TOOL)[];
+  readonly tools: readonly StreamedTool<typeof TRANSCRIPTION_TOOL>[];
   /** Not forced: Claude Opus 5.5 and Sonnet 5.5 refuse a forced tool_choice with a 400; the prompt names the tool. */
   readonly tool_choice: { readonly type: 'auto' };
   readonly messages: readonly { readonly role: 'user'; readonly content: readonly [DocumentBlock, TextBlock] }[];
@@ -138,13 +139,14 @@ function pageInstructions(input: TranscriptionRequestInput): string {
   return `${where} ${earlierPages(input.firstPage)} ${CALL_TOOL}`;
 }
 
-/** The Messages API body for one page: the page as a PDF document, and the transcription tool the model is asked to call. */
+/** The Messages API body for one page: the page as a PDF document, and the transcription tool the model is asked to call; the answer streamed. */
 export function buildTranscriptionRequest(input: TranscriptionRequestInput): TranscriptionRequest {
   return {
     model: input.model,
     max_tokens: MAX_TOKENS,
+    ...STREAMED_ANSWER,
     system: TRANSCRIPTION_SYSTEM_PROMPT,
-    tools: [TRANSCRIPTION_TOOL],
+    tools: [streamedTool(TRANSCRIPTION_TOOL)],
     tool_choice: { type: 'auto' },
     messages: [
       {

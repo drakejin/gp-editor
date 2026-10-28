@@ -469,6 +469,7 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.songWriter.buildFailed': '곡을 만들지 못했습니다: {detail}',
   'tools.answer.keyRefused': 'Anthropic API 키가 거부되었습니다 ({detail})',
   'tools.answer.notApi': '답변이 Messages API 응답이 아닙니다',
+  'tools.answer.cutOff': '답변이 끝까지 오기 전에 끊겼습니다',
   'tools.answer.tooLong': '{tooLong} (모델의 출력 한도에 닿았습니다)',
   'tools.answer.without': '모델의 답변에 이것이 없습니다: {what}',
   'tools.answer.withoutSaid': '모델의 답변에 이것이 없습니다: {what} (모델의 답: “{said}”)',

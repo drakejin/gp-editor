@@ -37,7 +37,7 @@ describe('buildPlanRequest', () => {
 
     // Assert
     expect(request.model).toBe('claude-opus-5-5');
-    expect(request.tools).toEqual([PLAN_SONG_TOOL]);
+    expect(request.tools).toEqual([{ ...PLAN_SONG_TOOL, eager_input_streaming: true }]);
     expect(request.tool_choice).toEqual({ type: 'auto' });
     expect(request.system).toContain('never answer in text');
     const text = userText(request);
@@ -68,7 +68,7 @@ describe('buildSectionRequest', () => {
     const request = buildSectionRequest('m', IDEA, PLAN, 1);
 
     // Assert
-    expect(request.tools).toEqual([WRITE_SECTION_TOOL]);
+    expect(request.tools).toEqual([{ ...WRITE_SECTION_TOOL, eager_input_streaming: true }]);
     expect(request.tool_choice).toEqual({ type: 'auto' });
     const text = userText(request);
     expect(text).toContain('Call write_section');
@@ -78,6 +78,16 @@ describe('buildSectionRequest', () => {
     expect(text).toContain('after "Intro"');
     expect(text).toContain('before "Outro"');
     expect(text).toContain('"Lead guitar"');
+  });
+});
+
+describe('streamed answers', () => {
+  it('asks for the plan and every section as a stream that never goes quiet: thinking summarised, the tool input sent as it is written', () => {
+    for (const request of [buildPlanRequest('claude-opus-5-5', IDEA), buildSectionRequest('claude-sonnet-5', IDEA, PLAN, 0)]) {
+      expect(request.stream).toBe(true);
+      expect(request.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+      expect(request.tools.map((tool) => tool.eager_input_streaming)).toEqual([true]);
+    }
   });
 });
 
