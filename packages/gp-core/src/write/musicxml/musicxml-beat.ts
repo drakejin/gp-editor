@@ -17,6 +17,8 @@ export interface PartContext {
   readonly lyrics: TrackLyrics;
   /** Ticks per MusicXML division (tickUnit): durations are written in divisions. */
   readonly unit: number;
+  /** Semitones the track is written above its sound (writtenTransposition): its notation clef's octave change. */
+  readonly transposition: number;
 }
 
 /** One staff of the part: 1 = notation, 2 = tab. */

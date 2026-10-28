@@ -136,7 +136,7 @@ export function buildMeasure(context: PartContext, headers: readonly MeasureHead
   });
   const toEnd = reached < length ? cursorMove(cursor, length) : undefined;
   return element('measure', { number: header.number }, [
-    attributesElement(context.track, measureIndex, headers, context.unit),
+    attributesElement(context, measureIndex, headers),
     leftBarline(header, headers[measureIndex - 1]),
     headerDirection(header, headers[measureIndex - 1]),
     ...content,

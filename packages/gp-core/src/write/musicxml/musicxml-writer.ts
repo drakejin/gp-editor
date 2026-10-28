@@ -1,4 +1,5 @@
 // Port of TuxGuitar app.tuxguitar.io.musicxml.MusicXMLWriter#writeSong / #writeHeaders / #writePartList / #writeTrack (LGPL-2.1).
+import { writtenTransposition } from '../../formats/common/instrument-sets';
 import { UNROUTED, buildChannelRoutes } from '../../midi/channel-routes';
 import type { Channel, Song, SongInfo, Track } from '../../model/song';
 import type { PartContext } from './musicxml-beat';
@@ -125,8 +126,18 @@ function partList(song: Song): XmlNode {
   );
 }
 
+/** A track without a channel is written as a guitar is, an octave above its sound. */
+const GUITAR_TRANSPOSITION = 12;
+
+function transpositionOf(song: Song, track: Track): number {
+  const channel = song.channels.find((candidate) => candidate.id === track.channelId);
+  const tuning = track.strings.map((guitarString) => guitarString.tuning);
+  return channel === undefined ? GUITAR_TRANSPOSITION : writtenTransposition(channel.program, track.isPercussion || channel.isPercussion, tuning);
+}
+
 function partElement(song: Song, track: Track, unit: number): XmlNode {
-  const context: PartContext = { track, partId: partId(track), flow: buildTrackFlow(track), lyrics: buildTrackLyrics(track), unit };
+  const transposition = transpositionOf(song, track);
+  const context: PartContext = { track, partId: partId(track), flow: buildTrackFlow(track), lyrics: buildTrackLyrics(track), unit, transposition };
   return element(
     'part',
     { id: context.partId },
@@ -136,7 +147,7 @@ function partElement(song: Song, track: Track, unit: number): XmlNode {
 
 /**
  * The song as a MusicXML 4.0 score-partwise document, as TuxGuitar writes it: each track a part with a notation staff
- * (sounding an octave below the written notes) and a tab staff (string and fret of every note); a percussion track has
+ * (a guitar's or bass's sounding an octave below the written notes, writtenTransposition) and a tab staff (string and fret of every note); a percussion track has
  * one staff of unpitched notes. Beyond TuxGuitar: ties and slurs across bar lines, bends as relative steps and the
  * tremolo bar as bends with the bar, slides, vibrato, strokes as arpeggios, dynamics, tuplet brackets, grace notes,
  * tempo sounds, left and right barlines.

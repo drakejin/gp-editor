@@ -1,6 +1,7 @@
 // Port of TuxGuitar app.tuxguitar.io.musicxml.MusicXMLWriter#writeMeasureAttributes / #writeDirection / #writeBarline (LGPL-2.1).
 import { QUARTER_TIME } from '../../model/song';
 import type { Clef, Measure, MeasureHeader, Track } from '../../model/song';
+import type { PartContext } from './musicxml-beat';
 import { pitchChildren } from './musicxml-note';
 import { type XmlNode, element, textElement } from './xml-text';
 
@@ -13,18 +14,22 @@ const CLEF_SIGNS: Readonly<Record<Clef, readonly [sign: string, line: number | u
   neutral: ['percussion', undefined],
 };
 
-/** Guitar music sounds an octave below the written notes: the notation staff's clef says so (clef-octave-change). */
-const GUITAR_OCTAVE_CHANGE = -1;
+const SEMITONES_PER_OCTAVE = 12;
 
-function clefElements(track: Track, measure: Measure, isStart: boolean): XmlNode[] {
+/**
+ * Guitar and bass music sounds an octave below the written notes: the notation staff's clef says so
+ * (clef-octave-change), for a track `writtenTransposition` writes an octave up; a piano's or a voice's clef has none.
+ */
+function clefElements(track: Track, measure: Measure, isStart: boolean, transposition: number): XmlNode[] {
   if (track.isPercussion) {
     return [element('clef', {}, [textElement('sign', 'percussion')])];
   }
   const [sign, line] = CLEF_SIGNS[measure.clef];
+  const octaveChange = -Math.round(transposition / SEMITONES_PER_OCTAVE);
   const notation = element('clef', { number: 1, 'after-barline': isStart ? undefined : 'yes' }, [
     textElement('sign', sign),
     line !== undefined && textElement('line', line),
-    line !== undefined && textElement('clef-octave-change', GUITAR_OCTAVE_CHANGE),
+    line !== undefined && octaveChange !== 0 && textElement('clef-octave-change', octaveChange),
   ]);
   return isStart ? [notation, element('clef', { number: 2 }, [textElement('sign', 'TAB')])] : [notation];
 }
@@ -49,7 +54,8 @@ function isSameTime(a: MeasureHeader, b: MeasureHeader): boolean {
  * `<attributes>` where the measure is the first or its key, time signature or clef changes; undefined elsewhere. The
  * divisions (TuxGuitar: 960) are a quarter note in `unit`s of ticks (tickUnit).
  */
-export function attributesElement(track: Track, measureIndex: number, headers: readonly MeasureHeader[], unit: number): XmlNode | undefined {
+export function attributesElement(context: Pick<PartContext, 'track' | 'unit' | 'transposition'>, measureIndex: number, headers: readonly MeasureHeader[]): XmlNode | undefined {
+  const { track, unit } = context;
   const measure = track.measures[measureIndex];
   const header = headers[measureIndex];
   if (measure === undefined || header === undefined) {
@@ -71,7 +77,7 @@ export function attributesElement(track: Track, measureIndex: number, headers: r
       element('time', {}, [textElement('beats', header.timeSignature.numerator), textElement('beat-type', header.timeSignature.denominator)]),
     !track.isPercussion && textElement('staves', 2),
     !track.isPercussion && textElement('part-symbol', 'none'),
-    ...(clefChanges ? clefElements(track, measure, isStart) : []),
+    ...(clefChanges ? clefElements(track, measure, isStart, context.transposition) : []),
     isStart && !track.isPercussion && staffDetails(track, measure.keySignature),
   ]);
 }

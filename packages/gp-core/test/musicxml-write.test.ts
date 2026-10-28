@@ -110,6 +110,24 @@ describe('writeMusicXml document', () => {
 });
 
 describe('writeMusicXml measure attributes', () => {
+  it.each([
+    ['a guitar', 25, [64, 59, 55, 50, 45, 40], '-1'],
+    ['a bass', 33, [43, 38, 33, 28], '-1'],
+    ['a piano', 0, [64, 59, 55, 50, 45, 40], undefined],
+    ['a voice', 53, [64, 59, 55, 50, 45, 40], undefined],
+    ['a ukulele', 24, [69, 64, 60, 67], undefined],
+  ])('writes %s’s notation clef with the 8 below only when it sounds an octave lower than written', (_case, program, tuning, octaveChange) => {
+    // Arrange
+    const strings = tuning.map((open, index) => ({ number: index + 1, tuning: open }));
+    const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 0)]) }]], strings, channel: { program } }] });
+
+    // Act
+    const [notation] = children(child(measuresOf(written(song))[0], 'attributes'), 'clef');
+
+    // Assert
+    expect(childText(notation, 'clef-octave-change')).toBe(octaveChange);
+  });
+
   it('writes divisions (quarter notes only: 1), key, time, two staves, the clefs and the tab tuning in the first measure', () => {
     // Arrange
     const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 0)]) }]], offset: 2, keySignatures: [-2] }] });
