@@ -218,8 +218,9 @@ function drawPage(document: PDFDocument, source: PdfPage, fonts: FontSet): void 
 export async function writePdf(source: PdfDocument): Promise<Uint8Array> {
   const document = await PDFDocument.create();
   document.setTitle(source.title);
+  // i18n-exempt: the app's name, in the PDF's metadata
   document.setCreator('GP Editor');
-  document.setProducer('GP Editor');
+  document.setProducer('GP Editor'); // i18n-exempt: the app's name
   const fonts = await loadFonts(document);
   source.pages.forEach((page) => drawPage(document, page, fonts));
   return document.save();

@@ -1,3 +1,4 @@
+// i18n-exempt-file: font family names and CSS font lists
 import bravuraUrl from '../../../macos/GPEditor-macOS/Fonts/Bravura.otf?url';
 import type { DrawFont } from '../../score/draw';
 

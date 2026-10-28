@@ -3,6 +3,8 @@
 // on the Mac; the sound bank is the one chosen in the Song inspector (GeneralUser GS by default, src-tauri resources).
 import type { MIDIController } from 'spessasynth_core';
 import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
+import { t } from '../../lib/i18n/i18n';
+import { silenceTracks } from './smf-tracks';
 import processorUrl from 'spessasynth_lib/dist/spessasynth_processor.min.js?url';
 
 interface Engine {
@@ -78,6 +80,11 @@ export interface PlayRequest {
   readonly readBank: () => Promise<Uint8Array>;
 }
 
+/** The file's tracks kept silent (setMutedTracks), for this song and the next ones. */
+let mutedTracks: readonly number[] = [];
+/** The song playing (to play it again from where it is when the muted tracks change). */
+let playing: PlayRequest | undefined;
+
 /** Plays a Standard MIDI File from a time (seconds) with the sound bank; stops what was playing. */
 export async function playSong(request: PlayRequest): Promise<void> {
   const { context, synth, sequencer } = await getEngine();
@@ -85,19 +92,63 @@ export async function playSong(request: PlayRequest): Promise<void> {
     await context.resume();
   }
   if (request.bankId === '') {
-    throw new Error('No sound bank: add a SoundFont (.sf2) in the Song inspector');
+    throw new Error(t('window.windows.noSoundBank'));
   }
   await loadBank(synth, request.bankId, request.readBank);
   sequencer.pause();
   synth.stopAll(true);
+  playing = request;
   session = { fromSeconds: Math.max(0, request.fromSeconds), isLoaded: false, isEnded: false };
-  sequencer.loadNewSongList([{ binary: request.midi.slice().buffer, fileName: 'song.mid' }]);
+  sequencer.loadNewSongList([{ binary: silenceTracks(request.midi, mutedTracks).slice().buffer, fileName: 'song.mid' }]);
   sequencer.currentTime = session.fromSeconds;
   sequencer.play();
 }
 
+/**
+ * The tracks of the MIDI file that stay silent, now and for the songs played after (the metronome's while it is off):
+ * a playing song goes on from where it is with them silent.
+ */
+export async function setSilentTracks(trackIndexes: readonly number[]): Promise<void> {
+  const isSame = trackIndexes.length === mutedTracks.length && trackIndexes.every((index) => mutedTracks.includes(index));
+  mutedTracks = [...trackIndexes];
+  const current = session;
+  if (isSame || engine === undefined || playing === undefined || current === undefined || current.isEnded) {
+    return;
+  }
+  const { sequencer } = await engine;
+  if (current.isLoaded && !sequencer.paused) {
+    await playSong({ ...playing, fromSeconds: sequencer.currentTime });
+  }
+}
+
+/** One note now (a key or fret hovered), when no song plays: a song's channels keep their own programs. */
+export async function playPreviewNote(note: PreviewRequest): Promise<void> {
+  if (session !== undefined && !session.isEnded) {
+    return;
+  }
+  const { context, synth } = await getEngine();
+  if (context.state !== 'running') {
+    await context.resume();
+  }
+  await loadBank(synth, note.bankId, note.readBank);
+  synth.programChange(note.midiChannel, note.program);
+  synth.noteOn(note.midiChannel, note.key, note.velocity);
+  setTimeout(() => synth.noteOff(note.midiChannel, note.key), note.durationMs);
+}
+
+export interface PreviewRequest {
+  readonly midiChannel: number;
+  readonly program: number;
+  readonly key: number;
+  readonly velocity: number;
+  readonly durationMs: number;
+  readonly bankId: string;
+  readonly readBank: () => Promise<Uint8Array>;
+}
+
 export async function stopSong(): Promise<void> {
   session = undefined;
+  playing = undefined;
   if (engine === undefined) {
     return;
   }

@@ -7,7 +7,7 @@ import { postAppEvent } from './app-events';
 import { call, isTauri } from './tauri';
 
 /** Files the app reads (File ▸ Open…'s formats); anything else dropped on the window is ignored. */
-const OPENABLE = /\.(gp|gpx|gp5|gp4|gp3|gtp|ptb|tef|mid|midi)$/i;
+const OPENABLE = /\.(gp|gpx|gp5|gp4|gp3|gtp|ptb|tef|mid|midi|musicxml|mxl|xml)$/i;
 
 function openFiles(paths: readonly string[]): void {
   paths.filter((path) => OPENABLE.test(path)).forEach((path) => postAppEvent('fileOpened', { path }));
@@ -18,6 +18,7 @@ function keepKeyboardFocus(): () => void {
   const onFocusOut = () => {
     setTimeout(() => {
       if (document.activeElement === document.body || document.activeElement === null) {
+        // i18n-exempt: a CSS selector
         document.querySelector<HTMLElement>('#root [tabindex="0"]')?.focus({ preventScroll: true });
       }
     }, 0);

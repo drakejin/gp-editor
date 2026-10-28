@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { t } from '../../lib/i18n/i18n';
 
 /**
  * The Windows build runs in Tauri's WebView2 window; the Rust side (src-tauri/src/) does what a page cannot (files
@@ -15,7 +16,7 @@ export class NativeError extends Error {
 
   constructor(message: string, code?: string) {
     super(message);
-    this.name = 'NativeError';
+    this.name = 'NativeError'; // i18n-exempt: the error class's name
     this.code = code;
   }
 }
@@ -30,7 +31,7 @@ function toNativeError(error: unknown): NativeError {
 /** Calls a Rust command (src-tauri/src/commands/); rejects with a NativeError. */
 export async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri()) {
-    throw new NativeError('This needs the GP Editor desktop app (not available in a browser).', 'unavailable');
+    throw new NativeError(t('window.windows.desktopOnly'), 'unavailable');
   }
   try {
     return await invoke<T>(command, args);

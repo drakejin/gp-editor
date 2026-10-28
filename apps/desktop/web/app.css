@@ -20,6 +20,9 @@ body {
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
+  /* Korean wraps between words, never inside one (the Mac's keepHangulWordsTogether, src/lib/hangul-line-breaks.ts). */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 input,

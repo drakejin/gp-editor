@@ -1,6 +1,7 @@
 // Windows twin of clipboard.ts. A page cannot put a private data type on the system clipboard, so the copied beats'
 // JSON stays with the app (and in the browser storage, for the next run) beside the plain-text summary it puts on the
 // clipboard; a paste takes them while that summary is still what the clipboard holds.
+import { subscribeNativeEvents } from './native-events';
 
 const STORAGE_KEY = 'gp-editor.copied-beats';
 
@@ -53,4 +54,27 @@ export async function readBeats(): Promise<string | null> {
   } catch {
     return beats.json;
   }
+}
+
+/** Edit ▸ Cut / Copy / Paste for the score. */
+export type ClipboardCommand = 'cut' | 'copy' | 'paste';
+
+const CLIPBOARD_COMMANDS: readonly ClipboardCommand[] = ['cut', 'copy', 'paste'];
+
+/** The command a "clipboardCommandRequested" event names (`{ command }`); undefined for anything else. */
+export function toClipboardCommand(body: unknown): ClipboardCommand | undefined {
+  const command = typeof body === 'object' && body !== null ? (body as { readonly command?: unknown }).command : undefined;
+  return CLIPBOARD_COMMANDS.find((each) => each === command);
+}
+
+/** Edit ▸ Cut / Copy / Paste chosen in the window menu (Ctrl+X / C / V on the score are its own keys). */
+export function subscribeClipboardRequests(onClipboardRequested: (command: ClipboardCommand) => void): () => void {
+  return subscribeNativeEvents(undefined, {
+    clipboardCommandRequested: (body: unknown) => {
+      const command = toClipboardCommand(body);
+      if (command !== undefined) {
+        onClipboardRequested(command);
+      }
+    },
+  });
 }

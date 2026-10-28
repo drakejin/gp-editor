@@ -3,6 +3,7 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
 import type { PdfDocument, PdfPage } from '../export/pdf-document';
 import { type PngOptions, pngRender } from '../export/png-export';
+import { t } from '../lib/i18n/i18n';
 import { pickFolder, pickSavePath, writePath } from './web/files';
 import { loadFonts } from './web/fonts';
 import { paintCommands } from './web/painter';
@@ -22,13 +23,13 @@ async function pagePng(page: PdfPage, scale: number, eraseColor: string): Promis
   canvas.height = Math.round(page.height * scale);
   const context = canvas.getContext('2d');
   if (context === null) {
-    throw new Error('Could not draw the page');
+    throw new Error(t('window.windows.pngDrawFailed'));
   }
   context.scale(scale, scale);
   paintCommands(context, page.commands, { eraseColor });
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (blob === null) {
-    throw new Error('Could not draw the page');
+    throw new Error(t('window.windows.pngDrawFailed'));
   }
   return new Uint8Array(await blob.arrayBuffer());
 }
@@ -40,13 +41,13 @@ function joinPath(folder: string, name: string): string {
 /** Where the images go: one path per page; null when cancelled (or when the user keeps the files already there). */
 async function destinations(fileNames: readonly string[]): Promise<string[] | null> {
   if (fileNames.length === 1) {
-    const path = await pickSavePath(fileNames[0] ?? 'Score.png', [{ name: 'PNG image', extensions: ['png'] }], 'Export PNG');
+    const path = await pickSavePath(fileNames[0] ?? 'Score.png' /* i18n-exempt: a file name */, [{ name: t('window.windows.pngFilter'), extensions: ['png'] }], t('window.windows.exportPngTitle'));
     return path === null ? null : [/\.png$/i.test(path) ? path : `${path}.png`];
   }
   if (!isTauri()) {
     return [...fileNames];
   }
-  const folder = await pickFolder(`Choose a folder for the ${fileNames.length} PNG images (${fileNames[0] ?? ''} … ${fileNames.at(-1) ?? ''})`);
+  const folder = await pickFolder(t('window.windows.pngFolder', { count: fileNames.length, first: fileNames[0] ?? '', last: fileNames.at(-1) ?? '' }));
   if (folder === null) {
     return null;
   }
@@ -54,7 +55,7 @@ async function destinations(fileNames: readonly string[]): Promise<string[] | nu
   const exists = await call<boolean[]>('files_exist', { paths });
   const existing = paths.filter((_, i) => exists[i] === true);
   if (existing.length > 0) {
-    const replace = await confirm(`${existing.length} of the images already exist in “${fileNameOf(folder)}”. Replace them?`, { title: 'Export PNG', kind: 'warning' });
+    const replace = await confirm(t('window.windows.pngReplace', { count: existing.length, folder: fileNameOf(folder) }), { title: t('window.windows.exportPngTitle'), kind: 'warning' });
     if (!replace) {
       return null;
     }
@@ -65,7 +66,7 @@ async function destinations(fileNames: readonly string[]): Promise<string[] | nu
 export async function savePngs(document: PdfDocument, fileNames: readonly string[], options: PngOptions): Promise<SavedPngs | null> {
   const { scale, eraseColor } = pngRender(options);
   if (document.pages.length === 0 || fileNames.length !== document.pages.length || !(scale > 0 && scale <= MAX_SCALE)) {
-    throw new Error('Nothing to export');
+    throw new Error(t('window.windows.nothingToExport'));
   }
   const paths = await destinations(fileNames);
   if (paths === null) {

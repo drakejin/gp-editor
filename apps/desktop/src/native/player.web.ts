@@ -1,9 +1,11 @@
 // Windows twin of player.ts: playback on web/synth.ts (spessasynth_lib), sound banks kept by the Rust side
 // (src-tauri/src/commands/sound_banks.rs: GeneralUser GS bundled, banks the user added copied into the app's folder).
 import { base64ToBytes } from '../lib/base64';
+import { t } from '../lib/i18n/i18n';
 import { pickFilePath } from './web/files';
 import { readSetting, writeSetting } from './web/settings';
-import { changeController, changeProgram, forgetBank, playSong, songPosition, stopSong } from './web/synth';
+import type { AudioPlayback } from '../lib/audio-track';
+import { changeController, changeProgram, forgetBank, playPreviewNote, playSong, setSilentTracks, songPosition, stopSong } from './web/synth';
 import { call, callBytes, isTauri } from './web/tauri';
 
 export interface PlayerPosition {
@@ -42,7 +44,9 @@ export async function loadSoundBanks(): Promise<SoundBanks> {
   return { banks, selectedId };
 }
 
-export async function playMidi(base64Midi: string, fromSeconds = 0): Promise<void> {
+/** Plays a MIDI file from `fromSeconds`. The audio track does not play on Windows yet (`audio` is left out). */
+export async function playMidi(base64Midi: string, fromSeconds = 0, audio: AudioPlayback | null = null): Promise<void> {
+  void audio;
   const { selectedId } = await loadSoundBanks();
   await playSong({
     midi: base64ToBytes(base64Midi),
@@ -50,6 +54,43 @@ export async function playMidi(base64Midi: string, fromSeconds = 0): Promise<voi
     bankId: selectedId,
     readBank: () => callBytes('sound_bank_read', { id: selectedId }),
   });
+}
+
+/** The audio track's gain and detune: no audio track plays on Windows yet. */
+export function setAudioTrackMix(gain: number, detuneCents: number): Promise<void> {
+  void gain;
+  void detuneCents;
+  return Promise.resolve();
+}
+
+/** The tracks of the MIDI file that stay silent, now and in every song played after (the metronome's while it is off). */
+export function setMutedTracks(trackIndexes: readonly number[]): Promise<void> {
+  return setSilentTracks(trackIndexes);
+}
+
+/** The click tracks: every track plays on the one synthesizer on Windows (no track effects yet), so nothing to route. */
+export function setClickTracks(trackIndexes: readonly number[]): Promise<void> {
+  void trackIndexes;
+  return Promise.resolve();
+}
+
+/** A note to preview: `key` with `program` on `midiChannel` for `durationMs` (song track `trackIndex`). */
+export interface PreviewNote {
+  readonly midiChannel: number;
+  readonly program: number;
+  readonly key: number;
+  readonly velocity: number;
+  readonly durationMs: number;
+  readonly trackIndex: number;
+}
+
+/** Plays one note now (a key or fret hovered in the instrument view); not while a song plays. */
+export async function previewNote(note: PreviewNote): Promise<void> {
+  const { selectedId } = await loadSoundBanks();
+  if (selectedId === '') {
+    return;
+  }
+  await playPreviewNote({ ...note, bankId: selectedId, readBank: () => callBytes('sound_bank_read', { id: selectedId }) });
 }
 
 export function stopMidi(): Promise<void> {
@@ -71,7 +112,7 @@ export function playerPosition(): Promise<PlayerPosition> {
 export async function selectSoundBank(id: string): Promise<SoundBanks> {
   const { banks } = await loadSoundBanks();
   if (!banks.some((bank) => bank.id === id)) {
-    throw new Error('That sound bank is no longer available');
+    throw new Error(t('window.windows.soundBankGone'));
   }
   await writeSetting(SELECTED_BANK_SETTING, id);
   return { banks, selectedId: id };
@@ -79,7 +120,7 @@ export async function selectSoundBank(id: string): Promise<SoundBanks> {
 
 /** The open dialog for a .sf2 / .dls file; the Rust side copies it, and the copy becomes the chosen bank. */
 export async function addSoundBank(): Promise<SoundBanks | null> {
-  const path = await pickFilePath([{ name: 'SoundFont or DLS sound bank', extensions: ['sf2', 'sf3', 'dls'] }], 'Add a sound bank for playback');
+  const path = await pickFilePath([{ name: t('window.windows.soundBankFilter'), extensions: ['sf2', 'sf3', 'dls'] }], t('window.windows.addSoundBankTitle'));
   if (path === null) {
     return null;
   }

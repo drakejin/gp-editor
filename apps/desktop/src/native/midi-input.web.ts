@@ -2,6 +2,7 @@
 // of CoreMIDI (GPMidiInput.m). A source's id is a number derived from Web MIDI's port id, so it stays the same from
 // run to run as CoreMIDI's unique ids do.
 /* eslint-disable no-bitwise -- a hash of the port id, and a MIDI status byte's kind and channel nibbles */
+import { t } from '../lib/i18n/i18n';
 import { type MidiNoteMessage, type MidiSource, parseMidiNote, parseMidiSources } from '../lib/midi-input';
 import { onAppEvent, postAppEvent, unsubscribeAll } from './web/app-events';
 import { readSetting, writeSetting } from './web/settings';
@@ -64,7 +65,7 @@ export async function listMidiSources(): Promise<readonly MidiSource[]> {
   if (midi === undefined) {
     return [];
   }
-  return parseMidiSources([...midi.inputs.values()].filter((input) => input.state === 'connected').map((input) => ({ id: sourceIdOf(input.id), name: input.name ?? 'MIDI input' })));
+  return parseMidiSources([...midi.inputs.values()].filter((input) => input.state === 'connected').map((input) => ({ id: sourceIdOf(input.id), name: input.name ?? t('window.windows.midiInput') })));
 }
 
 export async function listenToMidiSources(sourceIds: readonly number[]): Promise<number> {

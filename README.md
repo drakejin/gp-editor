@@ -104,7 +104,8 @@ npm --prefix apps/desktop run web:dev       # the app in a browser, without the 
 ```
 
 `build:win` fetches GeneralUser GS first (`soundfont:win`, the Node twin of `fetch.sh`) and bundles it.
-`.github/workflows/windows.yml` builds the installers on every push.
+`.github/workflows/windows.yml` builds the installers on every push. Tauri also builds for macOS and Linux from the same
+code; what that still needs, and what the Windows build does not have yet, is in `WINDOWS_PORT.md`.
 
 ## Test
 

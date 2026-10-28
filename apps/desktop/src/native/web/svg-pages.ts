@@ -1,3 +1,4 @@
+// i18n-exempt-file: SVG and HTML markup
 // Pages of DrawCommands as SVG, for printing in the Windows build (File ▸ Print… shows Windows' print dialog for a
 // document of these pages; "Microsoft Print to PDF" is one of its printers).
 import type { PdfDocument, PdfPage } from '../../export/pdf-document';

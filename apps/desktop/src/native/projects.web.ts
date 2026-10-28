@@ -3,6 +3,7 @@
 // PDFKit does on the Mac (page count, extracting pages) is done here with pdf-lib.
 import { PDFDocument } from 'pdf-lib';
 import { bytesToBase64 } from '../lib/base64';
+import { t } from '../lib/i18n/i18n';
 import { pickFilePath } from './web/files';
 import { call, callBytes, fileNameOf, isTauri, NativeError } from './web/tauri';
 
@@ -30,7 +31,7 @@ const MAX_IMPORT_PAGES = 60;
 const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
 
 export async function choosePdf(): Promise<PdfChoice | null> {
-  const path = await pickFilePath([{ name: 'PDF', extensions: ['pdf'] }], 'Import PDF');
+  const path = await pickFilePath([{ name: 'PDF', extensions: ['pdf'] }], t('window.windows.importPdfTitle'));
   return path === null ? null : { path, name: fileNameOf(path) };
 }
 
@@ -42,19 +43,19 @@ async function readablePdf(bytes: Uint8Array): Promise<PDFDocument> {
     }
     return document;
   } catch {
-    throw new NativeError('The file is not a readable PDF, or it is password protected', 'bad_pdf');
+    throw new NativeError(t('window.windows.badPdf'), 'bad_pdf');
   }
 }
 
 export async function createProject(pdfPath: string): Promise<CreatedProject> {
   const bytes = await callBytes('read_file', { path: pdfPath });
   if (bytes.length > MAX_IMPORT_BYTES) {
-    throw new NativeError('The PDF is larger than 100 MB', 'too_large');
+    throw new NativeError(t('window.windows.pdfTooLarge'), 'too_large');
   }
   const pageCount = (await readablePdf(bytes)).getPageCount();
   if (pageCount > MAX_IMPORT_PAGES) {
     throw new NativeError(
-      `The PDF has ${pageCount} pages; at most ${MAX_IMPORT_PAGES} can be imported at once (each page is one request to Claude) — split it`,
+      t('window.windows.pdfTooManyPages', { count: pageCount, max: MAX_IMPORT_PAGES }),
       'too_many_pages',
     );
   }
@@ -66,7 +67,7 @@ export async function createProject(pdfPath: string): Promise<CreatedProject> {
 export async function pdfPages(projectPath: string, file: string, first: number, last: number): Promise<string> {
   const source = await readablePdf(await callBytes('project_read_bytes', { project: projectPath, file }));
   if (first < 1 || last < first || last > source.getPageCount()) {
-    throw new NativeError("Those pages are not in the project's PDF", 'bad_pages');
+    throw new NativeError(t('window.windows.badPdfPages'), 'bad_pages');
   }
   const extract = await PDFDocument.create();
   const indexes = Array.from({ length: last - first + 1 }, (_, i) => first - 1 + i);

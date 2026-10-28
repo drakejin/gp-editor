@@ -6,7 +6,9 @@
  * - Pressable is rebuilt on pointer events: press events carry `locationX` / `locationY` (where the pointer is in the
  *   pressable, which react-native-web's press events lack), `onPressMove` follows a drag beyond the view (pointer
  *   capture), and the innermost pressable takes the press, as in React Native.
- * - `tooltip` (react-native-macos) becomes the element's `title`.
+ * - `tooltip` (react-native-macos) becomes the element's `title`; a pressable's role stays an attribute (no nested
+ *   <button>s).
+ * - TextInput calls `onKeyDown` and lets the keys it does not stop bubble on, as react-native-macos does.
  * - Text shows macOS key symbols (⌘, ⇧, ⌥ …) the Windows way (platform-text.ts).
  */
 import {
@@ -35,6 +37,7 @@ type StyleValue = unknown;
 type WebComponent = ComponentType<{ readonly [prop: string]: unknown } & RefAttributes<HTMLElement>>;
 const BaseView = Web.View as unknown as WebComponent;
 const BaseText = Web.Text as unknown as WebComponent;
+const BaseTextInput = Web.TextInput as unknown as WebComponent;
 
 interface PressState {
   readonly pressed: boolean;
@@ -84,6 +87,8 @@ interface PressableProps {
   readonly pressRetentionOffset?: Insets | number;
   readonly tooltip?: string;
   readonly testID?: string;
+  readonly accessibilityRole?: unknown;
+  readonly role?: unknown;
   readonly [prop: string]: unknown;
 }
 
@@ -231,12 +236,17 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
     onHoverIn,
     onHoverOut,
     tooltip,
+    accessibilityRole,
+    role,
     ...rest
   } = props as PressableProps; // forwardRef's PropsWithoutRef turns the named props into `unknown` (index signature)
   const element = useRef<HTMLElement | null>(null);
   const [hovered, setHovered] = useState(false);
   const { pressed, handlers } = usePress(props, element);
   useAttribute(element, 'title', tooltip === undefined ? undefined : platformText(tooltip));
+  // The role as an attribute: react-native-web makes a "button" role a <button>, and the app nests pressables (a tab's
+  // close button in the tab), which HTML does not allow for buttons.
+  useAttribute(element, 'role', typeof (role ?? accessibilityRole) === 'string' ? String(role ?? accessibilityRole) : undefined);
   const state: PressState = { pressed, hovered };
   const setRef = useCallback(
     (node: HTMLElement | null) => {
@@ -310,6 +320,49 @@ export const Text = forwardRef<HTMLElement, TextProps>(function WebText(props, r
       {translateChildren(children)}
     </BaseText>
   );
+});
+
+/** What a TextInput's onKeyDown gets: the fields of a React Native key event this app reads. */
+interface WebKeyEvent {
+  readonly nativeEvent: KeyboardEvent;
+  readonly target: EventTarget | null;
+  stopPropagation(): void;
+  preventDefault(): void;
+}
+
+interface TextInputProps {
+  readonly onKeyDown?: (event: WebKeyEvent) => void;
+  readonly onKeyPress?: (event: unknown) => void;
+  readonly [prop: string]: unknown;
+}
+
+/** A key the input did not keep, sent on from its parent as if it had bubbled there (as in react-native-macos). */
+function bubbleFrom(input: HTMLElement, key: KeyboardEvent): void {
+  const { key: name, code, ctrlKey, shiftKey, altKey, metaKey, repeat } = key;
+  input.parentElement?.dispatchEvent(new KeyboardEvent('keydown', { key: name, code, ctrlKey, shiftKey, altKey, metaKey, repeat, bubbles: true, cancelable: true }));
+}
+
+/**
+ * react-native-web's TextInput with react-native-macos's key events: react-native-web stops every keydown in the input
+ * and never calls `onKeyDown`. Here `onKeyDown` gets each key first (the command palette's ↑ ↓ ↩), and a key it does not
+ * stop goes on to the views above, as react-native-macos bubbles it (TextField lets Esc through to close its panel).
+ * The macOS-only key lists (`keyDownEvents` …) stay off the DOM.
+ */
+export const TextInput = forwardRef<HTMLElement, TextInputProps>(function WebTextInput(props, ref) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- macOS-only props, kept off the DOM
+  const { onKeyDown, onKeyPress, keyDownEvents, keyUpEvents, validKeysDown, validKeysUp, ...rest } = props as TextInputProps;
+  const handleKeyPress = (event: { readonly nativeEvent: KeyboardEvent; readonly currentTarget: HTMLElement; preventDefault(): void }) => {
+    onKeyPress?.(event);
+    if (onKeyDown === undefined) {
+      return;
+    }
+    let isStopped = false;
+    onKeyDown({ nativeEvent: event.nativeEvent, target: event.nativeEvent.target, stopPropagation: () => (isStopped = true), preventDefault: () => event.preventDefault() });
+    if (!isStopped) {
+      bubbleFrom(event.currentTarget, event.nativeEvent);
+    }
+  };
+  return <BaseTextInput {...rest} ref={ref} onKeyPress={handleKeyPress} />;
 });
 
 /** Codegen components (the macOS score canvas) do not exist here; src/native/*.web.tsx replace them. */

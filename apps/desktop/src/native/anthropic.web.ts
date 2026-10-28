@@ -4,9 +4,12 @@
 import { readSetting, writeSetting } from './web/settings';
 import { call, isTauri } from './web/tauri';
 
+/** An HTTP answer of the Messages API, as text: a streamed answer's whole event stream, or one JSON body. */
 export interface ApiResponse {
   readonly status: number;
   readonly body: string;
+  /** The answer's media type, e.g. `text/event-stream` for a streamed answer. */
+  readonly contentType?: string;
 }
 
 const MODEL_SETTING = 'anthropic-model.txt';

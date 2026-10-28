@@ -2,6 +2,7 @@
 // mono, low-passed and decimated to about 6 kHz, the last 2048 samples sent every 512 new ones (about 12 times a
 // second) as an "audioFrame" event { sampleRate, samples: little-endian 16-bit PCM in base64 }.
 import { bytesToBase64 } from '../lib/base64';
+import { t } from '../lib/i18n/i18n';
 import { onAppEvent, postAppEvent } from './web/app-events';
 import { NativeError } from './web/tauri';
 
@@ -56,12 +57,12 @@ function framer(sampleRate: number, factor: number): (input: Float32Array) => vo
 function startError(error: unknown): NativeError {
   const name = error instanceof DOMException ? error.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return new NativeError('Microphone access is off.', 'denied');
+    return new NativeError(t('window.windows.microphoneDenied'), 'denied');
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') {
-    return new NativeError('No microphone was found.', 'no_input');
+    return new NativeError(t('window.windows.microphoneMissing'), 'no_input');
   }
-  return new NativeError(error instanceof Error ? error.message : 'The microphone could not start.', 'start_failed');
+  return new NativeError(error instanceof Error ? error.message : t('window.windows.microphoneFailed'), 'start_failed');
 }
 
 async function startCapture(): Promise<void> {
