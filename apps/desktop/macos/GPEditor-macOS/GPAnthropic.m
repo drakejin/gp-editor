@@ -1,6 +1,8 @@
-// Anthropic Messages API for the PDF import. The API key lives in the app's own Application Support folder (inside the
-// sandbox container, owner-only permissions) and never goes to JS: JS sends the request body, this module adds the key
-// and returns { status, body }. Model and key are app settings, not part of any song or project.
+// Anthropic Messages API for the PDF import and the Song Writer. The API key lives in the app's own Application Support
+// folder (inside the sandbox container, owner-only permissions) and never goes to JS: JS sends the request body, this
+// module adds the key and returns { status, body, contentType }. JS asks for streamed answers (`stream: true`): the
+// server-sent events are collected here whole and read back into one message in JS (src/lib/message-stream.ts). Model
+// and key are app settings, not part of any song or project.
 
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
@@ -12,14 +14,27 @@ static NSString *const kMessagesURL = @"https://api.anthropic.com/v1/messages";
 static NSString *const kApiVersion = @"2023-06-01";
 static NSString *const kKeyFile = @"GPEditor/anthropic-api-key";
 static NSString *const kModelDefault = @"GPEditorTranscriptionModel";
-/** A page can take minutes to transcribe; the default 60 s would cut it off. */
-static const NSTimeInterval kRequestTimeout = 600;
+/**
+ * The longest silence between two parts of an answer (the default 60 s would end a page whose thinking is quiet). A
+ * streamed answer sends events while the model thinks and writes — its summarised thinking, the tool input as it is
+ * written, pings — so this long a silence means the connection is gone. An answer that was not streamed sent nothing
+ * until it was whole, and a page taking longer than this failed.
+ */
+static const NSTimeInterval kIdleTimeout = 600;
+/**
+ * A whole answer, however busy: an hour. A page's answer is at most 64,000 tokens (pdf-import/request.ts) and comes
+ * in within the hour even at 18 tokens a second; a request that never ends still ends.
+ */
+static const NSTimeInterval kResourceTimeout = 3600;
 
 @interface GPAnthropic : NSObject <RCTBridgeModule>
+/** A module with other timeouts than the app's (scripts/anthropic-check); -init uses kIdleTimeout and kResourceTimeout. */
+- (instancetype)initWithIdleTimeout:(NSTimeInterval)idleTimeout resourceTimeout:(NSTimeInterval)resourceTimeout;
 @end
 
 @implementation GPAnthropic {
   NSURLSession *_session;
+  NSTimeInterval _idleTimeout;
 }
 
 RCT_EXPORT_MODULE();
@@ -31,11 +46,17 @@ RCT_EXPORT_MODULE();
 
 - (instancetype)init
 {
+  return [self initWithIdleTimeout:kIdleTimeout resourceTimeout:kResourceTimeout];
+}
+
+- (instancetype)initWithIdleTimeout:(NSTimeInterval)idleTimeout resourceTimeout:(NSTimeInterval)resourceTimeout
+{
   if (self = [super init]) {
     NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    configuration.timeoutIntervalForRequest = kRequestTimeout;
-    configuration.timeoutIntervalForResource = kRequestTimeout * 2;
+    configuration.timeoutIntervalForRequest = idleTimeout;
+    configuration.timeoutIntervalForResource = resourceTimeout;
     _session = [NSURLSession sessionWithConfiguration:configuration];
+    _idleTimeout = idleTimeout;
   }
   return self;
 }
@@ -119,7 +140,10 @@ RCT_EXPORT_METHOD(setModel : (NSString *)model resolve : (RCTPromiseResolveBlock
   resolve(nil);
 }
 
-/** POSTs a Messages API request body (JSON text) with the stored key; resolves { status, body } for any HTTP answer. */
+/**
+ * POSTs a Messages API request body (JSON text) with the stored key; resolves { status, body, contentType } for any
+ * HTTP answer once it is whole — a streamed answer's events as they came (text/event-stream), an error as JSON.
+ */
 RCT_EXPORT_METHOD(send : (NSString *)body resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
   NSString *key = [GPAnthropic apiKey];
@@ -129,7 +153,7 @@ RCT_EXPORT_METHOD(send : (NSString *)body resolve : (RCTPromiseResolveBlock)reso
   }
   NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[GPAnthropic messagesURL]];
   request.HTTPMethod = @"POST";
-  request.timeoutInterval = kRequestTimeout;
+  request.timeoutInterval = _idleTimeout;
   [request setValue:key forHTTPHeaderField:@"x-api-key"];
   [request setValue:kApiVersion forHTTPHeaderField:@"anthropic-version"];
   [request setValue:@"application/json" forHTTPHeaderField:@"content-type"];
@@ -141,7 +165,7 @@ RCT_EXPORT_METHOD(send : (NSString *)body resolve : (RCTPromiseResolveBlock)reso
     }
     NSInteger status = [response isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)response).statusCode : 0;
     NSString *text = data == nil ? @"" : ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"");
-    resolve(@{@"status" : @(status), @"body" : text});
+    resolve(@{@"status" : @(status), @"body" : text, @"contentType" : response.MIMEType ?: @""});
   }];
   [task resume];
 }
