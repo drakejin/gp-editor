@@ -3,10 +3,14 @@
 # measures what each effect changes; also checks that a mix without effects renders as playback did before effects,
 # the audio track (time-pitch at half speed, detune, gain, the runs' sync), and prints how fast many-track songs render.
 # The songs' MIDI comes from gp-core's renderMidi, run in Hermes.
+# Then the engine (engine-check.m): the playback engine in real time, in the App Sandbox as the shipped app runs it —
+# signed with GPEditor.entitlements under an identifier of its own, ENGINE_CHECK_ID (its container under
+# ~/Library/Containers keeps the bank and the song while it runs; the container itself stays) —, every effect made, a
+# drum kit the bank lacks, and the effects UI's actions at random.
 # Then the audio export (export-check.m): a fixture written by GPAudioExporter as WAV, AIFF, FLAC, MP3 and Ogg Vorbis
 # and read back (scripts/audio-codecs/fetch.sh builds the MP3 and Vorbis encoders first; cached).
-# Usage: scripts/audio-check/run.sh [effects|export]   (from apps/desktop; needs npm run pods and npm run soundfont first;
-# no argument runs both)
+# Usage: scripts/audio-check/run.sh [effects|engine|export]   (from apps/desktop; needs npm run pods and npm run soundfont
+# first; no argument runs all three)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -57,6 +61,27 @@ if [[ "$WHICH" == "all" || "$WHICH" == "effects" ]]; then
     clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${HERE}/audio-track-check.m" "${HERE}/audio-check.m" \
         -o "${OUT}/audio-check"
     "${OUT}/audio-check" "$BANK" "${OUT}/song.mid" "${OUT}/twelve.mid" "${OUT}/bends.mid"
+fi
+
+ENGINE_CHECK_ID="com.drakejin.gpeditor.audio-check"
+# The audio units' own chatter on stderr; anything else (an exception, a crash) still shows.
+UNIT_NOISE='EnvelopeState|AudioConverter|SamplerUtils|AUSampler|throwing -10'
+
+if [[ "$WHICH" == "all" || "$WHICH" == "engine" ]]; then
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>%s</string></dict></plist>\n' \
+        "$ENGINE_CHECK_ID" > "${OUT}/engine-check-info.plist"
+    clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${SRC}/GPLineIn.m" "${SRC}/GPSandbox.m" \
+        "${SRC}/GPMidiEngine.m" "${HERE}/engine-stress.m" "${HERE}/engine-check.m" \
+        -Wl,-sectcreate,__TEXT,__info_plist,"${OUT}/engine-check-info.plist" -o "${OUT}/engine-check"
+    codesign --force --sign - --identifier "$ENGINE_CHECK_ID" --entitlements "${SRC}/GPEditor.entitlements" "${OUT}/engine-check"
+    CONTAINER_HOME="$("${OUT}/engine-check")"
+    mkdir -p "${CONTAINER_HOME}/audio-check"
+    cp "$BANK" "${OUT}/song.mid" "${CONTAINER_HOME}/audio-check/"
+    status=0
+    "${OUT}/engine-check" "${CONTAINER_HOME}/audio-check/$(basename "$BANK")" "${CONTAINER_HOME}/audio-check/song.mid" \
+        2> >(grep -v -E "$UNIT_NOISE" >&2) || status=$?
+    rm -rf "${CONTAINER_HOME}/audio-check"
+    (( status == 0 )) || exit "$status"
 fi
 
 if [[ "$WHICH" == "all" || "$WHICH" == "export" ]]; then

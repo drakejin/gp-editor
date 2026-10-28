@@ -45,25 +45,35 @@ static NSData *Track(NSArray<NSArray<NSNumber *> *> *events)
   return track;
 }
 
-NSData *ChordMidi(uint8_t program, NSArray<NSNumber *> *keys)
+NSData *ChannelMidi(uint8_t channel, int bank, uint8_t program, NSArray<NSNumber *> *keys)
 {
   const uint8_t header[] = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, 0, 2, 0x03, 0xC0}; // format 1, 2 tracks, 960 PPQ
+  NSNumber *control = @(0xB0 | channel);
   NSMutableData *midi = [NSMutableData dataWithBytes:header length:sizeof(header)];
   [midi appendData:Track(@[
     @[ @0, @0xFF, @0x51, @3, @0x07, @0xA1, @0x20 ], // 120 bpm
-    @[ @0, @0xB0, @101, @0 ], @[ @0, @0xB0, @100, @0 ], @[ @0, @0xB0, @6, @12 ], @[ @0, @0xB0, @38, @0 ],
+    @[ @0, control, @101, @0 ], @[ @0, control, @100, @0 ], @[ @0, control, @6, @12 ], @[ @0, control, @38, @0 ],
     @[ @7680, @0xFF, @0x2F, @0 ],
   ])];
-  NSMutableArray<NSArray<NSNumber *> *> *events = [NSMutableArray arrayWithArray:@[ @[ @0, @0xB0, @7, @100 ], @[ @0, @0xC0, @(program) ] ]];
+  NSMutableArray<NSArray<NSNumber *> *> *events = [NSMutableArray arrayWithObject:@[ @0, control, @7, @100 ]];
+  if (bank >= 0) {
+    [events addObject:@[ @0, control, @0, @(bank) ]];
+  }
+  [events addObject:@[ @0, @(0xC0 | channel), @(program) ]];
   for (NSNumber *key in keys) {
-    [events addObject:@[ @0, @0x90, key, @110 ]];
+    [events addObject:@[ @0, @(0x90 | channel), key, @110 ]];
   }
   for (NSNumber *key in keys) {
-    [events addObject:@[ @1920, @0x80, key, @0 ]];
+    [events addObject:@[ @1920, @(0x80 | channel), key, @0 ]];
   }
   [events addObject:@[ @7680, @0xFF, @0x2F, @0 ]];
   [midi appendData:Track(events)];
   return midi;
+}
+
+NSData *ChordMidi(uint8_t program, NSArray<NSNumber *> *keys)
+{
+  return ChannelMidi(0, -1, program, keys);
 }
 
 // MARK: - Measures
@@ -80,6 +90,17 @@ double Power(AVAudioPCMBuffer *buffer, double from, double to)
     sum += meanSquare / 2;
   }
   return sum;
+}
+
+float LargestDifference(AVAudioPCMBuffer *a, AVAudioPCMBuffer *b)
+{
+  float difference = 0;
+  for (int channel = 0; channel < 2; channel++) {
+    for (AVAudioFrameCount frame = 0; frame < MIN(a.frameLength, b.frameLength); frame++) {
+      difference = MAX(difference, fabsf(a.floatChannelData[channel][frame] - b.floatChannelData[channel][frame]));
+    }
+  }
+  return difference;
 }
 
 float Peak(AVAudioPCMBuffer *buffer)
