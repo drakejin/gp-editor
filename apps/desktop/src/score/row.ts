@@ -15,6 +15,7 @@ import { type HeadingStyle, engraveHeading } from './heading';
 import { engraveLyrics } from './lyrics';
 import { STAFF_HEIGHT, engraveNotationMeasure, engraveNotationRowHeader, notationRowHeaderWidth, staffLines } from './notation';
 import { type BeatRange, engraveSelection } from './selection-tint';
+import type { NextInRow } from './symbols/links';
 import { type TabMarkKind, engraveTabMeasure, engraveTabRowHeader } from './tab';
 
 /** Width of the clef column of tab-only rows. */
@@ -77,7 +78,7 @@ export function engraveRow(context: RowContext): DrawCommand[] {
     return [];
   }
   const placed = placeRow(context.row, context.headerWidth);
-  return [...rowHeader(context, track, placed), ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0))];
+  return [...rowHeader(context, track, placed), ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0, placed[i + 1]?.layout))];
 }
 
 function rowHeader(context: RowContext, track: Track, placed: readonly PlacedMeasure[]): DrawCommand[] {
@@ -111,6 +112,8 @@ interface MeasureScope {
   readonly layout: MeasureLayout;
   readonly previousMeasure?: Measure;
   readonly nextMeasure?: Measure;
+  /** The next measure when it is on this row too: links into it are drawn whole from here. */
+  readonly nextInRow?: NextInRow;
   readonly cursor?: StringAddress;
   readonly playingBeatIndex?: number;
   readonly isRowStart: boolean;
@@ -118,7 +121,7 @@ interface MeasureScope {
   readonly sheet: Stylesheet;
 }
 
-function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure, isRowStart: boolean): DrawCommand[] {
+function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure, isRowStart: boolean, nextLayout?: MeasureLayout): DrawCommand[] {
   // The row header already shows the key at a row start; a key change there is not drawn twice.
   const layout = isRowStart ? { ...placed.layout, keySignatureX: undefined } : placed.layout;
   const header = context.song.measureHeaders[layout.measureIndex];
@@ -130,6 +133,7 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
     track, header, measure, layout,
     previousMeasure: track.measures[layout.measureIndex - 1],
     nextMeasure: track.measures[layout.measureIndex + 1],
+    nextInRow: followingInRow(context.song, layout.measureIndex, nextLayout),
     cursor: context.cursor?.measureIndex === layout.measureIndex ? context.cursor : undefined,
     playingBeatIndex: context.playing?.measureIndex === layout.measureIndex ? context.playing.beatIndex : undefined,
     isRowStart,
@@ -153,6 +157,12 @@ function engraveMeasure(context: RowContext, track: Track, placed: PlacedMeasure
   return translateCommands(commands, placed.x, 0);
 }
 
+/** The measure after this one on the row (none at the row's end), for the links drawn whole across the bar line. */
+function followingInRow(song: Song, measureIndex: number, layout: MeasureLayout | undefined): NextInRow | undefined {
+  const header = layout?.measureIndex === measureIndex + 1 ? song.measureHeaders[layout.measureIndex] : undefined;
+  return layout === undefined || header === undefined ? undefined : { header, layout };
+}
+
 /** The stylesheet's bar numbers and tempo for the heading of the scope's bar. */
 function headingStyle({ sheet, isRowStart }: MeasureScope): HeadingStyle {
   return { barNumbers: sheet.barNumbers, isRowStart, barNumber: sheet.texts.barNumber, tempo: sheet.texts.tempo, showsTempoDecimals: sheet.notation.showsTempoDecimals };
@@ -170,13 +180,13 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
       : cursor !== undefined
       ? { beatIndex: cursor.beatIndex, string: cursor.string, voiceIndex: cursor.voiceIndex }
       : undefined;
-  const { track, header, measure, layout, previousMeasure, nextMeasure, isRowStart } = scope;
+  const { track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart } = scope;
   // Pick strokes go over the tab when it is shown, else over the notation.
   const showsPickStrokes = !showsTab(context.mode);
   const isKeyboard = isKeyboardTrack(context.song, context.trackIndex);
   const { editedVoiceIndex } = context;
   const { showsCommonTime } = scope.sheet.notation;
-  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex, showsCommonTime });
+  return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, editedVoiceIndex, showsCommonTime });
 }
 
 /** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */
@@ -214,11 +224,11 @@ function engraveTab(context: RowContext, scope: MeasureScope): DrawCommand[] {
   if (tabTop === undefined || marksY === undefined || !showsTab(context.mode)) {
     return [];
   }
-  const { track, header, measure, layout, previousMeasure, nextMeasure, cursor, playingBeatIndex } = scope;
+  const { track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart, cursor, playingBeatIndex } = scope;
   const previousBeat = previousMeasure?.beats[previousMeasure.beats.length - 1];
   const tabCursor = cursor === undefined ? undefined : { beatIndex: cursor.beatIndex, string: cursor.string, voiceIndex: cursor.voiceIndex };
   return engraveTabMeasure({
-    track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, markLanes: context.markLanes,
+    track, header, measure, layout, previousBeat, previousMeasure, nextMeasure, nextInRow, isRowStart, markLanes: context.markLanes,
     top: tabTop, marksY, showRhythm: context.mode === 'tab', palette: context.palette, cursor: tabCursor, playingBeatIndex,
     editedVoiceIndex: context.editedVoiceIndex, notation: scope.sheet.notation,
   });

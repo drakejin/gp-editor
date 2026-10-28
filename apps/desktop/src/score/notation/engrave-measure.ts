@@ -2,6 +2,7 @@ import type { Measure, MeasureHeader, Track } from '@gp-editor/core';
 import { type MeasureLayout, TAB } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import type { DrawCommand } from '../draw';
+import type { NextInRow } from '../symbols/links';
 import { type Highlight, engraveVoices } from './engrave-voices';
 import { buildVoiceEvents } from './events';
 import { keyChange } from './key-signature';
@@ -10,6 +11,8 @@ import { type ClefKind, clefKind } from './pitch';
 import { emptyVoiceRest, measureRest } from './rests';
 import { voiceTint } from '../voices';
 import { CLEF_GLYPHS, barLines, staffLines, timeSignature } from './staff';
+import type { NextBar } from './voice-layout';
+import { nextMeasureHeads } from './voice-placement';
 
 export interface NotationContext {
   readonly track: Track;
@@ -20,6 +23,8 @@ export interface NotationContext {
   readonly previousMeasure?: Measure;
   /** For ties, slurs and slides leaving across the bar line (half arcs to the right edge, e.g. at the end of a row). */
   readonly nextMeasure?: Measure;
+  /** The next measure when it is on this row too: slurs and slides into it are drawn whole, notehead to notehead. */
+  readonly nextInRow?: NextInRow;
   /** y of the staff's top line, in measure-local coordinates (x = 0 is the measure's left edge). */
   readonly top: number;
   readonly palette: Palette;
@@ -29,7 +34,10 @@ export interface NotationContext {
   readonly showsPickStrokes?: boolean;
   /** A piano or organ track (`isKeyboardTrack`): fingering is written 1–5. */
   readonly isKeyboard?: boolean;
-  /** The measure starts its row: the row header shows its clef, and an octave sign running into it is named again. */
+  /**
+   * The measure starts its row: the row header shows its clef, and an octave sign running into it is named again. Slurs
+   * and slides from the previous measure come in here unless this is false (the previous measure drew them whole).
+   */
   readonly isRowStart?: boolean;
   /** The voice being edited (the cursor's): the other voices faded, and its whole rest where it has nothing in the bar. */
   readonly editedVoiceIndex?: number;
@@ -128,6 +136,12 @@ function beatAreaStart(context: BeatArea): number {
   );
 }
 
+/** Where ties, slurs and slides from the previous measure start: the bar line, or after the signs layoutMeasure put there. */
+function entryXOf(context: BeatArea): number {
+  const start = beatAreaStart(context);
+  return start > TAB.padLeft ? start : 0;
+}
+
 /** Where a bar without beats draws its whole rest (the tab draws the cursor there): the middle of its beat area. */
 export function measureRestX(context: BeatArea): number {
   return (beatAreaStart(context) + context.layout.width) / 2;
@@ -138,6 +152,19 @@ function emptyMeasureRest(context: NotationContext): DrawCommand {
   const voiceIndex = context.highlight?.voiceIndex;
   const color = voiceIndex === undefined ? context.palette.text : voiceTint(voiceIndex, context.palette);
   return measureRest(measureRestX(context), context.top, color);
+}
+
+/** The next measure when it is on this row, for the slurs and slides that reach into it. */
+function nextBarOf(context: NotationContext): NextBar | undefined {
+  const { track, measure, nextMeasure, nextInRow, top, layout } = context;
+  if (nextMeasure === undefined || nextInRow === undefined) {
+    return undefined;
+  }
+  const area = { layout: nextInRow.layout, header: nextInRow.header, measure: nextMeasure, previousMeasure: measure };
+  return {
+    headOn: nextMeasureHeads(track, nextMeasure, nextInRow, top, layout.width),
+    entryX: layout.width + entryXOf(area),
+  };
 }
 
 /** One measure of the standard-notation staff: staff and bar lines, key / time signature changes, voices. */
@@ -151,7 +178,7 @@ export function engraveNotationMeasure(
     : undefined;
   const start = beatAreaStart(context);
   // Ties and slurs from the previous measure start at the bar line, or after a key / time signature drawn there.
-  const entryX = start > TAB.padLeft ? start : 0;
+  const entryX = entryXOf(context);
   const voices =
     measure.beats.length === 0
       ? [emptyMeasureRest(context)]
@@ -159,6 +186,7 @@ export function engraveNotationMeasure(
           ...context,
           width: layout.width,
           entryX,
+          nextBar: nextBarOf(context),
         });
   return [
     ...staffLines(0, layout.width, top, palette.line),
