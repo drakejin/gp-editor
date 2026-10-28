@@ -106,14 +106,18 @@ export function pdfFileName(song: Song, trackIndex: number, mode: ScoreMode, fil
   return `${exportBaseName(song, trackIndex, mode, fileName, staves)}.pdf`;
 }
 
+/** Rounding left over by dividing and multiplying heights: a row that fits to this much still fits. */
+const FIT_TOLERANCE = 1e-6;
+
 /**
  * Rows per page, top to bottom; a row is never split. The first page's rows start at `firstTop` (under the title
  * block), the others' at `top`; rows end above `bottom`. A row taller than a page gets a page of its own. Always one page at least.
  */
 export function packRows<T>(rows: readonly T[], rowHeight: number, firstTop: number, top: number, bottom: number): T[][] {
   const fitsAPage = rowHeight <= bottom - top;
-  const firstCapacity = fitsAPage ? Math.max(0, Math.floor((bottom - firstTop) / rowHeight)) : 1;
-  const capacity = fitsAPage ? Math.floor((bottom - top) / rowHeight) : 1;
+  // A system printed smaller to fit the room under the title block fills that room exactly, give or take the last bit.
+  const firstCapacity = fitsAPage ? Math.max(0, Math.floor((bottom - firstTop) / rowHeight + FIT_TOLERANCE)) : 1;
+  const capacity = fitsAPage ? Math.floor((bottom - top) / rowHeight + FIT_TOLERANCE) : 1;
   const rest = rows.slice(firstCapacity);
   const following = Array.from({ length: Math.ceil(rest.length / capacity) }, (_, i) => rest.slice(i * capacity, (i + 1) * capacity));
   return [rows.slice(0, firstCapacity), ...following];
