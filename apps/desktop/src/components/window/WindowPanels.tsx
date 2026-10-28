@@ -1,10 +1,12 @@
 import { stylesheetOf } from '@gp-editor/core';
 import type { WindowModel } from '../../hooks/use-window';
+import { beatAnnotation } from '../../lib/annotation-draft';
 import { selectedFragment, selectionSummary } from '../../state/selection';
 import { type TranspositionDraft, noSelectionHint, toTranspositionOptions, transpositionScope } from '../../state/transposition';
 import { AudioExportPanel } from '../AudioExportPanel';
 import { ExportPanel } from '../ExportPanel';
 import { ImportPanel } from '../ImportPanel';
+import { AnnotationPanel } from '../annotations/AnnotationPanel';
 import { LyricsPanel } from '../lyrics/LyricsPanel';
 import { RecentFilesPanel } from '../RecentFilesPanel';
 import { DesignModeBar } from '../stylesheet/DesignModeBar';
@@ -92,7 +94,7 @@ function transposeTo({ base, tools }: WindowModel, draft: TranspositionDraft): v
   focusScore();
 }
 
-/** Transpose, the stylesheet and Design Mode's strip, the recent files and the lyrics, under the tab strip. */
+/** Transpose, the stylesheet and Design Mode's strip, the recent files, the lyrics and the annotation, under the tab strip. */
 export function EditPanels({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, dispatch, focusScore } = base;
@@ -129,7 +131,32 @@ export function EditPanels({ model }: WindowPartProps) {
           onClose={tools.closeLyricsPanel}
         />
       ) : null}
+      <AnnotationPanelPart model={model} />
     </>
+  );
+}
+
+/** Edit ▸ Annotation… (J): the cursor's beat's annotation. */
+function AnnotationPanelPart({ model }: WindowPartProps) {
+  const { base, tools } = model;
+  const { annotationEditor: editor } = tools;
+  const song = base.state.document?.song;
+  if (editor.draft === undefined || song === undefined) {
+    return null;
+  }
+  return (
+    <AnnotationPanel
+      palette={base.palette}
+      draft={editor.draft}
+      hasAnnotation={beatAnnotation(song, editor.draft.at) !== undefined}
+      movable={editor.movable}
+      onChangeText={editor.changeText}
+      onChangePlacement={editor.changePlacement}
+      onApply={editor.apply}
+      onDelete={editor.remove}
+      onMoveHere={editor.moveHere}
+      onClose={tools.closeAnnotationPanel}
+    />
   );
 }
 

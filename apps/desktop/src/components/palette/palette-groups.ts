@@ -18,6 +18,7 @@ import type { SongEdit } from '../../state/song-edits';
 import type { GlyphKind } from './MusicIcon';
 import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } from './palette-marks';
 import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
+import { annotationTool, lyricsTool } from './palette-annotations';
 import { clefTool, expressionTextTool, ottavaTool } from './palette-expression';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteStepper, type PaletteTool } from './palette-tools';
 
@@ -385,6 +386,8 @@ function strokeGroup(): PaletteGroup {
       expressionTextTool(),
       ...beatMarkTools(),
       ottavaTool(),
+      annotationTool(),
+      lyricsTool(),
     ],
   };
 }

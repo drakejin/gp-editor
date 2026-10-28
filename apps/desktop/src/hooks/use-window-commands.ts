@@ -23,7 +23,7 @@ interface WindowCommandSources {
   readonly cursorTools: CursorTools;
 }
 
-export function useWindowCommands({ base, media, files, overlays, cursorTools }: WindowCommandSources): WindowCommands {
+export function useWindowCommands({ base, media, files, tools, overlays, cursorTools }: WindowCommandSources): WindowCommands {
   const { state, dispatch, chrome, keyboardView } = base;
   const { documents } = files;
   const editor = useEditorCommands({
@@ -39,6 +39,8 @@ export function useWindowCommands({ base, media, files, overlays, cursorTools }:
     onZoom: (direction) => chrome.setZoom(stepZoom(chrome.zoom, direction)),
     onNotePanel: cursorTools.openNotePanel,
     onChordPanel: cursorTools.openChordPanel,
+    onAnnotationPanel: tools.openAnnotations,
+    onLyricsPanel: tools.openLyrics,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
     closeOverlay: overlays.closeOverlay,
     isOverlayOpen: overlays.isOverlayOpen,
@@ -77,7 +79,6 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     openScales: tools.scales.open,
     openLineIn: tools.audio.lineIn.open,
     openExpressionText: tools.openExpressionText,
-    openLyrics: tools.openLyrics,
     pickInstrument: () => chrome.pickInstrument(state.trackIndex),
     addAudioTrack: cursorTools.audioLane.addAudioTrack,
     runTrackCommand: tools.trackManager.runTrackCommand,

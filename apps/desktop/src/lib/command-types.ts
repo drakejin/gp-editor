@@ -50,7 +50,6 @@ export interface CommandActions {
   readonly openLineIn: () => void;
   /** Tools ▸ Expression Text…: the palette with “>” typed (a chord, dynamic, key, octave sign, clef or direction). */
   readonly openExpressionText: () => void;
-  readonly openLyrics: () => void;
   /** The instrument picker for the shown track. */
   readonly pickInstrument: () => void;
   /** Track ▸ Add Audio Track…: a recording played in sync with the score. */

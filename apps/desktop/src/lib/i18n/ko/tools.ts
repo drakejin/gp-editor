@@ -292,7 +292,7 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.chords.noChordsInTrack': '이 트랙에는 아직 코드가 없습니다.',
   // 가사
   'tools.lyrics.syntax':
-    '음표 하나에 음절 하나: 띄어쓰기나 하이픈으로 음절을 나눕니다(Beau-ti-ful). 두 칸 띄우면 음표 하나를 건너뛰고, +는 여러 단어를 한 음표에 부릅니다(a+lot). [대괄호] 안은 메모입니다. 한국어·일본어·중국어는 글자 하나가 음표 하나입니다.',
+    '음표 하나에 음절 하나: 띄어쓰기나 하이픈으로 음절을 나눕니다(Beau-ti-ful). 두 칸 띄우면 음표 하나를 건너뛰고, +는 여러 단어를 한 음표에 부릅니다(a+lot). [대괄호] 안은 주석입니다. 한국어·일본어·중국어는 글자 하나가 음표 하나입니다.',
   'tools.lyrics.track': '트랙',
   'tools.lyrics.trackTooltip': '트랙 {number}의 가사, {name}',
   'tools.lyrics.fromBar': '시작 마디',
@@ -306,6 +306,26 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.lyrics.fit': '마디 {bar}부터 {notes}에 {syllables}',
   'tools.lyrics.extra': '{fit}: 마지막 {count}개는 붙을 음표가 없습니다',
   'tools.lyrics.gp5Note': 'Guitar Pro 5로 저장하면 한 트랙의 가사만 남습니다: “{name}”의 가사.',
+  // 메모
+  'tools.annotation.title': '메모',
+  'tools.annotation.where': '마디 {bar} · {beat}번째 박',
+  'tools.annotation.placement': '위치',
+  'tools.annotation.above': '보표 위',
+  'tools.annotation.below': '보표 아래',
+  'tools.annotation.aboveTooltip': '메모를 보표 위 상자에 표시',
+  'tools.annotation.belowTooltip': '메모를 보표 아래 상자에 표시',
+  'tools.annotation.apply': '적용',
+  'tools.annotation.applyTooltip': '이 박에 메모 쓰기 (⌘↩)',
+  'tools.annotation.delete': '삭제',
+  'tools.annotation.deleteTooltip': '이 박의 메모 삭제',
+  'tools.annotation.moveHere': '“{excerpt}” 여기로 옮기기',
+  'tools.annotation.moveHereTooltip': '마디 {bar} · {beat}번째 박의 메모를 이 박으로 옮기기',
+  'tools.annotation.closeTooltip': '메모 편집기 닫기 (입력한 내용은 그 박에 써집니다)',
+  'tools.annotation.textLabel': '메모 텍스트',
+  'tools.annotation.placeholder': '이 박에 남길 메모: 주의할 점, 숨 쉴 곳, 운지 아이디어 …',
+  'tools.annotation.hint':
+    '이 박에 상자로 표시되고 PDF, PNG 이미지와 인쇄에도 나옵니다 (내보내기 패널에서 메모를 뺄 수 있습니다). Guitar Pro 7/8(.gp) 파일에는 저장되고, Guitar Pro 5, 4, 3 파일에는 저장되지 않습니다. 다른 박을 클릭하면 그 박에 씁니다.',
+  'tools.annotation.edited': '아직 쓰지 않았습니다: 적용(⌘↩)을 누르거나 다른 박을 클릭하면 입력한 내용이 이 박에 써집니다.',
   // 음표 패널: 비브라토, 벤딩, 트레몰로 바
   'tools.notePanels.vibrato': '비브라토',
   'tools.notePanels.noteAt': '{string}번 줄 · {fret}프렛',

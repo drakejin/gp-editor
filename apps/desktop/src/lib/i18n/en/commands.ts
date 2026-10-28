@@ -55,6 +55,7 @@ export const EN_COMMANDS = {
   'commands.title.edit.moveToVoice4': 'Move to Voice 4',
   'commands.title.edit.multivoice': 'Multivoice On / Off',
   'commands.title.edit.lyrics': 'Lyrics…',
+  'commands.title.edit.annotation': 'Annotation…',
   'commands.title.edit.songWriter': 'Song Writer…',
 
   'commands.title.view.mode.notationAndTab': 'Show Score + Tab',
@@ -213,6 +214,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.deleteBars': 'Delete the bar, or the selected bars',
   'commands.shortcuts.insertBeat': 'Insert a beat after the cursor',
   'commands.shortcuts.chord': 'Chord diagram… (grid, name, chord library)',
+  'commands.shortcuts.annotation': 'Annotation… (a note on the beat, in a box over or under the staves)',
   'commands.shortcuts.syncPoint': 'While the audio track plays: the cursor’s bar starts now (a sync point)',
   'commands.shortcuts.noteValue': 'Longer / shorter note value',
   'commands.shortcuts.dotted': 'Dotted',

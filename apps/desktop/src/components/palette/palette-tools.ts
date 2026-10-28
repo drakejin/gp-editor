@@ -69,7 +69,11 @@ export type PaletteRun =
   /** Opens the chord diagram panel for the beat, as K does. */
   | { readonly kind: 'chordPanel' }
   /** Opens the command palette's Expression Text (Tools ▸ Expression Text…). */
-  | { readonly kind: 'expressionText' };
+  | { readonly kind: 'expressionText' }
+  /** Opens the annotation panel for the beat, as J does. */
+  | { readonly kind: 'annotationPanel' }
+  /** Opens the lyrics panel (Edit ▸ Lyrics…). */
+  | { readonly kind: 'lyricsPanel' };
 
 export interface PaletteTool {
   readonly id: string;

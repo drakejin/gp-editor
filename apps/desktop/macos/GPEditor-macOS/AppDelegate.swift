@@ -126,6 +126,11 @@ struct GPEditorApp: App {
           Button(strings("Lyrics…")) {
             NotificationCenter.default.post(name: .GPEditorLyricsCommand, object: nil)
           }
+          // A musician's note on the cursor's beat, in a box over or under the staves (J on the score: a bare letter is
+          // no key equivalent here, the menu bar would take it from text fields).
+          Button(strings("Annotation…")) {
+            NotificationCenter.default.post(name: .GPEditorAnnotationCommand, object: nil)
+          }
           Menu(strings("AI Wizard")) {
             Button(strings("Song Writer…")) {
               NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)

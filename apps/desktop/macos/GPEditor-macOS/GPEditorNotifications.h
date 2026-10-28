@@ -56,6 +56,9 @@ FOUNDATION_EXPORT NSString *const GPEditorCommandPaletteCommandNotification;
 /** Edit ▸ Lyrics… was chosen ("lyricsRequested" in JS). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorLyricsCommandNotification;
 
+/** Edit ▸ Annotation… was chosen ("annotationRequested" in JS): the annotation of the cursor's beat. No object. */
+FOUNDATION_EXPORT NSString *const GPEditorAnnotationCommandNotification;
+
 /** Tools ▸ Scales… was chosen ("scalesRequested" in JS). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorScalesCommandNotification;
 

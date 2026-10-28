@@ -48,6 +48,8 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
       onOpenPanel={cursorTools.openNotePanel}
       onOpenChordPanel={cursorTools.openChordPanel}
       onOpenExpressionText={tools.openExpressionText}
+      onOpenAnnotationPanel={tools.openAnnotations}
+      onOpenLyrics={tools.openLyrics}
       isExpressionTextOpen={commandPalette.isOpen && commandPalette.session.initialQuery !== ''}
     />
   );

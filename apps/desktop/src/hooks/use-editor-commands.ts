@@ -40,6 +40,10 @@ interface EditorCommandSources {
   readonly onNotePanel: (panel: NotePanel) => void;
   /** K: the chord diagram panel for the beat at the cursor. */
   readonly onChordPanel?: () => void;
+  /** J, Edit ▸ Annotation…: the annotation panel for the beat at the cursor. */
+  readonly onAnnotationPanel?: () => void;
+  /** Edit ▸ Lyrics…, the palette's Lyrics: the lyrics panel. */
+  readonly onLyricsPanel?: () => void;
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now. */
   readonly onMarkSyncPoint?: () => void;
   /** A popup or menu is over the score: keys do nothing to the score then, except Esc, which closes it. */
@@ -117,7 +121,7 @@ type WindowCommand = Exclude<AppCommand | KeyCommand, EditorAction>;
 const isWindowCommand = isOfTypes<WindowCommand>({
   newFile: true, openFile: true, importPdf: true, saveFile: true, exportPdf: true, togglePlayback: true, stopPlayback: true, goToBar: true,
   shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, openNotePanel: true, openChordPanel: true,
-  markSyncPoint: true, copy: true, cut: true, paste: true,
+  openAnnotationPanel: true, openLyricsPanel: true, markSyncPoint: true, copy: true, cut: true, paste: true,
 });
 
 function runWindowCommand(sources: EditorCommandSources, command: WindowCommand): void {
@@ -132,6 +136,10 @@ function runWindowCommand(sources: EditorCommandSources, command: WindowCommand)
       return sources.onNotePanel(command.panel);
     case 'openChordPanel':
       return sources.onChordPanel?.();
+    case 'openAnnotationPanel':
+      return sources.onAnnotationPanel?.();
+    case 'openLyricsPanel':
+      return sources.onLyricsPanel?.();
     case 'markSyncPoint':
       return sources.onMarkSyncPoint?.();
     case 'shiftPlaybackTempo':

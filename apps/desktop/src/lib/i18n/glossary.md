@@ -69,7 +69,8 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | expression text | 표현 텍스트 | Guitar Pro 8's Expression Text |
 | chord / chord diagram / chord library | 코드 / 코드 다이어그램 / 코드 라이브러리 | |
 | scale, root, box (position) | 스케일, 근음, 포지션 박스 | scale names may stay as written |
-| lyrics, syllable | 가사, 음절 | |
+| lyrics, syllable | 가사, 음절 | a lyrics `[comment]` = 주석 |
+| annotation (a musician's note on a beat, in a box) | 메모 | never 주석 or 노트 (음표); `Above` / `Below` the staves = `보표 위` / `보표 아래` |
 | transpose, semitone, octave | 조옮김, 반음, 옥타브 | |
 
 ## Guitar (기타)
@@ -162,7 +163,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | track information: name, short name, colour, icon; rename | 트랙 정보: 이름, 줄인 이름, 색, 아이콘; 이름 바꾸기 | Guitar Pro 8's Track Information; `줄인 이름` as the stylesheet's short names; the icons' names are the instruments' (`스틸 기타`, `건반`, `금관악기` …), `Other` = `효과음 등` (`기타` would read as guitar) |
 | keyboard shortcuts | 단축키 | |
 | settings | 설정 | |
-| song information: title, subtitle, artist, album, words, music, copyright, tab author, instructions, notice | 곡 정보: 제목, 부제, 아티스트, 앨범, 작사, 작곡, 저작권, 타브 작성자, 연주 안내, 메모 | |
+| song information: title, subtitle, artist, album, words, music, copyright, tab author, instructions, notice | 곡 정보: 제목, 부제, 아티스트, 앨범, 작사, 작곡, 저작권, 타브 작성자, 연주 안내, 알림 | not 메모 (an annotation) |
 | AI Wizard, Song Writer | AI 마법사, 작곡 도우미 | |
 | PDF import, project | PDF 가져오기, 프로젝트 | |
 | API key, model | API 키, 모델 | |
