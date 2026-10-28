@@ -9,8 +9,8 @@ type Json = Record<string, unknown>;
 
 /**
  * A streamed answer read back: the whole Message; the error event it ended with, with the HTTP status that error stands
- * for (the same error before a stream starts comes as that status); or cut off — no message_stop, an event that cannot
- * be read, a block never closed. `partial` is the message as far as it came (its usage), once message_start came.
+ * for (the same error before a stream starts comes as that status); or cut off — no message_stop, or an event that
+ * cannot be read. `partial` is the message as far as it came (its usage), once message_start came.
  */
 export type StreamedAnswer =
   | { readonly kind: 'message'; readonly message: Json }
@@ -89,7 +89,7 @@ function eventData(body: string): string[] {
 }
 
 /** A tool call's input from its pieces; text that is not JSON stays text, as the API hands on a parameter it cannot parse. */
-function parsedInput(json: string): unknown {
+function parseToolInput(json: string): unknown {
   try {
     return JSON.parse(json) as unknown;
   } catch {
@@ -113,8 +113,8 @@ function withDelta(state: BlockState, delta: Json): BlockState {
   }
 }
 
-function closed(state: BlockState): BlockState {
-  const block = state.inputJson === '' ? state.block : { ...state.block, input: parsedInput(state.inputJson) };
+function closeBlock(state: BlockState): BlockState {
+  const block = state.inputJson === '' ? state.block : { ...state.block, input: parseToolInput(state.inputJson) };
   return { ...state, block, isOpen: false };
 }
 
@@ -127,7 +127,7 @@ function withBlock(state: StreamState, index: unknown, change: (block: BlockStat
   return { ...state, blocks: state.blocks.map((block, at) => (at === index ? change(current) : block)) };
 }
 
-function started(state: StreamState, event: Json): StreamState {
+function startBlock(state: StreamState, event: Json): StreamState {
   const { index, content_block: block } = event;
   if (typeof index !== 'number' || !Number.isInteger(index) || index < 0 || !isRecord(block)) {
     return { ...state, isBroken: true };
@@ -161,15 +161,16 @@ function applyEvent(state: StreamState, event: Json): StreamState {
   }
   switch (event.type) {
     case 'content_block_start':
-      return started(state, event);
+      return startBlock(state, event);
     case 'content_block_delta':
       return withBlock(state, event.index, (block) => (isRecord(event.delta) ? withDelta(block, event.delta) : block));
     case 'content_block_stop':
-      return withBlock(state, event.index, closed);
+      return withBlock(state, event.index, closeBlock);
     case 'message_delta':
       return { ...state, message: messageDelta(message, event) };
     case 'message_stop':
-      return { ...state, isStopped: true };
+      // The message is whole; a block left open (a refusal may end a tool call mid-input) ends with it.
+      return { ...state, isStopped: true, blocks: state.blocks.map((block) => (block?.isOpen === true ? closeBlock(block) : block)) };
     default:
       // ping, and any event type added later.
       return state;
@@ -196,6 +197,6 @@ export function readMessageStream(body: string): StreamedAnswer {
   if (state.error !== undefined) {
     return { kind: 'error', status: ERROR_STATUSES.get(text(state.error.type)) ?? SERVER_ERROR, error: state.error, ...withPartial };
   }
-  const isComplete = state.isStopped && !state.isBroken && state.blocks.every((block) => block === undefined || !block.isOpen);
+  const isComplete = state.isStopped && !state.isBroken;
   return isComplete && partial !== undefined ? { kind: 'message', message: partial } : { kind: 'cut', ...withPartial };
 }

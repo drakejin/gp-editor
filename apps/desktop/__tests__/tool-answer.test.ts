@@ -70,6 +70,24 @@ describe('readToolAnswer with a streamed answer', () => {
     expect(!answer.isOk && answer.message).toContain('declined');
   });
 
+  it('does not ask again when a refusal ends the stream mid-way through the tool input', () => {
+    // Arrange: no content_block_stop for the tool call, then the refusal and message_stop
+    const events = [
+      { type: 'message_start', message: { content: [], usage: { input_tokens: 10, output_tokens: 1 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 't', name: TOOL, input: {} } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"measures": [' } },
+      { type: 'message_delta', delta: { stop_reason: 'refusal' }, usage: { output_tokens: 30 } },
+      { type: 'message_stop' },
+    ];
+
+    // Act
+    const answer = readToolAnswer(streamedResponse(events), TOOL, WORDING);
+
+    // Assert
+    expect(answer).toMatchObject({ isOk: false, isRetryable: false, usage: { inputTokens: 10, outputTokens: 30 } });
+    expect(!answer.isOk && answer.message).toContain('declined');
+  });
+
   it('asks again when the streamed answer has text instead of the tool call, quoting it', () => {
     const message = { stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 7 }, content: [{ type: 'text', text: 'This page has no music.' }] };
     const answer = readToolAnswer(streamedMessage(message, { chunk: 2 }), TOOL, WORDING);

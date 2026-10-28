@@ -179,10 +179,26 @@ describe('readMessageStream', () => {
     expect(readMessageStream(broken).kind).toBe('cut');
   });
 
-  it('calls a stream with a block that never stopped cut off', () => {
-    const events = messageEvents(toolMessage('plan_song', { title: 'x' }));
-    const withoutStop = events.filter((event) => !(event.type === 'content_block_stop' && event.index === 1));
-    expect(readMessageStream(sseText(withoutStop)).kind).toBe('cut');
+  it('closes a block still open at message_stop: the message ended, as a refusal may end a tool call mid-input', () => {
+    // Arrange: refused part-way through the tool input; the tool block never gets its content_block_stop
+    const events = [
+      { type: 'message_start', message: { content: [], usage: { input_tokens: 10, output_tokens: 1 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 't', name: 'record_transcription', input: {} } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"measures": [' } },
+      { type: 'message_delta', delta: { stop_reason: 'refusal', stop_details: { category: null } }, usage: { output_tokens: 30 } },
+      { type: 'message_stop' },
+    ];
+
+    // Act
+    const read = readMessageStream(sseText(events));
+
+    // Assert
+    expect(read.kind === 'message' && read.message).toMatchObject({ stop_reason: 'refusal', content: [{ type: 'tool_use', input: '{"measures": [' }] });
+  });
+
+  it('still calls a stream cut off when a block is open and no message_stop came', () => {
+    const events = messageEvents(toolMessage('plan_song', { title: 'x' })).filter((event) => !(event.type === 'content_block_stop' && event.index === 1) && event.type !== 'message_stop');
+    expect(readMessageStream(sseText(events)).kind).toBe('cut');
   });
 });
 
