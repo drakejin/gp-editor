@@ -1,5 +1,6 @@
 // i18n-exempt-file: the prompts and requests sent to Claude, in English whatever the app's language
 import { MAX_PLAN_BARS, MAX_PLAN_SECTIONS, MAX_SECTION_BARS, PLAN_SONG_TOOL, type SongPlan, WRITE_SECTION_TOOL } from '@gp-editor/core';
+import { STREAMED_ANSWER, type StreamedAnswerFields, type StreamedTool, streamedTool } from '../lib/streamed-request';
 
 /** What the user asks the song writer for (Edit ▸ AI Wizard ▸ Song Writer…). */
 export interface SongIdea {
@@ -52,22 +53,24 @@ interface TextBlock {
   readonly text: string;
 }
 
-export interface SongWriterRequest {
+export interface SongWriterRequest extends StreamedAnswerFields {
   readonly model: string;
   readonly max_tokens: number;
   readonly system: string;
-  readonly tools: readonly (typeof PLAN_SONG_TOOL | typeof WRITE_SECTION_TOOL)[];
+  readonly tools: readonly StreamedTool<typeof PLAN_SONG_TOOL | typeof WRITE_SECTION_TOOL>[];
   /** Not forced: Claude Opus 5.5 and Sonnet 5.5 refuse a forced tool_choice with a 400; the request names the tool. */
   readonly tool_choice: { readonly type: 'auto' };
   readonly messages: readonly { readonly role: 'user'; readonly content: readonly TextBlock[] }[];
 }
 
+/** A request for one tool call, its answer streamed. */
 function request(model: string, maxTokens: number, tool: typeof PLAN_SONG_TOOL | typeof WRITE_SECTION_TOOL, text: string): SongWriterRequest {
   return {
     model,
     max_tokens: maxTokens,
+    ...STREAMED_ANSWER,
     system: SONG_WRITER_SYSTEM_PROMPT,
-    tools: [tool],
+    tools: [streamedTool(tool)],
     tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: [{ type: 'text', text }] }],
   };

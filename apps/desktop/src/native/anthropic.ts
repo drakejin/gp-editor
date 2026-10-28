@@ -1,9 +1,11 @@
 import { NativeModules } from 'react-native';
 
-/** An HTTP answer of the Messages API, as text. */
+/** An HTTP answer of the Messages API, as text: a streamed answer's whole event stream, or one JSON body. */
 export interface ApiResponse {
   readonly status: number;
   readonly body: string;
+  /** The answer's media type, e.g. `text/event-stream` for a streamed answer; absent when the native side gives none. */
+  readonly contentType?: string;
 }
 
 interface GPAnthropicModule {
@@ -51,7 +53,10 @@ export function saveModel(model: string): Promise<void> {
   return requireNative().setModel(model);
 }
 
-/** POSTs a Messages API request body; resolves for any HTTP status, rejects on network failure or a missing key. */
+/**
+ * POSTs a Messages API request body; resolves for any HTTP status once the whole answer is in (a streamed answer's
+ * events keep the connection from going idle), rejects on network failure or a missing key.
+ */
 export function sendMessages(body: string): Promise<ApiResponse> {
   return requireNative().send(body);
 }

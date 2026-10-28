@@ -471,6 +471,7 @@ export const EN_TOOLS = {
   'tools.songWriter.buildFailed': 'The song could not be built: {detail}',
   'tools.answer.keyRefused': 'The Anthropic API key was refused ({detail})',
   'tools.answer.notApi': 'The answer was not a Messages API response',
+  'tools.answer.cutOff': 'The answer stopped before it was complete',
   'tools.answer.tooLong': '{tooLong} (the model hit its output limit)',
   'tools.answer.without': 'The model answered without {what}',
   'tools.answer.withoutSaid': 'The model answered without {what}: “{said}”',

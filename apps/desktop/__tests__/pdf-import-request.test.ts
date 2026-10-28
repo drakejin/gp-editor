@@ -16,7 +16,8 @@ describe('buildTranscriptionRequest', () => {
     const body = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'JVBERi0x', page: 1, pageCount: 3, title: 'Etude' });
 
     // Assert
-    expect(body).toMatchObject({ model: 'claude-opus-5-5', tools: [TRANSCRIPTION_TOOL], tool_choice: { type: 'auto' } });
+    expect(body).toMatchObject({ model: 'claude-opus-5-5', tool_choice: { type: 'auto' } });
+    expect(body.tools).toEqual([{ ...TRANSCRIPTION_TOOL, eager_input_streaming: true }]);
     const [content] = body.messages;
     expect(content?.content[0]).toEqual({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'JVBERi0x' } });
     expect(content?.content[1]?.text).toContain('page 1 of 3');
@@ -31,11 +32,12 @@ describe('buildTranscriptionRequest', () => {
       // Act
       const body = buildTranscriptionRequest({ model: id, pdfBase64: 'x', page: 2, pageCount: 3, title: 'Etude', firstPage: FIRST_PAGE });
 
-      // Assert
+      // Assert: no sampling parameters, and no thinking but adaptive (disabled or budgeted thinking is a 400 too)
       expect(body.tool_choice).toEqual({ type: 'auto' });
-      for (const rejected of ['temperature', 'top_p', 'top_k', 'thinking']) {
+      for (const rejected of ['temperature', 'top_p', 'top_k']) {
         expect(body).not.toHaveProperty(rejected);
       }
+      expect(body.thinking.type).toBe('adaptive');
     }
   });
 
@@ -97,6 +99,18 @@ describe('the transcription prompt: every staff', () => {
   it('leaves room for a dense full-band page and the thinking before it', () => {
     const body = buildTranscriptionRequest({ model: DEFAULT_TRANSCRIPTION_MODEL, pdfBase64: 'x', page: 1, pageCount: 1, title: 'Band' });
     expect(body.max_tokens).toBe(64000);
+  });
+
+  it('asks for the answer as a stream that never goes quiet: thinking summarised, the tool input sent as it is written', () => {
+    for (const { id } of TRANSCRIPTION_MODELS) {
+      // Act
+      const body = buildTranscriptionRequest({ model: id, pdfBase64: 'x', page: 2, pageCount: 2, title: 'Band', firstPage: FIRST_PAGE });
+
+      // Assert
+      expect(body.stream).toBe(true);
+      expect(body.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+      expect(body.tools.map((tool) => tool.eager_input_streaming)).toEqual([true]);
+    }
   });
 
   it('tells a later page every track page 1 found, with its instrument, clef and program, and which track sings', () => {

@@ -1,5 +1,6 @@
 import type { ApiResponse } from '../native/anthropic';
 import { t } from './i18n/i18n';
+import { isEventStream, readMessageStream } from './message-stream';
 
 /** Tokens a Messages API answer used. */
 export interface TokenUsage {
@@ -91,16 +92,8 @@ function readError(status: number, json: unknown): ToolAnswer {
   return failure(isRetryable, apiMessage, !isRetryable);
 }
 
-/**
- * Reads a Messages API answer to a request that asked for the tool `toolName`. The answer may open with thinking
- * blocks (Claude Opus 5.5 always thinks first), so the call is found by its type and name, not its position. A
- * refusal is not asked again: the same page or section would be declined alike.
- */
-export function readToolAnswer(response: ApiResponse, toolName: string, wording: ToolAnswerWording): ToolAnswer {
-  const json = parseJson(response.body);
-  if (response.status !== HTTP_OK) {
-    return readError(response.status, json);
-  }
+/** A whole Message (the JSON of an answer, or a stream read back): the tool call's input, or why there is none. */
+function readMessage(json: unknown, toolName: string, wording: ToolAnswerWording): ToolAnswer {
   if (!isRecord(json) || !Array.isArray(json.content)) {
     return failure(true, t('tools.answer.notApi'));
   }
@@ -116,4 +109,34 @@ export function readToolAnswer(response: ApiResponse, toolName: string, wording:
     return withoutTool(json.content, wording, usage);
   }
   return { isOk: true, input: tool.input, usage };
+}
+
+/**
+ * A streamed answer: read back into the Message; an error event is read as the HTTP error it stands for (overloaded:
+ * retried; a refused key: stop), and a stream cut off before its end is asked for again. Both keep the tokens they cost.
+ */
+function readStreamedAnswer(body: string, toolName: string, wording: ToolAnswerWording): ToolAnswer {
+  const streamed = readMessageStream(body);
+  if (streamed.kind === 'message') {
+    return readMessage(streamed.message, toolName, wording);
+  }
+  const usage = streamed.partial === undefined ? {} : { usage: usageOf(streamed.partial) };
+  if (streamed.kind === 'error') {
+    return { ...readError(streamed.status, { error: streamed.error }), ...usage };
+  }
+  return { isOk: false, isRetryable: true, message: t('tools.answer.cutOff'), ...usage };
+}
+
+/**
+ * Reads a Messages API answer to a request that asked for the tool `toolName` — streamed (server-sent events) or one
+ * JSON body; an HTTP error comes as JSON either way. The answer may open with thinking blocks (Claude Opus 5.5 always
+ * thinks first), so the call is found by its type and name, not its position. A refusal is not asked again: the same
+ * page or section would be declined alike.
+ */
+export function readToolAnswer(response: ApiResponse, toolName: string, wording: ToolAnswerWording): ToolAnswer {
+  if (isEventStream(response)) {
+    return readStreamedAnswer(response.body, toolName, wording);
+  }
+  const json = parseJson(response.body);
+  return response.status === HTTP_OK ? readMessage(json, toolName, wording) : readError(response.status, json);
 }

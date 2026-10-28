@@ -1,6 +1,7 @@
 import type { ApiResponse } from '../src/native/anthropic';
 import { type SongWriterDeps, type SongWriterStep, writeSong } from '../src/song-writer/run-song-writer';
 import type { SongIdea } from '../src/song-writer/request';
+import { cutStream, streamEndingInError, streamedMessage, toolMessage } from '../test-support/message-stream';
 
 const IDEA: SongIdea = { title: 'Paper Boats', genre: 'Folk', lengthSeconds: 20, lyrics: 'Pa-per boats', description: '' };
 
@@ -113,5 +114,41 @@ describe('writeSong', () => {
   it('stops when cancelled', async () => {
     const result = await writeSong(IDEA, 'm', deps(answering(), () => true), () => undefined);
     expect(result).toMatchObject({ isOk: false, message: 'Cancelled' });
+  });
+});
+
+describe('writeSong with streamed answers', () => {
+  const streamed = (name: string, input: unknown) => streamedMessage(toolMessage(name, input, { input_tokens: 100, output_tokens: 50 }), { chunk: 6 });
+
+  /** Every answer streamed; the verse's first stream stops half-way. */
+  const streaming = jest.fn(async (body: string): Promise<ApiResponse> => {
+    const { tool, section } = asked(body);
+    if (tool === 'plan_song') {
+      return streamed('plan_song', PLAN_INPUT);
+    }
+    const verse = { measures: [{ ...wholeNote(3), lyrics: ['Pa-'] }, { ...wholeNote(5), lyrics: ['per'] }] };
+    if (section === 'Verse') {
+      const isFirst = streaming.mock.calls.filter(([sent]) => asked(sent).section === 'Verse').length === 1;
+      return isFirst ? cutStream(toolMessage('write_section', verse, { input_tokens: 100, output_tokens: 50 }), 10) : streamed('write_section', verse);
+    }
+    return streamed('write_section', { measures: [wholeNote(0)] });
+  });
+
+  it('plans and writes the song from streamed answers, asking again for a section whose stream was cut off', async () => {
+    // Act
+    const result = await writeSong(IDEA, 'claude-opus-5-5', deps(streaming), () => undefined);
+
+    // Assert
+    expect(result.isOk && result.song.measureHeaders.map((header) => header.marker?.title)).toEqual(['Intro', 'Verse', undefined]);
+    expect(result.isOk && result.song.tracks[0]?.lyrics?.text).toBe(' Pa- per');
+    expect(result.usage).toEqual({ inputTokens: 400, outputTokens: 151 });
+    expect(streaming.mock.calls.map(([sent]) => JSON.parse(sent).stream)).toEqual([true, true, true, true]);
+  });
+
+  it('stops at once when a stream ends in an authentication error', async () => {
+    const send = jest.fn(async () => streamEndingInError(toolMessage('plan_song', PLAN_INPUT), 0, 'authentication_error', 'invalid x-api-key'));
+    const result = await writeSong(IDEA, 'm', deps(send), () => undefined);
+    expect(result).toMatchObject({ isOk: false, message: expect.stringContaining('invalid x-api-key') });
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
