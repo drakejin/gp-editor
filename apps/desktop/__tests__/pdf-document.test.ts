@@ -372,6 +372,25 @@ describe('buildPdfDocument with several tracks (the multitrack view)', () => {
     expect(pdfPageCount(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed })).toBe(pdf.pages.length);
   });
 
+  it('prints a system made smaller to fit under the title on the first page however the wider rows group the bars', () => {
+    // Arrange: six tracks with a band every few bars (palm muting, a bend, let ring, a quieter dynamic), so a system
+    // laid out across a wider row (to fill the page once printed smaller) gathers more bands than before
+    const quiet = DYNAMICS.find((entry) => entry.name === 'pp')?.velocity ?? 0;
+    const effects = [{ palmMute: true }, {}, { bend: { points: [{ position: 0, value: 0 }, { position: 6, value: 4 }] } }, {}, { letRing: true }, {}, {}, {}];
+    const bars = Array.from({ length: 48 }, (_, i) =>
+      Array.from({ length: 4 }, (__, b) => beat(toTux(header(i + 1).start) + b * QUARTER_TICKS, [{ ...note(1 + (b % 3), 5, effects[i % 8]), velocity: i % 8 === 6 ? quiet : 95 }])),
+    );
+    const one = makeSong(bars);
+    const song = Array.from({ length: 5 }).reduce<Song>((each) => withTrack(each, bars), one);
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: staff lines under the title of the first page
+    expect(pdf.pages[0]?.commands.filter((c) => c.kind === 'line').length ?? 0).toBeGreaterThan(20);
+  });
+
   it('keeps a system taller than the page inside it', () => {
     // Arrange: eleven tracks in Score + Tab make a system taller than an A4 page
     const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
