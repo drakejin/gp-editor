@@ -144,6 +144,24 @@ describe('annotationRowBands', () => {
     expect(Math.min(...boxes.map((rect) => rect.y))).toBe(400 - bands.annotationsAbove + gap);
   });
 
+  it('lays out the same lanes wherever the row starts (a box ending right at the row’s end fits, whatever the rounding)', () => {
+    // Arrange: beaming-mode.gp5's first system: the second box is pulled back to end right at the row's end.
+    const text = 'palm mute from here (both guitars), then let ring';
+    const bars = (first: number) => [0, 1, 2, 3].map((i) => beat(first + i * 960, [note(1, i)]));
+    const six = makeSong(Array.from({ length: 6 }, (_, i) => bars(960 + i * 3840)));
+    const song = annotate(annotate(six, 1, 0, { text, placement: 'below' }), 4, 0, { text, placement: 'below' });
+    const layouts = [102, 140, 140, 102, 80, 80].map((width, measureIndex) => ({ ...measureLayout(measureIndex, width), beats: [{ beatIndex: 0, x: 27 }] }));
+    const placedFrom = (x0: number) => layouts.map((layout, i) => ({ layout, x: x0 + layouts.slice(0, i).reduce((sum, each) => sum + each.width, 0) }));
+
+    // Act
+    const reserved = annotationRowBands(song.tracks[0], { measures: layouts }).annotationsBelow;
+    const drawn = (x0: number) => new Set(outlines(engraveAnnotationBand({ track: song.tracks[0]!, placed: placedFrom(x0), placement: 'below', edge: 0, palette: INKED })).map((rect) => rect.y)).size;
+
+    // Assert
+    expect([drawn(0), drawn(33.888), drawn(65.687)]).toEqual([1, 1, 1]);
+    expect(reserved).toBe(measureAnnotation({ text, placement: 'below' }).height + 2 * ANNOTATION_BOX.gap);
+  });
+
   it('is one lane, as tall as its tallest box, when the boxes fit side by side', () => {
     const song = annotate(annotate(quarters(), 0, 0, { text: 'a', placement: 'below' }), 0, 3, { text: 'b\nc', placement: 'below' });
     const bands = annotationRowBands(song.tracks[0], { measures: [measureLayout(0)] });

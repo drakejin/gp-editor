@@ -21,6 +21,9 @@ export const ANNOTATION_BOX = {
   gap: 4,
 } as const;
 
+/** How far past the row's end a box may reach and still fit: the rounding of a row laid out from another x. */
+const ROW_END_TOLERANCE = 0.001;
+
 /** Lines a box draws at most (a longer note wraps into more; the panel shows it all): the last one ends with "…". */
 export const MAX_BOX_LINES = 12;
 
@@ -233,7 +236,7 @@ function annotationLanes(track: Track, placed: readonly RowMeasure[], placement:
 function fitInLane(lane: PlacedBox[], box: PlacedBox, wanted: number, end: number): PlacedBox | undefined {
   const previous = lane.at(-1);
   const x = previous === undefined ? wanted : Math.max(wanted, previous.x + previous.width + ANNOTATION_BOX.gap);
-  if (x + box.width > end && previous !== undefined) {
+  if (x + box.width > end + ROW_END_TOLERANCE && previous !== undefined) {
     return undefined;
   }
   const fitted = { ...box, x };
