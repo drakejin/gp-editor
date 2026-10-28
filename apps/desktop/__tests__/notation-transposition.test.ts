@@ -16,16 +16,35 @@ function songOn(program: number | undefined, isPercussion = false): Song {
   return program === undefined ? song : { ...song, channels: [{ ...DEFAULT_CHANNEL, id: 1, program, isPercussion }] };
 }
 
-/** The y of every black notehead the notation row draws. */
-function noteheadYs(song: Song): { readonly ys: number[]; readonly top: number } {
+function engraveNotationRow(song: Song) {
   const track = song.tracks[0]!;
   const geometry = rowGeometry('notation', track.strings.length, { markLaneCount: 0, hasDynamics: false });
   const row = { measures: [layoutMeasure(song, 0, 0)] };
   const commands = engraveRow({ song, trackIndex: 0, row, headerWidth: rowHeaderWidth('notation', track), mode: 'notation', geometry, palette: PALETTE, markLanes: [] });
+  return { commands, top: geometry.notationTop ?? 0 };
+}
+
+/** The y of every black notehead the notation row draws. */
+function noteheadYs(song: Song): { readonly ys: number[]; readonly top: number } {
+  const { commands, top } = engraveNotationRow(song);
   const ys = texts(commands)
     .filter((command) => command.text === SMUFL.noteheadBlack)
     .map((command) => command.y);
-  return { ys, top: geometry.notationTop ?? 0 };
+  return { ys, top };
+}
+
+const CLEFS: readonly string[] = [SMUFL.gClef, SMUFL.gClef8vb, SMUFL.fClef, SMUFL.fClef8vb, SMUFL.cClef, SMUFL.cClef8vb];
+
+/** The clefs the notation row draws. */
+function clefsOf(song: Song): string[] {
+  return texts(engraveNotationRow(song).commands)
+    .map((command) => command.text)
+    .filter((text) => CLEFS.includes(text));
+}
+
+function withClef(song: Song, clef: 'treble' | 'bass' | 'alto'): Song {
+  const track = song.tracks[0]!;
+  return { ...song, tracks: [{ ...track, measures: track.measures.map((measure) => ({ ...measure, clef })) }] };
 }
 
 describe('trackTransposition', () => {
@@ -60,5 +79,19 @@ describe('notation: each instrument written as Guitar Pro writes it', () => {
 
     // Assert
     expect(ys).toEqual([positionY(top, 5)]);
+  });
+});
+
+describe('notation: the clef says how the track sounds', () => {
+  it('writes a guitar’s and a bass’s clefs with the 8 below: they sound an octave lower', () => {
+    expect(clefsOf(songOn(25))).toEqual([SMUFL.gClef8vb]);
+    expect(clefsOf(withClef(songOn(33), 'bass'))).toEqual([SMUFL.fClef8vb]);
+  });
+
+  it('writes a piano’s, a voice’s or a viola’s clef without it: they sound as written', () => {
+    expect(clefsOf(songOn(0))).toEqual([SMUFL.gClef]);
+    expect(clefsOf(withClef(songOn(0), 'bass'))).toEqual([SMUFL.fClef]);
+    expect(clefsOf(songOn(53))).toEqual([SMUFL.gClef]);
+    expect(clefsOf(withClef(songOn(41), 'alto'))).toEqual([SMUFL.cClef]);
   });
 });

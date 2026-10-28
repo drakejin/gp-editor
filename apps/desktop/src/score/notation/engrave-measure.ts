@@ -10,7 +10,7 @@ import { CLEF_CHANGE_SCALE, MUSIC_FONT_SIZE, positionY } from './metrics';
 import { type ClefKind, GUITAR_TRANSPOSITION, clefKind } from './pitch';
 import { emptyVoiceRest, measureRest } from './rests';
 import { voiceTint } from '../voices';
-import { CLEF_GLYPHS, barLines, staffLines, timeSignature } from './staff';
+import { barLines, clefGlyph, staffLines, timeSignature } from './staff';
 import type { NextBar } from './voice-layout';
 import { nextMeasureHeads } from './voice-placement';
 
@@ -56,7 +56,7 @@ function clefChangeCommands(
   if (x === undefined || context.isRowStart === true) {
     return [];
   }
-  const glyph = CLEF_GLYPHS[clef];
+  const glyph = clefGlyph(clef, transpositionOf(context));
   const y = positionY(context.top, glyph.position);
   return [
     {

@@ -88,7 +88,7 @@ function rowHeader(context: RowContext, track: Track, placed: readonly PlacedMea
   const commands: DrawCommand[] = [];
   if (geometry.notationTop !== undefined && first !== undefined) {
     commands.push(...staffLines(0, headerWidth, geometry.notationTop, palette.line));
-    commands.push(...engraveNotationRowHeader(track, first, geometry.notationTop, palette));
+    commands.push(...engraveNotationRowHeader(track, first, geometry.notationTop, palette, trackTransposition(context.song, context.trackIndex)));
   }
   if (geometry.tabTop !== undefined) {
     commands.push(...stringLines(headerWidth, geometry.tabTop, track.strings.length, palette.line));

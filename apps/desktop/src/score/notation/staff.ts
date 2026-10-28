@@ -29,6 +29,24 @@ export const CLEF_GLYPHS: Readonly<Record<ClefKind, ClefGlyph>> = {
   },
 };
 
+/** The clefs without the 8 below: a track written as it sounds (a piano, a voice, a violin …), not an octave above it. */
+const AT_PITCH_CLEFS: Readonly<Partial<Record<ClefKind, string>>> = {
+  treble: SMUFL.gClef,
+  bass: SMUFL.fClef,
+  alto: SMUFL.cClef,
+  tenor: SMUFL.cClef,
+};
+
+/**
+ * The clef a track's staff shows: with the 8 below when its notes are written above their sound (guitars, basses —
+ * `trackTransposition`), else the plain clef. Both are as wide, so the staff's layout is the same.
+ */
+export function clefGlyph(clef: ClefKind, transposition: number): ClefGlyph {
+  const glyph = CLEF_GLYPHS[clef];
+  const atPitch = AT_PITCH_CLEFS[clef];
+  return transposition > 0 || atPitch === undefined ? glyph : { ...glyph, text: atPitch };
+}
+
 const BAR = {
   width: 1,
   /** Thick repeat bar, as on the tab staff. */
