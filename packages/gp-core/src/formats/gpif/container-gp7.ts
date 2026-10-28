@@ -12,6 +12,8 @@ export const GP7_EFFECTS_ENTRY = 'Content/GPEditor/effects.json';
 /** The app's stylesheet and Design Mode layout (stylesheet/song-stylesheet.ts), our own entries: Guitar Pro ignores them. */
 export const GP7_STYLESHEET_ENTRY = 'Content/GPEditor/stylesheet.json';
 export const GP7_DESIGN_ENTRY = 'Content/GPEditor/layout.json';
+/** The musicians' annotations on the score (annotations/song-annotations.ts), our own entry: Guitar Pro ignores it. */
+export const GP7_ANNOTATIONS_ENTRY = 'Content/GPEditor/notes.json';
 /** Where Guitar Pro 8 keeps the audio track's file (`<Asset>`'s EmbeddedFilePath). */
 export const GP7_ASSETS_FOLDER = 'Content/Assets/';
 
@@ -27,6 +29,8 @@ export interface Gp7Container {
   /** Text of the app's stylesheet and Design Mode layout entries, if present. */
   readonly stylesheet?: string;
   readonly design?: string;
+  /** Text of the app's annotations entry, if present. */
+  readonly annotations?: string;
   /** Every entry's name (assets are only inflated when asked for). */
   readonly entryNames: ReadonlySet<string>;
   /** The entries under Content/Assets/, when asked for. */
@@ -39,7 +43,7 @@ export interface Gp7ContainerOptions {
 }
 
 /** The entries read besides the assets. */
-const READ_ENTRIES: ReadonlySet<string> = new Set([GP7_SCORE_ENTRY, GP7_VERSION_ENTRY, GP7_PART_CONFIGURATION_ENTRY, GP7_EFFECTS_ENTRY, GP7_STYLESHEET_ENTRY, GP7_DESIGN_ENTRY]);
+const READ_ENTRIES: ReadonlySet<string> = new Set([GP7_SCORE_ENTRY, GP7_VERSION_ENTRY, GP7_PART_CONFIGURATION_ENTRY, GP7_EFFECTS_ENTRY, GP7_STYLESHEET_ENTRY, GP7_DESIGN_ENTRY, GP7_ANNOTATIONS_ENTRY]);
 
 export function readGp7Container(bytes: Uint8Array, options: Gp7ContainerOptions = {}): Gp7Container {
   const entryNames = new Set<string>();
@@ -56,6 +60,7 @@ export function readGp7Container(bytes: Uint8Array, options: Gp7ContainerOptions
   const effects = entries[GP7_EFFECTS_ENTRY];
   const stylesheet = entries[GP7_STYLESHEET_ENTRY];
   const design = entries[GP7_DESIGN_ENTRY];
+  const annotations = entries[GP7_ANNOTATIONS_ENTRY];
   const assets = options.withAssets === true ? Object.fromEntries(Object.entries(entries).filter(([name]) => name.startsWith(GP7_ASSETS_FOLDER))) : undefined;
   return {
     score,
@@ -64,6 +69,7 @@ export function readGp7Container(bytes: Uint8Array, options: Gp7ContainerOptions
     ...(effects === undefined ? {} : { effects: decodeUtf8Lenient(effects) }),
     ...(stylesheet === undefined ? {} : { stylesheet: decodeUtf8Lenient(stylesheet) }),
     ...(design === undefined ? {} : { design: decodeUtf8Lenient(design) }),
+    ...(annotations === undefined ? {} : { annotations: decodeUtf8Lenient(annotations) }),
     entryNames,
     ...(assets === undefined ? {} : { assets }),
   };

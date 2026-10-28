@@ -265,10 +265,28 @@ describe('fragment marks', () => {
     expect(reparse(signed)).toEqual(signed);
   });
 
+  it('keeps a beat’s annotation, its text normalized as an edit stores it', () => {
+    // Arrange
+    const annotated = marked({ annotation: { text: 'Watch the bend\nsofter', placement: 'below' } });
+    const raw = rawOf(marked({}));
+
+    // Act
+    const loose = parseBeatFragment({ ...raw, items: [{ ...raw.items[0], annotation: { text: '\n  slow \r\n', placement: 'above' } }] });
+
+    // Assert
+    expect(reparse(annotated)).toEqual(annotated);
+    expect(loose?.items[0]?.annotation).toEqual({ text: '  slow', placement: 'above' });
+  });
+
   it.each([
     ['an unknown hairpin', { hairpin: 'swell' }],
     ['an unknown rasgueado', { rasgueado: 'ii_1' }],
     ['an unknown octave sign', { ottava: '22ma' }],
+    ['an annotation of no text', { annotation: { text: ' \n ', placement: 'above' } }],
+    ['an annotation whose text is no string', { annotation: { text: 7, placement: 'above' } }],
+    ['an annotation placed sideways', { annotation: { text: 'x', placement: 'left' } }],
+    ['an annotation that is no object', { annotation: 'x' }],
+    ['an annotation too long for an edit to keep', { annotation: { text: 'x'.repeat(5000), placement: 'above' } }],
   ])('rejects %s', (_label, extra) => {
     const raw = rawOf(marked({}));
     expect(parseBeatFragment({ ...raw, items: [{ ...raw.items[0], ...extra }] })).toBeUndefined();

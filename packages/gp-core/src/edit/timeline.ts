@@ -1,5 +1,5 @@
 import { type DurationTuplets, EMPTY_VOICE, MAX_VOICES, NO_STROKE, NO_TUPLETS, durationTicks, hasSameTuplets } from '../model/defaults';
-import type { Beat, Chord, Duration, Hairpin, Measure, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
+import type { Annotation, Beat, Chord, Duration, Hairpin, Measure, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
 import { restDurations } from './rests';
 
 /** The beat-level attributes an event keeps when it is the event that owns its beat. */
@@ -12,6 +12,8 @@ export interface BeatAttributes {
   readonly rasgueado?: RasgueadoPattern;
   /** Kept with the beat, but no mark of its own: a rest under an octave sign is still free time. */
   readonly ottava?: Ottava;
+  /** The musician's note on the beat: a rest that has one is no free time (the note would go with it). */
+  readonly annotation?: Annotation;
 }
 
 /** One event of a voice — notes or a rest — laid out after the previous event of the same voice. */
@@ -39,7 +41,7 @@ export function eventsTicks(events: VoiceEvents): number {
   return events.reduce((total, event) => total + eventTicks(event), 0);
 }
 
-/** True when the attributes mark the beat with something (text, chord, stroke, pick stroke). */
+/** True when the attributes mark the beat with something (text, chord, stroke, pick stroke, annotation …). */
 function hasBeatMarks(attributes: BeatAttributes | undefined): boolean {
   return (
     attributes !== undefined &&
@@ -48,7 +50,8 @@ function hasBeatMarks(attributes: BeatAttributes | undefined): boolean {
       attributes.stroke.direction !== 'none' ||
       attributes.pickStroke !== 'none' ||
       attributes.hairpin !== undefined ||
-      attributes.rasgueado !== undefined)
+      attributes.rasgueado !== undefined ||
+      attributes.annotation !== undefined)
   );
 }
 
@@ -98,6 +101,7 @@ function attributesOf(beat: Beat): BeatAttributes {
     ...(beat.hairpin === undefined ? {} : { hairpin: beat.hairpin }),
     ...(beat.rasgueado === undefined ? {} : { rasgueado: beat.rasgueado }),
     ...(beat.ottava === undefined ? {} : { ottava: beat.ottava }),
+    ...(beat.annotation === undefined ? {} : { annotation: beat.annotation }),
   };
 }
 
@@ -212,6 +216,7 @@ function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttri
   let hairpin: Hairpin | undefined;
   let rasgueado: RasgueadoPattern | undefined;
   let ottava: Ottava | undefined;
+  let annotation: Annotation | undefined;
   for (const event of events) {
     const attributes = event?.attributes;
     if (attributes !== undefined) {
@@ -223,14 +228,15 @@ function mergeAttributes(events: readonly (VoiceEvent | undefined)[]): BeatAttri
       hairpin ??= attributes.hairpin;
       rasgueado ??= attributes.rasgueado;
       ottava ??= attributes.ottava;
+      annotation ??= attributes.annotation;
     }
   }
-  return mergedAttributes(stroke ?? firstStroke ?? NO_STROKE, pickStroke, { chord, text, hairpin, rasgueado, ottava });
+  return mergedAttributes(stroke ?? firstStroke ?? NO_STROKE, pickStroke, { chord, text, hairpin, rasgueado, ottava, annotation });
 }
 
 /** The merged attributes with only the marks that are set. */
 function mergedAttributes(stroke: Stroke, pickStroke: StrokeDirection, marks: Omit<BeatAttributes, 'stroke' | 'pickStroke'>): BeatAttributes {
-  const { chord, text, hairpin, rasgueado, ottava } = marks;
+  const { chord, text, hairpin, rasgueado, ottava, annotation } = marks;
   return {
     stroke,
     pickStroke,
@@ -239,6 +245,7 @@ function mergedAttributes(stroke: Stroke, pickStroke: StrokeDirection, marks: Om
     ...(hairpin === undefined ? {} : { hairpin }),
     ...(rasgueado === undefined ? {} : { rasgueado }),
     ...(ottava === undefined ? {} : { ottava }),
+    ...(annotation === undefined ? {} : { annotation }),
   };
 }
 
@@ -253,7 +260,8 @@ function isSameBeat(beat: Beat, voices: readonly Voice[], attributes: BeatAttrib
     beat.text === attributes.text &&
     beat.hairpin === attributes.hairpin &&
     beat.rasgueado === attributes.rasgueado &&
-    beat.ottava === attributes.ottava
+    beat.ottava === attributes.ottava &&
+    beat.annotation === attributes.annotation
   );
 }
 
