@@ -111,6 +111,20 @@ describe('buildSongFromTranscription: drums', () => {
     expect(warnings).toEqual(['Bar 1: 1 note left out (more than 6 drums at once)', 'Bar 1: 1 note left out (no drum named)']);
   });
 
+  it('plays a drum named twice at one beat once, in one voice or across two', () => {
+    // Arrange
+    const hands = { track: 0, beats: [play('whole', drum('Closed Hi-Hat'), drum('Closed Hi-Hat'), drum('Acoustic Snare'))] };
+    const feet = { track: 0, beats: [play('whole', drum('Acoustic Snare'), drum('Bass Drum 1'))] };
+
+    // Act
+    const { song, warnings } = build([page([{ parts: [hands, feet] }], { tracks: [DRUMS] })]);
+
+    // Assert
+    expect(notesOf(song, 0, 0, 0)).toEqual([[[2, 42], [4, 38]]]);
+    expect(notesOf(song, 0, 0, 1)).toEqual([[[6, 36]]]);
+    expect(warnings).toEqual([]);
+  });
+
   it('reads back from GP5 as the same drum track', () => {
     // Arrange
     const { song } = build([soloPage(DRUMS, [play('quarter', drum('Bass Drum 1'), drum('Closed Hi-Hat')), play('quarter', drum('Acoustic Snare')), rest('half')])]);
@@ -146,6 +160,43 @@ describe('buildSongFromTranscription: vocals', () => {
     expect(channelOf(song, 0)?.program).toBe(52);
     expect(song.tracks[0]?.measures[0]?.clef).toBe('bass');
     expect(pitchesOf(song, 0)).toEqual([[48]]);
+  });
+
+  it.each([
+    ['a track the song does not have', 7, 'Lyrics: track 8 does not exist; sung on track 2 (Vocals)'],
+    ['the drum track', 2, 'Lyrics: track 3 (Drums) is a drum track; sung on track 2 (Vocals)'],
+  ])('sings the lyrics on the first vocal track when the page names %s, and says so', (_case, lyricsTrack, warning) => {
+    // Arrange
+    const measure = { parts: [{ track: 1, beats: [play('half', written('E4')), play('half', written('G4'))] }], lyrics: ['Hel-', 'lo'] };
+
+    // Act
+    const { song, warnings } = build([page([measure], { song: { lyricsTrack }, tracks: [GUITAR, VOCALS, DRUMS] })]);
+
+    // Assert
+    expect(song.tracks[1]?.lyrics).toEqual({ from: 1, text: 'Hel- lo' });
+    expect(warnings).toEqual([warning]);
+  });
+
+  it('sings the lyrics on the first track that is not drums when there is no vocal track', () => {
+    // Arrange
+    const measure = { parts: [{ track: 1, beats: [play('whole', tab(1, 0))] }], lyrics: ['Hey'] };
+
+    // Act
+    const { song, warnings } = build([page([measure], { tracks: [DRUMS, GUITAR] })]);
+
+    // Assert
+    expect(song.tracks[0]?.lyrics).toBeUndefined();
+    expect(song.tracks[1]?.lyrics).toEqual({ from: 1, text: 'Hey' });
+    expect(warnings).toEqual([]);
+  });
+
+  it('leaves the lyrics out, and says so, when every track is drums', () => {
+    // Act
+    const { song, warnings } = build([page([{ parts: [{ track: 0, beats: [play('whole', drum('Acoustic Snare'))] }], lyrics: ['Hey'] }], { tracks: [DRUMS] })]);
+
+    // Assert
+    expect(song.tracks[0]?.lyrics).toBeUndefined();
+    expect(warnings).toEqual(['Lyrics: left out (no track to sing them on)']);
   });
 
   it('sings the lyrics on the first vocal track when no page names the lyrics track', () => {

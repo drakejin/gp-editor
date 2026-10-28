@@ -2,7 +2,7 @@ import { CompositionError, TranscriptionError } from '../errors';
 import { FOUR_FOUR } from '../model/defaults';
 import type { TimeSignature } from '../model/song';
 import { isTimeSignature } from '../transcription/durations';
-import { parseTrack } from '../transcription/parse-page';
+import { parseTrack } from '../transcription/parse-track';
 import { type RawObject, isRawObject, toClampedInteger } from '../transcription/parse-values';
 import { MAX_TRANSCRIBED_KEY_ACCIDENTALS, type TranscribedTrack } from '../transcription/types';
 import {

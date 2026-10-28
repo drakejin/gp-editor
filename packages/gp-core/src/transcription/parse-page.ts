@@ -17,6 +17,7 @@ import {
   withoutUndefined,
 } from './parse-values';
 import { parsePitch } from './pitch';
+import { instrumentWarning, parseTrack } from './parse-track';
 import {
   MAX_TRANSCRIBED_ALTERNATE_ENDING,
   MAX_TRANSCRIBED_BEATS,
@@ -69,38 +70,25 @@ function parseSongInfo(value: unknown): TranscribedSongInfo | undefined {
   return Object.keys(info).length === 0 ? undefined : info;
 }
 
-function isOneOf<T extends string>(values: readonly T[], value: unknown): value is T {
-  return typeof value === 'string' && (values as readonly string[]).includes(value);
+interface ParsedTracks {
+  readonly tracks?: readonly TranscribedTrack[];
+  readonly warnings: readonly string[];
 }
 
-/**
- * A track; odd fields fall back (no name, a guitar, no tuning: standard, no capo, no program or clef: the instrument's)
- * since the builder can do without them.
- */
-export function parseTrack(value: unknown, path: string): TranscribedTrack {
-  const track = readObject(value, path);
-  const tuning = Array.isArray(track.tuning) ? track.tuning.map((entry: unknown) => (typeof entry === 'string' ? entry.trim() : String(entry))) : [];
-  const instrument: TranscribedInstrument = isOneOf(TRANSCRIBED_INSTRUMENTS, track.instrument) ? track.instrument : 'guitar';
-  const clef: TranscribedClef | undefined = isOneOf(TRANSCRIBED_CLEFS, track.clef) ? track.clef : undefined;
-  return withoutUndefined({
-    name: toText(track.name) ?? '',
-    instrument,
-    tuning,
-    capo: toClampedInteger(track.capo, 0, MAX_TRANSCRIBED_CAPO) ?? 0,
-    program: toClampedInteger(track.program, 0, MAX_TRANSCRIBED_PROGRAM),
-    clef,
-  });
-}
-
-function parseTracks(value: unknown): readonly TranscribedTrack[] | undefined {
+function parseTracks(value: unknown): ParsedTracks {
   if (value === undefined || value === null) {
-    return undefined;
+    return { warnings: [] };
   }
-  const tracks = readList(value, 'tracks');
-  if (tracks.length > MAX_TRANSCRIBED_TRACKS) {
-    throw new TranscriptionError(`tracks: ${tracks.length} tracks (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
+  const raw = readList(value, 'tracks');
+  if (raw.length > MAX_TRANSCRIBED_TRACKS) {
+    throw new TranscriptionError(`tracks: ${raw.length} tracks (a transcription holds at most ${MAX_TRANSCRIBED_TRACKS} tracks)`);
   }
-  return tracks.map((track, index) => parseTrack(track, `tracks[${index}]`));
+  const tracks = raw.map((track, index) => parseTrack(track, `tracks[${index}]`));
+  const warnings = tracks.flatMap((track, index) => {
+    const entry = raw[index];
+    return instrumentWarning(isRawObject(entry) ? entry.instrument : undefined, track, index) ?? [];
+  });
+  return { tracks, warnings };
 }
 
 /** Known effects in the order given, each once; anything else is left out. */
@@ -231,9 +219,9 @@ function parseWarnings(value: unknown): readonly string[] {
  */
 export function parseTranscriptionPage(value: unknown): TranscriptionPage {
   const page = readObject(value, 'page');
-  const tracks = parseTracks(page.tracks);
+  const { tracks, warnings: trackWarnings } = parseTracks(page.tracks);
   const trackCount = tracks !== undefined && tracks.length > 0 ? tracks.length : undefined;
   const measures = readList(page.measures, 'measures', MAX_TRANSCRIBED_MEASURES).map((measure, index) => parseMeasure(measure, `measures[${index}]`, trackCount));
-  const warnings = parseWarnings(page.warnings);
+  const warnings = [...parseWarnings(page.warnings), ...trackWarnings];
   return withoutUndefined({ song: parseSongInfo(page.song), tracks, measures, warnings: warnings.length === 0 ? undefined : warnings });
 }

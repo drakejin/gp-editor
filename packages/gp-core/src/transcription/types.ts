@@ -17,6 +17,12 @@ export const MAX_TRANSCRIBED_BEATS = 128;
 export const MAX_TRANSCRIBED_NOTES = 12;
 /** A sung syllable longer than this is cut. */
 export const MAX_TRANSCRIBED_SYLLABLE_LENGTH = 32;
+/** A track name longer than this is cut. */
+export const MAX_TRANSCRIBED_NAME_LENGTH = 64;
+/** More open strings than any instrument has; a longer tuning list is cut (and the builder then uses standard tuning). */
+export const MAX_TRANSCRIBED_TUNING_STRINGS = 12;
+/** A pitch's text ("C#-1", "Bb3"): an open string's text is cut to this. */
+export const MAX_TRANSCRIBED_PITCH_LENGTH = 8;
 
 /** Ranges of the contract: the tool's JSON schema states them and parseTranscriptionPage clamps to them. */
 export const MIN_TRANSCRIBED_TEMPO = 10;

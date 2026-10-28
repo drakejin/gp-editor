@@ -4,6 +4,8 @@ import { parseTranscriptionPage } from '../src/transcription/parse-page';
 import {
   MAX_TRANSCRIBED_BEATS,
   MAX_TRANSCRIBED_MEASURES,
+  MAX_TRANSCRIBED_NAME_LENGTH,
+  MAX_TRANSCRIBED_TUNING_STRINGS,
   MAX_TRANSCRIBED_NOTES,
   MAX_TRANSCRIBED_PARTS,
   MAX_TRANSCRIBED_TRACKS,
@@ -261,7 +263,7 @@ describe('parseTranscriptionPage: harmless values are normalized', () => {
 
     // Assert
     expect(parsed.tracks).toEqual([
-      { name: '', instrument: 'guitar', tuning: [], capo: 0 },
+      { name: '', instrument: 'other', tuning: [], capo: 0 },
       { name: 'Bass', instrument: 'bass', tuning: ['E1', '33', 'D2'], capo: 24 },
       { name: 'Capo', instrument: 'guitar', tuning: [], capo: 3 },
     ]);
@@ -427,5 +429,50 @@ describe('parseTranscriptionPage: every kind of staff', () => {
       { name: 'Drums', instrument: 'drums', tuning: [], capo: 0 },
       { name: 'Voice', instrument: 'vocals', tuning: [], capo: 0 },
     ]);
+  });
+});
+
+describe('parseTranscriptionPage: odd tracks', () => {
+  it('reads an instrument it does not know as the kind it names, else as other, and says so', () => {
+    // Act
+    const parsed = parseTranscriptionPage({
+      tracks: [
+        { name: 'Piano', instrument: 'piano' },
+        { name: 'Violin', instrument: 'Violin' },
+        { name: 'Lead', instrument: 'lead vocal' },
+        { name: 'Kit', instrument: 'drum kit' },
+        { name: 'Rhythm', instrument: 'electric guitar' },
+        { name: 'Uke', instrument: 'uke' },
+        { name: 'Low', instrument: 'BASS' },
+        { name: 'Missing' },
+      ],
+      measures: [],
+    });
+
+    // Assert
+    expect(parsed.tracks?.map((track) => track.instrument)).toEqual(['keys', 'other', 'vocals', 'drums', 'guitar', 'ukulele', 'bass', 'guitar']);
+    expect(parsed.warnings).toEqual([
+      'Track 1 (Piano): instrument "piano" read as keys',
+      'Track 2 (Violin): instrument "Violin" read as other',
+      'Track 3 (Lead): instrument "lead vocal" read as vocals',
+      'Track 4 (Kit): instrument "drum kit" read as drums',
+      'Track 5 (Rhythm): instrument "electric guitar" read as guitar',
+      'Track 6 (Uke): instrument "uke" read as ukulele',
+      'Track 7 (Low): instrument "BASS" read as bass',
+    ]);
+  });
+
+  it('cuts an endless tuning and an endless name, so an answer cannot make them allocate without bound', () => {
+    // Act
+    const parsed = parseTranscriptionPage({
+      tracks: [{ name: 'N'.repeat(10000), instrument: 'guitar', tuning: Array.from({ length: 10000 }, () => 'E2'.repeat(100)) }],
+      measures: [],
+    });
+
+    // Assert
+    const [track] = parsed.tracks ?? [];
+    expect(track?.name).toHaveLength(MAX_TRANSCRIBED_NAME_LENGTH);
+    expect(track?.tuning).toHaveLength(MAX_TRANSCRIBED_TUNING_STRINGS);
+    expect(track?.tuning.every((text) => text.length <= 8)).toBe(true);
   });
 });

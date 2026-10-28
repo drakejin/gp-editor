@@ -101,7 +101,7 @@ export function buildSongFromTranscription(pages: readonly TranscriptionPage[], 
   const sung = withLyrics(
     tracks.map((built) => built.track),
     measures,
-    resolveLyricsTrack(pages, plans.map((plan) => plan.instrument)),
+    resolveLyricsTrack(pages, plans),
   );
   const song: Song = {
     source: { format: 'gp5', version: GP5_VERSION },
