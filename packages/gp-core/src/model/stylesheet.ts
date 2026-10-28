@@ -99,7 +99,7 @@ export type TrackNameFormat = 'full' | 'short' | 'hidden';
 
 /** Systems & Staves: the room between systems, staves and tracks, bars per system and the multitrack system's names. */
 export interface SystemsStyle {
-  /** Points added under every system. */
+  /** Points added under every system; below 0, systems closer than the app's own spacing (to `STYLESHEET_LIMITS`' least). */
   readonly systemSpacing: number;
   /** Points added between a track's standard notation and its tablature. */
   readonly staffSpacing: number;
@@ -206,7 +206,8 @@ export const STYLESHEET_LIMITS = {
   /** Millimetres. */
   margin: { min: 0, max: 60 },
   pageSize: { min: 50, max: 1000 },
-  systemSpacing: { min: 0, max: 120 },
+  /** Below 0: into the room the app leaves under a system's last staff, none of which holds ink. */
+  systemSpacing: { min: -12, max: 120 },
   staffSpacing: { min: 0, max: 80 },
   trackSpacing: { min: 0, max: 120 },
   barsPerSystem: { min: 0, max: 32 },

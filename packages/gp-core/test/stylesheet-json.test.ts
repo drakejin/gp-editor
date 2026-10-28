@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { setBarWidthScale, setBeatOffset, setSystemBars } from '../src/edit/bar-design';
 import { setStylesheet } from '../src/edit/stylesheet';
 import { readSong } from '../src/read-song';
-import { DEFAULT_STYLESHEET, type Stylesheet } from '../src/model/stylesheet';
+import { DEFAULT_STYLESHEET, STYLESHEET_LIMITS, type Stylesheet } from '../src/model/stylesheet';
 import type { Song } from '../src/model/song';
 import { parseBarDesign, parseStylesheet } from '../src/stylesheet/stylesheet-json';
 import {
@@ -68,6 +68,20 @@ describe('parseStylesheet', () => {
     expect(sheet.texts).not.toHaveProperty('bogus');
     expect(sheet.lyrics).toBe('below');
     expect(sheet.barNumbers).toBe('systemStart');
+  });
+
+  it('keeps a system spacing below none, systems closer than the app sets them, down to its least', () => {
+    // Arrange
+    const closer = { systems: { systemSpacing: -8 } };
+    const tooClose = { systems: { systemSpacing: -50 } };
+
+    // Act
+    const [kept, clamped] = [parseStylesheet(closer), parseStylesheet(tooClose)];
+
+    // Assert
+    expect(kept.systems.systemSpacing).toBe(-8);
+    expect(clamped.systems.systemSpacing).toBe(STYLESHEET_LIMITS.systemSpacing.min);
+    expect(STYLESHEET_LIMITS.systemSpacing.min).toBe(-12);
   });
 
   it('cuts long font names and labels and strips control characters', () => {
