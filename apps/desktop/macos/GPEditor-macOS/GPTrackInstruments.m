@@ -2,8 +2,11 @@
 #import "GPAppStrings.h"
 
 #import <AudioToolbox/AudioToolbox.h>
+#import <os/log.h>
 
 static const UInt8 kPercussionChannel = 9;
+/** The GS standard drum kit (program 0): what a bank without the kit asked for plays. */
+static const UInt8 kStandardKit = 0;
 static const UInt8 kBankSelect = 0;
 static const UInt8 kAllNotesOff = 123;
 #define GP_MIDI_CHANNELS 16
@@ -220,20 +223,35 @@ static AVBeatRange WholeTrack(AVMusicTrack *track)
   return entry;
 }
 
-/** The program from the bank (drums from the percussion bank); a variation the bank lacks falls back to its base. */
+/**
+ * What to load for a program, best first, as { program, bank LSB }: a variation the bank lacks falls back to its base,
+ * a drum kit it lacks to the standard kit — what the shared synth plays for them.
+ */
+static NSArray<NSArray<NSNumber *> *> *LoadChoices(BOOL isPercussion, UInt8 program, UInt8 bank)
+{
+  if (isPercussion) {
+    return program == kStandardKit ? @[ @[ @(program), @0 ] ] : @[ @[ @(program), @0 ], @[ @(kStandardKit), @0 ] ];
+  }
+  return bank == 0 ? @[ @[ @(program), @0 ] ] : @[ @[ @(program), @(bank) ], @[ @(program), @0 ] ];
+}
+
+/** The program from the bank (drums from the percussion bank), or a fallback (LoadChoices); NO when it has none. */
 - (BOOL)loadProgram:(UInt8)program bank:(UInt8)bank bankURL:(NSURL *)bankURL into:(GPChannelSampler *)entry
 {
   BOOL isPercussion = entry.channel == kPercussionChannel;
   UInt8 msb = isPercussion ? kAUSampler_DefaultPercussionBankMSB : kAUSampler_DefaultMelodicBankMSB;
-  NSArray<NSNumber *> *lsbs = isPercussion || bank == 0 ? @[ @0 ] : @[ @(bank), @0 ];
-  for (NSNumber *lsb in lsbs) {
-    if ([entry.sampler loadSoundBankInstrumentAtURL:bankURL program:program bankMSB:msb bankLSB:lsb.unsignedCharValue error:nil]) {
+  for (NSArray<NSNumber *> *choice in LoadChoices(isPercussion, program, bank)) {
+    // An instrument the bank lacks: NO with an error pointer, an exception with nil (error -10851), which nothing on
+    // the player's queue catches — the app ended at the first play of such a track with effects.
+    NSError *error = nil;
+    if ([entry.sampler loadSoundBankInstrumentAtURL:bankURL program:choice[0].unsignedCharValue bankMSB:msb bankLSB:choice[1].unsignedCharValue error:&error]) {
       entry.program = program;
       entry.bank = bank;
       entry.bankURL = bankURL;
       return YES;
     }
   }
+  os_log(OS_LOG_DEFAULT, "GPTrackInstruments: the bank has no program %u (bank %u) for channel %u", program, bank, entry.channel);
   return NO;
 }
 
