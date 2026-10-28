@@ -88,7 +88,7 @@ describe('Systems & Staves', () => {
     const multi = layoutScore(styled(two, systems({ systemSpacing: 20 })), specs, DEFAULT_CHORD_DISPLAY, WIDTH);
 
     // Assert
-    expect(single.systemHeight).toBe(plain.systemHeight + 20);
+    expect(single.systems[0]?.height).toBe((plain.systems[0]?.height ?? 0) + 20);
     expect(multi.staves[1]?.height).toBe((multi.staves[1]?.geometry.height ?? 0) + SYSTEM.gap + 20);
     expect(multi.staves[0]?.height).toBe(multi.staves[0]?.geometry.height);
   });

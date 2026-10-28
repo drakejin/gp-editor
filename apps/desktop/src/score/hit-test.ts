@@ -10,10 +10,12 @@ export interface RowHit {
   readonly trackIndex?: number;
 }
 
-/** Where a track's staff sits in its system: from one system's staff to the next one's, and from the system's top. */
-export interface StaffPlacement {
-  readonly pitch: number;
-  readonly top: number;
+/** A track's staff in one system, for a drag: its bars placed, its geometry, and where its system and it start (from the score's top). */
+export interface DragRow {
+  readonly placed: readonly PlacedMeasure[];
+  readonly geometry: RowGeometry;
+  readonly systemTop: number;
+  readonly staffTop: number;
 }
 
 /**
@@ -31,24 +33,26 @@ export function hitTestRow(placed: readonly PlacedMeasure[], geometry: RowGeomet
 }
 
 /**
- * The beat under a drag that began in row `fromRow` of `rows`: `y` counts from that row's top and runs into the rows
- * below (or above, when negative); past the first or last row it stays on it, and beside a row on its ends. In a
- * multitrack score `rows` are one track's staves, `staff` where they sit in their systems: the drag stays on that track.
+ * The beat under a drag that began in row `fromRow` of `rows`: `y` counts from that row's staff top and runs into the
+ * systems below (or above, when negative) — a system reaches down to the next one's top —; past the first or last row
+ * it stays on it, and beside a row on its ends. In a multitrack score `rows` are one track's staves: the drag stays on
+ * that track.
  */
-export function hitTestDrag(
-  rows: readonly (readonly PlacedMeasure[])[], fromRow: number, geometry: RowGeometry, stringCount: number, x: number, y: number,
-  staff: StaffPlacement = { pitch: geometry.height, top: 0 },
-): RowHit | undefined {
-  const inSystem = y + staff.top;
-  const rowIndex = Math.min(rows.length - 1, Math.max(0, fromRow + Math.floor(inSystem / staff.pitch)));
+export function hitTestDrag(rows: readonly DragRow[], fromRow: number, stringCount: number, x: number, y: number): RowHit | undefined {
+  const from = rows[fromRow];
+  if (from === undefined) {
+    return undefined;
+  }
+  const scoreY = from.staffTop + y;
+  const rowIndex = Math.max(0, rows.findIndex((_, i) => scoreY < (rows[i + 1]?.systemTop ?? Infinity)));
   const row = rows[rowIndex];
-  const first = row?.[0];
-  const last = row?.at(-1);
+  const first = row?.placed[0];
+  const last = row?.placed.at(-1);
   if (row === undefined || first === undefined || last === undefined) {
     return undefined;
   }
   const inRowX = Math.min(last.x + last.layout.width - 1, Math.max(first.x, x));
-  return hitTestRow(row, geometry, stringCount, inRowX, inSystem - (rowIndex - fromRow) * staff.pitch - staff.top);
+  return hitTestRow(row.placed, row.geometry, stringCount, inRowX, scoreY - row.staffTop);
 }
 
 function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {

@@ -27,8 +27,8 @@ export interface StaffDecor {
 
 /** The decor of a staff in a system; undefined for a one-track score, which draws its rows as they always were. */
 export function staffDecor(song: Song, layout: ScoreLayout, systemIndex: number, staffIndex: number): StaffDecor | undefined {
-  const staff = layout.staves[staffIndex];
   const system = layout.systems[systemIndex];
+  const staff = system?.staves[staffIndex];
   const track = staff === undefined ? undefined : song.tracks[staff.trackIndex];
   if (layout.staves.length < 2 || staff === undefined || system === undefined || track === undefined) {
     return undefined;

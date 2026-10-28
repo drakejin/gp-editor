@@ -99,7 +99,7 @@ describe('packRows', () => {
     const rows = Array.from({ length: 10 }, (_, i) => i);
 
     // Act
-    const pages = packRows(rows, 100, 300, 0, 750);
+    const pages = packRows(rows, () => 100, 300, 0, 750);
 
     // Assert
     expect(pages).toEqual([
@@ -109,12 +109,23 @@ describe('packRows', () => {
   });
 
   it('starts a new page after every seven rows on the following pages', () => {
-    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), 100, 0, 0, 750);
+    const pages = packRows(Array.from({ length: 20 }, (_, i) => i), () => 100, 0, 0, 750);
     expect(pages.map((page) => page.length)).toEqual([7, 7, 6]);
   });
 
   it('returns one empty page when there are no rows', () => {
-    expect(packRows([], 100, 300, 0, 750)).toEqual([[]]);
+    expect(packRows([], () => 100, 300, 0, 750)).toEqual([[]]);
+  });
+
+  it('packs rows of different heights by their own heights', () => {
+    // Arrange: 300 pt under the first title, 750 pt on the others
+    const heights = [200, 100, 150, 400, 400, 300];
+
+    // Act
+    const pages = packRows(heights.map((_, i) => i), (i) => heights[i] ?? 0, 450, 0, 750);
+
+    // Assert
+    expect(pages).toEqual([[0, 1], [2, 3], [4, 5]]);
   });
 
   it('keeps a row that fills the room under the title block to the last bit on the first page', () => {
@@ -122,14 +133,14 @@ describe('packRows', () => {
     const rowHeight = 450.00000000000006;
 
     // Act
-    const pages = packRows(['a', 'b'], rowHeight, 300, 0, 750);
+    const pages = packRows(['a', 'b'], () => rowHeight, 300, 0, 750);
 
     // Assert
     expect(pages[0]).toEqual(['a']);
   });
 
   it('gives a row taller than the page a page of its own', () => {
-    expect(packRows(['a', 'b'], 900, 0, 0, 750)).toEqual([['a'], ['b']]);
+    expect(packRows(['a', 'b'], () => 900, 0, 0, 750)).toEqual([['a'], ['b']]);
   });
 });
 

@@ -44,7 +44,8 @@ describe('layoutScore with one track', () => {
     // Assert
     expect(layout.staves).toHaveLength(1);
     expect(layout.staves[0]).toMatchObject({ trackIndex: 1, mode, geometry, markLanes, top: 0, height: geometry.height });
-    expect(layout.systemHeight).toBe(geometry.height);
+    expect(layout.systems.every((system) => system.height === geometry.height && system.staves[0]?.geometry === layout.staves[0]?.geometry)).toBe(true);
+    expect(layout.systems.map((system) => system.top)).toEqual(layout.systems.map((_, i) => i * geometry.height));
     expect(layout.systems.map((system) => system.rows[0])).toEqual(layoutRows(measures, ROW_WIDTH - headerWidth));
     expect(layout.systems.every((system) => system.namesWidth === 0 && system.headerWidth === headerWidth)).toBe(true);
   });
@@ -67,7 +68,8 @@ describe('layoutScore with several tracks', () => {
     expect(second!.hasHeading).toBe(false);
     expect(first!.hasHeading).toBe(true);
     const staffSum = layout.staves.reduce((sum, staff) => sum + staff.geometry.height, 0);
-    expect(layout.systemHeight).toBe(staffSum + SYSTEM.gap);
+    expect(layout.systems[0]?.height).toBe(staffSum + SYSTEM.gap);
+    expect(layout.systems[1]?.staves.map((staff) => staff.top)).toEqual(layout.staves.map((staff) => staff.top));
     expect(layout.staves.at(-1)!.height).toBe(layout.staves.at(-1)!.geometry.height + SYSTEM.gap);
   });
 
@@ -95,6 +97,36 @@ describe('layoutScore with several tracks', () => {
     // Assert
     expect(layout.staves[0]!.geometry.notationTop).toBeUndefined();
     expect(layout.staves[1]!.geometry.tabTop).toBeUndefined();
+  });
+});
+
+describe('each system’s own staves', () => {
+  const song = readSong(readFixture('guitarpro5', 'nightwish.gp5'));
+  const specs = song.tracks.slice(0, 3).map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+  it('stacks every system one under the other, each as tall as its staves', () => {
+    // Act
+    const layout = layoutScore(song, specs, DEFAULT_CHORD_DISPLAY, ROW_WIDTH);
+
+    // Assert
+    layout.systems.forEach((system, i) => {
+      const before = layout.systems[i - 1];
+      expect(system.top).toBe(before === undefined ? 0 : before.top + before.height);
+      expect(system.height).toBe(system.staves.reduce((sum, staff) => sum + staff.height, 0));
+      expect(system.staves.map((staff) => staff.trackIndex)).toEqual(specs.map((spec) => spec.trackIndex));
+    });
+  });
+
+  it('gives equal bands one geometry object, in every system and every layout (the rows compare them by identity)', () => {
+    // Act
+    const first = layoutScore(song, specs, DEFAULT_CHORD_DISPLAY, ROW_WIDTH);
+    const again = layoutScore(song, specs, DEFAULT_CHORD_DISPLAY, ROW_WIDTH);
+
+    // Assert
+    again.systems.forEach((system, i) => system.staves.forEach((staff, k) => expect(staff.geometry).toBe(first.systems[i]?.staves[k]?.geometry)));
+    const bandsOf = (staff: { readonly bands: unknown } | undefined) => JSON.stringify(staff?.bands);
+    const pairs = first.systems.flatMap((a) => first.systems.map((b) => [a.staves[0], b.staves[0]] as const));
+    pairs.filter(([a, b]) => bandsOf(a) === bandsOf(b)).forEach(([a, b]) => expect(a?.geometry).toBe(b?.geometry));
   });
 });
 
