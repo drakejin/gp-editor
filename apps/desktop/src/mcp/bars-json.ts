@@ -75,6 +75,7 @@ function beatJson(beat: Beat, beatIndex: number, voiceIndex: number, header: Mea
     ...(notes.length === 0 ? { rest: true } : { notes }),
     ...(beat.text === undefined || beat.text === '' ? {} : { text: beat.text }),
     ...(beat.chord === undefined ? {} : { chord: beat.chord.name }),
+    ...(beat.annotation === undefined ? {} : { annotation: { text: beat.annotation.text, placement: beat.annotation.placement } }),
   };
 }
 
