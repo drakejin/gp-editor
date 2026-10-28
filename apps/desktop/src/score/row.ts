@@ -72,23 +72,29 @@ export function placeRow(row: RowLayout, headerWidth: number): PlacedMeasure[] {
   });
 }
 
-/** Everything drawn for one row of the score. */
+/** Everything drawn for one row of the score: its staves, then its annotations over them. */
 export function engraveRow(context: RowContext): DrawCommand[] {
+  return [...engraveRowStaves(context), ...engraveRowAnnotations(context)];
+}
+
+/** The row's staves and everything on them, without the annotations (a multitrack staff draws those after its decor). */
+export function engraveRowStaves(context: RowContext): DrawCommand[] {
   const track = context.song.tracks[context.trackIndex];
   if (track === undefined) {
     return [];
   }
   const placed = placeRow(context.row, context.headerWidth);
-  return [
-    ...rowHeader(context, track, placed),
-    ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0, placed[i + 1]?.layout)),
-    ...engraveRowAnnotations(context, track, placed),
-  ];
+  return [...rowHeader(context, track, placed), ...placed.flatMap((measure, i) => engraveMeasure(context, track, measure, i === 0, placed[i + 1]?.layout))];
 }
 
-/** The row's annotations in their bands over and under the staves (score/annotations.ts), over everything else drawn. */
-function engraveRowAnnotations(context: RowContext, track: Track, placed: readonly PlacedMeasure[]): DrawCommand[] {
+/** The row's annotations in their bands over and under the staves (score/annotations.ts), to be drawn over everything else. */
+export function engraveRowAnnotations(context: RowContext): DrawCommand[] {
+  const track = context.song.tracks[context.trackIndex];
   const { annotationsAboveBottom, annotationsBelowTop } = context.geometry;
+  if (track === undefined || (annotationsAboveBottom === undefined && annotationsBelowTop === undefined)) {
+    return [];
+  }
+  const placed = placeRow(context.row, context.headerWidth);
   const band = (placement: 'above' | 'below', edge: number | undefined) =>
     edge === undefined ? [] : engraveAnnotationBand({ track, placed, placement, edge, palette: context.palette });
   return [...band('above', annotationsAboveBottom), ...band('below', annotationsBelowTop)];

@@ -287,6 +287,9 @@ describe('annotation bands in the layout', () => {
     const decor = staffDecor(song, layout, systemIndex, 1)!;
     const commands = engraveSystemStaff({ song, trackIndex: 1, row: system.rows[1]!, headerWidth: layout.clefWidth, mode: 'tab', geometry: lower.geometry, palette: PALETTE, markLanes: lower.markLanes, hasHeading: false }, decor);
     expect(textValues(commands)).toContain('bass enters');
+    // Drawn after the bar lines that run through the system, so none crosses the box.
+    const lastLine = commands.map((command) => command.kind).lastIndexOf('line');
+    expect(commands.findIndex((command) => command.kind === 'text' && command.text === 'bass enters')).toBeGreaterThan(lastLine);
   });
 });
 
