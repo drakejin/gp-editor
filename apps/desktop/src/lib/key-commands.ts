@@ -5,6 +5,7 @@ import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
 import { type DigitEntry, nextFretEntry } from './fret-input';
+import type { ScoreZoom } from './score-zoom';
 
 /**
  * A panel for the note at the cursor that takes more than a toggle: vibrato width, the bend's curve, the tremolo bar's
@@ -27,6 +28,8 @@ export type KeyCommand =
   | { readonly type: 'togglePractice'; readonly practice: PracticeToggle }
   | { readonly type: 'goToBar'; readonly jump: BarJump }
   | { readonly type: 'zoom'; readonly direction: 1 | -1 }
+  /** ⌘0: back to 100 % (the zoom menu: a fit to the page). */
+  | { readonly type: 'zoomTo'; readonly zoom: ScoreZoom }
   | { readonly type: 'openNotePanel'; readonly panel: NotePanel }
   /** K: the chord diagram panel for the beat at the cursor. */
   | { readonly type: 'openChordPanel' }
@@ -97,6 +100,8 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: '=' },
   { key: '-', metaKey: true },
   { key: '=', metaKey: true },
+  { key: '+', metaKey: true, shiftKey: true },
+  { key: '0', metaKey: true },
   { key: '[', altKey: true },
   { key: ']', altKey: true },
   { key: '/', altKey: true },
@@ -195,8 +200,11 @@ function metaKeyCommand(key: string, shiftKey: boolean): KeyCommand | undefined 
   if (key.toLowerCase() === 'd' && !shiftKey) {
     return DELETE_COMMANDS.bars;
   }
-  if (key === '=' || key === '-') {
-    return { type: 'zoom', direction: key === '=' ? 1 : -1 };
+  if (key === '=' || key === '+' || key === '-') {
+    return { type: 'zoom', direction: key === '-' ? -1 : 1 };
+  }
+  if (key === '0') {
+    return { type: 'zoomTo', zoom: 1 };
   }
   if (isUpDown(key)) {
     return { type: 'moveCursorTrack', step: key === 'ArrowUp' ? -1 : 1 };
@@ -254,7 +262,7 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
  * a rest and remove a rest, D deletes the note (or the selected notes: the beats stay as rests), ⇧⌫ deletes the beat,
  * ⌘D the bar (or the selected bars), ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's tuplet), I inserts a
  * beat, Space plays,
- * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= zoom, ⌘C ⌘X ⌘V copy,
+ * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= (⌘+) ⌘0 zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste, ⌘1–⌘4 put the cursor on voice 1–4 and ⌥1–⌥4 move the note there.
  * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
  */

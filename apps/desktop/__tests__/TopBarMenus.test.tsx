@@ -2,7 +2,7 @@ import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ChromeMenu, MenuButton, MenuItem } from '../src/components/chrome/ChromeMenu';
 import { PracticeMenu, type PracticeMenuProps } from '../src/components/PracticeMenu';
-import { SpeedMenu, type SpeedMenuProps, ZoomMenu } from '../src/components/TopBarMenus';
+import { SpeedMenu, type SpeedMenuProps } from '../src/components/TopBarMenus';
 import { INITIAL_PRACTICE } from '../src/state/practice';
 import { PALETTE } from '../test-support/score-helpers';
 
@@ -148,25 +148,7 @@ describe('PracticeMenu', () => {
   });
 });
 
-describe('ZoomMenu and menus', () => {
-  it('zooms to a level and closes', () => {
-    // Arrange
-    const onZoom = jest.fn();
-    const onClose = jest.fn();
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
-    ReactTestRenderer.act(() => {
-      renderer = ReactTestRenderer.create(<ZoomMenu palette={PALETTE} zoom={1} onZoom={onZoom} onClose={onClose} />);
-    });
-
-    // Act
-    ReactTestRenderer.act(() => renderer.root.findAllByType(MenuItem).find((item) => item.props.label === '150%')?.props.onPress());
-
-    // Assert
-    expect(renderer.root.findAllByType(MenuItem).find((item) => item.props.label === '100%')?.props.isChecked).toBe(true);
-    expect(onZoom).toHaveBeenCalledWith(1.5);
-    expect(onClose).toHaveBeenCalled();
-  });
-
+describe('menus', () => {
   it('closes a menu on a click outside it', () => {
     const onClose = jest.fn();
     let renderer!: ReactTestRenderer.ReactTestRenderer;

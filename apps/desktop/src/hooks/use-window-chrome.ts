@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import type { ChromeMenuId } from '../components/TopBar';
 import type { NotePanel } from '../lib/key-commands';
-import { INITIAL_PANELS, type PanelId, type PanelLayout, type PanelVisibility, isFocused, toggleFocus, togglePanel } from '../state/panels';
+import type { ScoreZoom } from '../lib/score-zoom';
+import { INITIAL_PANELS, type PanelId, type PanelLayout, type PanelVisibility, isFocused, stepZoom, toggleFocus, togglePanel } from '../state/panels';
+import { changeScoreZoom } from '../state/settings-store';
+import { useAppSettings } from './use-app-settings';
 
 export interface OpenMenu {
   readonly id: ChromeMenuId;
@@ -16,8 +19,14 @@ export interface WindowChrome {
   /** View ▸ Focus: every panel hidden (the score and the top bar stay); toggleFocus again (Unfocus) restores them. */
   readonly isFocused: boolean;
   readonly toggleFocus: () => void;
-  readonly zoom: number;
-  readonly setZoom: (zoom: number) => void;
+  /** The score's zoom, kept as an app setting: a level, or a fit to the printed page. */
+  readonly zoom: ScoreZoom;
+  readonly setZoom: (zoom: ScoreZoom) => void;
+  /** What the score shows: the level, or what a fit comes to in the view (the score reports it, `showZoom`). */
+  readonly shownZoom: number;
+  readonly showZoom: (zoom: number) => void;
+  /** ⌘- / ⌘= and the top bar: a level down or up from the zoom shown. */
+  readonly stepZoom: (direction: 1 | -1) => void;
   readonly menu?: OpenMenu;
   readonly openMenu: (id: ChromeMenuId, x: number) => void;
   readonly closeMenu: () => void;
@@ -43,7 +52,12 @@ export interface WindowChrome {
 
 export function useWindowChrome(): WindowChrome {
   const [layout, setLayout] = useState<PanelLayout>({ panels: INITIAL_PANELS });
-  const [zoom, setZoom] = useState(1);
+  const zoom = useAppSettings().settings.scoreZoom;
+  const [fittedZoom, setFittedZoom] = useState(1);
+  const shownZoom = typeof zoom === 'number' ? zoom : fittedZoom;
+  const setZoom = useCallback((next: ScoreZoom) => {
+    void changeScoreZoom(next);
+  }, []);
   const [menu, setMenu] = useState<OpenMenu | undefined>(undefined);
   const [pickingTrackIndex, setPickingTrackIndex] = useState<number | undefined>(undefined);
   const [notePanel, setNotePanel] = useState<NotePanel | undefined>(undefined);
@@ -73,6 +87,9 @@ export function useWindowChrome(): WindowChrome {
     toggleFocus: useCallback(() => setLayout(toggleFocus), []),
     zoom,
     setZoom,
+    shownZoom,
+    showZoom: setFittedZoom,
+    stepZoom: useCallback((direction: 1 | -1) => setZoom(stepZoom(shownZoom, direction)), [setZoom, shownZoom]),
     menu,
     openMenu: useCallback((id: ChromeMenuId, x: number) => setMenu({ id, x }), []),
     closeMenu: useCallback(() => setMenu(undefined), []),

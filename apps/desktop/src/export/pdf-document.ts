@@ -158,7 +158,7 @@ export function printedPage(page: PageSetup, paper?: PaperId): PaperSize {
 }
 
 /** The stylesheet's margins (millimetres) in points. */
-function pageMargins(page: PageSetup): PageMarginPoints {
+export function pageMargins(page: PageSetup): PageMarginPoints {
   const { top, right, bottom, left } = page.margins;
   return { top: millimetresToPoints(top), right: millimetresToPoints(right), bottom: millimetresToPoints(bottom), left: millimetresToPoints(left) };
 }
@@ -185,20 +185,27 @@ function planPdf(song: Song, trackIndex: number, mode: ScoreMode, options: PdfOp
   return { song, title, paper, margins, hasFooter, titleBlock, layout, rowWidth, scale, bottom, pages };
 }
 
+/** Layouts made again at a smaller scale to fit the tallest system under the title block, before the last is only scaled. */
+const MAX_FIT_LAYOUTS = 3;
+
+const tallestSystem = (layout: ScoreLayout): number => Math.max(0, ...layout.systems.map((system) => system.height));
+
 /**
  * The printed layout at `printScale`; when its tallest system is taller than the `room` under the title block (many
- * tracks), the scale that fits it, laid out again across the wider row so that it still fills the printable width.
+ * tracks), the scale that fits it, laid out again across the wider row so that it still fills the printable width. A
+ * wider row gathers more bars, so a system may grow: the fit is checked again on the layout printed, and a layout still
+ * too tall after a few tries is printed smaller as it is (its rows a little short of the right margin).
  */
 function fittedLayout(song: Song, stacked: readonly ScoreStaff[], chordDisplay: ChordDisplay, page: { readonly printWidth: number; readonly printScale: number; readonly room: number }): { readonly layout: ScoreLayout; readonly scale: number } {
   const { printWidth, printScale, room } = page;
-  const layout = printedLayout(song, stacked, chordDisplay, printWidth / printScale);
-  const tallest = Math.max(0, ...layout.systems.map((system) => system.height));
-  const fit = tallest > 0 ? Math.min(1, room / (tallest * printScale)) : 1;
-  if (fit >= 1) {
-    return { layout, scale: printScale };
+  let scale = printScale;
+  let layout = printedLayout(song, stacked, chordDisplay, printWidth / scale);
+  for (let tries = 0; tries < MAX_FIT_LAYOUTS && tallestSystem(layout) * scale > room + FIT_TOLERANCE; tries += 1) {
+    scale = room / tallestSystem(layout);
+    layout = printedLayout(song, stacked, chordDisplay, printWidth / scale);
   }
-  const scale = printScale * fit;
-  return { layout: printedLayout(song, stacked, chordDisplay, printWidth / scale), scale };
+  const tallest = tallestSystem(layout);
+  return { layout, scale: tallest * scale > room + FIT_TOLERANCE ? room / tallest : scale };
 }
 
 /** One staff of a system as the screen engraves it (no cursor, nothing playing), in print colours, from the staff's top. */

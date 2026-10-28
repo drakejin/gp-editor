@@ -210,13 +210,17 @@ function engraveNotation(context: RowContext, scope: MeasureScope): DrawCommand[
   return engraveNotationMeasure({ track, header, measure, layout, previousMeasure, nextMeasure, nextInRow, isRowStart, top: notationTop, palette: context.palette, highlight, showsPickStrokes, isKeyboard, transposition, editedVoiceIndex, showsCommonTime });
 }
 
-/** Dynamics under the notation staff, clear of its notes, when it is shown; else in their band under the tab. */
+/**
+ * Dynamics under the notation staff, clear of its notes, when it is shown and no lyrics line runs between them; else in
+ * their band (under the lyrics, or under the tab).
+ */
 function engraveMeasureDynamics(context: RowContext, scope: MeasureScope, notation: readonly DrawCommand[] | undefined): DrawCommand[] {
-  const { dynamicsY, notationTop } = context.geometry;
+  const { dynamicsY, notationTop, lyricsY } = context.geometry;
   if (dynamicsY === undefined) {
     return [];
   }
-  const staff = notation === undefined || notationTop === undefined ? undefined : { commands: notation, bottomLine: notationTop + STAFF_HEIGHT };
+  const isUnderLyrics = lyricsY !== undefined && notationTop !== undefined && lyricsY > notationTop;
+  const staff = notation === undefined || notationTop === undefined || isUnderLyrics ? undefined : { commands: notation, bottomLine: notationTop + STAFF_HEIGHT };
   const { layout } = scope;
   return engraveDynamics({ measures: scope.track.measures, measureIndex: layout.measureIndex, layout, y: dynamicsY, palette: context.palette, staff });
 }

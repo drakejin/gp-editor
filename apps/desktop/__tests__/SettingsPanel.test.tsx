@@ -25,7 +25,7 @@ function render(snapshot: Partial<SettingsSnapshot> = {}) {
 
 describe('SettingsPanel', () => {
   it('lists the language, contrast and paper choices with the current ones lit', () => {
-    const panel = render({ settings: { language: 'ko', contrast: 'high', paper: 'system' } });
+    const panel = render({ settings: { language: 'ko', contrast: 'high', paper: 'system', scoreZoom: 1 } });
 
     const lit = panel.buttons().filter((button) => button.props.isActive).map((button) => button.props.label);
 

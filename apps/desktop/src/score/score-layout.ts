@@ -7,11 +7,13 @@ import { annotationRowBands, annotationTrackBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
 import { hasDirections } from './directions';
 import { hasDynamicChanges } from './dynamics';
-import { ROW, type RowBands, type RowGeometry, type ScoreMode, rowGeometry } from './geometry';
+import { ROW, type RowBands, type RowGeometry, type ScoreMode, rowGeometry, showsTab } from './geometry';
 import { hasFreeTexts, textBandHeights } from './free-text';
 import { hasLyrics } from './lyrics';
 import { hasPedals } from './pedals';
+import { NOTATION } from './notation';
 import { rowHeaderWidth } from './row';
+import { rowBands, rowMarkLanes } from './row-bands';
 import { hasBends } from './symbols/bends';
 import { textWidth } from './symbols/shapes';
 import { type TabMarkKind, tabMarkLanes } from './tab';
@@ -104,6 +106,11 @@ function staffBands(song: Song, track: Track, markLaneCount: number, isTop: bool
     hasFreeTexts: hasFreeTexts(measures),
     hasLyricsAbove: sheet.lyrics === 'above',
     staffSpacing: sheet.systems.staffSpacing,
+    // The whole track's room: each system's is as far as its own notes reach (`systemBands`).
+    notationAbove: NOTATION.above,
+    notationBelow: NOTATION.below,
+    tabAbove: 0,
+    tabBelow: 0,
     ...textBandHeights(sheet),
     ...annotationTrackBands(track),
   };
@@ -165,7 +172,8 @@ const GEOMETRIES = new Map<string, RowGeometry>();
 const MAX_GEOMETRIES = 512;
 
 function sharedGeometry(plan: StaffPlan): RowGeometry {
-  const key = JSON.stringify([plan.mode, plan.stringCount, plan.bands]);
+  // The bands are numbers and booleans: cheaper than JSON on every system of every layout.
+  const key = `${plan.mode} ${plan.stringCount} ${Object.entries(plan.bands).join()}`;
   const kept = GEOMETRIES.get(key);
   if (kept !== undefined) {
     return kept;
@@ -178,20 +186,20 @@ function sharedGeometry(plan: StaffPlan): RowGeometry {
   return geometry;
 }
 
-/** The bands a staff makes room for in one system, from that system's bars (`row`): the whole track's, and the room the system's own annotations need. */
-export function systemBands(song: Song, plan: StaffPlan, row: RowLayout): RowBands {
+/** The bands a staff makes room for in one system (`plan`: the track's staff), from that system's bars (`row`): what its bars hold, and the room its own annotations need. */
+export function systemBands(song: Song, plan: ScoreStaff, row: RowLayout): RowBands {
   const track = song.tracks[plan.trackIndex];
-  return track === undefined ? plan.bands : {
-    ...plan.bands,
-    ...annotationRowBands(track, row),
-  };
+  return track === undefined ? plan.bands : { ...plan.bands, ...rowBands(song, plan, row), ...annotationRowBands(track, row) };
 }
 
-/** A system's staves: the layout's plans with the bands of the system's bars, stacked as `stackStaves` stacks them. */
+/** A system's staves: the layout's plans with the bands and mark lanes of the system's bars, stacked as `stackStaves` stacks them. */
 function systemStaves(song: Song, staves: readonly ScoreStaff[], rows: readonly RowLayout[]): ScoreStaff[] {
   const plans = staves.map((staff, staffIndex): StaffPlan => {
-    const { trackIndex, mode, stringCount, markLanes } = staff;
-    return { trackIndex, mode, stringCount, markLanes, bands: systemBands(song, staff, rows[staffIndex] ?? { measures: [] }) };
+    const { trackIndex, mode, stringCount } = staff;
+    const row = rows[staffIndex] ?? { measures: [] };
+    const track = song.tracks[trackIndex];
+    const markLanes = track === undefined || !showsTab(mode) ? staff.markLanes : rowMarkLanes(track, row);
+    return { trackIndex, mode, stringCount, markLanes, bands: systemBands(song, staff, row) };
   });
   return stackStaves(plans, stylesheetOf(song).systems.systemSpacing);
 }

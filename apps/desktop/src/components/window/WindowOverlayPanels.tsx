@@ -1,3 +1,4 @@
+import { stylesheetOf } from '@gp-editor/core';
 import { commandStateOf } from '../../hooks/use-command-palette';
 import type { WindowModel } from '../../hooks/use-window';
 import { commandActionsOf } from '../../hooks/use-window-commands';
@@ -15,7 +16,8 @@ import { SettingsPanel } from '../settings/SettingsPanel';
 import { ShortcutSheet } from '../ShortcutSheet';
 import { SongWriterPanel } from '../song-writer/SongWriterPanel';
 import { TOP_BAR_HEIGHT } from '../TopBar';
-import { SpeedMenu, ZoomMenu } from '../TopBarMenus';
+import { SpeedMenu } from '../TopBarMenus';
+import { ZoomMenu } from '../ZoomMenu';
 import { TrackInfoPanel } from '../track-info/TrackInfoPanel';
 import { TrackManagerOverlays } from '../TrackManagerOverlays';
 import { TunerPanel } from '../tuner/TunerPanel';
@@ -55,15 +57,25 @@ export function MenuOverlays({ model }: WindowPartProps) {
 }
 
 function TopBarMenu({ model }: WindowPartProps) {
-  const { base, media, topBar } = model;
-  const { palette, chrome } = base;
+  const { base, media, topBar, tools } = model;
+  const { palette, chrome, state, dispatch } = base;
   const { practice, changePractice } = media.playback;
   if (chrome.menu === undefined) {
     return null;
   }
   return (
     <ChromeMenu palette={palette} x={chrome.menu.x} top={TOP_BAR_HEIGHT} windowWidth={base.windowWidth} onClose={chrome.closeMenu}>
-      {chrome.menu.id === 'zoom' ? <ZoomMenu palette={palette} zoom={chrome.zoom} onZoom={chrome.setZoom} onClose={chrome.closeMenu} /> : null}
+      {chrome.menu.id === 'zoom' ? (
+        <ZoomMenu
+          palette={palette}
+          zoom={chrome.zoom}
+          onZoom={chrome.setZoom}
+          stylesheet={state.document === undefined ? undefined : stylesheetOf(state.document.song)}
+          onChangeStylesheet={(stylesheet) => dispatch({ type: 'setStylesheet', stylesheet })}
+          onOpenStylesheet={tools.scoreDesign.openStylesheet}
+          onClose={chrome.closeMenu}
+        />
+      ) : null}
       {chrome.menu.id === 'speed' ? (
         <SpeedMenu
           palette={palette}

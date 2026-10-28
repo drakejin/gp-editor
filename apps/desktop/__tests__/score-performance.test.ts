@@ -48,6 +48,8 @@ describe('multitrack score performance', () => {
     const started = Date.now();
     const layout = layoutScore(multi, specs, DEFAULT_CHORD_DISPLAY, 1100);
     const laidOut = Date.now();
+    layoutScore(multi, specs, DEFAULT_CHORD_DISPLAY, 1300);
+    const laidOutAgain = Date.now();
     const counts = layout.systems.flatMap((system, systemIndex) =>
       layout.staves.map((staff, staffIndex) => {
         const context = {
@@ -59,9 +61,11 @@ describe('multitrack score performance', () => {
     );
     const engraved = Date.now();
 
-    // Assert: the layout of all bars is quick (the app engraves only the staves in view)
-    expect(laidOut - started).toBeLessThan(BUDGET_MS / 3);
-    expect(engraved - laidOut).toBeLessThan(BUDGET_MS * 2);
+    // Assert: the first layout measures each bar's ink once (row-bands.ts), about one engraving of the score; again at
+    // another width (a zoom, a resize) it is quick — the app engraves only the staves in view
+    expect(laidOut - started).toBeLessThan(BUDGET_MS * 2);
+    expect(laidOutAgain - laidOut).toBeLessThan(BUDGET_MS / 3);
+    expect(engraved - laidOutAgain).toBeLessThan(BUDGET_MS * 2);
     expect(counts.every((count) => count > 0)).toBe(true);
   });
 });

@@ -84,7 +84,8 @@ function rowHandles(props: ScoreRowProps, height: number): DesignHandle[] {
   }
   const namesWidth = decor?.namesWidth ?? 0;
   const { song, trackIndex, row, geometry, headerWidth } = props;
-  return designHandles({ song, trackIndex, row, barsX: headerWidth + namesWidth, namesWidth, geometry, height, isTop: design.isTop, isLast: design.isLast, headingHeight: ROW.heading });
+  const headingHeight = geometry.headingHeight ?? ROW.heading;
+  return designHandles({ song, trackIndex, row, barsX: headerWidth + namesWidth, namesWidth, geometry, height, isTop: design.isTop, isLast: design.isLast, headingHeight });
 }
 
 interface RowPointer {

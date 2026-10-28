@@ -2,7 +2,7 @@ import type { Track } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
 import { TAB } from '../lib/layout';
 import { diagramHeight } from './chord-diagram';
-import { NOTATION, STAFF_HEIGHT, notationBandHeight } from './notation';
+import { NOTATION, STAFF_HEIGHT } from './notation';
 import { TAB_MARKS, tabStringY } from './symbols/tab-geometry';
 
 /** What the score shows: standard notation and tab (default), notation only, or tab only. */
@@ -49,8 +49,12 @@ export function toggleStaff(mode: ScoreMode, staff: Staff): ScoreMode {
 export const ROW = {
   /** Measure numbers, markers, tempo and alternate endings. */
   heading: 34,
+  /** The heading of a row showing no tempo, triplet feel, ending or repeat count: its bar number and markers. */
+  headingCompact: 16,
   /** Effect marks above the tab staff. */
   marks: 16,
+  /** Above the tab staff of a row without effect marks: its top string's frets clear of what is above. */
+  marksEmpty: 10,
   /** Bend arrows and their amounts, between the marks and the tab staff (tip, highest stack and label: 28 above the top string). */
   bends: 26,
   /** Under the tab staff when rhythm is drawn there (tab-only mode). */
@@ -83,6 +87,8 @@ export const ROW = {
 
 /** Y positions inside a row; undefined when the band is not shown in the mode. */
 export interface RowGeometry {
+  /** The heading band's height (bar numbers, markers, tempo, endings), or the room over a staff under another's. */
+  readonly headingHeight?: number;
   /** Baseline of the direction signs; only when the song has directions (`hasDirections`). */
   readonly directionsY?: number;
   /** Centre of the free texts line; only when a beat of the track has a text (`hasFreeTexts`). */
@@ -149,6 +155,12 @@ export interface RowBands {
   readonly hasLyricsAbove: boolean;
   /** Room added between the notation staff and the tab staff (the stylesheet's staff spacing). */
   readonly staffSpacing: number;
+  /** The notation's room above its top line and below its bottom line: the row's ink and a little (`row-bands.ts`). */
+  readonly notationAbove: number;
+  readonly notationBelow: number;
+  /** The tab's ink above its top string and below its bottom one, and a little: the room over and under it is at least this. */
+  readonly tabAbove: number;
+  readonly tabBelow: number;
   /** The text lines' heights, for the stylesheet's font sizes: lyrics, chord names, free texts. */
   readonly lyricsHeight: number;
   readonly chordNamesHeight: number;
@@ -171,6 +183,10 @@ const PLAIN_ROW: RowBands = {
   hasFreeTexts: false,
   hasLyricsAbove: false,
   staffSpacing: 0,
+  notationAbove: NOTATION.above,
+  notationBelow: NOTATION.below,
+  tabAbove: 0,
+  tabBelow: 0,
   lyricsHeight: ROW.lyrics,
   chordNamesHeight: ROW.chordNames,
   freeTextHeight: ROW.freeText,
@@ -195,7 +211,7 @@ function chordBand(top: number, bands: RowBands): ChordBand {
 }
 
 /** The bands over the staves: directions, free texts, chords and (above the staves) lyrics; `bottom` is where the staves' room starts. */
-function topBands(bands: RowBands): Pick<RowGeometry, 'directionsY' | 'freeTextY' | 'chordNamesY' | 'chordDiagramsTop' | 'lyricsY'> & { readonly bottom: number } {
+function topBands(bands: RowBands): Pick<RowGeometry, 'headingHeight' | 'directionsY' | 'freeTextY' | 'chordNamesY' | 'chordDiagramsTop' | 'lyricsY'> & { readonly bottom: number } {
   const { hasDirections, headingHeight, hasFreeTexts, freeTextHeight, hasLyrics, hasLyricsAbove, lyricsHeight } = bands;
   const directionsY = hasDirections ? headingHeight + ROW.directionsBaseline : undefined;
   const textTop = headingHeight + (hasDirections ? ROW.directions : 0);
@@ -203,7 +219,7 @@ function topBands(bands: RowBands): Pick<RowGeometry, 'directionsY' | 'freeTextY
   const { bottom: chordsBottom, ...chords } = chordBand(textTop + (hasFreeTexts ? freeTextHeight : 0), bands);
   const isAbove = hasLyrics && hasLyricsAbove;
   return {
-    ...chords, directionsY, ...(freeTextY === undefined ? {} : { freeTextY }),
+    headingHeight, ...chords, directionsY, ...(freeTextY === undefined ? {} : { freeTextY }),
     ...(isAbove ? { lyricsY: chordsBottom + lyricsHeight / 2 } : {}), bottom: chordsBottom + (isAbove ? lyricsHeight : 0),
   };
 }
@@ -212,7 +228,7 @@ function topBands(bands: RowBands): Pick<RowGeometry, 'directionsY' | 'freeTextY
 function annotatedTopBands(bands: RowBands): ReturnType<typeof topBands> & Pick<RowGeometry, 'annotationsAboveBottom'> {
   const { headingHeight, annotationsAbove } = bands;
   const top = topBands({ ...bands, headingHeight: headingHeight + annotationsAbove });
-  return annotationsAbove > 0 ? { ...top, annotationsAboveBottom: headingHeight + annotationsAbove } : top;
+  return annotationsAbove > 0 ? { ...top, headingHeight, annotationsAboveBottom: headingHeight + annotationsAbove } : top;
 }
 
 /** The annotations' band under the staves' last band (from `y`), then the gap: the row's height. */
@@ -232,8 +248,8 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Parti
   let dynamicsY: number | undefined;
   let pedalsY: number | undefined;
   if (showsNotation(mode)) {
-    notationTop = y + NOTATION.above;
-    y += notationBandHeight();
+    notationTop = y + bands.notationAbove;
+    y += bands.notationAbove + STAFF_HEIGHT + bands.notationBelow;
     if (hasLyricsBelow) {
       lyricsY = y + lyricsHeight / 2;
       y += lyricsHeight;
@@ -251,11 +267,14 @@ export function rowGeometry(mode: ScoreMode, stringCount: number, partial: Parti
     return { ...top, notationTop, lyricsY, dynamicsY, pedalsY, ...rowBottom(y, bands) };
   }
   y += notationTop === undefined ? 0 : bands.staffSpacing;
-  const marksBand = ROW.marks + Math.max(0, markLaneCount - 1) * TAB_MARKS.laneHeight;
+  const marksBand = markLaneCount === 0 ? ROW.marksEmpty : ROW.marks + (markLaneCount - 1) * TAB_MARKS.laneHeight;
+  const overTab = marksBand + (hasBends ? ROW.bends : 0);
+  // What reaches higher than the marks and bends (a hammer-on's arc and its H) gets room above them.
+  y += Math.max(0, bands.tabAbove - overTab);
   // marksY is the centre of the lowest lane; further lanes stack upwards from it.
   const marksY = y + marksBand - ROW.marks / 2;
-  const tabTop = y + marksBand + (hasBends ? ROW.bends : 0);
-  y = tabTop + Math.max(0, stringCount - 1) * TAB.stringGap + (mode === 'tab' ? ROW.rhythm : ROW.tabBottom);
+  const tabTop = y + overTab;
+  y = tabTop + Math.max(0, stringCount - 1) * TAB.stringGap + Math.max(mode === 'tab' ? ROW.rhythm : ROW.tabBottom, bands.tabBelow);
   if (hasLyricsBelow && lyricsY === undefined) {
     lyricsY = y + lyricsHeight / 2;
     y += lyricsHeight;

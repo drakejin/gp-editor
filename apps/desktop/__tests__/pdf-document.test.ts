@@ -2,7 +2,7 @@ import { DYNAMICS, type DynamicName, QUARTER, type Song, readSong } from '@gp-ed
 import { PAGE, PAPER_SIZES, PRINT_PALETTE, PRINT_SCALE } from '../src/export/paper';
 import { buildPdfDocument, exportStaves, packRows, pdfFileName, pdfPageCount, pdfTitle } from '../src/export/pdf-document';
 import { type DrawCommand, SMUFL, type TextCommand } from '../src/score/draw';
-import { ROW, SCORE_MODES, type ScoreMode } from '../src/score/geometry';
+import { SCORE_MODES, type ScoreMode } from '../src/score/geometry';
 import { DYNAMIC_GLYPHS } from '../src/score/symbols/smufl';
 import { readFixture } from '../test-support/fixtures';
 import { textValues } from '../test-support/score-helpers';
@@ -298,19 +298,6 @@ describe('buildPdfDocument', () => {
     expect(textValues(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages.flatMap((page) => page.commands))).not.toContain(DYNAMIC_GLYPHS.p.text);
   });
 
-  it('keeps one row height on every page when only one bar changes dynamic, the band reserved in each row', () => {
-    // Arrange
-    const quiet = withDynamicFrom(song, 29, 1, 'p');
-
-    // Act
-    const plainPitches = rowPitches(buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-    const quietPitches = rowPitches(buildPdfDocument(quiet, 0, 'notationAndTab', { paper: 'a4' }).pages[1]!);
-
-    // Assert
-    expect(new Set(quietPitches).size).toBe(1);
-    expect(quietPitches[0]! - plainPitches[0]!).toBeCloseTo(ROW.dynamics * PRINT_SCALE);
-  });
-
   it('prints the chord names and diagrams the screen shows, and leaves out those it hides', () => {
     // Arrange: an Am chord on bar 2's first beat.
     const [track] = song.tracks;
@@ -327,7 +314,8 @@ describe('buildPdfDocument', () => {
     // Assert
     expect(textValues(both.pages[0]!.commands)).toContain('Am');
     expect(textValues(hidden.pages[0]!.commands)).not.toContain('Am');
-    expect(rowPitches(both.pages[1]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[1]!)[0]!);
+    // The row holding the chord (the first) makes room for it.
+    expect(rowPitches(both.pages[0]!)[0]!).toBeGreaterThan(rowPitches(hidden.pages[0]!)[0]!);
     expect(buildPdfDocument(chorded, 0, 'tab', { paper: 'a4' })).toEqual(both);
   });
 
@@ -382,6 +370,25 @@ describe('buildPdfDocument with several tracks (the multitrack view)', () => {
     const firstPageLines = pdf.pages[0]?.commands.filter((c) => c.kind === 'line') ?? [];
     expect(firstPageLines.length).toBeGreaterThan(20);
     expect(pdfPageCount(song, 0, 'notationAndTab', { paper: 'a4', staves: mixed })).toBe(pdf.pages.length);
+  });
+
+  it('prints a system made smaller to fit under the title on the first page however the wider rows group the bars', () => {
+    // Arrange: six tracks with a band every few bars (palm muting, a bend, let ring, a quieter dynamic), so a system
+    // laid out across a wider row (to fill the page once printed smaller) gathers more bands than before
+    const quiet = DYNAMICS.find((entry) => entry.name === 'pp')?.velocity ?? 0;
+    const effects = [{ palmMute: true }, {}, { bend: { points: [{ position: 0, value: 0 }, { position: 6, value: 4 }] } }, {}, { letRing: true }, {}, {}, {}];
+    const bars = Array.from({ length: 48 }, (_, i) =>
+      Array.from({ length: 4 }, (__, b) => beat(toTux(header(i + 1).start) + b * QUARTER_TICKS, [{ ...note(1 + (b % 3), 5, effects[i % 8]), velocity: i % 8 === 6 ? quiet : 95 }])),
+    );
+    const one = makeSong(bars);
+    const song = Array.from({ length: 5 }).reduce<Song>((each) => withTrack(each, bars), one);
+    const all = song.tracks.map((_, trackIndex) => ({ trackIndex, mode: 'notationAndTab' as const }));
+
+    // Act
+    const pdf = buildPdfDocument(song, 0, 'notationAndTab', { paper: 'a4', staves: all });
+
+    // Assert: staff lines under the title of the first page
+    expect(pdf.pages[0]?.commands.filter((c) => c.kind === 'line').length ?? 0).toBeGreaterThan(20);
   });
 
   it('keeps a system taller than the page inside it', () => {

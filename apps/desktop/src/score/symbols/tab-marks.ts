@@ -47,7 +47,7 @@ export type TabMarkKind =
 type NoteMarkKind = Exclude<TabMarkKind, 'pickStroke'>;
 
 /** Lane order, nearest the staff first; pick strokes go outermost, like bowing marks. */
-const KIND_ORDER: readonly TabMarkKind[] = [
+export const TAB_MARK_KINDS: readonly TabMarkKind[] = [
   'labels',
   'vibrato',
   'trill',
@@ -125,7 +125,7 @@ function beatHas(beat: Beat | undefined, kind: TabMarkKind): boolean {
 
 /** The kinds of marks in `measures`, in lane order: pass a row's measures to keep each kind at one height across the row. */
 export function tabMarkLanes(measures: readonly Measure[]): TabMarkKind[] {
-  return KIND_ORDER.filter(kind =>
+  return TAB_MARK_KINDS.filter(kind =>
     measures.some(measure => measure.beats.some(beat => beatHas(beat, kind))),
   );
 }

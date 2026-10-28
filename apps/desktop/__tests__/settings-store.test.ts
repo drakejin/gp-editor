@@ -51,7 +51,7 @@ describe('settings store', () => {
     unsubscribe();
 
     expect(i18n.currentLanguage()).toBe('en');
-    expect(JSON.parse(mockNative.save.mock.calls[0]?.[0] ?? '{}')).toEqual({ language: 'en', contrast: 'standard', paper: 'system' });
+    expect(JSON.parse(mockNative.save.mock.calls[0]?.[0] ?? '{}')).toEqual({ language: 'en', contrast: 'standard', paper: 'system', scoreZoom: 1 });
     expect(heard).toHaveBeenCalled();
   });
 
@@ -61,6 +61,53 @@ describe('settings store', () => {
     await store.changeSettings({ language: 'ko' });
 
     expect(store.currentSettings().needsRestart).toBe(true);
+  });
+
+  it('keeps the score’s zoom without applying the language again', async () => {
+    // Act
+    await store.changeScoreZoom(0.5);
+
+    // Assert
+    expect(store.currentSettings().settings.scoreZoom).toBe(0.5);
+    expect(JSON.parse(mockNative.save.mock.calls.at(-1)?.[0] ?? '{}')).toMatchObject({ scoreZoom: 0.5 });
+    expect(mockNative.applyLanguage).not.toHaveBeenCalled();
+  });
+
+  it('does not write the defaults over stored settings it could not read when the zoom changes', async () => {
+    // Arrange: a store of its own, whose load fails
+    let fresh!: typeof store;
+    jest.isolateModules(() => {
+      fresh = require('../src/state/settings-store') as typeof store;
+    });
+    mockNative.load.mockRejectedValueOnce(new Error('unreadable'));
+    await fresh.loadSettings();
+
+    // Act
+    await fresh.changeScoreZoom(0.5);
+
+    // Assert: shown, not kept
+    expect(fresh.currentSettings().settings.scoreZoom).toBe(0.5);
+    expect(mockNative.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps the restart notice when the zoom changes while the language is being applied', async () => {
+    // Arrange: no restart waiting, then the menus answer late
+    await store.changeSettings({ language: 'en' });
+    expect(store.currentSettings().needsRestart).toBe(false);
+    let answer!: (value: unknown) => void;
+    mockNative.applyLanguage.mockReturnValueOnce(new Promise((resolve) => {
+      answer = resolve;
+    }));
+
+    // Act
+    const changing = store.changeSettings({ language: 'ko' });
+    await store.changeScoreZoom(0.75);
+    answer({ needsRestart: true });
+    await changing;
+
+    // Assert
+    expect(store.currentSettings().needsRestart).toBe(true);
+    expect(store.currentSettings().settings).toMatchObject({ language: 'ko', scoreZoom: 0.75 });
   });
 
   it('shows why the settings could not be kept', async () => {

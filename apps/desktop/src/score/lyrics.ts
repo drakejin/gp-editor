@@ -39,6 +39,31 @@ export function measureSyllables(track: Track, measureIndex: number): readonly P
   });
 }
 
+/** The bars of each track's lyrics that have a syllable to show, kept per track (an edit makes a new track). */
+const SUNG_BARS = new WeakMap<Track, ReadonlySet<number>>();
+
+/** The indexes of the track's bars with a syllable to show (as `measureSyllables` places them), in one pass. */
+export function barsWithSyllables(track: Track): ReadonlySet<number> {
+  const kept = SUNG_BARS.get(track);
+  if (kept !== undefined) {
+    return kept;
+  }
+  const lyrics = track.lyrics;
+  const tokens = lyrics === undefined ? [] : lyricsSyllables(lyrics.text);
+  const firstIndex = Math.max(0, (lyrics?.from ?? 1) - 1);
+  const bars = new Set<number>();
+  let sung = 0;
+  for (let measureIndex = firstIndex; measureIndex < track.measures.length && sung < tokens.length; measureIndex += 1) {
+    const beats = sungBeats(track.measures[measureIndex]).length;
+    if (tokens.slice(sung, sung + beats).some((token) => token.trim() !== '')) {
+      bars.add(measureIndex);
+    }
+    sung += beats;
+  }
+  SUNG_BARS.set(track, bars);
+  return bars;
+}
+
 export interface LyricsInput {
   readonly track: Track;
   readonly layout: MeasureLayout;

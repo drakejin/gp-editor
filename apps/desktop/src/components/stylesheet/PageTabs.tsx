@@ -5,7 +5,10 @@ import {
   pageFormatName,
   pageSummary,
   percentText,
+  spacingText,
   stepNumber,
+  stepScale,
+  stepSpacing,
   textElementName,
   withHeaderShown,
   withMargin,
@@ -34,7 +37,6 @@ const nameFormats = (t: Translate): readonly (readonly [TrackNameFormat, string]
 
 /** A custom page's size steps by 5 mm. */
 const PAGE_SIZE_STEP = 5;
-const SPACING_STEP = 2;
 
 /** Page & Score Format: the page (PDF, PNG and Print), its margins, the score's scale and note spacing. */
 export function PageTab({ palette, sheet, onChange }: StylesheetTabProps) {
@@ -73,23 +75,19 @@ export function PageTab({ palette, sheet, onChange }: StylesheetTabProps) {
       </ControlRow>
       <ControlRow>
         <ControlLabel palette={palette} text={t('stylesheet.page.sizes')} />
-        <Stepper palette={palette} label={t('stylesheet.page.scale')} value={percentText(sheet.scale)} onStep={(delta) => onChange({ ...sheet, scale: stepNumber(sheet.scale, delta, 0.05, STYLESHEET_LIMITS.scale) })} />
+        <Stepper palette={palette} label={t('stylesheet.page.scale')} value={percentText(sheet.scale)} onStep={(delta) => onChange(stepScale(sheet, delta))} />
         <Stepper palette={palette} label={t('stylesheet.page.noteSpacing')} value={sheet.noteSpacing.toFixed(1)} onStep={(delta) => onChange({ ...sheet, noteSpacing: stepNumber(sheet.noteSpacing, delta, 0.1, STYLESHEET_LIMITS.noteSpacing) })} />
       </ControlRow>
     </>
   );
 }
 
-/** "+ 12 pt" of room added to the app's own. */
-const spacingText = (value: number): string => `+${value} pt`;
-
 /** Systems & Staves: the room between systems, tracks and staves, bars per system, the multitrack system's names and bar lines. */
 export function SystemsTab({ palette, sheet, onChange }: StylesheetTabProps) {
   const t = useT();
   const { systems } = sheet;
   const names = nameFormats(t);
-  const spacing = (key: 'systemSpacing' | 'trackSpacing' | 'staffSpacing') => (delta: -1 | 1) =>
-    onChange(withSystems(sheet, { [key]: stepNumber(systems[key], delta, SPACING_STEP, STYLESHEET_LIMITS[key], 1) }));
+  const spacing = (key: 'systemSpacing' | 'trackSpacing' | 'staffSpacing') => (delta: -1 | 1) => onChange(stepSpacing(sheet, key, delta));
   return (
     <>
       <ControlRow>

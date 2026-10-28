@@ -40,8 +40,8 @@ export function toggleFocus(layout: PanelLayout): PanelLayout {
   return layout.unfocusedPanels === undefined ? { panels: FOCUSED_PANELS, unfocusedPanels: layout.panels } : { panels: layout.unfocusedPanels };
 }
 
-/** Score zoom levels of the zoom menu and −/+ (⌘- / ⌘=). */
-export const ZOOM_LEVELS: readonly number[] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+/** Score zoom levels of the zoom menu and −/+ (⌘- / ⌘=): out to a quarter (four times the systems), in to four times. */
+export const ZOOM_LEVELS: readonly number[] = [0.25, 0.33, 0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 3, 4];
 
 /** The zoom one level up or down; a zoom between levels moves to the nearest level in that direction. */
 export function stepZoom(zoom: number, direction: 1 | -1): number {

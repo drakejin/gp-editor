@@ -8,7 +8,7 @@ import {
   setStylesheet,
   setSystemBars,
 } from '@gp-editor/core';
-import { buildPdfDocument } from '../src/export/pdf-document';
+import { buildPdfDocument, pdfPageCount } from '../src/export/pdf-document';
 import { engraveTitleBlock } from '../src/export/title-block';
 import { layoutMeasure } from '../src/lib/layout';
 import { DEFAULT_CHORD_DISPLAY } from '../src/score/chords';
@@ -137,6 +137,27 @@ describe('Systems & Staves', () => {
 
     // Act / Assert
     expect(lines(styled(two, systems({ showsBarlinesAcrossSystem: false })))).toBeLessThan(lines(two));
+  });
+});
+
+describe('the printed page follows how dense the stylesheet makes the score', () => {
+  const canon = readSong(readFixture('guitarpro5', 'canon.gp5'));
+  const pages = (song: Song) => pdfPageCount(song, 0, 'notationAndTab', { paper: 'a4' });
+
+  it('prints fewer pages at a smaller scale', () => {
+    expect(pages(styled(canon, (sheet) => ({ ...sheet, scale: 0.7 })))).toBeLessThan(pages(canon));
+  });
+
+  it('brings the systems closer with less room between them than the app’s own, on the screen and the page', () => {
+    // Arrange
+    const closer = styled(canon, systems({ systemSpacing: -12 }));
+
+    // Act
+    const [before, after] = [canon, closer].map((song) => layoutScore(song, [{ trackIndex: 0, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, WIDTH));
+
+    // Assert
+    after?.systems.forEach((system, i) => expect(system.height).toBe((before?.systems[i]?.height ?? 0) - 12));
+    expect(pages(closer)).toBeLessThan(pages(canon));
   });
 });
 
