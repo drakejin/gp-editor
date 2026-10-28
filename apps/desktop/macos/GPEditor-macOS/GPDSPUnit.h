@@ -1,6 +1,7 @@
-// An in-process Audio Unit (AUAudioUnit subclass, registered with the process only) running one GPDSPKernels kernel,
-// so chorus, drive and cabinet sit in an AVAudioEngine graph like Apple's own effects — in real time and in manual
-// (offline) rendering alike. Parameters are plain setters, not an AUParameterTree: only this app drives them.
+// An in-process Audio Unit (AUAudioUnit subclass, registered with the process only, sandbox-safe) running one
+// GPDSPKernels kernel, so chorus, drive and cabinet sit in an AVAudioEngine graph like Apple's own effects — in real
+// time and in manual (offline) rendering alike. Parameters are plain setters, not an AUParameterTree: only this app
+// drives them.
 
 #import <AVFoundation/AVFoundation.h>
 

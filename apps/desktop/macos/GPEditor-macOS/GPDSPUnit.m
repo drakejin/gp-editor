@@ -28,9 +28,15 @@ typedef struct {
   BOOL _isBypassed;
 }
 
+/**
+ * Registered sandbox-safe: the App Sandbox opens no audio unit without kAudioComponentFlag_SandboxSafe, our own
+ * in-process one neither (AudioComponentInstanceNew answers -3000, invalidComponentID, which AVAudioUnitEffect's
+ * initializer raises — the shipped app ended at the first drive, chorus or cabinet). Lookups compare flags only under a
+ * componentFlagsMask, 0 here.
+ */
 static AudioComponentDescription DescriptionOfKind(GPDSPKind kind)
 {
-  AudioComponentDescription description = {kAudioUnitType_Effect, kSubTypes[kind], kManufacturer, 0, 0};
+  AudioComponentDescription description = {kAudioUnitType_Effect, kSubTypes[kind], kManufacturer, kAudioComponentFlag_SandboxSafe, 0};
   return description;
 }
 
