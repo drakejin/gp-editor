@@ -44,7 +44,8 @@ export interface SongsterrSearch {
 }
 
 interface SearchQueue {
-  readonly run: (text: string) => void;
+  /** Searches `text`; `isFresh` asks Songsterr even for a remembered search (Search, ↩). */
+  readonly run: (text: string, isFresh?: boolean) => void;
   /** Forgets what is out and waiting (the panel closed): an answer that comes later is not shown. */
   readonly drop: () => void;
 }
@@ -58,20 +59,17 @@ function remember(searches: ReadonlyMap<string, SongsterrStatus>, query: string,
 
 /**
  * Searches one at a time — Songsterr is asked again only once its last answer is in: a search asked meanwhile waits
- * (only the latest), and the answer it replaces is not shown. Found songs are remembered; a failure is not retried.
+ * (only the latest). An answer is shown only while its query is the one wanted (not after the field changed, a
+ * remembered search was shown or the panel closed). Found songs are remembered for typing; a failure is not retried.
  */
 function useSearchQueue(transport: () => SongsterrTransport, show: (status: SongsterrStatus) => void): SearchQueue {
-  const queue = useRef<{
-    isAsking: boolean;
-    waiting?: string;
-    remembered: ReadonlyMap<string, SongsterrStatus>;
-    generation: number;
-  }>({ isAsking: false, remembered: new Map(), generation: 0 });
+  const queue = useRef<{ isAsking: boolean; waiting?: string; wanted?: string; remembered: ReadonlyMap<string, SongsterrStatus> }>({ isAsking: false, remembered: new Map() });
   const run = useCallback(
-    (text: string): void => {
+    (text: string, isFresh = false): void => {
       const query = normalizeQuery(text);
       const state = queue.current;
-      const remembered = state.remembered.get(searchKey(query));
+      const remembered = isFresh ? undefined : state.remembered.get(searchKey(query));
+      state.wanted = searchKey(query);
       if (query === '' || remembered !== undefined) {
         state.waiting = undefined;
         show(remembered ?? { kind: 'idle' });
@@ -83,8 +81,7 @@ function useSearchQueue(transport: () => SongsterrTransport, show: (status: Song
         return;
       }
       state.isAsking = true;
-      const { generation } = state;
-      void searchSongsterr(query, transport()).then((outcome) => {
+      const answered = (outcome: SearchOutcome) => {
         const after = queue.current;
         const { waiting } = after;
         after.isAsking = false;
@@ -93,16 +90,17 @@ function useSearchQueue(transport: () => SongsterrTransport, show: (status: Song
           after.remembered = remember(after.remembered, query, outcome);
         }
         if (waiting !== undefined && waiting !== query) {
-          run(waiting);
-        } else if (outcome.kind !== 'blank' && (generation === after.generation || waiting === query)) {
+          run(waiting, true);
+        } else if (outcome.kind !== 'blank' && after.wanted === searchKey(query)) {
           show(outcome);
         }
-      });
+      };
+      searchSongsterr(query, transport()).then(answered, () => answered({ kind: 'failed', query, failure: { reason: 'unexpected' } }));
     },
     [transport, show],
   );
   const drop = useCallback(() => {
-    queue.current.generation += 1;
+    queue.current.wanted = undefined;
     queue.current.waiting = undefined;
   }, []);
   return useMemo(() => ({ run, drop }), [run, drop]);
@@ -202,7 +200,7 @@ function usePanelControls(latest: RefObject<Latest>, queue: SearchQueue, debounc
   );
   const searchNow = useCallback(() => {
     debounced.cancel();
-    queue.run(latest.current.query);
+    queue.run(latest.current.query, true);
   }, [latest, debounced, queue]);
   return { isOpen, query, open, close, changeQuery, searchNow };
 }
@@ -210,7 +208,8 @@ function usePanelControls(latest: RefObject<Latest>, queue: SearchQueue, debounc
 export function useSongsterr({ song, onClosed, transport = fetchSongsterr, openPage = openSongsterrPage }: SongsterrSearchOptions): SongsterrSearch {
   const [status, setStatus] = useState<SongsterrStatus>({ kind: 'idle' });
   const latest = useRef<Latest>({ song, onClosed, transport, openPage, query: '', isOpen: false, isMounted: true });
-  latest.current = { ...latest.current, song, onClosed, transport, openPage };
+  // One object for the hook's life (its isMounted is what the cleanup sets), its props the latest render's.
+  Object.assign(latest.current, { song, onClosed, transport, openPage });
   const queue = useSearchQueue(
     useCallback(() => latest.current.transport, []),
     setStatus,

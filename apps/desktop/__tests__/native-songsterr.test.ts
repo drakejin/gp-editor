@@ -44,6 +44,17 @@ describe('fetchSongsterr (macOS)', () => {
     await expect(fetchSongsterr('http://www.songsterr.com/api/songs', new AbortController().signal)).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('asks Songsterr’s search only, never a song’s or a tab’s page', async () => {
+    // Arrange
+    const fetch = jest.fn();
+    (globalThis as { fetch?: unknown }).fetch = fetch;
+
+    // Act / Assert
+    await expect(fetchSongsterr('https://www.songsterr.com/a/wa/song?id=1', new AbortController().signal)).rejects.toThrow();
+    await expect(fetchSongsterr('https://www.songsterr.com/api/songs/../a/wsa/x', new AbortController().signal)).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe('openSongsterrPage (macOS)', () => {

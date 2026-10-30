@@ -6,16 +6,21 @@ import { Linking } from 'react-native';
 import type { SongsterrHttpAnswer } from '../songsterr/songsterr-search';
 import { SONGSTERR_ORIGIN } from '../songsterr/songsterr-urls';
 
-/** True for a page of Songsterr's site, the only one these functions reach. */
+/** True for a page of Songsterr's site, the only site these functions reach. */
 function isSongsterrUrl(url: string): boolean {
   return url.startsWith(`${SONGSTERR_ORIGIN}/`);
 }
 
+/** True for Songsterr's search (never a song's or a tab's page: the app only searches and links). */
+function isSearchUrl(url: string): boolean {
+  return url.startsWith(`${SONGSTERR_ORIGIN}/api/songs?`);
+}
+
 /** GETs a Songsterr search URL without cookies; resolves with any HTTP status, rejects when no answer came. */
 export async function fetchSongsterr(url: string, signal: AbortSignal): Promise<SongsterrHttpAnswer> {
-  if (!isSongsterrUrl(url)) {
+  if (!isSearchUrl(url)) {
     // i18n-exempt: a programming error (the URLs come from songsterr-urls.ts)
-    throw new Error('Not a Songsterr address');
+    throw new Error('Not a Songsterr search address');
   }
   const response = await fetch(url, {
     headers: { Accept: 'application/json' },
