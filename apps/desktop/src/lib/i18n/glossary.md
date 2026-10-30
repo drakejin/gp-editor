@@ -168,6 +168,17 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | PDF import, project | PDF 가져오기, 프로젝트 | |
 | API key, model | API 키, 모델 | |
 
+## Online tools (온라인 도구)
+
+| English | 한국어 | note |
+| --- | --- | --- |
+| online tools (the palette's group), Online (the Tools menu's submenu) | 온라인 도구, 온라인 | |
+| search, search results | 검색, 검색 결과 | `Songsterr Search…` = `Songsterr 검색…` |
+| tabs (a song's tablature on a site) | 타브 악보 | `Songsterr`, `songsterr.com` stay |
+| AI Compose (the palette's button) | AI 작곡 | its panel's menu item: `여기부터 작곡…` |
+| terms (of service) | 이용 약관 | |
+| (open) in the browser | 브라우저에서 (열기) | |
+
 ## MCP server (MCP 서버)
 
 | English | 한국어 | note |

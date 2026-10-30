@@ -21,7 +21,8 @@ plus a small Rust side. The macOS build is untouched (Metro never resolves `.web
 - Shim: TextInput calls `onKeyDown` and lets unkept keys bubble (react-native-web stops them: the command palette's
   ↑ ↓ ↩ and Esc in a panel's field depend on it); a pressable's role stays an attribute (no nested `<button>`).
 - Rust (`src-tauri/src/lib.rs`, `src/commands/`): files, settings, Anthropic key + streamed requests (600 s idle,
-  1 h in all, the answer's media type), sound banks, PDF import projects (GPProjects.m's path checks), system fonts;
+  1 h in all, the answer's media type), Songsterr's search and its pages in the default browser (WebView2's fetch cannot
+  read Songsterr's answer: no CORS headers; written without a Rust toolchain, first compiled by the Windows CI), sound banks, PDF import projects (GPProjects.m's path checks), system fonts;
   single-instance and dialog plugins. `tauri.conf.json` (GeneralUser GS bundled, file associations incl. MusicXML,
   NSIS + MSI), `capabilities/default.json`.
 - Texts of the Windows side in the catalogues (`window.menu.*`, `window.windows.*`, English and Korean).
