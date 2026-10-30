@@ -8,6 +8,7 @@ import { type CommandPalette, type TransposePanel, useCommandPalette, useTranspo
 import { type DraftPreview, useDraftPreview } from './use-draft-preview';
 import { type DrumKey, useDrumKey } from './use-drum-key';
 import { type AnnotationEditor, useAnnotationEditor } from './use-annotation-editor';
+import { type Compose, useCompose } from './use-compose';
 import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
 import { type ScalesTool, useScales } from './use-scales';
 import { type ScoreDesign, useScoreDesign } from './use-score-design';
@@ -24,6 +25,8 @@ export interface WindowTools {
   readonly draftPreview: DraftPreview;
   /** Edit ▸ AI Wizard ▸ Song Writer…. */
   readonly songWriter: SongWriter;
+  /** Edit ▸ AI Wizard ▸ Compose from Here… (the palette's AI Compose): Claude writes bars of the shown score. */
+  readonly compose: Compose;
   /** Tools ▸ Scales… (beside the score, in the inspector's place). */
   readonly scales: ScalesTool;
   /** The open score as the Song Writer's reference (its first bars with notes as text). */
@@ -115,6 +118,7 @@ export function useWindowTools(base: WindowBase): WindowTools {
   const song = state.document?.song;
   const draftPreview = useDraftPreview(song, state.cursor);
   const songWriter = useWindowSongWriter(base);
+  const compose = useCompose({ workspace, dispatch });
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, state.trackIndex)), [song, state.trackIndex]);
   const panels = useWindowPanels(base);
   const audio = useAudioTools(song, state.trackIndex, chrome.togglePanel);
@@ -126,5 +130,5 @@ export function useWindowTools(base: WindowBase): WindowTools {
     trackInfo.close();
   };
   const trackManager = useTrackManager({ song, shownTrackIndex: state.trackIndex, tabId: workspace.activeTabId, dispatch, onClosed: focusScore, onTracksRemapped: followTracks });
-  return { draftPreview, songWriter, reference, ...panels, audio, trackManager, trackInfo };
+  return { draftPreview, songWriter, compose, reference, ...panels, audio, trackManager, trackInfo };
 }

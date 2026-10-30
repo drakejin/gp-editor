@@ -18,6 +18,7 @@ interface Sources {
   readonly onZoomTo: jest.Mock;
   readonly onNotePanel: jest.Mock;
   readonly onChordPanel: jest.Mock;
+  readonly onComposePanel: jest.Mock;
   readonly start: jest.Mock;
   readonly stop: jest.Mock;
   readonly closeOverlay: jest.Mock;
@@ -49,6 +50,7 @@ function renderCommands(
     onZoomTo: jest.fn(),
     onNotePanel: jest.fn(),
     onChordPanel: jest.fn(),
+    onComposePanel: jest.fn(),
     start: jest.fn(),
     stop: jest.fn(),
     closeOverlay: jest.fn(() => isOverlayOpen),
@@ -134,6 +136,13 @@ describe('useEditorCommands: note panels, playback tempo and the clipboard', () 
     const { commands, sources } = renderCommands(openSong());
     commands.onKeyDown({ nativeEvent: { key: 'k', metaKey: false, shiftKey: false, altKey: false } } as never);
     expect(sources.onChordPanel).toHaveBeenCalledTimes(1);
+    expect(sources.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('opens the compose panel for the palette’s AI Compose and Edit ▸ AI Wizard ▸ Compose from Here…', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.runCommand({ type: 'openComposePanel' });
+    expect(sources.onComposePanel).toHaveBeenCalledTimes(1);
     expect(sources.dispatch).not.toHaveBeenCalled();
   });
 

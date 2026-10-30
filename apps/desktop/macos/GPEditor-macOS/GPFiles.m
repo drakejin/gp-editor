@@ -112,6 +112,7 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       // The score's notes (D) or bars (⌘D) deleted (EditMenu.swift: not while a text field has the keyboard).
       GPEditorDeleteCommandNotification : GPEvent(@"deleteRequested", GPDeleteBody),
       GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
+      GPEditorComposeCommandNotification : GPEvent(@"composeRequested", GPNoBody),
       GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
       GPEditorAnnotationCommandNotification : GPEvent(@"annotationRequested", GPNoBody),
       GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),

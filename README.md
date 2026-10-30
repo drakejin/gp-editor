@@ -347,6 +347,17 @@ Guitar Pro's own files differently are listed, with that evidence, in
   information, and the hint strip sums it up (with anything that went wrong — a section that could not be written
   becomes rests). It uses the PDF import's Anthropic key and model (Claude Opus 5.5 by default, Sonnet 5 for
   faster, cheaper songs); the panel can save a key too. The draft is kept when the panel closes.
+- **Compose from Here** (Edit ▸ AI Wizard ▸ Compose from Here…, the command palette): Claude writes the next bars of
+  the open score from your words. The panel starts at the cursor's bar (step it, type it, or start after the last bar);
+  choose the current track or all tracks, whether Claude may add tracks (a drum track, a bass line …), as many bars as
+  the music needs or at most a number, and write the request freely — rhythm, melody, feel. Claude reads the whole
+  score (every track and bar written out as compact text: meter, tempo, key, sections and repeats, notes as
+  string/fret, pitches or drums, effects, chords, lyrics; past ~40,000 characters the bars around the start are
+  written out and the rest summarised) and the instruments, then writes bars from the start bar: they replace those
+  bars in the tracks it writes, bars past the end are added to every track, new tracks rest where they do not play;
+  other tracks and the existing bars' meter, tempo and key stay. The whole result is one undo step, and the panel
+  shows what was written (bars, bars added, tracks added, notes, warnings, tokens). It uses the PDF import's key and
+  model.
 - **Lyrics**: a track's lyrics (from a Guitar Pro file or the Song Writer) show under its notation staff, else under
   the tab — one syllable under each beat that has notes, as Guitar Pro places them.
 - **Lyrics editor** (Edit ▸ Lyrics…): a panel above the score — pick the track and the bar the lyrics start at, and type

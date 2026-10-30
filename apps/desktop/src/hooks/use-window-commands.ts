@@ -41,6 +41,7 @@ export function useWindowCommands({ base, media, files, tools, overlays, cursorT
     onChordPanel: cursorTools.openChordPanel,
     onAnnotationPanel: tools.openAnnotations,
     onLyricsPanel: tools.openLyrics,
+    onComposePanel: tools.compose.open,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
     closeOverlay: overlays.closeOverlay,
     isOverlayOpen: overlays.isOverlayOpen,

@@ -135,6 +135,10 @@ struct GPEditorApp: App {
             Button(strings("Song Writer…")) {
               NotificationCenter.default.post(name: .GPEditorSongWriterCommand, object: nil)
             }
+            // Claude writes bars of the shown score from the cursor's bar (the palette's AI Compose).
+            Button(strings("Compose from Here…")) {
+              NotificationCenter.default.post(name: .GPEditorComposeCommand, object: nil)
+            }
           }
         }
       }

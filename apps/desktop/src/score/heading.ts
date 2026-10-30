@@ -81,9 +81,14 @@ export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, pal
   return commands;
 }
 
-function endings(mask: number, width: number, palette: Palette): DrawCommand[] {
+/** The alternate endings (1–8) a bar's repeatAlternative mask holds, in order. */
+export function endingNumbers(mask: number): readonly number[] {
   // eslint-disable-next-line no-bitwise -- the repeat endings of a bar are a bit mask (bit 0 = ending 1)
-  const numbers = Array.from({ length: 8 }, (_, bit) => bit).filter((bit) => (mask & (1 << bit)) !== 0).map((bit) => bit + 1);
+  return Array.from({ length: 8 }, (_, bit) => bit).filter((bit) => (mask & (1 << bit)) !== 0).map((bit) => bit + 1);
+}
+
+function endings(mask: number, width: number, palette: Palette): DrawCommand[] {
+  const numbers = endingNumbers(mask);
   if (numbers.length === 0) {
     return [];
   }
