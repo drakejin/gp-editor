@@ -129,6 +129,8 @@ const toolsRows = (): readonly Command[] => [
     keywords: ['chord', 'dynamic', 'key', 'signature', 'octave', '8va', 'clef', 'direction', 'coda', 'type', '>'],
   }),
   appRow('tools.instrument', 'tools', (a) => a.pickInstrument(), { when: 'pitched', keywords: ['sound', 'program', 'patch', 'general', 'midi'] }),
+  // Tools ▸ Online ▸ Songsterr Search… (the palette's ONLINE TOOLS ▸ Songsterr runs the same command, listed once).
+  appEditorRow('tools.songsterr', 'tools', { type: 'openSongsterrPanel' }, { when: 'always', keywords: ['online', 'search', 'find', 'tabs', 'tablature', 'internet', 'web', 'songs'] }),
   ...MCP_SERVER_ROWS.map(([id, command, keywords]) => appRow(id, 'tools', (a) => a.runMcpServerCommand(command), { when: 'always', keywords: ['mcp', 'server', 'claude', 'ai', ...keywords] })),
 ];
 

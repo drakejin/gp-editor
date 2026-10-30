@@ -20,6 +20,7 @@ import { directionsTool, fadeTools, hairpinTools, pedalTools, rasgueadoTool } fr
 import { accidentalTool, beamGroupingTool, beatMarkTools, fingeringTools } from './palette-notation';
 import { annotationTool, lyricsTool } from './palette-annotations';
 import { clefTool, expressionTextTool, ottavaTool } from './palette-expression';
+import { onlineGroup } from './palette-online';
 import { type PaletteContext, type PaletteGroup, type PaletteOption, type PaletteRun, type PaletteStepper, type PaletteTool } from './palette-tools';
 
 const edit = (songEdit: SongEdit): PaletteRun => ({ kind: 'edit', edit: songEdit });
@@ -77,6 +78,12 @@ const HARMONICS: readonly (readonly [HarmonicType, string])[] = [
   ['pinch', 'P.H.'], // i18n-exempt: notation abbreviation
   ['semi', 'S.H.'], // i18n-exempt: notation abbreviation
 ];
+
+/**
+ * The repeat signs' buttons (a thin bar line and two dots): narrower than a glyph's own 36 points, so the Bar group's
+ * first row keeps +Bar −Bar |: :| 1. 2. in Korean too (+마디 and −마디 ⌘D are wider than their English faces).
+ */
+const REPEAT_SIGN_WIDTH = 30;
 
 const VOICE_INDEXES = [0, 1, 2, 3] as const;
 /** Seven tools on one row: the four voices, Move Voice, Multivoice and Design Mode. */
@@ -189,8 +196,8 @@ function barGroup(): PaletteGroup {
       // + Bar adds after the bar clicked (the cursor's): the mouse is on the palette when it is pressed, not on a bar.
       { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }) },
       { id: 'deleteMeasure', face: t('palette.face.deleteMeasure'), key: '⌘D', tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'), scope: 'bar', run: edit({ type: 'deleteMeasure' }) },
-      { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
-      { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
+      { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
+      { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
       endingsTool(),
       tripletFeelTool(),
       {
@@ -395,7 +402,9 @@ function strokeGroup(): PaletteGroup {
 /**
  * The edition palette, top to bottom: what is set on every note first — voice, rhythm, the note's techniques,
  * articulation, dynamics — so it shows without scrolling above the fretboard and tracks; then the note's fret and
- * string, the beat's strokes and text, and the bar. Built once per language: call it where the groups are shown.
+ * string, the beat's strokes and text, the bar, and last the online tools. Every group shows without scrolling at the
+ * default 1280 × 800 window, in English and Korean (__tests__/palette-fit.test.ts). Built once per language: call it
+ * where the groups are shown.
  */
 export const paletteGroups: () => readonly PaletteGroup[] = memoByLanguage(() => [
   voiceGroup(),
@@ -406,4 +415,5 @@ export const paletteGroups: () => readonly PaletteGroup[] = memoByLanguage(() =>
   noteGroup(),
   strokeGroup(),
   barGroup(),
+  onlineGroup(),
 ]);

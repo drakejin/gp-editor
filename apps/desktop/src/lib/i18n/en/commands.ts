@@ -83,6 +83,7 @@ export const EN_COMMANDS = {
   'commands.title.tools.transpose': 'Transpose…',
   'commands.title.tools.lineIn': 'Line In…',
   'commands.title.tools.expressionText': 'Expression Text…',
+  'commands.title.tools.songsterr': 'Songsterr Search…',
   'commands.title.tools.instrument': 'Instrument…',
   'commands.title.tools.mcpServerSettings': 'MCP Server Settings…',
   'commands.title.tools.mcpServerLog': 'MCP Server Log…',

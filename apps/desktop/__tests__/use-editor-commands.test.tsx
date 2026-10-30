@@ -18,6 +18,8 @@ interface Sources {
   readonly onZoomTo: jest.Mock;
   readonly onNotePanel: jest.Mock;
   readonly onChordPanel: jest.Mock;
+  readonly onComposePanel: jest.Mock;
+  readonly onSongsterrPanel: jest.Mock;
   readonly start: jest.Mock;
   readonly stop: jest.Mock;
   readonly closeOverlay: jest.Mock;
@@ -49,6 +51,8 @@ function renderCommands(
     onZoomTo: jest.fn(),
     onNotePanel: jest.fn(),
     onChordPanel: jest.fn(),
+    onComposePanel: jest.fn(),
+    onSongsterrPanel: jest.fn(),
     start: jest.fn(),
     stop: jest.fn(),
     closeOverlay: jest.fn(() => isOverlayOpen),
@@ -90,6 +94,22 @@ describe('useEditorCommands: toolbar routing', () => {
     expect(sources.importPdf).toHaveBeenCalledTimes(1);
     expect(sources.save).toHaveBeenCalledWith(false);
     expect(sources.exportPdf).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditorCommands: the palette’s online tools', () => {
+  it('opens the Songsterr search and the compose panel for their window commands, nothing else', () => {
+    // Arrange
+    const { commands, sources } = renderCommands(openSong());
+
+    // Act
+    commands.runCommand({ type: 'openSongsterrPanel' });
+    commands.runCommand({ type: 'openComposePanel' });
+
+    // Assert
+    expect(sources.onSongsterrPanel).toHaveBeenCalledTimes(1);
+    expect(sources.onComposePanel).toHaveBeenCalledTimes(1);
+    expect(sources.dispatch).not.toHaveBeenCalled();
   });
 });
 

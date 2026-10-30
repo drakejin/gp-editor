@@ -340,6 +340,7 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.menu.clearRecent': '메뉴 지우기',
   'window.menu.missingFile': '{name} (찾을 수 없음)',
   'window.menu.aiWizard': 'AI 마법사',
+  'window.menu.online': '온라인',
   'window.menu.commandPalette': '명령 팔레트…',
   'window.menu.exit': '끝내기(&X)',
   'window.windows.desktopOnly': 'GP Editor 데스크톱 앱에서만 쓸 수 있습니다(브라우저에서는 안 됩니다).',

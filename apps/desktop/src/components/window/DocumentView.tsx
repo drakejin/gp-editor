@@ -31,7 +31,7 @@ export function DocumentView({ model, document }: DocumentPartProps) {
 
 /** The edition palette, when shown. */
 function DocumentPalette({ model, document }: DocumentPartProps) {
-  const { base, tools, cursorTools } = model;
+  const { base, tools, cursorTools, commands } = model;
   const { palette, state, chrome } = base;
   if (!chrome.panels.palette) {
     return null;
@@ -52,6 +52,7 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
       onOpenExpressionText={tools.openExpressionText}
       onOpenAnnotationPanel={tools.openAnnotations}
       onOpenLyrics={tools.openLyrics}
+      onCommand={commands.editor.runCommand}
       isExpressionTextOpen={commandPalette.isOpen && commandPalette.session.initialQuery !== ''}
     />
   );

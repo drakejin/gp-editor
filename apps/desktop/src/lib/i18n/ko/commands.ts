@@ -81,6 +81,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.tools.transpose': '조옮김…',
   'commands.title.tools.lineIn': '라인 입력…',
   'commands.title.tools.expressionText': '표현 텍스트…',
+  'commands.title.tools.songsterr': 'Songsterr 검색…',
   'commands.title.tools.instrument': '악기…',
   'commands.title.tools.mcpServerSettings': 'MCP 서버 설정…',
   'commands.title.tools.mcpServerLog': 'MCP 서버 로그…',

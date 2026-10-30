@@ -53,6 +53,10 @@ function everyPress(): readonly { readonly name: string; readonly action: Editor
           // choices are checked in NotePanels.test, ChordPanel.test, expression-text.test, use-annotation-editor.test
           // and use-lyrics-editor.test.
           return [];
+        case 'command':
+          // A window command (ONLINE TOOLS: the Songsterr search, AI Compose), checked in palette-online.test and
+          // use-editor-commands.test.
+          return [];
       }
     }),
     ...(group.steppers ?? []).flatMap((stepper) =>

@@ -16,14 +16,14 @@ export interface WindowOverlays {
 function panelClosers(files: WindowFiles, tools: WindowTools): readonly PanelCloser[] {
   const { importPanel, pdfExport, audioExport, recentFiles } = files;
   const { settingsPanel, tuner, songWriter, lyricsEditor, closeLyricsPanel, annotationEditor, closeAnnotationPanel, scales, transposePanel, scoreDesign, commandPalette, audio } = tools;
-  const { trackManager, drumKey, trackInfo } = tools;
+  const { trackManager, drumKey, songsterr, trackInfo } = tools;
   return [
     // Settings first: it is over every other panel.
     [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [importPanel.isOpen, importPanel.close],
     [pdfExport.isOpen, pdfExport.close], [audioExport.isOpen, audioExport.close], [recentFiles.isPanelOpen, recentFiles.closePanel], [lyricsEditor.isOpen, closeLyricsPanel],
     [annotationEditor.isOpen, closeAnnotationPanel],
     [scales.isOpen, scales.close], [transposePanel.isOpen, transposePanel.close], [scoreDesign.isStylesheetOpen, scoreDesign.closeStylesheet],
-    [commandPalette.isOpen, commandPalette.close], [audio.lineIn.isOpen, audio.lineIn.close], [drumKey.isOpen, drumKey.close], [trackManager.isOpen, trackManager.close],
+    [commandPalette.isOpen, commandPalette.close], [audio.lineIn.isOpen, audio.lineIn.close], [songsterr.isOpen, songsterr.close], [drumKey.isOpen, drumKey.close], [trackManager.isOpen, trackManager.close],
     [trackInfo.isOpen, trackInfo.close],
   ];
 }

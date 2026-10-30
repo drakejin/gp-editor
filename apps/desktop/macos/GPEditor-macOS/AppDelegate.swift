@@ -182,6 +182,12 @@ struct GPEditorApp: App {
         Button(strings("Line In…")) {
           NotificationCenter.default.post(name: .GPEditorLineInCommand, object: nil)
         }
+        // Tools that ask a web site: Songsterr's search (the app only searches and opens its pages, src/songsterr/).
+        Menu(strings("Online")) {
+          Button(strings("Songsterr Search…")) {
+            NotificationCenter.default.post(name: .GPEditorSongsterrCommand, object: nil)
+          }
+        }
         Divider()
         Button(strings("Command Palette…")) {
           NotificationCenter.default.post(name: .GPEditorCommandPaletteCommand, object: nil)

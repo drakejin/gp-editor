@@ -62,6 +62,9 @@ FOUNDATION_EXPORT NSString *const GPEditorAnnotationCommandNotification;
 /** Tools ▸ Scales… was chosen ("scalesRequested" in JS). No object. */
 FOUNDATION_EXPORT NSString *const GPEditorScalesCommandNotification;
 
+/** Tools ▸ Online ▸ Songsterr Search… was chosen ("songsterrRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorSongsterrCommandNotification;
+
 /** File ▸ Open… (⌘O) was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorOpenCommandNotification;
 

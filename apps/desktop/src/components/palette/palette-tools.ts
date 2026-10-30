@@ -1,6 +1,6 @@
 import type { GlyphKind } from './MusicIcon';
 import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
-import type { NotePanel } from '../../lib/key-commands';
+import type { KeyCommand, NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { Palette } from '../../theme';
 import { withBarRests } from '../../state/empty-bars';
@@ -45,8 +45,11 @@ export function paletteContext(edited: Song, cursor: StringAddress | undefined):
   };
 }
 
-/** What a tool needs to act on: the note at the cursor, its beat (voice), its bar, or the note or the selected beats' notes. */
-export type ToolScope = 'note' | 'beat' | 'bar' | 'notes';
+/**
+ * What a tool needs to act on: the note at the cursor, its beat (voice), its bar, or the note or the selected beats'
+ * notes; `always` for a tool of the window (ONLINE TOOLS), which needs none of them.
+ */
+export type ToolScope = 'note' | 'beat' | 'bar' | 'notes' | 'always';
 
 /** A choice in a tool's option strip (bend presets, slide kinds, tuplet sizes …). */
 export interface PaletteOption {
@@ -73,7 +76,9 @@ export type PaletteRun =
   /** Opens the annotation panel for the beat, as J does. */
   | { readonly kind: 'annotationPanel' }
   /** Opens the lyrics panel (Edit ▸ Lyrics…). */
-  | { readonly kind: 'lyricsPanel' };
+  | { readonly kind: 'lyricsPanel' }
+  /** Runs a window command, as its menu item does (ONLINE TOOLS: the Songsterr search, AI Compose). */
+  | { readonly kind: 'command'; readonly command: KeyCommand };
 
 export interface PaletteTool {
   readonly id: string;
@@ -128,5 +133,7 @@ export function isToolEnabled(tool: Pick<PaletteTool, 'scope'>, context: Palette
       return context.header !== undefined;
     case 'notes':
       return context.note !== undefined || context.hasSelection === true;
+    case 'always':
+      return true;
   }
 }

@@ -6,6 +6,8 @@ import ReactTestRenderer from 'react-test-renderer';
 import App from '../src/App';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
+import { readSong } from '@gp-editor/core';
+import { searchUrl, songQueryOf } from '../src/songsterr/songsterr-urls';
 import { readFixture } from '../test-support/fixtures';
 import { answerMeasure } from '../test-support/measure';
 
@@ -28,7 +30,14 @@ function mockCounted<Props extends object>(name: string, component: (props: Prop
   });
 }
 
+/** Songsterr's search and the browser, as the window reaches them (never the network in a test). */
+const mockSongsterr = { fetch: jest.fn(), open: jest.fn() };
+
 jest.mock('../src/native/specs/GPScoreCanvasNativeComponent', () => 'GPScoreCanvas');
+jest.mock('../src/native/songsterr', () => ({
+  fetchSongsterr: (url: string, signal: AbortSignal) => mockSongsterr.fetch(url, signal),
+  openSongsterrPage: (url: string) => mockSongsterr.open(url),
+}));
 jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
 jest.mock('../src/native/player', () => ({
   ...jest.requireActual('../src/native/player'),
@@ -298,5 +307,64 @@ describe('App: a track’s information', () => {
     expect(firstTrack(renderer)).toEqual(expect.objectContaining({ name: 'Uke', iconId: 7 }));
     expect(topBar(renderer).trackIcon).toBe('ukulele');
     expect(control(renderer, 'Icon of track 1').props.tooltip).toBe('Ukulele: click for the track’s colour, icon and names');
+  });
+});
+
+describe('the window: ONLINE TOOLS', () => {
+  const songsterrPanels = (renderer: ReactTestRenderer.ReactTestRenderer) => renderer.root.findAll((node) => node.props.testID === 'songsterr-panel' && typeof node.type === 'string');
+  const pressTool = (renderer: ReactTestRenderer.ReactTestRenderer, id: string) =>
+    ReactTestRenderer.act(async () => renderer.root.findAll((node) => node.props.testID === `palette-${id}` && typeof node.props.onPress === 'function')[0]?.props.onPress());
+  const ONE = JSON.stringify([{ songId: 444, title: 'One', artist: 'Metallica', tracks: [] }]);
+
+  beforeEach(() => {
+    mockSongsterr.fetch.mockReset();
+    mockSongsterr.fetch.mockImplementation(() => Promise.resolve({ status: 200, body: ONE }));
+    mockSongsterr.open.mockReset();
+    mockSongsterr.open.mockImplementation(() => Promise.resolve());
+  });
+
+  it('opens the Songsterr search from the palette with the song’s title and artist, searches once, opens a song and closes with Esc', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const query = songQueryOf(readSong(readFixture('guitarpro5', 'nightwish.gp5')));
+
+    // Act
+    await pressTool(renderer, 'songsterr');
+    const fieldText = renderer.root.findAll((node) => node.props.accessibilityLabel === 'Song or artist to search for' && typeof node.props.onChangeText === 'function')[0]?.props.value;
+    const found = renderer.root.findAll((node) => node.props.testID === 'songsterr-song-444' && typeof node.type === 'string');
+    await ReactTestRenderer.act(async () => renderer.root.findAll((node) => node.props.tooltip === 'Open “One — Metallica” on songsterr.com in your browser' && typeof node.props.onPress === 'function')[0]?.props.onPress());
+    await press(renderer, 'Escape');
+
+    // Assert
+    expect(query).not.toBe('');
+    expect(fieldText).toBe(query);
+    expect(mockSongsterr.fetch.mock.calls.map(([url]) => url)).toEqual([searchUrl(query)]);
+    expect(found).toHaveLength(1);
+    expect(mockSongsterr.open.mock.calls).toEqual([['https://www.songsterr.com/a/wa/song?id=444']]);
+    expect(songsterrPanels(renderer)).toHaveLength(0);
+  });
+
+  it('opens the Songsterr search from Tools ▸ Online ▸ Songsterr Search…', async () => {
+    // Arrange
+    const renderer = await openWindow();
+
+    // Act
+    await ReactTestRenderer.act(async () => {
+      DeviceEventEmitter.emit('songsterrRequested', {});
+    });
+
+    // Assert
+    expect(songsterrPanels(renderer)).toHaveLength(1);
+  });
+
+  it('says AI Compose is not in this build yet, until the compose panel comes', async () => {
+    // Arrange
+    const renderer = await openWindow();
+
+    // Act
+    await pressTool(renderer, 'aiCompose');
+
+    // Assert
+    expect(renderer.root.findAll((node) => node.props.message === 'AI Compose (Claude writing bars from the cursor) is not in this build yet.').length).toBeGreaterThan(0);
   });
 });

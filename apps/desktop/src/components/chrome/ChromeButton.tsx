@@ -2,6 +2,9 @@ import { type ReactNode, useState } from 'react';
 import { type GestureResponderEvent, Pressable, StyleSheet, Text } from 'react-native';
 import type { Palette } from '../../theme';
 
+/** A button's room beside its label (a fixed width keeps less) and its gap to the next button, in points. */
+export const CHROME_BUTTON_SPACING = { padding: 5, fixedPadding: 2, margin: 1 } as const;
+
 export interface ChromeButtonProps {
   readonly palette: Palette;
   /** What the button says, or its icon when `icon` is not given. */
@@ -52,8 +55,8 @@ export function ChromeButton(props: ChromeButtonProps) {
 }
 
 const styles = StyleSheet.create({
-  button: { height: 26, paddingHorizontal: 5, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginHorizontal: 1 },
-  fixedWidth: { paddingHorizontal: 2 },
+  button: { height: 26, paddingHorizontal: CHROME_BUTTON_SPACING.padding, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginHorizontal: CHROME_BUTTON_SPACING.margin },
+  fixedWidth: { paddingHorizontal: CHROME_BUTTON_SPACING.fixedPadding },
   disabled: { opacity: 0.35 },
   label: { fontWeight: '600' },
 });

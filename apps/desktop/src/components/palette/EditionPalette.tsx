@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
 import { useStableCallback } from '../../hooks/use-stable-callback';
-import type { NotePanel } from '../../lib/key-commands';
+import type { KeyCommand, NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
@@ -14,8 +14,28 @@ import { PaletteOptionStrip, PaletteTextField } from './PaletteStrips';
 import { type PaletteContext, type PaletteGroup, type PaletteStepper, type PaletteTool, isToolEnabled, paletteContext } from './palette-tools';
 
 export const EDITION_PALETTE_WIDTH = 214;
-/** Rows of tools and steppers are this tall (the chrome's buttons are 26), so every group shows at the default window. */
-export const PALETTE_ROW_HEIGHT = 24;
+/**
+ * Rows of tools and steppers are this tall (the chrome's buttons are 26), so every group shows at the default window
+ * (1280 × 800, English and Korean: __tests__/palette-fit.test.ts lays the groups out with these measures).
+ */
+export const PALETTE_ROW_HEIGHT = 23;
+
+/**
+ * The palette's measures in points: a group's sides, its title line (9-point capitals) and the line under it — no room
+ * above or below its rows, so ONLINE TOOLS fits under the Bar group —, a tool's narrowest width, a face's size (a keyed
+ * face smaller, a long Hangul one smaller still, so the key fits beside it) and the key's.
+ */
+export const PALETTE_LAYOUT = {
+  groupPadding: 8,
+  titleHeight: 11,
+  border: 1,
+  toolMinWidth: 30,
+  faceSize: 11,
+  keyedFaceSize: 10.5,
+  longHangulFaceSize: 9,
+  keySize: 8,
+  keyGap: 2,
+} as const;
 /** A stepper's − and + are this narrow, so the time signature's two numbers share a row. */
 const STEPPER_BUTTON_WIDTH = 22;
 
@@ -40,6 +60,8 @@ export interface EditionPaletteProps {
   /** The ✎ tool opens the annotation panel, as J does; Lyrics the lyrics panel. */
   readonly onOpenAnnotationPanel?: () => void;
   readonly onOpenLyrics?: () => void;
+  /** ONLINE TOOLS' Songsterr and AI Compose run window commands, as their menu items do. */
+  readonly onCommand?: (command: KeyCommand) => void;
   readonly isExpressionTextOpen?: boolean;
 }
 
@@ -67,6 +89,8 @@ function EditionPaletteView(props: EditionPaletteProps) {
       onOpenPanel(run.panel);
     } else if (run.kind === 'chordPanel' || run.kind === 'expressionText' || run.kind === 'annotationPanel' || run.kind === 'lyricsPanel') {
       openPanel(props, run.kind);
+    } else if (run.kind === 'command') {
+      props.onCommand?.(run.command);
     } else {
       setOpenToolId(openToolId === tool.id ? undefined : tool.id);
     }
@@ -146,8 +170,8 @@ function ToolButtonView({ palette, tool, width, isEnabled, isActive, onPress }: 
       label={tool.face}
       icon={toolIcon(palette, tool, isActive)}
       tooltip={tool.tooltip}
-      fontSize={11}
-      minWidth={30}
+      fontSize={PALETTE_LAYOUT.faceSize}
+      minWidth={PALETTE_LAYOUT.toolMinWidth}
       width={width}
       height={PALETTE_ROW_HEIGHT}
       isEnabled={isEnabled}
@@ -162,7 +186,7 @@ const ToolButton = memo(ToolButtonView);
 /** Hangul syllables a keyed face shows at the usual size; a longer word (슬라이드, 비브라토) is set smaller to fit beside its key. */
 const KEYED_FACE_SYLLABLES = 3;
 
-function isLongHangulFace(face: string): boolean {
+export function isLongHangulFace(face: string): boolean {
   return (face.match(/[\uAC00-\uD7A3]/g)?.length ?? 0) > KEYED_FACE_SYLLABLES;
 }
 
@@ -287,16 +311,16 @@ export const EditionPalette = memo(EditionPaletteView);
 
 const styles = StyleSheet.create({
   panel: { width: EDITION_PALETTE_WIDTH, borderRightWidth: 1, flexGrow: 0 },
-  group: { paddingHorizontal: 8, paddingVertical: 2, borderBottomWidth: 1 },
-  groupTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginLeft: 2 },
+  group: { paddingHorizontal: PALETTE_LAYOUT.groupPadding, borderBottomWidth: PALETTE_LAYOUT.border },
+  groupTitle: { fontSize: 9, lineHeight: PALETTE_LAYOUT.titleHeight, fontWeight: '800', letterSpacing: 0.8, marginLeft: 2 },
   tools: { flexDirection: 'row', flexWrap: 'wrap' },
   keyedFace: { flexDirection: 'row', alignItems: 'center' },
   tintedFace: { alignItems: 'center' },
   tintStrip: { width: 14, height: 3, borderRadius: 1.5, marginTop: 1 },
-  faceText: { fontSize: 10.5, fontWeight: '600' },
-  longFaceText: { fontSize: 9 },
+  faceText: { fontSize: PALETTE_LAYOUT.keyedFaceSize, fontWeight: '600' },
+  longFaceText: { fontSize: PALETTE_LAYOUT.longHangulFaceSize },
   /** The key, small and raised like an exponent. */
-  keyBadge: { fontSize: 8, fontWeight: '700', marginLeft: 2, alignSelf: 'flex-start', marginTop: 1 },
+  keyBadge: { fontSize: PALETTE_LAYOUT.keySize, fontWeight: '700', marginLeft: PALETTE_LAYOUT.keyGap, alignSelf: 'flex-start', marginTop: 1 },
   /** A glyph sits low in its 24-point box: the key goes level with its top. */
   keyBesideGlyph: { marginTop: 6 },
   stepper: { flexDirection: 'row', alignItems: 'center' },

@@ -202,7 +202,7 @@ describe('command registry', () => {
 describe('command registry: when a command can run', () => {
   it('runs only what needs no document when none is open', () => {
     const enabled = appCommands().filter((command) => command.isEnabled(NO_DOCUMENT)).map((command) => command.id);
-    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales',
+    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales', 'tools.songsterr',
       'tools.mcpServerSettings', 'tools.mcpServerLog', 'tools.mcpServerRestart', 'tools.mcpServerSetupCommand', 'help.shortcuts', 'app.settings',
     ]);
   });

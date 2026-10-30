@@ -145,6 +145,8 @@ export const subscribeLyricsRequests = menuRequests('lyricsRequested');
 export const subscribeAnnotationRequests = menuRequests('annotationRequested');
 /** Tools ▸ Scales…. */
 export const subscribeScalesRequests = menuRequests('scalesRequested');
+/** Tools ▸ Online ▸ Songsterr Search…. */
+export const subscribeSongsterrRequests = menuRequests('songsterrRequested');
 /** Help ▸ Keyboard Shortcuts (F1). */
 export const subscribeHelpRequests = menuRequests('helpRequested');
 /** View ▸ Focus / Unfocus (Ctrl+Shift+F). */

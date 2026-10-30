@@ -17,6 +17,7 @@ NSString *const GPEditorTunerCommandNotification = @"GPEditorTunerCommand";
 NSString *const GPEditorLyricsCommandNotification = @"GPEditorLyricsCommand";
 NSString *const GPEditorAnnotationCommandNotification = @"GPEditorAnnotationCommand";
 NSString *const GPEditorScalesCommandNotification = @"GPEditorScalesCommand";
+NSString *const GPEditorSongsterrCommandNotification = @"GPEditorSongsterrCommand";
 NSString *const GPEditorTransposeCommandNotification = @"GPEditorTransposeCommand";
 NSString *const GPEditorCommandPaletteCommandNotification = @"GPEditorCommandPaletteCommand";
 NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";

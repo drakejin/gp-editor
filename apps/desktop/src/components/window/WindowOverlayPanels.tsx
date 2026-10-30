@@ -15,6 +15,7 @@ import { SaveChangesPanel } from '../SaveChangesPanel';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { ShortcutSheet } from '../ShortcutSheet';
 import { SongWriterPanel } from '../song-writer/SongWriterPanel';
+import { SongsterrPanel } from '../songsterr/SongsterrPanel';
 import { TOP_BAR_HEIGHT } from '../TopBar';
 import { SpeedMenu } from '../TopBarMenus';
 import { ZoomMenu } from '../ZoomMenu';
@@ -92,7 +93,7 @@ function TopBarMenu({ model }: WindowPartProps) {
   );
 }
 
-/** The Song Writer, the line in's card, the drum key, the tuner, the chord and note panels, the Add Track panel, the delete question and a track's information. */
+/** The Song Writer, the line in's card, the drum key, the Songsterr search, the tuner, the chord and note panels, the Add Track panel, the delete question and a track's information. */
 export function ToolOverlays({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, chrome } = base;
@@ -105,6 +106,7 @@ export function ToolOverlays({ model }: WindowPartProps) {
       <SongWriterOverlay model={model} />
       {lineIn.isOpen && song !== undefined ? <LineInPanel palette={palette} lineIn={lineIn} trackLabel={`${lineIn.trackIndex + 1}. ${song.tracks[lineIn.trackIndex]?.name ?? ''}`} /> : null}
       {tools.drumKey.isOpen && song !== undefined ? <DrumKeyPanel palette={palette} song={song} trackIndex={state.trackIndex} drumKey={tools.drumKey} /> : null}
+      {tools.songsterr.isOpen ? <SongsterrPanel palette={palette} songsterr={tools.songsterr} /> : null}
       {tools.tuner.isOpen ? (
         <TunerPanel palette={palette} referenceA4={tools.tuner.referenceA4} strings={tunerStrings(song?.tracks[state.trackIndex])} onShiftReferenceA4={tools.tuner.shiftReferenceA4} onClose={tools.tuner.close} />
       ) : null}

@@ -154,6 +154,7 @@ function toolsMenu(): TopMenu {
     command('tuner', 'commands.title.tools.tuner', post('tunerRequested')),
     command('scales', 'commands.title.tools.scales', post('scalesRequested')),
     command('transpose', 'commands.title.tools.transpose', post('transposeRequested')),
+    { kind: 'submenu', text: t('window.menu.online'), items: [command('songsterr', 'commands.title.tools.songsterr', post('songsterrRequested'))] },
     SEPARATOR,
     command('command-palette', 'window.menu.commandPalette', post('commandPaletteRequested', { mode: 'commands' }), { key: 'p', ctrl: true, shift: true }),
     command('expression-text', 'commands.title.tools.expressionText', post('commandPaletteRequested', { mode: 'expression' }), { key: 'e', ctrl: true, alt: true }),

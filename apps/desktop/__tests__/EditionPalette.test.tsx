@@ -44,7 +44,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMul
 
 describe('EditionPalette layout', () => {
   it('puts the note’s techniques right under the rhythm, where they show without scrolling', () => {
-    expect(render().titles()).toEqual(['VOICE', 'RHYTHM', 'TECHNIQUES', 'ARTICULATION', 'DYNAMICS', 'NOTE', 'BEAT', 'BAR']);
+    expect(render().titles()).toEqual(['VOICE', 'RHYTHM', 'TECHNIQUES', 'ARTICULATION', 'DYNAMICS', 'NOTE', 'BEAT', 'BAR', 'ONLINE TOOLS']);
     expect(paletteGroups().flatMap((group) => group.tools).length).toBeGreaterThan(45);
   });
 

@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import {
   subscribeAnnotationRequests, subscribeFocusRequests, subscribeHelpRequests, subscribeLyricsRequests, subscribeScalesRequests, subscribeSongWriterRequests,
+  subscribeSongsterrRequests,
 } from '../native/gp-files';
 import type { WindowBase, WindowMedia } from './use-window';
 import type { WindowTools } from './use-window-tools';
 
-/** Help ▸ Keyboard Shortcuts, View ▸ Focus / Unfocus (⇧⌘F: only the score and the transport), Edit ▸ AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Edit ▸ Lyrics… and Annotation…. */
+/** Help ▸ Keyboard Shortcuts, View ▸ Focus / Unfocus (⇧⌘F: only the score and the transport), Edit ▸ AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Tools ▸ Online ▸ Songsterr Search…, Edit ▸ Lyrics… and Annotation…. */
 function useMenuRequests({ chrome }: WindowBase, tools: WindowTools): void {
   const { openShortcutSheet, toggleFocus } = chrome;
   useEffect(() => subscribeHelpRequests(openShortcutSheet), [openShortcutSheet]);
@@ -17,6 +18,8 @@ function useMenuRequests({ chrome }: WindowBase, tools: WindowTools): void {
   const { openLyrics, openAnnotations } = tools;
   useEffect(() => subscribeLyricsRequests(openLyrics), [openLyrics]);
   useEffect(() => subscribeAnnotationRequests(openAnnotations), [openAnnotations]);
+  const { open: openSongsterr } = tools.songsterr;
+  useEffect(() => subscribeSongsterrRequests(openSongsterr), [openSongsterr]);
 }
 
 /**

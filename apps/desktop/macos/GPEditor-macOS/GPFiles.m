@@ -4,6 +4,7 @@
 // (New, Open…, Import PDF…, Export PDF… / PNG… / MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… / Audio…,
 // Print…, Save, Save As…, Close Tab, Next Tab, Previous Tab), Edit ▸ Undo / Redo (with JS's undo state back:
 // setUndoState), Delete Notes / Delete Bars, Lyrics…, Annotation… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
+// Online ▸ Songsterr Search…,
 // Command Palette… / Expression Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸
 // Keyboard Shortcuts. Export's files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads
 // MusicXML files too.
@@ -115,6 +116,7 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
       GPEditorAnnotationCommandNotification : GPEvent(@"annotationRequested", GPNoBody),
       GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),
+      GPEditorSongsterrCommandNotification : GPEvent(@"songsterrRequested", GPNoBody),
       GPEditorTransposeCommandNotification : GPEvent(@"transposeRequested", GPNoBody),
       GPEditorCommandPaletteCommandNotification : GPEvent(@"commandPaletteRequested", GPCommandPaletteBody),
       GPEditorFocusCommandNotification : GPEvent(@"focusRequested", GPNoBody),

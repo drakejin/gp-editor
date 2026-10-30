@@ -346,6 +346,7 @@ export const EN_WINDOW = {
   'window.menu.clearRecent': 'Clear Menu',
   'window.menu.missingFile': '{name} (missing)',
   'window.menu.aiWizard': 'AI Wizard',
+  'window.menu.online': 'Online',
   'window.menu.commandPalette': 'Command Palette…',
   'window.menu.exit': 'E&xit',
   /** The Windows build's dialogs and messages (src/native/*.web.ts), where the Mac's native modules have their own */

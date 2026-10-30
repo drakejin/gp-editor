@@ -11,6 +11,7 @@ import { type AnnotationEditor, useAnnotationEditor } from './use-annotation-edi
 import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
 import { type ScalesTool, useScales } from './use-scales';
 import { type ScoreDesign, useScoreDesign } from './use-score-design';
+import { type SongsterrSearch, useSongsterr } from './use-songsterr';
 import { type SongWriter, useSongWriter, writtenSummary } from './use-song-writer';
 import { type TrackInfo, useTrackInfo } from './use-track-info';
 import { type TrackManager, useTrackManager } from './use-track-manager';
@@ -57,6 +58,8 @@ export interface WindowTools {
   readonly trackManager: TrackManager;
   /** View ▸ Drum Key: how the cursor's drum track writes its drums, a card over the score. */
   readonly drumKey: DrumKey;
+  /** Tools ▸ Online ▸ Songsterr Search… and the palette's Songsterr: a card over the score. */
+  readonly songsterr: SongsterrSearch;
   /** A track's name, short name, colour and icon (Guitar Pro 8's track information), a small panel over the window. */
   readonly trackInfo: TrackInfo;
 }
@@ -104,9 +107,10 @@ function useWindowPanels(base: WindowBase) {
   const openExpressionText = useCallback(() => openCommandPalette('expression'), [openCommandPalette]);
   const scoreDesign = useScoreDesign(hasDocument, dispatch, focusScore);
   const drumKey = useDrumKey(focusScore);
+  const songsterr = useSongsterr({ song, onClosed: focusScore });
   return {
     scales, lyricsEditor, openLyrics, closeLyricsPanel, annotationEditor, openAnnotations, closeAnnotationPanel, tuner, settingsPanel, transposePanel, commandPalette,
-    openExpressionText, scoreDesign, drumKey,
+    openExpressionText, scoreDesign, drumKey, songsterr,
   };
 }
 

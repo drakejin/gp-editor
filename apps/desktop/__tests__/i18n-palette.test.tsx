@@ -21,8 +21,8 @@ afterEach(() => ReactTestRenderer.act(() => setLanguage('en')));
 
 const allTools = (): readonly PaletteTool[] => paletteGroups().flatMap((group) => group.tools);
 
-/** Faces that copy the score's marks or are numbers and symbols: the same in every language. */
-const NOTATION_FACES = new Set(['P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.', '( )', '(♯)', '/', '8va', '>', '1. 2.', 'A', '♪³', '⇄', '1–4', '↔', '1', '2', '3', '4', '✎']);
+/** Faces that copy the score's marks or are numbers and symbols, and a site's name: the same in every language. */
+const NOTATION_FACES = new Set(['Songsterr', 'P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.', '( )', '(♯)', '/', '8va', '>', '1. 2.', 'A', '♪³', '⇄', '1–4', '↔', '1', '2', '3', '4', '✎']);
 
 describe('the edition palette in Korean', () => {
   it('names the groups and word faces in Korean and keeps the score’s abbreviations', () => {
@@ -34,7 +34,7 @@ describe('the edition palette in Korean', () => {
     const faces = new Map(groups.flatMap((group) => group.tools).map((tool) => [tool.id, tool.face]));
 
     // Assert
-    expect(groups.map((group) => group.title)).toEqual(['성부', '리듬', '주법', '아티큘레이션', '셈여림', '음표', '박', '마디']);
+    expect(groups.map((group) => group.title)).toEqual(['성부', '리듬', '주법', '아티큘레이션', '셈여림', '음표', '박', '마디', '온라인 도구']);
     expect([faces.get('bend'), faces.get('slide'), faces.get('dead'), faces.get('insertMeasure'), faces.get('stringUp'), faces.get('clef')]).toEqual(['벤딩', '슬라이드', '데드', '+마디', '줄 ↑', '음자리표']);
     expect([faces.get('deleteNotes'), faces.get('deleteMeasure')]).toEqual(['삭제', '−마디']);
     expect([faces.get('palmMute'), faces.get('letRing'), faces.get('hammer'), faces.get('whammy'), faces.get('rasgueado')]).toEqual(['P.M.', 'L.R.', 'H/P', 'W.bar', 'Rasg.']);

@@ -48,6 +48,10 @@ interface EditorCommandSources {
   readonly onAnnotationPanel?: () => void;
   /** Edit ▸ Lyrics…, the palette's Lyrics: the lyrics panel. */
   readonly onLyricsPanel?: () => void;
+  /** The palette's AI Compose, Edit ▸ AI Wizard ▸ Compose from Here…: the compose panel. */
+  readonly onComposePanel?: () => void;
+  /** Tools ▸ Online ▸ Songsterr Search…, the palette's Songsterr: the Songsterr search panel. */
+  readonly onSongsterrPanel?: () => void;
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now. */
   readonly onMarkSyncPoint?: () => void;
   /** A popup or menu is over the score: keys do nothing to the score then, except Esc, which closes it. */
@@ -125,7 +129,7 @@ type WindowCommand = Exclude<AppCommand | KeyCommand, EditorAction>;
 const isWindowCommand = isOfTypes<WindowCommand>({
   newFile: true, openFile: true, importPdf: true, saveFile: true, exportPdf: true, togglePlayback: true, stopPlayback: true, goToBar: true,
   shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, zoomTo: true, openNotePanel: true, openChordPanel: true,
-  openAnnotationPanel: true, openLyricsPanel: true, markSyncPoint: true, copy: true, cut: true, paste: true,
+  openAnnotationPanel: true, openLyricsPanel: true, openComposePanel: true, openSongsterrPanel: true, markSyncPoint: true, copy: true, cut: true, paste: true,
 });
 
 function runWindowCommand(sources: EditorCommandSources, command: WindowCommand): void {
@@ -146,6 +150,10 @@ function runWindowCommand(sources: EditorCommandSources, command: WindowCommand)
       return sources.onAnnotationPanel?.();
     case 'openLyricsPanel':
       return sources.onLyricsPanel?.();
+    case 'openComposePanel':
+      return sources.onComposePanel?.();
+    case 'openSongsterrPanel':
+      return sources.onSongsterrPanel?.();
     case 'markSyncPoint':
       return sources.onMarkSyncPoint?.();
     case 'shiftPlaybackTempo':
