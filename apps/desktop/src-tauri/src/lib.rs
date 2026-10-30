@@ -49,6 +49,8 @@ pub fn run() {
             commands::projects::project_list,
             commands::projects::project_reveal,
             commands::fonts::system_font,
+            commands::songsterr::songsterr_search,
+            commands::songsterr::songsterr_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GP Editor");

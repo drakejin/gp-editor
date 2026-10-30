@@ -6,6 +6,7 @@ pub mod files;
 pub mod fonts;
 pub mod projects;
 pub mod settings;
+pub mod songsterr;
 pub mod sound_banks;
 
 use std::path::{Component, Path, PathBuf};
