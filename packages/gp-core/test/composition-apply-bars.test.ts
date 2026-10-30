@@ -230,6 +230,62 @@ describe('applyComposedBars', () => {
     expect(outcome.warnings).toEqual(['New track "Drums" could not be added: it and the tracks after it were left out']);
   });
 
+  it('keeps a rewritten bar’s voice slots, saying when notes in voices 3–4 were replaced', () => {
+    // Arrange: one track, bar 1 in four voice slots with a note in voice 3.
+    const song = deepFreeze(buildSong({ tracks: [[[[play(1, n(1, 1))], [], [play(1, n(3, 5))], []]]] }));
+
+    // Act
+    const outcome = applyComposedBars(song, composedOf([{ parts: [part(0, beat('whole', tab(1, 9)))] }]), 0);
+
+    // Assert
+    expect(outcome.song.tracks[0]?.measures[0]?.beats.every((item) => item.voices.length === 4)).toBe(true);
+    expect(voiceLayout(outcome.song, 0, 0, 2)).toEqual([]);
+    expect(outcome.warnings).toEqual(['Bar 1, Track 1: notes in voices 3–4 were replaced (the answer writes voices 1–2)']);
+  });
+
+  it('leaves out beats past the end of the bar and notes on strings the track does not have, saying so', () => {
+    // Arrange
+    const crowded = [beat('half', tab(1, 1)), beat('half', tab(7, 2)), beat('quarter', tab(1, 3)), beat('quarter', tab(1, 4))];
+
+    // Act
+    const outcome = applyComposedBars(twoTracks(), composedOf([{ parts: [part(0, ...crowded)] }]), 0);
+
+    // Assert
+    assertEditInvariants(outcome.song);
+    expect(voiceLayout(outcome.song, 0, 0, 0)).toEqual(['0:2:1/1', '1920:2:r']);
+    expect(outcome.warnings).toEqual(['Bar 1, Track 1: 2 beats past the end of the bar left out', 'Bar 1, Track 1: 1 note on a string the track does not have left out']);
+  });
+
+  it('unties a note after the written bars when the note before it is on its string but at another fret', () => {
+    // Arrange
+    const song = twoTracks();
+    const tied = deepFreeze({
+      ...song,
+      tracks: song.tracks.map((track, index) =>
+        index === 0 ? { ...track, measures: track.measures.map((measure, measureIndex) => (measureIndex === 2 ? tieFirstNote(measure) : measure)) } : track,
+      ),
+    });
+
+    // Act: bar 2 now ends on string 1, fret 7; bar 3's note is tied at fret 2.
+    const outcome = applyComposedBars(tied, composedOf([{ parts: [part(0, beat('whole', tab(1, 7)))] }]), 1);
+
+    // Assert
+    expect(outcome.song.tracks[0]?.measures[2]?.beats[0]?.voices[0]?.notes[0]?.isTied).toBe(false);
+  });
+
+  it('adds a new 8-string guitar on its eight strings', () => {
+    // Arrange
+    const eight = { name: 'Eight', instrument: 'guitar' as const, tuning: ['F#1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4'], capo: 0 };
+
+    // Act
+    const outcome = applyComposedBars(twoTracks(), composedOf([{ parts: [part(2, beat('whole', tab(8, 0)))] }], { newTracks: [eight] }), 0);
+
+    // Assert
+    expect(outcome.song.tracks[2]?.strings.map((string) => string.tuning)).toEqual([64, 59, 55, 50, 45, 40, 35, 30]);
+    expect(voiceLayout(outcome.song, 2, 0, 0)).toEqual(['0:1:8/0']);
+    expect(outcome.warnings).toEqual([]);
+  });
+
   it('changes nothing when the answer has no bars', () => {
     const song = twoTracks();
     expect(applyComposedBars(song, composedOf([], { newTracks: [DRUMS] }), 0)).toMatchObject({ song, barsWritten: 0, barsAdded: 0, tracksAdded: 0, notes: 0, writtenTracks: [] });

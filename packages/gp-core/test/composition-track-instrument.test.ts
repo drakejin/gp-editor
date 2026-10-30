@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { trackInstrumentOf } from '../src/composition/track-instrument';
+import { trackInstrumentOf, trackProgramOf } from '../src/composition/track-instrument';
 import { addTrack } from '../src/edit/tracks';
 import type { Song } from '../src/model/song';
 import { buildSong, n, play } from './helpers/edit-songs';
@@ -44,5 +44,12 @@ describe('trackInstrumentOf', () => {
     // Assert
     expect(trackInstrumentOf(orphan, 0)).toBe('guitar');
     expect(trackInstrumentOf(song, 3)).toBeUndefined();
+  });
+});
+
+describe('trackProgramOf', () => {
+  it('reads the General MIDI program of a track’s channel, a steel guitar without one', () => {
+    expect(trackProgramOf(songWith(33), 0)).toBe(33);
+    expect(trackProgramOf({ ...songWith(33), channels: [] }, 0)).toBe(25);
   });
 });

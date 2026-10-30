@@ -353,7 +353,7 @@ export { type ComposeOutcome, type ComposeScope, type ComposedBars, MAX_COMPOSED
 export { WRITE_BARS_TOOL } from './composition/write-bars-tool';
 export { parseComposedBars } from './composition/parse-bars';
 export { applyComposedBars } from './composition/apply-bars';
-export { trackInstrumentOf } from './composition/track-instrument';
+export { trackInstrumentOf, trackProgramOf } from './composition/track-instrument';
 export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
 export { ANNOTATION_PLACEMENTS, MAX_ANNOTATION_LENGTH, MAX_ANNOTATION_LINES, isAnnotationPlacement, isSameAnnotation, normalizeAnnotationText, toAnnotation } from './annotations/annotation-text';
 export { readSongAnnotations, songAnnotationsToJson } from './annotations/song-annotations';

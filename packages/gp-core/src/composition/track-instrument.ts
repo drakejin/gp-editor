@@ -14,6 +14,12 @@ const VOICE_PROGRAMS = { first: 52, last: 54 } as const;
 /** What a track plays when it has no channel: a steel guitar, as the readers' default channel. */
 const DEFAULT_PROGRAM = 25;
 
+/** The General MIDI program a track's channel plays; a steel guitar for a track without a channel. */
+export function trackProgramOf(song: Song, trackIndex: number): number {
+  const channelId = song.tracks[trackIndex]?.channelId;
+  return song.channels.find((channel) => channel.id === channelId)?.program ?? DEFAULT_PROGRAM;
+}
+
 /**
  * An existing track as the PDF import's contract names an instrument, so a model reads and writes its notes as the
  * contract says (tab for the fretted ones, sounding pitches for the others, drum names for drums): drums for a
@@ -30,7 +36,7 @@ export function trackInstrumentOf(song: Song, trackIndex: number): TranscribedIn
   if (track.isPercussion) {
     return 'drums';
   }
-  const program = song.channels.find((channel) => channel.id === track.channelId)?.program ?? DEFAULT_PROGRAM;
+  const program = trackProgramOf(song, trackIndex);
   const tuning = trackTuning(track);
   if ((program >= VOICE_PROGRAMS.first && program <= VOICE_PROGRAMS.last) || isVoiceName(track.name)) {
     return 'vocals';

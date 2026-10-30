@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { type ComposeScope, MAX_COMPOSED_BARS, MAX_COMPOSED_NEW_TRACKS } from '../src/composition/compose-types';
+import {
+  type ComposeScope,
+  MAX_COMPOSED_BARS,
+  MAX_COMPOSED_NEW_TRACKS,
+  MAX_COMPOSE_WARNINGS,
+  MAX_COMPOSE_WARNING_LENGTH,
+  MAX_LEFT_OUT_TRACKS_NAMED,
+} from '../src/composition/compose-types';
 import { parseComposedBars } from '../src/composition/parse-bars';
 import { WRITE_BARS_TOOL } from '../src/composition/write-bars-tool';
 import { CompositionError, TranscriptionError } from '../src/errors';
@@ -150,6 +157,43 @@ describe('parseComposedBars', () => {
     expect(composed.bars).toEqual([{ parts: [guitarPart] }]);
   });
 
+  it('keeps at most MAX_COMPOSE_WARNINGS of the answer’s warnings, each cut to MAX_COMPOSE_WARNING_LENGTH', () => {
+    // Arrange
+    const warnings = Array.from({ length: MAX_COMPOSE_WARNINGS + 30 }, () => 'w'.repeat(MAX_COMPOSE_WARNING_LENGTH + 50));
+
+    // Act
+    const composed = parseComposedBars({ bars: [{ parts: [] }], warnings }, SCOPE);
+
+    // Assert
+    expect(composed.warnings).toHaveLength(MAX_COMPOSE_WARNINGS + 1);
+    expect(composed.warnings.slice(0, MAX_COMPOSE_WARNINGS).every((warning) => warning.length === MAX_COMPOSE_WARNING_LENGTH)).toBe(true);
+    expect(composed.warnings.at(-1)).toBe('30 more warnings left out');
+  });
+
+  it('names at most a few tracks whose parts were left out, then how many more', () => {
+    // Arrange
+    const parts = Array.from({ length: 40 }, (_, index) => ({ ...guitarPart, track: 100 + index }));
+
+    // Act
+    const composed = parseComposedBars({ bars: [{ parts }] }, SCOPE);
+
+    // Assert
+    expect(composed.warnings).toHaveLength(MAX_LEFT_OUT_TRACKS_NAMED + 1);
+    expect(composed.warnings.at(-1)).toBe(`Parts for ${40 - MAX_LEFT_OUT_TRACKS_NAMED} more tracks were left out`);
+  });
+
+  it('leaves out a part it cannot read, with a warning naming it, and keeps the bar’s other parts', () => {
+    // Arrange
+    const broken = { track: 2, beats: [{ notes: [] }] };
+
+    // Act
+    const composed = parseComposedBars({ bars: [{ parts: [guitarPart, broken] }, { parts: [guitarPart] }] }, SCOPE);
+
+    // Assert
+    expect(composed.bars.map((bar) => bar.parts)).toEqual([[guitarPart], [guitarPart]]);
+    expect(composed.warnings).toEqual(['bars[0].parts[1].beats[0].duration: expected one of whole, half, quarter, eighth, 16th, 32nd, 64th — the part was left out']);
+  });
+
   it('reads an answer without bars as nothing written, keeping its warnings', () => {
     expect(parseComposedBars({ bars: [], warnings: ['The request asks for a different song.'] }, SCOPE)).toEqual({
       bars: [],
@@ -158,9 +202,10 @@ describe('parseComposedBars', () => {
     });
   });
 
-  it('refuses what it cannot read: no object, bars that are not a list, a beat without a duration', () => {
+  it('refuses what it cannot read: no object, bars that are not a list of objects, an impossible meter', () => {
     expect(() => parseComposedBars('bars', SCOPE)).toThrow(CompositionError);
     expect(() => parseComposedBars({ bars: 'all of them' }, SCOPE)).toThrow(TranscriptionError);
-    expect(() => parseComposedBars({ bars: [{ parts: [{ track: 0, beats: [{ notes: [] }] }] }] }, SCOPE)).toThrow(/bars\[0\]\.parts\[0\]\.beats\[0\]\.duration/);
+    expect(() => parseComposedBars({ bars: [7] }, SCOPE)).toThrow(/bars\[0\]: expected an object/);
+    expect(() => parseComposedBars({ bars: [{ timeSignature: { numerator: 0, denominator: 3 }, parts: [] }] }, SCOPE)).toThrow(/bars\[0\]\.timeSignature/);
   });
 });

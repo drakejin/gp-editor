@@ -159,7 +159,8 @@ function parseTrackIndex(value: unknown, path: string, trackCount: number | unde
   return value;
 }
 
-function parsePart(value: unknown, path: string, trackCount: number | undefined): TranscribedPart {
+/** One part of a measure: its track index (see parseTrackIndex) and its beats. Shared with the compose tool's bars. */
+export function parseTranscribedPart(value: unknown, path: string, trackCount: number | undefined): TranscribedPart {
   const part = readObject(value, path);
   const track = parseTrackIndex(part.track, `${path}.track`, trackCount);
   const beats = readList(part.beats, `${path}.beats`, MAX_TRANSCRIBED_BEATS).map((beat, index) => parseBeat(beat, `${path}.beats[${index}]`));
@@ -195,7 +196,7 @@ function parseTimeSignature(value: unknown, path: string): TranscribedMeasure['t
  */
 export function parseTranscribedMeasure(value: unknown, path: string, trackCount: number | undefined): TranscribedMeasure {
   const measure = readObject(value, path);
-  const parts = readOptionalList(measure.parts, `${path}.parts`, MAX_TRANSCRIBED_PARTS).map((part, index) => parsePart(part, `${path}.parts[${index}]`, trackCount));
+  const parts = readOptionalList(measure.parts, `${path}.parts`, MAX_TRANSCRIBED_PARTS).map((part, index) => parseTranscribedPart(part, `${path}.parts[${index}]`, trackCount));
   return withoutUndefined({
     timeSignature: parseTimeSignature(measure.timeSignature, `${path}.timeSignature`),
     tempo: parseTempo(measure.tempo),

@@ -1,10 +1,12 @@
 import type { StringAddress } from '../edit/addresses';
 import { MAX_FRET } from '../edit/edit-song';
 import { neckFrets } from '../edit/string-placement';
-import { untieOrphanNotes } from '../edit/ties';
+import { previousNoteForTie } from '../edit/ties';
+import { updateNote } from '../edit/song-paths';
 import { trackTuning } from '../edit/tuning-presets';
 import { writtenTransposition } from '../formats/common/instrument-sets';
-import type { Measure, Song } from '../model/song';
+import { EMPTY_VOICE } from '../model/defaults';
+import type { Beat, Measure, Song } from '../model/song';
 import { type Neck, buildBeatNotes } from '../transcription/beat-notes';
 import { buildDrumBeatNotes } from '../transcription/drum-notes';
 import type { PlannedMeasure } from '../transcription/header-plan';
@@ -13,10 +15,8 @@ import { type TrackLayout, buildTrackMeasures } from '../transcription/track-mea
 import type { TranscribedMeasure } from '../transcription/types';
 import { addComposedTracks, appendComposedBars } from './compose-extend';
 import type { ComposeOutcome, ComposedBars } from './compose-types';
-import { trackInstrumentOf } from './track-instrument';
-
-/** What a track plays when it has no channel (the readers' default). */
-const DEFAULT_PROGRAM = 25;
+import { fitTrackParts } from './compose-fit';
+import { trackInstrumentOf, trackProgramOf } from './track-instrument';
 
 function trackName(song: Song, trackIndex: number): string {
   const name = song.tracks[trackIndex]?.name.trim() ?? '';
@@ -31,7 +31,7 @@ function trackName(song: Song, trackIndex: number): string {
 function trackLayoutOf(song: Song, trackIndex: number): TrackLayout {
   const track = song.tracks[trackIndex];
   const instrument = trackInstrumentOf(song, trackIndex) ?? 'guitar';
-  const program = song.channels.find((channel) => channel.id === track?.channelId)?.program ?? DEFAULT_PROGRAM;
+  const program = trackProgramOf(song, trackIndex);
   const tuning = track === undefined ? [] : trackTuning(track);
   const isFretted = isFrettedInstrument(instrument);
   const capo = track?.offset ?? 0;
@@ -56,34 +56,72 @@ interface WrittenTrack {
   readonly warnings: readonly string[];
 }
 
-/** The track's bars from `startIndex` replaced by the composed ones (a bar without its part: rests), each keeping its clef and key. */
-function writeTrack(song: Song, trackIndex: number, bars: readonly TranscribedMeasure[], startIndex: number): WrittenTrack {
+/** Voice slots of a measure's beats (at least the two the builder writes). */
+function voiceSlots(measure: Measure): number {
+  return measure.beats.reduce((most, beat) => Math.max(most, beat.voices.length), 2);
+}
+
+/** The beat with empty voices up to `slots`, so a rewritten bar keeps the voice slots of the bar it replaces. */
+function withSlots(beat: Beat, slots: number): Beat {
+  return beat.voices.length >= slots ? beat : { ...beat, voices: [...beat.voices, ...Array.from({ length: slots - beat.voices.length }, () => EMPTY_VOICE)] };
+}
+
+/** The builder's measure in place of `measure`: its clef, key and voice slots kept. */
+function replaceMeasure(measure: Measure, written: Measure): Measure {
+  const slots = voiceSlots(measure);
+  return { ...written, clef: measure.clef, keySignature: measure.keySignature, beats: written.beats.map((beat) => withSlots(beat, slots)) };
+}
+
+/** A replaced bar that had notes in voices 3–4, which the answer (voices 1–2) does not write. */
+function hasUpperVoiceNotes(measure: Measure): boolean {
+  return measure.beats.some((beat) => beat.voices.slice(2).some((voice) => voice.notes.length > 0));
+}
+
+/**
+ * The track's bars from `startIndex` replaced by the composed ones (a bar without its part: rests), each keeping its
+ * clef, key and voice slots; the parts first fitted to the bars (fitTrackParts).
+ */
+function writeTrack(song: Song, trackIndex: number, composed: readonly TranscribedMeasure[], startIndex: number): WrittenTrack {
   const track = song.tracks[trackIndex];
   if (track === undefined) {
     return { song, notes: 0, warnings: [] };
   }
-  const planned = bars.flatMap((source, offset): PlannedMeasure[] => {
+  const fitted = fitTrackParts(song, trackIndex, composed, startIndex);
+  const planned = fitted.bars.flatMap((source, offset): PlannedMeasure[] => {
     const headerIndex = startIndex + offset;
     const header = song.measureHeaders[headerIndex];
     return header === undefined ? [] : [{ source, header, headerIndex, keySignature: track.measures[headerIndex]?.keySignature ?? 0 }];
   });
   const built = buildTrackMeasures(planned, trackLayoutOf(song, trackIndex));
+  const replaced = track.measures.slice(startIndex, startIndex + built.measures.length);
+  const name = trackName(song, trackIndex);
+  const voiceWarnings = replaced.flatMap((measure, offset) =>
+    hasUpperVoiceNotes(measure) ? [`Bar ${startIndex + offset + 1}, ${name}: notes in voices 3–4 were replaced (the answer writes voices 1–2)`] : [],
+  );
   const measures = track.measures.map((measure, index) => {
     const written = index >= startIndex ? built.measures[index - startIndex] : undefined;
-    return written === undefined ? measure : { ...written, clef: measure.clef, keySignature: measure.keySignature };
+    return written === undefined ? measure : replaceMeasure(measure, written);
   });
   const tracks = song.tracks.map((other, index) => (index === trackIndex ? { ...track, measures } : other));
-  return { song: { ...song, tracks }, notes: noteCount(built.measures), warnings: built.warnings };
+  return { song: { ...song, tracks }, notes: noteCount(built.measures), warnings: [...fitted.warnings, ...voiceWarnings, ...built.warnings] };
 }
 
-/** Tied notes in the bar after the written ones, in the written tracks: those whose tie now has nothing to continue are untied. */
+/**
+ * Tied notes in the bar after the written ones, in the written tracks, untied when the note before them on their string
+ * is gone or at another fret: the tie no longer continues it.
+ */
 function untieAfter(song: Song, trackIndexes: readonly number[], measureIndex: number): Song {
-  const addresses = trackIndexes.flatMap((trackIndex): StringAddress[] =>
+  const addresses = trackIndexes.flatMap((trackIndex): (StringAddress & { readonly fret: number })[] =>
     (song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? []).flatMap((beat, beatIndex) =>
-      beat.voices.flatMap((voice, voiceIndex) => voice.notes.filter((note) => note.isTied).map((note) => ({ trackIndex, measureIndex, beatIndex, voiceIndex, string: note.string }))),
+      beat.voices.flatMap((voice, voiceIndex) =>
+        voice.notes.filter((note) => note.isTied).map((note) => ({ trackIndex, measureIndex, beatIndex, voiceIndex, string: note.string, fret: note.fret })),
+      ),
     ),
   );
-  return addresses.length === 0 ? song : untieOrphanNotes(song, addresses);
+  return addresses.reduce(
+    (current, address) => (previousNoteForTie(current, address)?.fret === address.fret ? current : updateNote(current, address, (note) => ({ ...note, isTied: false }))),
+    song,
+  );
 }
 
 /** Existing bars keep their header and key: a composed bar setting others is said once per bar. */
