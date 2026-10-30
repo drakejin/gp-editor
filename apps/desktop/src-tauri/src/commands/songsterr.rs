@@ -14,6 +14,7 @@ const SEARCH_PATH: &str = "/api/songs";
 const TIMEOUT: Duration = Duration::from_secs(15);
 /** A page of 20 songs is ~30 kB. */
 const MAX_ANSWER_BYTES: usize = 2 * 1024 * 1024;
+const USER_AGENT: &str = concat!("GP Editor/", env!("CARGO_PKG_VERSION"));
 
 /** The answer as text and its HTTP status (any status: the page tells them apart). */
 #[derive(Serialize)]
@@ -48,21 +49,28 @@ fn request_error(e: reqwest::Error) -> String {
 #[tauri::command]
 pub async fn songsterr_search(url: String) -> CommandResult<SearchAnswer> {
     let url = songsterr_url(&url, Some(SEARCH_PATH))?;
+    // No redirects: the host check holds for every hop (a 3xx comes back as its status).
     let client = reqwest::Client::builder()
         .connect_timeout(TIMEOUT)
         .timeout(TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent(USER_AGENT)
         .build()
         .map_err(|e| error("network", e))?;
-    let response = client
+    let mut response = client
         .get(url)
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await
         .map_err(request_error)?;
     let status = response.status().as_u16();
-    let bytes = response.bytes().await.map_err(request_error)?;
-    if bytes.len() > MAX_ANSWER_BYTES {
-        return Err(error("too_large", "Songsterr's answer is too large"));
+    // Read as it comes, stopping at the cap (an answer is never held whole beyond it).
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(request_error)? {
+        if bytes.len() + chunk.len() > MAX_ANSWER_BYTES {
+            return Err(error("too_large", "Songsterr's answer is too large"));
+        }
+        bytes.extend_from_slice(&chunk);
     }
     Ok(SearchAnswer { status, body: String::from_utf8_lossy(&bytes).into_owned() })
 }
