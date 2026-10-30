@@ -48,7 +48,7 @@ interface EditorCommandSources {
   readonly onAnnotationPanel?: () => void;
   /** Edit ▸ Lyrics…, the palette's Lyrics: the lyrics panel. */
   readonly onLyricsPanel?: () => void;
-  /** The palette's AI Compose, Edit ▸ AI Wizard ▸ Compose from Here…: the compose panel. */
+  /** The palette's AI Compose, Edit ▸ AI Wizard ▸ Compose from Here…: the compose panel at the cursor's bar. */
   readonly onComposePanel?: () => void;
   /** Tools ▸ Online ▸ Songsterr Search…, the palette's Songsterr: the Songsterr search panel. */
   readonly onSongsterrPanel?: () => void;

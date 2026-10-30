@@ -273,7 +273,6 @@ export const EN_PALETTE = {
   'palette.hint.syncOrder': 'A sync point must come after the one before it and before the one after it, both in the score and in the recording.',
   'palette.hint.twoSyncPoints': 'Add two sync points first: the tempo is the pace of the recording between them.',
   'palette.hint.tempoFromAudio': 'Tempo from bar {bar}: {tempo} BPM, the recording\'s pace between the first two sync points.',
-  'palette.hint.aiComposeNotYet': 'AI Compose (Claude writing bars from the cursor) is not in this build yet.',
   'palette.selection.oneBar': { one: '{count} beat from bar {bar}', other: '{count} beats from bar {bar}' },
   'palette.selection.bars': { one: '{count} beat from bars {first}–{last}', other: '{count} beats from bars {first}–{last}' },
   'palette.transpose.byNothing': 'by nothing',

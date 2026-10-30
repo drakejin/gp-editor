@@ -1,12 +1,11 @@
-import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { TextField } from '../TextField';
 import { useT } from '../../hooks/use-i18n';
 import type { SongWriterDraft } from '../../hooks/use-song-writer';
 import type { MessageKey } from '../../lib/i18n/i18n';
 import { lengthLabel } from '../../song-writer/request';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
+import { WizardField as Field, WizardRow as Row } from '../ai-wizard/WizardFields';
 
 /** Genres offered as one-click choices, named in the shown language (Claude reads either); any other can be typed. */
 const GENRES: readonly MessageKey[] = [
@@ -31,33 +30,6 @@ export interface SongWriterFieldsProps {
   readonly onChangeDraft: (change: Partial<SongWriterDraft>) => void;
   /** What the open score is ("song.gp5 · Lead"), or undefined when there is nothing to build on. */
   readonly reference?: string;
-}
-
-function Row({ palette, label, children }: { readonly palette: Palette; readonly label: string; readonly children: ReactNode }) {
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.label, { color: palette.chromeMuted }]}>{label.toUpperCase()}</Text>
-      <View style={styles.field}>{children}</View>
-    </View>
-  );
-}
-
-/** A one-line field, or room for `lines` lines of text. */
-const LINE_HEIGHT = 16;
-const fieldHeight = (lines: number): number => (lines > 1 ? lines * LINE_HEIGHT + 10 : 24);
-
-function Field({ palette, label, value, placeholder, lines = 1, onChange }: { readonly palette: Palette; readonly label: string; readonly value: string; readonly placeholder: string; readonly lines?: number; readonly onChange: (text: string) => void }) {
-  return (
-    <TextField
-      accessibilityLabel={label}
-      value={value}
-      onChangeText={onChange}
-      placeholder={placeholder}
-      placeholderTextColor={palette.chromeMuted}
-      multiline={lines > 1}
-      style={[styles.input, { height: fieldHeight(lines), color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
-    />
-  );
 }
 
 /** The song the user asks for: title, genre, length, lyrics, description, and whether to build on the open score. */
@@ -108,10 +80,6 @@ export function SongWriterFields({ palette, draft, onChangeDraft, reference }: S
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  label: { width: 78, fontSize: 10, fontWeight: '800', letterSpacing: 0.6, paddingTop: 6 },
-  field: { flex: 1 },
-  input: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, fontSize: 12 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 4, rowGap: 2 },
   length: { width: 44, textAlign: 'center', fontSize: 13, fontWeight: '700' },
   note: { fontSize: 11, marginLeft: 6 },

@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { runMcpServerCommand } from '../native/mcp-server';
 import type { CommandActions } from '../lib/command-types';
 import type { CursorTools } from './use-cursor-tools';
@@ -24,10 +23,8 @@ interface WindowCommandSources {
 }
 
 export function useWindowCommands({ base, media, files, tools, overlays, cursorTools }: WindowCommandSources): WindowCommands {
-  const { state, dispatch, chrome, keyboardView, t } = base;
+  const { state, dispatch, chrome, keyboardView } = base;
   const { documents } = files;
-  // The palette's AI Compose: the compose panel comes with its own branch; until then the button says so.
-  const onComposePanel = useCallback(() => dispatch({ type: 'showHint', hint: t('palette.hint.aiComposeNotYet') }), [dispatch, t]);
   const editor = useEditorCommands({
     state,
     dispatch,
@@ -44,7 +41,7 @@ export function useWindowCommands({ base, media, files, tools, overlays, cursorT
     onChordPanel: cursorTools.openChordPanel,
     onAnnotationPanel: tools.openAnnotations,
     onLyricsPanel: tools.openLyrics,
-    onComposePanel,
+    onComposePanel: tools.compose.open,
     onSongsterrPanel: tools.songsterr.open,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
     closeOverlay: overlays.closeOverlay,

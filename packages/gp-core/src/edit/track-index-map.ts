@@ -24,8 +24,9 @@ export function isIdentityTrackMap(map: TrackIndexMap, trackCount: number): bool
 /**
  * How the tracks of `before` map onto those of `after`, one step of the undo history apart. Track edits keep a track's
  * list of measures (the same array object) wherever the track goes, while a new or duplicated track gets a new one; so a
- * track is found by that list — at its own index first — and, when the song keeps its number of tracks, a track whose
- * notes changed (a new list) stays at its index. Each track of `after` is matched once.
+ * track is found by that list — at its own index first — and a track whose notes changed (a new list) stays at its index
+ * when no other track took that index (the same number of tracks, or tracks added after the last one in the same step,
+ * as Compose from Here does). Each track of `after` is matched once.
  */
 export function matchTrackIndexes(before: Song, after: Song): TrackIndexMap {
   const used = new Set<number>();
@@ -39,6 +40,5 @@ export function matchTrackIndexes(before: Song, after: Song): TrackIndexMap {
     const found = after.tracks.findIndex((track, candidate) => !used.has(candidate) && track.measures === measures);
     return matched ?? (found < 0 ? undefined : take(found));
   });
-  const isSameCount = before.tracks.length === after.tracks.length;
-  return byMeasures.map((matched, index) => matched ?? (isSameCount && !used.has(index) ? take(index) : undefined));
+  return byMeasures.map((matched, index) => matched ?? (index < after.tracks.length && !used.has(index) ? take(index) : undefined));
 }

@@ -6,6 +6,7 @@ import { allCommands } from '../../lib/commands';
 import { tunerStrings } from '../../lib/tuner-display';
 import { ChordPanel } from '../chords/ChordPanel';
 import { ChromeMenu } from '../chrome/ChromeMenu';
+import { ComposePanel } from '../compose/ComposePanel';
 import { CommandPalette } from '../CommandPalette';
 import { DrumKeyPanel } from '../drum-key/DrumKeyPanel';
 import { LineInPanel } from '../effects/LineInPanel';
@@ -93,7 +94,7 @@ function TopBarMenu({ model }: WindowPartProps) {
   );
 }
 
-/** The Song Writer, the line in's card, the drum key, the Songsterr search, the tuner, the chord and note panels, the Add Track panel, the delete question and a track's information. */
+/** The Song Writer, Compose from Here, the line in's card, the drum key, the Songsterr search, the tuner, the chord and note panels, the Add Track panel, the delete question and a track's information. */
 export function ToolOverlays({ model }: WindowPartProps) {
   const { base, tools, cursorTools } = model;
   const { palette, chromePalette, state, chrome } = base;
@@ -104,6 +105,7 @@ export function ToolOverlays({ model }: WindowPartProps) {
   return (
     <>
       <SongWriterOverlay model={model} />
+      <ComposeOverlay model={model} />
       {lineIn.isOpen && song !== undefined ? <LineInPanel palette={palette} lineIn={lineIn} trackLabel={`${lineIn.trackIndex + 1}. ${song.tracks[lineIn.trackIndex]?.name ?? ''}`} /> : null}
       {tools.drumKey.isOpen && song !== undefined ? <DrumKeyPanel palette={palette} song={song} trackIndex={state.trackIndex} drumKey={tools.drumKey} /> : null}
       {tools.songsterr.isOpen ? <SongsterrPanel palette={palette} songsterr={tools.songsterr} /> : null}
@@ -175,6 +177,36 @@ function SongWriterOverlay({ model }: WindowPartProps) {
       onWrite={() => songWriter.write(pdfImport.model, reference)}
       onCancel={songWriter.cancel}
       onClose={songWriter.close}
+    />
+  );
+}
+
+/** Edit ▸ AI Wizard ▸ Compose from Here…, on the shown score from the cursor's bar. */
+function ComposeOverlay({ model }: WindowPartProps) {
+  const { base, files, tools } = model;
+  const { compose } = tools;
+  const { pdfImport } = files;
+  const { document, cursor, trackIndex } = base.state;
+  if (!compose.isOpen) {
+    return null;
+  }
+  const currentIndex = cursor?.trackIndex ?? trackIndex;
+  return (
+    <ComposePanel
+      palette={base.chromePalette}
+      draft={compose.draft}
+      onChangeDraft={compose.changeDraft}
+      status={compose.status}
+      barCount={document?.song.measureHeaders.length}
+      cursorBar={(cursor?.measureIndex ?? 0) + 1}
+      currentTrack={`${currentIndex + 1}. ${document?.song.tracks[currentIndex]?.name ?? ''}`}
+      hasKey={pdfImport.hasKey}
+      model={pdfImport.model}
+      onSaveKey={pdfImport.saveKey}
+      onChooseModel={pdfImport.chooseModel}
+      onCompose={() => compose.compose(pdfImport.model)}
+      onCancel={compose.cancel}
+      onClose={compose.close}
     />
   );
 }

@@ -117,6 +117,8 @@ export const subscribeExportAudioRequests = menuRequests('exportAudioRequested')
 export const subscribePrintRequests = menuRequests('printRequested');
 /** Edit ▸ AI Wizard ▸ Song Writer…. */
 export const subscribeSongWriterRequests = menuRequests('songWriterRequested');
+/** Edit ▸ AI Wizard ▸ Compose from Here…. */
+export const subscribeComposeRequests = menuRequests('composeRequested');
 /** Tools ▸ Transpose…. */
 export const subscribeTransposeRequests = menuRequests('transposeRequested');
 /** Edit ▸ Lyrics…. */

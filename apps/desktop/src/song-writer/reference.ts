@@ -1,19 +1,12 @@
 // i18n-exempt-file: the open score described for Claude's prompt, never shown
-import type { Duration, Measure, Note, Song, Track } from '@gp-editor/core';
+import type { Measure, Note, Song, Track } from '@gp-editor/core';
+import { durationCode } from '../compose/score-notation';
 import { pitchName, tuningLabel } from '../lib/pitch';
 
 /** Bars of the open score the song writer is shown: enough for its motifs and groove, little enough to keep requests small. */
 const MAX_REFERENCE_BARS = 16;
 
-const VALUE_CODES: Readonly<Record<number, string>> = { 1: 'w', 2: 'h', 4: 'q', 8: 'e', 16: 's', 32: 't', 64: 'x' };
-
 const LEGEND = 'Each beat is duration:notes — w h q e s t x (whole … 64th), "." dotted, "/3" a triplet; a note is its sounding pitch @ string/fret, "~" tied, "x" dead; r = rest.';
-
-function durationCode(duration: Duration): string {
-  const dots = duration.doubleDotted ? '..' : duration.dotted ? '.' : '';
-  const tuplet = duration.tuplet.enters === duration.tuplet.times ? '' : `/${duration.tuplet.enters}`;
-  return `${VALUE_CODES[duration.value] ?? '?'}${dots}${tuplet}`;
-}
 
 /** A note as it sounds (capo counted) and where it is played: "E4@1/0". */
 function noteCode(track: Track, note: Note): string {

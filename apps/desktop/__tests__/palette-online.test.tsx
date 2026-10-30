@@ -68,13 +68,13 @@ describe('the command palette’s online tools', () => {
     expect(rows[0]?.isEnabled(NO_CURSOR_STATE)).toBe(true);
   });
 
-  it('lists AI Compose from the palette until its menu item comes with the compose panel', () => {
+  it('lists AI Compose once, as the Edit menu’s Compose from Here (the palette’s button sends the same command)', () => {
     // Act
     const rows = allCommands().filter((command) => JSON.stringify(command.command) === JSON.stringify({ type: 'openComposePanel' }));
 
     // Assert
-    expect(rows.map((command) => command.id)).toEqual(['palette.aiCompose']);
-    expect(rows[0]?.title).toBe('AI Compose: Claude writes bars from the cursor’s bar on, as your prompt asks');
+    expect(rows.map((command) => command.id)).toEqual(['edit.composeHere']);
+    expect(rows[0]?.title).toBe('Compose from Here…');
   });
 
   it('finds the Songsterr search by its English words in Korean', () => {

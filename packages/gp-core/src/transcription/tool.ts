@@ -77,35 +77,45 @@ function beatSchemaOf<Note>(note: Note) {
   } as const;
 }
 
+/** Where a measure sets its meter, tempo or key (where printed or changed). Shared with the compose tool's bars. */
+export const MEASURE_CHANGE_PROPERTIES = {
+  timeSignature: {
+    type: 'object',
+    properties: { numerator: { type: 'integer', minimum: 1, maximum: MAX_TRANSCRIBED_NUMERATOR }, denominator: { type: 'integer', enum: TRANSCRIBED_DENOMINATORS } },
+    required: ['numerator', 'denominator'],
+    additionalProperties: false,
+  },
+  tempo: TEMPO_SCHEMA,
+  keySignature: { type: 'integer', minimum: -MAX_TRANSCRIBED_KEY_ACCIDENTALS, maximum: MAX_TRANSCRIBED_KEY_ACCIDENTALS },
+} as const;
+
+/** A measure's parts: one per track (two for a staff with two voices), each its beats, notes as `note` describes them. */
+function partsSchemaOf<Note>(note: Note) {
+  return {
+    type: 'array',
+    maxItems: MAX_TRANSCRIBED_PARTS,
+    items: {
+      type: 'object',
+      properties: {
+        track: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_TRACKS - 1 },
+        beats: { type: 'array', items: beatSchemaOf(note), maxItems: MAX_TRANSCRIBED_BEATS },
+      },
+      required: ['track', 'beats'],
+      additionalProperties: false,
+    },
+  } as const;
+}
+
 /** One measure, its notes as `note` describes them: its parts, the marks printed at it, and the syllables sung in it. */
 function measureSchemaOf<Note>(note: Note) {
   return {
     type: 'object',
     properties: {
-      timeSignature: {
-        type: 'object',
-        properties: { numerator: { type: 'integer', minimum: 1, maximum: MAX_TRANSCRIBED_NUMERATOR }, denominator: { type: 'integer', enum: TRANSCRIBED_DENOMINATORS } },
-        required: ['numerator', 'denominator'],
-        additionalProperties: false,
-      },
-      tempo: TEMPO_SCHEMA,
-      keySignature: { type: 'integer', minimum: -MAX_TRANSCRIBED_KEY_ACCIDENTALS, maximum: MAX_TRANSCRIBED_KEY_ACCIDENTALS },
+      ...MEASURE_CHANGE_PROPERTIES,
       repeatOpen: { type: 'boolean' },
       repeatClose: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_REPEAT_PLAYS },
       alternateEnding: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_ALTERNATE_ENDING },
-      parts: {
-        type: 'array',
-        maxItems: MAX_TRANSCRIBED_PARTS,
-        items: {
-          type: 'object',
-          properties: {
-            track: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_TRACKS - 1 },
-            beats: { type: 'array', items: beatSchemaOf(note), maxItems: MAX_TRANSCRIBED_BEATS },
-          },
-          required: ['track', 'beats'],
-          additionalProperties: false,
-        },
-      },
+      parts: partsSchemaOf(note),
       lyrics: {
         type: 'array',
         maxItems: MAX_TRANSCRIBED_BEATS,
@@ -118,8 +128,35 @@ function measureSchemaOf<Note>(note: Note) {
   } as const;
 }
 
+/** The parts of a measure of any staff, drums by name: the compose tool's bars. */
+export const PAGE_PARTS_SCHEMA = partsSchemaOf(PAGE_NOTE_SCHEMA);
+
 /** One measure of tab and pitched notes. Shared with the song writer's tools. */
 export const MEASURE_SCHEMA = measureSchemaOf(NOTE_SCHEMA);
+
+/** A track (staff) of the contract: its name, instrument, tuning, capo, program and clef. Shared with the compose tool's new tracks. */
+export const TRANSCRIBED_TRACK_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    instrument: { type: 'string', enum: TRANSCRIBED_INSTRUMENTS },
+    tuning: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Guitar, bass, ukulele or banjo only: open strings from the bottom tab line up (lowest first), e.g. ["E2","A2","D3","G3","B3","E4"], ukulele ["G4","C4","E4","A4"].',
+    },
+    capo: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_CAPO, description: 'Guitar, bass, ukulele or banjo only.' },
+    program: {
+      type: 'integer',
+      minimum: 0,
+      maximum: MAX_TRANSCRIBED_PROGRAM,
+      description: 'General MIDI program (0-based) of a vocals, keys or other track, e.g. 0 piano, 4 electric piano, 16 organ, 40 violin, 42 cello, 48 strings, 53 voice, 56 trumpet, 65 alto sax, 73 flute, 81 saw lead.',
+    },
+    clef: { type: 'string', enum: TRANSCRIBED_CLEFS, description: 'The clef of a vocals, keys or other staff.' },
+  },
+  required: ['name', 'instrument'],
+  additionalProperties: false,
+} as const;
 
 export const TRANSCRIPTION_TOOL = {
   name: 'record_transcription',
@@ -140,28 +177,7 @@ export const TRANSCRIPTION_TOOL = {
       tracks: {
         type: 'array',
         maxItems: MAX_TRANSCRIBED_TRACKS,
-        items: {
-          type: 'object',
-          properties: {
-            name: { type: 'string' },
-            instrument: { type: 'string', enum: TRANSCRIBED_INSTRUMENTS },
-            tuning: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Guitar, bass, ukulele or banjo only: open strings from the bottom tab line up (lowest first), e.g. ["E2","A2","D3","G3","B3","E4"], ukulele ["G4","C4","E4","A4"].',
-            },
-            capo: { type: 'integer', minimum: 0, maximum: MAX_TRANSCRIBED_CAPO, description: 'Guitar, bass, ukulele or banjo only.' },
-            program: {
-              type: 'integer',
-              minimum: 0,
-              maximum: MAX_TRANSCRIBED_PROGRAM,
-              description: 'General MIDI program (0-based) of a vocals, keys or other track, e.g. 0 piano, 4 electric piano, 16 organ, 40 violin, 42 cello, 48 strings, 53 voice, 56 trumpet, 65 alto sax, 73 flute, 81 saw lead.',
-            },
-            clef: { type: 'string', enum: TRANSCRIBED_CLEFS, description: 'The clef of a vocals, keys or other staff.' },
-          },
-          required: ['name', 'instrument'],
-          additionalProperties: false,
-        },
+        items: TRANSCRIBED_TRACK_SCHEMA,
       },
       measures: { type: 'array', items: measureSchemaOf(PAGE_NOTE_SCHEMA), maxItems: MAX_TRANSCRIBED_MEASURES },
       warnings: { type: 'array', items: { type: 'string' } },

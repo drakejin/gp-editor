@@ -16,7 +16,7 @@ import { transpositionHint } from './transposition';
 // step each.
 
 /** A new drum track's staves: standard notation only, as Guitar Pro adds one (no tab of drum key numbers). */
-const DRUM_TRACK_MODE: ScoreMode = 'notation';
+export const DRUM_TRACK_MODE: ScoreMode = 'notation';
 
 export function selectTrack(state: EditorState, trackIndex: number): EditorState {
   const song = state.document?.song;

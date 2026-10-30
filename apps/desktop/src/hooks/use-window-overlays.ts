@@ -15,11 +15,12 @@ export interface WindowOverlays {
 /** The panels over the window that are not the chrome's, the one on top first: closed by Esc after the save question. */
 function panelClosers(files: WindowFiles, tools: WindowTools): readonly PanelCloser[] {
   const { importPanel, pdfExport, audioExport, recentFiles } = files;
-  const { settingsPanel, tuner, songWriter, lyricsEditor, closeLyricsPanel, annotationEditor, closeAnnotationPanel, scales, transposePanel, scoreDesign, commandPalette, audio } = tools;
+  const { settingsPanel, tuner, songWriter, compose, lyricsEditor, closeLyricsPanel, annotationEditor, closeAnnotationPanel, scales, transposePanel, scoreDesign, commandPalette, audio } = tools;
   const { trackManager, drumKey, songsterr, trackInfo } = tools;
   return [
     // Settings first: it is over every other panel.
-    [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [importPanel.isOpen, importPanel.close],
+    [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [compose.isOpen, compose.close],
+    [importPanel.isOpen, importPanel.close],
     [pdfExport.isOpen, pdfExport.close], [audioExport.isOpen, audioExport.close], [recentFiles.isPanelOpen, recentFiles.closePanel], [lyricsEditor.isOpen, closeLyricsPanel],
     [annotationEditor.isOpen, closeAnnotationPanel],
     [scales.isOpen, scales.close], [transposePanel.isOpen, transposePanel.close], [scoreDesign.isStylesheetOpen, scoreDesign.closeStylesheet],

@@ -157,6 +157,13 @@ describe('useEditorCommands: note panels, playback tempo and the clipboard', () 
     expect(sources.dispatch).not.toHaveBeenCalled();
   });
 
+  it('opens the compose panel for the palette’s AI Compose and Edit ▸ AI Wizard ▸ Compose from Here…', () => {
+    const { commands, sources } = renderCommands(openSong());
+    commands.runCommand({ type: 'openComposePanel' });
+    expect(sources.onComposePanel).toHaveBeenCalledTimes(1);
+    expect(sources.dispatch).not.toHaveBeenCalled();
+  });
+
   it('steps the playback tempo of the cursor’s bar with ] and [', () => {
     // Arrange: the cursor is in bar 3, written at 120 BPM
     const { commands, sources } = renderCommands(openSong());

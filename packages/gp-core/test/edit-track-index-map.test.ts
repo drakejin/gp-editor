@@ -66,6 +66,17 @@ describe('matchTrackIndexes', () => {
     expect(matchTrackIndexes(duplicated, song)).toEqual([0, undefined, 1, 2]);
   });
 
+  it('keeps a track whose notes changed at its index when tracks were also added after the last one, and back for undo', () => {
+    // Arrange
+    const song = threeTracks();
+    const rewritten = setNoteFret(song, { trackIndex: 1, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 2 }, 3);
+    const composed = addTrack(addTrack(rewritten, { kind: 'drums' }), { kind: 'bass' });
+
+    // Act / Assert
+    expect(matchTrackIndexes(song, composed)).toEqual([0, 1, 2]);
+    expect(matchTrackIndexes(composed, song)).toEqual([0, 1, 2, undefined, undefined]);
+  });
+
   it('matches tracks that share one measures list one to one', () => {
     // Arrange
     const song = threeTracks();

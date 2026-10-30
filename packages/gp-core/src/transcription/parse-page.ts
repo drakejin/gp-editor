@@ -189,7 +189,11 @@ function parseTimeSignature(value: unknown, path: string): TranscribedMeasure['t
   return { numerator, denominator };
 }
 
-function parseMeasure(value: unknown, path: string, trackCount: number | undefined): TranscribedMeasure {
+/**
+ * One measure of an answer (`path` names it in errors, "measures[2]"); a part for a track index at or beyond `trackCount`
+ * (when given) or MAX_TRANSCRIBED_TRACKS is refused. Shared with the compose tool's bars.
+ */
+export function parseTranscribedMeasure(value: unknown, path: string, trackCount: number | undefined): TranscribedMeasure {
   const measure = readObject(value, path);
   const parts = readOptionalList(measure.parts, `${path}.parts`, MAX_TRANSCRIBED_PARTS).map((part, index) => parsePart(part, `${path}.parts[${index}]`, trackCount));
   return withoutUndefined({
@@ -221,7 +225,7 @@ export function parseTranscriptionPage(value: unknown): TranscriptionPage {
   const page = readObject(value, 'page');
   const { tracks, warnings: trackWarnings } = parseTracks(page.tracks);
   const trackCount = tracks !== undefined && tracks.length > 0 ? tracks.length : undefined;
-  const measures = readList(page.measures, 'measures', MAX_TRANSCRIBED_MEASURES).map((measure, index) => parseMeasure(measure, `measures[${index}]`, trackCount));
+  const measures = readList(page.measures, 'measures', MAX_TRANSCRIBED_MEASURES).map((measure, index) => parseTranscribedMeasure(measure, `measures[${index}]`, trackCount));
   const warnings = [...parseWarnings(page.warnings), ...trackWarnings];
   return withoutUndefined({ song: parseSongInfo(page.song), tracks, measures, warnings: warnings.length === 0 ? undefined : warnings });
 }

@@ -164,7 +164,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | keyboard shortcuts | 단축키 | |
 | settings | 설정 | |
 | song information: title, subtitle, artist, album, words, music, copyright, tab author, instructions, notice | 곡 정보: 제목, 부제, 아티스트, 앨범, 작사, 작곡, 저작권, 타브 작성자, 연주 안내, 알림 | not 메모 (an annotation) |
-| AI Wizard, Song Writer | AI 마법사, 작곡 도우미 | |
+| AI Wizard, Song Writer, Compose from Here | AI 마법사, 작곡 도우미, 여기부터 작곡 | |
 | PDF import, project | PDF 가져오기, 프로젝트 | |
 | API key, model | API 키, 모델 | |
 

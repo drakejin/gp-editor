@@ -265,7 +265,6 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.hint.syncOrder': '싱크 포인트는 악보와 녹음 모두에서 앞 포인트보다 뒤, 다음 포인트보다 앞에 있어야 합니다.',
   'palette.hint.twoSyncPoints': '먼저 싱크 포인트를 두 개 추가하세요: 템포는 그 사이 녹음의 빠르기로 정해집니다.',
   'palette.hint.tempoFromAudio': '마디 {bar}부터 템포 {tempo} BPM: 처음 두 싱크 포인트 사이 녹음의 빠르기입니다.',
-  'palette.hint.aiComposeNotYet': 'AI 작곡(커서부터 Claude가 마디를 쓰는 기능)은 이 빌드에 아직 없습니다.',
   'palette.selection.oneBar': '마디 {bar}의 {count}박',
   'palette.selection.bars': '마디 {first}–{last}의 {count}박',
   'palette.transpose.byNothing': '이동 없음',

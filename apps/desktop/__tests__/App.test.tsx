@@ -357,7 +357,7 @@ describe('the window: ONLINE TOOLS', () => {
     expect(songsterrPanels(renderer)).toHaveLength(1);
   });
 
-  it('says AI Compose is not in this build yet, until the compose panel comes', async () => {
+  it('opens the compose panel from the palette’s AI Compose', async () => {
     // Arrange
     const renderer = await openWindow();
 
@@ -365,6 +365,6 @@ describe('the window: ONLINE TOOLS', () => {
     await pressTool(renderer, 'aiCompose');
 
     // Assert
-    expect(renderer.root.findAll((node) => node.props.message === 'AI Compose (Claude writing bars from the cursor) is not in this build yet.').length).toBeGreaterThan(0);
+    expect(renderer.root.findAll((node) => node.props.testID === 'compose-backdrop').length).toBeGreaterThan(0);
   });
 });

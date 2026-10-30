@@ -45,6 +45,9 @@ FOUNDATION_EXPORT NSString *const GPEditorHelpCommandNotification;
 /** Edit ▸ AI Wizard ▸ Song Writer… was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorSongWriterCommandNotification;
 
+/** Edit ▸ AI Wizard ▸ Compose from Here… was chosen ("composeRequested" in JS). No object. */
+FOUNDATION_EXPORT NSString *const GPEditorComposeCommandNotification;
+
 /** Tools ▸ Tuner… was chosen; GPAudioInput.m forwards it to JS as "tunerRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorTunerCommandNotification;
 /** Tools ▸ Transpose… was chosen (JS event "transposeRequested"). No object. */

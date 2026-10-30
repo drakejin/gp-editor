@@ -130,7 +130,11 @@ function editMenu(): TopMenu {
     SEPARATOR,
     command('lyrics', 'commands.title.edit.lyrics', post('lyricsRequested')),
     command('annotation', 'commands.title.edit.annotation', post('annotationRequested')),
-    { kind: 'submenu', text: t('window.menu.aiWizard'), items: [command('song-writer', 'commands.title.edit.songWriter', post('songWriterRequested'))] },
+    {
+      kind: 'submenu',
+      text: t('window.menu.aiWizard'),
+      items: [command('song-writer', 'commands.title.edit.songWriter', post('songWriterRequested')), command('compose-here', 'commands.title.edit.composeHere', post('composeRequested'))],
+    },
   ]);
 }
 
