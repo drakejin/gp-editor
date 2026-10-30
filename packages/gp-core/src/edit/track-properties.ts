@@ -15,6 +15,11 @@ const ABBREVIATED_LENGTH = 4;
 /** A track named like a voice gets the voice icon whatever it plays (a vocal line on a piano sound). */
 const VOICE_NAME = /voc|vox|voice|sing|choir/i;
 
+/** True for a track named like a voice ("Lead Vocals", "Choir"): a sung part, whatever sound plays it. */
+export function isVoiceName(name: string): boolean {
+  return VOICE_NAME.test(name);
+}
+
 /** The track's name with each word longer than five letters cut to four and a dot: "Distortion Guitar" → "Dist. Guit.". */
 export function abbreviateTrackName(name: string): string {
   return name
@@ -98,7 +103,7 @@ export function instrumentIconId(track: Pick<Track, 'name' | 'isPercussion'>, ch
   if (track.isPercussion || channel?.isPercussion === true) {
     return TRACK_ICON_IDS.drums;
   }
-  if (VOICE_NAME.test(track.name)) {
+  if (isVoiceName(track.name)) {
     return TRACK_ICON_IDS.voice;
   }
   return channel === undefined ? TRACK_ICON_IDS.steelGuitar : instrumentSetOf(channel.program, false).iconId;

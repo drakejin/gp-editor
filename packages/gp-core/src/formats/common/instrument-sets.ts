@@ -65,7 +65,7 @@ const UKULELE_STRINGS = 4;
 const UKULELE_LOWEST_OPEN = 55;
 
 /** A guitar sound on four strings tuned G3 or higher: a ukulele (General MIDI has none; the app plays it as a guitar). */
-function isUkuleleTuning(tuning: readonly number[]): boolean {
+export function isUkuleleTuning(tuning: readonly number[]): boolean {
   return tuning.length === UKULELE_STRINGS && tuning.every((open) => open >= UKULELE_LOWEST_OPEN);
 }
 

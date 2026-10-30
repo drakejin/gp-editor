@@ -330,7 +330,9 @@ export type {
   TranscribedTrack,
   TranscriptionPage,
 } from './transcription/types';
+export { MAX_TRANSCRIBED_TRACKS } from './transcription/types';
 export { PAGE_PITCH_RULE, TRANSCRIPTION_TOOL } from './transcription/tool';
+export { isFrettedInstrument } from './transcription/instruments';
 export { parseTranscriptionPage } from './transcription/parse-page';
 export { type TranscribedSong, type TranscriptionOptions, buildSongFromTranscription } from './transcription/build-song';
 export {
@@ -347,6 +349,11 @@ export {
 export { PLAN_SONG_TOOL, WRITE_SECTION_TOOL } from './composition/tool';
 export { parseSongPlan } from './composition/parse-plan';
 export { SONG_WRITER_CREDIT, type SongDetails, buildComposedSong } from './composition/build';
+export { type ComposeOutcome, type ComposeScope, type ComposedBars, MAX_COMPOSED_BARS, MAX_COMPOSED_NEW_TRACKS } from './composition/compose-types';
+export { WRITE_BARS_TOOL } from './composition/write-bars-tool';
+export { parseComposedBars } from './composition/parse-bars';
+export { applyComposedBars } from './composition/apply-bars';
+export { trackInstrumentOf } from './composition/track-instrument';
 export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
 export { ANNOTATION_PLACEMENTS, MAX_ANNOTATION_LENGTH, MAX_ANNOTATION_LINES, isAnnotationPlacement, isSameAnnotation, normalizeAnnotationText, toAnnotation } from './annotations/annotation-text';
 export { readSongAnnotations, songAnnotationsToJson } from './annotations/song-annotations';
