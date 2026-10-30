@@ -73,6 +73,9 @@ export function toggleTrackShown(display: TrackDisplay, trackCount: number, sele
   return { ...display, hiddenTrackIndexes: hidden };
 }
 
+/** A drum track's staves when it is added (or comes back): standard notation only, as Guitar Pro adds one (no tab of drum key numbers). */
+export const DRUM_TRACK_MODE: ScoreMode = 'notation';
+
 /** The track's own staves. */
 export function setTrackMode(display: TrackDisplay, trackIndex: number, mode: ScoreMode): TrackDisplay {
   return display.trackModes[trackIndex] === mode ? display : { ...display, trackModes: { ...display.trackModes, [trackIndex]: mode } };

@@ -8,6 +8,7 @@ import {
   isFrettedInstrument,
   tabFret,
   trackInstrumentOf,
+  trackProgramOf,
   trackTuning,
   writtenTransposition,
 } from '@gp-editor/core';
@@ -60,9 +61,7 @@ export function trackNotationOf(song: Song, trackIndex: number): TrackNotation {
   const track = song.tracks[trackIndex];
   const instrument = trackInstrumentOf(song, trackIndex) ?? 'guitar';
   const tuning = track === undefined ? [] : trackTuning(track);
-  const program =
-    song.channels.find(channel => channel.id === track?.channelId)?.program ??
-    0;
+  const program = trackProgramOf(song, trackIndex);
   const writtenAbove = isFrettedInstrument(instrument)
     ? writtenTransposition(program, false, tuning)
     : 0;

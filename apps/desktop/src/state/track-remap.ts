@@ -1,7 +1,7 @@
 import { type Song, type TrackIndexMap, isIdentityTrackMap, matchTrackIndexes, remapTrackIndex } from '@gp-editor/core';
 import { clampCursor, firstCursor } from '../lib/navigation';
 import type { EditorState } from './editor';
-import { remapTrackDisplay } from './track-display';
+import { DRUM_TRACK_MODE, remapTrackDisplay, setTrackMode } from './track-display';
 
 /** The shown track after a track edit: where it went; when it was deleted, the track now at its place (else the last). */
 function followShownTrack(map: TrackIndexMap, trackIndex: number, song: Song): number {
@@ -27,8 +27,22 @@ export function remapEditorTracks(state: EditorState, map: TrackIndexMap): Edito
   return { ...state, trackIndex, cursor, selectionAnchor, trackDisplay };
 }
 
-/** After an undo or a redo from `before` to `after`: when the tracks themselves changed, the state follows them. */
+/** The tracks of `after` that no track of `before` became: added, or back on an undo. */
+function newTrackIndexes(map: TrackIndexMap, after: Song): readonly number[] {
+  const followed = new Set(map.filter((trackIndex): trackIndex is number => trackIndex !== undefined));
+  return after.tracks.flatMap((_, trackIndex) => (followed.has(trackIndex) ? [] : [trackIndex]));
+}
+
+/**
+ * After an undo or a redo from `before` to `after` (or an edit that adds tracks): when the tracks themselves changed,
+ * the state follows them, and a drum track that comes (back) without a view of its own is shown as notation.
+ */
 export function followTrackChanges(state: EditorState, before: Song, after: Song): EditorState {
   const map = matchTrackIndexes(before, after);
-  return isIdentityTrackMap(map, after.tracks.length) ? state : remapEditorTracks(state, map);
+  if (isIdentityTrackMap(map, after.tracks.length)) {
+    return state;
+  }
+  const followed = remapEditorTracks(state, map);
+  const drums = newTrackIndexes(map, after).filter((trackIndex) => after.tracks[trackIndex]?.isPercussion === true && followed.trackDisplay.trackModes[trackIndex] === undefined);
+  return drums.length === 0 ? followed : { ...followed, trackDisplay: drums.reduce((display, trackIndex) => setTrackMode(display, trackIndex, DRUM_TRACK_MODE), followed.trackDisplay) };
 }

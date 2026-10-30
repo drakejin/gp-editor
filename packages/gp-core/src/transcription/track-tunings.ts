@@ -37,15 +37,15 @@ function isDescending(pitches: readonly number[]): boolean {
  * A fretted instrument's open-string pitches, string 1 first. The contract lists them from the bottom tab line up: lowest
  * first, and a re-entrant ukulele's G C E A or a banjo's G D G B D (the short 5th string on the bottom line) as written.
  * A list given highest first (strictly falling) is read that way too. Standard tuning when none is given, or (with a
- * warning) when it cannot be read or has more strings than Guitar Pro 5 holds.
+ * warning) when it cannot be read or has more strings than `maxStrings` (Guitar Pro 5's, unless the caller holds more).
  */
-export function resolveFrettedTuning(track: TranscribedTrack, name: string): ResolvedTuning {
+export function resolveFrettedTuning(track: TranscribedTrack, name: string, maxStrings = MAX_STRINGS): ResolvedTuning {
   const standard = standardTuningOf(track.instrument);
   if (track.tuning.length === 0) {
     return { tuning: standard };
   }
   const pitches = track.tuning.flatMap((text) => parsePitch(text) ?? []);
-  if (pitches.length !== track.tuning.length || pitches.length > MAX_STRINGS) {
+  if (pitches.length !== track.tuning.length || pitches.length > maxStrings) {
     return { tuning: standard, warning: `${name}: tuning ${track.tuning.join(' ')} could not be read; standard tuning used` };
   }
   return { tuning: isDescending(pitches) ? pitches : [...pitches].reverse() };

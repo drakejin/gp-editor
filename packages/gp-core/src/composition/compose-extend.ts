@@ -1,5 +1,5 @@
 import { restMeasure } from '../edit/measures';
-import { type NewTrack, addTrack } from '../edit/tracks';
+import { MAX_NEW_TRACK_STRINGS, type NewTrack, addTrack } from '../edit/tracks';
 import { headerTicks } from '../model/defaults';
 import type { MeasureHeader, Song, Track } from '../model/song';
 import { isTimeSignature } from '../transcription/durations';
@@ -89,7 +89,7 @@ function toNewTrack(track: TranscribedTrack, bars: readonly TranscribedMeasure[]
   if (!isFrettedInstrument(track.instrument)) {
     return { newTrack: { kind, name, program, tuning: pitchedPartTuning(partPitchRange(bars, trackIndex)) }, name };
   }
-  const { tuning, warning } = resolveFrettedTuning(track, name);
+  const { tuning, warning } = resolveFrettedTuning(track, name, MAX_NEW_TRACK_STRINGS);
   return { newTrack: { kind, name, program, tuning, capo: track.capo }, name, ...(warning === undefined ? {} : { warning }) };
 }
 

@@ -251,6 +251,85 @@ describe('useCompose', () => {
   });
 });
 
+describe('useCompose: what a run may and may not do', () => {
+  it('fails without writing or making an undo step when the answer gives the score nothing it can take', async () => {
+    // Arrange: the scope is the guitar (track 1), the answer writes a track 2 the score does not have.
+    mockSend.mockResolvedValue(streamedMessage(toolMessage('write_bars', { bars: [{ parts: [{ track: 1, beats: [{ duration: 'whole', notes: [{ string: 1, fret: 3 }] }] }] }] })));
+    const probe = render();
+    const before = shownSong(probe);
+
+    // Act
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    await flush();
+
+    // Assert
+    expect(shownSong(probe)).toBe(before);
+    expect(activeEditor(probe.workspace()).past).toEqual([]);
+    expect(probe.compose().status).toEqual({ kind: 'failed', message: 'Claude wrote nothing the score could take: Track 2: its parts in 1 bar were left out (no such track)' });
+  });
+
+  it('shows a run and its result only in the tab it was started in', async () => {
+    // Arrange
+    let answer: (response: ApiResponse) => void = () => undefined;
+    mockSend.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const probe = render();
+    const first = probe.workspace().activeTabId ?? '';
+
+    // Act
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    probe.dispatch({ type: 'loaded', document: { fileName: 'other.gp', path: '/other.gp', song: fourBars() } });
+    const elsewhere = probe.compose().status;
+    answer(streamedMessage(toolMessage('write_bars', ANSWER)));
+    await flush();
+    const inOther = probe.compose().status;
+    probe.dispatch({ type: 'switchTab', tabId: first });
+
+    // Assert
+    expect(elsewhere).toEqual({ kind: 'elsewhere' });
+    expect(inOther).toEqual({ kind: 'idle' });
+    expect(probe.compose().status).toMatchObject({ kind: 'done' });
+    expect(activeEditor(probe.workspace()).past).toHaveLength(1);
+  });
+
+  it('fails, ready to compose again, when asking throws', async () => {
+    // Arrange
+    mockSend.mockImplementation(() => {
+      throw new Error('GPAnthropic native module is not available on this platform');
+    });
+    const probe = render();
+
+    // Act
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    await flush();
+    await flush();
+
+    // Assert
+    expect(probe.compose().status).toEqual({ kind: 'failed', message: 'GPAnthropic native module is not available on this platform' });
+  });
+
+  it('does not start another run while a stopped answer is still coming, and says it waits for it', async () => {
+    // Arrange
+    let answer: (response: ApiResponse) => void = () => undefined;
+    mockSend.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const probe = render();
+
+    // Act: stopped once the request is out.
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    await flush();
+    ReactTestRenderer.act(() => probe.compose().cancel());
+    const stopping = probe.compose().status;
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    const sentWhileStopping = mockSend.mock.calls.length;
+    answer(streamedMessage(toolMessage('write_bars', ANSWER)));
+    await flush();
+
+    // Assert
+    expect(stopping).toEqual({ kind: 'stopping' });
+    expect(sentWhileStopping).toBe(1);
+    expect(probe.compose().status).toEqual({ kind: 'failed', message: 'Stopped — the score was not changed' });
+  });
+});
+
 describe('composeIdeaOf', () => {
   it('keeps the start within the bars and one after them, and the bar limit within the tool’s', () => {
     // Arrange

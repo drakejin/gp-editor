@@ -4,6 +4,7 @@ import {
   type Song,
   gmPercussionName,
   isFrettedInstrument,
+  trackProgramOf,
 } from '@gp-editor/core';
 import { pitchName } from '../lib/pitch';
 import { trackNotationOf } from './score-notation';
@@ -47,8 +48,7 @@ function trackLine(
       trackIndex,
     )} — ${access}`;
   }
-  const program =
-    song.channels.find(channel => channel.id === track.channelId)?.program ?? 0;
+  const program = trackProgramOf(song, trackIndex);
   const strings = isFrettedInstrument(notation.instrument)
     ? `, ${notation.tuning.length} strings ${[...notation.tuning]
         .reverse()

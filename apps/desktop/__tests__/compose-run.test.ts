@@ -1,6 +1,7 @@
 import {
   type Song,
   type TranscribedTrack,
+  applyComposedBars,
   buildSongFromTranscription,
 } from '@gp-editor/core';
 import type { ComposeIdea } from '../src/compose/request';
@@ -154,7 +155,7 @@ describe('runCompose', () => {
     const composed = editorReducer(state, {
       type: 'applyComposedBars',
       basis: song,
-      composed: result.composed,
+      outcome: applyComposedBars(song, result.composed, IDEA.startIndex),
       startIndex: IDEA.startIndex,
     });
     const undone = editorReducer(composed, { type: 'undo' });
@@ -180,6 +181,7 @@ describe('runCompose', () => {
     expect(undone.trackIndex).toBe(state.trackIndex);
     expect(undone.cursor).toEqual(state.cursor);
     expect(redone.document?.song).toBe(written);
+    expect(redone.trackDisplay.trackModes[2]).toBe('notation');
   });
 
   it('refuses to apply bars written for a score that has changed since', async () => {
@@ -195,7 +197,7 @@ describe('runCompose', () => {
     const next = editorReducer(edited, {
       type: 'applyComposedBars',
       basis: song,
-      composed: { bars: [{ parts: [] }], newTracks: [], warnings: [] },
+      outcome: applyComposedBars(song, { bars: [{ parts: [] }], newTracks: [], warnings: [] }, 0),
       startIndex: 0,
     });
 
@@ -283,7 +285,7 @@ describe('runCompose', () => {
       deps(async () =>
         streamedMessage(
           toolMessage('write_bars', {
-            bars: [{ parts: [{ track: 0, beats: [{}] }] }],
+            bars: [7],
           }),
         ),
       ),
@@ -296,9 +298,7 @@ describe('runCompose', () => {
       message: 'Claude wrote no bars: The score has no melody to answer.',
     });
     expect(broken.isOk).toBe(false);
-    expect(!broken.isOk && broken.message).toMatch(
-      /^The answer did not fit the format: bars\[0\]\.parts\[0\]\.beats\[0\]\.duration/,
-    );
+    expect(!broken.isOk && broken.message).toBe('The answer did not fit the format: bars[0]: expected an object');
   });
 
   it('stops at once for a refused key, and when cancelled', async () => {

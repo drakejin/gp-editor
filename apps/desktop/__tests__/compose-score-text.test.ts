@@ -267,6 +267,16 @@ describe('describeScore', () => {
   });
 });
 
+/** The song's bars `times` over, its tracks `copies` over (bars shared: the score text reads only the beats). */
+function repeated(song: Song, times: number, copies: number): Song {
+  const count = song.measureHeaders.length * times;
+  const headers = Array.from({ length: count }, (_, index) => ({ ...(song.measureHeaders[index % song.measureHeaders.length] as Song['measureHeaders'][number]), number: index + 1 }));
+  const tracks = Array.from({ length: copies }, () => song.tracks)
+    .flat()
+    .map((track, index) => ({ ...track, number: index + 1, measures: Array.from({ length: count }, (_, bar) => track.measures[bar % track.measures.length] as Song['tracks'][number]['measures'][number]) }));
+  return { ...song, measureHeaders: headers, tracks };
+}
+
 describe('describeScore on real scores', () => {
   const canon = readSong(readFixture('guitarpro8', 'canon-audio-track.gp'));
 
@@ -322,6 +332,33 @@ describe('describeScore on real scores', () => {
     expect(summaries[0]).toMatch(
       /^Bars 1-8 4\/4 ♩=90 key 0: 1: \d+\.\d notes\/bar, mostly h, D2-D3; 2: /,
     );
+  });
+
+  it('keeps to the budget on a long, wide score, writing out at least the start bar and the two bars before it', () => {
+    // Arrange: 1,120 bars of 18 tracks.
+    const wide = repeated(canon, 5, 2);
+
+    // Act
+    const score = describeScore(wide, 600);
+
+    // Assert
+    expect(score.isSummarized).toBe(true);
+    expect(score.text.length).toBeLessThanOrEqual(SCORE_TEXT_BUDGET);
+    expect(score.detailFirst).toBeLessThanOrEqual(598);
+    expect(score.detailLast).toBeGreaterThanOrEqual(600);
+  });
+
+  it('writes a long score in time (a few hundred milliseconds, not seconds)', () => {
+    // Arrange: 2,464 bars of one track.
+    const long = repeated({ ...canon, tracks: canon.tracks.slice(3, 4) }, 11, 1);
+    const started = Date.now();
+
+    // Act
+    const score = describeScore(long, 1200);
+
+    // Assert
+    expect(Date.now() - started).toBeLessThan(3000);
+    expect(score.text.length).toBeLessThanOrEqual(SCORE_TEXT_BUDGET);
   });
 
   it('starting past the end, writes out the last bars', () => {

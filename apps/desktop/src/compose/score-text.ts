@@ -7,12 +7,8 @@ import {
   trackBarText,
   trackNotationOf,
 } from './score-notation';
-import {
-  type ScoreStats,
-  scoreStats,
-  summaryLine,
-  summarySpans,
-} from './score-summary';
+import { type ScoreStats, isCoarsestGrid, scoreStats, summaryGrid, summaryLine } from './score-summary';
+import { ALL_REST, type BarSource, DetailLength, SummaryLengths, type TrackLine } from './score-window';
 
 /**
  * Characters of score text a request carries at most. Measured on the fixtures: this notation runs ~1.3 characters a
@@ -23,6 +19,8 @@ import {
 export const SCORE_TEXT_BUDGET = 40000;
 /** While the detailed bars grow around the start bar, this many are added before it for each one after it. */
 const BARS_BEFORE_PER_BAR_AFTER = 2;
+/** Bars before the start bar always written out with it, however long the score. */
+const MIN_BARS_BEFORE = 2;
 
 const SUMMARY_LEGEND =
   'Lines "Bars a-b" summarise bars not written out: per track the notes per bar, the most common duration, the pitch range, the drum keys most played.';
@@ -90,15 +88,10 @@ export function barHeading(
   return `${parts.filter(part => part !== '').join(' ')}${endingText(header)}`;
 }
 
-/** A track's line in a bar: its index and what it plays. */
-interface TrackLine {
-  readonly trackIndex: number;
-  readonly text: string;
-}
-
-/** The score's bars as text, each track's line computed once, and the summaries' stats. */
-class ScoreWriter {
-  private readonly lines = new Map<number, readonly TrackLine[]>();
+/** The score's bars as text: each bar's track lines and headings worked out once, the summaries' stats once. */
+class ScoreWriter implements BarSource {
+  private readonly trackLines = new Map<number, readonly TrackLine[]>();
+  private readonly headings = new Map<string, string>();
   private stats?: ScoreStats;
 
   constructor(
@@ -106,20 +99,20 @@ class ScoreWriter {
     private readonly notations: readonly TrackNotation[],
   ) {}
 
-  private trackLines(measureIndex: number): readonly TrackLine[] {
-    const kept = this.lines.get(measureIndex);
+  readonly lines = (measureIndex: number): readonly TrackLine[] => {
+    const kept = this.trackLines.get(measureIndex);
     if (kept !== undefined) {
       return kept;
     }
-    const lines = this.notations.flatMap(notation => {
+    const lines = this.notations.flatMap((notation) => {
       const text = trackBarText(this.song, notation, measureIndex);
-      return text === undefined
-        ? []
-        : [{ trackIndex: notation.trackIndex, text }];
+      return text === undefined ? [] : [{ trackIndex: notation.trackIndex, text }];
     });
-    this.lines.set(measureIndex, lines);
+    this.trackLines.set(measureIndex, lines);
     return lines;
-  }
+  };
+
+  readonly headingLength = (measureIndex: number, isBlockStart: boolean): number => this.heading(measureIndex, isBlockStart).length;
 
   /**
    * Bars `first` to `last` written out: each bar's heading and a line per track that plays, "=N" for a track playing
@@ -127,141 +120,113 @@ class ScoreWriter {
    */
   bars(first: number, last: number): readonly string[] {
     const seen = new Map<string, number>();
-    return Array.from(
-      { length: Math.max(0, last - first + 1) },
-      (_, offset) => {
-        const measureIndex = first + offset;
-        const body = this.trackLines(measureIndex).map(
-          ({ trackIndex, text }) => {
-            const key = `${trackIndex}:${text}`;
-            const earlier = seen.get(key);
-            seen.set(key, earlier ?? measureIndex);
-            return `${trackIndex}: ${
-              earlier === undefined ? text : `=${earlier + 1}`
-            }`;
-          },
-        );
-        return `${barHeading(this.song, measureIndex, offset === 0)}${
-          body.length === 0 ? ' (all rest)' : `\n${body.join('\n')}`
-        }`;
-      },
-    );
+    return Array.from({ length: Math.max(0, last - first + 1) }, (_, offset) => {
+      const measureIndex = first + offset;
+      const body = this.lines(measureIndex).map(({ trackIndex, text }) => {
+        const key = `${trackIndex}:${text}`;
+        const earlier = seen.get(key);
+        seen.set(key, earlier ?? measureIndex);
+        return `${trackIndex}: ${earlier === undefined ? text : `=${earlier + 1}`}`;
+      });
+      return `${this.heading(measureIndex, offset === 0)}${body.length === 0 ? ALL_REST : `\n${body.join('\n')}`}`;
+    });
   }
 
-  summaries(first: number, last: number): readonly string[] {
+  /** The summary lines on the grid of `level`. */
+  summaries(level: number): SummaryLengths {
     this.stats ??= scoreStats(this.song, this.notations);
     const stats = this.stats;
-    return summarySpans(this.song, first, last).map(span =>
-      summaryLine(
-        this.song,
-        this.notations,
-        stats,
-        span,
-        spanHeading(this.song, span[0]),
-      ),
-    );
+    return new SummaryLengths(summaryGrid(this.song, level), (span) => summaryLine(this.song, this.notations, stats, span, spanHeading(this.song, span[0])));
+  }
+
+  private heading(measureIndex: number, isBlockStart: boolean): string {
+    const key = `${measureIndex}:${isBlockStart}`;
+    const kept = this.headings.get(key) ?? barHeading(this.song, measureIndex, isBlockStart);
+    this.headings.set(key, kept);
+    return kept;
   }
 }
 
 /** A summary's heading: the section's name and its meter, tempo and key at its first bar. */
 function spanHeading(song: Song, first: number): string {
-  return (
-    barHeading(song, first, true)
-      .replace(/^Bar \d+ ?/, '')
-      .trim() || '-'
-  );
+  return barHeading(song, first, true).replace(/^Bar \d+ ?/, '').trim() || '-';
 }
 
-function joinedLength(lines: readonly string[]): number {
-  return lines.reduce((total, line) => total + line.length + 1, 0);
+/** The whole score written out, when it fits in `room`: found bar by bar, stopping as soon as it does not. */
+function wholeFits(writer: ScoreWriter, barCount: number, room: number): boolean {
+  const detail = new DetailLength(writer, 0);
+  while (detail.last < barCount - 1 && detail.length() + detail.costAfter() <= room) {
+    detail.addAfter();
+  }
+  return detail.last === barCount - 1 && detail.length() <= room;
 }
 
-interface Window {
-  readonly first: number;
-  readonly last: number;
+/** The text length of a window written out and the summaries around it. */
+function windowLength(summaries: SummaryLengths, barCount: number, first: number, last: number, detailLength: number): number {
+  return summaries.length(0, first - 1) + detailLength + summaries.length(last + 1, barCount - 1);
 }
 
-/** The window's text: the bars before it summarised, its bars written out, the bars after it summarised. */
-function windowLines(
-  writer: ScoreWriter,
-  barCount: number,
-  { first, last }: Window,
-): readonly string[] {
-  return [
-    ...writer.summaries(0, first - 1),
-    ...writer.bars(first, last),
-    ...writer.summaries(last + 1, barCount - 1),
-  ];
+/** The window around `anchor` written out at least: the anchor and up to MIN_BARS_BEFORE bars before it. */
+function minimumWindow(writer: ScoreWriter, anchor: number): DetailLength {
+  const detail = new DetailLength(writer, anchor);
+  while (detail.first > 0 && anchor - detail.first < MIN_BARS_BEFORE) {
+    detail.addBefore();
+  }
+  return detail;
 }
 
-/** The next window: a bar more before the start (BARS_BEFORE_PER_BAR_AFTER at a time) or after it, whichever is due and fits. */
-function grow(
-  writer: ScoreWriter,
-  barCount: number,
-  window: Window,
-  budget: number,
-  step: number,
-): Window | undefined {
-  const before = { first: window.first - 1, last: window.last };
-  const after = { first: window.first, last: window.last + 1 };
-  const isBeforeDue =
-    step % (BARS_BEFORE_PER_BAR_AFTER + 1) !== BARS_BEFORE_PER_BAR_AFTER;
-  const candidates = (isBeforeDue ? [before, after] : [after, before]).filter(
-    candidate => candidate.first >= 0 && candidate.last < barCount,
-  );
-  return candidates.find(
-    candidate =>
-      joinedLength(windowLines(writer, barCount, candidate)) <= budget,
-  );
+/** The finest summary grid whose lines, around the minimum window, fit in `room` (else the coarsest). */
+function chooseSummaries(writer: ScoreWriter, song: Song, detail: DetailLength, room: number): SummaryLengths {
+  const barCount = song.measureHeaders.length;
+  for (let level = 0; ; level++) {
+    const summaries = writer.summaries(level);
+    if (isCoarsestGrid(song, level) || windowLength(summaries, barCount, detail.first, detail.last, detail.length()) <= room) {
+      return summaries;
+    }
+  }
+}
+
+/** A way to grow the window: what it would then take, and the growing. */
+type Grow = readonly [length: number, grow: () => void];
+
+/** The window grown around the start: a bar more before it (BARS_BEFORE_PER_BAR_AFTER at a time) or after it while one fits. */
+function growWindow(detail: DetailLength, summaries: SummaryLengths, barCount: number, room: number): void {
+  for (let step = 0; ; step++) {
+    const before = detail.first > 0 ? windowLength(summaries, barCount, detail.first - 1, detail.last, detail.length() + detail.costBefore()) : Infinity;
+    const after = detail.last < barCount - 1 ? windowLength(summaries, barCount, detail.first, detail.last + 1, detail.length() + detail.costAfter()) : Infinity;
+    const isBeforeDue = step % (BARS_BEFORE_PER_BAR_AFTER + 1) !== BARS_BEFORE_PER_BAR_AFTER;
+    const beforeGrow: Grow = [before, () => detail.addBefore()];
+    const afterGrow: Grow = [after, () => detail.addAfter()];
+    const grow = (isBeforeDue ? [beforeGrow, afterGrow] : [afterGrow, beforeGrow]).find(([length]) => length <= room);
+    if (grow === undefined) {
+      return;
+    }
+    grow[1]();
+  }
 }
 
 /**
  * The whole score as text for a compose request: every bar of every track (bar-major: a heading with the meter, tempo and
  * key where they change, sections and repeats, then a line per track that plays). When that is longer than `budget`
- * characters, the bars around `startIndex` are written out — growing two bars before it for each one after — as far as
- * the budget allows, and every other stretch is summarised a section (or SUMMARY_BARS) at a time.
+ * characters, the start bar and MIN_BARS_BEFORE bars before it are written out, the window growing — two bars before it
+ * for each one after — as far as the budget allows, and every other stretch is summarised a section (or SUMMARY_BARS) at
+ * a time, coarser stretches when even that is too long. Lengths are counted as bars join, so a long score costs about
+ * what the budget does, not its own length.
  */
-export function describeScore(
-  song: Song,
-  startIndex: number,
-  budget = SCORE_TEXT_BUDGET,
-): ScoreText {
+export function describeScore(song: Song, startIndex: number, budget = SCORE_TEXT_BUDGET): ScoreText {
   const barCount = song.measureHeaders.length;
   const writer = new ScoreWriter(
     song,
     song.tracks.map((_, trackIndex) => trackNotationOf(song, trackIndex)),
   );
-  const whole = writer.bars(0, barCount - 1);
-  if (
-    joinedLength(whole) + NOTATION_LEGEND.length <= budget ||
-    barCount === 0
-  ) {
-    return {
-      text: [NOTATION_LEGEND, ...whole].join('\n'),
-      detailFirst: 0,
-      detailLast: barCount - 1,
-      isSummarized: false,
-    };
+  if (barCount === 0 || wholeFits(writer, barCount, budget - NOTATION_LEGEND.length - 1)) {
+    return { text: [NOTATION_LEGEND, ...writer.bars(0, barCount - 1)].join('\n'), detailFirst: 0, detailLast: barCount - 1, isSummarized: false };
   }
-  const anchor = Math.max(0, Math.min(startIndex, barCount - 1));
-  const room = budget - NOTATION_LEGEND.length - SUMMARY_LEGEND.length;
-  let window: Window = { first: anchor, last: anchor };
-  for (let step = 0; ; step++) {
-    const next = grow(writer, barCount, window, room, step);
-    if (next === undefined) {
-      break;
-    }
-    window = next;
-  }
-  const text = [
-    NOTATION_LEGEND,
-    SUMMARY_LEGEND,
-    ...windowLines(writer, barCount, window),
-  ].join('\n');
-  return {
-    text,
-    detailFirst: window.first,
-    detailLast: window.last,
-    isSummarized: true,
-  };
+  const room = budget - NOTATION_LEGEND.length - SUMMARY_LEGEND.length - 2;
+  const detail = minimumWindow(writer, Math.max(0, Math.min(startIndex, barCount - 1)));
+  const summaries = chooseSummaries(writer, song, detail, room);
+  growWindow(detail, summaries, barCount, room);
+  const { first, last } = detail;
+  const lines = [...summaries.lines(0, first - 1), ...writer.bars(first, last), ...summaries.lines(last + 1, barCount - 1)];
+  return { text: [NOTATION_LEGEND, SUMMARY_LEGEND, ...lines].join('\n'), detailFirst: first, detailLast: last, isSummarized: first > 0 || last < barCount - 1 };
 }

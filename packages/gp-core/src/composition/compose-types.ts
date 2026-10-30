@@ -11,6 +11,13 @@ import type { TranscribedMeasure, TranscribedTrack } from '../transcription/type
 export const MAX_COMPOSED_BARS = 64;
 /** Tracks one answer may add (the contract's track indexes also stop at MAX_TRANSCRIBED_TRACKS). */
 export const MAX_COMPOSED_NEW_TRACKS = 4;
+/** The answer's own warnings kept, each cut to MAX_COMPOSE_WARNING_LENGTH characters: they are shown to the user. */
+export const MAX_COMPOSE_WARNINGS = 20;
+export const MAX_COMPOSE_WARNING_LENGTH = 300;
+/** Tracks a warning names as left out (not writable, not there), then how many more. */
+export const MAX_LEFT_OUT_TRACKS_NAMED = 8;
+/** Parts that could not be read, named one by one, then how many more. */
+export const MAX_BROKEN_PARTS_NAMED = 5;
 
 /** What an answer may write: which of the song's tracks, whether it may add tracks, and how many bars. */
 export interface ComposeScope {
