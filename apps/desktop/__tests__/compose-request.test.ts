@@ -124,7 +124,7 @@ describe('buildComposeRequest', () => {
       allowsNewTracks: true,
     });
     expect(text).toContain(
-      'Write any of the tracks (0–2). You may add tracks (at most 4): the first new track is track 3, the next 4, and so on.',
+      'Write any of the tracks 0–2. You may add tracks (at most 4): the first new track is track 3, the next 4, and so on.',
     );
   });
 
@@ -169,6 +169,34 @@ describe('buildComposeRequest', () => {
       '<user_request>\n(none: continue the music as it goes)\n</user_request>',
     );
     expect(text.endsWith('Call write_bars.')).toBe(true);
+  });
+});
+
+describe('buildComposeRequest: tracks the tool cannot write, and a track without a channel', () => {
+  it('lets the answer write only the first 16 tracks of a larger score, and says so', () => {
+    // Arrange
+    const song = band();
+    const many: Song = { ...song, tracks: Array.from({ length: 18 }, (_, index) => ({ ...(song.tracks[0] as Song['tracks'][number]), number: index + 1, name: `Guitar ${index + 1}` })) };
+
+    // Act
+    const text = userText(many, { ...IDEA, scope: 'all', allowsNewTracks: true });
+
+    // Assert
+    expect(text).toContain('Write any of the tracks 0–15; tracks 16 and later are read only. Adding tracks is not allowed.');
+    expect(composeScopeOf(many, { ...IDEA, scope: 'all' }).writableTracks).toHaveLength(16);
+  });
+
+  it('notates a track without a channel as the score plays it — a steel guitar, written an octave above its sound', () => {
+    // Arrange
+    const song = band();
+    const orphan: Song = { ...song, channels: song.channels.filter((channel) => channel.id !== song.tracks[0]?.channelId) };
+
+    // Act
+    const text = userText(orphan, IDEA);
+
+    // Assert
+    expect(text).toContain('0: w:E3@6/0');
+    expect(text).toContain('0: "Lead" — guitar, GM program 25 (Steel String Acoustic Guitar)');
   });
 });
 

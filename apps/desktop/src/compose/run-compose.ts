@@ -54,6 +54,8 @@ export async function runCompose(
   deps: ClaudeDeps,
   onStep: (step: ComposeStep) => void,
 ): Promise<ComposeRunResult> {
+  // The score's text takes a moment on a long score: the panel shows the run first.
+  await deps.wait(0);
   const { body, score } = buildComposeRequest(song, model, idea);
   const scope = composeScopeOf(song, idea);
   const asked = await askTool(

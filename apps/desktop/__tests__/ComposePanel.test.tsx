@@ -177,6 +177,18 @@ describe('ComposePanel', () => {
     jest.useRealTimers();
   });
 
+  it('says when a stopped answer is still coming or Claude writes in another tab, and keeps Compose off', () => {
+    // Act
+    const stopping = render({ status: { kind: 'stopping' } });
+    const elsewhere = render({ status: { kind: 'elsewhere' } });
+
+    // Assert
+    expect(stopping.texts()).toContain('Stopping — the answer already asked for is still coming; nothing will be written');
+    expect(elsewhere.texts()).toContain('Claude is composing in another tab…');
+    expect(stopping.button('Ask Claude to write the bars')?.props.isEnabled).toBe(false);
+    expect(elsewhere.button('Ask Claude to write the bars')?.props.isEnabled).toBe(false);
+  });
+
   it('shows what was written, what Claude read, the tokens and the warnings; or why it failed', () => {
     // Arrange
     const result = {

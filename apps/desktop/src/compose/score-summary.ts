@@ -7,6 +7,8 @@ import { type TrackNotation, durationCode } from './score-notation';
 const SUMMARY_BARS = 8;
 /** Chord names a summary lists at most. */
 const MAX_SUMMARY_CHORDS = 12;
+/** Characters of a summary line's tracks at most: a wide score's tracks beyond them are left out ("…"). */
+const MAX_SUMMARY_TRACKS_LENGTH = 600;
 /** Drum keys a summary lists at most (the most played first). */
 const MAX_SUMMARY_DRUMS = 5;
 
@@ -91,23 +93,37 @@ export function scoreStats(
   };
 }
 
-/** The stretches [first, last] of bars to summarise: split where a section marker starts, then SUMMARY_BARS at a time. */
-export function summarySpans(
-  song: Song,
-  first: number,
-  last: number,
-): readonly (readonly [number, number])[] {
-  const spans: [number, number][] = [];
-  let spanStart = first;
-  for (let index = first; index <= last; index++) {
-    const isSectionStart =
-      index > spanStart && song.measureHeaders[index]?.marker !== undefined;
-    if (isSectionStart || index - spanStart === SUMMARY_BARS) {
+/** A stretch of bars to summarise in one line, first and last, 0-based. */
+export type Span = readonly [number, number];
+
+/**
+ * The song's bars cut into stretches to summarise, coarser at each level: level 0 split where a section marker starts
+ * and every SUMMARY_BARS bars, level n every SUMMARY_BARS × 2ⁿ bars whatever the sections. A level whose stretches
+ * cover the song in one line is the last.
+ */
+export function summaryGrid(song: Song, level: number): readonly Span[] {
+  const barCount = song.measureHeaders.length;
+  const size = SUMMARY_BARS * 2 ** level;
+  const spans: Span[] = [];
+  let spanStart = 0;
+  for (let index = 1; index < barCount; index++) {
+    const isSectionStart = level === 0 && song.measureHeaders[index]?.marker !== undefined;
+    if (isSectionStart || index - spanStart === size) {
       spans.push([spanStart, index - 1]);
       spanStart = index;
     }
   }
-  return last < first ? [] : [...spans, [spanStart, last]];
+  return barCount === 0 ? [] : [...spans, [spanStart, barCount - 1]];
+}
+
+/** True when a level's grid summarises every stretch of the song in one line: no coarser level is needed. */
+export function isCoarsestGrid(song: Song, level: number): boolean {
+  return SUMMARY_BARS * 2 ** level >= song.measureHeaders.length;
+}
+
+/** The grid's stretches within bars `first` to `last` (stretches running past either end cut there). */
+export function spansWithin(grid: readonly Span[], first: number, last: number): readonly Span[] {
+  return grid.flatMap(([start, end]): Span[] => (end < first || start > last ? [] : [[Math.max(start, first), Math.min(end, last)]]));
 }
 
 function mostCommon<K>(counts: ReadonlyMap<K, number>): K | undefined {
@@ -185,7 +201,14 @@ export function summaryLine(
         keySignature,
       ) ?? [],
   );
-  const body = tracks.length === 0 ? ' all rest' : ` ${tracks.join('; ')}`;
+  let length = 0;
+  // The tracks that fit, in order: once one does not, none after it does.
+  const kept = tracks.filter((line) => {
+    length += line.length + 2;
+    return length <= MAX_SUMMARY_TRACKS_LENGTH;
+  });
+  const more = kept.length < tracks.length ? '; …' : '';
+  const body = tracks.length === 0 ? ' all rest' : ` ${kept.join('; ')}${more}`;
   return `Bars ${first + 1}-${last + 1} ${heading}:${spanChords(
     stats,
     first,

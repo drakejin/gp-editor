@@ -1,22 +1,18 @@
 import { type TranspositionOptions, type TranspositionScope, setTrackTuning, transpose } from '@gp-editor/core';
 import { clampCursor, firstCursor } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
-import type { ScoreMode } from '../score/geometry';
 import { type AudioTrackAction, applyAudioTrackAction } from './audio-track-edits';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { type LayoutAction, applyLayoutAction } from './layout-edits';
 import { type SongAction, applySongAction } from './song-actions';
-import { setTrackMode } from './track-display';
+import { DRUM_TRACK_MODE, setTrackMode } from './track-display';
 import { type TrackAction, applyTrackAction } from './track-edits';
 import { followTrackChanges } from './track-remap';
 import { transpositionHint } from './transposition';
 
 // The editor's edits of the whole song or of a track, not at the cursor (editor.ts routes the actions here): one undo
 // step each.
-
-/** A new drum track's staves: standard notation only, as Guitar Pro adds one (no tab of drum key numbers). */
-export const DRUM_TRACK_MODE: ScoreMode = 'notation';
 
 export function selectTrack(state: EditorState, trackIndex: number): EditorState {
   const song = state.document?.song;

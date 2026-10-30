@@ -37,8 +37,8 @@ const FIRST_RETRY_DELAY_MS = 2000;
 
 /**
  * One tool call with retries (backing off 2 s, 4 s): an answer without the call, a stream cut off, an overloaded or
- * server error, or an input `parse` refuses is asked for again; a refused key or request, a refusal, an answer too long
- * or cancelling stops. `onAttempt` hears each attempt (1, 2, 3) as it starts.
+ * server error, or an input `parse` refuses is asked for again; a refused key or request, a refusal, an answer too long,
+ * cancelling, or `send` throwing before it sends anything stops. `onAttempt` hears each attempt (1, 2, 3) as it starts.
  */
 export async function askTool<T>(
   deps: ClaudeDeps,
@@ -58,7 +58,14 @@ export async function askTool<T>(
       await deps.wait(FIRST_RETRY_DELAY_MS * 2 ** (attempt - 1));
     }
     onAttempt?.(attempt + 1);
-    const answer = await deps.send(body).then(
+    let sent: Promise<ApiResponse>;
+    try {
+      sent = deps.send(body);
+    } catch (error: unknown) {
+      // Thrown before any request (no native module): asking again cannot help.
+      return { isOk: false, isFatal: true, message: errorMessage(error), usage };
+    }
+    const answer = await sent.then(
       response => readToolAnswer(response, tool, wording),
       (error: unknown): ToolAnswer => ({
         isOk: false,

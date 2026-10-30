@@ -106,9 +106,11 @@ function newTracksRoom(song: Song): number {
 
 function scopeLines(song: Song, idea: ComposeIdea): string {
   const writable = writableTracks(song, idea);
+  const lastWritable = Math.min(song.tracks.length, MAX_TRANSCRIBED_TRACKS) - 1;
+  const readOnly = song.tracks.length > MAX_TRANSCRIBED_TRACKS ? `; tracks ${MAX_TRANSCRIBED_TRACKS} and later are read only` : '';
   const tracks =
     idea.scope === 'all'
-      ? `Write any of the tracks (0–${song.tracks.length - 1}).`
+      ? `Write any of the tracks 0–${lastWritable}${readOnly}.`
       : `Write only track ${idea.trackIndex} ("${
           song.tracks[idea.trackIndex]?.name ?? ''
         }").`;

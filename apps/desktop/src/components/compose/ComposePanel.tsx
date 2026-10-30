@@ -62,6 +62,10 @@ function statusText(
       return status.attempt > 1
         ? t('tools.compose.askingAgain', { attempt: status.attempt, seconds })
         : t('tools.compose.asking', { seconds });
+    case 'stopping':
+      return t('tools.compose.stopping');
+    case 'elsewhere':
+      return t('tools.compose.elsewhere');
     case 'failed':
       return status.message;
     case 'done':
@@ -116,6 +120,8 @@ export function ComposePanel(props: ComposePanelProps) {
   const { palette, status } = props;
   const t = useT();
   const isRunning = status.kind === 'running';
+  // While Claude writes here or in another tab, or a stopped answer still comes, no other run starts.
+  const isBusy = isRunning || status.kind === 'stopping' || status.kind === 'elsewhere';
   const seconds = useElapsedSeconds(isRunning ? status.startedAt : undefined);
   const hasScore = props.barCount !== undefined;
   return (
@@ -198,7 +204,7 @@ export function ComposePanel(props: ComposePanelProps) {
             label={t('tools.compose.compose')}
             tooltip={t('tools.compose.composeTooltip')}
             isActive
-            isEnabled={!isRunning && hasScore && props.hasKey === true}
+            isEnabled={!isBusy && hasScore && props.hasKey === true}
             onPress={props.onCompose}
           />
         </View>
