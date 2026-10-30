@@ -53,7 +53,11 @@ function requestFailure(error: unknown): SearchFailure {
     return { reason: 'timeout' };
   }
   const code = typeof error === 'object' && error !== null ? (error as { readonly code?: unknown }).code : undefined;
-  return code === 'timeout' ? { reason: 'timeout' } : code === 'unavailable' ? { reason: 'unavailable' } : { reason: 'offline' };
+  if (code === 'timeout' || code === 'unavailable') {
+    return { reason: code };
+  }
+  // The Rust side refused an answer too large to read, or an address that is not Songsterr's search.
+  return code === 'too_large' || code === 'bad_url' ? { reason: 'unexpected' } : { reason: 'offline' };
 }
 
 /** The transport's answer, or a SearchTimeout after `timeoutMs` (the request is then cancelled). */
@@ -96,12 +100,11 @@ function outcomeOf(query: string, answer: SongsterrHttpAnswer): SearchOutcome {
 /** Searches Songsterr for `text` once; a blank text asks nothing. */
 export async function searchSongsterr(text: string, transport: SongsterrTransport, timeoutMs: number = SEARCH_TIMEOUT_MS): Promise<SearchOutcome> {
   const query = normalizeQuery(text);
-  const url = searchUrl(query);
-  if (url === undefined) {
+  if (query === '') {
     return { kind: 'blank' };
   }
   try {
-    return outcomeOf(query, await askWithTimeout(transport, url, timeoutMs));
+    return outcomeOf(query, await askWithTimeout(transport, searchUrl(query) ?? '', timeoutMs));
   } catch (error) {
     return { kind: 'failed', query, failure: requestFailure(error) };
   }

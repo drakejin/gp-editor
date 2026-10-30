@@ -161,7 +161,7 @@ describe('useSongsterr', () => {
     expect(panel().status).toEqual({ kind: 'empty', query: 'metallica one' });
   });
 
-  it('searches now on Enter, and answers a search it already made from what it found', async () => {
+  it('searches now on Enter, and answers a search typed again from what it found', async () => {
     // Arrange
     const { transport, requests } = controlledTransport();
     const { panel } = renderHook({ transport });
@@ -176,7 +176,7 @@ describe('useSongsterr', () => {
     await settle();
     ReactTestRenderer.act(() => panel().changeQuery('one   metallica '));
     ReactTestRenderer.act(() => panel().changeQuery('One Metallica'));
-    ReactTestRenderer.act(() => panel().searchNow());
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(SEARCH_DEBOUNCE_MS));
 
     // Assert
     expect(patterns(requests)).toEqual(['One Metallica', 'Iron Maiden']);
@@ -272,19 +272,96 @@ describe('useSongsterr', () => {
     expect(panel().notice).toBe('Could not open the page in your browser.');
   });
 
-  it('forgets an answer that comes after it was closed or unmounted', async () => {
+  it('forgets an answer that comes after it was closed', async () => {
     // Arrange
     const { transport, requests } = controlledTransport();
-    const { panel, unmount } = renderHook({ transport });
+    const { panel } = renderHook({ transport });
     ReactTestRenderer.act(() => panel().open());
     ReactTestRenderer.act(() => panel().close());
+    const before = panel().status;
 
     // Act
     requests[0]?.answer({ status: 200, body: ANSWER });
     await settle();
-    unmount();
 
-    // Assert: no state update after unmount (React would warn), the closed panel shows nothing new
+    // Assert
     expect(panel().isOpen).toBe(false);
+    expect(panel().status).toBe(before);
+  });
+
+  it('keeps an emptied field’s nothing-to-show when the answer for what it held comes in', async () => {
+    // Arrange
+    const { transport, requests } = controlledTransport();
+    const { panel } = renderHook({ transport });
+    ReactTestRenderer.act(() => panel().open());
+
+    // Act
+    ReactTestRenderer.act(() => panel().changeQuery(''));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(SEARCH_DEBOUNCE_MS));
+    requests[0]?.answer({ status: 200, body: ANSWER });
+    await settle();
+
+    // Assert
+    expect(panel().status).toEqual({ kind: 'idle' });
+  });
+
+  it('keeps a remembered search shown when an older answer comes in after it', async () => {
+    // Arrange: 'Slayer' remembered (empty), then 'One Metallica' asked again from a fresh hook state
+    const { transport, requests } = controlledTransport();
+    const { panel } = renderHook({ transport, song: undefined });
+    ReactTestRenderer.act(() => panel().open());
+    ReactTestRenderer.act(() => panel().changeQuery('Slayer'));
+    ReactTestRenderer.act(() => panel().searchNow());
+    requests[0]?.answer({ status: 200, body: '[]' });
+    await settle();
+    ReactTestRenderer.act(() => panel().changeQuery('One Metallica'));
+    ReactTestRenderer.act(() => panel().searchNow());
+
+    // Act: back to the remembered 'Slayer' while 'One Metallica' is out
+    ReactTestRenderer.act(() => panel().changeQuery('Slayer'));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(SEARCH_DEBOUNCE_MS));
+    requests[1]?.answer({ status: 200, body: ANSWER });
+    await settle();
+
+    // Assert
+    expect(panel().status).toEqual({ kind: 'empty', query: 'Slayer' });
+    expect(requests).toHaveLength(2);
+  });
+
+  it('asks Songsterr again on Search or ↩, though typing reuses what it found', async () => {
+    // Arrange
+    const { transport, requests } = controlledTransport();
+    const { panel } = renderHook({ transport });
+    ReactTestRenderer.act(() => panel().open());
+    requests[0]?.answer({ status: 200, body: '[]' });
+    await settle();
+
+    // Act
+    ReactTestRenderer.act(() => panel().searchNow());
+
+    // Assert
+    expect(patterns(requests)).toEqual(['One Metallica', 'One Metallica']);
+    expect(panel().status).toEqual({ kind: 'searching', query: 'One Metallica' });
+  });
+
+  it('comes back from a search that throws: the next one is asked', async () => {
+    // Arrange
+    let calls = 0;
+    const transport: SongsterrTransport = () => {
+      calls += 1;
+      return calls === 1 ? Promise.reject(new Error('boom')) : Promise.resolve({ status: 200, body: '[]' });
+    };
+    const { panel } = renderHook({ transport });
+    ReactTestRenderer.act(() => panel().open());
+    await settle();
+
+    // Act
+    ReactTestRenderer.act(() => panel().changeQuery('Slayer'));
+    ReactTestRenderer.act(() => panel().searchNow());
+    await settle();
+
+    // Assert
+    expect(calls).toBe(2);
+    expect(panel().status).toEqual({ kind: 'empty', query: 'Slayer' });
   });
 });

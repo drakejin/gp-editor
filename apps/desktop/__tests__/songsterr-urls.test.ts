@@ -10,6 +10,12 @@ describe('normalizeQuery', () => {
     expect(normalizeQuery('one\u0000\u0007 two\u202E\u2066three')).toBe('one twothree');
   });
 
+  it('drops zero-width characters and writes a lone surrogate as U+FFFD, which a URL can carry', () => {
+    expect(normalizeQuery('a\u200B\u200D\u2060\uFEFF\u061Cb')).toBe('ab');
+    expect(normalizeQuery('a\uD800b')).toBe('a\uFFFDb');
+    expect(searchUrl('a\uDC00')).toBe('https://www.songsterr.com/api/songs?pattern=a%EF%BF%BD&size=20');
+  });
+
   it('keeps at most MAX_QUERY_LENGTH characters, counting a character outside the BMP once', () => {
     // Arrange
     const long = '🎸'.repeat(MAX_QUERY_LENGTH + 20);

@@ -79,6 +79,11 @@ describe('searchSongsterr', () => {
     expect(await searchSongsterr('one', failing(Object.assign(new Error('x'), { code: 'timeout' })))).toEqual({ kind: 'failed', query: 'one', failure: { reason: 'timeout' } });
   });
 
+  it('calls an answer the Rust side refused to read (too large) or an address it refused unexpected, not offline', async () => {
+    expect(await searchSongsterr('one', failing(Object.assign(new Error('x'), { code: 'too_large' })))).toEqual({ kind: 'failed', query: 'one', failure: { reason: 'unexpected' } });
+    expect(await searchSongsterr('one', failing(Object.assign(new Error('x'), { code: 'bad_url' })))).toEqual({ kind: 'failed', query: 'one', failure: { reason: 'unexpected' } });
+  });
+
   it('gives up after SEARCH_TIMEOUT_MS and cancels the request', async () => {
     // Arrange
     jest.useFakeTimers();
