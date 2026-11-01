@@ -58,6 +58,7 @@ export const EN_COMMANDS = {
   'commands.title.edit.annotation': 'Annotation…',
   'commands.title.edit.songWriter': 'Song Writer…',
   'commands.title.edit.composeHere': 'Compose from Here…',
+  'commands.title.edit.aiEdit': 'AI Edit…',
 
   'commands.title.view.mode.notationAndTab': 'Show Score + Tab',
   'commands.title.view.mode.notation': 'Show Score',

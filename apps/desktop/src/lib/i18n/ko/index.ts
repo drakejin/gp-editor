@@ -1,5 +1,6 @@
 import type { EN } from '../en';
 import type { Catalog } from '../messages';
+import { KO_AI_EDIT } from './ai-edit';
 import { KO_COMMANDS } from './commands';
 import { KO_COMMON } from './common';
 import { KO_DRUMS } from './drums';
@@ -21,4 +22,5 @@ export const KO: Catalog<typeof EN> = {
   ...KO_INSTRUMENTS,
   ...KO_STYLESHEET,
   ...KO_DRUMS,
+  ...KO_AI_EDIT,
 };

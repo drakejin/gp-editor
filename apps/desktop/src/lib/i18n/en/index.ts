@@ -1,3 +1,4 @@
+import { EN_AI_EDIT } from './ai-edit';
 import { EN_COMMANDS } from './commands';
 import { EN_COMMON } from './common';
 import { EN_DRUMS } from './drums';
@@ -22,6 +23,7 @@ export const EN = {
   ...EN_INSTRUMENTS,
   ...EN_STYLESHEET,
   ...EN_DRUMS,
+  ...EN_AI_EDIT,
 } as const;
 
 export type MessageKey = keyof typeof EN;
@@ -37,4 +39,5 @@ export const EN_FILES = {
   instruments: EN_INSTRUMENTS,
   stylesheet: EN_STYLESHEET,
   drums: EN_DRUMS,
+  aiEdit: EN_AI_EDIT,
 } as const;

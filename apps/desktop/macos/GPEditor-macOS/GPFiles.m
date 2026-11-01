@@ -114,6 +114,7 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       GPEditorDeleteCommandNotification : GPEvent(@"deleteRequested", GPDeleteBody),
       GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
       GPEditorComposeCommandNotification : GPEvent(@"composeRequested", GPNoBody),
+      GPEditorAiEditCommandNotification : GPEvent(@"aiEditRequested", GPNoBody),
       GPEditorLyricsCommandNotification : GPEvent(@"lyricsRequested", GPNoBody),
       GPEditorAnnotationCommandNotification : GPEvent(@"annotationRequested", GPNoBody),
       GPEditorScalesCommandNotification : GPEvent(@"scalesRequested", GPNoBody),

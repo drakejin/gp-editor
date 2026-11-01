@@ -139,6 +139,10 @@ struct GPEditorApp: App {
             Button(strings("Compose from Here…")) {
               NotificationCenter.default.post(name: .GPEditorComposeCommand, object: nil)
             }
+            // The exact key change with easy fingering, or Claude rewriting the selection or a track (the palette's AI Edit).
+            Button(strings("AI Edit…")) {
+              NotificationCenter.default.post(name: .GPEditorAiEditCommand, object: nil)
+            }
           }
         }
       }

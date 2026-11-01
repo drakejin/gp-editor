@@ -83,6 +83,10 @@ const editRows = (): readonly Command[] => [
   appKeyRow('edit.annotation', 'edit', press('j'), { when: 'beat', keywords: ['note', 'memo', 'comment', 'remark', 'sticky', 'annotate', 'write', 'print'] }),
   appRow('edit.songWriter', 'edit', (a) => a.openSongWriter(), { when: 'always', keywords: ['ai', 'wizard', 'compose', 'claude', 'write'] }),
   appEditorRow('edit.composeHere', 'edit', { type: 'openComposePanel' }, { keywords: ['ai', 'wizard', 'claude', 'compose', 'continue', 'melody', 'rhythm', 'riff', 'groove', 'prompt', 'bars'] }),
+  appEditorRow('edit.aiEdit', 'edit', { type: 'openAiEditPanel' }, {
+    // Not 'transpose': Tools ▸ Transpose… stays the first answer to it.
+    keywords: ['ai', 'wizard', 'claude', 'edit', 'rewrite', 'lower', 'key', 'fingering', 'easy', 'easier', 'position', 'simplify', 'prompt'],
+  }),
 ];
 
 /** The panels View shows or hides, and more words each is found by. */

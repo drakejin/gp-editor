@@ -139,6 +139,8 @@ export const subscribePrintRequests = menuRequests('printRequested');
 export const subscribeSongWriterRequests = menuRequests('songWriterRequested');
 /** Edit ▸ AI Wizard ▸ Compose from Here…. */
 export const subscribeComposeRequests = menuRequests('composeRequested');
+/** Edit ▸ AI Wizard ▸ AI Edit…. */
+export const subscribeAiEditRequests = menuRequests('aiEditRequested');
 /** Tools ▸ Transpose…. */
 export const subscribeTransposeRequests = menuRequests('transposeRequested');
 /** Edit ▸ Lyrics…. */
