@@ -16,7 +16,7 @@ export const FINGERING_COSTS = {
   /** A fretted note: an open string needs no finger. */
   fretted: 10,
   /** Each fret the beat's lowest fretted note sits above the first: low positions first. */
-  position: 5,
+  position: 10,
   /** A note put on another string than it had, so nothing moves for nothing (left out of the cost reported). */
   restring: 1,
 } as const;
