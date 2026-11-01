@@ -2,11 +2,15 @@ import type { Dispatch } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { useT } from '../hooks/use-i18n';
+import { trackChoice } from '../lib/instrument-picker';
 import type { EditorAction } from '../state/editor';
 import { type Palette, STRIP_COLORS, onChrome } from '../theme';
 import { InstrumentPicker } from './InstrumentPicker';
 
-/** The instrument picker over the window for a track: its choice makes the track that instrument (one undo step). */
+/**
+ * The instrument picker over the window for a track: its choice makes the track that instrument (one undo step). None
+ * for a track without a channel, which has no sound to change.
+ */
 export function PickerOverlay({
   palette,
   song,
@@ -20,7 +24,7 @@ export function PickerOverlay({
   readonly dispatch: Dispatch<EditorAction>;
   readonly onClose: () => void;
 }) {
-  if (song.tracks[trackIndex] === undefined) {
+  if (trackChoice(song, trackIndex) === undefined) {
     return null;
   }
   return (

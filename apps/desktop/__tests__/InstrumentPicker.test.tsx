@@ -4,6 +4,7 @@ import { DEFAULT_CHANNEL, type Song } from '@gp-editor/core';
 import { BarButton } from '../src/components/BarButton';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { InstrumentPicker, PickerRow } from '../src/components/InstrumentPicker';
+import { PickerOverlay } from '../src/components/WindowOverlays';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note, onStrings } from '../test-support/songs';
 
@@ -131,5 +132,32 @@ describe('InstrumentPicker', () => {
     const backdrop = picker.renderer.root.findByProps({ testID: 'instrument-picker-backdrop' });
     ReactTestRenderer.act(() => backdrop.props.onPress());
     expect(picker.onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('PickerOverlay', () => {
+  function renderOverlay(song: Song) {
+    const dispatch = jest.fn();
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<PickerOverlay palette={PALETTE} song={song} trackIndex={0} dispatch={dispatch} onClose={jest.fn()} />);
+    });
+    return { renderer, dispatch };
+  }
+
+  it('opens for a drum track too, its choice making the track that instrument', () => {
+    // Arrange
+    const overlay = renderOverlay(drums());
+
+    // Act
+    ReactTestRenderer.act(() => overlay.renderer.root.findByType(InstrumentPicker).props.onChoose(33, false));
+
+    // Assert
+    expect(overlay.dispatch).toHaveBeenCalledWith({ type: 'setTrackInstrument', trackIndex: 0, instrument: 33, keepsTrack: false });
+  });
+
+  it('draws nothing for a track without a channel, which has no sound to change', () => {
+    const song = guitar(25);
+    expect(renderOverlay({ ...song, channels: [] }).renderer.toJSON()).toBeNull();
   });
 });
