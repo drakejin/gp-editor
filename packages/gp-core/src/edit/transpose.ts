@@ -2,8 +2,8 @@
 // selection, a track or the song moves by semitones — or, not in TuxGuitar, by steps of the key's scale — keeping its
 // string while the new fret is on the neck. TuxGuitar removes a note no string can hold; here it stays and is counted.
 import type { Beat, Chord, Measure, Song, Track } from '../model/song';
-import type { BeatAddress } from './addresses';
 import { type NoteNameMove, chromaticNameMove, diatonicNameMove, transposeChord } from './chord-transpose';
+import { type NoteScope, isPercussionTrack, scopedTracks } from './edit-scope';
 import { shiftDiatonic, transposeKeySignature } from './key-spelling';
 import { hasSameItems, replaceAt } from './song-paths';
 import { neckFrets } from './string-placement';
@@ -14,10 +14,7 @@ import { trackTuning } from './tuning-presets';
 export type TranspositionMode = 'chromatic' | 'diatonic';
 
 /** What moves: the whole song, one track, or the beats from one address to another (either order) in one voice of one track. */
-export type TranspositionScope =
-  | { readonly kind: 'song' }
-  | { readonly kind: 'track'; readonly trackIndex: number }
-  | { readonly kind: 'beats'; readonly from: BeatAddress; readonly to: BeatAddress };
+export type TranspositionScope = NoteScope;
 
 export interface TranspositionOptions {
   readonly mode: TranspositionMode;
@@ -62,18 +59,6 @@ interface TrackPlan {
 
 function addCounts(a: Counts, b: Counts): Counts {
   return { moved: a.moved + b.moved, unplaced: a.unplaced + b.unplaced, chords: a.chords + b.chords, unplacedChords: a.unplacedChords + b.unplacedChords };
-}
-
-function isPercussion(song: Song, track: Track): boolean {
-  return track.isPercussion || song.channels.some((channel) => channel.id === track.channelId && channel.isPercussion);
-}
-
-function beatOrder(at: Pick<BeatAddress, 'measureIndex' | 'beatIndex'>): readonly [number, number] {
-  return [at.measureIndex, at.beatIndex];
-}
-
-function isAtOrAfter(measureIndex: number, beatIndex: number, [m, b]: readonly [number, number]): boolean {
-  return measureIndex > m || (measureIndex === m && beatIndex >= b);
 }
 
 /** The chord with its name and diagram moved; undefined when its diagram cannot move. */
@@ -146,23 +131,12 @@ function transposeTrack(track: Track, plan: TrackPlan): { readonly track: Track;
 
 /** Which tracks a scope touches and, per track, which beats and voices; undefined for a scope that names no track. */
 function trackPlans(song: Song, scope: TranspositionScope, base: Pick<TrackPlan, 'mode' | 'total' | 'isChordsOnly'>): ReadonlyMap<number, TrackPlan> | undefined {
-  const movesKey = base.mode === 'chromatic' && !base.isChordsOnly;
-  const everything: TrackPlan = { ...base, includes: () => true, includesBeat: () => true, movesKey };
-  if (scope.kind === 'song') {
-    return new Map(song.tracks.map((_, trackIndex) => [trackIndex, everything]));
-  }
-  if (scope.kind === 'track') {
-    return song.tracks[scope.trackIndex] === undefined ? undefined : new Map([[scope.trackIndex, everything]]);
-  }
-  const { from, to } = scope;
-  if (from.trackIndex !== to.trackIndex || song.tracks[from.trackIndex] === undefined) {
+  const tracks = scopedTracks(song, scope);
+  if (tracks === undefined) {
     return undefined;
   }
-  const [first, last] = isAtOrAfter(to.measureIndex, to.beatIndex, beatOrder(from)) ? [from, to] : [to, from];
-  const includesBeat = (measureIndex: number, beatIndex: number) =>
-    isAtOrAfter(measureIndex, beatIndex, beatOrder(first)) && !isAtOrAfter(measureIndex, beatIndex - 1, beatOrder(last));
-  const includes = (measureIndex: number, beatIndex: number, voiceIndex: number) => voiceIndex === from.voiceIndex && includesBeat(measureIndex, beatIndex);
-  return new Map([[from.trackIndex, { ...base, includes, includesBeat, movesKey: false }]]);
+  const movesKey = base.mode === 'chromatic' && !base.isChordsOnly;
+  return new Map([...tracks].map(([trackIndex, scoped]) => [trackIndex, { ...base, includes: scoped.includes, includesBeat: scoped.includesBeat, movesKey: movesKey && scoped.isWhole }]));
 }
 
 function totalOf(options: TranspositionOptions): number {
@@ -194,7 +168,7 @@ export function transpose(song: Song, scope: TranspositionScope, options: Transp
   let tracks = song.tracks;
   for (const [trackIndex, plan] of plans) {
     const track = song.tracks[trackIndex];
-    if (track !== undefined && !isPercussion(song, track)) {
+    if (track !== undefined && !isPercussionTrack(song, track)) {
       const result = transposeTrack(track, plan);
       counts = addCounts(counts, result.counts);
       tracks = replaceAt(tracks, trackIndex, result.track);
