@@ -563,6 +563,7 @@ export const EN_TOOLS = {
   'tools.compose.nothingApplied': 'Claude wrote nothing the score could take: {detail}',
   'tools.compose.stopping': 'Stopping — the answer already asked for is still coming; nothing will be written',
   'tools.compose.elsewhere': 'Claude is composing in another tab…',
+  'tools.compose.otherTool': 'Claude is busy with AI Edit — one request at a time…',
   'tools.compose.noReason': 'it gave no reason',
   'tools.compose.changed': 'The score changed while Claude was writing, so nothing was changed. Compose again.',
   'tools.compose.noScore': 'Open a score to compose in it',

@@ -55,6 +55,7 @@ export const EN_AI_EDIT = {
   'aiEdit.askingAgain': 'Asking Claude again (attempt {attempt} of 3)… {seconds} s',
   'aiEdit.stopping': 'Stopping — the answer already asked for is still coming; nothing will be written',
   'aiEdit.elsewhere': 'Claude is working in another tab…',
+  'aiEdit.otherTool': 'Claude is busy with Compose from Here — one request at a time…',
   'aiEdit.cancelled': 'Stopped — the score was not changed',
   'aiEdit.changed': 'The score changed while Claude was working, so nothing was changed. Try again.',
   'aiEdit.undoHint': 'Edit ▸ Undo takes it back in one step.',

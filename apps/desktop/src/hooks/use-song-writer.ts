@@ -4,7 +4,7 @@ import { t } from '../lib/i18n/i18n';
 import { sendMessages } from '../native/anthropic';
 import type { SongIdea } from '../song-writer/request';
 import { type SongWriterStep, writeSong } from '../song-writer/run-song-writer';
-import { wait } from './use-tab-run';
+import { wait } from '../lib/wait';
 
 /** What the Song Writer panel holds while it is filled in; kept when the panel closes. */
 export interface SongWriterDraft {

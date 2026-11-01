@@ -55,7 +55,7 @@ function statusText(props: AiEditPanelProps, problem: string | undefined, second
     case 'stopping':
       return t('aiEdit.stopping');
     case 'elsewhere':
-      return t('aiEdit.elsewhere');
+      return t(status.isOtherTool === true ? 'aiEdit.otherTool' : 'aiEdit.elsewhere');
     case 'failed':
       return status.message;
     case 'done':

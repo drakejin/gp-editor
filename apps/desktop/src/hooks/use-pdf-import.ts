@@ -17,6 +17,7 @@ import { runImport } from '../pdf-import/run-import';
 import type { ImportDeps } from '../pdf-import/transcribe-page';
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
+import { wait } from '../lib/wait';
 
 /** A project folder and what its project.json says (undefined when it has none, e.g. made by hand). */
 export interface ProjectSummary {
@@ -64,7 +65,7 @@ function importDeps(path: string, project: ImportProject): ImportDeps {
     writeBase64: async (file, base64) => {
       await writeProjectBase64(path, file, base64);
     },
-    wait: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+    wait,
   };
 }
 

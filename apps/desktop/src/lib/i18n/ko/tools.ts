@@ -561,6 +561,7 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.compose.nothingApplied': 'Claude가 악보에 넣을 수 있는 것을 쓰지 않았습니다: {detail}',
   'tools.compose.stopping': '중지하는 중 — 이미 요청한 답은 끝까지 오지만, 아무것도 쓰지 않습니다',
   'tools.compose.elsewhere': 'Claude가 다른 탭에서 작곡하는 중…',
+  'tools.compose.otherTool': 'Claude가 AI 수정을 하는 중 — 한 번에 한 요청만…',
   'tools.compose.noReason': '이유를 말하지 않았습니다',
   'tools.compose.changed': 'Claude가 쓰는 동안 악보가 바뀌어서 아무것도 바꾸지 않았습니다. 다시 작곡하세요.',
   'tools.compose.noScore': '작곡할 악보를 여세요',

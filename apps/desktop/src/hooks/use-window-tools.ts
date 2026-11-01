@@ -18,6 +18,7 @@ import { type SongWriter, useSongWriter, writtenSummary } from './use-song-write
 import { type TrackInfo, useTrackInfo } from './use-track-info';
 import { type TrackManager, useTrackManager } from './use-track-manager';
 import { useStableCallback } from './use-stable-callback';
+import { useRunGuard } from './use-tab-run';
 import { type Tuner, useTuner } from './use-tuner';
 import type { WindowBase } from './use-window';
 
@@ -125,8 +126,10 @@ export function useWindowTools(base: WindowBase): WindowTools {
   const song = state.document?.song;
   const draftPreview = useDraftPreview(song, state.cursor);
   const songWriter = useWindowSongWriter(base);
-  const compose = useCompose({ workspace, dispatch });
-  const aiEdit = useAiEdit({ workspace, dispatch });
+  // Compose from Here and AI Edit share one Claude run at a time.
+  const claudeRuns = useRunGuard();
+  const compose = useCompose({ workspace, dispatch, guard: claudeRuns });
+  const aiEdit = useAiEdit({ workspace, dispatch, guard: claudeRuns });
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, state.trackIndex)), [song, state.trackIndex]);
   const panels = useWindowPanels(base);
   const audio = useAudioTools(song, state.trackIndex, chrome.togglePanel);

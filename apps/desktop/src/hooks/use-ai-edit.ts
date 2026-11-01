@@ -12,7 +12,8 @@ import type { TokenUsage } from '../lib/tool-answer';
 import { sendMessages } from '../native/anthropic';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { readingText } from './use-compose';
-import { type RunContext, type RunFinish, type RunProgress, type RunWording, type TabRunStatus, tabSong, useTabRun, wait } from './use-tab-run';
+import { wait } from '../lib/wait';
+import { type RunContext, type RunFinish, type RunGuard, type RunProgress, type RunWording, type TabRunStatus, tabSong, useTabRun } from './use-tab-run';
 
 /** The preset (lower the key and make it easy to play) or the user's instruction to Claude. */
 export type AiEditKind = 'lowerKey' | 'instruction';
@@ -136,6 +137,8 @@ async function instructionEdit(context: RunContext, range: AiEditRange, draft: A
 interface AiEditSources {
   readonly workspace: WorkspaceState;
   readonly dispatch: Dispatch<WorkspaceAction>;
+  /** One Claude run at a time with the window's other AI Wizard panel. */
+  readonly guard?: RunGuard;
 }
 
 const AI_EDIT_WORDING: RunWording = { cancelled: () => t('aiEdit.cancelled'), changed: () => t('aiEdit.changed') };
@@ -146,10 +149,10 @@ const AI_EDIT_WORDING: RunWording = { cancelled: () => t('aiEdit.cancelled'), ch
  * checked note by note —; an instruction has Claude rewrite the range's bars. Either is written into the tab it began
  * in, if its score is still the one the run read, as one editor action (one undo step).
  */
-export function useAiEdit({ workspace, dispatch }: AiEditSources): AiEdit {
+export function useAiEdit({ workspace, dispatch, guard }: AiEditSources): AiEdit {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<AiEditDraft>(INITIAL_AI_EDIT_DRAFT);
-  const { status, start, cancel, reset } = useTabRun<AiEditResultView>(workspace, dispatch, AI_EDIT_WORDING);
+  const { status, start, cancel, reset } = useTabRun<AiEditResultView>(workspace, dispatch, AI_EDIT_WORDING, { owner: 'aiEdit', guard });
   const latest = useRef(workspace);
   latest.current = workspace;
 

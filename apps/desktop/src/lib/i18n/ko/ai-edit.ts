@@ -53,6 +53,7 @@ export const KO_AI_EDIT: Catalog<typeof EN_AI_EDIT> = {
   'aiEdit.askingAgain': 'Claude에게 다시 요청하는 중 ({attempt}/3번째)… {seconds}초',
   'aiEdit.stopping': '중지하는 중 — 이미 요청한 답은 끝까지 오지만, 아무것도 쓰지 않습니다',
   'aiEdit.elsewhere': 'Claude가 다른 탭에서 작업하는 중…',
+  'aiEdit.otherTool': 'Claude가 여기부터 작곡을 하는 중 — 한 번에 한 요청만…',
   'aiEdit.cancelled': '중지했습니다. 악보는 바뀌지 않았습니다',
   'aiEdit.changed': 'Claude가 작업하는 동안 악보가 바뀌어서 아무것도 바꾸지 않았습니다. 다시 해 보세요.',
   'aiEdit.undoHint': '편집 ▸ 실행 취소 한 번으로 되돌립니다.',
