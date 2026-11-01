@@ -92,7 +92,7 @@ describe('useAiEdit: the preset', () => {
     expect(probe.aiEdit().status).toMatchObject({ kind: 'done', result: { summary: expect.stringMatching(/^Transposed 8 notes down 2 semitones · Fingering: 8 notes on other strings/) } });
   });
 
-  it('asks Claude to polish when asked to, and rejects the note whose pitch Claude changed', async () => {
+  it('asks Claude to polish when asked to, rejects the note whose pitch Claude changed and the position that is harder', async () => {
     // Arrange: Claude puts the first E4 on string 2 (fret 5) and gives the second note a wrong pitch.
     const beats = [
       { duration: 'quarter', notes: [{ string: 2, fret: 5 }] },
@@ -114,9 +114,13 @@ describe('useAiEdit: the preset', () => {
 
     // Assert
     expect(mockSend).toHaveBeenCalledTimes(1);
-    // (The optimizer keeps F#4 at the 7th fret of string 2: the hand stays in 4th position for bar 2's F#4 there.)
-    expect(frets(shown(probe).document?.song)).toEqual(['2/5', '2/7', '1/4', '1/0']);
-    expect(probe.aiEdit().status).toMatchObject({ kind: 'done', result: { summary: expect.stringContaining('Claude: 1 of 1 suggested positions taken · 1 note rejected') } });
+    // (The optimizer keeps F#4 at the 7th fret of string 2: the hand stays in 4th position for bar 2's F#4 there; Claude's
+    // E4 at the 5th fret is harder than the open string, so the optimizer's stays.)
+    expect(frets(shown(probe).document?.song)).toEqual(['1/0', '2/7', '1/4', '1/0']);
+    expect(probe.aiEdit().status).toMatchObject({
+      kind: 'done',
+      result: { summary: expect.stringContaining('Claude: 0 of 1 suggested positions taken (not taken: 1 harder to play than the optimizer’s) · 1 note rejected') },
+    });
   });
 });
 

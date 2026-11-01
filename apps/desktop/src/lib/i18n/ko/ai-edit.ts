@@ -77,6 +77,12 @@ export const KO_AI_EDIT: Catalog<typeof EN_AI_EDIT> = {
   'aiEdit.summary.fingering': '운지: 음표 {count}개를 다른 줄로, 손 이동 {before} → {after}프렛 (비용 {costBefore} → {costAfter})',
   'aiEdit.summary.fingeringKept': '운지: 이미 가장 쉬움',
   'aiEdit.summary.claude': 'Claude: 제안한 자리 {suggested}개 중 {taken}개 반영',
+  'aiEdit.summary.notTakenWhy': '반영 안 함: {reasons}',
+  'aiEdit.reason.linked': '{count}개는 타이·슬라이드를 상대 음과 떼어 놓음',
+  'aiEdit.reason.unplayable': '{count}개는 그 자리에서 칠 수 없음',
+  'aiEdit.reason.occupied': '{count}개는 다른 음이 잡고 있는 줄',
+  'aiEdit.reason.span': '{count}개는 손이 닿지 않는 폭',
+  'aiEdit.reason.harder': '{count}개는 최적화한 운지보다 어려움',
   'aiEdit.summary.rejected': '음표 {count}개 거절 (음높이나 리듬이 바뀜)',
   'aiEdit.summary.polishFailed': 'Claude의 다듬기를 받지 못해 ({reason}) 최적화한 운지를 그대로 두었습니다',
 };

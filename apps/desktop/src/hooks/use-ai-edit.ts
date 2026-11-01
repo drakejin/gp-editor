@@ -135,7 +135,7 @@ async function presetEdit(context: RunContext, range: AiEditRange, draft: AiEdit
   const lowered = lowerKey(context.song, range, draft.semitones);
   const exact = { song: lowered.song, keepsBeats: true, unchanged: t('aiEdit.nothingToChange') };
   if (!draft.isPolished) {
-    return { ...exact, view: { summary: presetSummary(lowered, draft.semitones, lowered.refingering.after), detail: '', warnings: [] } };
+    return { ...exact, view: { summary: presetSummary(lowered, draft.semitones, { song: lowered.song, cost: lowered.refingering.after }), detail: '', warnings: [] } };
   }
   const polished = await polishFingering(lowered, range, model, claudeDeps(context), (step) => context.onProgress(progressOf(step)));
   return { ...exact, song: polished.song, view: { summary: polished.summary, detail: detailOf(context.song, polished.score, polished.usage, 1), warnings: polished.warnings } };

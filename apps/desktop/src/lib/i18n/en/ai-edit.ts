@@ -79,6 +79,12 @@ export const EN_AI_EDIT = {
   'aiEdit.summary.fingering': { one: 'Fingering: {count} note on another string, the hand travelling {before} → {after} frets (cost {costBefore} → {costAfter})', other: 'Fingering: {count} notes on other strings, the hand travelling {before} → {after} frets (cost {costBefore} → {costAfter})' },
   'aiEdit.summary.fingeringKept': 'Fingering: already the easiest',
   'aiEdit.summary.claude': 'Claude: {taken} of {suggested} suggested positions taken',
+  'aiEdit.summary.notTakenWhy': 'not taken: {reasons}',
+  'aiEdit.reason.linked': { one: '{count} would part a tie or slide from its other note', other: '{count} would part ties or slides from their other notes' },
+  'aiEdit.reason.unplayable': { one: '{count} cannot be played there', other: '{count} cannot be played there' },
+  'aiEdit.reason.occupied': { one: '{count} on a string another note holds', other: '{count} on strings other notes hold' },
+  'aiEdit.reason.span': { one: '{count} wider than a hand reaches', other: '{count} wider than a hand reaches' },
+  'aiEdit.reason.harder': { one: '{count} harder to play than the optimizer’s', other: '{count} harder to play than the optimizer’s' },
   'aiEdit.summary.rejected': { one: '{count} note rejected (pitch or rhythm changed)', other: '{count} notes rejected (pitch or rhythm changed)' },
   'aiEdit.summary.polishFailed': 'Claude’s polish did not come ({reason}): the optimizer’s fingering was kept',
 } as const satisfies Readonly<Record<string, Message>>;

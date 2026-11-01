@@ -1,5 +1,6 @@
-import { type EasyTransposition, type FingeringAdoption, type FingeringCost, type Song, isFrettedInstrument, trackInstrumentOf } from '@gp-editor/core';
+import { type EasyTransposition, type FingeringAdoption, type FingeringCost, type PositionsNotTaken, type Song, isFrettedInstrument, trackInstrumentOf } from '@gp-editor/core';
 import { trackBarText, trackNotationOf } from '../compose/score-notation';
+import type { MessageKey } from '../lib/i18n/en';
 import { t } from '../lib/i18n/i18n';
 import { transpositionHint } from '../state/transposition';
 import type { AiEditRange } from './ai-edit-scope';
@@ -49,22 +50,78 @@ export function rewriteSummary(before: Song, after: Song, range: AiEditRange, ba
     .join(' · ');
 }
 
-/** "Fingering: 85 notes on other strings, the hand travelling 120 → 45 frets (cost 300.5 → 180.2)", or already the easiest. */
-function fingeringText(easy: EasyTransposition, after: FingeringCost): string {
-  const { before, restrung } = easy.refingering;
-  return restrung === 0
+/** The song written and what its fingering costs. */
+export interface WrittenFingering {
+  readonly song: Song;
+  readonly cost: FingeringCost;
+}
+
+/** Each voice's notes as `pitch/string`, by `track:measure:beat:voice`. */
+function notePlaces(song: Song): ReadonlyMap<string, readonly string[]> {
+  const places = new Map<string, string[]>();
+  song.tracks.forEach((track, trackIndex) =>
+    track.measures.forEach((measure, m) =>
+      measure.beats.forEach((beat, b) =>
+        beat.voices.forEach((voice, v) => {
+          places.set(`${trackIndex}:${m}:${b}:${v}`, voice.notes.map((note) => `${(track.strings[note.string - 1]?.tuning ?? 0) + note.fret}/${note.string}`));
+        }),
+      ),
+    ),
+  );
+  return places;
+}
+
+/** Notes of `after` on another string than in `before` (the same notes, re-fingered). */
+function restrungNotes(before: Song, after: Song): number {
+  const was = notePlaces(before);
+  let moved = 0;
+  notePlaces(after).forEach((notes, key) => {
+    const left = [...(was.get(key) ?? [])];
+    notes.forEach((place) => {
+      const at = left.indexOf(place);
+      if (at >= 0) {
+        left.splice(at, 1);
+      } else {
+        moved += 1;
+      }
+    });
+  });
+  return moved;
+}
+
+/** "Fingering: 85 notes on other strings, the hand travelling 120 → 45 frets (cost 300.5 → 180.2)", from the song written. */
+function fingeringText(easy: EasyTransposition, written: WrittenFingering): string {
+  const { before } = easy.refingering;
+  const count = restrungNotes(easy.transposition.song, written.song);
+  return count === 0
     ? t('aiEdit.summary.fingeringKept')
-    : t('aiEdit.summary.fingering', { count: restrung, before: before.handTravel, after: after.handTravel, costBefore: before.total, costAfter: after.total });
+    : t('aiEdit.summary.fingering', { count, before: before.handTravel, after: written.cost.handTravel, costBefore: before.total, costAfter: written.cost.total });
+}
+
+const REASONS: readonly (readonly [keyof PositionsNotTaken, MessageKey])[] = [
+  ['linked', 'aiEdit.reason.linked'],
+  ['unplayable', 'aiEdit.reason.unplayable'],
+  ['occupied', 'aiEdit.reason.occupied'],
+  ['span', 'aiEdit.reason.span'],
+  ['harder', 'aiEdit.reason.harder'],
+];
+
+/** "Claude: 3 of 5 suggested positions taken (not taken: 1 on a string another note holds, 1 harder …) · 2 notes rejected". */
+function claudeText(adoption: FingeringAdoption): readonly string[] {
+  const reasons = REASONS.filter(([reason]) => adoption.notTaken[reason] > 0).map(([reason, key]) => t(key, { count: adoption.notTaken[reason] }));
+  const why = reasons.length === 0 ? '' : ` (${t('aiEdit.summary.notTakenWhy', { reasons: reasons.join(', ') })})`;
+  return [`${t('aiEdit.summary.claude', { taken: adoption.taken, suggested: adoption.suggested })}${why}`, adoption.rejected > 0 ? t('aiEdit.summary.rejected', { count: adoption.rejected }) : ''];
 }
 
 /**
- * What the preset changed: the transposition (when it moved anything), the optimizer's fingering with the cost the
- * score ends with (`after`), and Claude's part when it was asked.
+ * What the preset changed: the transposition (when it moved anything), the fingering as written — the notes on other
+ * strings than the plain transposition put them, the hand's travel and cost from that to the song written —, and
+ * Claude's part when it was asked.
  */
-export function presetSummary(easy: EasyTransposition, semitones: number, after: FingeringCost, adoption?: FingeringAdoption, polishFailure?: string): string {
+export function presetSummary(easy: EasyTransposition, semitones: number, written: WrittenFingering, adoption?: FingeringAdoption, polishFailure?: string): string {
   // The hint's sentences end in a full stop; the parts here are joined by " · ".
   const transposed = semitones === 0 ? '' : transpositionHint(easy.transposition, { mode: 'chromatic', amount: semitones }).replace(/\.$/, '');
-  const claude = adoption === undefined ? [] : [t('aiEdit.summary.claude', { taken: adoption.taken, suggested: adoption.suggested }), adoption.rejected > 0 ? t('aiEdit.summary.rejected', { count: adoption.rejected }) : ''];
+  const claude = adoption === undefined ? [] : claudeText(adoption);
   const failed = polishFailure === undefined ? '' : t('aiEdit.summary.polishFailed', { reason: polishFailure });
-  return [transposed, fingeringText(easy, after), ...claude, failed].filter((part) => part !== '').join(' · ');
+  return [transposed, fingeringText(easy, written), ...claude, failed].filter((part) => part !== '').join(' · ');
 }
