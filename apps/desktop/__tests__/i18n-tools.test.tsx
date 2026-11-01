@@ -141,6 +141,6 @@ describe('the tools in Korean', () => {
 
     const answer = readToolAnswer({ status: 401, body: '{"error":{"message":"invalid x-api-key"}}' }, 'plan_song', { tooLong: '', what: '' });
 
-    expect(answer).toEqual({ isOk: false, isRetryable: false, isFatal: true, message: 'Anthropic API 키가 거부되었습니다 (invalid x-api-key)' });
+    expect(answer).toEqual({ isOk: false, isRetryable: false, isFatal: true, isKeyRefused: true, message: 'Anthropic API 키가 거부되었습니다 (invalid x-api-key)' });
   });
 });

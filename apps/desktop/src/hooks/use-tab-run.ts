@@ -185,8 +185,13 @@ function launch<R>(refs: RunRefs<R>, id: number, task: RunTask<R>): void {
   refs.setRun({ kind: 'running', tabId, attempt: 1, startedAt });
   const onProgress = (progress: RunProgress) =>
     refs.setRun((current) => (current.kind === 'running' && refs.flight.current?.id === id ? { kind: 'running', tabId: current.tabId, startedAt: current.startedAt, ...progress } : current));
-  Promise.resolve()
-    .then(() => task({ tabId, editor, song, isCancelled, onProgress }))
+  let answer: ReturnType<RunTask<R>>;
+  try {
+    answer = task({ tabId, editor, song, isCancelled, onProgress });
+  } catch (error: unknown) {
+    answer = Promise.reject(error);
+  }
+  answer
     .then((finish) => settleRun(refs, id, tabId, startedAt, () => finish(refs.latest.current)))
     .catch((error: unknown) => settleRun(refs, id, tabId, startedAt, () => ({ kind: 'failed', message: errorMessage(error) })));
 }
