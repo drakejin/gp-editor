@@ -16,10 +16,12 @@ import {
   deleteMeasures,
   deleteNote,
   deleteRunNotes,
+  deleteTrackMeasure,
   findNote,
   findVoice,
   insertBeat,
   insertMeasure,
+  insertTrackMeasure,
   isSameTuplet,
   setBeatChord,
   setBeatChordNotes,
@@ -72,6 +74,10 @@ export type SongEdit =
   | NotationEdit
   | VoiceEdit
   | { readonly type: 'insertMeasure' }
+  /** A bar of rests at the cursor's bar in the cursor's track only: its bars from there move one bar later (Track ▸ Insert Bar in This Track). */
+  | { readonly type: 'insertTrackMeasure' }
+  /** The cursor's bar out of the cursor's track only: its later bars move one bar earlier (Track ▸ Delete Bar in This Track). */
+  | { readonly type: 'deleteTrackMeasure' }
   /** The cursor's bar, or every bar from `from` (the selection's start) to it, in one undo step (Guitar Pro's − Bar, ⌘D). */
   | { readonly type: 'deleteMeasure'; readonly from?: BeatPlace }
   /** D: the note at the cursor, or every note of the beats from `from` (the selection's start) to it in its voice; the beats stay as rests. */
@@ -123,6 +129,10 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
       return erase(song, cursor);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
+    case 'insertTrackMeasure':
+      return insertTrackMeasure(song, cursor.trackIndex, cursor.measureIndex);
+    case 'deleteTrackMeasure':
+      return deleteTrackMeasure(song, cursor.trackIndex, cursor.measureIndex);
     case 'deleteMeasure':
       return deleteMeasures(song, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
     case 'deleteNotes':

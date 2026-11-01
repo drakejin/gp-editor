@@ -141,7 +141,7 @@ FOUNDATION_EXPORT NSString *const GPEditorAddAudioTrackCommandNotification;
 
 /**
  * Track ▸ Add Track… / Duplicate Track / Delete Track / Move Track Up / Move Track Down was chosen; GPAudioTrack.m
- * forwards it to JS as "trackCommandRequested". Object: NSString "add", "duplicate", "delete", "moveUp" or "moveDown".
+ * forwards it to JS as "trackCommandRequested". Object: NSString "add", "duplicate", "delete", "moveUp", "moveDown", "insertBar" or "deleteBar".
  */
 FOUNDATION_EXPORT NSString *const GPEditorTrackCommandNotification;
 

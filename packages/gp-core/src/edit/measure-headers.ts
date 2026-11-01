@@ -69,8 +69,11 @@ function fitVoice(events: VoiceEvents, oldLength: number, newLength: number): Vo
   return settleVoice([...events, ...padding], newLength, limits);
 }
 
-/** The measure with its voices fitted to `newLength`; the same measure when nothing moves, undefined when a note would fall out. */
-function fitMeasure(measure: Measure, header: MeasureHeader, newLength: number): Measure | undefined {
+/**
+ * The measure (laid out against `header`) with its voices fitted to `newLength`, still from `header`'s start; the same
+ * measure when nothing moves, undefined when a note would no longer start inside it.
+ */
+export function fitMeasure(measure: Measure, header: MeasureHeader, newLength: number): Measure | undefined {
   const measureVoices = toMeasureVoices(measure, header.start);
   if (measureVoices === undefined) {
     return undefined;

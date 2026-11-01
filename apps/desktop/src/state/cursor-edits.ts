@@ -140,7 +140,7 @@ export function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): E
 
 /**
  * Where the cursor goes after an edit: on the beat or bar it inserted, on the bar that took the place of the deleted
- * ones, and inside the song after deletions.
+ * ones (in one track: the bar's first beat), and inside the song after deletions.
  */
 function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringAddress | undefined {
   switch (edit.type) {
@@ -148,6 +148,10 @@ function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringA
       return clampCursor(song, { ...cursor, beatIndex: cursor.beatIndex + 1 });
     case 'insertMeasure':
       return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
+    case 'insertTrackMeasure':
+    case 'deleteTrackMeasure':
+      // The bar of rests put there, or the music moved into the bar.
+      return clampCursor(song, { ...cursor, beatIndex: 0 });
     case 'deleteMeasure':
       return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex) });
     default:

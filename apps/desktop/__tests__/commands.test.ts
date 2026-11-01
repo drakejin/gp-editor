@@ -159,7 +159,14 @@ describe('command registry', () => {
     expect(find('edit.deleteNotes')).toMatchObject({ title: 'Delete Notes', shortcut: 'D', command: { type: 'edit', edit: { type: 'deleteNotes' } } });
     expect(find('edit.deleteBars')).toMatchObject({ title: 'Delete Bars', shortcut: '⌘D', command: { type: 'edit', edit: { type: 'deleteMeasure' } } });
     expect(allCommands().some((command) => command.id === 'palette.deleteNotes' || command.id === 'palette.deleteMeasure')).toBe(false);
-    expect(find('palette.insertMeasure').title).toBe('Add a bar after the bar you clicked — the cursor’s bar');
+    expect(find('palette.insertMeasure').title).toBe('Add a bar after the bar you clicked (the cursor’s), in every track — Track ▸ Insert Bar in This Track adds one to that track only');
+  });
+
+  it('lists Track ▸ Insert Bar in This Track and Delete Bar in This Track, which need a bar', () => {
+    expect(find('track.insertBar')).toMatchObject({ title: 'Insert Bar in This Track', command: { type: 'edit', edit: { type: 'insertTrackMeasure' } } });
+    expect(find('track.deleteBar')).toMatchObject({ title: 'Delete Bar in This Track', command: { type: 'edit', edit: { type: 'deleteTrackMeasure' } } });
+    expect(find('track.insertBar').isEnabled(NO_DOCUMENT)).toBe(false);
+    expect(find('track.deleteBar').isEnabled(ON_NOTE)).toBe(true);
   });
 
   it('lists a palette tool that does what a key does once, with the key', () => {

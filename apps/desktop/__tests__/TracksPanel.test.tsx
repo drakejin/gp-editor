@@ -247,7 +247,7 @@ describe('TracksPanel table', () => {
 });
 
 function trackActions() {
-  return { onAddTrack: jest.fn(), onDuplicateTrack: jest.fn(), onDeleteTrack: jest.fn(), onMoveTrack: jest.fn() };
+  return { onAddTrack: jest.fn(), onDuplicateTrack: jest.fn(), onDeleteTrack: jest.fn(), onMoveTrack: jest.fn(), onInsertBar: jest.fn(), onDeleteBar: jest.fn() };
 }
 
 describe('TracksPanel track buttons', () => {
@@ -267,6 +267,22 @@ describe('TracksPanel track buttons', () => {
     expect(actions.onDuplicateTrack).toHaveBeenCalledWith(1);
     expect(actions.onDeleteTrack).toHaveBeenCalledWith(1);
     expect(actions.onMoveTrack).toHaveBeenCalledWith(1, 0);
+  });
+
+  it('inserts and deletes a bar in the cursor’s track only, the tooltips telling them apart from the palette’s +Bar and −Bar', () => {
+    // Arrange
+    const actions = trackActions();
+    const panel = render({ trackActions: actions, selectedTrackIndex: 1 });
+    const insertTooltip = 'Insert a bar in this track only, at the cursor’s bar: the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are (Track ▸ Insert Bar in This Track). The palette’s +Bar adds a bar to every track.';
+    const deleteTooltip = 'Delete the cursor’s bar in this track only: the track’s later bars move one bar earlier and its last bar becomes rests; the other tracks and the song’s bars stay (Track ▸ Delete Bar in This Track). The palette’s −Bar deletes the bar in every track.';
+
+    // Act
+    panel.press(insertTooltip);
+    panel.press(deleteTooltip);
+
+    // Assert
+    expect(actions.onInsertBar).toHaveBeenCalledTimes(1);
+    expect(actions.onDeleteBar).toHaveBeenCalledTimes(1);
   });
 
   it('cannot move the first track up, the last one down, or delete the only track', () => {

@@ -18,7 +18,7 @@ const BUTTON_SIZE = 18;
 
 /**
  * The tracks panel's track buttons (Guitar Pro 8's + of the Global View and its ▲ ▼): add a track, duplicate, delete,
- * move up and down the selected one — what the Track menu does.
+ * move up and down the selected one, and insert or delete a bar in the cursor's track only — what the Track menu does.
  */
 function TrackActionsView({ palette, trackCount, selectedTrackIndex, actions }: TrackActionsProps) {
   const t = useT();
@@ -40,6 +40,10 @@ function TrackActionsView({ palette, trackCount, selectedTrackIndex, actions }: 
       {button('−', t('window.trackActions.delete'), () => actions.onDeleteTrack(selectedTrackIndex), trackCount > 1)}
       {button('▲', t('window.trackActions.moveUp'), () => actions.onMoveTrack(selectedTrackIndex, selectedTrackIndex - 1), selectedTrackIndex > 0)}
       {button('▼', t('window.trackActions.moveDown'), () => actions.onMoveTrack(selectedTrackIndex, selectedTrackIndex + 1), selectedTrackIndex < trackCount - 1)}
+      <View style={styles.barActions}>
+        <ChromeButton palette={palette} label={t('window.trackActions.insertBar')} tooltip={t('window.trackActions.insertBarTooltip')} height={BUTTON_SIZE} fontSize={10} onPress={actions.onInsertBar} />
+        <ChromeButton palette={palette} label={t('window.trackActions.deleteBar')} tooltip={t('window.trackActions.deleteBarTooltip')} height={BUTTON_SIZE} fontSize={10} onPress={actions.onDeleteBar} />
+      </View>
     </View>
   );
 }
@@ -49,4 +53,6 @@ export const TrackActions = memo(TrackActionsView);
 
 const styles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', marginRight: 6 },
+  /** The bar buttons apart from the track buttons: they act on the cursor's bar. */
+  barActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 6 },
 });

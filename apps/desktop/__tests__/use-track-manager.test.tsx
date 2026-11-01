@@ -63,6 +63,17 @@ describe('useTrackManager', () => {
     ]);
   });
 
+  it('inserts and deletes a bar in the cursor’s track for Track ▸ Insert / Delete Bar in This Track', () => {
+    // Arrange
+    const hook = renderManager(twoTracks());
+
+    // Act
+    ReactTestRenderer.act(() => ['insertBar', 'deleteBar'].forEach((command) => mockMenuListener?.(command as TrackMenuCommand)));
+
+    // Assert
+    expect(hook.dispatch.mock.calls).toEqual([[{ type: 'edit', edit: { type: 'insertTrackMeasure' } }], [{ type: 'edit', edit: { type: 'deleteTrackMeasure' } }]]);
+  });
+
   it('opens the Add Track panel and adds what it describes, closing it', () => {
     // Arrange
     const hook = renderManager(twoTracks());
@@ -133,6 +144,8 @@ describe('useTrackManager', () => {
 describe('parseTrackMenuCommand', () => {
   it('reads the command of a Track menu event, and nothing else', () => {
     expect(parseTrackMenuCommand({ command: 'moveDown' })).toBe('moveDown');
+    expect(parseTrackMenuCommand({ command: 'insertBar' })).toBe('insertBar');
+    expect(parseTrackMenuCommand({ command: 'deleteBar' })).toBe('deleteBar');
     expect(parseTrackMenuCommand({ command: 'format' })).toBeUndefined();
     expect(parseTrackMenuCommand('add')).toBeUndefined();
     expect(parseTrackMenuCommand(null)).toBeUndefined();

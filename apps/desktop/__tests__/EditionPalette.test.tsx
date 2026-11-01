@@ -126,8 +126,8 @@ describe('EditionPalette state at the cursor', () => {
     expect(texts('deleteNotes')).toEqual(['Del.', 'D']);
     expect(texts('deleteMeasure')).toEqual(['−Bar', '⌘D']);
     expect(palette.tool('deleteNotes').props.tooltip).toBe('Delete the note at the cursor, or the selected notes — the beats stay as rests (D)');
-    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars (⌘D)');
-    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked — the cursor’s bar');
+    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars, in every track — Track ▸ Delete Bar in This Track deletes it in that track only (⌘D)');
+    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked (the cursor’s), in every track — Track ▸ Insert Bar in This Track adds one to that track only');
   });
 
   it('disables everything without a cursor', () => {

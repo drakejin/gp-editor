@@ -1,7 +1,7 @@
-import { QUARTER, findNote } from '@gp-editor/core';
+import { type Duration, QUARTER, findNote } from '@gp-editor/core';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer, isEdited } from '../src/state/editor';
 import { cursorVoice, isTriplet } from '../src/state/song-edits';
-import { beat, fromTux, header, makeSong, note } from '../test-support/songs';
+import { beat, fromTux, header, makeSong, note, withTrack } from '../test-support/songs';
 
 /** One 4/4 bar: beat 0 = quarter on string 1 (fret 3), beat 1 = quarter on string 2 (fret 5). */
 function loaded(): EditorState {
@@ -10,6 +10,7 @@ function loaded(): EditorState {
 }
 
 const song = (state: EditorState) => state.document!.song;
+const WHOLE: Duration = { ...QUARTER, value: 1 };
 const voice = (state: EditorState) => cursorVoice(song(state), state.cursor!)!;
 const edit = (state: EditorState, e: Parameters<typeof editorReducer>[1] extends infer A ? A : never) => editorReducer(state, e);
 
@@ -266,5 +267,40 @@ describe('tuplets inside tuplets', () => {
   it.each([4, 13, 0])('ignores an inner tuplet of %i', (enters) => {
     const start = quintuplet();
     expect(edit(start, { type: 'edit', edit: { type: 'setInnerTuplet', enters } }).document).toBe(start.document);
+  });
+});
+
+describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar in This Track)', () => {
+  /** Two bars in two tracks: track 1 plays fret 1 then fret 2, track 2 fret 7 then fret 9; the cursor on track 1's bar 1. */
+  function twoTracks(): EditorState {
+    const base = makeSong([[beat(960, [note(1, 1)], WHOLE)], [beat(4800, [note(1, 2)], WHOLE)]]);
+    const both = withTrack(base, [[beat(960, [note(1, 7)], WHOLE)], [beat(4800, [note(1, 9)], WHOLE)]]);
+    return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: both } });
+  }
+
+  const fret = (state: EditorState, trackIndex: number, measureIndex: number) => findNote(song(state), { trackIndex, measureIndex, beatIndex: 0, voiceIndex: 0, string: 1 })?.fret;
+
+  it('moves the cursor’s track one bar later from the cursor’s bar, in one undo step, the other track as it was', () => {
+    // Act
+    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure' } });
+
+    // Assert
+    expect(song(inserted).measureHeaders).toHaveLength(3);
+    expect([0, 1, 2].map((measureIndex) => fret(inserted, 0, measureIndex))).toEqual([undefined, 1, 2]);
+    expect([0, 1, 2].map((measureIndex) => fret(inserted, 1, measureIndex))).toEqual([7, 9, undefined]);
+    expect(inserted.cursor).toMatchObject({ trackIndex: 0, measureIndex: 0, beatIndex: 0 });
+    expect(inserted.past).toHaveLength(1);
+    expect(song(edit(inserted, { type: 'undo' }))).toBe(inserted.past[0]);
+  });
+
+  it('takes the cursor’s bar out of its track only: its later bars move one bar earlier, the song keeps its bars', () => {
+    // Act
+    const deleted = edit(twoTracks(), { type: 'edit', edit: { type: 'deleteTrackMeasure' } });
+
+    // Assert
+    expect(song(deleted).measureHeaders).toHaveLength(2);
+    expect([0, 1].map((measureIndex) => fret(deleted, 0, measureIndex))).toEqual([2, undefined]);
+    expect([0, 1].map((measureIndex) => fret(deleted, 1, measureIndex))).toEqual([7, 9]);
+    expect(deleted.past).toHaveLength(1);
   });
 });

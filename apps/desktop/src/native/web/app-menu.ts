@@ -173,6 +173,9 @@ function trackMenu(): TopMenu {
     SEPARATOR,
     command('track-up', 'commands.title.track.moveUp', post('trackCommandRequested', { command: 'moveUp' })),
     command('track-down', 'commands.title.track.moveDown', post('trackCommandRequested', { command: 'moveDown' })),
+    SEPARATOR,
+    command('track-insert-bar', 'commands.title.track.insertBar', post('trackCommandRequested', { command: 'insertBar' })),
+    command('track-delete-bar', 'commands.title.track.deleteBar', post('trackCommandRequested', { command: 'deleteBar' })),
   ]);
 }
 

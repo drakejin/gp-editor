@@ -19,6 +19,10 @@ export interface TrackPanelActions {
   /** Deletes the track; one with notes asks first. */
   readonly onDeleteTrack: (trackIndex: number) => void;
   readonly onMoveTrack: (fromIndex: number, toIndex: number) => void;
+  /** A bar of rests at the cursor's bar in the cursor's track only, its bars from there one bar later. */
+  readonly onInsertBar: () => void;
+  /** The cursor's bar out of the cursor's track only, its later bars one bar earlier. */
+  readonly onDeleteBar: () => void;
 }
 
 /** Track ▸ Add Track…, Duplicate Track, Delete Track, Move Track Up / Down, and the same from the tracks panel. */
@@ -71,12 +75,14 @@ function usePanelActions(latest: { readonly current: Latest }, dispatch: Dispatc
         }
       },
       onMoveTrack: (fromIndex, toIndex) => dispatch({ type: 'moveTrack', fromIndex, toIndex }),
+      onInsertBar: () => dispatch({ type: 'edit', edit: { type: 'insertTrackMeasure' } }),
+      onDeleteBar: () => dispatch({ type: 'edit', edit: { type: 'deleteTrackMeasure' } }),
     }),
     [latest, dispatch, setIsAddPanelOpen, setPendingDelete],
   );
 }
 
-/** Track ▸ Add Track…, Duplicate, Delete, Move Up / Down (and the command palette's), on the shown track. */
+/** Track ▸ Add Track…, Duplicate, Delete, Move Up / Down (and the command palette's), on the shown track; Insert / Delete Bar in This Track at the cursor. */
 function useTrackMenu(latest: { readonly current: Latest }, dispatch: Dispatch<EditorAction>, panelActions: TrackPanelActions): (command: TrackMenuCommand) => void {
   const runTrackCommand = useCallback(
     (command: TrackMenuCommand) => {
@@ -94,6 +100,8 @@ function useTrackMenu(latest: { readonly current: Latest }, dispatch: Dispatch<E
         panelActions.onAddTrack();
       } else if (command === 'duplicate') {
         panelActions.onDuplicateTrack(index);
+      } else if (command === 'insertBar' || command === 'deleteBar') {
+        (command === 'insertBar' ? panelActions.onInsertBar : panelActions.onDeleteBar)();
       } else {
         panelActions.onDeleteTrack(index);
       }

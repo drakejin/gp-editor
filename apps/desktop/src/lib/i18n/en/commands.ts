@@ -96,6 +96,8 @@ export const EN_COMMANDS = {
   'commands.title.track.delete': 'Delete Track',
   'commands.title.track.moveUp': 'Move Track Up',
   'commands.title.track.moveDown': 'Move Track Down',
+  'commands.title.track.insertBar': 'Insert Bar in This Track',
+  'commands.title.track.deleteBar': 'Delete Bar in This Track',
   'commands.title.track.addAudioTrack': 'Add Audio Track…',
   'commands.title.track.removeAudioTrack': 'Remove the Audio Track',
   'commands.title.track.syncBar': 'Sync the Cursor’s Bar to the Recording Now',

@@ -232,6 +232,14 @@ struct GPEditorApp: App {
           NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "moveDown" as NSString)
         }
         Divider()
+        // A bar at the cursor's bar in the cursor's track only (the palette's + Bar / − Bar act on every track).
+        Button(strings("Insert Bar in This Track")) {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "insertBar" as NSString)
+        }
+        Button(strings("Delete Bar in This Track")) {
+          NotificationCenter.default.post(name: .GPEditorTrackCommand, object: "deleteBar" as NSString)
+        }
+        Divider()
         Button(strings("Add Audio Track…")) {
           NotificationCenter.default.post(name: .GPEditorAddAudioTrackCommand, object: nil)
         }

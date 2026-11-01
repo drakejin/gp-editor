@@ -1,10 +1,13 @@
 import { NativeModules } from 'react-native';
 import { subscribeNativeEvents } from './native-events';
 
-/** The Track menu's commands on the shown track (AppDelegate.swift, forwarded by GPAudioTrack.m with the audio track's). */
-export type TrackMenuCommand = 'add' | 'duplicate' | 'delete' | 'moveUp' | 'moveDown';
+/**
+ * The Track menu's commands on the shown track (AppDelegate.swift, forwarded by GPAudioTrack.m with the audio track's);
+ * insertBar and deleteBar act on the cursor's bar in the cursor's track (Insert / Delete Bar in This Track).
+ */
+export type TrackMenuCommand = 'add' | 'duplicate' | 'delete' | 'moveUp' | 'moveDown' | 'insertBar' | 'deleteBar';
 
-const TRACK_MENU_COMMANDS: readonly TrackMenuCommand[] = ['add', 'duplicate', 'delete', 'moveUp', 'moveDown'];
+const TRACK_MENU_COMMANDS: readonly TrackMenuCommand[] = ['add', 'duplicate', 'delete', 'moveUp', 'moveDown', 'insertBar', 'deleteBar'];
 
 /** The command a "trackCommandRequested" event names; undefined for anything else (the body is untrusted). */
 export function parseTrackMenuCommand(body: unknown): TrackMenuCommand | undefined {
@@ -12,7 +15,7 @@ export function parseTrackMenuCommand(body: unknown): TrackMenuCommand | undefin
   return TRACK_MENU_COMMANDS.find((candidate) => candidate === command);
 }
 
-/** Track ▸ Add Track… (⌥⌘N), Duplicate Track, Delete Track (⌥⌘R), Move Track Up / Down; returns the unsubscribe function. */
+/** Track ▸ Add Track… (⌥⌘N), Duplicate Track, Delete Track (⌥⌘R), Move Track Up / Down, Insert / Delete Bar in This Track; returns the unsubscribe function. */
 export function subscribeTrackMenuCommands(listener: (command: TrackMenuCommand) => void): () => void {
   return subscribeNativeEvents(NativeModules.GPAudioTrack, {
     trackCommandRequested: (body: unknown) => {
