@@ -1,5 +1,5 @@
 import { MAX_DRUM_KEY, MAX_FRET, type Song, type StringAddress } from '@gp-editor/core';
-import { type DigitPress, type FretEntry, nextFretEntry } from '../lib/fret-input';
+import { type DigitPress, type FretEntry, joinedFret } from '../lib/fret-input';
 import { typeFret } from './cursor-edits';
 import type { EditorState } from './editor';
 import { isScoreUntouched } from './selection';
@@ -40,12 +40,11 @@ export function typeFretDigit(state: EditorState, press: DigitPress): EditorStat
   if (document === undefined) {
     return state;
   }
-  const entry = nextFretEntry(typedFret, press, highestTyped(state));
-  // The number grew from the digits before (a leading 0 adds nothing to it).
-  const isContinued = typedFret !== undefined && entry.fret !== press.digit;
-  const start: FretStart = isContinued ? typedFret.start : { song: document.song, past: state.past, cursor: state.cursor };
-  const typed = typeFret(isContinued ? rewound(state, start) : state, entry.fret);
-  return { ...typed, typedFret: { ...entry, start } };
+  const joined = joinedFret(typedFret, press, highestTyped(state));
+  const start: FretStart = joined !== undefined && typedFret !== undefined ? typedFret.start : { song: document.song, past: state.past, cursor: state.cursor };
+  const fret = joined ?? press.digit;
+  const typed = typeFret(joined === undefined ? state : rewound(state, start), fret);
+  return { ...typed, typedFret: { fret, at: press.at, keyIndex: press.keyIndex, start } };
 }
 
 /** After any other action: the fret being typed ends unless the action left the song, the cursor and the track as they were. */

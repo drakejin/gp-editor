@@ -30,6 +30,12 @@ describe('typed digits: two digits at the same note', () => {
     expect(fretAt(editorReducer(typed, { type: 'undo' }))).toBeUndefined();
   });
 
+  it('make one fret of a leading 0 and the digit after it (0 then 5 → 5), one undo step', () => {
+    const typed = run(openSong(), [digit(0, 0, 1), digit(5, 100, 2)]);
+    expect(fretAt(typed)).toBe(5);
+    expect(typed.past).toHaveLength(1);
+  });
+
   it('start over after Guitar Pro’s short delay', () => {
     const typed = run(openSong(), [digit(1, 0, 1), digit(2, DIGIT_WINDOW_MS + 1, 2)]);
     expect(fretAt(typed)).toBe(2);

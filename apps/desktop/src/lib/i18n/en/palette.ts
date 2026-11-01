@@ -263,6 +263,7 @@ export const EN_PALETTE = {
   'palette.hint.noNoteRest': 'No note to move: the cursor’s beat is a rest.',
   'palette.hint.noNoteInVoice': 'No note to move: voice {number} has nothing at the cursor.',
   'palette.hint.lastBar': 'A song keeps at least one bar: nothing was deleted.',
+  'palette.hint.trackRests': 'Nothing to move: this track holds only rests from bar {number} on.',
   'palette.hint.noSelectedNotes': 'The selected beats have no notes in this voice: nothing was deleted.',
   'palette.hint.lastTrack': 'A song keeps at least one track: add another one before deleting this one.',
   'palette.hint.addTrackFailed': 'That track could not be added: choose an instrument and a tuning of 1 to 8 strings.',

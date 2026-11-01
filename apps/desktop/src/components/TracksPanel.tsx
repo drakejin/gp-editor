@@ -121,7 +121,7 @@ function TrackTable(props: TracksPanelProps) {
       <TrackTableFooter
         palette={palette}
         onAddAudioTrack={props.onAddAudioTrack}
-        trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} actions={trackActions} />}
+        trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} hasCursor={props.cursorMeasureIndex !== undefined} actions={trackActions} />}
       />
     </View>
   );

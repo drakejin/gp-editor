@@ -149,9 +149,11 @@ function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringA
     case 'insertMeasure':
       return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
     case 'insertTrackMeasure':
-    case 'deleteTrackMeasure':
-      // The bar of rests put there, or the music moved into the bar.
+      // The bar of rests put there.
       return clampCursor(song, { ...cursor, beatIndex: 0 });
+    case 'deleteTrackMeasure':
+      // The first deleted bar, which the music after the deleted ones moved into.
+      return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex), beatIndex: 0 });
     case 'deleteMeasure':
       return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex) });
     default:

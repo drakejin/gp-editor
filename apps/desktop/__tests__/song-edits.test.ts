@@ -293,6 +293,35 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect(song(edit(inserted, { type: 'undo' }))).toBe(inserted.past[0]);
   });
 
+  it('takes the selected bars out of the cursor’s track, as −Bar takes them out of every track', () => {
+    // Arrange: the selection from bar 1 to bar 2 of track 1.
+    const start = twoTracks();
+    const selected = edit(edit(start, { type: 'placeCursor', cursor: { ...start.cursor!, measureIndex: 1 } }), { type: 'selectTo', cursor: { ...start.cursor!, measureIndex: 0 } });
+
+    // Act
+    const deleted = edit(selected, { type: 'edit', edit: { type: 'deleteTrackMeasure' } });
+
+    // Assert
+    expect([0, 1].map((measureIndex) => fret(deleted, 0, measureIndex))).toEqual([undefined, undefined]);
+    expect([0, 1].map((measureIndex) => fret(deleted, 1, measureIndex))).toEqual([7, 9]);
+    expect(deleted.cursor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+    expect(deleted.past).toHaveLength(1);
+  });
+
+  it('changes nothing where the track holds only rests from the bar on, and says so', () => {
+    // Arrange
+    const once = edit(twoTracks(), { type: 'edit', edit: { type: 'deleteTrackMeasure' } });
+    const atRests = edit(once, { type: 'placeCursor', cursor: { ...once.cursor!, measureIndex: 1 } });
+
+    // Act
+    const again = edit(atRests, { type: 'edit', edit: { type: 'deleteTrackMeasure' } });
+
+    // Assert
+    expect(song(again)).toBe(song(atRests));
+    expect(again.past).toHaveLength(1);
+    expect(again.hint).toBe('Nothing to move: this track holds only rests from bar 2 on.');
+  });
+
   it('takes the cursor’s bar out of its track only: its later bars move one bar earlier, the song keeps its bars', () => {
     // Act
     const deleted = edit(twoTracks(), { type: 'edit', edit: { type: 'deleteTrackMeasure' } });

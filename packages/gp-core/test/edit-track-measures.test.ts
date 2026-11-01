@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteTrackMeasure, insertTrackMeasure } from '../src/edit/track-measures';
+import { deleteTrackMeasure, deleteTrackMeasures, insertTrackMeasure } from '../src/edit/track-measures';
 import { isMeasureOverfull } from '../src/model/defaults';
 import type { Measure, Note, Song, Track } from '../src/model/song';
 import { SONG_START, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
@@ -199,8 +199,38 @@ describe('deleteTrackMeasure', () => {
     expect(deleteTrackMeasure(lyrics(1), 0, 0).tracks[0]?.lyrics?.from).toBe(1);
   });
 
+  it('returns the same song when the bar and the bars after it in the track hold only rests (nothing would change)', () => {
+    // Arrange: track 2 rests in bar 3.
+    const song = makeSong();
+
+    // Act / Assert
+    expect(deleteTrackMeasure(song, 1, 2)).toBe(song);
+    expect(deleteTrackMeasure(song, 1, 1)).not.toBe(song);
+  });
+
+  it('takes a run of bars out of the track (the selection, either order): the later bars move that many bars earlier', () => {
+    // Arrange: four bars, frets 1 to 4.
+    const song = deepFreeze(buildSong({ tracks: [[1, 2, 3, 4].map((fret) => [[play(1, n(1, fret))]])] }));
+
+    // Act
+    const edited = deleteTrackMeasures(song, 0, 2, 1);
+
+    // Assert
+    expect([0, 1, 2, 3].map((measureIndex) => voiceLayout(edited, 0, measureIndex, 0))).toEqual([['0:1:1/1'], ['0:1:1/4'], ['0:1:r'], ['0:1:r']]);
+    expect(edited.measureHeaders).toBe(song.measureHeaders);
+    assertEditInvariants(edited);
+  });
+
+  it('moves the lyrics’ first bar back by the bars deleted before it, to the run’s first bar when they started in it', () => {
+    const song = deepFreeze(buildSong({ tracks: [[1, 2, 3, 4].map((fret) => [[play(1, n(1, fret))]])] }));
+    const lyrics = (from: number): Song => ({ ...song, tracks: [{ ...song.tracks[0]!, lyrics: { from, text: 'la' } }] });
+    expect(deleteTrackMeasures(lyrics(4), 0, 1, 2).tracks[0]?.lyrics?.from).toBe(2);
+    expect(deleteTrackMeasures(lyrics(3), 0, 1, 2).tracks[0]?.lyrics?.from).toBe(2);
+  });
+
   it('returns the same song for a track or a bar the song does not have', () => {
     const song = makeSong();
+    expect(deleteTrackMeasures(song, 0, 0, 3)).toBe(song);
     expect(deleteTrackMeasure(song, 2, 0)).toBe(song);
     expect(deleteTrackMeasure(song, 0, 3)).toBe(song);
   });

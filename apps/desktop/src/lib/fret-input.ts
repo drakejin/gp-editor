@@ -22,14 +22,15 @@ export interface FretEntry {
 }
 
 /**
- * The fret a digit makes: with the digits before it when the one before was the key press just before, within the
- * window, and the number stays at most `highest` (MAX_FRET; a drum track's MAX_DRUM_KEY, so 38 or 127 can be typed);
- * else the digit alone. The editor drops the entry on anything else that happens (state/fret-entry.ts), so a digit
- * never combines with one typed at another note.
+ * The number a digit makes with the digits typed before it — when the one before was the key press just before, within
+ * the window, and the number stays at most `highest` (MAX_FRET; a drum track's MAX_DRUM_KEY, so 38 or 127 can be
+ * typed) —; undefined when the digit starts a fret of its own. A leading 0 goes on too (0 then 5 is one fret, 5). The
+ * editor drops the entry on anything else that happens (state/fret-entry.ts), so a digit never joins one typed at
+ * another note.
  */
-export function nextFretEntry(previous: FretEntry | undefined, press: DigitPress, highest: number): FretEntry {
+export function joinedFret(previous: FretEntry | undefined, press: DigitPress, highest: number): number | undefined {
   const isNext = previous !== undefined && press.keyIndex === previous.keyIndex + 1 && press.at - previous.at <= DIGIT_WINDOW_MS;
-  const combined = isNext ? previous.fret * RADIX + press.digit : undefined;
-  const fret = combined !== undefined && combined <= highest ? combined : press.digit;
-  return { fret, at: press.at, keyIndex: press.keyIndex };
+  const joined = isNext ? previous.fret * RADIX + press.digit : undefined;
+  return joined !== undefined && joined <= highest ? joined : undefined;
 }
+

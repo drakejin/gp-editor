@@ -25,6 +25,9 @@ export function refusalHint(song: Song, cursor: StringAddress, edit: SongEdit): 
     // − Bar changes nothing only where it would delete every bar.
     return t('palette.hint.lastBar');
   }
+  if (edit.type === 'deleteTrackMeasure') {
+    return t('palette.hint.trackRests', { number: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex) + 1 });
+  }
   if (edit.type === 'deleteNotes') {
     return edit.from === undefined ? noNoteHint(cursor.string) : t('palette.hint.noSelectedNotes');
   }

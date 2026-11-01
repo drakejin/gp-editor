@@ -266,7 +266,7 @@ export const EN_WINDOW = {
   'window.trackActions.insertBar': '+ Bar',
   'window.trackActions.insertBarTooltip': 'Insert a bar in this track only, at the cursor’s bar: the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are (Track ▸ Insert Bar in This Track). The palette’s +Bar adds a bar to every track.',
   'window.trackActions.deleteBar': '− Bar',
-  'window.trackActions.deleteBarTooltip': 'Delete the cursor’s bar in this track only: the track’s later bars move one bar earlier and its last bar becomes rests; the other tracks and the song’s bars stay (Track ▸ Delete Bar in This Track). The palette’s −Bar deletes the bar in every track.',
+  'window.trackActions.deleteBarTooltip': 'Delete the cursor’s bar, or the selected bars, in this track only: the track’s later bars move earlier and its last bars become rests; the other tracks and the song’s bars stay (Track ▸ Delete Bar in This Track). The palette’s −Bar deletes the bars in every track.',
   'window.tabs.edited': '{title}, edited',
   'window.tabs.closeTooltip': 'Close “{title}” (⌘W)',
   'window.tabs.closeAccessibility': 'Close {title}',
