@@ -20,6 +20,7 @@ interface Sources {
   readonly onNotePanel: jest.Mock;
   readonly onChordPanel: jest.Mock;
   readonly onComposePanel: jest.Mock;
+  readonly onAiEditPanel: jest.Mock;
   readonly onSongsterrPanel: jest.Mock;
   readonly start: jest.Mock;
   readonly stop: jest.Mock;
@@ -53,6 +54,7 @@ function renderCommands(
     onNotePanel: jest.fn(),
     onChordPanel: jest.fn(),
     onComposePanel: jest.fn(),
+    onAiEditPanel: jest.fn(),
     onSongsterrPanel: jest.fn(),
     start: jest.fn(),
     stop: jest.fn(),
@@ -99,17 +101,19 @@ describe('useEditorCommands: toolbar routing', () => {
 });
 
 describe('useEditorCommands: the palette’s online tools', () => {
-  it('opens the Songsterr search and the compose panel for their window commands, nothing else', () => {
+  it('opens the Songsterr search, the compose panel and the AI Edit panel for their window commands, nothing else', () => {
     // Arrange
     const { commands, sources } = renderCommands(openSong());
 
     // Act
     commands.runCommand({ type: 'openSongsterrPanel' });
     commands.runCommand({ type: 'openComposePanel' });
+    commands.runCommand({ type: 'openAiEditPanel' });
 
     // Assert
     expect(sources.onSongsterrPanel).toHaveBeenCalledTimes(1);
     expect(sources.onComposePanel).toHaveBeenCalledTimes(1);
+    expect(sources.onAiEditPanel).toHaveBeenCalledTimes(1);
     expect(sources.dispatch).not.toHaveBeenCalled();
   });
 });

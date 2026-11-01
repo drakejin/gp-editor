@@ -133,7 +133,11 @@ function editMenu(): TopMenu {
     {
       kind: 'submenu',
       text: t('window.menu.aiWizard'),
-      items: [command('song-writer', 'commands.title.edit.songWriter', post('songWriterRequested')), command('compose-here', 'commands.title.edit.composeHere', post('composeRequested'))],
+      items: [
+        command('song-writer', 'commands.title.edit.songWriter', post('songWriterRequested')),
+        command('compose-here', 'commands.title.edit.composeHere', post('composeRequested')),
+        command('ai-edit', 'commands.title.edit.aiEdit', post('aiEditRequested')),
+      ],
     },
   ]);
 }

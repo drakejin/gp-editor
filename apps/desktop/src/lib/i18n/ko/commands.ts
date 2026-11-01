@@ -56,6 +56,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.edit.annotation': '메모…',
   'commands.title.edit.songWriter': '작곡 도우미…',
   'commands.title.edit.composeHere': '여기부터 작곡…',
+  'commands.title.edit.aiEdit': 'AI 수정…',
 
   'commands.title.view.mode.notationAndTab': '오선보 + 타브 보기',
   'commands.title.view.mode.notation': '오선보 보기',

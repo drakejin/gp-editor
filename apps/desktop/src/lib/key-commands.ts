@@ -38,6 +38,8 @@ export type KeyCommand =
   | { readonly type: 'openLyricsPanel' }
   /** The palette's AI Compose and Edit ▸ AI Wizard ▸ Compose from Here…: the compose panel at the cursor's bar. */
   | { readonly type: 'openComposePanel' }
+  /** The palette's AI Edit and Edit ▸ AI Wizard ▸ AI Edit…: the AI Edit panel on the selection or the cursor's track. */
+  | { readonly type: 'openAiEditPanel' }
   /** Tools ▸ Online ▸ Songsterr Search… and the palette's Songsterr (no key): the Songsterr search panel. */
   | { readonly type: 'openSongsterrPanel' }
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now (a sync point). */

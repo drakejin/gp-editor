@@ -62,13 +62,13 @@ describe('the edition palette at the default 1280 × 800 window', () => {
     expect(height).toBeLessThanOrEqual(room);
   });
 
-  it.each(LANGUAGES)('puts ONLINE TOOLS’ two tools on one row, and keeps the Bar group’s tools in two rows (%s)', (language) => {
+  it.each(LANGUAGES)('puts ONLINE TOOLS’ three tools on one row, and keeps the Bar group’s tools in two rows (%s)', (language) => {
     // Arrange
     const groups = groupsIn(language);
     const rowsOf = (id: string) => groupRows(groups.find((group) => group.id === id) as PaletteGroup, widthOf);
 
     // Act / Assert
-    expect(rowsOf('online').map((row) => row.length)).toEqual([2]);
+    expect(rowsOf('online').map((row) => row.length)).toEqual([3]);
     expect(rowsOf('bar')).toHaveLength(2);
     expect(Math.max(...groups.flatMap((group) => groupRows(group, widthOf)).map((row) => row.reduce((sum, width) => sum + width, 0)))).toBeLessThanOrEqual(PALETTE_INNER_WIDTH);
   });

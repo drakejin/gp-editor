@@ -37,7 +37,7 @@ export interface ComposeIdea {
  * Room for the bars and the thinking before them (Claude Opus 5.5 always thinks, and thinking counts toward max_tokens),
  * as the PDF import's: a dense full-band bar is ~1,000 tokens of tool input. Streamed, so a long answer keeps flowing.
  */
-const MAX_TOKENS = 64000;
+export const WRITE_BARS_MAX_TOKENS = 64000;
 
 export const COMPOSE_SYSTEM_PROMPT = `You are a composer and arranger working inside a Guitar Pro editor. You write bars of an existing score from a given bar on, as the user asks, by calling the write_bars tool once with all of them; never answer in text.
 
@@ -168,15 +168,17 @@ function barCountLine(idea: ComposeIdea): string {
     : `How many bars: at most ${idea.maxBars} (fewer when the music ends sooner).`;
 }
 
-/** The user's words, which cannot close the tag that quotes them. */
-function quotedPrompt(prompt: string): string {
+/** The user's words, which cannot close the tag that quotes them; `ifEmpty` when there are none. */
+export function quotedPrompt(
+  prompt: string,
+  ifEmpty = '(none: continue the music as it goes)',
+): string {
   const words = prompt.replace(/<\/?user_request>/gi, '').trim();
-  return `<user_request>\n${
-    words === '' ? '(none: continue the music as it goes)' : words
-  }\n</user_request>`;
+  return `<user_request>\n${words === '' ? ifEmpty : words}\n</user_request>`;
 }
 
-function scoreHeading(song: Song, score: ScoreText): string {
+/** The score text's first line: its title, bars and tracks, and which bars are written out when the rest is summarised. */
+export function scoreHeading(song: Song, score: ScoreText): string {
   const title =
     song.info.title.trim() === ''
       ? 'The score'
@@ -217,7 +219,7 @@ ${quotedPrompt(idea.prompt)}
 Call write_bars.`;
   const body: ComposeRequest = {
     model,
-    max_tokens: MAX_TOKENS,
+    max_tokens: WRITE_BARS_MAX_TOKENS,
     ...STREAMED_ANSWER,
     system: COMPOSE_SYSTEM_PROMPT,
     tools: [streamedTool(WRITE_BARS_TOOL)],

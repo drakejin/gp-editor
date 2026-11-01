@@ -166,11 +166,14 @@ function windowLength(summaries: SummaryLengths, barCount: number, first: number
   return summaries.length(0, first - 1) + detailLength + summaries.length(last + 1, barCount - 1);
 }
 
-/** The window around `anchor` written out at least: the anchor and up to MIN_BARS_BEFORE bars before it. */
-function minimumWindow(writer: ScoreWriter, anchor: number): DetailLength {
+/** The window written out at least: the anchor to `last`, and up to MIN_BARS_BEFORE bars before the anchor. */
+function minimumWindow(writer: ScoreWriter, anchor: number, last: number): DetailLength {
   const detail = new DetailLength(writer, anchor);
   while (detail.first > 0 && anchor - detail.first < MIN_BARS_BEFORE) {
     detail.addBefore();
+  }
+  while (detail.last < last) {
+    detail.addAfter();
   }
   return detail;
 }
@@ -211,9 +214,10 @@ function growWindow(detail: DetailLength, summaries: SummaryLengths, barCount: n
  * characters, the start bar and MIN_BARS_BEFORE bars before it are written out, the window growing — two bars before it
  * for each one after — as far as the budget allows, and every other stretch is summarised a section (or SUMMARY_BARS) at
  * a time, coarser stretches when even that is too long. Lengths are counted as bars join, so a long score costs about
- * what the budget does, not its own length.
+ * what the budget does, not its own length. `lastIndex` (AI Edit's range) is written out with the start bar whatever
+ * the budget: the caller keeps such a range short.
  */
-export function describeScore(song: Song, startIndex: number, budget = SCORE_TEXT_BUDGET): ScoreText {
+export function describeScore(song: Song, startIndex: number, budget = SCORE_TEXT_BUDGET, lastIndex = startIndex): ScoreText {
   const barCount = song.measureHeaders.length;
   const writer = new ScoreWriter(
     song,
@@ -223,7 +227,8 @@ export function describeScore(song: Song, startIndex: number, budget = SCORE_TEX
     return { text: [NOTATION_LEGEND, ...writer.bars(0, barCount - 1)].join('\n'), detailFirst: 0, detailLast: barCount - 1, isSummarized: false };
   }
   const room = budget - NOTATION_LEGEND.length - SUMMARY_LEGEND.length - 2;
-  const detail = minimumWindow(writer, Math.max(0, Math.min(startIndex, barCount - 1)));
+  const anchor = Math.max(0, Math.min(startIndex, barCount - 1));
+  const detail = minimumWindow(writer, anchor, Math.max(anchor, Math.min(lastIndex, barCount - 1)));
   const summaries = chooseSummaries(writer, song, detail, room);
   growWindow(detail, summaries, barCount, room);
   const { first, last } = detail;

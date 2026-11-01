@@ -31,18 +31,18 @@ function render() {
 }
 
 describe('the palette’s ONLINE TOOLS', () => {
-  it('has Songsterr and AI Compose, usable without a cursor, each running its window command', () => {
+  it('has Songsterr, AI Compose and AI Edit, usable without a cursor, each running its window command', () => {
     // Arrange
     const palette = render();
+    const ids = ['songsterr', 'aiCompose', 'aiEdit'];
 
     // Act
-    ReactTestRenderer.act(() => palette.tool('songsterr')?.props.onPress());
-    ReactTestRenderer.act(() => palette.tool('aiCompose')?.props.onPress());
+    ids.forEach((id) => ReactTestRenderer.act(() => palette.tool(id)?.props.onPress()));
 
     // Assert
-    expect([palette.tool('songsterr')?.props.label, palette.tool('aiCompose')?.props.label]).toEqual(['Songsterr', 'AI Compose']);
-    expect([palette.tool('songsterr')?.props.isEnabled, palette.tool('aiCompose')?.props.isEnabled]).toEqual([true, true]);
-    expect(palette.onCommand.mock.calls).toEqual([[{ type: 'openSongsterrPanel' }], [{ type: 'openComposePanel' }]]);
+    expect(ids.map((id) => palette.tool(id)?.props.label)).toEqual(['Songsterr', 'AI Compose', 'AI Edit']);
+    expect(ids.map((id) => palette.tool(id)?.props.isEnabled)).toEqual([true, true, true]);
+    expect(palette.onCommand.mock.calls).toEqual([[{ type: 'openSongsterrPanel' }], [{ type: 'openComposePanel' }], [{ type: 'openAiEditPanel' }]]);
   });
 
   it('names the group and the tools in Korean, the site’s name as it is', () => {
@@ -54,7 +54,7 @@ describe('the palette’s ONLINE TOOLS', () => {
 
     // Assert
     expect(group.title).toBe('온라인 도구');
-    expect(group.tools.map((tool) => tool.face)).toEqual(['Songsterr', 'AI 작곡']);
+    expect(group.tools.map((tool) => tool.face)).toEqual(['Songsterr', 'AI 작곡', 'AI 수정']);
   });
 });
 
@@ -75,6 +75,30 @@ describe('the command palette’s online tools', () => {
     // Assert
     expect(rows.map((command) => command.id)).toEqual(['edit.composeHere']);
     expect(rows[0]?.title).toBe('Compose from Here…');
+  });
+
+  it('lists AI Edit once, as the Edit menu’s AI Edit… (the palette’s button sends the same command)', () => {
+    // Act
+    const rows = allCommands().filter((command) => JSON.stringify(command.command) === JSON.stringify({ type: 'openAiEditPanel' }));
+
+    // Assert
+    expect(rows.map((command) => [command.id, command.group, command.title])).toEqual([['edit.aiEdit', 'Edit', 'AI Edit…']]);
+    expect(rows[0]?.isEnabled({ ...NO_CURSOR_STATE, hasDocument: true })).toBe(true);
+  });
+
+  it('finds AI Edit by what it does, in English and in Korean', () => {
+    // Arrange
+    const find = () => allCommands().find((command) => command.id === 'edit.aiEdit');
+    const english = find();
+    ReactTestRenderer.act(() => setLanguage('ko'));
+
+    // Act
+    const korean = find();
+
+    // Assert
+    expect(english?.keywords).toEqual(expect.arrayContaining(['fingering', 'lower', 'key', 'easy']));
+    expect(english?.keywords).not.toContain('transpose');
+    expect(korean?.title).toBe('AI 수정…');
   });
 
   it('finds the Songsterr search by its English words in Korean', () => {

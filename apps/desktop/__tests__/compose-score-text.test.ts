@@ -361,6 +361,16 @@ describe('describeScore on real scores', () => {
     expect(score.text.length).toBeLessThanOrEqual(SCORE_TEXT_BUDGET);
   });
 
+  it('writes out a whole range of bars it is asked to, however few bars before them fit', () => {
+    // Act: bars 100–130 (0-based 99–129) on a budget that would write out far fewer after bar 100.
+    const score = describeScore(canon, 99, 12000, 129);
+
+    // Assert
+    expect(score.detailFirst).toBeLessThanOrEqual(97);
+    expect(score.detailLast).toBeGreaterThanOrEqual(129);
+    expect(score.text.length).toBeLessThanOrEqual(12000);
+  });
+
   it('starting past the end, writes out the last bars', () => {
     const score = describeScore(canon, 224, 6000);
     expect(score.detailLast).toBe(223);

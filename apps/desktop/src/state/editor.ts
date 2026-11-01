@@ -5,6 +5,7 @@ import { t } from '../lib/i18n/i18n';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
 import type { ScoreMode } from '../score/geometry';
 import type { AudioTrackAction } from './audio-track-edits';
+import { type AiEditAction, applyAiEdit } from './ai-edit-edits';
 import { type ComposeAction, composeBars } from './compose-edits';
 import {
   applyCursorEdit,
@@ -85,6 +86,8 @@ export type EditorAction =
   | TrackAction
   /** Compose from Here's bars (Edit ▸ AI Wizard): one undo step. */
   | ComposeAction
+  /** AI Edit's result (Edit ▸ AI Wizard): one undo step. */
+  | AiEditAction
   | TrackDisplayAction
   | { readonly type: 'loadStarted' }
   | { readonly type: 'loadCancelled' }
@@ -303,6 +306,8 @@ function songEditReducer(state: EditorState, action: EditorAction): EditorState 
       return transposeSong(state, action.scope, action.options);
     case 'applyComposedBars':
       return composeBars(state, action);
+    case 'applyAiEdit':
+      return applyAiEdit(state, action);
     case 'undo':
       return undo(state);
     case 'redo':

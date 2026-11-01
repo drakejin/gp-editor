@@ -101,8 +101,9 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
  * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
-  // A transposition changes no beat, so the selection stays for another one.
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'transpose') {
+  // A transposition (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
+  const keepsBeats = action.type === 'transpose' || (action.type === 'applyAiEdit' && action.keepsBeats);
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || keepsBeats) {
     return after;
   }
   return isScoreUntouched(before, after) ? after : { ...after, selectionAnchor: undefined };

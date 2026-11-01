@@ -165,6 +165,8 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | settings | 설정 | |
 | song information: title, subtitle, artist, album, words, music, copyright, tab author, instructions, notice | 곡 정보: 제목, 부제, 아티스트, 앨범, 작사, 작곡, 저작권, 타브 작성자, 연주 안내, 알림 | not 메모 (an annotation) |
 | AI Wizard, Song Writer, Compose from Here | AI 마법사, 작곡 도우미, 여기부터 작곡 | |
+| AI Edit; lower the key and make it easy to play; your instruction | AI 수정; 키를 낮추고 잡기 쉬운 운지로; 직접 요청 | the menu item `AI 수정…` |
+| easy fingering, polish (the fingering), hand travel, (12th) position | 잡기 쉬운 운지, (운지) 다듬기, 손 이동, (12)포지션 | `12포지션`, `손 이동 45프렛` |
 | PDF import, project | PDF 가져오기, 프로젝트 | |
 | API key, model | API 키, 모델 | |
 
@@ -176,6 +178,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | search, search results | 검색, 검색 결과 | `Songsterr Search…` = `Songsterr 검색…` |
 | tabs (a song's tablature on a site) | 타브 악보 | `Songsterr`, `songsterr.com` stay |
 | AI Compose (the palette's button) | AI 작곡 | its panel's menu item: `여기부터 작곡…` |
+| AI Edit (the palette's button) | AI 수정 | its panel's menu item: `AI 수정…` |
 | terms (of service) | 이용 약관 | |
 | (open) in the browser | 브라우저에서 (열기) | |
 

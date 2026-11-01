@@ -367,4 +367,24 @@ describe('the window: ONLINE TOOLS', () => {
     // Assert
     expect(renderer.root.findAll((node) => node.props.testID === 'compose-backdrop').length).toBeGreaterThan(0);
   });
+
+  it('opens the AI Edit panel from the palette’s AI Edit and from Edit ▸ AI Wizard ▸ AI Edit…, and Esc closes it', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const panels = () => renderer.root.findAll((node) => node.props.testID === 'ai-edit-backdrop').length;
+
+    // Act
+    await pressTool(renderer, 'aiEdit');
+    const fromPalette = panels();
+    await press(renderer, 'Escape');
+    const afterEsc = panels();
+    await ReactTestRenderer.act(async () => {
+      DeviceEventEmitter.emit('aiEditRequested', {});
+    });
+
+    // Assert
+    expect(fromPalette).toBeGreaterThan(0);
+    expect(afterEsc).toBe(0);
+    expect(panels()).toBeGreaterThan(0);
+  });
 });
