@@ -83,7 +83,7 @@ describe('useAiEdit: the preset', () => {
     expect(frets(shown(probe).document?.song)).toEqual(['1/0', '1/2', '1/4', '1/0']);
     expect(shown(probe).past).toEqual([before]);
     expect(mockSend).not.toHaveBeenCalled();
-    expect(probe.aiEdit().status).toMatchObject({ kind: 'done', result: { summary: expect.stringMatching(/^Transposed 8 notes down 2 semitones\. · Fingering: 8 notes on other strings/) } });
+    expect(probe.aiEdit().status).toMatchObject({ kind: 'done', result: { summary: expect.stringMatching(/^Transposed 8 notes down 2 semitones · Fingering: 8 notes on other strings/) } });
   });
 
   it('asks Claude to polish when asked to, and rejects the note whose pitch Claude changed', async () => {

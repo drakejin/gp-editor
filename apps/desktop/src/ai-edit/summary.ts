@@ -62,7 +62,8 @@ function fingeringText(easy: EasyTransposition, after: FingeringCost): string {
  * score ends with (`after`), and Claude's part when it was asked.
  */
 export function presetSummary(easy: EasyTransposition, semitones: number, after: FingeringCost, adoption?: FingeringAdoption, polishFailure?: string): string {
-  const transposed = semitones === 0 ? '' : transpositionHint(easy.transposition, { mode: 'chromatic', amount: semitones });
+  // The hint's sentences end in a full stop; the parts here are joined by " · ".
+  const transposed = semitones === 0 ? '' : transpositionHint(easy.transposition, { mode: 'chromatic', amount: semitones }).replace(/\.$/, '');
   const claude = adoption === undefined ? [] : [t('aiEdit.summary.claude', { taken: adoption.taken, suggested: adoption.suggested }), adoption.rejected > 0 ? t('aiEdit.summary.rejected', { count: adoption.rejected }) : ''];
   const failed = polishFailure === undefined ? '' : t('aiEdit.summary.polishFailed', { reason: polishFailure });
   return [transposed, fingeringText(easy, after), ...claude, failed].filter((part) => part !== '').join(' · ');
