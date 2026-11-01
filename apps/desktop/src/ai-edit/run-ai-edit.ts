@@ -11,6 +11,8 @@ export interface AiEditPlan {
   readonly mode: AiEditMode;
   readonly chunks: readonly BarChunk[];
   readonly trackIndexes: readonly number[];
+  /** Claude may add bars after the score's last bar (the last part of an instruction reaching it). */
+  readonly mayAddBars?: boolean;
 }
 
 /** Where a run is, for the progress line: the part (0-based, of `parts`) and the attempt (1–3) at it. */
@@ -44,7 +46,7 @@ const aiEditWording = (): AskWording => ({
 /** One part's answer: the checked bars and the score text Claude read, or why there are none — fatal when all must stop. */
 type PartAnswer =
   | { readonly isOk: true; readonly composed: ComposedBars; readonly score: ScoreText; readonly usage: TokenUsage }
-  | { readonly isOk: false; readonly isFatal: boolean; readonly message: string; readonly usage: TokenUsage };
+  | { readonly isOk: false; readonly isFatal: boolean; readonly isKeyRefused?: boolean; readonly message: string; readonly usage: TokenUsage };
 
 async function askPart(song: Song, part: AiEditPart, model: string, deps: ClaudeDeps, onStep: (step: AiEditStep) => void): Promise<PartAnswer> {
   const { body, score } = buildAiEditRequest(song, model, part);
@@ -90,9 +92,10 @@ function withPart(progress: Progress, chunk: BarChunk, answer: Extract<PartAnswe
 /**
  * AI Edit with Claude: one write_bars request per part, in order (each asked again on a cut-off, overloaded or
  * unreadable answer, up to three times), its bars written into the song as they come — an instruction's next part reads
- * the song with them, a re-fingering's every part reads `song` as it is. A part that fails is left as it was and said
- * so; a refused key, a refusal or stopping fails the run, as does a run that wrote no part. The song given is never
- * changed: the editor applies the result as one undo step.
+ * the song with them, a re-fingering's every part reads `song` as it is. A part that fails — retries spent, or its
+ * request refused — is left as it was and said so, the parts already written kept; a refused key or stopping fails the
+ * run, as does a run that wrote no part. The song given is never changed: the editor applies the result as one undo
+ * step.
  */
 export async function runAiEdit(song: Song, plan: AiEditPlan, model: string, deps: ClaudeDeps, onStep: (step: AiEditStep) => void): Promise<AiEditRunResult> {
   // The score's text takes a moment on a long score: the panel shows the run first.
@@ -100,13 +103,15 @@ export async function runAiEdit(song: Song, plan: AiEditPlan, model: string, dep
   let progress: Progress = { song, partsWritten: 0, barsAdded: 0, leftOut: [], warnings: [], usage: NO_USAGE, lastFailure: '' };
   for (const [index, chunk] of plan.chunks.entries()) {
     const reads = plan.mode.kind === 'instruction' ? progress.song : song;
-    const answer = await askPart(reads, { mode: plan.mode, chunk, trackIndexes: plan.trackIndexes, index, count: plan.chunks.length }, model, deps, onStep);
+    const part = { mode: plan.mode, chunk, trackIndexes: plan.trackIndexes, index, count: plan.chunks.length, mayAddBars: plan.mayAddBars === true };
+    const answer = await askPart(reads, part, model, deps, onStep);
     if (answer.isOk) {
       progress = withPart(progress, chunk, answer);
       continue;
     }
     const usage = addUsage(progress.usage, answer.usage);
-    if (answer.isFatal) {
+    // Stopped, or the key refused: nothing is written. Any other refusal leaves this part as it was.
+    if (answer.isFatal && (deps.isCancelled() || answer.isKeyRefused === true)) {
       return { isOk: false, message: answer.message, usage };
     }
     const leftOut = t('aiEdit.partLeft', { first: chunk.first + 1, last: chunk.last + 1, reason: answer.message });

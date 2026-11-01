@@ -77,16 +77,21 @@ describe('aiEditScopeOf', () => {
     expect(aiEditScopeOf(duo(), INSTRUCTION)).toEqual({ trackCount: 2, trackNames: ['Lead', 'Bass'], writableTracks: [0], allowsNewTracks: false, maxBars: 3 });
   });
 
-  it('lets an instruction ending on the score’s last bar add bars after it, when it asks for them', () => {
+  it('lets an instruction ending on the score’s last bar add bars after it only when the user allows it', () => {
     // Arrange
     const toEnd: AiEditPart = { ...INSTRUCTION, chunk: { first: 3, last: 5 } };
+    const allowed: AiEditPart = { ...toEnd, mayAddBars: true };
 
     // Act
-    const text = textOf(buildAiEditRequest(duo(), 'claude-opus-5-5', toEnd).body as Body);
+    const closed = textOf(buildAiEditRequest(duo(), 'claude-opus-5-5', toEnd).body as Body);
+    const open = textOf(buildAiEditRequest(duo(), 'claude-opus-5-5', allowed).body as Body);
 
     // Assert
-    expect(aiEditScopeOf(duo(), toEnd).maxBars).toBe(MAX_COMPOSED_BARS);
-    expect(text).toContain('only if the request asks for more bars');
+    expect(aiEditScopeOf(duo(), toEnd).maxBars).toBe(3);
+    expect(closed).not.toContain('only if the request asks for more bars');
+    expect(aiEditScopeOf(duo(), allowed).maxBars).toBe(MAX_COMPOSED_BARS);
+    expect(open).toContain('only if the request asks for more bars');
+    expect(aiEditScopeOf(duo(), { ...allowed, chunk: { first: 1, last: 3 } }).maxBars).toBe(3);
   });
 });
 

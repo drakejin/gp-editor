@@ -1,4 +1,4 @@
-import { type Song, type TranscribedTrack, buildSongFromTranscription, readSong } from '@gp-editor/core';
+import { type Song, type TranscribedTrack, adoptFingering, buildSongFromTranscription, fingeringCost, readSong } from '@gp-editor/core';
 import type { AiEditRange } from '../src/ai-edit/ai-edit-scope';
 import { lowerKey, polishFingering } from '../src/ai-edit/preset';
 import { presetSummary, rewriteSummary } from '../src/ai-edit/summary';
@@ -45,7 +45,7 @@ describe('lowerKey + presetSummary', () => {
 
     // Act
     const easy = lowerKey(song, range, -2);
-    const summary = presetSummary(easy, -2, easy.refingering.after);
+    const summary = presetSummary(easy, -2, { song: easy.song, cost: easy.refingering.after });
 
     // Assert
     expect(easy.song).not.toBe(song);
@@ -55,13 +55,29 @@ describe('lowerKey + presetSummary', () => {
 
   it('says when the fingering is already the easiest', () => {
     const easy = lowerKey(openEs(), WHOLE_TRACK, 0);
-    expect(presetSummary(easy, 0, easy.refingering.after)).toBe('Fingering: already the easiest');
+    expect(presetSummary(easy, 0, { song: easy.song, cost: easy.refingering.after })).toBe('Fingering: already the easiest');
+  });
+
+  it('counts the notes on other strings from the song written, Claude’s too, and says why suggestions were not taken', () => {
+    // Arrange: the optimizer moved nothing; Claude's E4 at the 5th fret of string 2 was taken, two others were not.
+    const easy = lowerKey(openEs(), WHOLE_TRACK, 0);
+    const proposal = buildSongFromTranscription([{ tracks: [GUITAR], measures: [{ parts: [{ track: 0, beats: [at(2, 5), at(1, 0), at(1, 0), at(1, 0)] as never }] }] }]).song;
+    const adoption = adoptFingering(easy.song, proposal, WHOLE_TRACK.scope);
+    const notTaken = { ...adoption, suggested: adoption.suggested + 2, notTaken: { ...adoption.notTaken, occupied: 1, harder: 1 } };
+
+    // Act
+    const summary = presetSummary(easy, 0, { song: adoption.song, cost: fingeringCost(adoption.song, WHOLE_TRACK.scope) }, notTaken);
+
+    // Assert
+    expect(summary).not.toContain('already the easiest');
+    expect(summary).toMatch(/^Fingering: 1 note on another string/);
+    expect(summary).toContain('Claude: 1 of 3 suggested positions taken (not taken: 1 on a string another note holds, 1 harder to play than the optimizer’s)');
   });
 });
 
 describe('polishFingering', () => {
-  it('takes Claude’s positions note by note and rejects the note whose pitch Claude changed', async () => {
-    // Arrange: E4 on strings 2 and 3 (same pitch), then F4 (one semitone up: rejected), then E4 where it was.
+  it('checks Claude’s positions note by note: rejects a changed pitch, and keeps the optimizer’s where Claude’s are harder', async () => {
+    // Arrange: E4 on strings 2 and 3 (same pitch, harder than the open string), then F4 (rejected), then E4 as it was.
     const answer = { bars: [{ parts: [{ track: 0, beats: [at(2, 5), at(3, 9), at(2, 6), at(1, 0)] }] }] };
     const easy = lowerKey(openEs(), WHOLE_TRACK, 0);
 
@@ -69,10 +85,12 @@ describe('polishFingering', () => {
     const polished = await polishFingering(easy, WHOLE_TRACK, 'claude-opus-5-5', claude([streamedMessage(toolMessage('write_bars', answer))]), () => undefined);
 
     // Assert
-    expect(places(polished.song)).toEqual(['2/5', '3/9', '1/0', '1/0']);
-    expect(polished.adoption).toMatchObject({ suggested: 2, taken: 2, rejected: 1 });
-    expect(polished.summary).toContain('Claude: 2 of 2 suggested positions taken');
-    expect(polished.summary).toContain('1 note rejected (pitch or rhythm changed)');
+    expect(polished.song).toBe(easy.song);
+    expect(places(polished.song)).toEqual(['1/0', '1/0', '1/0', '1/0']);
+    expect(polished.adoption).toMatchObject({ suggested: 2, taken: 0, rejected: 1, notTaken: { harder: 2 } });
+    expect(polished.summary).toBe(
+      'Fingering: already the easiest · Claude: 0 of 2 suggested positions taken (not taken: 2 harder to play than the optimizer’s) · 1 note rejected (pitch or rhythm changed)',
+    );
     expect(polished.usage).toEqual({ inputTokens: 1000, outputTokens: 200 });
   });
 

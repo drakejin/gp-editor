@@ -1,5 +1,5 @@
 import { type Dispatch, useCallback, useRef, useState } from 'react';
-import type { Song } from '@gp-editor/core';
+import { MAX_TRANSCRIBED_TRACKS, type Song } from '@gp-editor/core';
 import { type AiEditRange, type AiEditTarget, aiEditRangeOf } from '../ai-edit/ai-edit-scope';
 import { planChunks } from '../ai-edit/chunks';
 import { lowerKey, polishFingering } from '../ai-edit/preset';
@@ -12,7 +12,8 @@ import type { TokenUsage } from '../lib/tool-answer';
 import { sendMessages } from '../native/anthropic';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { readingText } from './use-compose';
-import { type RunContext, type RunFinish, type RunProgress, type RunWording, type TabRunStatus, tabSong, useTabRun, wait } from './use-tab-run';
+import { wait } from '../lib/wait';
+import { type RunContext, type RunFinish, type RunGuard, type RunProgress, type RunWording, type TabRunStatus, tabSong, useTabRun } from './use-tab-run';
 
 /** The preset (lower the key and make it easy to play) or the user's instruction to Claude. */
 export type AiEditKind = 'lowerKey' | 'instruction';
@@ -26,12 +27,14 @@ export interface AiEditDraft {
   /** After the preset, ask Claude for easier positions. */
   readonly isPolished: boolean;
   readonly prompt: string;
+  /** An instruction may add bars after the score's last bar (its scope reaching it); else Claude rewrites the bars in place. */
+  readonly mayAddBars: boolean;
 }
 
 /** The preset's stepper: an octave down to an octave up. */
 export const MAX_AI_EDIT_SEMITONES = 12;
 
-export const INITIAL_AI_EDIT_DRAFT: AiEditDraft = { target: 'track', kind: 'lowerKey', semitones: -2, isPolished: false, prompt: '' };
+export const INITIAL_AI_EDIT_DRAFT: AiEditDraft = { target: 'track', kind: 'lowerKey', semitones: -2, isPolished: false, prompt: '', mayAddBars: false };
 
 /** What was written, for the panel's result: the summary, what Claude read and cost (empty without Claude), warnings. */
 export interface AiEditResultView {
@@ -62,12 +65,32 @@ export function needsClaude(draft: AiEditDraft): boolean {
   return draft.kind === 'instruction' || draft.isPolished;
 }
 
+/** The tracks a draft's scope may name: the selection's (none when nothing is selected) and the cursor's. */
+export interface DraftTracks {
+  readonly selection?: number;
+  readonly current: number;
+}
+
+/** Why Claude cannot write the scope's track: past the tracks its answer can name (as Compose from Here). */
+function trackOutOfReach(draft: AiEditDraft, tracks: DraftTracks): string | undefined {
+  const trackIndex = draft.target === 'selection' ? tracks.selection : draft.target === 'track' ? tracks.current : undefined;
+  return needsClaude(draft) && trackIndex !== undefined && trackIndex >= MAX_TRANSCRIBED_TRACKS
+    ? t('aiEdit.trackOutOfReach', { max: MAX_TRANSCRIBED_TRACKS, track: trackIndex + 1 })
+    : undefined;
+}
+
 /** Why the draft cannot run yet, in the shown language; undefined when it can. */
-export function aiEditProblem(draft: AiEditDraft, hasSelection: boolean): string | undefined {
-  if (draft.target === 'selection' && !hasSelection) {
+export function aiEditProblem(draft: AiEditDraft, tracks: DraftTracks): string | undefined {
+  if (draft.target === 'selection' && tracks.selection === undefined) {
     return t('aiEdit.needsSelection');
   }
-  return draft.kind === 'instruction' && draft.prompt.trim() === '' ? t('aiEdit.needsPrompt') : undefined;
+  return trackOutOfReach(draft, tracks) ?? (draft.kind === 'instruction' && draft.prompt.trim() === '' ? t('aiEdit.needsPrompt') : undefined);
+}
+
+/** The draft's tracks in an editor: the selection's and the cursor's. */
+function draftTracksOf(editor: RunContext['editor']): DraftTracks {
+  const current = editor.cursor?.trackIndex ?? editor.trackIndex;
+  return editor.selectionAnchor === undefined ? { current } : { selection: editor.selectionAnchor.trackIndex, current };
 }
 
 /** The edit to write, with what to say, for the tab's score when the answer comes. */
@@ -112,7 +135,7 @@ async function presetEdit(context: RunContext, range: AiEditRange, draft: AiEdit
   const lowered = lowerKey(context.song, range, draft.semitones);
   const exact = { song: lowered.song, keepsBeats: true, unchanged: t('aiEdit.nothingToChange') };
   if (!draft.isPolished) {
-    return { ...exact, view: { summary: presetSummary(lowered, draft.semitones, lowered.refingering.after), detail: '', warnings: [] } };
+    return { ...exact, view: { summary: presetSummary(lowered, draft.semitones, { song: lowered.song, cost: lowered.refingering.after }), detail: '', warnings: [] } };
   }
   const polished = await polishFingering(lowered, range, model, claudeDeps(context), (step) => context.onProgress(progressOf(step)));
   return { ...exact, song: polished.song, view: { summary: polished.summary, detail: detailOf(context.song, polished.score, polished.usage, 1), warnings: polished.warnings } };
@@ -121,7 +144,7 @@ async function presetEdit(context: RunContext, range: AiEditRange, draft: AiEdit
 /** Claude rewrites the range's bars as the user asks, part after part; why not, when nothing came. */
 async function instructionEdit(context: RunContext, range: AiEditRange, draft: AiEditDraft, model: string): Promise<Edit | string> {
   const chunks = planChunks(context.song, range.firstBar, range.lastBar, range.trackIndexes);
-  const plan = { mode: { kind: 'instruction', prompt: draft.prompt } as const, chunks, trackIndexes: range.trackIndexes };
+  const plan = { mode: { kind: 'instruction', prompt: draft.prompt } as const, chunks, trackIndexes: range.trackIndexes, mayAddBars: draft.mayAddBars };
   const answer = await runAiEdit(context.song, plan, model, claudeDeps(context), (step) => context.onProgress(progressOf(step)));
   if (!answer.isOk) {
     return answer.message;
@@ -136,6 +159,8 @@ async function instructionEdit(context: RunContext, range: AiEditRange, draft: A
 interface AiEditSources {
   readonly workspace: WorkspaceState;
   readonly dispatch: Dispatch<WorkspaceAction>;
+  /** One Claude run at a time with the window's other AI Wizard panel. */
+  readonly guard?: RunGuard;
 }
 
 const AI_EDIT_WORDING: RunWording = { cancelled: () => t('aiEdit.cancelled'), changed: () => t('aiEdit.changed') };
@@ -146,10 +171,10 @@ const AI_EDIT_WORDING: RunWording = { cancelled: () => t('aiEdit.cancelled'), ch
  * checked note by note —; an instruction has Claude rewrite the range's bars. Either is written into the tab it began
  * in, if its score is still the one the run read, as one editor action (one undo step).
  */
-export function useAiEdit({ workspace, dispatch }: AiEditSources): AiEdit {
+export function useAiEdit({ workspace, dispatch, guard }: AiEditSources): AiEdit {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<AiEditDraft>(INITIAL_AI_EDIT_DRAFT);
-  const { status, start, cancel, reset } = useTabRun<AiEditResultView>(workspace, dispatch, AI_EDIT_WORDING);
+  const { status, start, cancel, reset } = useTabRun<AiEditResultView>(workspace, dispatch, AI_EDIT_WORDING, { owner: 'aiEdit', guard });
   const latest = useRef(workspace);
   latest.current = workspace;
 
@@ -157,8 +182,9 @@ export function useAiEdit({ workspace, dispatch }: AiEditSources): AiEdit {
     (model: string) =>
       start(async (context) => {
         const range = aiEditRangeOf(context.editor, context.song, draft.target);
-        if (range === undefined) {
-          return () => ({ kind: 'failed', message: t('aiEdit.needsSelection') });
+        const problem = aiEditProblem(draft, draftTracksOf(context.editor));
+        if (range === undefined || problem !== undefined) {
+          return () => ({ kind: 'failed', message: problem ?? t('aiEdit.needsSelection') });
         }
         const edit = draft.kind === 'lowerKey' ? await presetEdit(context, range, draft, model) : await instructionEdit(context, range, draft, model);
         return (now) => (typeof edit === 'string' ? { kind: 'failed', message: edit } : finish(now, context.tabId, context.song, edit));

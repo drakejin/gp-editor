@@ -18,8 +18,8 @@ function panelClosers(files: WindowFiles, tools: WindowTools): readonly PanelClo
   const { settingsPanel, tuner, songWriter, compose, aiEdit, lyricsEditor, closeLyricsPanel, annotationEditor, closeAnnotationPanel, scales, transposePanel, scoreDesign, commandPalette, audio } = tools;
   const { trackManager, drumKey, songsterr, trackInfo } = tools;
   return [
-    // Settings first: it is over every other panel.
-    [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [compose.isOpen, compose.close], [aiEdit.isOpen, aiEdit.close],
+    // Settings first: it is over every other panel; then as drawn, the top one first (AI Edit is over Compose from Here).
+    [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [aiEdit.isOpen, aiEdit.close], [compose.isOpen, compose.close],
     [importPanel.isOpen, importPanel.close],
     [pdfExport.isOpen, pdfExport.close], [audioExport.isOpen, audioExport.close], [recentFiles.isPanelOpen, recentFiles.closePanel], [lyricsEditor.isOpen, closeLyricsPanel],
     [annotationEditor.isOpen, closeAnnotationPanel],

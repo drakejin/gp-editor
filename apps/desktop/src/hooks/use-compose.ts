@@ -8,7 +8,8 @@ import { t } from '../lib/i18n/i18n';
 import type { TokenUsage } from '../lib/tool-answer';
 import { sendMessages } from '../native/anthropic';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
-import { type RunFinish, type RunWording, type TabRunStatus, tabSong, useTabRun, wait } from './use-tab-run';
+import { wait } from '../lib/wait';
+import { type RunFinish, type RunGuard, type RunWording, type TabRunStatus, tabSong, useTabRun } from './use-tab-run';
 
 /** What the Compose from Here panel holds while it is filled in; kept when the panel closes. */
 export interface ComposeDraft {
@@ -89,6 +90,8 @@ function finishRun(workspace: WorkspaceState, tabId: string, song: Song, idea: C
 interface ComposeSources {
   readonly workspace: WorkspaceState;
   readonly dispatch: Dispatch<WorkspaceAction>;
+  /** One Claude run at a time with the window's other AI Wizard panel. */
+  readonly guard?: RunGuard;
 }
 
 const COMPOSE_WORDING: RunWording = { cancelled: () => t('tools.compose.cancelled'), changed: () => t('tools.compose.changed') };
@@ -98,10 +101,10 @@ const COMPOSE_WORDING: RunWording = { cancelled: () => t('tools.compose.cancelle
  * time, on the shown score (useTabRun). The bars go into the tab the run began in — only if its score is still the one
  * Claude read — as one editor action (one undo step); `done` once the editor has written them.
  */
-export function useCompose({ workspace, dispatch }: ComposeSources): Compose {
+export function useCompose({ workspace, dispatch, guard }: ComposeSources): Compose {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<ComposeDraft>(INITIAL_COMPOSE_DRAFT);
-  const run = useTabRun<ComposeResultView>(workspace, dispatch, COMPOSE_WORDING);
+  const run = useTabRun<ComposeResultView>(workspace, dispatch, COMPOSE_WORDING, { owner: 'compose', guard });
   const { start, cancel, reset } = run;
   const latest = useRef(workspace);
   latest.current = workspace;

@@ -362,6 +362,44 @@ describe('refinger: a 5-string banjo', () => {
   });
 });
 
+describe('refinger: review fixes', () => {
+  it('keeps a selected note off a string another voice plays while it still sounds, past the selection', () => {
+    // Arrange: voice 1's whole E4 (selected) over voice 2's C3 C3 G4 C3; the open E string would cut G4 off (or G4 it).
+    const song = songOnStrings(STANDARD_TUNING, [[[play(1, n(2, 5))], [play(4, n(5, 3)), play(4, n(5, 3)), play(4, n(1, 3)), play(4, n(5, 3))]]]);
+    const scope = { kind: 'beats', from: { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 }, to: { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 } } as const;
+
+    // Act
+    const result = refinger(song, scope);
+
+    // Assert
+    expect(fingeringProblems(result.song)).toEqual([]);
+    expect(playedNotes(result.song)).toEqual(playedNotes(song));
+  });
+
+  it('leaves dead notes where they are: their muted string is the sound', () => {
+    // Arrange
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, withEffect(n(2, 5), { deadNote: true })), play(4, withEffect(n(3, 9), { deadNote: true })), rest(2)]]]);
+
+    // Act + Assert
+    expect(refinger(song, SONG).song).toBe(song);
+  });
+
+  it('re-fingers around two notes the file already sounds on one string, which nothing can part', () => {
+    // Arrange: bar 1 — voice 2 holds a natural harmonic on string 1 while voice 1 plays E6, which only string 1 holds;
+    // bar 2 — E4 at the 5th fret of string 2, which the open E string plays.
+    const harmonic = withEffect(n(1, 12), { harmonic: { type: 'natural', data: 0 } });
+    const song = songOnStrings(STANDARD_TUNING, [[[rest(4), play(4, n(1, 24)), rest(2)], [play(2, harmonic), rest(2)]], [[play(1, n(2, 5))]]]);
+
+    // Act
+    const result = refinger(song, SONG);
+
+    // Assert
+    expect(voiceLayout(result.song, 0, 1, 0)).toEqual(['0:1:1/0']);
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(voiceLayout(song, 0, 0, 0));
+    expect(result.restrung).toBe(1);
+  });
+});
+
 describe('refinger: a scope', () => {
   it('re-fingers only the selected beats of the selected voice', () => {
     // Arrange
@@ -374,6 +412,22 @@ describe('refinger: a scope', () => {
     // Assert
     expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:2/5', '960:4:1/0', '1920:4:1/0', '2880:4:2/5']);
     expect(result.restrung).toBe(2);
+  });
+});
+
+describe('refinger: a long song', () => {
+  it('re-fingers 25,600 notes in well under two seconds', () => {
+    // Arrange: 1,600 bars of sixteenth-note E4s at the 5th fret of string 2.
+    const song = songOnStrings(STANDARD_TUNING, Array.from({ length: 1600 }, () => [Array.from({ length: 16 }, () => play(16, n(2, 5)))]));
+
+    // Act
+    const started = performance.now();
+    const result = refinger(song, SONG);
+    const elapsed = performance.now() - started;
+
+    // Assert
+    expect(result.restrung).toBe(25600);
+    expect(elapsed).toBeLessThan(2000);
   });
 });
 

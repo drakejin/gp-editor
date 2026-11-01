@@ -19,14 +19,21 @@ export const FINGERING_COSTS = {
   position: 10,
   /** A note put on another string than it had, so nothing moves for nothing (left out of the cost reported). */
   restring: 1,
+  /**
+   * A beat kept as the file has it although it sounds a note on a string another note holds — what no fingering can
+   * part: so dear that every way that avoids it wins (left out of the cost reported).
+   */
+  conflict: 1_000_000,
 } as const;
 
 /** One way to play a step. */
 export interface Candidate {
   /** Option index (timeline note's `options`) per note of the step, in the step's order; all 0 = as it is. */
   readonly choice: readonly number[];
-  /** What playing it costs, the hand's move aside; restrings included. */
+  /** What playing it costs, the hand's move aside; `hidden` included. */
   readonly local: number;
+  /** The part of `local` the reported cost leaves out: restrings and a kept conflict. */
+  readonly hidden: number;
   /** Frets the index finger may sit at to play it: handLow…handHigh; 0–0 when every note is open (the hand stays). */
   readonly handLow: number;
   readonly handHigh: number;
@@ -47,20 +54,21 @@ export function toCandidate(choice: readonly number[], picked: readonly StringOp
   const restrung = choice.filter((index) => index !== 0).length;
   const fretted = picked.filter((option) => option.position > 0).map((option) => option.position);
   if (fretted.length === 0) {
-    return { choice, local: restrung * FINGERING_COSTS.restring, handLow: 0, handHigh: 0 };
+    return { choice, local: restrung * FINGERING_COSTS.restring, hidden: restrung * FINGERING_COSTS.restring, handLow: 0, handHigh: 0 };
   }
   const low = Math.min(...fretted);
   const high = Math.max(...fretted);
   const stretch = Math.max(0, high - low - (HAND_SPAN - 1));
   const local =
     fretted.length * FINGERING_COSTS.fretted + (low - 1) * FINGERING_COSTS.position + stretch * FINGERING_COSTS.stretch + restrung * FINGERING_COSTS.restring;
-  return { choice, local, handLow: stretch > 0 ? low : Math.max(1, high - (HAND_SPAN - 1)), handHigh: low };
+  return { choice, local, hidden: restrung * FINGERING_COSTS.restring, handLow: stretch > 0 ? low : Math.max(1, high - (HAND_SPAN - 1)), handHigh: low };
 }
 
-/** The step as it is. */
-export function currentCandidate(timeline: Timeline, step: TimelineStep): Candidate {
-  const picked = step.noteIds.flatMap((id) => timeline.notes[id]?.options[0] ?? []);
-  return toCandidate(step.noteIds.map(() => 0), picked);
+/** The step as it is, or as `chosen` places its notes (option index by note id; 0 for a note it leaves out). */
+export function currentCandidate(timeline: Timeline, step: TimelineStep, chosen?: ReadonlyMap<number, number>): Candidate {
+  const choice = step.noteIds.map((id) => chosen?.get(id) ?? 0);
+  const picked = step.noteIds.flatMap((id, i) => timeline.notes[id]?.options[choice[i] ?? 0] ?? []);
+  return toCandidate(choice, picked);
 }
 
 type Allowed = readonly (readonly number[])[];
@@ -129,11 +137,17 @@ function isCurrentAllowed(allowed: Allowed): boolean {
 /**
  * The ways to play a step under the rules, best first per hand position: its notes on separate strings, the forced ones
  * where they must be, none on a blocked string, the fretted ones within MAX_FRET_SPAN frets. The step as it is is among
- * them whenever the rules allow it, even beyond the span.
+ * them whenever the rules allow it, even beyond the span. When no way obeys them — the file already sounds two notes on
+ * one string that nothing can part — the step stays as it is at a FINGERING_COSTS.conflict, so the rest of the track is
+ * still re-fingered and no way that avoids such a conflict loses to one that keeps it.
  */
 export function stepCandidates(timeline: Timeline, step: TimelineStep, rules: StepRules): readonly Candidate[] {
   const allowed = allowedOptions(timeline, step, rules);
   const kept = keepBest(enumerate(timeline, step, allowed));
+  if (kept.length === 0) {
+    const current = currentCandidate(timeline, step);
+    return [{ ...current, local: current.local + FINGERING_COSTS.conflict, hidden: current.hidden + FINGERING_COSTS.conflict }];
+  }
   const isCurrentKept = kept.some((candidate) => candidate.choice.every((index) => index === 0));
   return isCurrentAllowed(allowed) && !isCurrentKept ? [...kept, currentCandidate(timeline, step)] : kept;
 }

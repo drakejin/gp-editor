@@ -17,6 +17,8 @@ export interface AiEditPart {
   /** 0-based, of `count` parts. */
   readonly index: number;
   readonly count: number;
+  /** The user lets Claude add bars after the score's last bar (an instruction whose range reaches it). */
+  readonly mayAddBars?: boolean;
 }
 
 const SHARED_RULES = `- Guitar, bass, ukulele and banjo: every note as string and fret (string 1 = the highest string; frets counted from the capo; fingerings a player can play), never as a pitch.
@@ -55,9 +57,9 @@ function tracksLine(song: Song, trackIndexes: readonly number[]): string {
   return `Rewrite any of the tracks ${trackIndexes.join(', ')}. Adding tracks is not allowed.`;
 }
 
-/** True when an instruction's part ends on the score's last bar: it may add bars after it if the request asks for them. */
+/** True when the user lets an instruction's part, which ends on the score's last bar, add bars after it. */
 function mayAddBars(song: Song, part: AiEditPart): boolean {
-  return part.mode.kind === 'instruction' && part.chunk.last >= song.measureHeaders.length - 1;
+  return part.mode.kind === 'instruction' && part.mayAddBars === true && part.chunk.last >= song.measureHeaders.length - 1;
 }
 
 function rangeLines(song: Song, part: AiEditPart): string {
@@ -74,7 +76,7 @@ function rangeLines(song: Song, part: AiEditPart): string {
   return lines.join('\n');
 }
 
-/** What the answer may write, for parseComposedBars: the part's tracks, no new tracks, its bars (more only at the end). */
+/** What the answer may write, for parseComposedBars: the part's tracks, no new tracks, its bars (more only at the end, when allowed). */
 export function aiEditScopeOf(song: Song, part: AiEditPart): ComposeScope {
   return {
     trackCount: song.tracks.length,

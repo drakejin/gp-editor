@@ -31,13 +31,14 @@ export interface PolishedFingering {
 /**
  * Claude's polish of the exact result: the range's fretted tracks asked for again with easier positions (runAiEdit,
  * part after part), each answer checked note by note (gp-core adoptFingering: another pitch or rhythm rejected, a
- * position no hand can play there not taken). When no answer comes the exact result stays, and the summary says why.
+ * position no hand can play there not taken, a track Claude's positions make harder to play kept as the optimizer
+ * placed it). When no answer comes the exact result stays, and the summary says why.
  */
 export async function polishFingering(easy: LoweredKey, range: AiEditRange, model: string, deps: ClaudeDeps, onStep: (step: AiEditStep) => void): Promise<PolishedFingering> {
   const tracks = fingeringTracks(easy.song, range);
   const exact = (failure?: string, usage: TokenUsage = NO_USAGE): PolishedFingering => ({
     song: easy.song,
-    summary: presetSummary(easy, easy.semitones, easy.refingering.after, undefined, failure),
+    summary: presetSummary(easy, easy.semitones, { song: easy.song, cost: easy.refingering.after }, undefined, failure),
     warnings: [],
     usage,
   });
@@ -49,11 +50,12 @@ export async function polishFingering(easy: LoweredKey, range: AiEditRange, mode
   if (!answer.isOk) {
     return exact(answer.message, answer.usage);
   }
-  const adoption = adoptFingering(easy.song, answer.song, range.scope);
+  // Claude's positions are taken only where they keep pitch and rhythm, can be played, and make no track harder.
+  const adoption = adoptFingering(easy.song, answer.song, range.scope, { refusesHarder: true });
   const after = fingeringCost(adoption.song, range.scope);
   return {
     song: adoption.song,
-    summary: presetSummary(easy, easy.semitones, after, adoption),
+    summary: presetSummary(easy, easy.semitones, { song: adoption.song, cost: after }, adoption),
     adoption,
     warnings: answer.warnings,
     usage: answer.usage,

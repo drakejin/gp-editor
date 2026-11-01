@@ -80,7 +80,8 @@ function toOption(tuning: readonly number[], string: number, fret: number): Stri
 function optionsFor(note: Note, tuning: readonly number[], neck: number, isInScope: boolean): readonly StringOption[] {
   const own = toOption(tuning, note.string, note.fret);
   const open = tuning[note.string - 1];
-  if (!isInScope || open === undefined || note.effect.harmonic?.type === 'natural') {
+  // A natural harmonic's fret is its node, a dead note's string its sound: both stay.
+  if (!isInScope || open === undefined || note.effect.harmonic?.type === 'natural' || note.effect.deadNote) {
     return [own];
   }
   const pitch = open + note.fret;
@@ -141,13 +142,23 @@ function chainOptions(notes: readonly RawNote[], links: NoteLinks): readonly (re
   });
 }
 
-/** Steps the search covers: a whole track's, or a run's steps with one step either side to place the hand. */
-function searchedSteps(notes: readonly TimelineNote[], stepCount: number, isWhole: boolean): readonly [number, number] {
+/**
+ * Steps the search covers: a whole track's, or a run's — from a step before its first note, to place the hand, to a step
+ * after the last one any of its notes still sounds over (another voice's notes there must keep off its strings).
+ */
+function searchedSteps(notes: readonly TimelineNote[], steps: readonly TimelineStep[], isWhole: boolean): readonly [number, number] {
   if (isWhole) {
-    return [0, stepCount - 1];
+    return [0, steps.length - 1];
   }
-  const inScope = notes.filter((note) => note.isInScope).map((note) => note.step);
-  return inScope.length === 0 ? [0, -1] : [Math.max(0, Math.min(...inScope) - 1), Math.min(stepCount - 1, Math.max(...inScope) + 1)];
+  const inScope = notes.filter((note) => note.isInScope);
+  if (inScope.length === 0) {
+    return [0, -1];
+  }
+  const lastEnd = Math.max(...inScope.map((note) => note.end));
+  const lastSounded = steps.reduce((last, step, index) => (step.start < lastEnd ? index : last), 0);
+  const first = Math.min(...inScope.map((note) => note.step));
+  const last = Math.max(lastSounded, ...inScope.map((note) => note.step));
+  return [Math.max(0, first - 1), Math.min(steps.length - 1, last + 1)];
 }
 
 /** The timeline of a fretted track for a scope: its steps, each note's chain and the strings it may take. */
@@ -160,6 +171,6 @@ export function buildTimeline(track: Track, scoped: ScopedTrack): Timeline {
   const notes = raw.map((entry, id): TimelineNote => ({ ...entry, chain: links.chains[id] ?? id, options: options[id] ?? entry.options.slice(0, 1) }));
   const chainEnds = new Map<number, number>();
   notes.forEach((note) => chainEnds.set(note.chain, Math.max(chainEnds.get(note.chain) ?? note.step, note.step)));
-  const [first, last] = searchedSteps(notes, steps.length, scoped.isWhole);
+  const [first, last] = searchedSteps(notes, steps, scoped.isWhole);
   return { notes, steps, chainEnds, first, last, neck };
 }

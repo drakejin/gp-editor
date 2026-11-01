@@ -15,6 +15,7 @@ function render(overrides: Partial<AiEditPanelProps> = {}) {
     status: { kind: 'idle' },
     hasScore: true,
     selectionBars: { first: 3, last: 5 },
+    trackIndexes: { selection: 0, current: 0 },
     currentTrack: '1. Lead',
     hasKey: true,
     model: 'claude-opus-5-5',
@@ -94,6 +95,26 @@ describe('AiEditPanel: an instruction', () => {
     expect(panel.props.onRun).toHaveBeenCalledTimes(1);
   });
 
+  it('lets Claude add bars after the last bar only when ticked', () => {
+    // Arrange
+    const panel = render({ draft: { ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: 'longer' } });
+
+    // Act
+    panel.press('☐ Claude may add bars after the last bar');
+
+    // Assert
+    expect(panel.changes()).toEqual([{ mayAddBars: true }]);
+  });
+
+  it('cannot ask Claude about a track past the 16th, and says why', () => {
+    // Arrange
+    const panel = render({ trackIndexes: { current: 16 }, currentTrack: '17. Strings', draft: { ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: 'simpler' } });
+
+    // Assert
+    expect(panel.button('Ask Claude')?.props.isEnabled).toBe(false);
+    expect(panel.texts()).toContain('Claude writes only the first 16 tracks: track 17 is beyond them');
+  });
+
   it('waits for words before it can ask, and says so', () => {
     // Arrange
     const panel = render({ draft: { ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: ' ' } });
@@ -107,7 +128,7 @@ describe('AiEditPanel: an instruction', () => {
 describe('AiEditPanel: the run', () => {
   it('cannot use the selection when nothing is selected', () => {
     // Arrange
-    const panel = render({ selectionBars: undefined, draft: { ...INITIAL_AI_EDIT_DRAFT, target: 'selection' } });
+    const panel = render({ selectionBars: undefined, trackIndexes: { current: 0 }, draft: { ...INITIAL_AI_EDIT_DRAFT, target: 'selection' } });
 
     // Assert
     expect(panel.button('Selection')?.props.isEnabled).toBe(false);

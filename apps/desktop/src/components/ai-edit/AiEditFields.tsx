@@ -120,6 +120,18 @@ function RequestRows({ palette, draft, onChangeDraft }: AiEditFieldsProps) {
           ))}
         </View>
       </WizardRow>
+      <WizardRow palette={palette} label="">
+        <View style={styles.inline}>
+          <ChromeButton
+            palette={palette}
+            label={`${draft.mayAddBars ? '☑' : '☐'} ${t('aiEdit.mayAddBars')}`}
+            tooltip={t('aiEdit.mayAddBarsTooltip')}
+            fontSize={11}
+            isActive={draft.mayAddBars}
+            onPress={() => onChangeDraft({ mayAddBars: !draft.mayAddBars })}
+          />
+        </View>
+      </WizardRow>
     </>
   );
 }

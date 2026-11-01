@@ -28,6 +28,8 @@ export type Asked<T> =
   | {
       readonly isOk: false;
       readonly isFatal: boolean;
+      /** The key was refused (401), so every request would fail alike. */
+      readonly isKeyRefused?: boolean;
       readonly message: string;
       readonly usage: TokenUsage;
     };
@@ -79,6 +81,7 @@ export async function askTool<T>(
         return {
           isOk: false,
           isFatal: answer.isFatal === true,
+          ...(answer.isKeyRefused === true ? { isKeyRefused: true } : {}),
           message: answer.message,
           usage,
         };

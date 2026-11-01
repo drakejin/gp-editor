@@ -21,7 +21,15 @@ export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
  */
 export type ToolAnswer =
   | { readonly isOk: true; readonly input: unknown; readonly usage: TokenUsage }
-  | { readonly isOk: false; readonly isRetryable: boolean; readonly isFatal?: boolean; readonly message: string; readonly usage?: TokenUsage };
+  | {
+      readonly isOk: false;
+      readonly isRetryable: boolean;
+      readonly isFatal?: boolean;
+      /** The key itself was refused (401): no request with it can succeed. */
+      readonly isKeyRefused?: boolean;
+      readonly message: string;
+      readonly usage?: TokenUsage;
+    };
 
 /** How to name what was asked for, in the messages. */
 export interface ToolAnswerWording {
@@ -86,7 +94,7 @@ function readError(status: number, json: unknown): ToolAnswer {
   const error = isRecord(json) && isRecord(json.error) ? json.error : undefined;
   const apiMessage = typeof error?.message === 'string' ? error.message : `HTTP ${status}`;
   if (status === HTTP_UNAUTHORIZED) {
-    return failure(false, t('tools.answer.keyRefused', { detail: apiMessage }), true);
+    return { isOk: false, isRetryable: false, isFatal: true, isKeyRefused: true, message: t('tools.answer.keyRefused', { detail: apiMessage }) };
   }
   const isRetryable = status === HTTP_TOO_MANY_REQUESTS || status >= HTTP_SERVER_ERRORS;
   return failure(isRetryable, apiMessage, !isRetryable);

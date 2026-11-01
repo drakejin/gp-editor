@@ -1,5 +1,9 @@
 import { type Translate, useT } from '../../hooks/use-i18n';
-import type { ComposeDraft, ComposeStatus } from '../../hooks/use-compose';
+import type {
+  ComposeDraft,
+  ComposeResultView,
+  ComposeStatus,
+} from '../../hooks/use-compose';
 import { useElapsedSeconds } from '../../hooks/use-elapsed-seconds';
 import type { Palette } from '../../theme';
 import { ClaudeRow } from '../ai-wizard/ClaudeRow';
@@ -41,7 +45,11 @@ function statusText(
     case 'stopping':
       return t('tools.compose.stopping');
     case 'elsewhere':
-      return t('tools.compose.elsewhere');
+      return t(
+        status.isOtherTool === true
+          ? 'tools.compose.otherTool'
+          : 'tools.compose.elsewhere',
+      );
     case 'failed':
       return status.message;
     case 'done':
@@ -49,6 +57,60 @@ function statusText(
     case 'idle':
       return hasScore ? t('tools.compose.idle') : t('tools.compose.noScore');
   }
+}
+
+interface ComposeButtonsProps {
+  readonly props: ComposePanelProps;
+  readonly isRunning: boolean;
+  readonly canCompose: boolean;
+}
+
+/** Stop while Claude writes, and Compose. */
+function ComposeButtons({ props, isRunning, canCompose }: ComposeButtonsProps) {
+  const t = useT();
+  return (
+    <>
+      {isRunning ? (
+        <ChromeButton
+          palette={props.palette}
+          label={t('tools.compose.stop')}
+          tooltip={t('tools.compose.stopTooltip')}
+          onPress={props.onCancel}
+        />
+      ) : null}
+      <ChromeButton
+        palette={props.palette}
+        label={t('tools.compose.compose')}
+        tooltip={t('tools.compose.composeTooltip')}
+        isActive
+        isEnabled={canCompose}
+        onPress={props.onCompose}
+      />
+    </>
+  );
+}
+
+/** What was written: the summary, what Claude read and the tokens, and the warnings. */
+function ComposeResult({
+  palette,
+  result,
+}: {
+  readonly palette: Palette;
+  readonly result: ComposeResultView;
+}) {
+  const t = useT();
+  const { inputTokens: input, outputTokens: output } = result.usage;
+  return (
+    <WizardResult
+      palette={palette}
+      summary={result.summary}
+      detail={`${result.reading} · ${t('tools.compose.tokens', {
+        input,
+        output,
+      })}`}
+      warnings={result.warnings}
+    />
+  );
 }
 
 /**
@@ -64,26 +126,7 @@ export function ComposePanel(props: ComposePanelProps) {
     isRunning || status.kind === 'stopping' || status.kind === 'elsewhere';
   const seconds = useElapsedSeconds(isRunning ? status.startedAt : undefined);
   const hasScore = props.barCount !== undefined;
-  const buttons = (
-    <>
-      {isRunning ? (
-        <ChromeButton
-          palette={palette}
-          label={t('tools.compose.stop')}
-          tooltip={t('tools.compose.stopTooltip')}
-          onPress={props.onCancel}
-        />
-      ) : null}
-      <ChromeButton
-        palette={palette}
-        label={t('tools.compose.compose')}
-        tooltip={t('tools.compose.composeTooltip')}
-        isActive
-        isEnabled={!isBusy && hasScore && props.hasKey === true}
-        onPress={props.onCompose}
-      />
-    </>
-  );
+  const canCompose = !isBusy && hasScore && props.hasKey === true;
   return (
     <WizardPanel
       palette={palette}
@@ -94,7 +137,13 @@ export function ComposePanel(props: ComposePanelProps) {
       isRunning={isRunning}
       status={statusText(status, seconds, hasScore, t)}
       isStatusError={status.kind === 'failed'}
-      buttons={buttons}
+      buttons={
+        <ComposeButtons
+          props={props}
+          isRunning={isRunning}
+          canCompose={canCompose}
+        />
+      }
       onClose={props.onClose}
     >
       <ComposeFields
@@ -113,15 +162,7 @@ export function ComposePanel(props: ComposePanelProps) {
         onChooseModel={props.onChooseModel}
       />
       {status.kind === 'done' ? (
-        <WizardResult
-          palette={palette}
-          summary={status.result.summary}
-          detail={`${status.result.reading} · ${t('tools.compose.tokens', {
-            input: status.result.usage.inputTokens,
-            output: status.result.usage.outputTokens,
-          })}`}
-          warnings={status.result.warnings}
-        />
+        <ComposeResult palette={palette} result={status.result} />
       ) : null}
     </WizardPanel>
   );

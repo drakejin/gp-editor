@@ -114,4 +114,31 @@ describe('runAiEdit', () => {
     expect(result.isOk).toBe(true);
     expect(requestText(run.sent[1])).not.toContain('@1/0');
   });
+
+  it('keeps the parts written before a later request is refused, and names the part left as it was', async () => {
+    // Arrange: part 2's request is refused (400).
+    const refused: ApiResponse = { status: 400, body: JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'prompt is too long' } }) };
+    const run = deps([streamedMessage(toolMessage('write_bars', bars(2, 12))), refused]);
+
+    // Act
+    const result = await runAiEdit(fourBars(), INSTRUCTION, 'claude-opus-5-5', run.deps, () => undefined);
+
+    // Assert
+    if (!result.isOk) {
+      throw new Error(result.message);
+    }
+    expect(frets(result.song)).toEqual([12, 12, 5, 5]);
+    expect(result.warnings[0]).toBe('Bars 3–4 were left as they were: prompt is too long');
+  });
+
+  it('writes nothing when the key is refused, even after a part was written', async () => {
+    // Arrange
+    const refusedKey: ApiResponse = { status: 401, body: JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }) };
+
+    // Act
+    const result = await runAiEdit(fourBars(), INSTRUCTION, 'claude-opus-5-5', deps([streamedMessage(toolMessage('write_bars', bars(2, 12))), refusedKey]).deps, () => undefined);
+
+    // Assert
+    expect(result.isOk).toBe(false);
+  });
 });
