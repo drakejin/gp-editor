@@ -1,6 +1,5 @@
 import { type VoiceEvents, distinctTuplets, gapRests, toBeats } from '../edit/timeline';
-import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
-import { durationTicks, measureTicks } from '../model/defaults';
+import { durationTicks, measureTicks, PERCUSSION_STRING_COUNT } from '../model/defaults';
 import type { Clef, Duration, Measure, Note } from '../model/song';
 import { type BeatNotes, NO_COUNTS, type PlacedNote, type PlacementCounts, type VoiceAtBeat, addCounts } from './beat-notes';
 import { toDuration } from './durations';

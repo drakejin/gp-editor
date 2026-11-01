@@ -5,8 +5,7 @@
 import { trackInstrumentOf } from '../composition/track-instrument';
 import { GM_BANJO_PROGRAM, createChannelName, isGmBassProgram } from '../formats/common/channels';
 import { isGuitarProgram, isKeyboardProgram } from '../formats/common/instrument-sets';
-import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
-import { DEFAULT_PERCUSSION_BANK } from '../model/defaults';
+import { DEFAULT_PERCUSSION_BANK, PERCUSSION_TUNING } from '../model/defaults';
 import type { Beat, Channel, Clef, Song, Track } from '../model/song';
 import { trackKindOf } from '../transcription/instruments';
 import { type TuningChange, setTrackTuning } from './retune';
@@ -42,8 +41,6 @@ export interface InstrumentOptions {
   readonly keepsTrack?: boolean;
 }
 
-const DRUM_STRINGS: readonly number[] = Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0);
-
 /** The kind of track an instrument is played on (a ukulele is a guitar sound on a ukulele's strings: General MIDI has none). */
 export function programTrackKind(choice: InstrumentChoice): TrackKind {
   if (choice === 'drums') {
@@ -72,7 +69,7 @@ function isStringed(kind: TrackKind): boolean {
 
 /** A kind's own strings, as Add Track gives a new track of it: its first string count's first tuning. */
 function kindStrings(kind: TrackKind): readonly number[] | undefined {
-  return kind === 'drums' ? DRUM_STRINGS : trackTuningChoices(kind, trackKindSpec(kind)?.stringCounts[0] ?? 0)[0]?.tuning;
+  return kind === 'drums' ? PERCUSSION_TUNING : trackTuningChoices(kind, trackKindSpec(kind)?.stringCounts[0] ?? 0)[0]?.tuning;
 }
 
 /** The strings and clef a track of `from` gets as `to`: none for the same kind, or keys and other instruments from pitched ones. */

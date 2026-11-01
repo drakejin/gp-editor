@@ -1,6 +1,5 @@
 import { MAX_FRET } from '../edit/edit-song';
 import { trackKindSpec, trackTuningChoices } from '../edit/track-kinds';
-import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
 import { STANDARD_TUNING } from '../model/defaults';
 import { MAX_STRINGS } from '../write/gtp-song';
 import { trackKindOf } from './instruments';
@@ -18,9 +17,6 @@ export interface PitchRange {
   readonly min: number;
   readonly max: number;
 }
-
-/** A drum track's six silent strings: a drum note's fret is its General MIDI key (TGSongManager.createPercussionStrings). */
-export const DRUM_TUNING: readonly number[] = Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0);
 
 /** A fretted instrument's standard tuning: its Add Track kind's first (guitar E A D G B E, bass E A D G, ukulele G C E A, banjo open G). */
 function standardTuningOf(instrument: TranscribedInstrument): readonly number[] {

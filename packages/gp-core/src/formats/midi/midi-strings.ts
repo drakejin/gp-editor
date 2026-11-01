@@ -2,15 +2,13 @@
 import { MAX_FRET } from '../../edit/edit-song';
 import { placeNotes } from '../../edit/string-placement';
 import { TUNING_PRESETS } from '../../edit/tuning-presets';
-import { EMPTY_NOTE_EFFECT, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
+import { EMPTY_NOTE_EFFECT, PERCUSSION_STRING_COUNT, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
 import type { Note } from '../../model/song';
 import type { RawNote } from './midi-quantize';
 import type { PitchRange } from './midi-track-parser';
 
 /** TGTrack.DEFAULT_MAX_FRET: the frets the import places notes on. */
 const MAX_IMPORT_FRET = MAX_FRET;
-/** TGSongManager.createPercussionStrings(6): six strings tuned to 0, the fret being the drum's MIDI key. */
-export const PERCUSSION_STRING_COUNT = 6;
 /** TrackTuningHelper: a spread tuning leaves this many frets of room at the top. */
 const SPREAD_TUNING_FRET_MARGIN = 4;
 /** TrackTuningHelper: strings further apart than this get a seventh string. */

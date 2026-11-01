@@ -190,6 +190,10 @@ export const STANDARD_TUNING: readonly number[] = [64, 59, 55, 50, 45, 40];
 /** Standard 4-string bass tuning (E A D G), string 1 (G) first. */
 export const STANDARD_BASS_TUNING: readonly number[] = [43, 38, 33, 28];
 
+/** TGSongManager.createPercussionStrings(6): a drum track's six strings, tuned to 0 — a drum note's fret is its GM key. */
+export const PERCUSSION_STRING_COUNT = 6;
+export const PERCUSSION_TUNING: readonly number[] = Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0);
+
 /*
  * Tick resolution. TuxGuitar counts 960 ticks per quarter note, which a 7, 9, 11 or 13-tuplet does not divide: seven
  * 7:4 sixteenths came to 959 ticks, so bars with them never filled. QUARTER_TIME is instead 960 × 135135
