@@ -64,10 +64,11 @@ export function toCandidate(choice: readonly number[], picked: readonly StringOp
   return { choice, local, hidden: restrung * FINGERING_COSTS.restring, handLow: stretch > 0 ? low : Math.max(1, high - (HAND_SPAN - 1)), handHigh: low };
 }
 
-/** The step as it is. */
-export function currentCandidate(timeline: Timeline, step: TimelineStep): Candidate {
-  const picked = step.noteIds.flatMap((id) => timeline.notes[id]?.options[0] ?? []);
-  return toCandidate(step.noteIds.map(() => 0), picked);
+/** The step as it is, or as `chosen` places its notes (option index by note id; 0 for a note it leaves out). */
+export function currentCandidate(timeline: Timeline, step: TimelineStep, chosen?: ReadonlyMap<number, number>): Candidate {
+  const choice = step.noteIds.map((id) => chosen?.get(id) ?? 0);
+  const picked = step.noteIds.flatMap((id, i) => timeline.notes[id]?.options[choice[i] ?? 0] ?? []);
+  return toCandidate(choice, picked);
 }
 
 type Allowed = readonly (readonly number[])[];

@@ -415,6 +415,22 @@ describe('refinger: a scope', () => {
   });
 });
 
+describe('refinger: a long song', () => {
+  it('re-fingers 25,600 notes in well under two seconds', () => {
+    // Arrange: 1,600 bars of sixteenth-note E4s at the 5th fret of string 2.
+    const song = songOnStrings(STANDARD_TUNING, Array.from({ length: 1600 }, () => [Array.from({ length: 16 }, () => play(16, n(2, 5)))]));
+
+    // Act
+    const started = performance.now();
+    const result = refinger(song, SONG);
+    const elapsed = performance.now() - started;
+
+    // Assert
+    expect(result.restrung).toBe(25600);
+    expect(elapsed).toBeLessThan(2000);
+  });
+});
+
 const SWEEP: readonly (readonly [FixtureFolder, string])[] = (['guitarpro5', 'guitarpro7', 'guitarpro8'] as const).flatMap((folder) =>
   listFixtures(folder).map((name): [FixtureFolder, string] => [folder, name]),
 );

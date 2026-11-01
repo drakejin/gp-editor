@@ -123,6 +123,8 @@ interface StepContext {
   readonly timeline: Timeline;
   readonly stepIndex: number;
   readonly mode: SearchMode;
+  /** In `evaluate`: the fingering to cost, by note id (else the notes as they are). */
+  readonly chosen?: ReadonlyMap<number, number>;
   readonly frets: number;
   readonly candidates: Map<string, readonly Candidate[]>;
   readonly next: Map<string, SearchState>;
@@ -139,7 +141,7 @@ function offer(next: Map<string, SearchState>, state: SearchState): void {
 function candidatesFor(context: StepContext, reservations: readonly Reservation[]): readonly Candidate[] {
   const step = context.timeline.steps[context.stepIndex] as TimelineStep;
   if (context.mode === 'evaluate') {
-    return [currentCandidate(context.timeline, step)];
+    return [currentCandidate(context.timeline, step, context.chosen)];
   }
   const rules = rulesFor(reservations, context.timeline, step, context.stepIndex);
   const key = rulesKey(rules);
@@ -206,10 +208,11 @@ function fretRoom(timeline: Timeline): number {
 
 /**
  * The cheapest fingering of the timeline's searched steps (`optimize`), or what the fingering as it is costs
- * (`evaluate`); undefined when no way through obeys the rules (the track then stays as it is). The cost is the
+ * (`evaluate`; with `chosen`, the fingering it names); undefined when no way through obeys the rules (the track then stays
+ * as it is). The cost is the
  * FINGERING_COSTS sum over the steps without its hidden terms (restrings, kept conflicts), in frets of hand movement.
  */
-export function searchFingering(timeline: Timeline, mode: SearchMode): FingeringPath | undefined {
+export function searchFingering(timeline: Timeline, mode: SearchMode, chosen?: ReadonlyMap<number, number>): FingeringPath | undefined {
   if (timeline.first > timeline.last) {
     return { choices: new Map(), restrung: 0, cost: { total: 0, handTravel: 0 } };
   }
@@ -217,7 +220,7 @@ export function searchFingering(timeline: Timeline, mode: SearchMode): Fingering
   const reservations = mode === 'evaluate' ? [] : initialReservations(timeline);
   let states: readonly SearchState[] = [{ cost: 0, hidden: 0, hand: 0, reservations, reservationKey: reservationKey(reservations) }];
   for (let stepIndex = timeline.first; stepIndex <= timeline.last && states.length > 0; stepIndex++) {
-    const context: StepContext = { timeline, stepIndex, mode, frets, candidates: new Map(), next: new Map() };
+    const context: StepContext = { timeline, stepIndex, mode, frets, candidates: new Map(), next: new Map(), ...(chosen === undefined ? {} : { chosen }) };
     groupStates(states).forEach((group) => playGroup(context, group));
     const next = [...context.next.values()];
     states = next.length > MAX_STATES ? next.sort((a, b) => a.cost - b.cost).slice(0, MAX_STATES) : next;
