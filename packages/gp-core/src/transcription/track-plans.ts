@@ -2,10 +2,10 @@ import { MAX_FRET } from '../edit/edit-song';
 import { neckFrets } from '../edit/string-placement';
 import { createChannelName } from '../formats/common/channels';
 import { writtenTransposition } from '../formats/common/instrument-sets';
-import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK } from '../model/defaults';
+import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, PERCUSSION_TUNING } from '../model/defaults';
 import type { Channel, Clef } from '../model/song';
 import { isFrettedInstrument, resolveClef, resolveProgram } from './instruments';
-import { DRUM_TUNING, type ResolvedTuning, partPitchRange, pitchedPartTuning, resolveFrettedTuning } from './track-tunings';
+import { type ResolvedTuning, partPitchRange, pitchedPartTuning, resolveFrettedTuning } from './track-tunings';
 import type { TranscribedInstrument, TranscribedMeasure, TranscribedTrack, TranscriptionPage } from './types';
 import { countOf } from './wording';
 
@@ -40,7 +40,7 @@ function resolveTuning(track: TranscribedTrack, name: string, measures: readonly
   if (isFrettedInstrument(track.instrument)) {
     return resolveFrettedTuning(track, name);
   }
-  return { tuning: track.instrument === 'drums' ? DRUM_TUNING : pitchedPartTuning(partPitchRange(measures, trackIndex)) };
+  return { tuning: track.instrument === 'drums' ? PERCUSSION_TUNING : pitchedPartTuning(partPitchRange(measures, trackIndex)) };
 }
 
 /**

@@ -9,10 +9,11 @@ import {
   familyLabel,
   familyOf,
   instrumentChangeHint,
+  isKindChange,
   notesLostQuestion,
   trackChoice,
 } from '../src/lib/instrument-picker';
-import { beat, makeSong, note, onStrings } from '../test-support/songs';
+import { beat, makeSong, note, onStrings, withTrack } from '../test-support/songs';
 
 /** "Lead": a steel guitar playing E2 (string 6 open) and E4 (string 1 open). */
 function guitar(): Song {
@@ -45,7 +46,27 @@ describe('the picker’s families and instruments', () => {
   });
 });
 
+/** "Lead" on a steel guitar: a B4 the bass's 24 frets cannot reach and a six-note E chord. */
+function guitarWithChord(): Song {
+  const chord = [note(1, 0), note(2, 0), note(3, 1), note(4, 2), note(5, 2), note(6, 0)];
+  const song = makeSong([[beat(960, [note(1, 7)]), beat(1920, chord)]]);
+  return { ...onStrings(song, [64, 59, 55, 50, 45, 40], { program: 25 }), tracks: song.tracks.map((track) => ({ ...track, name: 'Lead' })) };
+}
+
 describe('what an instrument does to the track, before it is picked', () => {
+  it('previews what the new strings cannot keep, as picking it would: notes moved an octave and notes left out', () => {
+    expect(choiceDetail(guitarWithChord(), 0, 33, true)).toBe('Bass · 4 strings · E A D G · 1 note moved an octave · 2 notes left out');
+  });
+
+  it('tells a change of what the track is (strings, tuning, clef, drums) from a change of its sound alone', () => {
+    expect(isKindChange(guitar(), 0, 33, true)).toBe(true);
+    expect(isKindChange(guitar(), 0, 33, false)).toBe(false);
+    expect(isKindChange(guitar(), 0, 30, true)).toBe(false);
+    expect(isKindChange(guitar(), 0, 56, true)).toBe(false);
+    expect(isKindChange(guitar(), 0, 'drums', false)).toBe(true);
+    expect(isKindChange(drums(), 0, 0, false)).toBe(true);
+  });
+
   it('names the strings and tuning another kind gives the track, unless only the sound is to change', () => {
     expect(choiceDetail(guitar(), 0, 33, true)).toBe('Bass · 4 strings · E A D G');
     expect(choiceDetail(guitar(), 0, 33, false)).toBeUndefined();
@@ -70,6 +91,10 @@ describe('what an instrument does to the track, before it is picked', () => {
       'Drum Kit for “Lead”? Drums and pitched instruments cannot play each other’s notes: its 2 notes are taken out, the rhythm staying as rests. ⌘Z puts them back.',
     );
     expect(notesLostQuestion(guitar(), 0, 33)).toBeUndefined();
+    const one = { ...guitar(), tracks: guitar().tracks.map((track) => ({ ...track, measures: [{ ...track.measures[0]!, beats: [beat(960, [note(1, 3)])] }] })) };
+    expect(notesLostQuestion(one, 0, 'drums')).toBe(
+      'Drum Kit for “Lead”? Drums and pitched instruments cannot play each other’s notes: its 1 note is taken out, the rhythm staying as rests. ⌘Z puts it back.',
+    );
     const empty = { ...guitar(), tracks: guitar().tracks.map((track) => ({ ...track, measures: track.measures.map((measure) => ({ ...measure, beats: [] })) })) };
     expect(notesLostQuestion(empty, 0, 'drums')).toBeUndefined();
   });
@@ -92,6 +117,20 @@ describe('instrumentChangeHint', () => {
   it('says a drum track came of it and how many notes went', () => {
     const plan = planInstrumentChange(guitar(), 0, 'drums')!;
     expect(instrumentChangeHint(guitar(), 0, plan, setTrackInstrument(guitar(), 0, 'drums'))).toBe('“Lead” is now a drum track. 2 notes taken out: drums and pitched instruments cannot play each other’s notes.');
+  });
+
+  it('says what instrument a drum track now plays when it is no guitar, bass or keyboard', () => {
+    const plan = planInstrumentChange(drums(), 0, 68)!;
+    expect(instrumentChangeHint(drums(), 0, plan, setTrackInstrument(drums(), 0, 68))).toBe(
+      '“Guitar” now plays as Oboe: 6 strings, E A D G B E. 2 notes taken out: drums and pitched instruments cannot play each other’s notes.',
+    );
+  });
+
+  it('says nothing when only the sound changed, also on a channel another track shares (copied for this track)', () => {
+    const song = guitar();
+    const shared = withTrack(song, [[beat(960, [note(1, 3)])]], { channelId: song.tracks[0]!.channelId });
+    const plan = planInstrumentChange(shared, 0, 33)!;
+    expect(instrumentChangeHint(shared, 0, plan, setTrackInstrument(shared, 0, 33, { keepsTrack: true }))).toBeUndefined();
   });
 
   it('says nothing when only the sound changed', () => {

@@ -2,7 +2,7 @@
 import { resolveTrackInstrument } from '../../edit/tuning-presets';
 import { GpFormatError } from '../../errors';
 import type { Charset } from '../../io/text';
-import { DEFAULT_CHANNEL, EMPTY_SONG_INFO, RED } from '../../model/defaults';
+import { DEFAULT_CHANNEL, EMPTY_SONG_INFO, PERCUSSION_TUNING, RED } from '../../model/defaults';
 import { type Channel, type MeasureHeader, QUARTER_TIME, type Song, type Track } from '../../model/song';
 import { GM_INSTRUMENT_NAMES, createChannelName, isGmBassProgram } from '../common/channels';
 import type { DetectedFormat } from '../detect';
@@ -13,7 +13,7 @@ import { type HeaderTimeline, buildHeaderTimeline } from './midi-headers';
 import { type NotePlacer, buildTrackMeasures } from './midi-measures';
 import { type MidiTrackEvents, splitFormat0 } from './midi-sequence';
 import { type MidiSettings, resolveMidiSettings } from './midi-settings';
-import { PERCUSSION_STRING_COUNT, placePercussionNotes, placePitchedNotes, resolveImportTuning } from './midi-strings';
+import { placePercussionNotes, placePitchedNotes, resolveImportTuning } from './midi-strings';
 import { type ParsedTracks, type PitchRange, type RawTrack, parseTracks } from './midi-track-parser';
 
 /** Most song tracks an import makes. */
@@ -60,7 +60,7 @@ function buildTrack(raw: RawTrack, index: number, channelId: number, range: Pitc
   const channel = context.channels.find((candidate) => candidate.id === channelId);
   const isPercussion = channel?.isPercussion ?? false;
   const tuning = isPercussion
-    ? Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0)
+    ? PERCUSSION_TUNING
     : resolveImportTuning(range, isGmBassProgram(channel?.program ?? DEFAULT_CHANNEL.program));
   const draft: Track = {
     number: index + 1,

@@ -7,7 +7,7 @@ import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { type LayoutAction, applyLayoutAction } from './layout-edits';
 import { type SongAction, applySongAction } from './song-actions';
-import { DRUM_TRACK_MODE, setTrackMode } from './track-display';
+import { DRUM_TRACK_MODE, followDrumChanges, setTrackMode } from './track-display';
 import { type TrackAction, applyTrackAction } from './track-edits';
 import { followTrackChanges } from './track-remap';
 import { transpositionHint } from './transposition';
@@ -91,8 +91,8 @@ export function retune(state: EditorState, trackIndex: number, tuning: readonly 
 
 /**
  * The instrument picker's choice for a track (one undo step): the cursor stays on the track's strings, a track made
- * drums shows as notation only (as Add Track shows one) and a drum track made pitched as the score does; the hint says
- * what the track became and what it could not keep.
+ * drums shows as notation only (as Add Track shows one) and a drum track made pitched follows the score's mode (undo and
+ * redo the same, followTrackChanges); the hint says what the track became and what it could not keep.
  */
 export function changeInstrument(state: EditorState, trackIndex: number, instrument: InstrumentChoice, keepsTrack: boolean): EditorState {
   const { document } = state;
@@ -106,7 +106,6 @@ export function changeInstrument(state: EditorState, trackIndex: number, instrum
     return state;
   }
   const cursor = state.cursor === undefined ? undefined : clampCursor(change.song, state.cursor);
-  const mode = plan.to === 'drums' ? DRUM_TRACK_MODE : plan.from === 'drums' ? state.mode : undefined;
-  const trackDisplay = mode === undefined ? state.trackDisplay : setTrackMode(state.trackDisplay, trackIndex, mode);
+  const trackDisplay = followDrumChanges(state.trackDisplay, document.song, change.song, document.song.tracks.map((_, index) => index));
   return { ...recorded, cursor, trackDisplay, hint: instrumentChangeHint(document.song, trackIndex, plan, change) };
 }

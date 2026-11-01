@@ -84,7 +84,7 @@ export interface Command {
 }
 
 /** When a command can run (`notes`: a note at the cursor or a selection, as the palette's Delete). */
-export type Requirement = 'always' | 'document' | 'note' | 'beat' | 'bar' | 'notes' | 'undo' | 'redo' | 'tabs' | 'pitched';
+export type Requirement = 'always' | 'document' | 'note' | 'beat' | 'bar' | 'notes' | 'undo' | 'redo' | 'tabs';
 
 export function isRequirementMet(requirement: Requirement, state: CommandState): boolean {
   switch (requirement) {
@@ -101,8 +101,6 @@ export function isRequirementMet(requirement: Requirement, state: CommandState):
       return state.canRedo;
     case 'tabs':
       return state.tabCount > 1;
-    case 'pitched':
-      return state.hasDocument && !state.isPercussion;
     case 'document':
       return state.hasDocument;
   }

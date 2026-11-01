@@ -1,7 +1,7 @@
 import { type Song, type TrackIndexMap, isIdentityTrackMap, matchTrackIndexes, remapTrackIndex } from '@gp-editor/core';
 import { clampCursor, firstCursor } from '../lib/navigation';
 import type { EditorState } from './editor';
-import { DRUM_TRACK_MODE, remapTrackDisplay, setTrackMode } from './track-display';
+import { DRUM_TRACK_MODE, followDrumChanges, remapTrackDisplay, setTrackMode } from './track-display';
 
 /** The shown track after a track edit: where it went; when it was deleted, the track now at its place (else the last). */
 function followShownTrack(map: TrackIndexMap, trackIndex: number, song: Song): number {
@@ -35,14 +35,14 @@ function newTrackIndexes(map: TrackIndexMap, after: Song): readonly number[] {
 
 /**
  * After an undo or a redo from `before` to `after` (or an edit that adds tracks): when the tracks themselves changed,
- * the state follows them, and a drum track that comes (back) without a view of its own is shown as notation.
+ * the state follows them, and a drum track that comes (back) without a view of its own is shown as notation; a track
+ * that turned drums or pitched (an instrument chosen, undone or redone) gets the view it would have (followDrumChanges).
  */
 export function followTrackChanges(state: EditorState, before: Song, after: Song): EditorState {
   const map = matchTrackIndexes(before, after);
-  if (isIdentityTrackMap(map, after.tracks.length)) {
-    return state;
-  }
-  const followed = remapEditorTracks(state, map);
+  const followed = isIdentityTrackMap(map, after.tracks.length) ? state : remapEditorTracks(state, map);
   const drums = newTrackIndexes(map, after).filter((trackIndex) => after.tracks[trackIndex]?.isPercussion === true && followed.trackDisplay.trackModes[trackIndex] === undefined);
-  return drums.length === 0 ? followed : { ...followed, trackDisplay: drums.reduce((display, trackIndex) => setTrackMode(display, trackIndex, DRUM_TRACK_MODE), followed.trackDisplay) };
+  const withDrums = drums.reduce((display, trackIndex) => setTrackMode(display, trackIndex, DRUM_TRACK_MODE), followed.trackDisplay);
+  const trackDisplay = followDrumChanges(withDrums, before, after, map);
+  return trackDisplay === followed.trackDisplay ? followed : { ...followed, trackDisplay };
 }

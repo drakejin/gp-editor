@@ -606,11 +606,11 @@ export const EN_TOOLS = {
   'tools.tuning.retuned': 'Retuned: {parts}. ⌘Z restores the old tuning.',
   'tools.instrument.now': '“{track}” is now {kind}: {strings}, {tuning}.',
   'tools.instrument.nowDrums': '“{track}” is now a drum track.',
+  'tools.instrument.nowPlays': '“{track}” now plays as {instrument}: {strings}, {tuning}.',
   'tools.instrument.notesOut': '{notes} taken out: drums and pitched instruments cannot play each other’s notes.',
   'tools.instrument.kind.guitar': 'a guitar track',
   'tools.instrument.kind.bass': 'a bass track',
   'tools.instrument.kind.banjo': 'a banjo track',
   'tools.instrument.kind.ukulele': 'a ukulele track',
   'tools.instrument.kind.keys': 'a keyboard track',
-  'tools.instrument.kind.other': 'a {instrument} track',
 } as const satisfies Readonly<Record<string, Message>>;

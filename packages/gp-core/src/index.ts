@@ -45,6 +45,7 @@ export {
   TUNING_PRESETS,
   type TuningPreset,
   findTuningPreset,
+  isSameTuning,
   resolveInstrument,
   resolveTrackInstrument,
   trackTuning,
@@ -165,7 +166,7 @@ export { setNoteGrace, setNoteTremoloPicking, setNoteTrill } from './edit/orname
 export { setNoteAudio } from './edit/note-audio';
 export { DEFAULT_NOTE_AUDIO, NOTE_AUDIO_LIMITS, toNoteAudio } from './model/defaults';
 export { deleteMeasure, deleteMeasures, fillEmptyMeasure, insertMeasure } from './edit/measures';
-export { deleteTrackMeasure, insertTrackMeasure } from './edit/track-measures';
+export { deleteTrackMeasure, deleteTrackMeasures, insertTrackMeasure } from './edit/track-measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
 export {

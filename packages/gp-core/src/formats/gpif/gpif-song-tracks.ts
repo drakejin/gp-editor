@@ -3,6 +3,7 @@ import {
   DEFAULT_CHANNEL,
   DEFAULT_PERCUSSION_BANK,
   DEFAULT_PERCUSSION_CHANNEL,
+  PERCUSSION_TUNING,
   STANDARD_TUNING,
 } from '../../model/defaults';
 import { instrumentIconId, normalizeIconId, normalizeShortName } from '../../edit/track-properties';
@@ -12,7 +13,6 @@ import type { GpifDocument, GpifTrack } from './gpif-document';
 import type { TrackLayout } from './gpif-measure';
 import { pedalAutomationsByBar } from './gpif-pedals';
 
-const PERCUSSION_STRING_COUNT = 6;
 const MAX_MIDI_VALUE = 127;
 const BLACK: Rgb = { r: 0, g: 0, b: 0 };
 
@@ -85,7 +85,7 @@ function buildStrings(gpTrack: GpifTrack, isPercussion: boolean): readonly Guita
   if (pitches !== undefined && pitches.length > 0) {
     return [...pitches].reverse().map((tuning, i) => ({ number: i + 1, tuning }));
   }
-  const tuning = isPercussion ? Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0) : STANDARD_TUNING;
+  const tuning = isPercussion ? PERCUSSION_TUNING : STANDARD_TUNING;
   return tuning.map((value, i) => ({ number: i + 1, tuning: value }));
 }
 

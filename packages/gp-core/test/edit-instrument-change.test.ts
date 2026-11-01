@@ -54,6 +54,14 @@ describe('planInstrumentChange', () => {
     expect(planInstrumentChange(drums, 0, 0)).toEqual({ from: 'drums', to: 'keys', tuning: STANDARD_TUNING, clef: 'treble', notesLost: 3 });
   });
 
+  it('plans nothing for a track without a channel, which no instrument can sound on', () => {
+    const song = guitarSong();
+    const unplayed: Song = { ...song, channels: [] };
+    expect(planInstrumentChange(unplayed, 0, 33)).toBeUndefined();
+    expect(setTrackInstrument(unplayed, 0, 33).song).toBe(unplayed);
+    expect(setTrackInstrument(unplayed, 0, 'drums').song).toBe(unplayed);
+  });
+
   it('plans nothing for a track the song does not have or a program outside 0–127', () => {
     expect(planInstrumentChange(guitarSong(), 3, 33)).toBeUndefined();
     expect(planInstrumentChange(guitarSong(), 0, 128)).toBeUndefined();

@@ -44,24 +44,44 @@ function untieAtBarStart(song: Song, trackIndex: number, measureIndex: number): 
   }, song);
 }
 
-/** The lyrics' first bar (1-based) moved with the music when they start in the moved bars. */
-function movedLyrics(lyrics: Lyrics | undefined, measureIndex: number, step: 1 | -1): Lyrics | undefined {
-  const firstIndex = lyrics === undefined ? -1 : lyrics.from - 1;
-  const isMoved = step > 0 ? firstIndex >= measureIndex : firstIndex > measureIndex;
-  return lyrics === undefined || !isMoved ? lyrics : { ...lyrics, from: lyrics.from + step };
-}
-
-/** Which way the track's music moved: one bar later (an inserted bar) or earlier (a deleted one), from `measureIndex`. */
+/** How the track's music moved: `bars` bars later (inserted, > 0) or earlier (deleted, < 0), from `measureIndex`. */
 interface MusicMove {
   readonly measureIndex: number;
-  readonly step: 1 | -1;
+  readonly bars: number;
+}
+
+/** The lyrics' first bar (1-based) moved with the music; lyrics that started in deleted bars start where they were. */
+function movedLyrics(lyrics: Lyrics | undefined, { measureIndex, bars }: MusicMove): Lyrics | undefined {
+  const firstIndex = lyrics === undefined ? -1 : lyrics.from - 1;
+  if (lyrics === undefined || firstIndex < measureIndex) {
+    return lyrics;
+  }
+  const isAfterDeleted = bars > 0 || firstIndex > measureIndex - bars - 1;
+  return isAfterDeleted ? { ...lyrics, from: lyrics.from + bars } : { ...lyrics, from: measureIndex + 1 };
 }
 
 /** The song with the track's measures (and its lyrics' first bar) replaced, and the ties into the moved music checked. */
-function withTrackMusic(song: Song, trackIndex: number, track: Track, measures: readonly Measure[], { measureIndex, step }: MusicMove): Song {
-  const lyrics = movedLyrics(track.lyrics, measureIndex, step);
+function withTrackMusic(song: Song, trackIndex: number, track: Track, measures: readonly Measure[], move: MusicMove): Song {
+  const lyrics = movedLyrics(track.lyrics, move);
   const moved: Track = { ...track, measures, ...(lyrics === undefined ? {} : { lyrics }) };
-  return untieAtBarStart({ ...song, tracks: replaceAt(song.tracks, trackIndex, moved) }, trackIndex, step > 0 ? measureIndex + 1 : measureIndex);
+  const tieCheckIndex = move.bars > 0 ? move.measureIndex + move.bars : move.measureIndex;
+  return untieAtBarStart({ ...song, tracks: replaceAt(song.tracks, trackIndex, moved) }, trackIndex, tieCheckIndex);
+}
+
+/** A beat's own keys that say nothing but "a rest here". */
+const PLAIN_BEAT_KEYS: ReadonlySet<string> = new Set(['start', 'voices', 'stroke', 'pickStroke']);
+
+/** True for a beat that shows more than rests: notes, a stroke, a chord, a text, an annotation, any mark. */
+function isMarkedBeat(beat: Beat): boolean {
+  const hasMarks = Object.entries(beat).some(([key, value]) => value !== undefined && !PLAIN_BEAT_KEYS.has(key));
+  return hasMarks || beat.stroke.direction !== 'none' || beat.pickStroke !== 'none' || beat.voices.some((voice) => voice.notes.length > 0);
+}
+
+/** What a bar shows beyond its rests, whatever rests fill it: its clef, pedal marks and marked beats by place in the bar. */
+function barContent(measure: Measure | undefined, header: MeasureHeader | undefined): string {
+  const start = header?.start ?? 0;
+  const beats = (measure?.beats ?? []).filter(isMarkedBeat).map((beat) => ({ ...beat, start: beat.start - start }));
+  return JSON.stringify({ clef: measure?.clef, pedals: measure?.pedals ?? [], beats });
 }
 
 function isBarOf(song: Song, track: Track | undefined, measureIndex: number): track is Track {
@@ -90,28 +110,39 @@ export function insertTrackMeasure(song: Song, trackIndex: number, measureIndex:
     }
     return index === measureIndex || music === undefined || from === undefined ? restMeasure(track, measureIndex, header, index) : moveMusic(music, from, header, index, slot.keySignature);
   });
-  return withTrackMusic(longer, trackIndex, track, measures, { measureIndex, step: 1 });
+  return withTrackMusic(longer, trackIndex, track, measures, { measureIndex, bars: 1 });
 }
 
 /**
- * New song without the track's bar at `measureIndex`: its later bars move one bar earlier (fitted as insertTrackMeasure
- * fits them) and its last bar becomes rests; the song keeps its bars and the other tracks are untouched. A tie into
- * the moved music that no longer continues its note is undone. Same song for a track or bar it lacks.
+ * New song without the track's bars from `firstIndex` to `lastIndex` (inclusive, either order; the selection): its later
+ * bars move that many bars earlier (fitted as insertTrackMeasure fits them) and its last bars become rests; the song
+ * keeps its bars and the other tracks are untouched. A tie into the moved music that no longer continues its note is
+ * undone. Same song for a track or bar it lacks, and when nothing would change: from the run on, the track shows only
+ * rests (whatever rests fill its bars).
  */
-export function deleteTrackMeasure(song: Song, trackIndex: number, measureIndex: number): Song {
+export function deleteTrackMeasures(song: Song, trackIndex: number, firstIndex: number, lastIndex: number): Song {
   const track = song.tracks[trackIndex];
-  if (!isBarOf(song, track, measureIndex)) {
+  const first = Math.min(firstIndex, lastIndex);
+  const count = Math.abs(lastIndex - firstIndex) + 1;
+  if (!isBarOf(song, track, first) || !isBarOf(song, track, first + count - 1)) {
     return song;
   }
-  const lastIndex = song.measureHeaders.length - 1;
+  const finalIndex = song.measureHeaders.length - 1;
+  const headers = song.measureHeaders;
   const measures = track.measures.map((slot, index) => {
-    const header = song.measureHeaders[index];
-    const music = track.measures[index + 1];
-    const from = song.measureHeaders[index + 1];
-    if (index < measureIndex || header === undefined) {
+    const header = headers[index];
+    const music = track.measures[index + count];
+    const from = headers[index + count];
+    if (index < first || header === undefined) {
       return slot;
     }
-    return music === undefined || from === undefined ? restMeasure(track, lastIndex, header, index) : moveMusic(music, from, header, index, slot.keySignature);
+    return music === undefined || from === undefined ? { ...restMeasure(track, finalIndex, header, index), keySignature: slot.keySignature } : moveMusic(music, from, header, index, slot.keySignature);
   });
-  return withTrackMusic(song, trackIndex, track, measures, { measureIndex, step: -1 });
+  const isUnchanged = measures.every((measure, index) => index < first || barContent(measure, headers[index]) === barContent(track.measures[index], headers[index]));
+  return isUnchanged ? song : withTrackMusic(song, trackIndex, track, measures, { measureIndex: first, bars: -count });
+}
+
+/** deleteTrackMeasures for the one bar at `measureIndex`. */
+export function deleteTrackMeasure(song: Song, trackIndex: number, measureIndex: number): Song {
+  return deleteTrackMeasures(song, trackIndex, measureIndex, measureIndex);
 }

@@ -604,11 +604,11 @@ export const KO_TOOLS: Catalog<typeof EN_TOOLS> = {
   'tools.tuning.retuned': '튜닝을 바꿨습니다: {parts}. ⌘Z로 이전 튜닝을 되돌립니다.',
   'tools.instrument.now': '“{track}”: 이제 {kind}입니다 ({strings}, {tuning}).',
   'tools.instrument.nowDrums': '“{track}”: 이제 드럼 트랙입니다.',
+  'tools.instrument.nowPlays': '“{track}”: 이제 {instrument} 소리로 연주합니다 ({strings}, {tuning}).',
   'tools.instrument.notesOut': '{notes}를 뺐습니다: 드럼과 음정 악기는 서로의 음을 연주할 수 없습니다.',
   'tools.instrument.kind.guitar': '기타 트랙',
   'tools.instrument.kind.bass': '베이스 트랙',
   'tools.instrument.kind.banjo': '밴조 트랙',
   'tools.instrument.kind.ukulele': '우쿨렐레 트랙',
   'tools.instrument.kind.keys': '건반 트랙',
-  'tools.instrument.kind.other': '{instrument} 트랙',
 };

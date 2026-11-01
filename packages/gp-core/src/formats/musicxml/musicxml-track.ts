@@ -1,7 +1,7 @@
 // A MusicXML part as a track and its channel (no TuxGuitar reader exists; mirrors MusicXMLWriter#writeTrack / #writePartList).
 import { neckFrets } from '../../edit/string-placement';
 import { normalizeShortName } from '../../edit/track-properties';
-import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, RED, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
+import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, PERCUSSION_TUNING, RED, STANDARD_BASS_TUNING, STANDARD_TUNING } from '../../model/defaults';
 import type { Channel, Lyrics, Measure, MeasureHeader, Ottava, Track } from '../../model/song';
 import { createChannelName, isGmBassProgram } from '../common/channels';
 import { DEFAULT_VELOCITY } from '../common/velocity';
@@ -26,7 +26,6 @@ export interface BuiltTrack {
 }
 
 const PERCUSSION_MIDI_CHANNEL = 10;
-const PERCUSSION_STRING_COUNT = 6;
 const BASS_PROGRAM = 33;
 /** Guitar Pro tracks hold two voices at least (GP3–GP5). */
 const MIN_VOICES = 2;
@@ -57,7 +56,7 @@ function resolveTuning(layout: PartLayout, isPercussion: boolean, isBass: boolea
     return [...layout.tuning.lowestFirst].reverse();
   }
   if (isPercussion) {
-    return Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0);
+    return PERCUSSION_TUNING;
   }
   return isBass ? STANDARD_BASS_TUNING : STANDARD_TUNING;
 }

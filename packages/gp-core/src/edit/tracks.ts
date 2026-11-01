@@ -2,8 +2,7 @@
 // TGRemoveTrackAction (LGPL-2.1): a new track gets a channel of its own (TGSongManager.addChannel), drums the
 // percussion bank, which the MIDI routes put on channel 10 (midi/channel-routes.ts).
 import { GM_INSTRUMENT_NAMES, createChannelName } from '../formats/common/channels';
-import { PERCUSSION_STRING_COUNT } from '../formats/midi/midi-strings';
-import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, RED } from '../model/defaults';
+import { DEFAULT_CHANNEL, DEFAULT_PERCUSSION_BANK, PERCUSSION_TUNING, RED } from '../model/defaults';
 import type { Channel, Clef, Song, Track } from '../model/song';
 import { restMeasure } from './measures';
 import { insertAt } from './song-paths';
@@ -37,7 +36,7 @@ interface ResolvedTrack {
 
 function resolveTuning(spec: TrackKindSpec, tuning: readonly number[] | undefined): readonly number[] | undefined {
   if (spec.kind === 'drums') {
-    return Array.from({ length: PERCUSSION_STRING_COUNT }, () => 0);
+    return PERCUSSION_TUNING;
   }
   if (tuning === undefined) {
     return trackTuningChoices(spec.kind, spec.stringCounts[0] ?? 0)[0]?.tuning;

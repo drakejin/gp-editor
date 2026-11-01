@@ -19,7 +19,6 @@ import {
   setTrackLyrics,
   setTrackMute,
   setTrackName,
-  setTrackProgram,
   setTrackShortName,
   setTrackSlashNotation,
   setTrackSolo,
@@ -32,8 +31,6 @@ export type TrackBeat = Omit<BeatAddress, 'voiceIndex'>;
 
 /** Edits of one track or of the song itself, not at the cursor; each is one undo step. */
 export type SongAction =
-  /** The General MIDI instrument a track plays (saved with the song). */
-  | { readonly type: 'setTrackProgram'; readonly trackIndex: number; readonly program: number }
   | { readonly type: 'setTrackName'; readonly trackIndex: number; readonly name: string }
   /** Guitar Pro's abbreviated name (blank: the name abbreviated). */
   | { readonly type: 'setTrackShortName'; readonly trackIndex: number; readonly shortName: string }
@@ -63,7 +60,7 @@ export type SongAction =
   | { readonly type: 'setSongInfo'; readonly info: Partial<SongInfo> };
 
 export const isSongAction = isOfTypes<SongAction>({
-  setTrackProgram: true, setTrackName: true, setTrackShortName: true, setTrackColor: true, setTrackIcon: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
+  setTrackName: true, setTrackShortName: true, setTrackColor: true, setTrackIcon: true, setTrackMute: true, setTrackSolo: true, setTrackVolume: true, setTrackBalance: true,
   setTrackCapo: true, setTrackSlashNotation: true, setTrackEffects: true, setMasterMix: true, setTrackLyrics: true, setSongInfo: true,
   setBeatAnnotation: true, moveBeatAnnotation: true,
 });
@@ -72,8 +69,6 @@ const beatAddress = (beat: TrackBeat): BeatAddress => ({ ...beat, voiceIndex: 0 
 
 export function applySongAction(song: Song, action: SongAction): Song {
   switch (action.type) {
-    case 'setTrackProgram':
-      return setTrackProgram(song, action.trackIndex, action.program);
     case 'setTrackName':
       return setTrackName(song, action.trackIndex, action.name);
     case 'setTrackShortName':

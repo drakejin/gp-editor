@@ -217,9 +217,9 @@ describe('editorReducer: track instrument', () => {
     return editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: withGuitar } });
   }
 
-  it('sets the program of a track as one undo step', () => {
+  it('sets an instrument of the track’s kind as one undo step, only the sound changing', () => {
     // Act
-    const changed = editorReducer(withChannel(), { type: 'setTrackProgram', trackIndex: 0, program: 30 });
+    const changed = editorReducer(withChannel(), { type: 'setTrackInstrument', trackIndex: 0, instrument: 30 });
 
     // Assert
     expect(song(changed).channels[0]?.program).toBe(30);
@@ -227,10 +227,10 @@ describe('editorReducer: track instrument', () => {
     expect(song(editorReducer(changed, { type: 'undo' })).channels[0]?.program).toBe(25);
   });
 
-  it('ignores the current program and a missing track', () => {
+  it('ignores the current instrument and a missing track', () => {
     const start = withChannel();
-    expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 0, program: 25 })).toBe(start);
-    expect(editorReducer(start, { type: 'setTrackProgram', trackIndex: 3, program: 30 })).toBe(start);
+    expect(editorReducer(start, { type: 'setTrackInstrument', trackIndex: 0, instrument: 25 })).toBe(start);
+    expect(editorReducer(start, { type: 'setTrackInstrument', trackIndex: 3, instrument: 30 })).toBe(start);
   });
 
   it.each<[string, EditorAction, (state: EditorState) => unknown, unknown]>([
