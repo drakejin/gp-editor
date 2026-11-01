@@ -1,4 +1,5 @@
-import { type TranspositionOptions, type TranspositionScope, setTrackTuning, transpose } from '@gp-editor/core';
+import { type InstrumentChoice, type TranspositionOptions, type TranspositionScope, planInstrumentChange, setTrackInstrument, setTrackTuning, transpose } from '@gp-editor/core';
+import { instrumentChangeHint } from '../lib/instrument-picker';
 import { clampCursor, firstCursor } from '../lib/navigation';
 import { retuneNotice } from '../lib/tuning-hint';
 import { type AudioTrackAction, applyAudioTrackAction } from './audio-track-edits';
@@ -86,4 +87,26 @@ export function retune(state: EditorState, trackIndex: number, tuning: readonly 
   }
   const cursor = state.cursor === undefined ? undefined : clampCursor(change.song, state.cursor);
   return { ...recorded, cursor, notice: retuneNotice(change) };
+}
+
+/**
+ * The instrument picker's choice for a track (one undo step): the cursor stays on the track's strings, a track made
+ * drums shows as notation only (as Add Track shows one) and a drum track made pitched as the score does; the hint says
+ * what the track became and what it could not keep.
+ */
+export function changeInstrument(state: EditorState, trackIndex: number, instrument: InstrumentChoice, keepsTrack: boolean): EditorState {
+  const { document } = state;
+  const plan = document === undefined ? undefined : planInstrumentChange(document.song, trackIndex, instrument);
+  if (document === undefined || plan === undefined) {
+    return state;
+  }
+  const change = setTrackInstrument(document.song, trackIndex, instrument, { keepsTrack });
+  const recorded = recordSong(state, document, change.song);
+  if (recorded === state) {
+    return state;
+  }
+  const cursor = state.cursor === undefined ? undefined : clampCursor(change.song, state.cursor);
+  const mode = plan.to === 'drums' ? DRUM_TRACK_MODE : plan.from === 'drums' ? state.mode : undefined;
+  const trackDisplay = mode === undefined ? state.trackDisplay : setTrackMode(state.trackDisplay, trackIndex, mode);
+  return { ...recorded, cursor, trackDisplay, hint: instrumentChangeHint(document.song, trackIndex, plan, change) };
 }

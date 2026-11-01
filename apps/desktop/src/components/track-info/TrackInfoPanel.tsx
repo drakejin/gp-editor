@@ -135,7 +135,6 @@ function Footer(props: TrackInfoPanelProps & { readonly isFollowingInstrument: b
           palette={palette}
           label={t('window.trackInfo.instrument')}
           tooltip={isPercussion ? t('window.trackInfo.drumsInstrument') : t('window.trackInfo.instrumentTooltip')}
-          isEnabled={!isPercussion}
           onPress={editInstrument}
         />
       </View>

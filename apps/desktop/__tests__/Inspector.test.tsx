@@ -175,10 +175,13 @@ describe('Inspector TRACK tab', () => {
     expect(inspector.button('Capo one fret lower')?.props.isEnabled).toBe(false);
   });
 
-  it('shows a drum track’s kit and no capo', () => {
+  it('shows a drum track’s kit and no capo, the kit opening the instrument picker (a pitched instrument makes it a pitched track)', () => {
     const drums: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, isPercussion: true })), channels: [{ ...GUITAR, isPercussion: true }] };
     const inspector = render({ song: drums });
-    expect(inspector.button('Guitar Pro 3–5 files hold no drum-kit setting')?.props.isEnabled).toBe(false);
+    const kit = inspector.button('Choose the track’s instrument: a pitched one makes it a pitched track, its drum notes taken out (asked first). Another kit cannot be chosen: Guitar Pro 3–5 files hold no drum-kit setting');
+    expect(kit?.props.isEnabled).not.toBe(false);
+    ReactTestRenderer.act(() => kit?.props.onPress());
+    expect(inspector.props.onEditInstrument).toHaveBeenCalledWith(0);
     expect(inspector.button('Capo one fret higher')).toBeUndefined();
   });
 

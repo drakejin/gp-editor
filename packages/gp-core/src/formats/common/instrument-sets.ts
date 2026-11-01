@@ -39,6 +39,18 @@ const PROGRAM_SETS: ReadonlyMap<number, readonly [string, number]> = new Map([
 ]);
 const DRUM_SET: InstrumentSet = { name: 'Drums', type: 'drumKit', iconId: ICON.drums, isStringed: false };
 const GUITAR_FAMILY = 3;
+/** General MIDI families played as keyboards: pianos (0–7) and organs (16–23). */
+const KEYBOARD_FAMILIES: ReadonlySet<number> = new Set([0, 2]);
+
+/** True for a General MIDI guitar (24–31: nylon, steel, jazz, clean, muted, overdrive, distortion, harmonics). */
+export function isGuitarProgram(program: number): boolean {
+  return gmFamilyIndex(program) === GUITAR_FAMILY;
+}
+
+/** True for a General MIDI piano or organ (0–7, 16–23): played on a keyboard, written with piano fingering. */
+export function isKeyboardProgram(program: number): boolean {
+  return KEYBOARD_FAMILIES.has(gmFamilyIndex(program));
+}
 
 /** "Steel Guitar" → "steelGuitar", as Guitar Pro types its instrument sets. */
 function typeOf(name: string): string {
@@ -53,7 +65,7 @@ export function instrumentSetOf(program: number, isPercussion: boolean): Instrum
   }
   const family = gmFamilyIndex(program);
   const [name, iconId] = PROGRAM_SETS.get(program) ?? FAMILY_SETS[family] ?? ['Steel Guitar', ICON.steelGuitar];
-  return { name, type: typeOf(name), iconId, isStringed: family === GUITAR_FAMILY || isGmBassProgram(program) };
+  return { name, type: typeOf(name), iconId, isStringed: isGuitarProgram(program) || isGmBassProgram(program) };
 }
 
 /** General MIDI program 43: the contrabass, written an octave above its sound like the guitars and basses. */
@@ -77,7 +89,7 @@ export function isUkuleleTuning(tuning: readonly number[]): boolean {
  * `GeneralMidi.isGuitar`). The score, the MusicXML writer and the PDF import's builder all take it from here.
  */
 export function writtenTransposition(program: number, isPercussion: boolean, tuning: readonly number[]): number {
-  const isGuitar = gmFamilyIndex(program) === GUITAR_FAMILY && !isUkuleleTuning(tuning);
+  const isGuitar = isGuitarProgram(program) && !isUkuleleTuning(tuning);
   const isWrittenOctaveUp = isGuitar || isGmBassProgram(program) || program === GM_BANJO_PROGRAM || program === CONTRABASS_PROGRAM;
   return !isPercussion && isWrittenOctaveUp ? WRITTEN_OCTAVE : 0;
 }

@@ -17,7 +17,7 @@ export function isMidiValue(value: number): boolean {
  * of it instead (a new id, named after its program), so the other track keeps its sound. Same song when the track or
  * its channel is missing, or `change` returns the channel it was given.
  */
-function updateTrackChannel(song: Song, trackIndex: number, change: (channel: Channel) => Channel): Song {
+export function updateTrackChannel(song: Song, trackIndex: number, change: (channel: Channel) => Channel): Song {
   const track = song.tracks[trackIndex];
   const channelIndex = song.channels.findIndex((channel) => channel.id === track?.channelId);
   const channel = song.channels[channelIndex];

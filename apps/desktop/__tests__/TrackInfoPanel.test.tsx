@@ -118,7 +118,7 @@ describe('TrackInfoPanel', () => {
     expect(panel.props.onSetTrackShortName).toHaveBeenCalledWith(0, 'L.Gt');
   });
 
-  it('closes to open the instrument picker, which a drum track has not', () => {
+  it('closes to open the instrument picker, for a drum track too', () => {
     // Arrange
     const guitar = render();
     const drums = render({ trackIndex: 1 });
@@ -129,7 +129,7 @@ describe('TrackInfoPanel', () => {
     // Assert
     expect(guitar.props.onClose).toHaveBeenCalledTimes(1);
     expect(guitar.props.onEditInstrument).toHaveBeenCalledWith(0);
-    expect(drums.button('Instrument…')?.props.isEnabled).toBe(false);
+    expect(drums.button('Instrument…')?.props.isEnabled).not.toBe(false);
     expect(drums.control('Drums').props.accessibilityState).toEqual({ selected: true });
   });
 

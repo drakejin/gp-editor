@@ -264,7 +264,6 @@ function TrackSoundView({ palette, trackIndex, isPercussion, instrumentName, onE
           palette={palette}
           label={isPercussion ? t('tools.inspector.drums') : `♪ ${instrumentName ?? t('common.instrument')} ▾`}
           tooltip={isPercussion ? t('tools.inspector.drumsTooltip') : t('tools.inspector.instrumentTooltip')}
-          isEnabled={!isPercussion}
           onPress={() => onEditInstrument(trackIndex)}
         />
       </InspectorField>

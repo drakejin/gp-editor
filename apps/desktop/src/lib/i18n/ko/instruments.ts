@@ -4,6 +4,7 @@ import type { Catalog } from '../messages';
 /** Korean names of the instruments, drums and tunings: the keys of ../en/instruments.ts, in the words of ../glossary.md. */
 export const KO_INSTRUMENTS: Catalog<typeof EN_INSTRUMENTS> = {
   'instruments.drums': '드럼',
+  'instruments.drumKit': '드럼 키트',
   'instruments.program': '프로그램 {number}',
   // General MIDI programs 0–127 (gp-core GM_INSTRUMENT_NAMES)
   'instruments.gm.0': '어쿠스틱 그랜드 피아노',

@@ -165,6 +165,15 @@ export { deleteTrackMeasure, insertTrackMeasure } from './edit/track-measures';
 export { NEW_SONG_MEASURES, buildNewSong } from './edit/new-song';
 export { setTrackBalance, setTrackMute, setTrackProgram, setTrackSolo, setTrackVolume } from './edit/track-sound';
 export {
+  type InstrumentChange,
+  type InstrumentChoice,
+  type InstrumentOptions,
+  type InstrumentPlan,
+  planInstrumentChange,
+  programTrackKind,
+  setTrackInstrument,
+} from './edit/instrument-change';
+export {
   MAX_CAPO,
   abbreviateTrackName,
   instrumentIconId,
@@ -256,7 +265,7 @@ export {
 } from './edit/audio-track';
 export { setSongInfo } from './edit/song-info';
 export { GM_BANJO_PROGRAM, GM_DRUM_KEYS, GM_INSTRUMENT_FAMILIES, GM_INSTRUMENT_NAMES, gmFamilyIndex, gmPercussionKey, gmPercussionName } from './formats/common/channels';
-export { writtenTransposition } from './formats/common/instrument-sets';
+export { isGuitarProgram, isKeyboardProgram, writtenTransposition } from './formats/common/instrument-sets';
 export { BANJO_DRONE_FRET, fretFromTab, isFiveStringBanjo, stringStartFret, tabFret } from './edit/banjo';
 export { toggleDrumNote } from './edit/drum-notes';
 export {

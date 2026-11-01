@@ -225,7 +225,7 @@ describe('command registry: when a command can run', () => {
     expect(find('edit.redo').isEnabled({ ...ON_NOTE, canRedo: true })).toBe(true);
     expect(find('file.nextTab').isEnabled(ON_NOTE)).toBe(false);
     expect(find('file.nextTab').isEnabled({ ...ON_NOTE, tabCount: 2 })).toBe(true);
-    expect(find('tools.instrument').isEnabled({ ...ON_NOTE, isPercussion: true })).toBe(false);
+    expect(find('tools.instrument').isEnabled({ ...ON_NOTE, isPercussion: true })).toBe(true);
     expect(find('edit.deleteNotes').isEnabled(ON_NOTE)).toBe(true);
     expect(find('edit.deleteNotes').isEnabled(noNote)).toBe(false);
     expect(find('edit.deleteNotes').isEnabled({ ...noNote, hasSelection: true })).toBe(true);

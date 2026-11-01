@@ -6,6 +6,7 @@ import type { Message } from '../messages';
  */
 export const EN_INSTRUMENTS = {
   'instruments.drums': 'Drums',
+  'instruments.drumKit': 'Drum Kit',
   'instruments.program': 'Program {number}',
   // General MIDI programs 0–127 (gp-core GM_INSTRUMENT_NAMES)
   'instruments.gm.0': 'Acoustic Grand Piano',

@@ -1,4 +1,4 @@
-import { type PlayedNote, type BeatFragment, type Song, type StringAddress, type TranspositionOptions, type TranspositionScope, buildNewSong } from '@gp-editor/core';
+import { type InstrumentChoice, type PlayedNote, type BeatFragment, type Song, type StringAddress, type TranspositionOptions, type TranspositionScope, buildNewSong } from '@gp-editor/core';
 import type { DigitPress } from '../lib/fret-input';
 import { adjacentBeat, firstCursor, voiceWithNoteAt } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
@@ -19,7 +19,7 @@ import {
   typeFret,
   withCursor,
 } from './cursor-edits';
-import { editAudioTrack, editLayout, editSong, editTracks, retune, selectTrack, transposeSong } from './document-edits';
+import { changeInstrument, editAudioTrack, editLayout, editSong, editTracks, retune, selectTrack, transposeSong } from './document-edits';
 import { markSaved, redo, undo } from './editor-history';
 import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
@@ -130,6 +130,11 @@ export type EditorAction =
       readonly trackIndex: number;
       readonly tuning: readonly number[];
     }
+  /**
+   * The instrument picker's choice: the track plays it and becomes that kind of track (strings, tuning, clef, drums), its
+   * notes re-fretted to keep their pitch; `keepsTrack`: only the sound changes. One undo step; the hint says what changed.
+   */
+  | { readonly type: 'setTrackInstrument'; readonly trackIndex: number; readonly instrument: InstrumentChoice; readonly keepsTrack?: boolean }
   | { readonly type: 'dismissNotice' }
   | { readonly type: 'dismissHint' }
   /** The cursor a beat further (as moveCursorBeat), keeping the selection's start where the cursor was. */
@@ -280,6 +285,8 @@ function songEditReducer(state: EditorState, action: EditorAction): EditorState 
   switch (action.type) {
     case 'setTrackTuning':
       return retune(state, action.trackIndex, action.tuning);
+    case 'setTrackInstrument':
+      return changeInstrument(state, action.trackIndex, action.instrument, action.keepsTrack === true);
     case 'setAudioTrack':
     case 'setAudioTrackMix':
     case 'setAudioSyncPoint':

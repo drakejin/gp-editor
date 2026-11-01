@@ -2,12 +2,11 @@ import type { Dispatch } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { useT } from '../hooks/use-i18n';
-import { trackInstrument } from '../lib/instruments';
 import type { EditorAction } from '../state/editor';
 import { type Palette, STRIP_COLORS, onChrome } from '../theme';
 import { InstrumentPicker } from './InstrumentPicker';
 
-/** The instrument picker over the window for a track (none for a drum track: its kit is not a GM program). */
+/** The instrument picker over the window for a track: its choice makes the track that instrument (one undo step). */
 export function PickerOverlay({
   palette,
   song,
@@ -21,16 +20,15 @@ export function PickerOverlay({
   readonly dispatch: Dispatch<EditorAction>;
   readonly onClose: () => void;
 }) {
-  const instrument = trackInstrument(song, trackIndex);
-  if (instrument === undefined || instrument.isPercussion) {
+  if (song.tracks[trackIndex] === undefined) {
     return null;
   }
   return (
     <InstrumentPicker
-      trackName={song.tracks[trackIndex]?.name ?? ''}
-      program={instrument.program}
+      song={song}
+      trackIndex={trackIndex}
       palette={onChrome(palette)}
-      onSetProgram={(program) => dispatch({ type: 'setTrackProgram', trackIndex, program })}
+      onChoose={(instrument, keepsTrack) => dispatch({ type: 'setTrackInstrument', trackIndex, instrument, keepsTrack })}
       onClose={onClose}
     />
   );

@@ -1,14 +1,11 @@
 import { isFiveStringBanjo } from '../edit/banjo';
 import { isVoiceName } from '../edit/track-properties';
 import { isBassTuning, trackTuning } from '../edit/tuning-presets';
-import { GM_BANJO_PROGRAM, gmFamilyIndex, isGmBassProgram } from '../formats/common/channels';
-import { isUkuleleTuning } from '../formats/common/instrument-sets';
+import { GM_BANJO_PROGRAM, isGmBassProgram } from '../formats/common/channels';
+import { isGuitarProgram, isKeyboardProgram, isUkuleleTuning } from '../formats/common/instrument-sets';
 import type { Song } from '../model/song';
 import type { TranscribedInstrument } from '../transcription/types';
 
-/** General MIDI families played as keyboards: pianos (0–7) and organs (16–23). */
-const KEYBOARD_FAMILIES: ReadonlySet<number> = new Set([0, 2]);
-const GUITAR_FAMILY = 3;
 /** General MIDI 52–54: choir aahs, voice oohs, synth voice. */
 const VOICE_PROGRAMS = { first: 52, last: 54 } as const;
 /** What a track plays when it has no channel: a steel guitar, as the readers' default channel. */
@@ -47,8 +44,8 @@ export function trackInstrumentOf(song: Song, trackIndex: number): TranscribedIn
   if (program === GM_BANJO_PROGRAM || isFiveStringBanjo(tuning)) {
     return 'banjo';
   }
-  if (gmFamilyIndex(program) === GUITAR_FAMILY) {
+  if (isGuitarProgram(program)) {
     return isUkuleleTuning(tuning) ? 'ukulele' : isBassTuning(tuning) ? 'bass' : 'guitar';
   }
-  return KEYBOARD_FAMILIES.has(gmFamilyIndex(program)) ? 'keys' : 'other';
+  return isKeyboardProgram(program) ? 'keys' : 'other';
 }
