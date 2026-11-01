@@ -27,12 +27,14 @@ export interface AiEditDraft {
   /** After the preset, ask Claude for easier positions. */
   readonly isPolished: boolean;
   readonly prompt: string;
+  /** An instruction may add bars after the score's last bar (its scope reaching it); else Claude rewrites the bars in place. */
+  readonly mayAddBars: boolean;
 }
 
 /** The preset's stepper: an octave down to an octave up. */
 export const MAX_AI_EDIT_SEMITONES = 12;
 
-export const INITIAL_AI_EDIT_DRAFT: AiEditDraft = { target: 'track', kind: 'lowerKey', semitones: -2, isPolished: false, prompt: '' };
+export const INITIAL_AI_EDIT_DRAFT: AiEditDraft = { target: 'track', kind: 'lowerKey', semitones: -2, isPolished: false, prompt: '', mayAddBars: false };
 
 /** What was written, for the panel's result: the summary, what Claude read and cost (empty without Claude), warnings. */
 export interface AiEditResultView {
@@ -122,7 +124,7 @@ async function presetEdit(context: RunContext, range: AiEditRange, draft: AiEdit
 /** Claude rewrites the range's bars as the user asks, part after part; why not, when nothing came. */
 async function instructionEdit(context: RunContext, range: AiEditRange, draft: AiEditDraft, model: string): Promise<Edit | string> {
   const chunks = planChunks(context.song, range.firstBar, range.lastBar, range.trackIndexes);
-  const plan = { mode: { kind: 'instruction', prompt: draft.prompt } as const, chunks, trackIndexes: range.trackIndexes };
+  const plan = { mode: { kind: 'instruction', prompt: draft.prompt } as const, chunks, trackIndexes: range.trackIndexes, mayAddBars: draft.mayAddBars };
   const answer = await runAiEdit(context.song, plan, model, claudeDeps(context), (step) => context.onProgress(progressOf(step)));
   if (!answer.isOk) {
     return answer.message;

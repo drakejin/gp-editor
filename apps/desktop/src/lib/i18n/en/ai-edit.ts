@@ -35,6 +35,8 @@ export const EN_AI_EDIT = {
   'aiEdit.promptPlaceholder': 'In your words, e.g. “make the riff easier”, “move the solo to the 12th position”, “simplify the chords for a beginner”',
   'aiEdit.ideas': 'Ideas',
   'aiEdit.ideaTooltip': 'Use this as the request',
+  'aiEdit.mayAddBars': 'Claude may add bars after the last bar',
+  'aiEdit.mayAddBarsTooltip': 'When the scope reaches the score’s last bar and the request asks for more, Claude may write bars after it (added at the end). Otherwise it rewrites exactly the scope’s bars',
   'aiEdit.idea.easierRiff': 'Make the riff easier',
   'aiEdit.idea.twelfthPosition': 'Move the solo to the 12th position',
   'aiEdit.idea.simplerChords': 'Simplify the chords for a beginner',

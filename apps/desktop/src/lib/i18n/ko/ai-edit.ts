@@ -33,6 +33,8 @@ export const KO_AI_EDIT: Catalog<typeof EN_AI_EDIT> = {
   'aiEdit.promptPlaceholder': '원하는 말로, 예: “리프를 더 쉽게”, “솔로를 12포지션으로”, “초보자용으로 코드를 단순하게”',
   'aiEdit.ideas': '예시',
   'aiEdit.ideaTooltip': '이 문장을 요청으로 씁니다',
+  'aiEdit.mayAddBars': 'Claude가 마지막 마디 뒤에 마디를 추가해도 됨',
+  'aiEdit.mayAddBarsTooltip': '범위가 악보의 마지막 마디까지이고 요청이 더 원하면, Claude가 그 뒤에 마디를 쓸 수 있습니다 (끝에 추가). 아니면 범위의 마디만 그대로 고쳐 씁니다',
   'aiEdit.idea.easierRiff': '리프를 더 쉽게',
   'aiEdit.idea.twelfthPosition': '솔로를 12포지션으로',
   'aiEdit.idea.simplerChords': '초보자용으로 코드를 단순하게',

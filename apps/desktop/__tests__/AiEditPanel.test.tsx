@@ -94,6 +94,17 @@ describe('AiEditPanel: an instruction', () => {
     expect(panel.props.onRun).toHaveBeenCalledTimes(1);
   });
 
+  it('lets Claude add bars after the last bar only when ticked', () => {
+    // Arrange
+    const panel = render({ draft: { ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: 'longer' } });
+
+    // Act
+    panel.press('☐ Claude may add bars after the last bar');
+
+    // Assert
+    expect(panel.changes()).toEqual([{ mayAddBars: true }]);
+  });
+
   it('waits for words before it can ask, and says so', () => {
     // Arrange
     const panel = render({ draft: { ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: ' ' } });
