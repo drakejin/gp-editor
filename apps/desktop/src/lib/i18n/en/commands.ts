@@ -197,7 +197,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.group.moving': 'Moving around',
   'commands.shortcuts.group.practice': 'Practice',
   'commands.shortcuts.group.everywhere': 'Everywhere',
-  'commands.shortcuts.fret': 'Fret (two quick digits: 10–29)',
+  'commands.shortcuts.fret': 'Fret (two quick digits at one note: 10–29; on drums a key up to 127)',
   'commands.shortcuts.letRing': 'Let ring',
   'commands.shortcuts.slide': 'Slide',
   'commands.shortcuts.hammerOn': 'Hammer-on',

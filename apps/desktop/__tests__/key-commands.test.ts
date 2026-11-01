@@ -1,4 +1,3 @@
-import { DIGIT_WINDOW_MS } from '../src/lib/fret-input';
 import { DELETE_COMMANDS, HANDLED_KEYS, keyCommand } from '../src/lib/key-commands';
 
 const press = (key: string, modifiers: Partial<{ metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) => ({
@@ -11,36 +10,31 @@ const press = (key: string, modifiers: Partial<{ metaKey: boolean; shiftKey: boo
 
 describe('keyCommand practice keys', () => {
   it('toggles the metronome (⌥M), the count-in (⌥C) and the tempo lock (⌥L), and steps the speed by 5% (⌥- / ⌥=)', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('m', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'metronome' });
-    expect(keyCommand(press('c', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'countIn' });
-    expect(keyCommand(press('l', { altKey: true }), digit, 0)).toEqual({ type: 'togglePractice', practice: 'tempoLock' });
-    expect(keyCommand(press('=', { altKey: true }), digit, 0)).toEqual({ type: 'shiftPlaybackSpeed', delta: 5 });
-    expect(keyCommand(press('-', { altKey: true }), digit, 0)).toEqual({ type: 'shiftPlaybackSpeed', delta: -5 });
+    expect(keyCommand(press('m', { altKey: true }))).toEqual({ type: 'togglePractice', practice: 'metronome' });
+    expect(keyCommand(press('c', { altKey: true }))).toEqual({ type: 'togglePractice', practice: 'countIn' });
+    expect(keyCommand(press('l', { altKey: true }))).toEqual({ type: 'togglePractice', practice: 'tempoLock' });
+    expect(keyCommand(press('=', { altKey: true }))).toEqual({ type: 'shiftPlaybackSpeed', delta: 5 });
+    expect(keyCommand(press('-', { altKey: true }))).toEqual({ type: 'shiftPlaybackSpeed', delta: -5 });
   });
 
   it('claims those keys from react-native-macos, M and C alone staying palm mute and the bend panel', () => {
-    const digit = { current: undefined };
     for (const key of ['m', 'c', 'l', '=', '-']) {
       expect(HANDLED_KEYS).toContainEqual({ key, altKey: true });
     }
-    expect(keyCommand(press('m'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
-    expect(keyCommand(press('c'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'bend' });
+    expect(keyCommand(press('m'))).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'palmMute' } });
+    expect(keyCommand(press('c'))).toEqual({ type: 'openNotePanel', panel: 'bend' });
   });
 });
 
 describe('keyCommand voices', () => {
   it('puts the cursor on voice 1 to 4 with ⌘1 to ⌘4, as Guitar Pro 8 does', () => {
-    const digit = { current: undefined };
-    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { metaKey: true }), digit, 0))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'selectVoice', voiceIndex })));
-    expect(keyCommand(press('5', { metaKey: true }), digit, 0)).toBeUndefined();
-    expect(digit.current).toBeUndefined();
+    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { metaKey: true })))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'selectVoice', voiceIndex })));
+    expect(keyCommand(press('5', { metaKey: true }))).toBeUndefined();
   });
 
   it('moves the note (or the selected beats) to voice 1 to 4 with ⌥1 to ⌥4 (Guitar Pro 8’s Move Voice)', () => {
-    const digit = { current: undefined };
-    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { altKey: true }), digit, 0))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'edit', edit: { type: 'moveToVoice', voiceIndex } })));
-    expect(keyCommand(press('5', { altKey: true }), digit, 0)).toEqual({ type: 'setNoteFret', fret: 5 });
+    expect(['1', '2', '3', '4'].map((key) => keyCommand(press(key, { altKey: true })))).toEqual([0, 1, 2, 3].map((voiceIndex) => ({ type: 'edit', edit: { type: 'moveToVoice', voiceIndex } })));
+    expect(keyCommand(press('5', { altKey: true }))).toEqual({ type: 'typeFretDigit', press: { digit: 5, at: 0, keyIndex: 0 } });
   });
 
   it('claims ⌘1 to ⌘4 and ⌥1 to ⌥4 from react-native-macos, the digits alone still typing frets', () => {
@@ -48,79 +42,69 @@ describe('keyCommand voices', () => {
       expect(HANDLED_KEYS).toContainEqual({ key, metaKey: true });
       expect(HANDLED_KEYS).toContainEqual({ key, altKey: true });
     }
-    expect(keyCommand(press('3'), { current: undefined }, 0)).toEqual({ type: 'setNoteFret', fret: 3 });
+    expect(keyCommand(press('3'))).toEqual({ type: 'typeFretDigit', press: { digit: 3, at: 0, keyIndex: 0 } });
   });
 });
 
 describe('keyCommand', () => {
   it('maps arrows to cursor moves and ⌥↑/↓ to moving the note', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('ArrowUp'), digit, 0)).toEqual({ type: 'moveCursorString', delta: -1 });
-    expect(keyCommand(press('ArrowDown'), digit, 0)).toEqual({ type: 'moveCursorString', delta: 1 });
-    expect(keyCommand(press('ArrowLeft'), digit, 0)).toEqual({ type: 'moveCursorBeat', step: -1 });
-    expect(keyCommand(press('ArrowRight'), digit, 0)).toEqual({ type: 'moveCursorBeat', step: 1 });
-    expect(keyCommand(press('ArrowUp', { altKey: true }), digit, 0)).toEqual({ type: 'shiftNoteString', delta: -1 });
-    expect(keyCommand(press('ArrowDown', { altKey: true }), digit, 0)).toEqual({ type: 'shiftNoteString', delta: 1 });
+    expect(keyCommand(press('ArrowUp'))).toEqual({ type: 'moveCursorString', delta: -1 });
+    expect(keyCommand(press('ArrowDown'))).toEqual({ type: 'moveCursorString', delta: 1 });
+    expect(keyCommand(press('ArrowLeft'))).toEqual({ type: 'moveCursorBeat', step: -1 });
+    expect(keyCommand(press('ArrowRight'))).toEqual({ type: 'moveCursorBeat', step: 1 });
+    expect(keyCommand(press('ArrowUp', { altKey: true }))).toEqual({ type: 'shiftNoteString', delta: -1 });
+    expect(keyCommand(press('ArrowDown', { altKey: true }))).toEqual({ type: 'shiftNoteString', delta: 1 });
   });
 
   it('selects beats with ⇧← and ⇧→', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('ArrowLeft', { shiftKey: true }), digit, 0)).toEqual({ type: 'extendSelection', step: -1 });
-    expect(keyCommand(press('ArrowRight', { shiftKey: true }), digit, 0)).toEqual({ type: 'extendSelection', step: 1 });
+    expect(keyCommand(press('ArrowLeft', { shiftKey: true }))).toEqual({ type: 'extendSelection', step: -1 });
+    expect(keyCommand(press('ArrowRight', { shiftKey: true }))).toEqual({ type: 'extendSelection', step: 1 });
   });
 
   it('jumps between bars: ⌥←/→ previous and next, Home and End first and last', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('ArrowLeft', { altKey: true }), digit, 0)).toEqual({ type: 'goToBar', jump: 'previous' });
-    expect(keyCommand(press('ArrowRight', { altKey: true }), digit, 0)).toEqual({ type: 'goToBar', jump: 'next' });
-    expect(keyCommand(press('Home'), digit, 0)).toEqual({ type: 'goToBar', jump: 'first' });
-    expect(keyCommand(press('End'), digit, 0)).toEqual({ type: 'goToBar', jump: 'last' });
+    expect(keyCommand(press('ArrowLeft', { altKey: true }))).toEqual({ type: 'goToBar', jump: 'previous' });
+    expect(keyCommand(press('ArrowRight', { altKey: true }))).toEqual({ type: 'goToBar', jump: 'next' });
+    expect(keyCommand(press('Home'))).toEqual({ type: 'goToBar', jump: 'first' });
+    expect(keyCommand(press('End'))).toEqual({ type: 'goToBar', jump: 'last' });
   });
 
   it('zooms in with ⌘+ (⇧⌘=) too, and back to 100 % with ⌘0', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('+', { metaKey: true, shiftKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: 1 });
-    expect(keyCommand(press('0', { metaKey: true }), digit, 0)).toEqual({ type: 'zoomTo', zoom: 1 });
+    expect(keyCommand(press('+', { metaKey: true, shiftKey: true }))).toEqual({ type: 'zoom', direction: 1 });
+    expect(keyCommand(press('0', { metaKey: true }))).toEqual({ type: 'zoomTo', zoom: 1 });
     expect(HANDLED_KEYS).toContainEqual({ key: '0', metaKey: true });
     expect(HANDLED_KEYS).toContainEqual({ key: '+', metaKey: true, shiftKey: true });
   });
 
   it('zooms the score with ⌘- and ⌘= (- and = alone step the fret)', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('=', { metaKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: 1 });
-    expect(keyCommand(press('-', { metaKey: true }), digit, 0)).toEqual({ type: 'zoom', direction: -1 });
-    expect(keyCommand(press('-'), digit, 0)).toEqual({ type: 'shiftNoteFret', delta: -1 });
+    expect(keyCommand(press('=', { metaKey: true }))).toEqual({ type: 'zoom', direction: 1 });
+    expect(keyCommand(press('-', { metaKey: true }))).toEqual({ type: 'zoom', direction: -1 });
+    expect(keyCommand(press('-'))).toEqual({ type: 'shiftNoteFret', delta: -1 });
   });
 
-  it('types frets, combining two quick digits', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('1'), digit, 0)).toEqual({ type: 'setNoteFret', fret: 1 });
-    expect(keyCommand(press('2'), digit, 10)).toEqual({ type: 'setNoteFret', fret: 12 });
-    expect(keyCommand(press('5'), digit, 10 + DIGIT_WINDOW_MS + 1)).toEqual({ type: 'setNoteFret', fret: 5 });
+  it('types a digit with the moment it was pressed: when and which key press it was (the reducer combines two)', () => {
+    expect(keyCommand(press('1'), { at: 250, index: 7 })).toEqual({ type: 'typeFretDigit', press: { digit: 1, at: 250, keyIndex: 7 } });
+    expect(keyCommand(press('0'), { at: 300, index: 8 })).toEqual({ type: 'typeFretDigit', press: { digit: 0, at: 300, keyIndex: 8 } });
   });
 
   it('maps playback, the playback tempo, fret steps and undo/redo', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press(' '), digit, 0)).toEqual({ type: 'togglePlayback' });
-    expect(keyCommand(press('Escape'), digit, 0)).toEqual({ type: 'stopPlayback' });
-    expect(keyCommand(press(']'), digit, 0)).toEqual({ type: 'shiftPlaybackTempo', delta: 5 });
-    expect(keyCommand(press('['), digit, 0)).toEqual({ type: 'shiftPlaybackTempo', delta: -5 });
-    expect(keyCommand(press('='), digit, 0)).toEqual({ type: 'shiftNoteFret', delta: 1 });
-    expect(keyCommand(press('z', { metaKey: true }), digit, 0)).toEqual({ type: 'undo' });
-    expect(keyCommand(press('Z', { metaKey: true, shiftKey: true }), digit, 0)).toEqual({ type: 'redo' });
-    expect(keyCommand(press('q'), digit, 0)).toBeUndefined();
+    expect(keyCommand(press(' '))).toEqual({ type: 'togglePlayback' });
+    expect(keyCommand(press('Escape'))).toEqual({ type: 'stopPlayback' });
+    expect(keyCommand(press(']'))).toEqual({ type: 'shiftPlaybackTempo', delta: 5 });
+    expect(keyCommand(press('['))).toEqual({ type: 'shiftPlaybackTempo', delta: -5 });
+    expect(keyCommand(press('='))).toEqual({ type: 'shiftNoteFret', delta: 1 });
+    expect(keyCommand(press('z', { metaKey: true }))).toEqual({ type: 'undo' });
+    expect(keyCommand(press('Z', { metaKey: true, shiftKey: true }))).toEqual({ type: 'redo' });
+    expect(keyCommand(press('q'))).toBeUndefined();
   });
 
   it('erases with ⌫ and ⌦: a note becomes a rest, a rest goes away', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('Backspace'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'erase' } });
-    expect(keyCommand(press('Delete'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'erase' } });
-    expect(keyCommand(press('Backspace', { shiftKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteBeat' } });
+    expect(keyCommand(press('Backspace'))).toEqual({ type: 'edit', edit: { type: 'erase' } });
+    expect(keyCommand(press('Delete'))).toEqual({ type: 'edit', edit: { type: 'erase' } });
+    expect(keyCommand(press('Backspace', { shiftKey: true }))).toEqual({ type: 'edit', edit: { type: 'deleteBeat' } });
   });
 
   it('maps the note keys: r ring, s slide, h hammer, p pull, m palm mute, x dead note', () => {
-    const digit = { current: undefined };
-    const edit = (key: string) => keyCommand(press(key), digit, 0);
+    const edit = (key: string) => keyCommand(press(key));
     expect(edit('r')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'letRing' } });
     expect(edit('s')).toEqual({ type: 'edit', edit: { type: 'toggleSlide' } });
     expect(edit('h')).toEqual({ type: 'edit', edit: { type: 'toggleEffect', effect: 'hammer' } });
@@ -130,16 +114,14 @@ describe('keyCommand', () => {
   });
 
   it('opens the vibrato panel with b and the bend (choking) panel with c', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('b'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'vibrato' });
-    expect(keyCommand(press('c'), digit, 0)).toEqual({ type: 'openNotePanel', panel: 'bend' });
-    expect(keyCommand(press('k'), digit, 0)).toEqual({ type: 'openChordPanel' });
-    expect(keyCommand(press('K'), digit, 0)).toEqual({ type: 'openChordPanel' });
+    expect(keyCommand(press('b'))).toEqual({ type: 'openNotePanel', panel: 'vibrato' });
+    expect(keyCommand(press('c'))).toEqual({ type: 'openNotePanel', panel: 'bend' });
+    expect(keyCommand(press('k'))).toEqual({ type: 'openChordPanel' });
+    expect(keyCommand(press('K'))).toEqual({ type: 'openChordPanel' });
   });
 
   it('keeps the other edit keys and moves the duration to ⌥[ and ⌥]', () => {
-    const digit = { current: undefined };
-    const edit = (key: string, modifiers = {}) => keyCommand(press(key, modifiers), digit, 0);
+    const edit = (key: string, modifiers = {}) => keyCommand(press(key, modifiers));
     expect(edit('[', { altKey: true })).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: -1 } });
     expect(edit(']', { altKey: true })).toEqual({ type: 'edit', edit: { type: 'shiftNoteValue', step: 1 } });
     expect(edit('.')).toEqual({ type: 'edit', edit: { type: 'toggleDot' } });
@@ -149,24 +131,21 @@ describe('keyCommand', () => {
   });
 
   it('puts a triplet inside the beat’s tuplet with ⌥/ (and claims the key)', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('/', { altKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'toggleInnerTriplet' } });
+    expect(keyCommand(press('/', { altKey: true }))).toEqual({ type: 'edit', edit: { type: 'toggleInnerTriplet' } });
     expect(HANDLED_KEYS).toContainEqual({ key: '/', altKey: true });
   });
 
   it('copies, cuts and pastes with ⌘C, ⌘X and ⌘V', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('c', { metaKey: true }), digit, 0)).toEqual({ type: 'copy' });
-    expect(keyCommand(press('x', { metaKey: true }), digit, 0)).toEqual({ type: 'cut' });
-    expect(keyCommand(press('v', { metaKey: true }), digit, 0)).toEqual({ type: 'paste' });
+    expect(keyCommand(press('c', { metaKey: true }))).toEqual({ type: 'copy' });
+    expect(keyCommand(press('x', { metaKey: true }))).toEqual({ type: 'cut' });
+    expect(keyCommand(press('v', { metaKey: true }))).toEqual({ type: 'paste' });
   });
 });
 
 describe('keyCommand tracks', () => {
   it('goes to the previous and next track with ⌘↑ and ⌘↓, as Guitar Pro 8 does (and claims the keys)', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('ArrowUp', { metaKey: true }), digit, 0)).toEqual({ type: 'moveCursorTrack', step: -1 });
-    expect(keyCommand(press('ArrowDown', { metaKey: true }), digit, 0)).toEqual({ type: 'moveCursorTrack', step: 1 });
+    expect(keyCommand(press('ArrowUp', { metaKey: true }))).toEqual({ type: 'moveCursorTrack', step: -1 });
+    expect(keyCommand(press('ArrowDown', { metaKey: true }))).toEqual({ type: 'moveCursorTrack', step: 1 });
     expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowUp', metaKey: true });
     expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowDown', metaKey: true });
   });
@@ -174,9 +153,8 @@ describe('keyCommand tracks', () => {
 
 describe('keyCommand delete keys', () => {
   it('deletes the note, or the selected notes, with D, and the bar, or the selected bars, with ⌘D (− Bar’s edit)', () => {
-    const digit = { current: undefined };
-    expect(keyCommand(press('d'), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteNotes' } });
-    expect(keyCommand(press('d', { metaKey: true }), digit, 0)).toEqual({ type: 'edit', edit: { type: 'deleteMeasure' } });
+    expect(keyCommand(press('d'))).toEqual({ type: 'edit', edit: { type: 'deleteNotes' } });
+    expect(keyCommand(press('d', { metaKey: true }))).toEqual({ type: 'edit', edit: { type: 'deleteMeasure' } });
   });
 
   it('claims D and ⌘D from react-native-macos', () => {
@@ -185,8 +163,7 @@ describe('keyCommand delete keys', () => {
   });
 
   it('gives Edit ▸ Delete Notes and Delete Bars the commands of their keys', () => {
-    const digit = { current: undefined };
-    expect(DELETE_COMMANDS.notes).toEqual(keyCommand(press('d'), digit, 0));
-    expect(DELETE_COMMANDS.bars).toEqual(keyCommand(press('d', { metaKey: true }), digit, 0));
+    expect(DELETE_COMMANDS.notes).toEqual(keyCommand(press('d')));
+    expect(DELETE_COMMANDS.bars).toEqual(keyCommand(press('d', { metaKey: true })));
   });
 });

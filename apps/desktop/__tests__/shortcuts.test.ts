@@ -8,7 +8,7 @@ describe('the shortcut sheet', () => {
     const shortcuts = shortcutGroups().flatMap((group) => group.shortcuts);
 
     // Act
-    const unanswered = shortcuts.filter((shortcut) => shortcut.press !== undefined && keyCommand(shortcut.press, { current: undefined }, 0) === undefined);
+    const unanswered = shortcuts.filter((shortcut) => shortcut.press !== undefined && keyCommand(shortcut.press) === undefined);
 
     // Assert
     expect(unanswered.map((shortcut) => shortcut.keys)).toEqual([]);

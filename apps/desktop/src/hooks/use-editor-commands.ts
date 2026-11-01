@@ -1,6 +1,5 @@
 import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 import type { DragEvent, KeyEvent, View } from 'react-native';
-import type { DigitEntry } from '../lib/fret-input';
 import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
 import type { ScoreZoom } from '../lib/score-zoom';
 import { focusView } from '../native/focus-view';
@@ -194,7 +193,8 @@ function runFileOrPlaybackCommand(sources: EditorCommandSources, command: Extrac
  */
 export function useEditorCommands(sources: EditorCommandSources): EditorCommands {
   const { dispatch, openPath, keyboardView } = sources;
-  const lastDigit = useRef<DigitEntry | undefined>(undefined);
+  // Every key press the score sees, counted: a digit joins the one before only when no other key came between them.
+  const keyIndex = useRef(0);
   const runCommand = useStableCallback((command: AppCommand | KeyCommand) => (isWindowCommand(command) ? runWindowCommand(sources, command) : dispatch(command)));
   const onPressBeat = useStableCallback((hit: RowHit, isExtending: boolean) => {
     const { cursor, trackIndex } = sources.state;
@@ -206,10 +206,11 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   const onDragBeat = useCallback((hit: RowHit) => onPressBeat(hit, true), [onPressBeat]);
   const onKeyDown = useStableCallback((event: KeyEvent) => {
     const press = keyPressOf(event);
+    keyIndex.current += 1;
     if (press === undefined || (sources.isOverlayOpen === true && press.key !== 'Escape')) {
       return;
     }
-    const command = keyCommand(press, lastDigit, Date.now());
+    const command = keyCommand(press, { at: Date.now(), index: keyIndex.current });
     if (command !== undefined) {
       claimKey(event);
       runCommand(command);

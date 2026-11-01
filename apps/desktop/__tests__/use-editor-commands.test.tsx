@@ -1,7 +1,8 @@
 import ReactTestRenderer from 'react-test-renderer';
+import { findNote } from '@gp-editor/core';
 import { type EditorCommands, useEditorCommands } from '../src/hooks/use-editor-commands';
 import type { Playback } from '../src/hooks/use-playback';
-import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
+import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { INITIAL_PRACTICE, type PracticeSettings } from '../src/state/practice';
 import { beat, fromTux, makeSong } from '../test-support/songs';
 
@@ -329,5 +330,36 @@ describe('useEditorCommands: playing a selection', () => {
     const { commands, sources } = renderCommands(selected);
     commands.runCommand({ type: 'togglePlayback' });
     expect(sources.changePractice).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditorCommands: typed frets', () => {
+  const key = (k: string) => ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false } }) as never;
+
+  /** The keys typed quickly on the score, and what the dispatched actions make of the song open with the cursor in bar 3. */
+  function typeKeys(keys: readonly string[]): EditorState {
+    const opened = openSong();
+    const { commands, sources } = renderCommands(opened);
+    keys.forEach((k) => commands.onKeyDown(key(k)));
+    return sources.dispatch.mock.calls.map(([action]) => action as EditorAction).reduce(editorReducer, opened);
+  }
+
+  const fretIn = (state: EditorState, measureIndex: number) => findNote(state.document!.song, { trackIndex: 0, measureIndex, beatIndex: 0, voiceIndex: 0, string: 3 })?.fret;
+
+  it('makes 12 of 1 then 2 typed at the same note', () => {
+    expect(fretIn(typeKeys(['1', '2']), 2)).toBe(12);
+  });
+
+  it('types 2 on the next note after 1 and →, however quickly (the 1 does not stay)', () => {
+    // Act
+    const typed = typeKeys(['1', 'ArrowRight', '2']);
+
+    // Assert
+    expect(fretIn(typed, 2)).toBe(1);
+    expect(fretIn(typed, 3)).toBe(2);
+  });
+
+  it('starts a new fret after a key that leaves the score as it is (Space plays)', () => {
+    expect(fretIn(typeKeys(['1', ' ', '2']), 2)).toBe(2);
   });
 });

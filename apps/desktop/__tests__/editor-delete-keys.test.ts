@@ -70,11 +70,7 @@ const drag = (from: StringAddress, to: StringAddress): EditorAction[] => [
 
 /** What a key press runs on the score (D, ⌘D …): an edit at the cursor. */
 function keyAction(key: string, metaKey = false): EditorAction {
-  const command = keyCommand(
-    { key, metaKey, shiftKey: false, altKey: false },
-    { current: undefined },
-    0,
-  );
+  const command = keyCommand({ key, metaKey, shiftKey: false, altKey: false });
   if (command?.type !== 'edit') {
     throw new Error(`no edit for ${key}`);
   }

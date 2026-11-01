@@ -4,7 +4,6 @@ import type { DeleteCommand } from '../native/gp-files';
 import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
-import { type DigitEntry, nextFretEntry } from './fret-input';
 import type { ScoreZoom } from './score-zoom';
 
 /**
@@ -64,6 +63,15 @@ export interface KeyPress {
   readonly shiftKey: boolean;
   readonly altKey: boolean;
 }
+
+/** When a key was pressed on the score (ms) and which of its key presses it was: a typed digit carries both. */
+export interface KeyMoment {
+  readonly at: number;
+  readonly index: number;
+}
+
+/** A key run without a press of its own (a command palette row, a menu): no digit typed before it. */
+const NO_MOMENT: KeyMoment = { at: 0, index: 0 };
 
 /** The named keys the editor answers, as react-native-macos names them (KeyEvent.key). */
 export const KEYS = {
@@ -261,16 +269,17 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
 /**
  * The editor's keys: arrows move the cursor (↑/↓ between strings — on into the next shown track in the multitrack view —,
  * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
- * a fret (two quick digits make 10–29), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
+ * a fret (two quick digits at one note make 10–29, a drum key up to 127), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord, J annotation), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, D deletes the note (or the selected notes: the beats stay as rests), ⇧⌫ deletes the beat,
  * ⌘D the bar (or the selected bars), ⌥[ ⌥] . / change the duration (⌥/ a triplet inside the beat's tuplet), I inserts a
  * beat, Space plays,
  * [ ] change the playback tempo (⌥- ⌥= the speed in percent; ⌥M metronome, ⌥C count-in, ⌥L tempo lock), ⌥←/→ Home End jump between bars, ⇧←/→ select beats, ⌘- ⌘= (⌘+) ⌘0 zoom, ⌘C ⌘X ⌘V copy,
  * cut and paste, ⌘1–⌘4 put the cursor on voice 1–4 and ⌥1–⌥4 move the note there.
- * `lastDigit` remembers the previous digit. Full list: src/lib/shortcuts.ts.
+ * A digit carries its `moment`: the editor joins it to the digit typed by the key press just before at the same note
+ * (state/fret-entry.ts). Full list: src/lib/shortcuts.ts.
  */
-export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | undefined }, now: number): KeyCommand | undefined {
+export function keyCommand(press: KeyPress, moment: KeyMoment = NO_MOMENT): KeyCommand | undefined {
   const { key, altKey, shiftKey } = press;
   if (press.metaKey) {
     return metaKeyCommand(key, shiftKey);
@@ -283,9 +292,7 @@ export function keyCommand(press: KeyPress, lastDigit: { current: DigitEntry | u
     return { type: 'shiftNoteString', delta: key === 'ArrowUp' ? -1 : 1 };
   }
   if (DIGITS.includes(key)) {
-    const entry = nextFretEntry(lastDigit.current, Number(key), now);
-    lastDigit.current = entry;
-    return { type: 'setNoteFret', fret: entry.value };
+    return { type: 'typeFretDigit', press: { digit: Number(key), at: moment.at, keyIndex: moment.index } };
   }
   return SIMPLE_KEYS[key];
 }

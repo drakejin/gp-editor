@@ -6,7 +6,7 @@ const TOOLS_WITH_KEYS = paletteGroups().flatMap((group) => group.tools).filter((
 /** The press a button's key names: "D", or "⌘D" with the command key. */
 const pressOf = (key: string) => {
   const metaKey = key.startsWith('⌘');
-  return keyCommand({ key: key.replace('⌘', '').toLowerCase(), metaKey, shiftKey: false, altKey: false }, { current: undefined }, 0);
+  return keyCommand({ key: key.replace('⌘', '').toLowerCase(), metaKey, shiftKey: false, altKey: false });
 };
 
 describe('palette buttons and their keys', () => {

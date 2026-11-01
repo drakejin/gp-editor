@@ -155,7 +155,7 @@ export function editorRow(id: string, group: string, title: string, command: App
 
 /** A command that does what a key does; the key is its shortcut. Throws for a press no key command answers. */
 export function keyRow(id: string, group: string, title: string, keyPress: KeyPress, spec: RowSpec = {}): Command {
-  const command = keyCommand(keyPress, { current: undefined }, 0);
+  const command = keyCommand(keyPress);
   if (command === undefined) {
     // i18n-exempt: a programming error, never shown
     throw new Error(`No key command for ${pressLabel(keyPress)}`);

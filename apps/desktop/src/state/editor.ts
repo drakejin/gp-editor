@@ -1,4 +1,5 @@
 import { type PlayedNote, type BeatFragment, type Song, type StringAddress, type TranspositionOptions, type TranspositionScope, buildNewSong } from '@gp-editor/core';
+import type { DigitPress } from '../lib/fret-input';
 import { adjacentBeat, firstCursor, voiceWithNoteAt } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import { type ChordDisplay, DEFAULT_CHORD_DISPLAY } from '../score/chords';
@@ -20,6 +21,7 @@ import {
 } from './cursor-edits';
 import { editAudioTrack, editLayout, editSong, editTracks, retune, selectTrack, transposeSong } from './document-edits';
 import { markSaved, redo, undo } from './editor-history';
+import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
 import { extendSelection, selectTo, settleSelection } from './selection';
@@ -71,6 +73,8 @@ export interface EditorState {
   readonly isMultivoice?: boolean;
   /** Guitar Pro 8's Design Mode (View ▸ Design Mode): the score's handles to move beats, bar lines and systems. */
   readonly isDesignMode?: boolean;
+  /** The fret being typed digit by digit at the cursor's note; gone after any other action that moves or edits. */
+  readonly typedFret?: TypedFret;
 }
 
 export type EditorAction =
@@ -111,6 +115,8 @@ export type EditorAction =
   | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
+  /** A digit key on the score: a fret, or the next digit of the fret typed just before at the same note (fret-entry.ts). */
+  | { readonly type: 'typeFretDigit'; readonly press: DigitPress }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
   | { readonly type: 'toggleDrumNote'; readonly key: number }
   /** MIDI step entry: notes played together become the cursor's beat (one undo step); the cursor goes to the next beat. */
@@ -154,7 +160,8 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 };
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
-  return settleSelection(state, reduceEditor(state, action), action);
+  const next = settleSelection(state, reduceEditor(state, action), action);
+  return action.type === 'typeFretDigit' ? next : settleTypedFret(state, next);
 }
 
 /** Opening, saving, errors and hints. */
@@ -239,6 +246,8 @@ function cursorEditReducer(state: EditorState, action: EditorAction): EditorStat
   switch (action.type) {
     case 'setNoteFret':
       return typeFret(state, action.fret);
+    case 'typeFretDigit':
+      return typeFretDigit(state, action.press);
     case 'toggleDrumNote':
       return toggleDrumAtCursor(state, action.key);
     case 'enterPlayedNotes':

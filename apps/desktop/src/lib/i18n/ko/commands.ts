@@ -194,7 +194,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.group.moving': '이동',
   'commands.shortcuts.group.practice': '연습',
   'commands.shortcuts.group.everywhere': '어디서나',
-  'commands.shortcuts.fret': '프렛 (두 숫자를 빠르게 치면 10–29)',
+  'commands.shortcuts.fret': '프렛 (한 음에서 두 숫자를 빠르게 치면 10–29, 드럼은 127까지의 키)',
   'commands.shortcuts.letRing': '렛링',
   'commands.shortcuts.slide': '슬라이드',
   'commands.shortcuts.hammerOn': '해머링',

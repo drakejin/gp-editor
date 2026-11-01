@@ -105,8 +105,12 @@ export function settleSelection(before: EditorState, after: EditorState, action:
   if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'transpose') {
     return after;
   }
-  const isKept = after.cursor === before.cursor && after.document?.song === before.document?.song && after.trackIndex === before.trackIndex;
-  return isKept ? after : { ...after, selectionAnchor: undefined };
+  return isScoreUntouched(before, after) ? after : { ...after, selectionAnchor: undefined };
+}
+
+/** True when an action left the song, the cursor and the shown track as they were (a hint, a view change). */
+export function isScoreUntouched(before: EditorState, after: EditorState): boolean {
+  return after.cursor === before.cursor && after.document?.song === before.document?.song && after.trackIndex === before.trackIndex;
 }
 
 /** The cursor on the beat of its bar that starts at `start` (where the edit put the first moved beat), inside the song. */
