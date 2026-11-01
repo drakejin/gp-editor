@@ -58,6 +58,31 @@ describe('InstrumentPicker', () => {
     expect(picker.texts()).toContain('Now: Distortion Electric Guitar');
   });
 
+  it('stays open after a choice that changes only the sound, to try one after another', () => {
+    const picker = render(guitar(30));
+    picker.press('instrument', 'Clean Electric Guitar');
+    picker.press('family', 'Brass');
+    picker.press('instrument', 'Trumpet');
+    expect(picker.onChoose.mock.calls).toEqual([
+      [27, false],
+      [56, false],
+    ]);
+    expect(picker.onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes after a choice that changes what the track is, which trying another instrument would change again', () => {
+    // Arrange
+    const picker = render(guitar(25));
+    picker.press('family', 'Bass');
+
+    // Act
+    picker.press('instrument', 'Fingered Electric Bass');
+
+    // Assert
+    expect(picker.onChoose).toHaveBeenCalledWith(33, false);
+    expect(picker.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('browsing a family changes only the right pane; picking there plays the instrument', () => {
     // Arrange
     const picker = render(guitar(30));
@@ -88,6 +113,7 @@ describe('InstrumentPicker', () => {
       [33, false],
       [33, true],
     ]);
+    expect(picker.onClose).toHaveBeenCalledTimes(1);
     expect(picker.button('Also make the track that instrument')?.props.label).toBe('☐ Also make the track that instrument (strings, tuning, clef)');
     expect(picker.row('instrument', 'Fingered Electric Bass').props.detail).toBeUndefined();
   });
@@ -116,6 +142,7 @@ describe('InstrumentPicker', () => {
     picker.press('instrument', 'Drum Kit');
     picker.pressButton('Change Instrument');
     expect(picker.onChoose).toHaveBeenCalledWith('drums', false);
+    expect(picker.onClose).toHaveBeenCalledTimes(1);
   });
 
   it('opens a drum track on the drums, its kit chosen', () => {

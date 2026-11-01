@@ -1,3 +1,4 @@
+import type { Song, TrackIndexMap } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
 import type { ScoreMode } from '../score/geometry';
 import type { StaffSpec } from '../score/score-layout';
@@ -79,6 +80,31 @@ export const DRUM_TRACK_MODE: ScoreMode = 'notation';
 /** The track's own staves. */
 export function setTrackMode(display: TrackDisplay, trackIndex: number, mode: ScoreMode): TrackDisplay {
   return display.trackModes[trackIndex] === mode ? display : { ...display, trackModes: { ...display.trackModes, [trackIndex]: mode } };
+}
+
+/** The track without staves of its own: it follows the score's mode again. */
+export function clearTrackMode(display: TrackDisplay, trackIndex: number): TrackDisplay {
+  if (display.trackModes[trackIndex] === undefined) {
+    return display;
+  }
+  const trackModes = Object.fromEntries(Object.entries(display.trackModes).filter(([index]) => Number(index) !== trackIndex));
+  return { ...display, trackModes };
+}
+
+/**
+ * The display after the tracks of `before` became those of `after` (track `i` of `before` is track `map[i]` of `after`:
+ * an instrument chosen, an undo, a redo): a track that became drums shows as notation only, as Add Track shows one; a
+ * drum track that became pitched follows the score's mode again. The same display when no track changed between the two.
+ */
+export function followDrumChanges(display: TrackDisplay, before: Song, after: Song, map: TrackIndexMap): TrackDisplay {
+  return before.tracks.reduce((current, track, oldIndex) => {
+    const newIndex = map[oldIndex];
+    const isPercussion = newIndex === undefined ? undefined : after.tracks[newIndex]?.isPercussion;
+    if (newIndex === undefined || isPercussion === undefined || isPercussion === track.isPercussion) {
+      return current;
+    }
+    return isPercussion ? setTrackMode(current, newIndex, DRUM_TRACK_MODE) : clearTrackMode(current, newIndex);
+  }, display);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { InstrumentChoice, Song } from '@gp-editor/core';
 import { useT } from '../hooks/use-i18n';
@@ -10,6 +10,7 @@ import {
   familyChoices,
   familyLabel,
   familyOf,
+  isKindChange,
   notesLostQuestion,
   trackChoice,
 } from '../lib/instrument-picker';
@@ -30,9 +31,10 @@ interface InstrumentPickerProps {
  * Picks a track's instrument in two clearly separate steps, in a panel over the score: on the left (step 1) one of the
  * 16 General MIDI families or the drums — browsing only; on the right (step 2) one of that family's instruments, which
  * the track plays at once (heard live while playing) and becomes: a line under an instrument says what it makes of the
- * track (another kind's strings, tuning and clef, unless the box asks for the sound alone; the notes a change between
- * drums and a pitched instrument takes out, asked first). The panel stays open to try sounds one after another; Done or
- * a click outside closes it.
+ * track, as picking it would (another kind's strings, tuning and clef, unless the box asks for the sound alone, and the
+ * notes they cannot keep; the notes a change between drums and a pitched instrument takes out, asked first). The panel
+ * stays open to try sounds of the track's kind one after another and closes after a choice that changes the track's
+ * kind; Done or a click outside closes it too.
  */
 export function InstrumentPicker({ song, trackIndex, palette, onChoose, onClose }: InstrumentPickerProps) {
   const t = useT();
@@ -40,12 +42,23 @@ export function InstrumentPicker({ song, trackIndex, palette, onChoose, onClose 
   const [familyIndex, setFamilyIndex] = useState(current === undefined ? 0 : familyOf(current));
   const [setsTrack, setSetsTrack] = useState(true);
   const [asking, setAsking] = useState<InstrumentChoice | undefined>(undefined);
-  const choose = (choice: InstrumentChoice) => (notesLostQuestion(song, trackIndex, choice) === undefined ? onChoose(choice, !setsTrack) : setAsking(choice));
+  // A choice that changes what the track is closes the panel: trying another instrument would change it again.
+  const choose = (choice: InstrumentChoice) => {
+    if (notesLostQuestion(song, trackIndex, choice) !== undefined) {
+      setAsking(choice);
+      return;
+    }
+    onChoose(choice, !setsTrack);
+    if (isKindChange(song, trackIndex, choice, setsTrack)) {
+      onClose();
+    }
+  };
   const question = asking === undefined ? undefined : notesLostQuestion(song, trackIndex, asking);
   const confirm = () => {
     setAsking(undefined);
     if (asking !== undefined) {
       onChoose(asking, false);
+      onClose();
     }
   };
   return (
@@ -93,15 +106,17 @@ interface InstrumentPaneProps {
 /** Step 2: the family's instruments, each with what it makes of the track, and the box to change only the sound. */
 function InstrumentPane({ song, trackIndex, familyIndex, current, setsTrack, palette, onChoose, onToggleSetsTrack }: InstrumentPaneProps) {
   const t = useT();
+  // Each line tries its instrument on the song (re-fretting the whole track): once per family, box and song.
+  const details = useMemo(() => familyChoices(familyIndex).map((choice) => choiceDetail(song, trackIndex, choice, setsTrack)), [song, trackIndex, familyIndex, setsTrack]);
   return (
     <View style={styles.instrumentPane}>
       <Text style={[styles.paneTitle, { color: palette.muted }]}>{t('window.picker.instrument')}</Text>
-      {familyChoices(familyIndex).map((choice) => (
+      {familyChoices(familyIndex).map((choice, index) => (
         <PickerRow
           key={String(choice)}
           pane="instrument"
           label={choiceLabel(choice)}
-          detail={choiceDetail(song, trackIndex, choice, setsTrack)}
+          detail={details[index]}
           isSelected={choice === current}
           palette={palette}
           onPress={() => onChoose(choice)}

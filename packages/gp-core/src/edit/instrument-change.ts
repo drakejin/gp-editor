@@ -85,13 +85,14 @@ function noteCount(track: Track): number {
 /**
  * What choosing `choice` makes of the track: the kind it becomes — a guitar sound keeps a ukulele one —, its strings
  * (a bass gets four, E1 A1 D2 G2, unless the track already is a bass; the same kind keeps the user's own) and clef, and
- * the notes a change between drums and a pitched instrument takes out. Undefined for a track the song lacks or a
- * program outside 0–127.
+ * the notes a change between drums and a pitched instrument takes out. Undefined for a track the song lacks, a track
+ * without a channel (no instrument sounds on it) or a program outside 0–127.
  */
 export function planInstrumentChange(song: Song, trackIndex: number, choice: InstrumentChoice): InstrumentPlan | undefined {
   const track = song.tracks[trackIndex];
   const instrument = trackInstrumentOf(song, trackIndex);
-  if (track === undefined || instrument === undefined || !isChoice(choice)) {
+  const hasChannel = song.channels.some((channel) => channel.id === track?.channelId);
+  if (track === undefined || instrument === undefined || !hasChannel || !isChoice(choice)) {
     return undefined;
   }
   const from = trackKindOf(instrument);

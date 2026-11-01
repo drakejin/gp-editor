@@ -45,6 +45,7 @@ export {
   TUNING_PRESETS,
   type TuningPreset,
   findTuningPreset,
+  isSameTuning,
   resolveInstrument,
   resolveTrackInstrument,
   trackTuning,

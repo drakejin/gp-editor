@@ -1,8 +1,9 @@
 import { DEFAULT_CHANNEL, type Song, suggestTunings } from '@gp-editor/core';
+import { trackModeOf } from '../src/state/track-display';
 import { neckTitle } from '../src/lib/tuning-hint';
 import { shownTrackIcon } from '../src/score/track-icons';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { beat, makeSong, note, onStrings } from '../test-support/songs';
+import { beat, makeSong, note, onStrings, withTrack } from '../test-support/songs';
 
 /** "Lead", a steel guitar playing E2 then E4, the cursor on string 6. */
 function openGuitar(): EditorState {
@@ -47,16 +48,49 @@ describe('the instrument picker’s choice (editor action setTrackInstrument)', 
     expect(sound.hint).toBeUndefined();
   });
 
-  it('shows a track made drums as notation only, as Add Track shows a drum track, and a drum track made pitched as the score does', () => {
+  it('shows a track made drums as notation only, and gives it back the score’s mode on undo (the drum view again on redo)', () => {
     // Act
     const drums = editorReducer(openGuitar(), { type: 'setTrackInstrument', trackIndex: 0, instrument: 'drums' });
-    const bass = editorReducer(drums, { type: 'setTrackInstrument', trackIndex: 0, instrument: 33 });
+    const undone = editorReducer(drums, { type: 'undo' });
+    const redone = editorReducer(undone, { type: 'redo' });
 
     // Assert
     expect(track(drums).isPercussion).toBe(true);
     expect(drums.trackDisplay.trackModes[0]).toBe('notation');
     expect(drums.hint).toBe('“Lead” is now a drum track. 2 notes taken out: drums and pitched instruments cannot play each other’s notes.');
-    expect(bass.trackDisplay.trackModes[0]).toBe('notationAndTab');
+    expect(track(undone).isPercussion).toBe(false);
+    expect(undone.trackDisplay.trackModes[0]).toBeUndefined();
+    expect(redone.trackDisplay.trackModes[0]).toBe('notation');
+  });
+
+  it('lets a drum track made pitched follow the score’s mode, and shows it as drums (notation only) again on undo', () => {
+    // Arrange
+    const drums = editorReducer(openGuitar(), { type: 'setTrackInstrument', trackIndex: 0, instrument: 'drums' });
+
+    // Act
+    const bass = editorReducer(drums, { type: 'setTrackInstrument', trackIndex: 0, instrument: 33 });
+    const tab = editorReducer(bass, { type: 'setMode', mode: 'tab' });
+    const undone = editorReducer(tab, { type: 'undo' });
+
+    // Assert
+    expect(bass.trackDisplay.trackModes[0]).toBeUndefined();
+    expect(trackModeOf(tab.trackDisplay, tab.mode, 0)).toBe('tab');
+    expect(undone.trackDisplay.trackModes[0]).toBe('notation');
+  });
+
+  it('says nothing changed but the sound when only the sound is to change on a channel another track shares', () => {
+    // Arrange: both tracks play channel 1.
+    const opened = openGuitar();
+    const shared = withTrack(opened.document!.song, [[beat(960, [note(1, 3)])]], { channelId: track(opened).channelId });
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: shared } });
+
+    // Act
+    const sound = editorReducer(loaded, { type: 'setTrackInstrument', trackIndex: 0, instrument: 33, keepsTrack: true });
+
+    // Assert
+    expect(track(sound).strings).toHaveLength(6);
+    expect(program(sound)).toBe(33);
+    expect(sound.hint).toBeUndefined();
   });
 
   it('changes nothing for a track the song does not have', () => {
