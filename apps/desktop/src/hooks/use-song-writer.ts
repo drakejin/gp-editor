@@ -4,6 +4,7 @@ import { t } from '../lib/i18n/i18n';
 import { sendMessages } from '../native/anthropic';
 import type { SongIdea } from '../song-writer/request';
 import { type SongWriterStep, writeSong } from '../song-writer/run-song-writer';
+import { wait } from './use-tab-run';
 
 /** What the Song Writer panel holds while it is filled in; kept when the panel closes. */
 export interface SongWriterDraft {
@@ -56,7 +57,6 @@ export function writtenSummary(song: Song, warnings: readonly string[]): string 
   return first === undefined ? `${what}.` : `${what}. ${t('tools.songWriter.warnings', { count: warnings.length })}: ${first}${warnings.length > 1 ? ' …' : ''}`;
 }
 
-const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
 /**
  * Edit ▸ AI Wizard ▸ Song Writer…: the panel's draft and a run of writeSong. A written song goes to `onWritten` (to open
