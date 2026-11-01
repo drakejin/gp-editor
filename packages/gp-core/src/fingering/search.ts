@@ -31,6 +31,8 @@ interface Reservation {
 
 interface SearchState {
   readonly cost: number;
+  /** The part of `cost` the reported cost leaves out (restrings, kept conflicts). */
+  readonly hidden: number;
   readonly hand: number;
   readonly reservations: readonly Reservation[];
   readonly reservationKey: string;
@@ -154,13 +156,13 @@ function playGroup(context: StepContext, group: readonly SearchState[]): void {
     const after = context.mode === 'evaluate' ? [] : advance(reservations, context.timeline, context.stepIndex, candidate);
     const base = { reservations: after, reservationKey: reservationKey(after), choice: candidate.choice };
     if (candidate.handHigh === 0) {
-      group.forEach((state) => offer(context.next, { ...base, cost: state.cost + candidate.local, hand: state.hand, parent: state }));
+      group.forEach((state) => offer(context.next, { ...base, cost: state.cost + candidate.local, hidden: state.hidden + candidate.hidden, hand: state.hand, parent: state }));
       continue;
     }
     for (let hand = candidate.handLow; hand <= candidate.handHigh; hand++) {
       const from = table.from[hand];
       if (from !== undefined) {
-        offer(context.next, { ...base, cost: (table.cost[hand] ?? 0) + candidate.local, hand, parent: from });
+        offer(context.next, { ...base, cost: (table.cost[hand] ?? 0) + candidate.local, hidden: from.hidden + candidate.hidden, hand, parent: from });
       }
     }
   }
@@ -194,7 +196,7 @@ function pathOf(timeline: Timeline, best: SearchState): FingeringPath {
     const previous = states[offset - 1]?.hand ?? 0;
     handTravel += previous > 0 && state.hand > 0 ? Math.abs(state.hand - previous) : 0;
   });
-  return { choices, restrung, cost: { total: (best.cost - restrung * FINGERING_COSTS.restring) / COST_UNIT, handTravel } };
+  return { choices, restrung, cost: { total: (best.cost - best.hidden) / COST_UNIT, handTravel } };
 }
 
 /** The frets the hand may sit at: the neck, or further when a note already sits beyond it. */
@@ -205,7 +207,7 @@ function fretRoom(timeline: Timeline): number {
 /**
  * The cheapest fingering of the timeline's searched steps (`optimize`), or what the fingering as it is costs
  * (`evaluate`); undefined when no way through obeys the rules (the track then stays as it is). The cost is the
- * FINGERING_COSTS sum over the steps without the restring term, in frets of hand movement.
+ * FINGERING_COSTS sum over the steps without its hidden terms (restrings, kept conflicts), in frets of hand movement.
  */
 export function searchFingering(timeline: Timeline, mode: SearchMode): FingeringPath | undefined {
   if (timeline.first > timeline.last) {
@@ -213,7 +215,7 @@ export function searchFingering(timeline: Timeline, mode: SearchMode): Fingering
   }
   const frets = fretRoom(timeline);
   const reservations = mode === 'evaluate' ? [] : initialReservations(timeline);
-  let states: readonly SearchState[] = [{ cost: 0, hand: 0, reservations, reservationKey: reservationKey(reservations) }];
+  let states: readonly SearchState[] = [{ cost: 0, hidden: 0, hand: 0, reservations, reservationKey: reservationKey(reservations) }];
   for (let stepIndex = timeline.first; stepIndex <= timeline.last && states.length > 0; stepIndex++) {
     const context: StepContext = { timeline, stepIndex, mode, frets, candidates: new Map(), next: new Map() };
     groupStates(states).forEach((group) => playGroup(context, group));
