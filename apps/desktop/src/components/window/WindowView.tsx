@@ -6,7 +6,6 @@ import { ImportBanner } from '../ImportBanner';
 import { TabStrip } from '../TabStrip';
 import { ErrorBanner } from '../WindowOverlays';
 import { DocumentView } from './DocumentView';
-import { StartScreen } from './StartScreen';
 import { EditPanels, FilePanels } from './WindowPanels';
 import { MenuOverlays, ToolOverlays, WindowDialogs } from './WindowOverlayPanels';
 import { WindowTopBar } from './WindowTopBar';
@@ -16,12 +15,13 @@ interface WindowViewProps {
 }
 
 /**
- * Guitar Pro 8's window: the top bar, the tabs and the hint strip, the panels under them, the shown tab's document (or
- * the start screen), then what opens over it, the last one on top. Its root view takes the score's keys and file drops.
+ * Guitar Pro 8's window: the top bar, the tabs, the shown tab's document (or the start screen) with the hint strip, the
+ * panels and the banners over it, then what opens over it, the last one on top. Its root view takes the score's keys
+ * and file drops.
  */
 export function WindowView({ model }: WindowViewProps) {
   const { base, commands } = model;
-  const { palette, state, keyboardView, setWindowWidth } = base;
+  const { palette, keyboardView, setWindowWidth } = base;
   return (
     <View
       ref={keyboardView}
@@ -35,11 +35,8 @@ export function WindowView({ model }: WindowViewProps) {
       onLayout={(event: LayoutChangeEvent) => setWindowWidth(event.nativeEvent.layout.width)}
     >
       <WindowTopBar model={model} />
-      <WindowStrips model={model} />
-      <FilePanels model={model} />
-      <EditPanels model={model} />
-      <WindowBanners model={model} />
-      {state.document !== undefined ? <DocumentView model={model} document={state.document} /> : <StartScreen model={model} />}
+      <WindowTabs model={model} />
+      <DocumentView model={model} top={<UnderTabStrip model={model} />} />
       <MenuOverlays model={model} />
       <ToolOverlays model={model} />
       <WindowDialogs model={model} />
@@ -47,14 +44,27 @@ export function WindowView({ model }: WindowViewProps) {
   );
 }
 
-/** The open documents' tabs, and why the last edit did nothing. */
-function WindowStrips({ model }: WindowViewProps) {
-  const { base, files, panelCommands } = model;
-  const { palette, workspace, state } = base;
+/** The open documents' tabs. */
+function WindowTabs({ model }: WindowViewProps) {
+  const { base, files } = model;
+  const { palette, workspace } = base;
+  return workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={files.tabLabels} activeTabId={workspace.activeTabId} onSelect={files.tabs.switchTo} onClose={files.tabs.requestClose} /> : null;
+}
+
+/**
+ * Under the tab strip: why the last edit did nothing (or what it did), the panels, the PDF import's progress and the
+ * error banner. Over the score beside the edition palette while a tab is shown, so they never take its height (a 26-point
+ * hint put ONLINE TOOLS below the 1280 × 800 window); across the window over the start screen.
+ */
+function UnderTabStrip({ model }: WindowViewProps) {
+  const { base, panelCommands } = model;
+  const { palette, state } = base;
   return (
     <>
-      {workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={files.tabLabels} activeTabId={workspace.activeTabId} onSelect={files.tabs.switchTo} onClose={files.tabs.requestClose} /> : null}
       {state.hint !== undefined ? <HintBar palette={palette} message={state.hint} onDismiss={panelCommands.dismissHint} /> : null}
+      <FilePanels model={model} />
+      <EditPanels model={model} />
+      <WindowBanners model={model} />
     </>
   );
 }

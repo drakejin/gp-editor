@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useStableCallback } from '../../hooks/use-stable-callback';
 import type { WindowModel } from '../../hooks/use-window';
 import type { RowHit } from '../../score/hit-test';
@@ -9,6 +10,7 @@ import { ScalesPanel } from '../scales/ScalesPanel';
 import { ScoreView } from '../ScoreView';
 import { SongHeader } from '../SongHeader';
 import { DocumentBottom } from './DocumentBottom';
+import { StartScreen } from './StartScreen';
 
 export interface DocumentPartProps {
   readonly model: WindowModel;
@@ -16,10 +18,25 @@ export interface DocumentPartProps {
   readonly document: OpenDocument;
 }
 
-/** The shown tab in Guitar Pro 8's layout: the edition palette, the score, the inspector (or the scales) and the panels under them. */
-export function DocumentView({ model, document }: DocumentPartProps) {
+interface DocumentViewProps {
+  readonly model: WindowModel;
+  /** The hint, the panels and the banners under the tab strip: over the score, beside the palette (DocumentLayout). */
+  readonly top?: ReactNode;
+}
+
+/**
+ * Under the tab strip: the shown tab in Guitar Pro 8's layout — the edition palette, the score, the inspector (or the
+ * scales) and the panels under them —, or the start screen when no tab is open; `top` over either, in one place, so
+ * what it holds (a key being typed) stays when the first tab opens or the last one closes.
+ */
+export function DocumentView({ model, top }: DocumentViewProps) {
+  const { document } = model.base.state;
+  if (document === undefined) {
+    return <DocumentLayout top={top} center={<StartScreen model={model} />} />;
+  }
   return (
     <DocumentLayout
+      top={top}
       left={<DocumentPalette model={model} document={document} />}
       // A page of its own per tab: it opens at the tab's cursor, not where the last tab was scrolled.
       center={<DocumentScore key={model.base.workspace.activeTabId} model={model} document={document} />}

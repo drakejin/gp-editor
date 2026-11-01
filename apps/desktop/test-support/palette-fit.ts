@@ -1,18 +1,32 @@
 // The edition palette laid out as EditionPalette and ChromeButton lay it out, with the widths of its texts as AppKit
 // measures them (palette-text-widths.ts, written by scripts/palette-fit/run.sh): the rows each group takes and the
-// palette's height, so __tests__/palette-fit.test.ts can check every group shows without scrolling at the default window.
+// palette's height, so __tests__/palette-fit.test.ts can check every group shows without scrolling at the default window;
+// and where the window lays its parts out against the palette (placementOf), so __tests__/palette-fit-window.test.tsx
+// can check that only the top bar and the tab strip stack above it.
+import { StyleSheet } from 'react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { CHROME_BUTTON_SPACING } from '../src/components/chrome/ChromeButton';
 import { EDITION_PALETTE_WIDTH, PALETTE_LAYOUT, PALETTE_ROW_HEIGHT, isLongHangulFace } from '../src/components/palette/EditionPalette';
 import { MUSIC_ICON_SIZE } from '../src/components/palette/MusicIcon';
 import type { PaletteGroup, PaletteTool } from '../src/components/palette/palette-tools';
+import { TOP_BAR_HEIGHT } from '../src/components/TopBar';
+import { TAB_STRIP } from '../src/lib/tab-strip';
 
-/** The default window's height (AppDelegate.swift's defaultSize 1280 × 800; tauri.conf.json's window too). */
-export const DEFAULT_WINDOW_HEIGHT = 800;
 /**
- * Where the first group starts in that window: under the title bar, the top bar and the tab's title row (measured on
- * 0.17.0's 1280 × 800 snapshot: VOICE's group from y = 106, each group 16 + 24 × rows points tall then).
+ * The window's content view at a first launch, title bar included: AppDelegate.swift's defaultSize(1280, 800) is the
+ * whole window on macOS 26, its content view running under the title bar (measured 2026-11-01 on a QA copy without a
+ * saved frame: a 1280 × 800 snapshot, "NSWindow Frame main" saved as 1280 × 800). Windows: tauri.conf.json's 1280 × 800
+ * is the inner size, with no title strip in the page: 800 − 46 − 28 = 726 points under the tab strip, some 20 fewer if the
+ * native menu bar takes its height from it — more room than the Mac's 694 either way (Windows' widths are not measured).
  */
-export const PALETTE_GROUPS_TOP = 106;
+export const DEFAULT_WINDOW_HEIGHT = 800;
+/** The Mac's title bar over the content view: the React Native root starts under it (measured on the same snapshot). */
+export const MAC_TITLE_BAR_HEIGHT = 32;
+/**
+ * Where the first group starts in that window: under the title bar, the top bar and the tab strip — and nothing else,
+ * palette-fit-window.test.tsx checks (y = 106, as measured on 0.17.0's and 0.21's snapshots).
+ */
+export const PALETTE_GROUPS_TOP = MAC_TITLE_BAR_HEIGHT + TOP_BAR_HEIGHT + TAB_STRIP.height;
 /** The groups' rows wrap in this width: the palette less its right border and the groups' padding. */
 export const PALETTE_INNER_WIDTH = EDITION_PALETTE_WIDTH - PALETTE_LAYOUT.border - 2 * PALETTE_LAYOUT.groupPadding;
 
@@ -72,4 +86,36 @@ export function groupRows(group: PaletteGroup, widthOf: (request: TextRequest) =
 export function groupHeight(group: PaletteGroup, widthOf: (request: TextRequest) => number): number {
   const stepperRows = (group.steppers ?? []).filter((stepper) => stepper.isBesidePrevious !== true).length;
   return PALETTE_LAYOUT.titleHeight + PALETTE_ROW_HEIGHT * (groupRows(group, widthOf).length + stepperRows) + PALETTE_LAYOUT.border;
+}
+
+/** The nodes from the renderer's root down to `node`. */
+function pathFromRoot(node: ReactTestInstance): readonly ReactTestInstance[] {
+  return node.parent === null ? [node] : [...pathFromRoot(node.parent), node];
+}
+
+/** Where the window lays one node out against another: above or below it in a column, beside it in a row, or inside it. */
+export type Placement = 'above' | 'below' | 'beside' | 'inside';
+
+/**
+ * Where the window lays `node` out against `other`: the view holding both (their nearest common node, or the nearest
+ * view around it) stacks its children in a column (above / below, by their order; reversed for column-reverse) or
+ * lines them up in a row (beside); one inside the other is `inside`, either way round.
+ */
+export function placementOf(node: ReactTestInstance, other: ReactTestInstance): Placement {
+  const nodePath = pathFromRoot(node);
+  const otherPath = pathFromRoot(other);
+  const split = nodePath.findIndex((each, index) => each !== otherPath[index]);
+  const common = nodePath[split - 1];
+  const nodeBranch = nodePath[split];
+  const otherBranch = otherPath[split];
+  if (split < 1 || common === undefined || nodeBranch === undefined || otherBranch === undefined) {
+    return 'inside';
+  }
+  const container = nodePath.slice(0, split).reverse().find((each) => typeof each.type === 'string');
+  const direction = StyleSheet.flatten(container?.props.style)?.flexDirection ?? 'column';
+  if (direction === 'row' || direction === 'row-reverse') {
+    return 'beside';
+  }
+  const isFirst = common.children.indexOf(nodeBranch) < common.children.indexOf(otherBranch);
+  return isFirst === (direction === 'column') ? 'above' : 'below';
 }

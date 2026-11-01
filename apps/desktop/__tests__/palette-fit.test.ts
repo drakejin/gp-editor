@@ -7,8 +7,9 @@ import { PALETTE_TEXT_WIDTHS } from '../test-support/palette-text-widths';
 // The user's rule: every tool of the edition palette shows without scrolling at the default window, in English and
 // Korean. The palette is laid out as EditionPalette lays it out, with its texts' widths as AppKit measures them
 // (scripts/palette-fit/run.sh writes the table; run it when a face or key changes — this test names what it lacks).
-// The Mac's: AppKit's widths and the Mac window's top; the Windows build (Segoe UI, Malgun Gothic, its menu bar) is not
-// measured here.
+// The Mac's: AppKit's widths, and a first launch's content view (DEFAULT_WINDOW_HEIGHT, its title bar included) less
+// the title bar, the top bar and the tab strip — the only parts above the palette, palette-fit-window.test.tsx checks,
+// whatever hint, panel or banner shows. The Windows build (Segoe UI, Malgun Gothic, its menu bar) is not measured here.
 
 declare const require: (id: string) => unknown;
 declare const process: {

@@ -6,7 +6,13 @@ function render() {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <DocumentLayout left={<Text testID="left">palette</Text>} center={<Text testID="center">score</Text>} right={<Text testID="right">inspector</Text>} bottom={<Text testID="bottom">instruments</Text>} />,
+      <DocumentLayout
+        top={<Text testID="top">hint</Text>}
+        left={<Text testID="left">palette</Text>}
+        center={<Text testID="center">score</Text>}
+        right={<Text testID="right">inspector</Text>}
+        bottom={<Text testID="bottom">instruments</Text>}
+      />,
     );
   });
   return renderer;
@@ -33,5 +39,18 @@ describe('DocumentLayout', () => {
     expect(window?.findAllByProps({ testID: 'bottom' }).length).toBeGreaterThan(0);
     expect(bottomColumn?.findAllByProps({ testID: 'left' })).toHaveLength(0);
     expect(bottomColumn?.findAllByProps({ testID: 'center' }).length).toBeGreaterThan(0);
+  });
+
+  it('opens the hint, the panels and the banners (top) over the score, in the column beside the palette, so they do not shorten it', () => {
+    // Act
+    const renderer = render();
+
+    // Assert: the top's column holds the score and the bottom panels, not the palette; the top comes first in it
+    const topColumn = parentView(renderer, 'top');
+    expect(topColumn).toBe(parentView(renderer, 'bottom'));
+    expect(topColumn?.findAllByProps({ testID: 'left' })).toHaveLength(0);
+    expect(topColumn?.findAllByProps({ testID: 'center' }).length).toBeGreaterThan(0);
+    const order = (topColumn?.findAll((node) => typeof node.props.testID === 'string' && node.type === Text) ?? []).map((node) => node.props.testID);
+    expect(order.slice(0, 2)).toEqual(['top', 'center']);
   });
 });
