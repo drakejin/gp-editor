@@ -90,14 +90,16 @@ function KeyRows({ palette, draft, onChangeDraft }: AiEditFieldsProps) {
         </View>
       </WizardRow>
       <WizardRow palette={palette} label="">
-        <ChromeButton
-          palette={palette}
-          label={`${draft.isPolished ? '☑' : '☐'} ${t('aiEdit.polish')}`}
-          tooltip={t('aiEdit.polishTooltip')}
-          fontSize={11}
-          isActive={draft.isPolished}
-          onPress={() => onChangeDraft({ isPolished: !draft.isPolished })}
-        />
+        <View style={styles.inline}>
+          <ChromeButton
+            palette={palette}
+            label={`${draft.isPolished ? '☑' : '☐'} ${t('aiEdit.polish')}`}
+            tooltip={t('aiEdit.polishTooltip')}
+            fontSize={11}
+            isActive={draft.isPolished}
+            onPress={() => onChangeDraft({ isPolished: !draft.isPolished })}
+          />
+        </View>
       </WizardRow>
     </>
   );
