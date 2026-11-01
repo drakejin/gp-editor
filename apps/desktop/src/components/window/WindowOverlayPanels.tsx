@@ -233,6 +233,7 @@ function AiEditOverlay({ model }: WindowPartProps) {
       status={aiEdit.status}
       hasScore={document !== undefined}
       selectionBars={selection === undefined ? undefined : { first: selection.firstBar + 1, last: selection.lastBar + 1 }}
+      trackIndexes={selection === undefined ? { current: currentIndex } : { selection: selection.trackIndexes[0] ?? currentIndex, current: currentIndex }}
       currentTrack={`${currentIndex + 1}. ${document?.song.tracks[currentIndex]?.name ?? ''}`}
       hasKey={pdfImport.hasKey}
       model={pdfImport.model}

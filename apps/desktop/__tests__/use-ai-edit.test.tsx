@@ -188,9 +188,20 @@ describe('useAiEdit: the draft', () => {
     expect(needsClaude(INITIAL_AI_EDIT_DRAFT)).toBe(false);
     expect(needsClaude({ ...INITIAL_AI_EDIT_DRAFT, isPolished: true })).toBe(true);
     expect(needsClaude({ ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction' })).toBe(true);
-    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, target: 'selection' }, false)).toBe('Select beats in the score, or choose the current track or all tracks');
-    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: '  ' }, true)).toBe('Write what Claude should change, or pick an idea');
-    expect(aiEditProblem(INITIAL_AI_EDIT_DRAFT, false)).toBeUndefined();
+    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, target: 'selection' }, { current: 0 })).toBe('Select beats in the score, or choose the current track or all tracks');
+    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: '  ' }, { selection: 0, current: 0 })).toBe('Write what Claude should change, or pick an idea');
+    expect(aiEditProblem(INITIAL_AI_EDIT_DRAFT, { current: 0 })).toBeUndefined();
+  });
+
+  it('keeps Claude to the first 16 tracks, which its answer can name; the exact preset works on any', () => {
+    // Arrange
+    const tracks = { current: 16 };
+
+    // Act + Assert
+    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, kind: 'instruction', prompt: 'simpler' }, tracks)).toBe('Claude writes only the first 16 tracks: track 17 is beyond them');
+    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, isPolished: true }, tracks)).toBe('Claude writes only the first 16 tracks: track 17 is beyond them');
+    expect(aiEditProblem(INITIAL_AI_EDIT_DRAFT, tracks)).toBeUndefined();
+    expect(aiEditProblem({ ...INITIAL_AI_EDIT_DRAFT, target: 'song', kind: 'instruction', prompt: 'simpler' }, tracks)).toBeUndefined();
   });
 });
 
@@ -268,5 +279,23 @@ describe('useAiEdit: a run and the window', () => {
     // Assert
     expect(probe.aiEdit().status).toEqual({ kind: 'elsewhere', isOtherTool: true });
     expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks Claude nothing about a track past the 16th, and says why', async () => {
+    // Arrange: 17 tracks, the cursor on the 17th.
+    const one = line();
+    const track = one.tracks[0];
+    const wide = track === undefined ? one : { ...one, tracks: Array.from({ length: 17 }, (_, index) => ({ ...track, number: index + 1 })) };
+    const probe = render(wide);
+    probe.dispatch({ type: 'placeCursor', cursor: { trackIndex: 16, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 2 } });
+    instruction(probe);
+
+    // Act
+    ReactTestRenderer.act(() => probe.aiEdit().run('claude-opus-5-5'));
+    await flush();
+
+    // Assert
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(probe.aiEdit().status).toEqual({ kind: 'failed', message: 'Claude writes only the first 16 tracks: track 17 is beyond them' });
   });
 });

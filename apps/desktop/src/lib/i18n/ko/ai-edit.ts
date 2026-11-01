@@ -50,6 +50,7 @@ export const KO_AI_EDIT: Catalog<typeof EN_AI_EDIT> = {
   'aiEdit.noScore': '수정할 악보를 여세요',
   'aiEdit.needsSelection': '악보에서 박을 선택하거나, 현재 트랙 또는 모든 트랙을 고르세요',
   'aiEdit.needsPrompt': 'Claude가 바꿀 내용을 쓰거나 예시를 고르세요',
+  'aiEdit.trackOutOfReach': 'Claude는 처음 {max}개 트랙만 쓸 수 있습니다: 트랙 {track}은 그 밖입니다',
   'aiEdit.asking': 'Claude가 악보를 읽고 마디를 고쳐 쓰는 중… {seconds}초',
   'aiEdit.askingPart': 'Claude가 {parts}부분 중 {part}번째를 고쳐 쓰는 중… {seconds}초',
   'aiEdit.askingAgain': 'Claude에게 다시 요청하는 중 ({attempt}/3번째)… {seconds}초',

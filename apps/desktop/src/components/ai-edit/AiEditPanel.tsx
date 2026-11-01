@@ -1,5 +1,5 @@
 import { type Translate, useT } from '../../hooks/use-i18n';
-import { type AiEditDraft, type AiEditStatus, aiEditProblem, needsClaude } from '../../hooks/use-ai-edit';
+import { type AiEditDraft, type AiEditStatus, type DraftTracks, aiEditProblem, needsClaude } from '../../hooks/use-ai-edit';
 import { useElapsedSeconds } from '../../hooks/use-elapsed-seconds';
 import type { Palette } from '../../theme';
 import { ClaudeRow } from '../ai-wizard/ClaudeRow';
@@ -15,6 +15,8 @@ export interface AiEditPanelProps {
   readonly hasScore: boolean;
   /** The selection's bars, 1-based; undefined when nothing is selected. */
   readonly selectionBars?: { readonly first: number; readonly last: number };
+  /** The selection's and the cursor's track indexes. */
+  readonly trackIndexes: DraftTracks;
   /** "1. Lead": the cursor's track. */
   readonly currentTrack: string;
   /** The Anthropic key and model are the PDF import's; undefined until known. */
@@ -78,7 +80,7 @@ export function AiEditPanel(props: AiEditPanelProps) {
   const isBusy = isRunning || status.kind === 'stopping' || status.kind === 'elsewhere';
   const seconds = useElapsedSeconds(isRunning ? status.startedAt : undefined);
   const isClaude = needsClaude(draft);
-  const problem = aiEditProblem(draft, props.selectionBars !== undefined);
+  const problem = aiEditProblem(draft, props.trackIndexes);
   const canRun = !isBusy && props.hasScore && problem === undefined && (!isClaude || props.hasKey === true);
   const buttons = (
     <>

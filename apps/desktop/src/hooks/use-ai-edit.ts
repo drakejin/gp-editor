@@ -1,5 +1,5 @@
 import { type Dispatch, useCallback, useRef, useState } from 'react';
-import type { Song } from '@gp-editor/core';
+import { MAX_TRANSCRIBED_TRACKS, type Song } from '@gp-editor/core';
 import { type AiEditRange, type AiEditTarget, aiEditRangeOf } from '../ai-edit/ai-edit-scope';
 import { planChunks } from '../ai-edit/chunks';
 import { lowerKey, polishFingering } from '../ai-edit/preset';
@@ -65,12 +65,32 @@ export function needsClaude(draft: AiEditDraft): boolean {
   return draft.kind === 'instruction' || draft.isPolished;
 }
 
+/** The tracks a draft's scope may name: the selection's (none when nothing is selected) and the cursor's. */
+export interface DraftTracks {
+  readonly selection?: number;
+  readonly current: number;
+}
+
+/** Why Claude cannot write the scope's track: past the tracks its answer can name (as Compose from Here). */
+function trackOutOfReach(draft: AiEditDraft, tracks: DraftTracks): string | undefined {
+  const trackIndex = draft.target === 'selection' ? tracks.selection : draft.target === 'track' ? tracks.current : undefined;
+  return needsClaude(draft) && trackIndex !== undefined && trackIndex >= MAX_TRANSCRIBED_TRACKS
+    ? t('aiEdit.trackOutOfReach', { max: MAX_TRANSCRIBED_TRACKS, track: trackIndex + 1 })
+    : undefined;
+}
+
 /** Why the draft cannot run yet, in the shown language; undefined when it can. */
-export function aiEditProblem(draft: AiEditDraft, hasSelection: boolean): string | undefined {
-  if (draft.target === 'selection' && !hasSelection) {
+export function aiEditProblem(draft: AiEditDraft, tracks: DraftTracks): string | undefined {
+  if (draft.target === 'selection' && tracks.selection === undefined) {
     return t('aiEdit.needsSelection');
   }
-  return draft.kind === 'instruction' && draft.prompt.trim() === '' ? t('aiEdit.needsPrompt') : undefined;
+  return trackOutOfReach(draft, tracks) ?? (draft.kind === 'instruction' && draft.prompt.trim() === '' ? t('aiEdit.needsPrompt') : undefined);
+}
+
+/** The draft's tracks in an editor: the selection's and the cursor's. */
+function draftTracksOf(editor: RunContext['editor']): DraftTracks {
+  const current = editor.cursor?.trackIndex ?? editor.trackIndex;
+  return editor.selectionAnchor === undefined ? { current } : { selection: editor.selectionAnchor.trackIndex, current };
 }
 
 /** The edit to write, with what to say, for the tab's score when the answer comes. */
@@ -162,8 +182,9 @@ export function useAiEdit({ workspace, dispatch, guard }: AiEditSources): AiEdit
     (model: string) =>
       start(async (context) => {
         const range = aiEditRangeOf(context.editor, context.song, draft.target);
-        if (range === undefined) {
-          return () => ({ kind: 'failed', message: t('aiEdit.needsSelection') });
+        const problem = aiEditProblem(draft, draftTracksOf(context.editor));
+        if (range === undefined || problem !== undefined) {
+          return () => ({ kind: 'failed', message: problem ?? t('aiEdit.needsSelection') });
         }
         const edit = draft.kind === 'lowerKey' ? await presetEdit(context, range, draft, model) : await instructionEdit(context, range, draft, model);
         return (now) => (typeof edit === 'string' ? { kind: 'failed', message: edit } : finish(now, context.tabId, context.song, edit));

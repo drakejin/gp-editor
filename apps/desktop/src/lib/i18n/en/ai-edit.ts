@@ -52,6 +52,7 @@ export const EN_AI_EDIT = {
   'aiEdit.noScore': 'Open a score to edit it',
   'aiEdit.needsSelection': 'Select beats in the score, or choose the current track or all tracks',
   'aiEdit.needsPrompt': 'Write what Claude should change, or pick an idea',
+  'aiEdit.trackOutOfReach': 'Claude writes only the first {max} tracks: track {track} is beyond them',
   'aiEdit.asking': 'Claude is reading the score and rewriting the bars… {seconds} s',
   'aiEdit.askingPart': 'Claude is rewriting part {part} of {parts}… {seconds} s',
   'aiEdit.askingAgain': 'Asking Claude again (attempt {attempt} of 3)… {seconds} s',
