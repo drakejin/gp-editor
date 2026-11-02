@@ -172,6 +172,21 @@ describe('cutSelection', () => {
   });
 });
 
+describe('selectBeats', () => {
+  it('selects the beats as given, a single beat too, which a drag back onto its beat does not', () => {
+    // Arrange
+    const beat3 = { trackIndex: 0, measureIndex: 0, beatIndex: 2, voiceIndex: 0, string: 1 };
+
+    // Act
+    const one = reduce(loaded(), { type: 'selectBeats', anchor: beat3, cursor: beat3 });
+
+    // Assert
+    expect(selectionRange(one)).toEqual({ first: { measureIndex: 0, beatIndex: 2 }, last: { measureIndex: 0, beatIndex: 2 } });
+    expect(selectedFragment(one)?.items).toHaveLength(1);
+    expect(reduce(loaded(), { type: 'selectTo', cursor: { ...beat3, beatIndex: 0 } }).selectionAnchor).toBeUndefined();
+  });
+});
+
 describe('pasteBeats', () => {
   it('writes the beats over the bar from the cursor as one undo step (Guitar Pro 8), the cursor on the first pasted beat', () => {
     // Arrange

@@ -27,7 +27,7 @@ import { markSaved, redo, undo } from './editor-history';
 import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
-import { extendSelection, selectTo, settleSelection } from './selection';
+import { extendSelection, selectBeats, selectTo, settleSelection } from './selection';
 import { type SongAction, isSongAction } from './song-actions';
 import type { SongEdit } from './song-edits';
 import { INITIAL_TRACK_DISPLAY, type TrackDisplay } from './track-display';
@@ -150,6 +150,8 @@ export type EditorAction =
   | { readonly type: 'extendSelection'; readonly step: -1 | 1 }
   /** A mouse drag or a shift-click: select from where the cursor was to here. */
   | { readonly type: 'selectTo'; readonly cursor: StringAddress }
+  /** The beats from `anchor` to `cursor` selected as given, a single beat too (MCP select_bars on a bar of one beat). */
+  | { readonly type: 'selectBeats'; readonly anchor: StringAddress; readonly cursor: StringAddress }
   | { readonly type: 'clearSelection' }
   /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. One undo step. */
   | { readonly type: 'cutSelection' }
@@ -248,6 +250,8 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       return extendSelection(state, action.step);
     case 'selectTo':
       return selectTo(state, action.cursor);
+    case 'selectBeats':
+      return selectBeats(state, action.anchor, action.cursor);
     case 'clearSelection':
       return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:

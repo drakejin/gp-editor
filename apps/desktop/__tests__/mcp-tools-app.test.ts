@@ -1,6 +1,6 @@
 import { buildNewSong, findNote } from '@gp-editor/core';
 import { setLanguage } from '../src/lib/i18n/i18n';
-import { SANDBOX_NOTE } from '../src/mcp/tools/file-tools';
+import { FILE_TOOLS, SANDBOX_NOTE } from '../src/mcp/tools/file-tools';
 import { INITIAL_WORKSPACE, type WorkspaceAction, activeEditor, workspaceReducer } from '../src/state/workspace';
 import { call, fakeApp, openWorkspace } from '../test-support/mcp-host';
 
@@ -141,6 +141,11 @@ describe('file tools', () => {
     expect(wrong).toMatchObject({ isError: true, text: 'A pdf export’s path ends in .pdf.' });
     expect(pngPath).toMatchObject({ isError: true, text: expect.stringContaining('without a path') });
     expect(app.calls).toEqual(['exportTo midi /tmp/Etude.mid', 'showExportPanel audio', 'showExportPanel musicxml']);
+  });
+
+  it('says that a PDF written to a path prints the annotations (only the export panel leaves them out)', () => {
+    const description = FILE_TOOLS.find((tool) => tool.name === 'export_file')?.description ?? '';
+    expect(description).toContain('a pdf written to a path prints the annotations');
   });
 
   it('passes a failed export on, with the sandbox’s rules in the sandboxed app', async () => {

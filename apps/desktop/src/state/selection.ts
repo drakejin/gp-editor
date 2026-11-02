@@ -98,13 +98,24 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
 }
 
 /**
+ * The beats from `anchor` to `cursor` (in the cursor's track and voice) selected as given — on one beat too, which a drag
+ * back onto its beat does not select —, the cursor on `cursor`; both kept inside the song. The same state without a song.
+ */
+export function selectBeats(state: EditorState, anchor: StringAddress, cursor: StringAddress): EditorState {
+  const song = state.document?.song;
+  const moved = song === undefined ? undefined : clampCursor(song, cursor);
+  const from = song === undefined ? undefined : clampCursor(song, { ...anchor, trackIndex: cursor.trackIndex, voiceIndex: cursor.voiceIndex });
+  return moved === undefined || from === undefined ? state : { ...state, cursor: moved, selectionAnchor: from };
+}
+
+/**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
  * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
   // A transposition (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
   const keepsBeats = action.type === 'transpose' || (action.type === 'applyAiEdit' && action.keepsBeats);
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || keepsBeats) {
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'selectBeats' || keepsBeats) {
     return after;
   }
   return isScoreUntouched(before, after) ? after : { ...after, selectionAnchor: undefined };

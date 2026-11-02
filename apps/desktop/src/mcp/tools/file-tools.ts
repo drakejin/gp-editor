@@ -159,7 +159,7 @@ const exportFile: McpTool<AppHost> = {
   name: 'export_file',
   title: 'Export',
   description:
-    'Exports the shown tab (or the tab given), as File ▸ Export … does: midi (as playback plays it: repeats unfolded, mute/solo), ascii_tab (the fretted tracks), musicxml, mxl (compressed MusicXML), pdf (the score as shown, on the stylesheet’s pages) — written to path at once (a file already there is replaced without asking), or through the save panel without one. png and audio always open their export panel (resolution, format and quality are chosen there) for the person at the Mac.',
+    'Exports the shown tab (or the tab given), as File ▸ Export … does: midi (as playback plays it: repeats unfolded, mute/solo), ascii_tab (the fretted tracks), musicxml, mxl (compressed MusicXML), pdf (the score as shown, on the stylesheet’s pages; a pdf written to a path prints the annotations — only the export panel can leave them out) — written to path at once (a file already there is replaced without asking), or through the save panel without one. png and audio always open their export panel (resolution, format and quality are chosen there) for the person at the Mac.',
   inputSchema: objectSchema(
     { format: { type: 'string', enum: [...Object.keys(EXPORT_EXTENSIONS), ...PANEL_FORMATS], description: 'What to export.' }, path: PATH_ARGUMENT, tab: TAB_ARGUMENT },
     ['format'],
