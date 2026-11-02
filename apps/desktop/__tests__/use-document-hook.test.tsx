@@ -562,3 +562,46 @@ describe('useDocument saving at a path (the MCP server’s save_as)', () => {
     expect(hook.dispatch.mock.calls.map(([action]) => action.type)).toEqual(['loadStarted', 'loaded']);
   });
 });
+
+describe('useDocument: a file rebuilt by a resumed PDF import', () => {
+  const edited = () => workspaceReducer(opened('Etude.gp5', '/scores/Etude.gp5'), { type: 'setNoteFret', fret: 7 });
+
+  it('reloads the tab holding it when the tab is not edited', async () => {
+    // Arrange
+    mockFiles.readFile.mockResolvedValueOnce(ETUDE);
+    const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
+
+    // Act
+    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+
+    // Assert
+    expect(hook.dispatch.mock.calls.map(([action]) => action.type)).toEqual(['loadStarted', 'reloadTab']);
+    expect(hook.dispatch.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'reloadTab', document: { fileName: 'Etude.gp5', path: '/scores/Etude.gp5' } });
+    expect(hook.current().rebuilt).toBeUndefined();
+  });
+
+  it('asks before replacing an edited tab: the rebuilt song on Show, the tab as it is on Keep', async () => {
+    // Arrange
+    mockFiles.readFile.mockResolvedValue(ETUDE);
+    const hook = renderHook(edited());
+
+    // Act: asked, kept; asked again, shown
+    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+    const asked = hook.current().rebuilt;
+    let wasAsked = false;
+    ReactTestRenderer.act(() => {
+      wasAsked = hook.current().keepEdited();
+    });
+    const afterKeep = hook.dispatch.mock.calls.map(([action]) => action.type);
+    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+    ReactTestRenderer.act(() => hook.current().showRebuilt());
+
+    // Assert
+    expect(asked).toEqual({ tabId: 'tab-1', name: 'Test' });
+    expect(wasAsked).toBe(true);
+    expect(afterKeep).toEqual(['loadStarted', 'loadCancelled']);
+    expect(hook.dispatch.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'reloadTab', document: { path: '/scores/Etude.gp5' } });
+    expect(hook.current().rebuilt).toBeUndefined();
+    mockFiles.readFile.mockReset();
+  });
+});

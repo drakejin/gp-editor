@@ -20,6 +20,7 @@ import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../stat
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
 import { useLanguage } from './use-i18n';
+import { type RebuiltFile, useRebuiltFile } from './use-rebuilt-file';
 
 /**
  * How opening a file ended, as the window shows it: in a tab (the file's path, as read), why not (the error banner's
@@ -32,7 +33,7 @@ export type OpenResult =
   | { readonly kind: 'imported' };
 
 /** Each document opens in a new tab (or the tab already holding its file is shown); saving acts on one tab. */
-export interface DocumentCommands {
+export interface DocumentCommands extends RebuiltFile {
   /** A blank sheet shown as score + tab, score or tab (File ▸ New, New button, start screen). */
   readonly create: (mode: ScoreMode) => void;
   /** Open panel (⌘O, Open button). */
@@ -115,9 +116,10 @@ export function useDocument(
     [open, onOpenPdf],
   );
   const openRecent = useCallback((path: string) => open(() => readRecentFile(path), path), [open]);
+  const rebuiltFile = useRebuiltFile(latest, dispatch, open);
   useFileMenu({ create, openDialog, openPath, openRecent, save });
   useWindowTitle(workspace);
-  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab, saveTabTo };
+  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab, saveTabTo, ...rebuiltFile };
 }
 
 /** File ▸ New, Open…, Open Recent and Save / Save As…, and files Finder hands over. */
@@ -148,16 +150,17 @@ function useWindowTitle(workspace: WorkspaceState): void {
 }
 
 /**
- * Reads a file and opens it in a new tab (`loaded`), then remembers it as a recent file; the window's error banner
- * says why it could not be. `recentPath`: the recent file being opened (marked missing when it is gone).
+ * Reads a file and opens it in a new tab (`loaded`; `deliver` hands it elsewhere), then remembers it as a recent file;
+ * the window's error banner says why it could not be. `recentPath`: the recent file being opened (marked missing when
+ * it is gone).
  */
 function useOpenFile(
   dispatch: Dispatch<WorkspaceAction>,
   recentFiles: RecentFileHandlers,
-): (load: () => Promise<OpenedFile | null>, recentPath?: string) => Promise<OpenResult> {
+): (load: () => Promise<OpenedFile | null>, recentPath?: string, deliver?: (document: OpenDocument) => void) => Promise<OpenResult> {
   const { remember, markMissing } = recentFiles;
   return useCallback(
-    async (load: () => Promise<OpenedFile | null>, recentPath?: string): Promise<OpenResult> => {
+    async (load: () => Promise<OpenedFile | null>, recentPath?: string, deliver?: (document: OpenDocument) => void): Promise<OpenResult> => {
       dispatch({ type: 'loadStarted' });
       try {
         const file = await load();
@@ -166,7 +169,12 @@ function useOpenFile(
           return { kind: 'cancelled' };
         }
         const { song, hint } = await withLoadedAudio(readSongFile(base64ToBytes(file.base64)));
-        dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
+        const document: OpenDocument = { fileName: file.name, path: file.path, song };
+        if (deliver === undefined) {
+          dispatch({ type: 'loaded', document });
+        } else {
+          deliver(document);
+        }
         if (hint !== undefined) {
           dispatch({ type: 'showHint', hint });
         }

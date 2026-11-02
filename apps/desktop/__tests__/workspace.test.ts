@@ -120,6 +120,28 @@ describe('workspaceReducer: opening documents in tabs', () => {
     expect(activeEditor(saved).document?.path).toBe('/scores/Mine.gp5');
   });
 
+  it('reloads the tab holding a rebuilt file (a resumed PDF import) in its place, showing the new song', () => {
+    // Arrange: B.gp5 in tab-2 in the tab view, C shown; the import rebuilt B with another song
+    const start = run([{ type: 'switchTab', tabId: 'tab-2' }, { type: 'setMode', mode: 'tab' }, { type: 'switchTab', tabId: 'tab-3' }], threeTabs());
+    const rebuilt = makeSong([[beat(960, [note(1, 9)])], [beat(960, [note(1, 9)])], [beat(960, [note(1, 9)])]]);
+
+    // Act
+    const state = workspaceReducer(start, { type: 'reloadTab', document: document('B.gp5', '/scores/B.gp5', rebuilt) });
+
+    // Assert
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5']);
+    expect(state.activeTabId).toBe('tab-2');
+    expect(activeEditor(state).document?.song).toBe(rebuilt);
+    expect(activeEditor(state)).toMatchObject({ mode: 'tab', past: [], future: [] });
+    expect(isEdited(activeEditor(state))).toBe(false);
+  });
+
+  it('opens a rebuilt file no tab holds in a new tab', () => {
+    const state = workspaceReducer(threeTabs(), { type: 'reloadTab', document: document('D.gp5') });
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'D.gp5']);
+    expect(shownFile(state)).toBe('D.gp5');
+  });
+
   it('shows what the last save left out, and nothing once a later save leaves nothing out', () => {
     // Arrange: saved as .gp (its note), then as .gp5 (nothing left out)
     const opened = workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: document('A.gp5') });

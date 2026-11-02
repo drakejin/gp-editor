@@ -42,6 +42,11 @@ export type TabAction =
    * is shown instead. `isUnsaved`: no file holds it yet, so it counts as edited and closing it asks to save.
    */
   | { readonly type: 'openTab'; readonly document: OpenDocument; readonly isUnsaved?: boolean }
+  /**
+   * A file rebuilt on disk (a resumed PDF import): the tab holding it shows it afresh in its place and view (its edits,
+   * if any, are asked about before, by the caller); a new tab when none holds it.
+   */
+  | { readonly type: 'reloadTab'; readonly document: OpenDocument }
   | { readonly type: 'switchTab'; readonly tabId: string }
   /** Closes a tab at once (an edited one is asked about before, by the caller); its neighbour is shown. */
   | { readonly type: 'closeTab'; readonly tabId: string }
@@ -70,6 +75,8 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return openDocumentTab(state, action.document, false);
     case 'openTab':
       return openDocumentTab(state, action.document, action.isUnsaved ?? false);
+    case 'reloadTab':
+      return reloadTab(state, action.document);
     case 'created':
       return addTab(state, editorReducer(INITIAL_EDITOR_STATE, action));
     case 'dismissError':
@@ -121,6 +128,16 @@ function openDocumentTab(state: WorkspaceState, document: OpenDocument, isUnsave
   }
   const opened = editorReducer({ ...INITIAL_EDITOR_STATE, mode: activeEditor(state).mode }, { type: 'loaded', document });
   return addTab(state, isUnsaved ? { ...opened, savedSong: undefined } : opened);
+}
+
+/** The tab holding the document's file, with a fresh editor on it in the tab's view, shown; else a new tab. */
+function reloadTab(state: WorkspaceState, document: OpenDocument): WorkspaceState {
+  const holding = document.path === '' ? undefined : state.tabs.find((tab) => tab.editor.document?.path === document.path);
+  if (holding === undefined) {
+    return openDocumentTab(state, document, false);
+  }
+  const editor = editorReducer({ ...INITIAL_EDITOR_STATE, mode: holding.editor.mode }, { type: 'loaded', document });
+  return { ...state, tabs: state.tabs.map((tab) => (tab.id === holding.id ? { ...tab, editor } : tab)), activeTabId: holding.id, isLoading: false };
 }
 
 /** A tab after the others, shown. */

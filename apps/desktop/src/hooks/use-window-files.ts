@@ -54,7 +54,8 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const documents = useDocument(workspace, dispatch, openPdf, recentFiles);
   const tabs = useTabs(workspace, dispatch, documents.saveTab);
   const importPanel = useImportPanel();
-  const pdfImport = usePdfImport(documents.openPath, importPanel.open);
+  // A finished or resumed import rewrites its song: the tab already showing it shows the new one (asking if edited).
+  const pdfImport = usePdfImport(documents.openRebuilt, importPanel.open);
   importPdfPath.current = pdfImport.importPath;
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);
