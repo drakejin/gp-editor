@@ -1,4 +1,4 @@
-import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '@gp-editor/core';
+import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, pasteBeats } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import type { BeatRange } from '../score/selection-tint';
@@ -9,10 +9,11 @@ import { beatAddress } from './song-edits';
 /** What the selection helpers read of the editor state. */
 type SelectionState = Pick<EditorState, 'document' | 'cursor' | 'selectionAnchor'>;
 
-/** A song after a cut or paste, with where the cursor goes. */
+/** A song after a cut or paste, with where the cursor goes and what the hint strip says. */
 export interface ClipboardEdit {
   readonly song: Song;
   readonly cursor: StringAddress;
+  readonly hint?: string;
 }
 
 function isBefore(a: StringAddress, b: StringAddress): boolean {
@@ -142,8 +143,14 @@ export function pasteRefusal(song: Song, cursor: StringAddress, fragment: BeatFr
   return t(fragment.isPercussion ? 'palette.hint.pasteDrumsOnly' : 'palette.hint.pasteIntoDrums');
 }
 
-/** ⌘V: the beats inserted at the cursor, what follows moved on; the cursor on the first pasted beat. */
+/**
+ * ⌘V: Guitar Pro 8's paste (gp-core pasteBeats) — up to a bar written over the voice from the cursor, longer into whole
+ * bars added before the cursor's bar (or into the empty bars there); the cursor on the first pasted beat, and the hint
+ * says when bars were added, which moves every track.
+ */
 export function pasteBeatsAt(song: Song, cursor: StringAddress, fragment: BeatFragment): ClipboardEdit {
-  const next = insertBeatsFlowing(song, beatAddress(cursor), fragment);
-  return { song: next, cursor: cursorAt(next, cursor, beatStart(song, cursor)) };
+  const pasted = pasteBeats(song, beatAddress(cursor), fragment);
+  const first = { ...cursor, measureIndex: pasted.at.measureIndex, beatIndex: pasted.at.beatIndex };
+  const hint = pasted.addedBars > 0 ? t('palette.hint.pasteAddedBars', { count: pasted.addedBars }) : undefined;
+  return { song: pasted.song, cursor: clampCursor(pasted.song, first) ?? cursor, hint };
 }

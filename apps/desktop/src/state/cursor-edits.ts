@@ -204,7 +204,7 @@ function applyClipboardEdit(state: EditorState, edit: (song: Song, cursor: Strin
   }
   const result = edit(document.song, cursor);
   const recorded = recordSong(state, document, result.song);
-  return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: undefined };
+  return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: result.hint };
 }
 
 /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. */
@@ -212,7 +212,7 @@ export function cutSelection(state: EditorState): EditorState {
   return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
 }
 
-/** Pastes at the cursor; when the beats cannot go there (drums and other tracks), the hint says why. */
+/** Pastes at the cursor (selection.ts pasteBeatsAt); when the beats cannot go there (drums and other tracks), the hint says why. */
 export function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
   const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
   const { document, cursor } = state;

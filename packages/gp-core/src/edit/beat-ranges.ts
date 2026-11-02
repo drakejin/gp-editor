@@ -5,7 +5,7 @@ import { type BeatFragment, type BeatFragmentItem, fragmentItem, itemEvent, sett
 import { type VoiceEvents, eventTicks, isFreeRest, measureGapRests } from './timeline';
 
 /** A position in a voice: a bar, and ticks from its start. */
-interface VoicePosition {
+export interface VoicePosition {
   readonly measureIndex: number;
   readonly offset: number;
 }
@@ -27,14 +27,14 @@ function isEmptyBarStart(song: Song, at: BeatAddress): boolean {
 }
 
 /** Where the addressed beat starts in its bar (beat 0 of a bar without beats: its start); undefined when the beat does not exist. */
-function beatPosition(song: Song, at: BeatAddress): VoicePosition | undefined {
+export function beatPosition(song: Song, at: BeatAddress): VoicePosition | undefined {
   const header = song.measureHeaders[at.measureIndex];
   const start = isEmptyBarStart(song, at) ? header?.start : song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.start;
   return header === undefined || start === undefined ? undefined : { measureIndex: at.measureIndex, offset: start - header.start };
 }
 
 /** True when the addressed beat can hold the addressed voice (it may be empty; voices 3 and 4 always can, so can a bar without beats). */
-function hasVoiceSlot(song: Song, at: BeatAddress): boolean {
+export function hasVoiceSlot(song: Song, at: BeatAddress): boolean {
   const beat = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex];
   return beat === undefined ? isEmptyBarStart(song, at) && isVoiceIndex(at.voiceIndex) : voiceOf(beat, at.voiceIndex) !== undefined;
 }
@@ -106,7 +106,7 @@ interface CutStream {
   readonly after: VoiceEvents;
 }
 
-function cutAt(placed: readonly PlacedEvent[], offset: number, measure: Measure): CutStream {
+export function cutAt(placed: readonly PlacedEvent[], offset: number, measure: Measure): CutStream {
   const firstBar = placed[0]?.measureIndex;
   const found = placed.findIndex((event) => event.measureIndex !== firstBar || event.offset + eventTicks(event.event) > offset);
   const index = found < 0 ? placed.length : found;
@@ -124,7 +124,7 @@ function cutAt(placed: readonly PlacedEvent[], offset: number, measure: Measure)
 }
 
 /** The items without notes on strings the track lacks (an item left without notes is a rest). */
-function onTrackStrings(items: readonly BeatFragmentItem[], stringCount: number): readonly BeatFragmentItem[] {
+export function onTrackStrings(items: readonly BeatFragmentItem[], stringCount: number): readonly BeatFragmentItem[] {
   return items.map((item) => (item.notes.every((note) => note.string <= stringCount) ? item : { ...item, notes: item.notes.filter((note) => note.string <= stringCount) }));
 }
 

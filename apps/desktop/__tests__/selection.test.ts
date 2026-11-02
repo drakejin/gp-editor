@@ -173,7 +173,7 @@ describe('cutSelection', () => {
 });
 
 describe('pasteBeats', () => {
-  it('inserts the beats at the cursor as one undo step, the cursor on the first pasted beat', () => {
+  it('writes the beats over the bar from the cursor as one undo step (Guitar Pro 8), the cursor on the first pasted beat', () => {
     // Arrange
     const state = loaded();
     const fragment = selectedFragment(reduce(state, RIGHT))!;
@@ -182,10 +182,29 @@ describe('pasteBeats', () => {
     // Act
     const pasted = reduce(atSecondBar, { type: 'pasteBeats', fragment });
 
-    // Assert
+    // Assert: nothing moves on, so the track keeps time with the others
     expect(frets(pasted, 1)).toEqual(['4', '5', '0', '1']);
-    expect(frets(pasted, 2)).toEqual(['6', '7', 'r']);
+    expect(pasted.document?.song.measureHeaders).toHaveLength(2);
     expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 2 });
+    expect(pasted.past).toHaveLength(1);
+    expect(pasted.hint).toBeUndefined();
+  });
+
+  it('pastes beats longer than a bar into whole bars added before the cursor’s bar, and says so', () => {
+    // Arrange: five beats copied (bar 1 and the first beat of bar 2), the cursor on bar 2, beat 2
+    const state = loaded();
+    const fragment = selectedFragment(reduce(state, RIGHT, RIGHT, RIGHT, RIGHT))!;
+    const atSecondBar = reduce(state, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 1 } });
+
+    // Act
+    const pasted = reduce(atSecondBar, { type: 'pasteBeats', fragment });
+
+    // Assert
+    expect(frets(pasted, 1)).toEqual(['0', '1', '2', '3']);
+    expect(frets(pasted, 2)).toEqual(['4', 'r']);
+    expect(frets(pasted, 3)).toEqual(['4', '5', '6', '7']);
+    expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 0 });
+    expect(pasted.hint).toBe('2 bars were added to the song (every track) to hold the pasted beats.');
     expect(pasted.past).toHaveLength(1);
   });
 
