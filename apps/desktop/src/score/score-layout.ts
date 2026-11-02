@@ -1,7 +1,7 @@
 import { type Song, type Stylesheet, type Track, type TrackNameFormat, abbreviateTrackName, stylesheetOf } from '@gp-editor/core';
 import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
 import { t } from '../lib/i18n/i18n';
-import type { MeasureLayout, RowLayout } from '../lib/layout';
+import type { BeatRoom, MeasureLayout, RowLayout } from '../lib/layout';
 import { withBeatOffsets } from '../lib/system-design';
 import { annotationRowBands, annotationTrackBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
@@ -9,7 +9,7 @@ import { hasDirections } from './directions';
 import { hasDynamicChanges } from './dynamics';
 import { ROW, type RowBands, type RowGeometry, type ScoreMode, rowGeometry, showsTab } from './geometry';
 import { hasFreeTexts, textBandHeights } from './free-text';
-import { hasLyrics } from './lyrics';
+import { hasLyrics, hasSameSyllables, lyricsBeatWidth } from './lyrics';
 import { hasPedals } from './pedals';
 import { NOTATION } from './notation';
 import { rowHeaderWidth } from './row';
@@ -212,22 +212,32 @@ export interface MeasureCache {
   readonly measures: readonly (readonly MeasureLayout[])[];
 }
 
-/** A bar's layout depends on its header and measures and the ones before them (signatures and key changes shown). */
+/**
+ * A bar's layout depends on its header and measures and the ones before them (signatures and key changes shown), and
+ * on the syllables sung in it (a note added earlier moves them on).
+ */
 function isSameBar(previous: Song, song: Song, trackIndexes: readonly number[], measureIndex: number): boolean {
   const isSame = (index: number) =>
     previous.measureHeaders[index] === song.measureHeaders[index] &&
     trackIndexes.every((trackIndex) => previous.tracks[trackIndex]?.measures[index] === song.tracks[trackIndex]?.measures[index]);
-  return isSame(measureIndex) && isSame(measureIndex - 1);
+  const isSameSung = trackIndexes.every((trackIndex) => hasSameSyllables(previous.tracks[trackIndex], song.tracks[trackIndex], measureIndex));
+  return isSame(measureIndex) && isSame(measureIndex - 1) && isSameSung;
+}
+
+/** A beat is as wide as its chord's diagram or name and its syllable, so neighbouring chords and words do not overlap. */
+function scoreBeatRoom(song: Song, chordDisplay: ChordDisplay): BeatRoom {
+  const { texts } = stylesheetOf(song);
+  return (beat, place) =>
+    Math.max(chordBeatWidth(beat, chordDisplay, texts.chordName.size), lyricsBeatWidth(song.tracks[place.trackIndex], place.measureIndex, place.beatIndex, texts.lyrics));
 }
 
 /** Every bar laid out for the shown tracks together, `[measureIndex][staffIndex]`; `cache`'s bars reused where they still hold. */
 export function scoreMeasures(song: Song, trackIndexes: readonly number[], chordDisplay: ChordDisplay, cache?: MeasureCache): (readonly MeasureLayout[])[] {
-  // A beat with a chord is as wide as its diagram or name, so neighbouring chords do not overlap.
   const sheet = stylesheetOf(song);
-  const nameSize = sheet.texts.chordName.size;
-  const beatRoom = (beat: Parameters<typeof chordBeatWidth>[0]) => chordBeatWidth(beat, chordDisplay, nameSize);
+  const beatRoom = scoreBeatRoom(song, chordDisplay);
   const cachedSheet = cache === undefined ? undefined : stylesheetOf(cache.song);
-  const isSameSpacing = cachedSheet !== undefined && cachedSheet.noteSpacing === sheet.noteSpacing && cachedSheet.texts.chordName.size === nameSize;
+  const isSameSpacing =
+    cachedSheet !== undefined && cachedSheet.noteSpacing === sheet.noteSpacing && cachedSheet.texts.chordName.size === sheet.texts.chordName.size && cachedSheet.texts.lyrics.size === sheet.texts.lyrics.size;
   const reusable =
     cache !== undefined && isSameSpacing && cache.chordDisplay === chordDisplay && cache.trackIndexes.join() === trackIndexes.join() ? cache : undefined;
   return song.measureHeaders.map((_, measureIndex) => {

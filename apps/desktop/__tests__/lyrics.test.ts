@@ -1,5 +1,10 @@
+import { QUARTER, type Song, readSong } from '@gp-editor/core';
 import type { MeasureLayout } from '../src/lib/layout';
+import { DEFAULT_CHORD_DISPLAY } from '../src/score/chords';
 import { LYRICS, engraveLyrics, hasLyrics, measureSyllables } from '../src/score/lyrics';
+import { layoutScore } from '../src/score/score-layout';
+import { textWidth } from '../src/score/symbols/shapes';
+import { readFixture } from '../test-support/fixtures';
 import { PALETTE, texts } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
 
@@ -75,5 +80,43 @@ describe('hasLyrics', () => {
     expect(hasLyrics(sungSong('la').tracks[0])).toBe(true);
     expect(hasLyrics(sungSong('   ').tracks[0])).toBe(false);
     expect(hasLyrics(makeSong([[]]).tracks[0])).toBe(false);
+  });
+});
+
+/** The syllables of the track's laid-out bars that run into the one before them or out of their bar, as "bar: text". */
+function crowdedSyllables(song: Song, trackIndex: number): string[] {
+  const track = song.tracks[trackIndex]!;
+  const layout = layoutScore(song, [{ trackIndex, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, 900);
+  return layout.systems.flatMap((system) =>
+    (system.rows[0]?.measures ?? []).flatMap((measure) => {
+      const spans = engraveLyrics({ track, layout: measure, y: 0, palette: PALETTE }).map((command) => {
+        const half = textWidth(command.text, command.size) / 2;
+        return { text: command.text, left: command.x - half, right: command.x + half };
+      });
+      return spans.filter((span, i) => span.left < 0 || span.right > measure.width || span.left < (spans[i - 1]?.right ?? -Infinity)).map((span) => `${measure.measureIndex + 1}: ${span.text}`);
+    }),
+  );
+}
+
+describe('lyrics in the layout', () => {
+  it('widens the beats under syllables wider than their notes, so none runs into another (beat-lyrics.gp)', () => {
+    // Arrange
+    const song = readSong(readFixture('guitarpro7', 'beat-lyrics.gp'));
+    const trackIndex = song.tracks.findIndex(hasLyrics);
+
+    // Act / Assert
+    expect(trackIndex).toBeGreaterThanOrEqual(0);
+    expect(crowdedSyllables(song, trackIndex)).toEqual([]);
+  });
+
+  it('makes room for long words on sixteenth notes, and none for a short one', () => {
+    // Arrange: four sixteenths sung "Manually Modified to ensure"; then the same notes sung "a b c d"
+    const notes = makeSong([[960, 1200, 1440, 1680].map((start) => beat(start, [note(1, 0)], { ...QUARTER, value: 16 }))]);
+    const sung = (text: string): Song => ({ ...notes, tracks: notes.tracks.map((track) => ({ ...track, lyrics: { from: 1, text } })) });
+    const barWidth = (song: Song) => layoutScore(song, [{ trackIndex: 0, mode: 'tab' }], DEFAULT_CHORD_DISPLAY, 2000).systems[0]?.rows[0]?.measures[0]?.width;
+
+    // Act / Assert
+    expect(crowdedSyllables(sung('Manually Modified to ensure'), 0)).toEqual([]);
+    expect(barWidth(sung('a b c d'))).toBe(barWidth(notes));
   });
 });

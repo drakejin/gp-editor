@@ -87,8 +87,15 @@ function changed(headers: readonly MeasureHeader[], index: number, pick: (h: Mea
   return current !== undefined && (previous === undefined || pick(previous) !== pick(current));
 }
 
-/** Room a beat needs beyond its notes (a chord diagram over it, `chordBeatWidth`); 0 for none. */
-export type BeatRoom = (beat: Beat) => number;
+/** Where a beat is: its track, bar and index in the bar. */
+export interface BeatPlace {
+  readonly trackIndex: number;
+  readonly measureIndex: number;
+  readonly beatIndex: number;
+}
+
+/** Room a beat needs beyond its notes (a chord diagram over it, `chordBeatWidth`; its syllable, `lyricsBeatWidth`); 0 for none. */
+export type BeatRoom = (beat: Beat, place: BeatPlace) => number;
 
 export const NO_ROOM: BeatRoom = () => 0;
 
@@ -132,7 +139,7 @@ export function measureFrame(song: Song, trackIndex: number, measureIndex: numbe
 export function beatWidths(song: Song, trackIndex: number, measureIndex: number, beatRoom: BeatRoom = NO_ROOM): number[] {
   const beats = song.tracks[trackIndex]?.measures[measureIndex]?.beats ?? [];
   const { noteSpacing } = stylesheetOf(song);
-  return beats.map((beat) => Math.max(beatWidth(beat) * noteSpacing, beatRoom(beat)));
+  return beats.map((beat, beatIndex) => Math.max(beatWidth(beat) * noteSpacing, beatRoom(beat, { trackIndex, measureIndex, beatIndex })));
 }
 
 /** The measure's layout once its beats are placed; `beatsEnd` is where the last beat's room ends (undefined: no beats). */
