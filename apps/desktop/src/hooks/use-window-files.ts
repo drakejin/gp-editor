@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeImportPdfRequests } from '../native/gp-files';
 import { type AudioExport, useAudioExport } from './use-audio-export';
 import { type Clipboard, useClipboard } from './use-clipboard';
@@ -41,7 +41,7 @@ function useImportPanel(): ImportPanel {
   const [isOpen, setIsOpen] = useState(false);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
-  return { isOpen, open, close };
+  return useMemo(() => ({ isOpen, open, close }), [isOpen, open, close]);
 }
 
 export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { trackView, playback }: WindowMedia): WindowFiles {
@@ -53,9 +53,16 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const recentFiles = useRecentFiles();
   const documents = useDocument(workspace, dispatch, openPdf, recentFiles);
   const tabs = useTabs(workspace, dispatch, documents.saveTab);
-  const importPanel = useImportPanel();
+  const panel = useImportPanel();
   // A finished or resumed import rewrites its song: the tab already showing it shows the new one (asking if edited).
-  const pdfImport = usePdfImport(documents.openRebuilt, importPanel.open);
+  // A PDF dropped (or a project resumed) without a key goes on once the key is saved, the settings closing then.
+  const pdfImport = usePdfImport(documents.openRebuilt, panel.open, panel.close);
+  const { forgetPending } = pdfImport;
+  const closeImportPanel = useCallback(() => {
+    forgetPending();
+    panel.close();
+  }, [forgetPending, panel]);
+  const importPanel = useMemo(() => ({ ...panel, close: closeImportPanel }), [panel, closeImportPanel]);
   importPdfPath.current = pdfImport.importPath;
   const { start: startImport } = pdfImport;
   useEffect(() => subscribeImportPdfRequests(startImport), [startImport]);

@@ -572,7 +572,9 @@ describe('useDocument: a file rebuilt by a resumed PDF import', () => {
     const hook = renderHook(opened('Etude.gp5', '/scores/Etude.gp5'));
 
     // Act
-    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+    await settle(() => {
+      void hook.current().openRebuilt('/scores/Etude.gp5');
+    });
 
     // Assert
     expect(hook.dispatch.mock.calls.map(([action]) => action.type)).toEqual(['loadStarted', 'reloadTab']);
@@ -586,14 +588,18 @@ describe('useDocument: a file rebuilt by a resumed PDF import', () => {
     const hook = renderHook(edited());
 
     // Act: asked, kept; asked again, shown
-    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+    await settle(() => {
+      void hook.current().openRebuilt('/scores/Etude.gp5');
+    });
     const asked = hook.current().rebuilt;
     let wasAsked = false;
     ReactTestRenderer.act(() => {
       wasAsked = hook.current().keepEdited();
     });
     const afterKeep = hook.dispatch.mock.calls.map(([action]) => action.type);
-    await settle(() => void hook.current().openRebuilt('/scores/Etude.gp5'));
+    await settle(() => {
+      void hook.current().openRebuilt('/scores/Etude.gp5');
+    });
     ReactTestRenderer.act(() => hook.current().showRebuilt());
 
     // Assert

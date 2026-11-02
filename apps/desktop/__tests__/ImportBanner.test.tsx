@@ -28,6 +28,7 @@ function pdfImport(overrides: Partial<PdfImport>): PdfImport {
     cancel: noop,
     reveal: noop,
     saveKey: async () => undefined,
+    forgetPending: noop,
     removeKey: noop,
     chooseModel: noop,
     dismiss: noop,

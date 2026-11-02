@@ -95,20 +95,22 @@ interface HookProbe {
   readonly current: () => PdfImport;
   readonly onSongReady: jest.Mock<void, [string]>;
   readonly onNeedsKey: jest.Mock<void, []>;
+  readonly onContinue: jest.Mock<void, []>;
 }
 
 async function renderHook(): Promise<HookProbe> {
   const onSongReady = jest.fn<void, [string]>();
   const onNeedsKey = jest.fn<void, []>();
+  const onContinue = jest.fn<void, []>();
   let latest: PdfImport | undefined;
   function Probe() {
-    latest = usePdfImport(onSongReady, onNeedsKey);
+    latest = usePdfImport(onSongReady, onNeedsKey, onContinue);
     return null;
   }
   await settle(() => {
     ReactTestRenderer.create(<Probe />);
   });
-  return { current: () => latest!, onSongReady, onNeedsKey };
+  return { current: () => latest!, onSongReady, onNeedsKey, onContinue };
 }
 
 /** Runs `action`, then lets every pending native call and state update settle. */
@@ -238,6 +240,69 @@ describe('usePdfImport start', () => {
     expect(hook.current().model).toBe('claude-sonnet-5');
     expect(savedProject()?.model).toBe('claude-sonnet-5');
     expect(JSON.parse(mockAnthropic.send.mock.calls[0]?.[0] ?? '{}')).toMatchObject({ model: 'claude-sonnet-5' });
+  });
+});
+
+describe('usePdfImport without a key', () => {
+  it('imports a PDF dropped while no key was saved once the key is saved', async () => {
+    // Arrange: no key; a PDF dropped on the window
+    mockAnthropic.hasApiKey.mockResolvedValue(false);
+    mockAnthropic.setApiKey.mockResolvedValue(undefined);
+    const hook = await renderHook();
+    await settle(() => hook.current().importPath(PDF.path));
+    const createdBeforeKey = mockProjects.createProject.mock.calls.length;
+
+    // Act: the key is saved in the import settings
+    mockAnthropic.hasApiKey.mockResolvedValue(true);
+    await settle(() => {
+      void hook.current().saveKey('sk-ant-test');
+    });
+
+    // Assert
+    expect(hook.onNeedsKey).toHaveBeenCalledTimes(1);
+    expect(createdBeforeKey).toBe(0);
+    expect(mockProjects.createProject).toHaveBeenCalledWith(PDF.path);
+    expect(hook.onContinue).toHaveBeenCalledTimes(1);
+    expect(hook.onSongReady).toHaveBeenCalledWith(`${PROJECT_PATH}/Etude.gp5`);
+  });
+
+  it('forgets the dropped PDF when the import settings close without a key', async () => {
+    // Arrange
+    mockAnthropic.hasApiKey.mockResolvedValue(false);
+    mockAnthropic.setApiKey.mockResolvedValue(undefined);
+    const hook = await renderHook();
+    await settle(() => hook.current().importPath(PDF.path));
+
+    // Act: closed without a key; a key saved later, from elsewhere
+    ReactTestRenderer.act(() => hook.current().forgetPending());
+    mockAnthropic.hasApiKey.mockResolvedValue(true);
+    await settle(() => {
+      void hook.current().saveKey('sk-ant-test');
+    });
+
+    // Assert
+    expect(mockProjects.createProject).not.toHaveBeenCalled();
+    expect(hook.onContinue).not.toHaveBeenCalled();
+  });
+
+  it('resumes a project asked for while no key was saved once the key is saved', async () => {
+    // Arrange: a cancelled project on disk, no key
+    const earlier = { ...newImportProject(createdProject(2), DEFAULT_TRANSCRIPTION_MODEL, new Date(0)), status: 'cancelled' as const };
+    mockDisk.set(`${PROJECT_PATH}/${PROJECT_FILE}`, serializeImportProject(earlier));
+    mockAnthropic.hasApiKey.mockResolvedValue(false);
+    mockAnthropic.setApiKey.mockResolvedValue(undefined);
+    const hook = await renderHook();
+    await settle(() => hook.current().resume(PROJECT_PATH));
+
+    // Act
+    mockAnthropic.hasApiKey.mockResolvedValue(true);
+    await settle(() => {
+      void hook.current().saveKey('sk-ant-test');
+    });
+
+    // Assert
+    expect(savedProject()).toMatchObject({ status: 'done' });
+    expect(hook.onSongReady).toHaveBeenCalledWith(`${PROJECT_PATH}/Etude.gp5`);
   });
 });
 
