@@ -25,6 +25,10 @@ describe('SAVE_FORMATS', () => {
     expect(notes[1]).toMatch(/^Guitar Pro 7\/8 keeps what the editor edits, the audio track, the stylesheet and Design Mode layout and the annotations.*RSE.*not kept/);
     expect(notes[2]).toMatch(/^Guitar Pro 4 keeps one voice per bar/);
     expect(notes[3]).toMatch(/^Guitar Pro 3 keeps one voice per bar.*no lyrics/);
+    // What GP3 keeps otherwise (0.21's QA round trip): one kind of slide, natural or artificial harmonics, effects per beat
+    expect(notes[3]).toContain('every slide becomes a shift slide');
+    expect(notes[3]).toContain('pinch, semi and tapped harmonics become artificial ones');
+    expect(notes[3]).toContain('vibrato, harmonics, fade in, tapping, slapping and popping apply to every note of their beat');
   });
 
   it('names formats gp-core writes, the bytes reading back as that format', () => {

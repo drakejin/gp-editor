@@ -228,17 +228,28 @@ describe('GP4 and GP3 files other readers open', () => {
     expect([...writer.toBytes()]).toEqual([1, 0, 0, 0, 0x40, 0x00, 0x00, 0x00]);
   });
 
-  it.each(['gp4', 'gp3'] as const)('reads an empty %s measure back as the quarter rest TuxGuitar makes of an empty beat', (format) => {
-    // Arrange
+  it.each(['gp4', 'gp3'] as const)('reads an empty %s measure back as a measure without beats (the track rests there), as GP5 does', (format) => {
+    // Arrange: a track resting in bar 2 (in 0.21's QA a resting track's 646 bars came back as under-full quarter rests)
     const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 3)]) }], []] }] });
 
     // Act
     const again = roundTrip(song, format);
 
     // Assert
-    const beats = again.tracks[0]?.measures[1]?.beats ?? [];
-    expect(beats.map((beat) => [beat.voices[0]?.duration.value, beat.voices[0]?.notes.length, beat.voices[0]?.isEmpty])).toEqual([[4, 0, false]]);
+    expect(again.tracks[0]?.measures[1]?.beats).toEqual([]);
     expect(songDifference(expectedAfterGp34(song), again)).toBeUndefined();
+  });
+
+  it.each(['gp4', 'gp3'] as const)('still reads a %s quarter rest written as a rest (status 0x02) as a rest', (format) => {
+    // Arrange: bar 2 holds one written quarter rest, under-full
+    const song = buildSong({ tracks: [{ measures: [[{ voice: buildVoice([buildNote(1, 3)]) }], [{ voice: restVoice() }]] }] });
+
+    // Act
+    const again = roundTrip(song, format);
+
+    // Assert
+    const beats = again.tracks[0]?.measures[1]?.beats ?? [];
+    expect(beats.map((beat) => [beat.voices[0]?.notes.length, beat.voices[0]?.isEmpty])).toEqual([[0, false]]);
   });
 
   it.each(['gp4', 'gp3'] as const)('keeps the key in %s measure 1 for readers that skip the song key', (format) => {

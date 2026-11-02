@@ -152,24 +152,36 @@ function readTrackGp34(
   return { track: { draft, clef: clefFromTuning(strings, isPercussion) }, registry: channel.registry };
 }
 
+/** A GP3/GP4 beat status byte: an empty beat (no rest drawn), as against 0x02, a rest. */
+const EMPTY_BEAT_STATUS = 0x00;
+
+/**
+ * A measure's beats. A measure that is one empty beat (status 0x00, no note) is how Guitar Pro writes a blank bar — a
+ * track resting there —, read as a measure without beats as GP5's reader and alphaTab read it (TuxGuitar reads a quarter
+ * rest, an under-full bar); any other empty beat is read as the rest TuxGuitar makes of it.
+ */
 export function readMeasureGp34(reader: ByteReader, job: MeasureJob, dialect: Gp34Dialect): MeasureBeats {
   const count = reader.readInt();
   const beats: Beat[] = [];
   let start = job.start;
   let tempo = job.tempo;
+  let isBlankBar = count === 1;
   for (let i = 0; i < count; i++) {
     const read = readBeatGp34(reader, job, dialect, start, beats);
     beats.push(read.beat);
     start += read.ticks;
     tempo = read.tempo ?? tempo;
+    isBlankBar = isBlankBar && read.isEmpty;
   }
-  return { beats, tempo };
+  return { beats: isBlankBar ? [] : beats, tempo };
 }
 
 interface Gp34BeatRead {
   readonly beat: Beat;
   readonly ticks: number;
   readonly tempo?: number;
+  /** Marked empty (status 0x00) and holding no note. */
+  readonly isEmpty: boolean;
 }
 
 function readBeatGp34(
@@ -180,9 +192,7 @@ function readBeatGp34(
   beats: readonly Beat[],
 ): Gp34BeatRead {
   const flags = reader.readUnsignedByte();
-  if ((flags & 0x40) !== 0) {
-    reader.readUnsignedByte(); // beat status: TuxGuitar reads empty beats as rests
-  }
+  const status = (flags & 0x40) !== 0 ? reader.readUnsignedByte() : undefined;
   const duration = readDuration(reader, flags, false);
   const stringCount = job.track.draft.strings.length;
   const chord = (flags & 0x02) !== 0 ? dialect.readChord(reader, stringCount) : undefined;
@@ -201,7 +211,8 @@ function readBeatGp34(
     ...(text === undefined ? {} : { text }),
     ...(effects.isRasgueado === true ? { rasgueado: DEFAULT_RASGUEADO } : {}),
   };
-  return { beat, ticks: durationTicks(duration), ...(tempo === undefined ? {} : { tempo }) };
+  const isEmpty = status === EMPTY_BEAT_STATUS && notes.length === 0;
+  return { beat, ticks: durationTicks(duration), isEmpty, ...(tempo === undefined ? {} : { tempo }) };
 }
 
 /** GP3/GP4 note; GP4 adds the accent flag. Effects are read by `readEffects` (fret = the note's fret). */

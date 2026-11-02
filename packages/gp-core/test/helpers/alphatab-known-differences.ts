@@ -10,8 +10,8 @@ import type { BeatView, ScoreView } from './cross-check-view';
  * differently from gp-core in a written file fails the cross-check.
  *
  * Most are alphaTab's own reading, shown to be so because alphaTab reads Guitar Pro's original fixtures the same way
- * (cross-check-alphatab.test.ts pins that evidence). One is gp-core's reader (an empty beat in GP3/GP4), one a known limit
- * of the GP3–GP5 formats (text windows-1252 cannot hold). alphaTab is MPL-2.0; its behaviour is described here, no code
+ * (cross-check-alphatab.test.ts pins that evidence). One is a known limit of the GP3–GP5 formats (text windows-1252
+ * cannot hold). alphaTab is MPL-2.0; its behaviour is described here, no code
  * of it is copied but for the three numbers of its GP5 drum map.
  */
 
@@ -109,13 +109,6 @@ function isOnlyInnerTupletLost(expected: unknown, actual: unknown): boolean {
   return typeof expected === 'string' && typeof actual === 'string' && actual.includes('(') && expected.startsWith(actual) && TUPLET.test(expected.slice(actual.length));
 }
 
-/** A bar gp-core reads as one quarter rest (Guitar Pro's empty beat) and alphaTab as no beat at all. */
-function isEmptyBeatBar(where: DifferenceLocation, context: DifferenceContext): boolean {
-  const voices = context.expected.tracks[where.track ?? -1]?.bars[where.bar ?? -1]?.voices ?? [];
-  const beat = voices[0]?.[0];
-  return voices.length === 1 && voices[0]?.length === 1 && beat?.duration === '4' && beat.notes.length === 0 && beat.effects.length === 0;
-}
-
 const WINDOWS_1252 = new TextDecoder('windows-1252');
 
 /** Whether Guitar Pro (and alphaTab), decoding windows-1252, shows `text` as gp-core's writer encodes it. */
@@ -176,15 +169,6 @@ export const FIELD_RULES: readonly FieldRule[] = [
     reason: 'alphaTab reads a GPIF rhythm’s <PrimaryTuplet> only, not the <SecondaryTuplet> inside it (GpifParser).',
     formats: ['gp'],
     matches: (difference, where) => where.field === 'duration' && isOnlyInnerTupletLost(difference.expected, difference.actual),
-  },
-  {
-    id: 'gp34-empty-beat',
-    reason:
-      'Guitar Pro’s empty beat (status 0x00) is no beat in alphaTab; gp-core’s GP3/GP4 readers read it as a quarter rest, ' +
-      'as TuxGuitar does (gtp-normalize.test.ts). Guitar Pro’s own GP3/GP4 fixtures read the same.',
-    formats: ['gp4', 'gp3'],
-    matches: (difference, where, context) =>
-      where.field === 'length' && where.voice === undefined && difference.actual === 0 && isEmptyBeatBar(where, context),
   },
   {
     id: 'text-outside-windows-1252',
