@@ -342,6 +342,12 @@ BOOL GPFilesAsksBeforeClosing(NSWindow *window)
   return GPFilesAsks(window);
 }
 
+void GPFilesQuitWithoutAsking(void)
+{
+  gIsQuitAnswered = YES;
+  [NSApp terminate:nil];
+}
+
 // Runs at image load, before AppDelegate can receive Finder's open event. (RCT_EXPORT_MODULE owns +load.)
 __attribute__((constructor)) static void GPFilesQueueOpenedURLs(void)
 {

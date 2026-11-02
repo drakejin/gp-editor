@@ -12,4 +12,7 @@ FOUNDATION_EXPORT BOOL GPFilesAsksBeforeQuit(void);
 /** The score window's close button: YES when JS was asked first (finishQuit closes the window). */
 FOUNDATION_EXPORT BOOL GPFilesAsksBeforeClosing(NSWindow *window);
 
+/** Quits without the question (the QA driver's `quit` step, the end of a script); ⌘Q still asks. */
+FOUNDATION_EXPORT void GPFilesQuitWithoutAsking(void);
+
 NS_ASSUME_NONNULL_END

@@ -147,7 +147,8 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"menu": ["File", "Open Recent"]}` logs the items of a menu-bar menu; `{"menu": ["File", "Open Recent", "Song.gp5"]}`
   chooses the item, as a click in the menu does
 - `{"focusRoot": true}` makes the largest focusable view first responder · `{"inspect": true}` logs the responders
-- `{"snapshot": "/abs/out.png"}` · `{"quit": true}`
+- `{"snapshot": "/abs/out.png"}` · `{"quit": true}` (the script's end: quits without asking about edited tabs; an
+  `appKey` ⌘Q asks as the menu does)
 - `{"snapshotModal": "/abs/panel.png"}` a save or open panel or an alert running modally (the steps run in the common
   run loop modes, so also during `runModal`): an alert's texts go to the log and its content to the PNG; a save or open
   panel draws itself out of process, so its title, message, prompt and accessory view's label and popup items go to the
