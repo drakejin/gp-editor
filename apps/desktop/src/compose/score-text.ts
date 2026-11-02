@@ -1,5 +1,5 @@
 // i18n-exempt-file: the score written as text for Claude's prompt, never shown
-import type { MeasureHeader, Song } from '@gp-editor/core';
+import { type MeasureHeader, type Song, repeatPlays } from '@gp-editor/core';
 import { endingNumbers } from '../score/heading';
 import {
   NOTATION_LEGEND,
@@ -83,7 +83,7 @@ export function barHeading(
       : '',
     header.marker === undefined ? '' : `[${header.marker.title}]`,
     header.repeatOpen ? '|:' : '',
-    header.repeatClose > 0 ? `:|x${header.repeatClose + 1}` : '',
+    header.repeatClose > 0 ? `:|x${repeatPlays(header)}` : '',
   ];
   return `${parts.filter(part => part !== '').join(' ')}${endingText(header)}`;
 }

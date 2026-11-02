@@ -3,6 +3,7 @@ import type { RowLayout } from '../lib/layout';
 import { chordBands } from './chords';
 import { dynamicMarks } from './dynamics';
 import { hasFreeTexts } from './free-text';
+import { showsRepeatCount } from './heading';
 import { ROW, type RowBands, type ScoreMode, showsNotation, showsTab } from './geometry';
 import { barsWithSyllables } from './lyrics';
 import { notationReach, tabReach } from './staff-reach';
@@ -76,7 +77,7 @@ function hasRowPedals(track: Track, row: RowLayout, measures: readonly Measure[]
 function headingHeight(song: Song, row: RowLayout): number {
   const isTall = row.measures.some((layout) => {
     const header = song.measureHeaders[layout.measureIndex];
-    return layout.showTempo || layout.showTripletFeel || (header !== undefined && (header.repeatAlternative > 0 || header.repeatClose > 0));
+    return layout.showTempo || layout.showTripletFeel || (header !== undefined && (header.repeatAlternative > 0 || showsRepeatCount(header)));
   });
   return isTall ? ROW.heading : ROW.headingCompact;
 }

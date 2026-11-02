@@ -49,8 +49,8 @@ export const isBarEdit = isOfTypes<BarEdit>({
   toggleRepeatClose: true, toggleAlternateEnding: true, shiftRepeatCount: true, setTripletFeel: true, setSection: true,
 });
 
-/** Repeat count a new repeat close gets (play twice), and the fewest a repeat plays. */
-const DEFAULT_REPEAT_COUNT = 2;
+/** The repetitions a new repeat close gets, and the fewest it keeps: one, the bars played twice (Guitar Pro's default). */
+const PLAIN_REPEAT_CLOSE = 1;
 /** Alternate endings 1–8 (one bit each of MeasureHeader.repeatAlternative). */
 const MAX_ALTERNATE_ENDING = 8;
 
@@ -130,7 +130,7 @@ function applyRepeatOrMark(
       return setRepeat(song, measureIndex, { repeatOpen: !header.repeatOpen });
     case 'toggleRepeatClose':
       return setRepeat(song, measureIndex, {
-        repeatClose: header.repeatClose > 0 ? 0 : DEFAULT_REPEAT_COUNT,
+        repeatClose: header.repeatClose > 0 ? 0 : PLAIN_REPEAT_CLOSE,
       });
     case 'toggleAlternateEnding':
       return isAlternateEnding(edit.ending)
@@ -145,7 +145,7 @@ function applyRepeatOrMark(
       return header.repeatClose > 0 && Number.isFinite(edit.delta)
         ? setRepeat(song, measureIndex, {
             repeatClose: Math.max(
-              DEFAULT_REPEAT_COUNT,
+              PLAIN_REPEAT_CLOSE,
               header.repeatClose + edit.delta,
             ),
           })

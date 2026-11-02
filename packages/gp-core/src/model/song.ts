@@ -179,7 +179,7 @@ export interface MeasureHeader {
   readonly tempo: number;
   readonly marker?: Marker;
   readonly repeatOpen: boolean;
-  /** Number of repetitions when a repeat closes here; 0 means no repeat close. */
+  /** Number of repetitions (times played − 1, TuxGuitar's) when a repeat closes here; 0 means no repeat close. Guitar Pro counts the times played: `repeatPlays`. */
   readonly repeatClose: number;
   /** Bitmask of alternate endings (bit 0 = ending 1). 0 means none. */
   readonly repeatAlternative: number;

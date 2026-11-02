@@ -103,7 +103,7 @@ describe('cursor edits in the reducer', () => {
     expect(bar.timeSignature).toEqual({ numerator: 3, denominator: 8 });
     expect(bar.tempo).toBe(125);
     expect(song(state).tracks[0]!.measures[0]!.keySignature).toBe(2);
-    expect(bar).toMatchObject({ repeatOpen: true, repeatClose: 2 });
+    expect(bar).toMatchObject({ repeatOpen: true, repeatClose: 1 });
   });
 
   it('marks the document edited until it is saved', () => {

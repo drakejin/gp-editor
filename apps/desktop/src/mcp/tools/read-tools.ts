@@ -81,7 +81,7 @@ const getBars: McpTool<AppHost> = {
   name: 'get_bars',
   title: 'Read bars',
   description:
-    'Bars of one track as JSON: per bar its time signature, tempo, key and section, and per voice its beats — beat number, where it starts in the bar (in quarter notes), duration (value 1/2/4/8/16/32/64, dots, tuplet "3:2"), rest or notes (string 1 = highest, fret; for drums the fret is the General MIDI drum key) with their effects.',
+    'Bars of one track as JSON: per bar its time signature, tempo, key, section and repeat signs (repeatOpen; repeatPlays = how many times the repeat closing there plays in all), and per voice its beats — beat number, where it starts in the bar (in quarter notes), duration (value 1/2/4/8/16/32/64, dots, tuplet "3:2"), rest or notes (string 1 = highest, fret; for drums the fret is the General MIDI drum key) with their effects.',
   inputSchema: objectSchema({ ...BAR_RANGE, voice: { ...VOICE_ARGUMENT, description: 'Only this voice (1–4). Default: every voice with beats.' } }),
   annotations: READ_ONLY,
   run: (args, host) => {

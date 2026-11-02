@@ -8,6 +8,7 @@ import {
   type ToggleableEffect,
   type TripletFeel,
   dynamicOf,
+  repeatPlays,
   vibratoOf,
 } from '@gp-editor/core';
 import { type MessageKey, memoByLanguage, t } from '../../lib/i18n/i18n';
@@ -184,7 +185,7 @@ function barSteppers(): readonly PaletteStepper[] {
     },
     // i18n-exempt: key names (C / Am)
     { id: 'key', label: t('palette.stepper.key'), tooltip: t('palette.stepper.key.tooltip'), value: (c) => (c.keySignature === 0 ? 'C / Am' : `${Math.abs(c.keySignature)}${c.keySignature > 0 ? '♯' : '♭'}`), minus: { type: 'shiftKeySignature', delta: -1 }, plus: { type: 'shiftKeySignature', delta: 1 } },
-    { id: 'repeats', label: t('palette.stepper.repeats'), tooltip: t('palette.stepper.repeats.tooltip'), value: (c) => ((c.header?.repeatClose ?? 0) > 0 ? `×${c.header?.repeatClose}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },
+    { id: 'repeats', label: t('palette.stepper.repeats'), tooltip: t('palette.stepper.repeats.tooltip'), value: (c) => (c.header !== undefined && c.header.repeatClose > 0 ? `×${repeatPlays(c.header)}` : '–'), minus: { type: 'shiftRepeatCount', delta: -1 }, plus: { type: 'shiftRepeatCount', delta: 1 }, isEnabled: (c) => (c.header?.repeatClose ?? 0) > 0 },
   ];
 }
 

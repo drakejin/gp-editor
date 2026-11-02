@@ -101,6 +101,17 @@ describe('each system makes room only for what its own bars hold', () => {
     expect(heights).toEqual([ROW.heading, ROW.headingCompact, ROW.headingCompact, ROW.heading]);
   });
 
+  it('gives the heading its whole band for a repeat count, and none for a repeat played twice, which shows no count', () => {
+    // Arrange: bar 7 closes a repeat played twice, bar 13 one played three times
+    const score = song(16, undefined, (bar) => (bar === 6 ? { repeatClose: 1 } : bar === 12 ? { repeatClose: 2 } : {}));
+
+    // Act
+    const heights = layoutOf(score).systems.map((system) => system.staves[0]?.geometry.headingHeight);
+
+    // Assert
+    expect(heights).toEqual([ROW.heading, ROW.headingCompact, ROW.headingCompact, ROW.heading]);
+  });
+
   it('keeps the lyrics and chord bands to the systems with a syllable or a chord', () => {
     // Arrange: two words from bar 5, an Am chord in bar 13
     const [track] = plain.tracks;

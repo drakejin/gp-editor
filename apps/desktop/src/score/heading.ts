@@ -1,4 +1,4 @@
-import { type BarNumbers, DEFAULT_STYLESHEET, type MeasureHeader, type Rgb, type TextStyle } from '@gp-editor/core';
+import { type BarNumbers, DEFAULT_STYLESHEET, type MeasureHeader, type Rgb, type TextStyle, repeatPlays } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { DrawCommand, TextCommand } from './draw';
@@ -17,6 +17,8 @@ const MARKER_LEFT = 18;
 /** Rough width of one marker character at 11 pt, to cut long markers at the measure's edge. */
 const MARKER_CHAR_WIDTH = 6.5;
 const ENDING_WIDTH = 80;
+/** A repeat played this many times shows no count over its close (Guitar Pro 8). */
+const PLAIN_REPEAT_PLAYS = 2;
 
 export function rgbHex(color: Rgb): string {
   return `#${[color.r, color.g, color.b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
@@ -75,10 +77,15 @@ export function engraveHeading(header: MeasureHeader, layout: MeasureLayout, pal
     commands.push(...engraveTripletFeel(header.tripletFeel, x, TEMPO_Y, palette.text));
   }
   commands.push(...endings(header.repeatAlternative, layout.width, palette));
-  if (header.repeatClose > 0) {
-    commands.push({ kind: 'text', x: layout.width - 2, y: ROW.heading - 10, text: `x${header.repeatClose}`, size: 10, color: palette.text, font: 'ui', align: 'right', bold: true });
+  if (showsRepeatCount(header)) {
+    commands.push({ kind: 'text', x: layout.width - 2, y: ROW.heading - 10, text: `x${repeatPlays(header)}`, size: 10, color: palette.text, font: 'ui', align: 'right', bold: true });
   }
   return commands;
+}
+
+/** True when the heading writes how many times the bar's repeat close plays: as Guitar Pro 8, not for a repeat played twice. */
+export function showsRepeatCount(header: Pick<MeasureHeader, 'repeatClose'>): boolean {
+  return repeatPlays(header) > PLAIN_REPEAT_PLAYS;
 }
 
 /** The alternate endings (1–8) a bar's repeatAlternative mask holds, in order. */
