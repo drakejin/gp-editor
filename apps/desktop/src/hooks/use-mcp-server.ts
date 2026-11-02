@@ -17,6 +17,12 @@ const MCP_LIMITS_FOR_LISTENER = { maxBodyBytes: MCP_LIMITS.maxBodyBytes, respons
 /** How long `settle` waits for a render before answering with the workspace as it is. */
 const SETTLE_TIMEOUT_MS = 250;
 
+/**
+ * How long `settle(isReady)` goes on waiting for renders until the drawn workspace holds what a file handler did (a
+ * big song can take seconds to lay out); under the tools' 15 s, so the tool still answers.
+ */
+const SETTLE_LIMIT_MS = 10_000;
+
 type Waiter = () => void;
 
 /** The window's latest render, the workspace with what the tools dispatched since, and who waits for the next render. */
@@ -34,6 +40,16 @@ function nextRender(refs: WindowRefs): Promise<void> {
   });
 }
 
+/** The drawn workspace once it holds `isReady` (renders waited for one by one), or at SETTLE_LIMIT_MS as it is. */
+async function settleUntil(refs: WindowRefs, isReady: (workspace: WorkspaceState) => boolean): Promise<WorkspaceState> {
+  const deadline = Date.now() + SETTLE_LIMIT_MS;
+  await nextRender(refs);
+  while (!isReady(refs.workspace.current) && Date.now() < deadline) {
+    await nextRender(refs);
+  }
+  return refs.workspace.current;
+}
+
 function windowAccess(refs: WindowRefs, isSandboxed: boolean): WindowAccess {
   return {
     isSandboxed,
@@ -44,7 +60,7 @@ function windowAccess(refs: WindowRefs, isSandboxed: boolean): WindowAccess {
       refs.isRenderPending.current = true;
     },
     whenRendered: () => (refs.isRenderPending.current ? nextRender(refs) : Promise.resolve()),
-    settle: () => nextRender(refs).then(() => refs.workspace.current),
+    settle: (isReady) => (isReady === undefined ? nextRender(refs).then(() => refs.workspace.current) : settleUntil(refs, isReady)),
   };
 }
 

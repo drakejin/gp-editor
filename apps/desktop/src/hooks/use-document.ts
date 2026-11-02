@@ -15,11 +15,21 @@ import {
 import { isMissingFileError, readRecentFile, subscribeOpenRecentRequests } from '../native/recent-files';
 import type { RecentFileRef } from '../lib/recent-files';
 import type { ScoreMode } from '../score/geometry';
-import { type EditorAction, type OpenDocument, isEdited } from '../state/editor';
+import { type EditorAction, type OpenDocument, isEdited, openFailedMessage } from '../state/editor';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
 import { useLanguage } from './use-i18n';
+
+/**
+ * How opening a file ended, as the window shows it: in a tab (the file's path, as read), why not (the error banner's
+ * text), the open panel cancelled, or a PDF handed to the import.
+ */
+export type OpenResult =
+  | { readonly kind: 'opened'; readonly path: string }
+  | { readonly kind: 'failed'; readonly message: string }
+  | { readonly kind: 'cancelled' }
+  | { readonly kind: 'imported' };
 
 /** Each document opens in a new tab (or the tab already holding its file is shown); saving acts on one tab. */
 export interface DocumentCommands {
@@ -28,9 +38,9 @@ export interface DocumentCommands {
   /** Open panel (⌘O, Open button). */
   readonly openDialog: () => void;
   /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. Resolves once read (or not). */
-  readonly openPath: (pathOrUrl: string) => Promise<void>;
+  readonly openPath: (pathOrUrl: string) => Promise<OpenResult>;
   /** A file of the recent files list (File ▸ Open Recent, the Recent Files list), read through its bookmark. */
-  readonly openRecent: (path: string) => Promise<void>;
+  readonly openRecent: (path: string) => Promise<OpenResult>;
   /**
    * A song made in the app (no file holds it yet: `path` is empty, `fileName` is what Save suggests) in a new tab,
    * edited until saved, so closing it asks first.
@@ -100,7 +110,7 @@ export function useDocument(
         return open(() => readFile(pathOrUrl));
       }
       onOpenPdf(pathOrUrl);
-      return Promise.resolve();
+      return Promise.resolve<OpenResult>({ kind: 'imported' });
     },
     [open, onOpenPdf],
   );
@@ -144,16 +154,16 @@ function useWindowTitle(workspace: WorkspaceState): void {
 function useOpenFile(
   dispatch: Dispatch<WorkspaceAction>,
   recentFiles: RecentFileHandlers,
-): (load: () => Promise<OpenedFile | null>, recentPath?: string) => Promise<void> {
+): (load: () => Promise<OpenedFile | null>, recentPath?: string) => Promise<OpenResult> {
   const { remember, markMissing } = recentFiles;
   return useCallback(
-    async (load: () => Promise<OpenedFile | null>, recentPath?: string) => {
+    async (load: () => Promise<OpenedFile | null>, recentPath?: string): Promise<OpenResult> => {
       dispatch({ type: 'loadStarted' });
       try {
         const file = await load();
         if (file === null) {
           dispatch({ type: 'loadCancelled' });
-          return;
+          return { kind: 'cancelled' };
         }
         const { song, hint } = await withLoadedAudio(readSongFile(base64ToBytes(file.base64)));
         dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
@@ -161,11 +171,14 @@ function useOpenFile(
           dispatch({ type: 'showHint', hint });
         }
         remember({ path: file.path, name: file.name }, recentPath !== undefined && recentPath !== file.path ? recentPath : undefined);
+        return { kind: 'opened', path: file.path };
       } catch (error: unknown) {
         if (recentPath !== undefined && isMissingFileError(error)) {
           markMissing(recentPath);
         }
-        dispatch({ type: 'loadFailed', message: errorMessage(error, t('window.error.openUnexpected')) });
+        const message = errorMessage(error, t('window.error.openUnexpected'));
+        dispatch({ type: 'loadFailed', message });
+        return { kind: 'failed', message: openFailedMessage(message) };
       }
     },
     [dispatch, remember, markMissing],

@@ -104,6 +104,50 @@ describe('file tools', () => {
     expect(structured).toMatchObject({ tab: 'tab-2' });
   });
 
+  it('answers the tab the file opened in and its song, also when the window draws it after the first render', async () => {
+    // Arrange: tab-1 shows a 4-bar score; the 2-bar file opens in tab-2, drawn late (a big song's layout)
+    const twoBars = buildNewSong();
+    const short = { ...twoBars, measureHeaders: twoBars.measureHeaders.slice(0, 2), tracks: twoBars.tracks.map((track) => ({ ...track, measures: track.measures.slice(0, 2) })) };
+    const opened: WorkspaceAction = { type: 'loaded', document: { fileName: 'Short.gp5', path: '/Songs/Short.gp5', song: short } };
+    const app = fakeApp(openWorkspace(buildNewSong()), { openAnswer: () => opened, isRenderSlow: true });
+
+    // Act
+    const answer = await call(app, 'open_file', { path: '/Songs/Short.gp5' });
+
+    // Assert
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toMatch(/^Opened \/Songs\/Short\.gp5 in tab-2\./);
+    expect(answer.structured).toMatchObject({ tab: 'tab-2', song: { bars: 2 } });
+  });
+
+  it('fails with the reason when the window cannot read the file, also before it draws the error', async () => {
+    // Arrange: a corrupt file while tab-1 is open, the error drawn late
+    const app = fakeApp(openWorkspace(buildNewSong()), { openAnswer: () => ({ type: 'loadFailed', message: 'Not a Guitar Pro file' }), isRenderSlow: true });
+
+    // Act
+    const answer = await call(app, 'open_file', { path: '/Songs/corrupt.gp5' });
+
+    // Assert
+    expect(answer.isError).toBe(true);
+    expect(answer.text).toContain('Not a Guitar Pro file');
+    expect(answer.text).not.toContain('Opened');
+  });
+
+  it('answers what this save left out, not the hint of the save before, also when the window draws it late', async () => {
+    // Arrange: an earlier .gp save's hint on the tab; this save as .gp5 leaves nothing out
+    const start = workspaceReducer(openWorkspace(buildNewSong()), { type: 'inTab', tabId: 'tab-1', action: { type: 'showHint', hint: 'OLD HINT' } });
+    const app = fakeApp(start, {
+      saveAnswer: (tabId, path) => ({ type: 'inTab', tabId, action: { type: 'saved', fileName: 'Riff.gp5', path: path ?? '', song: buildNewSong() } }),
+      isRenderSlow: true,
+    });
+
+    // Act
+    const answer = await call(app, 'save_as', { path: '/Songs/Riff.gp5' });
+
+    // Assert
+    expect(answer.text).toBe('Saved /Songs/Riff.gp5 as Guitar Pro 5 (.gp5).');
+  });
+
   it('saves a file in its own format, and sends a new score to save_as', async () => {
     const saved = fakeApp(openWorkspace(buildNewSong()));
     const fresh = fakeApp(newScore());

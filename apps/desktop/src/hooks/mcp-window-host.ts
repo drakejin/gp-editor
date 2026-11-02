@@ -24,8 +24,8 @@ export interface WindowAccess {
   readonly predict: (next: WorkspaceState) => void;
   /** Resolves at once when the window has drawn every action dispatched, else after its next render. */
   readonly whenRendered: () => Promise<void>;
-  /** Resolves after the window's next render (or a moment, when nothing renders): the workspace then. */
-  readonly settle: () => Promise<WorkspaceState>;
+  /** Resolves after the window's next render (or a moment, when nothing renders), or once it holds `isReady`: the workspace then. */
+  readonly settle: (isReady?: (workspace: WorkspaceState) => boolean) => Promise<WorkspaceState>;
 }
 
 function showExportPanel(model: WindowModel, format: PathExportFormat | PanelExportFormat): void {

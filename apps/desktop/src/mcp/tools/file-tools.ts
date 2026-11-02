@@ -7,6 +7,8 @@
 import { SAVE_FORMATS, saveFormatOf } from '../../lib/file-formats';
 import { errorMessage } from '../../lib/errors';
 import { isPdfPath } from '../../hooks/use-document';
+import type { EditorState } from '../../state/editor';
+import type { DocumentTab, WorkspaceState } from '../../state/workspace';
 import type { AppHost, PanelExportFormat, PathExportFormat } from '../app-host';
 import { songJson, stateJson } from '../song-json';
 import type { McpTool, ToolArguments, ToolResult } from '../tool-types';
@@ -59,16 +61,40 @@ const newDocument: McpTool<AppHost> = {
   },
 };
 
-async function openPath(host: AppHost, path: string): Promise<ToolResult> {
-  await host.files.open(path);
-  const workspace = await host.settle();
-  if (workspace.error !== undefined) {
-    return fileError(host, workspace.error);
-  }
-  // The window shows what it opened (or the tab that already held the file).
+/** The tab the window shows, when it holds the file at `path`. */
+function shownTabWith(workspace: WorkspaceState, path: string): DocumentTab | undefined {
   const tab = workspace.tabs.find((each) => each.id === workspace.activeTabId);
+  return tab?.editor.document?.path === path ? tab : undefined;
+}
+
+async function openPath(host: AppHost, path: string): Promise<ToolResult> {
+  const result = await host.files.open(path);
+  if (result.kind === 'failed') {
+    return fileError(host, result.message);
+  }
+  if (result.kind !== 'opened') {
+    return toolError(`${path} did not open.`);
+  }
+  // The window shows what it opened (or the tab that already held the file) once it has drawn it.
+  const tab = shownTabWith(await host.settle((workspace) => shownTabWith(workspace, result.path) !== undefined), result.path);
   const song = tab?.editor.document?.song;
-  return song === undefined ? toolError(`${path} did not open.`) : answer(`Opened ${path} in ${tab?.id ?? ''}.`, { tab: tab?.id ?? null, song: songJson(song) });
+  return tab === undefined || song === undefined
+    ? toolError(`${path} was read, but the window has not shown it yet: call get_state.`)
+    : answer(`Opened ${path} in ${tab.id}.`, { tab: tab.id, song: songJson(song) });
+}
+
+interface SaveOutcome {
+  readonly isSaved: boolean;
+  /** The tab's editor once the window has drawn what the save did to it (saved and its hint, or why not). */
+  readonly editor?: EditorState;
+}
+
+/** Runs one of the window's saves on a tab, then waits until the window has drawn its outcome (a new editor state). */
+async function saveAndSettle(host: AppHost, tabId: string, save: () => Promise<boolean>): Promise<SaveOutcome> {
+  const before = editorIn(host.workspace(), tabId);
+  const isSaved = await save();
+  const editor = editorIn(await host.settle((workspace) => editorIn(workspace, tabId) !== before), tabId);
+  return { isSaved, editor };
 }
 
 const openFile: McpTool<AppHost> = {
@@ -104,8 +130,7 @@ const save: McpTool<AppHost> = {
     if (path === '' || saveFormatOf(path) === undefined) {
       return toolError(`${target.tab.id} has no ${SAVE_FORMATS.map((format) => `.${format.extension}`).join(' ')} file to save to: call save_as with a path (or without one to show the Save panel).`);
     }
-    const isSaved = await host.files.save(target.tab.id);
-    const editor = editorIn(await host.settle(), target.tab.id);
+    const { isSaved, editor } = await saveAndSettle(host, target.tab.id, () => host.files.save(target.tab.id));
     return isSaved ? answer(`Saved ${path}.${editor?.hint === undefined ? '' : ` ${editor.hint}`}`) : fileError(host, editor?.error ?? `${path} was not saved.`);
   },
 };
@@ -115,8 +140,7 @@ async function saveTo(host: AppHost, tabId: string, path: string): Promise<ToolR
   if (format === undefined) {
     return toolError(`GP Editor saves ${SAVE_FORMATS.map((each) => `.${each.extension}`).join(', ')}: end the path with one of them (for MIDI, MusicXML, ASCII tab or PDF use export_file).`);
   }
-  const isSaved = await host.files.saveTo(tabId, path, format.id);
-  const editor = editorIn(await host.settle(), tabId);
+  const { isSaved, editor } = await saveAndSettle(host, tabId, () => host.files.saveTo(tabId, path, format.id));
   return isSaved ? answer(`Saved ${path} as ${format.label}.${editor?.hint === undefined ? '' : ` ${editor.hint}`}`) : fileError(host, editor?.error ?? `${path} was not saved.`);
 }
 
