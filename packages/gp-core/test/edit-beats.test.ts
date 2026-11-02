@@ -36,6 +36,38 @@ describe('setBeatDuration', () => {
     assertEditInvariants(edited);
   });
 
+  it('gives the time a dot frees back to the rest after the note, as one rest on its beat', () => {
+    // Arrange: a dotted eighth followed by the sixteenth rest the dot left of an eighth rest
+    const song = oneMeasure(play(dur(8, { dotted: true }), n(1, 5)), rest(16), play(4, n(1, 7)), play(4, n(1, 12)), play(4, n(2, 4)));
+
+    // Act
+    const edited = setBeatDuration(song, AT, dur(8));
+
+    // Assert
+    expect(layout(edited)).toEqual(['0:8:1/5', '480:8:r', '960:4:1/7', '1920:4:1/12', '2880:4:2/4']);
+    assertEditInvariants(edited);
+  });
+
+  it('undoes a dot with the inverse edit: eighth, dotted, eighth again leaves one eighth rest', () => {
+    // Arrange
+    const song = oneMeasure(play(4, n(1, 5)), play(4, n(1, 7)), play(2, n(2, 4)));
+
+    // Act
+    const eighth = setBeatDuration(song, AT, dur(8));
+    const dotted = setBeatDuration(eighth, AT, dur(8, { dotted: true }));
+    const plain = setBeatDuration(dotted, AT, dur(8));
+
+    // Assert
+    expect(layout(dotted)).toEqual(['0:8.:1/5', '720:16:r', '960:4:1/7', '1920:2:2/4']);
+    expect(layout(plain)).toEqual(layout(eighth));
+  });
+
+  it('keeps the freed time apart from the next rest when together they would run across a beat', () => {
+    const song = oneMeasure(play(4, n(1, 5)), rest(8), play(8, n(1, 7)), play(2, n(2, 4)));
+    const edited = setBeatDuration(song, AT, dur(8));
+    expect(layout(edited)).toEqual(['0:8:1/5', '480:8:r', '960:8:r', '1440:8:1/7', '1920:2:2/4']);
+  });
+
   it('splits a whole-measure rest into rests of the new duration', () => {
     const edited = setBeatDuration(oneMeasure(rest(1)), AT, dur(4));
     expect(layout(edited)).toEqual(['0:4:r', '960:4:r', '1920:4:r', '2880:4:r']);
