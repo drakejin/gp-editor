@@ -406,14 +406,9 @@ function strokeGroup(): PaletteGroup {
  * default 1280 × 800 window, in English and Korean (__tests__/palette-fit.test.ts). Built once per language: call it
  * where the groups are shown.
  */
-export const paletteGroups: () => readonly PaletteGroup[] = memoByLanguage(() => [
-  voiceGroup(),
-  rhythmGroup(),
-  techniquesGroup(),
-  articulationGroup(),
-  dynamicsGroup(),
-  noteGroup(),
-  strokeGroup(),
-  barGroup(),
-  onlineGroup(),
-]);
+export const paletteGroups: () => readonly PaletteGroup[] = memoByLanguage(() => buildPaletteGroups());
+
+/** The edition palette's groups in the current language, built afresh (the command palette's other-language words). */
+export function buildPaletteGroups(): readonly PaletteGroup[] {
+  return [voiceGroup(), rhythmGroup(), techniquesGroup(), articulationGroup(), dynamicsGroup(), noteGroup(), strokeGroup(), barGroup(), onlineGroup()];
+}
