@@ -86,8 +86,8 @@ describe('hasLyrics', () => {
 /** The syllables of the track's laid-out bars that run into the one before them or out of their bar, as "bar: text". */
 function crowdedSyllables(song: Song, trackIndex: number): string[] {
   const track = song.tracks[trackIndex]!;
-  const layout = layoutScore(song, [{ trackIndex, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, 900);
-  return layout.systems.flatMap((system) =>
+  const score = layoutScore(song, [{ trackIndex, mode: 'notationAndTab' }], DEFAULT_CHORD_DISPLAY, 900);
+  return score.systems.flatMap((system) =>
     (system.rows[0]?.measures ?? []).flatMap((measure) => {
       const spans = engraveLyrics({ track, layout: measure, y: 0, palette: PALETTE }).map((command) => {
         const half = textWidth(command.text, command.size) / 2;
