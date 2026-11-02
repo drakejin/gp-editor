@@ -48,13 +48,22 @@ async function attemptPage(project: ImportProject, page: number, firstPage: Tran
   }
 }
 
-/** A page with retries (backing off 2 s, 4 s); tokens spent on failed attempts still count. */
-export async function transcribePage(project: ImportProject, page: number, firstPage: TranscriptionPage | undefined, deps: ImportDeps): Promise<PageResult> {
+/**
+ * A page with retries (backing off 2 s, 4 s); tokens spent on failed attempts still count. A cancelled import asks no
+ * more: the failed page is left for Resume.
+ */
+export async function transcribePage(
+  project: ImportProject,
+  page: number,
+  firstPage: TranscriptionPage | undefined,
+  deps: ImportDeps,
+  isCancelled: () => boolean = () => false,
+): Promise<PageResult> {
   let usage = NO_USAGE;
   for (let attempt = 0; ; attempt++) {
     const result = await attemptPage(project, page, firstPage, deps);
     usage = addUsage(usage, result.usage);
-    if (result.isOk || !result.isRetryable || attempt + 1 >= MAX_ATTEMPTS) {
+    if (result.isOk || !result.isRetryable || attempt + 1 >= MAX_ATTEMPTS || isCancelled()) {
       return { ...result, usage };
     }
     await deps.wait(FIRST_RETRY_DELAY_MS * 2 ** attempt);

@@ -32,3 +32,8 @@ export function projectStatusText(project: ImportProject): string {
 export function importProgressText(project: ImportProject, modelName: string): string {
   return t('window.pdfStatus.importing', { name: project.name, model: modelName, pages: pageCount(project), tokens: tokens(project) });
 }
+
+/** The banner line once Cancel was chosen: the page being transcribed still answers before the import stops. */
+export function importCancellingText(project: ImportProject): string {
+  return t('window.pdfStatus.cancelling', { name: project.name, pages: pageCount(project) });
+}

@@ -355,6 +355,7 @@ export const EN_WINDOW = {
   'window.pdfStatus.failed': 'Stopped: {error}',
   'window.pdfStatus.unknownError': 'unknown error',
   'window.pdfStatus.cancelled': 'Cancelled · {pages}',
+  'window.pdfStatus.cancelling': 'Cancelling “{name}” — the page being transcribed still finishes ({pages})',
   'window.pdfStatus.importing': 'Importing “{name}” with {model} — {pages} · {tokens}',
   'window.pdfImport.pageTooLong': 'The page was too long for one answer',
   'window.pdfImport.aTranscription': 'a transcription',

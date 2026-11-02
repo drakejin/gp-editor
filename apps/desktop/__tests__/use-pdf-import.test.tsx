@@ -242,6 +242,23 @@ describe('usePdfImport start', () => {
 });
 
 describe('usePdfImport cancel', () => {
+  it('says it is cancelling at once, while the page in progress is still with the model', async () => {
+    // Arrange: page 1 of 2 is still with the model
+    const firstPage = deferred<ApiResponse>();
+    mockAnthropic.send.mockReturnValueOnce(firstPage.promise);
+    const hook = await renderHook();
+    await settle(() => hook.current().start());
+
+    // Act
+    await settle(() => hook.current().cancel());
+    const whileWaiting = { isRunning: hook.current().isRunning, isCancelling: hook.current().isCancelling };
+    await settle(() => firstPage.resolve(answer(FIRST_PAGE)));
+
+    // Assert
+    expect(whileWaiting).toEqual({ isRunning: true, isCancelling: true });
+    expect(hook.current()).toMatchObject({ isRunning: false, isCancelling: false });
+  });
+
   it('stops after the page in progress when cancelled, marks the import cancelled and opens no song', async () => {
     // Arrange: page 1 of 2 is still with the model
     const firstPage = deferred<ApiResponse>();

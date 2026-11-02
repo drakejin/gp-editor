@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import type { PdfImport } from '../hooks/use-pdf-import';
+import type { ImportProject } from '../pdf-import/project-file';
 import { TRANSCRIPTION_MODELS } from '../pdf-import/request';
-import { importProgressText, projectStatusText } from '../pdf-import/status';
+import { importCancellingText, importProgressText, projectStatusText } from '../pdf-import/status';
 import type { Palette } from '../theme';
 import { BarButton } from './BarButton';
 
@@ -20,14 +21,12 @@ interface ImportBannerProps {
 export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBannerProps) {
   const [showsWarnings, setShowsWarnings] = useState(false);
   const t = useT();
-  const { current, isRunning, error } = pdfImport;
+  const { current, isRunning, isCancelling, error } = pdfImport;
   if (current === undefined && error === undefined) {
     return null;
   }
   const project = current?.project;
-  const modelName = TRANSCRIPTION_MODELS.find((model) => model.id === project?.model)?.name ?? project?.model ?? '';
-  const line =
-    project === undefined ? error ?? '' : isRunning ? importProgressText(project, modelName) : t('window.import.projectLine', { name: project.name, status: projectStatusText(project) });
+  const line = project === undefined ? error ?? '' : bannerLine(project, isRunning, isCancelling, t);
   const warnings = project?.warnings ?? [];
   const canResume = !isRunning && project !== undefined && project.status !== 'done' && current !== undefined;
   return (
@@ -36,7 +35,7 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
         <Text numberOfLines={2} style={[styles.line, { color: error === undefined ? palette.text : palette.danger }]}>
           {error !== undefined && project !== undefined ? `${line} — ${error}` : line}
         </Text>
-        {isRunning ? <BarButton label={t('common.cancel')} palette={palette} onPress={pdfImport.cancel} /> : null}
+        {isRunning && !isCancelling ? <BarButton label={t('common.cancel')} palette={palette} onPress={pdfImport.cancel} /> : null}
         {!isRunning && warnings.length > 0 ? (
           <BarButton
             label={`${t('window.import.warnings', { count: warnings.length })} ${showsWarnings ? '▴' : '▾'}`}
@@ -59,6 +58,15 @@ export function ImportBanner({ palette, pdfImport, onOpenSettings }: ImportBanne
         : null}
     </View>
   );
+}
+
+/** The project's line: its progress while it runs (or that it is cancelling), else how it went. */
+function bannerLine(project: ImportProject, isRunning: boolean, isCancelling: boolean, t: ReturnType<typeof useT>): string {
+  if (isRunning) {
+    const modelName = TRANSCRIPTION_MODELS.find((model) => model.id === project.model)?.name ?? project.model;
+    return isCancelling ? importCancellingText(project) : importProgressText(project, modelName);
+  }
+  return t('window.import.projectLine', { name: project.name, status: projectStatusText(project) });
 }
 
 const styles = StyleSheet.create({

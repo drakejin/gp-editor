@@ -348,6 +348,7 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.pdfStatus.failed': '멈춤: {error}',
   'window.pdfStatus.unknownError': '알 수 없는 오류',
   'window.pdfStatus.cancelled': '취소됨 · {pages}',
+  'window.pdfStatus.cancelling': '“{name}” 가져오기를 취소하는 중 — 지금 채보 중인 페이지는 끝까지 진행됩니다 ({pages})',
   'window.pdfStatus.importing': '{model}(으)로 “{name}” 가져오는 중 — {pages} · {tokens}',
   'window.pdfImport.pageTooLong': '한 쪽의 내용이 너무 길어 한 번에 답할 수 없었습니다',
   'window.pdfImport.aTranscription': '채보 결과',

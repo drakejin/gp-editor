@@ -31,6 +31,8 @@ export interface PdfImport {
   /** The import running now or last run in this session, with its folder. */
   readonly current?: { readonly path: string; readonly project: ImportProject };
   readonly isRunning: boolean;
+  /** Cancel was chosen while the import runs: it stops once the page being transcribed answers. */
+  readonly isCancelling: boolean;
   readonly projects: readonly ProjectSummary[];
   /** Undefined until known. */
   readonly hasKey?: boolean;
@@ -120,10 +122,12 @@ function useImportSettings(setError: SetError, onNeedsKey: () => void) {
 function useImportRun(onSongReady: (songPath: string) => void, refreshProjects: () => void, setError: SetError) {
   const [current, setCurrent] = useState<PdfImport['current']>(undefined);
   const [isRunning, setIsRunning] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const isCancelled = useRef(false);
   const run = useCallback(
     async (path: string, project: ImportProject) => {
       isCancelled.current = false;
+      setIsCancelling(false);
       setIsRunning(true);
       setError(undefined);
       setCurrent({ path, project });
@@ -139,15 +143,18 @@ function useImportRun(onSongReady: (songPath: string) => void, refreshProjects: 
         setError(errorMessage(reason));
       } finally {
         setIsRunning(false);
+        setIsCancelling(false);
         refreshProjects();
       }
     },
     [onSongReady, refreshProjects, setError],
   );
+  // Said at once (the banner): the page in flight still answers, which can take minutes with a long page.
   const cancel = useCallback(() => {
     isCancelled.current = true;
+    setIsCancelling(true);
   }, []);
-  return { current, setCurrent, isRunning, run, cancel };
+  return { current, setCurrent, isRunning, isCancelling, run, cancel };
 }
 
 /** Runs one import job at a time: a job asked for while another runs is refused with a message. */
@@ -191,7 +198,7 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
   const [error, setError] = useState<string | undefined>(undefined);
   const { projects, refreshProjects } = useProjects(setError);
   const settings = useImportSettings(setError, onNeedsKey);
-  const { current, setCurrent, isRunning, run, cancel } = useImportRun(onSongReady, refreshProjects, setError);
+  const { current, setCurrent, isRunning, isCancelling, run, cancel } = useImportRun(onSongReady, refreshProjects, setError);
   const exclusive = useExclusive(setError);
   const { ensureKey, model } = settings;
   const importFrom = useCallback(
@@ -232,5 +239,5 @@ export function usePdfImport(onSongReady: (songPath: string) => void, onNeedsKey
     setCurrent(undefined);
   }, [setCurrent]);
   const { hasKey, saveKey, removeKey, chooseModel } = settings;
-  return { current, isRunning, projects, hasKey, model, error, start, importPath, resume, cancel, reveal, saveKey, removeKey, chooseModel, dismiss };
+  return { current, isRunning, isCancelling, projects, hasKey, model, error, start, importPath, resume, cancel, reveal, saveKey, removeKey, chooseModel, dismiss };
 }
