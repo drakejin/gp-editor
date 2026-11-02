@@ -497,7 +497,21 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
   resolve(payload);
 }
 
-/** Writes base64 bytes to a path; the result names the file like an opened one. */
+/**
+ * Why a file may not be replaced: it is there but read-only (its permissions, or locked in Finder). An atomic write
+ * puts a new file in its place, so without asking first a read-only file was overwritten (0.21's QA, ⌘S on a 444 file).
+ */
++ (nullable NSError *)readOnlyErrorForPath:(NSString *)path
+{
+  NSFileManager *manager = [NSFileManager defaultManager];
+  if (![manager fileExistsAtPath:path] || [manager isWritableFileAtPath:path]) {
+    return nil;
+  }
+  NSString *message = [NSString stringWithFormat:GPLocalizedString(@"“%@” is read-only, so it was left as it is: save it under another name (File ▸ Save As…)"), path.lastPathComponent];
+  return [NSError errorWithDomain:@"GPFiles" code:2 userInfo:@{NSLocalizedDescriptionKey : message}];
+}
+
+/** Writes base64 bytes to a path (never over a read-only file); the result names the file like an opened one. */
 + (NSDictionary *)writeBase64:(NSString *)base64 toPath:(NSString *)path error:(NSError **)error
 {
   NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
@@ -511,8 +525,8 @@ RCT_EXPORT_METHOD(readFile : (NSString *)pathOrURL resolve : (RCTPromiseResolveB
   __block BOOL isWritten = NO;
   __block NSError *writeError = nil;
   GPWithRecentFileAccess(path, ^{
-    NSError *blockError = nil;
-    isWritten = [data writeToFile:path options:NSDataWritingAtomic error:&blockError];
+    NSError *blockError = [GPFiles readOnlyErrorForPath:path];
+    isWritten = blockError == nil && [data writeToFile:path options:NSDataWritingAtomic error:&blockError];
     writeError = blockError;
   });
   if (!isWritten) {
@@ -592,11 +606,11 @@ RCT_EXPORT_METHOD(writeFile : (NSString *)path base64 : (NSString *)base64 resol
   resolve(saved);
 }
 
-/** Writes text as UTF-8 to a file the user opened or chose in a save panel; the result names it like writeFile's. */
+/** Writes text as UTF-8 to a file the user opened or chose in a save panel (never over a read-only one); the result names it like writeFile's. */
 RCT_EXPORT_METHOD(writeTextFile : (NSString *)path text : (NSString *)text resolve : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
 {
-  NSError *error = nil;
-  if (![text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
+  NSError *error = [GPFiles readOnlyErrorForPath:path];
+  if (error != nil || ![text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
     reject(@"write_failed", error.localizedDescription ?: GPLocalizedString(@"Could not write the file"), error);
     return;
   }
