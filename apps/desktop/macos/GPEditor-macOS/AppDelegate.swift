@@ -319,9 +319,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     NotificationCenter.default.post(name: .GPEditorOpenURLs, object: urls)
   }
 
+  // Quitting with a tab edited: JS asks about each first and quits again once answered (GPFiles.h).
   // Quitting with the tuner listening: its microphone stops first, and JS gets a moment to draw the frames already
   // sent, since a render while the process exits aborts it (GPAudioInput.h).
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    if GPFilesAsksBeforeQuit() {
+      return .terminateCancel
+    }
     guard GPAudioInputStopForQuit() else {
       return .terminateNow
     }

@@ -37,6 +37,8 @@ interface GPFilesModule {
   writeTextFile(path: string, text: string): Promise<SavedFile>;
   setDocumentTitle(title: string): void;
   setUndoState(canUndo: boolean, canRedo: boolean): void;
+  setHasEditedDocuments(isEdited: boolean): void;
+  finishQuit(): void;
 }
 
 const native = NativeModules.GPFiles as GPFilesModule | undefined;
@@ -79,6 +81,16 @@ export function setDocumentTitle(title: string): void {
   native?.setDocumentTitle(title);
 }
 
+/** Whether a tab has unsaved changes: the window's close button shows its dot, and quitting asks JS first (quitRequested). */
+export function setHasEditedDocuments(isEdited: boolean): void {
+  native?.setHasEditedDocuments(isEdited);
+}
+
+/** Every edited tab answered (subscribeQuitRequests): the app quits, or its window closes when its close button asked. */
+export function finishQuit(): void {
+  native?.finishQuit();
+}
+
 export interface FileEventHandlers {
   /** File ▸ New Score + Tab (⌘N) / New Score / New Tab. */
   readonly onNewRequested: (mode: ScoreMode) => void;
@@ -105,6 +117,8 @@ function menuRequests(event: string): (listener: () => void) => () => void {
   return (listener) => subscribeNativeEvents(native, { [event]: listener });
 }
 
+/** The app is quitting (⌘Q, the window's close button) while a tab is edited: ask about each, then finishQuit. */
+export const subscribeQuitRequests = menuRequests('quitRequested');
 /** File ▸ Import PDF… (⇧⌘I). */
 export const subscribeImportPdfRequests = menuRequests('importPdfRequested');
 /** File ▸ Export PDF… (⌘P), the same as the Export… button. */

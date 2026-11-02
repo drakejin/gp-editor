@@ -16,11 +16,14 @@
 #import <os/log.h>
 
 #import "GPEditorNotifications.h"
+#import "GPFiles.h"
 #import "GPRecentFiles.h"
 #import "GPSandbox.h"
 #import "GPAppStrings.h"
 
 static NSString *const kFileOpenedEvent = @"fileOpened";
+/** The app is quitting (⌘Q, the window's close button) while a tab is edited: JS asks about each, then finishQuit. */
+static NSString *const kQuitRequestedEvent = @"quitRequested";
 
 /** The body of the event a menu notification becomes. */
 typedef NSDictionary *_Nonnull (*GPMenuEventBody)(NSNotification *_Nonnull note);
@@ -235,6 +238,110 @@ static NSMutableArray<NSString *> *pendingPaths;
 
 @end
 
+/** Whether a tab has unsaved changes (JS's setHasEditedDocuments): quitting asks JS about them first. Main thread. */
+static BOOL gHasEditedDocuments = NO;
+/** JS answered every edited tab (finishQuit): the quit that follows goes ahead without asking. Main thread. */
+static BOOL gIsQuitAnswered = NO;
+/** The module JS listens on, while it listens: where quitRequested goes. */
+static __weak GPFiles *gListeningFiles = nil;
+
+/**
+ * The score window's close button asks JS about the edited tabs first, as ⌘Q does: its action is taken over (SwiftUI
+ * owns the window's delegate); once JS has its answers (finishQuit), the button's own action closes the window.
+ */
+@interface GPCloseButtonGuard : NSObject
++ (instancetype)shared;
+- (void)guardWindow:(NSWindow *)window;
+/** The window whose close button asked JS (nil after ⌘Q); finishQuit closes it instead of quitting. */
+@property(nonatomic, weak) NSWindow *askingWindow;
+- (void)closeWithoutAsking:(NSWindow *)window;
+@end
+
+@implementation GPCloseButtonGuard {
+  __weak id originalTarget;
+  SEL originalAction;
+}
+
++ (instancetype)shared
+{
+  static GPCloseButtonGuard *guard;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    guard = [[GPCloseButtonGuard alloc] init];
+  });
+  return guard;
+}
+
+- (void)guardWindow:(NSWindow *)window
+{
+  NSButton *button = [window standardWindowButton:NSWindowCloseButton];
+  if (button == nil || button.target == self) {
+    return;
+  }
+  originalTarget = button.target;
+  originalAction = button.action;
+  button.target = self;
+  button.action = @selector(closeClicked:);
+}
+
+- (void)closeClicked:(NSButton *)sender
+{
+  NSWindow *window = sender.window;
+  if (window != nil && GPFilesAsksBeforeClosing(window)) {
+    return;
+  }
+  [self closeWithoutAsking:window];
+}
+
+/** The button's own action (AppKit's `_close:` to the window); never performClose:, which clicks the button again. */
+- (void)closeWithoutAsking:(NSWindow *)window
+{
+  NSButton *button = [window standardWindowButton:NSWindowCloseButton];
+  if (originalAction != NULL && [NSApp sendAction:originalAction to:originalTarget from:button]) {
+    return;
+  }
+  [window close];
+}
+
+@end
+
+/** The score's window: visible, able to be main, not one of the MCP server's (identifiers "GPMcp…"). */
+static NSWindow *_Nullable GPScoreWindow(void)
+{
+  for (NSWindow *window in NSApp.windows) {
+    if (window.isVisible && window.canBecomeMainWindow && ![window.identifier hasPrefix:@"GPMcp"]) {
+      return window;
+    }
+  }
+  return nil;
+}
+
+/** Sends quitRequested when a tab is edited and JS listens; `window`: its close button asked (nil: the app quits). */
+static BOOL GPFilesAsks(NSWindow *_Nullable window)
+{
+  if (gIsQuitAnswered) {
+    gIsQuitAnswered = NO;
+    return NO;
+  }
+  GPFiles *files = gListeningFiles;
+  if (!gHasEditedDocuments || files == nil) {
+    return NO;
+  }
+  [GPCloseButtonGuard shared].askingWindow = window;
+  [files sendEventWithName:kQuitRequestedEvent body:@{}];
+  return YES;
+}
+
+BOOL GPFilesAsksBeforeQuit(void)
+{
+  return GPFilesAsks(nil);
+}
+
+BOOL GPFilesAsksBeforeClosing(NSWindow *window)
+{
+  return GPFilesAsks(window);
+}
+
 // Runs at image load, before AppDelegate can receive Finder's open event. (RCT_EXPORT_MODULE owns +load.)
 __attribute__((constructor)) static void GPFilesQueueOpenedURLs(void)
 {
@@ -282,18 +389,22 @@ RCT_EXPORT_MODULE();
 - (NSArray<NSString *> *)supportedEvents
 {
   NSArray<NSString *> *menuEvents = [GPMenuEvents().allValues valueForKey:@"name"];
-  return [[NSOrderedSet orderedSetWithArray:[menuEvents arrayByAddingObject:kFileOpenedEvent]] array];
+  return [[NSOrderedSet orderedSetWithArray:[menuEvents arrayByAddingObjectsFromArray:@[ kFileOpenedEvent, kQuitRequestedEvent ]]] array];
 }
 
 - (void)startObserving
 {
   hasListeners = YES;
+  gListeningFiles = self;
   [self flushPendingPaths];
 }
 
 - (void)stopObserving
 {
   hasListeners = NO;
+  if (gListeningFiles == self) {
+    gListeningFiles = nil;
+  }
 }
 
 /** A menu command (GPMenuEvents) to JS, while it listens. */
@@ -497,6 +608,41 @@ RCT_EXPORT_METHOD(setUndoState : (BOOL)canUndo canRedo : (BOOL)canRedo)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
     [[NSNotificationCenter defaultCenter] postNotificationName:GPEditorUndoStateNotification object:nil userInfo:@{@"canUndo" : @(canUndo), @"canRedo" : @(canRedo)}];
+  });
+}
+
+/**
+ * Whether a tab has unsaved changes: the score window's close button shows its dot, and quitting (⌘Q, that button)
+ * asks JS first (GPFilesAsksBeforeQuit). A new edit after a quit's answers asks again.
+ */
+RCT_EXPORT_METHOD(setHasEditedDocuments : (BOOL)isEdited)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (isEdited && !gHasEditedDocuments) {
+      gIsQuitAnswered = NO;
+    }
+    gHasEditedDocuments = isEdited;
+    NSWindow *window = GPScoreWindow();
+    window.documentEdited = isEdited;
+    if (window != nil && isEdited) {
+      [[GPCloseButtonGuard shared] guardWindow:window];
+    }
+  });
+}
+
+/** JS answered every edited tab (saved or let go): the app quits, or the window closes when its close button asked. */
+RCT_EXPORT_METHOD(finishQuit)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    GPCloseButtonGuard *guard = [GPCloseButtonGuard shared];
+    NSWindow *window = guard.askingWindow;
+    guard.askingWindow = nil;
+    gIsQuitAnswered = YES;
+    if (window != nil) {
+      [guard closeWithoutAsking:window];
+    } else {
+      [NSApp terminate:nil];
+    }
   });
 }
 

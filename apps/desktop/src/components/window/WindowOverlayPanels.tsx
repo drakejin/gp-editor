@@ -267,7 +267,7 @@ export function WindowDialogs({ model }: WindowPartProps) {
         />
       ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
-      {tabs.closing !== undefined ? <SaveChangesPanel palette={palette} name={tabs.closing.name} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} /> : null}
+      {tabs.closing !== undefined ? <SaveChangesPanel palette={palette} name={tabs.closing.name} isQuitting={tabs.closing.isQuitting} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} /> : null}
     </>
   );
 }

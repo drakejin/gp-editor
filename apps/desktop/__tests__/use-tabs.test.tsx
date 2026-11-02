@@ -7,10 +7,16 @@ import { beat, makeSong, note } from '../test-support/songs';
 const mockTabEvents = {
   unsubscribe: jest.fn<void, []>(),
   subscribe: jest.fn<() => void, [TabEventHandlers]>(),
+  subscribeQuit: jest.fn<() => void, [() => void]>(),
+  finishQuit: jest.fn<void, []>(),
+  setHasEditedDocuments: jest.fn<void, [boolean]>(),
 };
 
 jest.mock('../src/native/gp-files', () => ({
   subscribeTabRequests: (handlers: TabEventHandlers) => mockTabEvents.subscribe(handlers),
+  subscribeQuitRequests: (onQuitRequested: () => void) => mockTabEvents.subscribeQuit(onQuitRequested),
+  finishQuit: () => mockTabEvents.finishQuit(),
+  setHasEditedDocuments: (isEdited: boolean) => mockTabEvents.setHasEditedDocuments(isEdited),
 }));
 
 const SONG = makeSong([[beat(960, [note(1, 3)])]]);
@@ -47,6 +53,20 @@ function renderTabs(workspace: WorkspaceState = twoTabs()): Probe {
   return { current: () => latest!, dispatch, saveTab, unmount: () => ReactTestRenderer.act(() => renderer.unmount()) };
 }
 
+/** Etude (tab-1) and Riff (tab-2, shown), both edited. */
+function twoEditedTabs(): WorkspaceState {
+  return workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 5 });
+}
+
+/** The app quitting (⌘Q, the window's close button): the native side asks JS about the edited tabs. */
+function requestQuit(): void {
+  const onQuitRequested = mockTabEvents.subscribeQuit.mock.calls.at(-1)?.[0];
+  if (onQuitRequested === undefined) {
+    throw new Error('useTabs did not listen for the app quitting');
+  }
+  ReactTestRenderer.act(() => onQuitRequested());
+}
+
 /** The tab handlers from the latest subscription. */
 function menu(): TabEventHandlers {
   const handlers = mockTabEvents.subscribe.mock.calls.at(-1)?.[0];
@@ -66,6 +86,7 @@ async function settle(action: () => void): Promise<void> {
 beforeEach(() => {
   jest.clearAllMocks();
   mockTabEvents.subscribe.mockReturnValue(mockTabEvents.unsubscribe);
+  mockTabEvents.subscribeQuit.mockReturnValue(mockTabEvents.unsubscribe);
 });
 
 describe('useTabs: switching', () => {
@@ -205,5 +226,65 @@ describe('useTabs: closing', () => {
     ReactTestRenderer.act(() => tabs.current().discardAndClose());
     expect(tabs.saveTab).not.toHaveBeenCalled();
     expect(tabs.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('useTabs: quitting with edited tabs (⌘Q, the window’s close button)', () => {
+  it('asks about each edited tab in turn, showing it, and quits once every one is answered', async () => {
+    // Arrange
+    const tabs = renderTabs(twoEditedTabs());
+    tabs.saveTab.mockResolvedValueOnce(true);
+
+    // Act
+    requestQuit();
+    const first = tabs.current().closing;
+    ReactTestRenderer.act(() => tabs.current().discardAndClose());
+    const second = tabs.current().closing;
+    await settle(() => tabs.current().saveAndClose());
+
+    // Assert
+    expect(first).toEqual({ tabId: 'tab-1', name: 'Test', isQuitting: true });
+    expect(second).toEqual({ tabId: 'tab-2', name: 'Riff', isQuitting: true });
+    expect(tabs.dispatch.mock.calls.map(([action]) => action)).toEqual([
+      { type: 'switchTab', tabId: 'tab-1' },
+      { type: 'switchTab', tabId: 'tab-2' },
+    ]);
+    expect(tabs.saveTab).toHaveBeenCalledWith('tab-2', false);
+    expect(mockTabEvents.finishQuit).toHaveBeenCalledTimes(1);
+    expect(tabs.current().closing).toBeUndefined();
+  });
+
+  it('quits at once when no tab is edited', () => {
+    const tabs = renderTabs(workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: { fileName: 'Riff.gp5', path: '/scores/Riff.gp5', song: SONG } }));
+    requestQuit();
+    expect(mockTabEvents.finishQuit).toHaveBeenCalledTimes(1);
+    expect(tabs.current().closing).toBeUndefined();
+  });
+
+  it('does not quit on Cancel (Esc), nor when the save panel is cancelled', async () => {
+    // Arrange
+    const tabs = renderTabs(twoEditedTabs());
+    tabs.saveTab.mockResolvedValueOnce(false);
+    let wasAsked = false;
+
+    // Act: Cancel at the first question; quit again, then Save with the panel cancelled
+    requestQuit();
+    ReactTestRenderer.act(() => {
+      wasAsked = tabs.current().cancelClose();
+    });
+    requestQuit();
+    await settle(() => tabs.current().saveAndClose());
+
+    // Assert
+    expect(wasAsked).toBe(true);
+    expect(mockTabEvents.finishQuit).not.toHaveBeenCalled();
+    expect(tabs.current().closing).toBeUndefined();
+    expect(tabs.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'closeTab' }));
+  });
+
+  it('tells the native side whether a tab has unsaved changes (the close button’s dot, the quit question)', () => {
+    renderTabs(twoTabs());
+    renderTabs(workspaceReducer(INITIAL_WORKSPACE, { type: 'created', mode: 'tab' }));
+    expect(mockTabEvents.setHasEditedDocuments.mock.calls).toEqual([[true], [false]]);
   });
 });
