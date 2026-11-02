@@ -2,10 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import type { Note, Track } from '@gp-editor/core';
 import { ScoreCanvas } from '../native/score-canvas';
-import { engraveFretboard, fretboardHeight, fretboardHoverRegions } from '../score/fretboard';
+import { type PitchRegion, engraveFretboard, fretboardHeight, fretboardHoverRegions } from '../score/fretboard';
 import type { ScaleHighlight } from '../score/scale-marks';
 import type { Palette } from '../theme';
-import { PitchHoverAreas } from './PitchHoverAreas';
+import { PitchAreas } from './PitchAreas';
 
 interface FretboardProps {
   readonly track: Track;
@@ -17,12 +17,14 @@ interface FretboardProps {
   readonly scale?: ScaleHighlight;
   /** With "Preview on hover" on: a fret the mouse enters (the pitch it sounds). */
   readonly onHoverPitch?: (pitch: number) => void;
+  /** A position clicked: its string and the fret a note there stores (Guitar Pro 8 enters it at the cursor). */
+  readonly onPressFret?: (string: number, fret: number) => void;
 }
 
 const SIDE_PADDING = 24;
 
 /** 24-fret neck of the track's tuning, above the score in tab mode. */
-export function Fretboard({ track, notes, cursorString, palette, scale, onHoverPitch }: FretboardProps) {
+export function Fretboard({ track, notes, cursorString, palette, scale, onHoverPitch, onPressFret }: FretboardProps) {
   const [width, setWidth] = useState(0);
   const onLayout = useCallback((event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width - SIDE_PADDING * 2), []);
   const height = fretboardHeight(track.strings.length);
@@ -30,7 +32,11 @@ export function Fretboard({ track, notes, cursorString, palette, scale, onHoverP
     () => (width > 0 ? engraveFretboard({ track, width, palette, notes, cursorString, scale }) : []),
     [track, width, palette, notes, cursorString, scale],
   );
-  const regions = useMemo(() => (width > 0 && onHoverPitch !== undefined ? fretboardHoverRegions(track, width) : []), [track, width, onHoverPitch]);
+  const { strings, offset } = track;
+  const hasAreas = onHoverPitch !== undefined || onPressFret !== undefined;
+  // The strings and the capo only, so a note edit (a new track object) keeps the areas.
+  const regions = useMemo(() => (width > 0 && hasAreas ? fretboardHoverRegions({ strings, offset }, width) : []), [strings, offset, width, hasAreas]);
+  const pressRegion = useCallback((region: PitchRegion) => (region.neckNote === undefined ? undefined : onPressFret?.(region.neckNote.string, region.neckNote.fret)), [onPressFret]);
   if (track.isPercussion || track.strings.length === 0) {
     return null;
   }
@@ -39,7 +45,7 @@ export function Fretboard({ track, notes, cursorString, palette, scale, onHoverP
     <View style={[styles.container, { backgroundColor: palette.sidebar, borderColor: palette.border }]} onLayout={onLayout}>
       <View style={size}>
         <ScoreCanvas commands={commands} style={size} />
-        {onHoverPitch === undefined ? null : <PitchHoverAreas regions={regions} kind="fret" onHoverPitch={onHoverPitch} />}
+        {hasAreas ? <PitchAreas regions={regions} kind="fret" onHoverPitch={onHoverPitch} onPressRegion={onPressFret === undefined ? undefined : pressRegion} /> : null}
       </View>
     </View>
   );

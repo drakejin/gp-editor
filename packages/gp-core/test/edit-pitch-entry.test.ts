@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enterPlayedNotes, handFretBefore } from '../src/edit/pitch-entry';
+import { enterPlayedNotes, handFretBefore, stringAtPitch, toggleFretNote, togglePitchNote } from '../src/edit/pitch-entry';
 import { STANDARD_TUNING } from '../src/model/defaults';
 import type { Song } from '../src/model/song';
 import { n, play, rest } from './helpers/edit-songs';
@@ -91,8 +91,82 @@ describe('enterPlayedNotes', () => {
     expect(entry.song.tracks[0]?.measures[0]?.beats[1]?.voices[1]?.notes.map((note) => note.fret)).toEqual([0]);
   });
 
+  it('keeps clear of the strings another voice sounds on the beat, skipping a pitch only those strings play', () => {
+    // Arrange: voice 1 holds string 1 (E4) and string 2 on the first beat
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0), n(2, 1)), rest(4), rest(2)], [rest(4), rest(4), rest(2)]]]);
+    const voice2 = { ...at(0), voiceIndex: 1 };
+
+    // Act: E4 again (strings 2–6 can play it), and the top of the neck, which only string 1 reaches
+    const entry = enterPlayedNotes(song, voice2, [{ pitch: E4 }, { pitch: 64 + 24 }]);
+
+    // Assert
+    expect(entry.song.tracks[0]?.measures[0]?.beats[0]?.voices[1]?.notes.map((note) => note.string)).toEqual([3]);
+    expect(entry.entered).toBe(1);
+    expect(entry.skipped).toEqual([88]);
+  });
+
   it('changes nothing at a missing position', () => {
     const song = songOnStrings(STANDARD_TUNING, [[[rest(1)]]]);
     expect(enterPlayedNotes(song, at(4), [{ pitch: E4 }]).song).toBe(song);
+  });
+});
+
+const at1 = (beatIndex: number, string = 1, voiceIndex = 0) => ({ ...at(beatIndex), voiceIndex, string });
+
+describe('toggleFretNote: a click on the fretboard (Guitar Pro 8)', () => {
+  it('enters the clicked string and fret at the cursor’s beat, beside the beat’s other notes', () => {
+    // Arrange
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0)), rest(4), rest(2)]]]);
+
+    // Act
+    const chord = toggleFretNote(song, at1(0, 3), 2);
+    const onRest = toggleFretNote(song, at1(1, 6), 3);
+
+    // Assert
+    expect(beatNotes(chord, 0)).toEqual(['1:0@95', '3:2@95']);
+    expect(beatNotes(onRest, 1)).toEqual(['6:3@95']);
+  });
+
+  it('takes the note out when the beat plays that fret on that string, and changes another fret there', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0), n(3, 2)), rest(4), rest(2)]]]);
+    expect(beatNotes(toggleFretNote(song, at1(0, 3), 2), 0)).toEqual(['1:0@95']);
+    expect(beatNotes(toggleFretNote(song, at1(0, 3), 4), 0)).toEqual(['1:0@95', '3:4@95']);
+  });
+
+  it('leaves a string another voice sounds on the beat to that voice', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0)), rest(4), rest(2)], [rest(4), rest(4), rest(2)]]]);
+    expect(toggleFretNote(song, at1(0, 1, 1), 5)).toBe(song);
+  });
+});
+
+describe('togglePitchNote: a click on the piano keyboard (Guitar Pro 8)', () => {
+  it('puts the pitch on a free string near the hand, beside the beat’s notes', () => {
+    // Arrange: E4 on the open first string
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0)), rest(4), rest(2)]]]);
+
+    // Act
+    const toggled = togglePitchNote(song, at(0), C4);
+
+    // Assert: C4 on string 2, fret 1
+    expect(beatNotes(toggled, 0)).toEqual(['1:0@95', '2:1@95']);
+    expect(stringAtPitch(toggled, at(0), C4)).toBe(2);
+  });
+
+  it('takes out the note the voice already sounds at that pitch, on whatever string', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0), n(2, 5)), rest(4), rest(2)]]]);
+    const toggled = togglePitchNote(song, at(0), E4);
+    expect(beatNotes(toggled, 0)).toEqual(['2:5@95']);
+    expect(stringAtPitch(toggled, at(0), E4)).toBe(2);
+  });
+
+  it('leaves the song as it was for a pitch no free string can play', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[rest(4), rest(4), rest(2)]]]);
+    expect(togglePitchNote(song, at(0), 30)).toBe(song);
+    expect(stringAtPitch(song, at(0), 30)).toBeUndefined();
+  });
+
+  it('counts frets from the capo', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[rest(4), rest(4), rest(2)]]], { offset: 2 });
+    expect(beatNotes(togglePitchNote(song, at(0), E4 + 2), 0)).toEqual(['1:0@95']);
   });
 });

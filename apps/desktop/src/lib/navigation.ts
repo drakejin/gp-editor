@@ -1,4 +1,4 @@
-import { MAX_VOICES, type Measure, type Song, type StringAddress, findNote } from '@gp-editor/core';
+import { MAX_VOICES, type Measure, type Song, type StringAddress, durationTicks, findNote, voiceOf } from '@gp-editor/core';
 
 /** Cursor on the track's first bar, first string: its first beat, or beat 0 of a bar without beats (the track rests there). */
 export function firstCursor(song: Song, trackIndex: number): StringAddress | undefined {
@@ -15,18 +15,54 @@ function placesIn(measure: Measure | undefined): number {
 }
 
 /**
- * The same string position on the previous (-1) or next (+1) beat of the track, across bar lines (a bar without beats is
- * one stop); unchanged at either end.
+ * The beats of a bar the cursor can stand on in voice `voiceIndex`: each beat the voice plays, and each beat where it
+ * has nothing sounding (a typed note fills that time) — never one inside a note or rest of the voice that started
+ * earlier, where another voice alone has a beat. Beat 0 alone in a bar without beats.
+ */
+function voiceStops(measure: Measure | undefined, voiceIndex: number): readonly number[] {
+  const beats = measure?.beats ?? [];
+  if (beats.length === 0) {
+    return [0];
+  }
+  const stops: number[] = [];
+  let soundingUntil = Number.NEGATIVE_INFINITY;
+  beats.forEach((beat, index) => {
+    const voice = voiceOf(beat, voiceIndex);
+    if (voice !== undefined && !voice.isEmpty) {
+      stops.push(index);
+      soundingUntil = beat.start + durationTicks(voice.duration);
+    } else if (beat.start >= soundingUntil) {
+      stops.push(index);
+    }
+  });
+  return stops;
+}
+
+/**
+ * The same string position on the previous (-1) or next (+1) beat of the cursor's voice, across bar lines (a bar
+ * without beats is one stop; voiceStops); unchanged at either end.
  */
 export function adjacentBeat(song: Song, cursor: StringAddress, step: -1 | 1): StringAddress {
   const measures = song.tracks[cursor.trackIndex]?.measures ?? [];
-  const beatIndex = cursor.beatIndex + step;
-  if (beatIndex >= 0 && beatIndex < placesIn(measures[cursor.measureIndex])) {
-    return { ...cursor, beatIndex };
+  const stops = voiceStops(measures[cursor.measureIndex], cursor.voiceIndex);
+  const inBar = step > 0 ? stops.find((index) => index > cursor.beatIndex) : stops.filter((index) => index < cursor.beatIndex).pop();
+  if (inBar !== undefined) {
+    return { ...cursor, beatIndex: inBar };
   }
   const measureIndex = cursor.measureIndex + step;
   const measure = measures[measureIndex];
-  return measure === undefined ? cursor : { ...cursor, measureIndex, beatIndex: step > 0 ? 0 : placesIn(measure) - 1 };
+  if (measure === undefined) {
+    return cursor;
+  }
+  const next = voiceStops(measure, cursor.voiceIndex);
+  return { ...cursor, measureIndex, beatIndex: (step > 0 ? next[0] : next[next.length - 1]) ?? 0 };
+}
+
+/** The cursor on a beat its voice can be edited at: inside a note or rest of the voice, the beat where that one starts. */
+export function voiceCursor(song: Song, cursor: StringAddress): StringAddress {
+  const stops = voiceStops(song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex], cursor.voiceIndex);
+  const beatIndex = stops.filter((index) => index <= cursor.beatIndex).pop() ?? cursor.beatIndex;
+  return beatIndex === cursor.beatIndex ? cursor : { ...cursor, beatIndex };
 }
 
 /** The cursor moved up (-1, towards string 1) or down (+1) a string, kept on the track's strings. */

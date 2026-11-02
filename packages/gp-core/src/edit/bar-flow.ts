@@ -140,11 +140,11 @@ function rewriteBar(song: Song, flow: VoiceFlow, measureIndex: number, events: V
   return hasSameItems(beats, measure.beats) ? measure : { ...measure, beats };
 }
 
-/** The song with the flow's voice laid out as `bars` from its first bar on; bars past them hold rests. */
-function writeBars(song: Song, flow: VoiceFlow, bars: readonly VoiceEvents[]): Song | undefined {
+/** The song with the flow's voice laid out as `bars` from its first bar through `lastIndex`; bars past them hold rests. */
+function writeBars(song: Song, flow: VoiceFlow, bars: readonly VoiceEvents[], lastIndex = Number.POSITIVE_INFINITY): Song | undefined {
   const measures = song.tracks[flow.trackIndex]?.measures ?? [];
   const rewritten = measures.map((measure, index) =>
-    index < flow.firstMeasureIndex ? measure : rewriteBar(song, flow, index, bars[index - flow.firstMeasureIndex] ?? []),
+    index < flow.firstMeasureIndex || index > lastIndex ? measure : rewriteBar(song, flow, index, bars[index - flow.firstMeasureIndex] ?? []),
   );
   if (!rewritten.every((measure): measure is Measure => measure !== undefined)) {
     return undefined;
@@ -178,4 +178,37 @@ export function reflowVoice(song: Song, flow: VoiceFlow, stream: VoiceEvents): S
   const bars = layoutBars(withoutTrailingFreeRests(stream), (index) => barTicks(song, flow.firstMeasureIndex + index));
   const extended = appendBars(song, flow.firstMeasureIndex + bars.length - song.measureHeaders.length);
   return writeBars(extended, flow, bars) ?? song;
+}
+
+/** The bars without those past the song's end that hold free rests only (`songBars` = the song's bars from the flow's first). */
+function withoutRestBarsPastEnd(bars: readonly VoiceEvents[], songBars: number): readonly VoiceEvents[] {
+  let count = bars.length;
+  while (count > songBars && (bars[count - 1] ?? []).every(isFreeRest)) {
+    count -= 1;
+  }
+  return count === bars.length ? bars : bars.slice(0, count);
+}
+
+/** The bars with those past `count` joined into the last of the first `count` (it is left over-full, as it was). */
+function keptInBars(bars: readonly VoiceEvents[], count: number): readonly VoiceEvents[] {
+  return bars.length <= count ? bars : [...bars.slice(0, count - 1), bars.slice(count - 1).flat()];
+}
+
+/**
+ * The song with the flow's voice laid out as `stream` over its bars from the first through `lastMeasureIndex` only, which
+ * the stream fills (a paste written over the voice): later bars keep their events — what an over-full bar of the range
+ * holds past its bar line stays in the range's last bar, over-full as before —; past the song's last bar, bars are
+ * appended (every track), not for rests only. The same song when a bar cannot be read.
+ */
+export function rewriteVoice(song: Song, flow: VoiceFlow, stream: VoiceEvents, lastMeasureIndex: number): Song {
+  const songBars = song.measureHeaders.length - flow.firstMeasureIndex;
+  const laid = withoutRestBarsPastEnd(
+    layoutBars(stream, (index) => barTicks(song, flow.firstMeasureIndex + index)),
+    songBars,
+  );
+  const isLastBar = lastMeasureIndex >= song.measureHeaders.length - 1;
+  const bars = isLastBar ? laid : keptInBars(laid, lastMeasureIndex - flow.firstMeasureIndex + 1);
+  const reached = flow.firstMeasureIndex + bars.length - 1;
+  const extended = appendBars(song, reached + 1 - song.measureHeaders.length);
+  return writeBars(extended, flow, bars, Math.max(reached, lastMeasureIndex)) ?? song;
 }

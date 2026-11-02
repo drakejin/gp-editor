@@ -10,6 +10,7 @@ import {
   eventIndexOfBeat,
   eventTicks,
   eventsTicks,
+  isFreeRest,
   restEvent,
   restEvents,
   signedRests,
@@ -18,6 +19,7 @@ import {
   toBeats,
   toMeasureVoices,
 } from './timeline';
+import { restDurations } from './rests';
 import { takeRestsAfter, trimTrailingRests } from './voice-fit';
 
 export type { BeatAddress } from './addresses';
@@ -111,7 +113,7 @@ function normalizeDuration(duration: Duration): Duration | undefined {
 
 /**
  * New song with the addressed event's duration changed (value, dots, tuplet and the tuplet inside it). A shorter event leaves rests of the new
- * duration behind it; a longer one takes the time from the free rests that follow (later notes move right only as far
+ * duration behind it, or gives the time to the rest after it when the two make one rest on its beat; a longer one takes the time from the free rests that follow (later notes move right only as far
  * as needed, past the measure end when the rests run out). Same song when the duration is the same or invalid, or the
  * voice is empty there.
  */
@@ -132,8 +134,33 @@ export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration)
   });
 }
 
-/** The events with rests of `ticks` (preferably `preferred`) put right after `index`; undefined when they cannot be written. */
+/**
+ * The events with `ticks` freed after `index` given to the free rest right after it, when the two make one plain rest
+ * that starts on a multiple of its own length (a dot taken off gives its time back to the rest it came from); undefined
+ * otherwise.
+ */
+function mergedRestAfter(events: VoiceEvents, index: number, ticks: number): VoiceEvents | undefined {
+  const next = events[index + 1];
+  if (next === undefined || !isFreeRest(next)) {
+    return undefined;
+  }
+  const [single, ...more] = restDurations(ticks + eventTicks(next), undefined, next.voice.duration) ?? [];
+  const offset = eventsTicks(events.slice(0, index + 1));
+  if (single === undefined || more.length > 0 || single.dotted || offset % durationTicks(single) !== 0) {
+    return undefined;
+  }
+  return replaceAt(events, index + 1, { ...next, voice: { ...next.voice, duration: single } });
+}
+
+/**
+ * The events with rests of `ticks` (preferably `preferred`) put right after `index` — joined with the free rest that
+ * follows when they make one rest on its beat (mergedRestAfter); undefined when they cannot be written.
+ */
 function restAfter(events: VoiceEvents, index: number, ticks: number, preferred: Duration): VoiceEvents | undefined {
+  const merged = mergedRestAfter(events, index, ticks);
+  if (merged !== undefined) {
+    return merged;
+  }
   const fill = restEvents(ticks, preferred);
   return fill === undefined ? undefined : [...events.slice(0, index + 1), ...signedRests(fill, events[index]), ...events.slice(index + 1)];
 }

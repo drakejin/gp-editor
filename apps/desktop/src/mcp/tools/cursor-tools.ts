@@ -70,7 +70,9 @@ const selectBars: McpTool<AppHost> = {
     const tabId = target.tab.id;
     placeCursor(host, tabId, start.address);
     const lastBeat = Math.max(1, target.song.tracks[end.address.trackIndex]?.measures[end.address.measureIndex]?.beats.length ?? 1) - 1;
-    const selected = host.dispatch({ type: 'inTab', tabId, action: { type: 'selectTo', cursor: { ...end.address, voiceIndex: start.address.voiceIndex, beatIndex: lastBeat } } });
+    const last = { ...end.address, voiceIndex: start.address.voiceIndex, beatIndex: lastBeat };
+    // selectBeats, not a drag's selectTo: a bar of one beat is selected too.
+    const selected = host.dispatch({ type: 'inTab', tabId, action: { type: 'selectBeats', anchor: start.address, cursor: last } });
     return answer(`Selected bars ${fromBar}–${toBar}.`, stateJson(selected, host.playback()));
   },
 };

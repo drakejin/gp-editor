@@ -38,7 +38,8 @@ export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
 export { CompositionError, GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
-export { MAX_DRUM_KEY, MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from './edit/edit-song';
+export { MAX_DRUM_KEY, MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteVelocity } from './edit/edit-song';
+export { setNoteString } from './edit/note-string';
 export {
   type Instrument,
   type NeckInstrument,
@@ -98,7 +99,7 @@ export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency 
 export { TunerError } from './errors';
 export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
 export { deleteRunNotes } from './edit/run-notes';
-export { findVoice, isVoiceIndex, voiceOf } from './edit/addresses';
+export { findVoice, isVoiceIndex, otherVoiceOnString, voiceOf } from './edit/addresses';
 export { moveBeatsToVoice, moveNotesToVoice } from './edit/voice-moves';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
@@ -128,6 +129,7 @@ export { DIAGRAM_FRETS, chordFirstFret, chordLabel, hasChordDiagram, isSameChord
 export { songChords } from './chords/song-chords';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
 export { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from './edit/beat-ranges';
+export { type PastedBeats, pasteBeats } from './edit/beat-paste';
 export { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';
 export {
   BEND_PRESETS,
@@ -285,7 +287,7 @@ export {
   type DrumTechniqueSymbol,
   drumNotation,
 } from './formats/common/drum-notation';
-export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore } from './edit/pitch-entry';
+export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore, stringAtPitch, toggleFretNote, togglePitchNote } from './edit/pitch-entry';
 export {
   MAX_TEMPO,
   MIN_TEMPO,

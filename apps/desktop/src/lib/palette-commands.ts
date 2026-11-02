@@ -1,9 +1,10 @@
-import { paletteGroups } from '../components/palette/palette-groups';
+import { buildPaletteGroups, paletteGroups } from '../components/palette/palette-groups';
 import type { PaletteGroup, PaletteOption, PaletteStepper, PaletteTool } from '../components/palette/palette-tools';
 import type { AppCommand } from '../state/app-command';
 import type { SongEdit } from '../state/song-edits';
 import { type Command, editorRow, isRequirementMet } from './command-types';
-import { currentLanguage, memoByLanguage } from './i18n/i18n';
+import { currentLanguage, memoByLanguage, withLanguage } from './i18n/i18n';
+import { LANGUAGES } from './i18n/messages';
 import type { KeyCommand } from './key-commands';
 
 /** A tooltip without the key it names at the end: "Tie to the previous note (T)" → "Tie to the previous note". */
@@ -96,5 +97,21 @@ export function paletteCommands(groups: readonly PaletteGroup[]): readonly Comma
   return groups.flatMap((group) => [...group.tools.flatMap((tool) => toolCommands(group, tool)), ...(group.steppers ?? []).flatMap((stepper) => stepperCommands(group, stepper))]);
 }
 
+/**
+ * The commands with their titles and groups in the languages not shown as keywords, by id: a Korean word finds a tool
+ * in the English window, and an English one in the Korean window.
+ */
+function withOtherLanguageWords(commands: readonly Command[]): readonly Command[] {
+  const shown = currentLanguage();
+  const words = new Map<string, readonly string[]>();
+  LANGUAGES.filter((language) => language !== shown).forEach((language) =>
+    withLanguage(language, () => paletteCommands(buildPaletteGroups())).forEach((other) => words.set(other.id, [...(words.get(other.id) ?? []), other.title, other.group])),
+  );
+  return commands.map((command) => {
+    const extra = words.get(command.id);
+    return extra === undefined ? command : { ...command, keywords: [...command.keywords, ...extra] };
+  });
+}
+
 /** The edition palette's tools as commands, in the shown language (built again after a language change). */
-export const paletteToolCommands = memoByLanguage(() => paletteCommands(paletteGroups()));
+export const paletteToolCommands = memoByLanguage(() => withOtherLanguageWords(paletteCommands(paletteGroups())));

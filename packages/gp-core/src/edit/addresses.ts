@@ -67,3 +67,18 @@ export function hasString(song: Song, at: StringAddress): boolean {
   const stringCount = song.tracks[at.trackIndex]?.strings.length ?? 0;
   return Number.isInteger(at.string) && at.string >= 1 && at.string <= stringCount;
 }
+
+/**
+ * The voice of the addressed beat, other than the addressed one, with a note on the addressed string (a string sounds
+ * one note at a time, TuxGuitar's TGMeasureManager.getNote); undefined when none, and always on a drum track, whose
+ * strings are slots that play no pitch.
+ */
+export function otherVoiceOnString(song: Song, at: StringAddress): number | undefined {
+  const track = song.tracks[at.trackIndex];
+  const beat = track?.measures[at.measureIndex]?.beats[at.beatIndex];
+  if (track === undefined || track.isPercussion || beat === undefined) {
+    return undefined;
+  }
+  const index = beat.voices.findIndex((voice, voiceIndex) => voiceIndex !== at.voiceIndex && !voice.isEmpty && voice.notes.some((note) => note.string === at.string));
+  return index < 0 ? undefined : index;
+}

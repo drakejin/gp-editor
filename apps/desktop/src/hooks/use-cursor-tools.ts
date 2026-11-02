@@ -27,6 +27,10 @@ export interface CursorTools {
   readonly actAtCursor: (action: EditorAction) => void;
   /** A drum kit click enters that drum at the cursor (or takes it out of the beat). */
   readonly hitDrum: (key: number) => void;
+  /** A fretboard click enters that string and fret at the cursor (or takes the note out), as Guitar Pro 8 does. */
+  readonly pressFret: (string: number, fret: number) => void;
+  /** A piano key click enters its pitch at the cursor on a free string near the hand (or takes the note out). */
+  readonly pressKey: (pitch: number) => void;
   /** MIDI step entry: a struck chord becomes the cursor's beat; not while a panel or menu is over the score. */
   readonly midiInput: MidiInput;
   /** The audio track's lane, Track ▸ Add Audio Track… and Y (the cursor's bar starts at this moment of the recording). */
@@ -86,6 +90,8 @@ function useEditsAtCursor({ dispatch, chrome, focusScore }: WindowBase) {
     [dispatch, focusScore],
   );
   const hitDrum = useCallback((key: number) => actAtCursor({ type: 'toggleDrumNote', key }), [actAtCursor]);
+  const pressFret = useCallback((string: number, fret: number) => actAtCursor({ type: 'toggleFretNote', string, fret }), [actAtCursor]);
+  const pressKey = useCallback((pitch: number) => actAtCursor({ type: 'togglePitchNote', pitch }), [actAtCursor]);
   const leaveChordPanel = useCallback(
     (edit?: SongEdit) => {
       closeChordPanel();
@@ -96,7 +102,7 @@ function useEditsAtCursor({ dispatch, chrome, focusScore }: WindowBase) {
     },
     [closeChordPanel, dispatch, focusScore],
   );
-  return { editAtCursor, actAtCursor, hitDrum, leaveChordPanel };
+  return { editAtCursor, actAtCursor, hitDrum, pressFret, pressKey, leaveChordPanel };
 }
 
 export function useCursorTools(base: WindowBase, { playback }: WindowMedia, isOverlayOpen: boolean): CursorTools {

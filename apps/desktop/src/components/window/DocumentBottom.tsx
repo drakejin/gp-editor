@@ -21,6 +21,8 @@ export function DocumentBottom({ model, document }: DocumentPartProps) {
         showsFretboard={chrome.panels.neck}
         scale={tools.scales.highlight}
         onDrumHit={cursorTools.hitDrum}
+        onPressFret={cursorTools.pressFret}
+        onPressPitch={cursorTools.pressKey}
         onHoverPitch={media.previewPitch}
         drumKey={tools.drumKey}
       />

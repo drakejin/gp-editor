@@ -1,4 +1,4 @@
-import { type Song, type StringAddress, type TimeSignature, findNote } from '@gp-editor/core';
+import { type Song, type StringAddress, type TimeSignature, findNote, otherVoiceOnString } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
 import { needsNote } from './note-edits';
 import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
@@ -64,4 +64,24 @@ function innerTupletHint(song: Song, cursor: StringAddress): string | undefined 
 /** A note key (R, S, H … B, C) on a string with no note at the cursor. */
 export function noNoteHint(stringNumber: number): string {
   return t('palette.hint.noNote', { number: stringNumber });
+}
+
+/**
+ * Why ⌥↑ / ⌥↓ left the note at the cursor where it was: the string it would go to holds a note on this beat (in any
+ * voice), or cannot play its pitch on the neck. Undefined without a note, or past the first or last string.
+ */
+export function stringMoveHint(song: Song, cursor: StringAddress, string: number): string | undefined {
+  const stringCount = song.tracks[cursor.trackIndex]?.strings.length ?? 0;
+  if (findNote(song, cursor) === undefined || string < 1 || string > stringCount) {
+    return undefined;
+  }
+  const target = { ...cursor, string };
+  const isTaken = findNote(song, target) !== undefined || otherVoiceOnString(song, target) !== undefined;
+  return t(isTaken ? 'palette.hint.stringTaken' : 'palette.hint.offNeck', { number: string });
+}
+
+/** Why a fret typed at the cursor made no note: another voice sounds that string on the beat; undefined otherwise. */
+export function heldStringHint(song: Song, cursor: StringAddress): string | undefined {
+  const voiceIndex = findNote(song, cursor) === undefined ? otherVoiceOnString(song, cursor) : undefined;
+  return voiceIndex === undefined ? undefined : t('palette.hint.stringInVoice', { voice: voiceIndex + 1, number: cursor.string });
 }

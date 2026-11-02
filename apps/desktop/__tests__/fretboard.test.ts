@@ -110,14 +110,21 @@ describe('fretboardHoverRegions', () => {
 
     // Assert: six strings × 25 positions; the open high E is 64, the 12th fret of the low E is 52
     expect(regions).toHaveLength(6 * (FRETBOARD.frets + 1));
-    expect(regions[0]).toEqual({ pitch: 64, x: 0, y: FRETBOARD.top - FRETBOARD.stringGap / 2, width: FRETBOARD.openWidth, height: FRETBOARD.stringGap });
+    expect(regions[0]).toEqual({ pitch: 64, x: 0, y: FRETBOARD.top - FRETBOARD.stringGap / 2, width: FRETBOARD.openWidth, height: FRETBOARD.stringGap, neckNote: { string: 1, fret: 0 } });
     expect(regions.some((region) => region.pitch === 52 && Math.abs(region.x + region.width / 2 - fretX(NECK_1000, 12)) < 1e-6)).toBe(true);
     expect(lowE5).toBeDefined();
   });
 
-  it('starts a banjo’s short string at its peg', () => {
+  it('starts a banjo’s short string at its peg, its notes stored from there', () => {
     const fifth = fretboardHoverRegions(banjo, 1000).filter((region) => region.y > FRETBOARD.top + 3 * FRETBOARD.stringGap);
     expect(fifth).toHaveLength(FRETBOARD.frets + 1 - 5);
-    expect(fifth[0]?.pitch).toBe(67);
+    expect(fifth[0]).toMatchObject({ pitch: 67, neckNote: { string: 5, fret: 0 } });
+    expect(fifth[1]).toMatchObject({ pitch: 68, neckNote: { string: 5, fret: 1 } });
+  });
+
+  it('gives the positions behind a capo no note to enter, and counts the frets from it', () => {
+    const regions = fretboardHoverRegions({ ...guitar, offset: 2 }, 1000).filter((region) => region.neckNote?.string === 1 || region.pitch < 67);
+    expect(regions.find((region) => region.pitch === 65)?.neckNote).toBeUndefined();
+    expect(regions.find((region) => region.pitch === 66)?.neckNote).toEqual({ string: 1, fret: 0 });
   });
 });

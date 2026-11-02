@@ -1,4 +1,4 @@
-import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '@gp-editor/core';
+import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, pasteBeats } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import type { BeatRange } from '../score/selection-tint';
@@ -9,10 +9,11 @@ import { beatAddress } from './song-edits';
 /** What the selection helpers read of the editor state. */
 type SelectionState = Pick<EditorState, 'document' | 'cursor' | 'selectionAnchor'>;
 
-/** A song after a cut or paste, with where the cursor goes. */
+/** A song after a cut or paste, with where the cursor goes and what the hint strip says. */
 export interface ClipboardEdit {
   readonly song: Song;
   readonly cursor: StringAddress;
+  readonly hint?: string;
 }
 
 function isBefore(a: StringAddress, b: StringAddress): boolean {
@@ -97,13 +98,24 @@ export function selectTo(state: EditorState, target: StringAddress): EditorState
 }
 
 /**
+ * The beats from `anchor` to `cursor` (in the cursor's track and voice) selected as given — on one beat too, which a drag
+ * back onto its beat does not select —, the cursor on `cursor`; both kept inside the song. The same state without a song.
+ */
+export function selectBeats(state: EditorState, anchor: StringAddress, cursor: StringAddress): EditorState {
+  const song = state.document?.song;
+  const moved = song === undefined ? undefined : clampCursor(song, cursor);
+  const from = song === undefined ? undefined : clampCursor(song, { ...anchor, trackIndex: cursor.trackIndex, voiceIndex: cursor.voiceIndex });
+  return moved === undefined || from === undefined ? state : { ...state, cursor: moved, selectionAnchor: from };
+}
+
+/**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
  * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
   // A transposition (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
   const keepsBeats = action.type === 'transpose' || (action.type === 'applyAiEdit' && action.keepsBeats);
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || keepsBeats) {
+  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'selectBeats' || keepsBeats) {
     return after;
   }
   return isScoreUntouched(before, after) ? after : { ...after, selectionAnchor: undefined };
@@ -142,8 +154,14 @@ export function pasteRefusal(song: Song, cursor: StringAddress, fragment: BeatFr
   return t(fragment.isPercussion ? 'palette.hint.pasteDrumsOnly' : 'palette.hint.pasteIntoDrums');
 }
 
-/** ⌘V: the beats inserted at the cursor, what follows moved on; the cursor on the first pasted beat. */
+/**
+ * ⌘V: Guitar Pro 8's paste (gp-core pasteBeats) — up to a bar written over the voice from the cursor, longer into whole
+ * bars added before the cursor's bar (or into the empty bars there); the cursor on the first pasted beat, and the hint
+ * says when bars were added, which moves every track.
+ */
 export function pasteBeatsAt(song: Song, cursor: StringAddress, fragment: BeatFragment): ClipboardEdit {
-  const next = insertBeatsFlowing(song, beatAddress(cursor), fragment);
-  return { song: next, cursor: cursorAt(next, cursor, beatStart(song, cursor)) };
+  const pasted = pasteBeats(song, beatAddress(cursor), fragment);
+  const first = { ...cursor, measureIndex: pasted.at.measureIndex, beatIndex: pasted.at.beatIndex };
+  const hint = pasted.addedBars > 0 ? t('palette.hint.pasteAddedBars', { count: pasted.addedBars }) : undefined;
+  return { song: pasted.song, cursor: clampCursor(pasted.song, first) ?? cursor, hint };
 }

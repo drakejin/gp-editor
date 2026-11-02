@@ -117,6 +117,19 @@ describe('searchExpressions: chords and key signatures', () => {
     });
   });
 
+  it('puts a key named in full (“E minor”, “D major”, as the field’s hint offers it) before the chord of that name', () => {
+    // Act
+    const eMinor = search('E minor');
+    const dMajor = search('d MAJOR');
+
+    // Assert
+    expect(eMinor.map((match) => match.kind).slice(0, 2)).toEqual(['keySignature', 'chord']);
+    expect(eMinor[0]?.edit()).toEqual({ type: 'setKeySignature', keySignature: 1 });
+    expect(dMajor[0]?.edit()).toEqual({ type: 'setKeySignature', keySignature: 2 });
+    expect(first('Em').kind).toBe('chord');
+    expect(first('E min').kind).toBe('chord');
+  });
+
   it('spells a chord with the flats it was typed with', () => {
     expect(first('Bbm7').title).toBe('B♭m7');
     expect(first('Bbm7').edit()).toMatchObject({ chord: { name: 'Bbm7' } });

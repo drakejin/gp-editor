@@ -122,6 +122,8 @@ describe('get_ascii_tab', () => {
   });
 });
 
+const app2 = () => fakeApp(openWorkspace(riff()));
+
 describe('move_cursor, select_bars and clear_selection', () => {
   it('moves the cursor and answers the beat under it', async () => {
     // Arrange
@@ -154,6 +156,15 @@ describe('move_cursor, select_bars and clear_selection', () => {
 
     expect(selected.structured).toMatchObject({ document: { selection: { from: { bar: 1, beat: 1 }, to: { bar: 2, beat: 1 } } } });
     expect(app.state().tabs[0]?.editor.selectionAnchor).toBeUndefined();
+  });
+
+  it('selects a bar that holds a single beat (its only beat), as it says', async () => {
+    // Act: bar 2 has one beat
+    const selected = await call(app2(), 'select_bars', { fromBar: 2 });
+
+    // Assert
+    expect(selected.text).toContain('Selected bars 2–2');
+    expect(selected.structured).toMatchObject({ document: { selection: { from: { bar: 2, beat: 1 }, to: { bar: 2, beat: 1 } } } });
   });
 });
 

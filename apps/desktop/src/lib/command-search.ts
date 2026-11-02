@@ -36,14 +36,32 @@ export function searchWords(text: string): readonly string[] {
     .filter((word) => word !== '');
 }
 
-function hasLettersInOrder(text: string, letters: string): boolean {
-  let at = 0;
-  for (const letter of text) {
-    if (letter === letters[at]) {
-      at += 1;
+/** How spread the letters typed may be in a title: their span at most this many times as long as they are. */
+const MAX_LETTER_SPREAD = 2;
+
+/** The shortest stretch of `text` holding `letters` in order, in characters; Infinity when it does not hold them. */
+function lettersSpan(text: string, letters: string): number {
+  const chars = [...text];
+  const wanted = [...letters];
+  let best = Number.POSITIVE_INFINITY;
+  chars.forEach((char, start) => {
+    if (char !== wanted[0]) {
+      return;
     }
-  }
-  return at === letters.length;
+    let at = 0;
+    for (let index = start; index < chars.length && at < wanted.length; index++) {
+      if (chars[index] === wanted[at]) {
+        at += 1;
+        best = at === wanted.length ? Math.min(best, index - start + 1) : best;
+      }
+    }
+  });
+  return best;
+}
+
+/** The letters in order, close together ("xpdf" → "Export PDF…"), not spread over a long title. */
+function hasLettersInOrder(text: string, letters: string): boolean {
+  return letters !== '' && lettersSpan(text, letters) <= letters.length * MAX_LETTER_SPREAD;
 }
 
 function tokenScore(token: string, command: Command): number {
@@ -66,28 +84,42 @@ function tokenScore(token: string, command: Command): number {
 
 /**
  * How well a command matches what was typed: every typed word must be found — a word of the title, the start of one, a
- * keyword, the initial consonants of a Korean word, the group, inside a title word, or its letters in order in the title
- * — and the points add up. Undefined
- * when a word is not found; 0 for an empty query.
+ * keyword, the initial consonants of a Korean word, the group, inside a title word, or its letters (or initial
+ * consonants) in order close together in the title — and the points add up. Undefined when a word is not found; 0 for
+ * an empty query.
  */
 export function matchScore(command: Command, query: string): number | undefined {
+  return tokenScores(command, query)?.reduce((sum, score) => sum + score, 0);
+}
+
+function tokenScores(command: Command, query: string): readonly number[] | undefined {
   const scores = searchWords(query).map((token) => tokenScore(token, command));
-  return scores.some((score) => score === 0) ? undefined : scores.reduce((sum, score) => sum + score, 0);
+  return scores.some((score) => score === 0) ? undefined : scores;
+}
+
+/** A match that found a typed word only by its letters in order: listed only when nothing matches the words themselves. */
+function isLooseMatch(scores: readonly number[]): boolean {
+  return scores.some((score) => score <= SCORES.initialsInOrder);
 }
 
 /**
  * The commands matching `query`, best first: the ones that can run before the others, then by score, then the recently
- * run ones (newest first), then in the registry's order — so with nothing typed, the recent commands come first.
+ * run ones (newest first), then in the registry's order — so with nothing typed, the recent commands come first. A
+ * command found only by letters in order is a last resort: listed only when no command matches the words themselves.
  */
 export function searchCommands(commands: readonly Command[], query: string, state: CommandState, recentIds: readonly string[]): readonly CommandMatch[] {
   const recentRank = (command: Command) => {
     const rank = recentIds.indexOf(command.id);
     return rank < 0 ? recentIds.length : rank;
   };
-  const matches = commands.flatMap((command, order) => {
-    const score = matchScore(command, query);
-    return score === undefined ? [] : [{ command, isEnabled: command.isEnabled(state), score, order, recent: recentRank(command) }];
+  const found = commands.flatMap((command, order) => {
+    const scores = tokenScores(command, query);
+    return scores === undefined ? [] : [{ command, scores, order }];
   });
+  const isLooseOnly = found.every((match) => isLooseMatch(match.scores));
+  const matches = found
+    .filter((match) => isLooseOnly || !isLooseMatch(match.scores))
+    .map(({ command, scores, order }) => ({ command, isEnabled: command.isEnabled(state), score: scores.reduce((sum, score) => sum + score, 0), order, recent: recentRank(command) }));
   return matches
     .sort((a, b) => Number(b.isEnabled) - Number(a.isEnabled) || b.score - a.score || a.recent - b.recent || a.order - b.order)
     .map(({ command, isEnabled, score }) => ({ command, isEnabled, score }));

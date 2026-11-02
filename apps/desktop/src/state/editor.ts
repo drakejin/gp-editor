@@ -17,6 +17,8 @@ import {
   shiftNoteFret,
   shiftNoteString,
   toggleDrumAtCursor,
+  toggleFretAtCursor,
+  togglePitchAtCursor,
   typeFret,
   withCursor,
 } from './cursor-edits';
@@ -25,7 +27,7 @@ import { markSaved, redo, undo } from './editor-history';
 import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
-import { extendSelection, selectTo, settleSelection } from './selection';
+import { extendSelection, selectBeats, selectTo, settleSelection } from './selection';
 import { type SongAction, isSongAction } from './song-actions';
 import type { SongEdit } from './song-edits';
 import { INITIAL_TRACK_DISPLAY, type TrackDisplay } from './track-display';
@@ -113,8 +115,11 @@ export type EditorAction =
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
-  /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
-  | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  /**
+   * The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons); inside a note of that voice,
+   * on the beat where it starts — unless `keepsBeat` (MCP tools address a beat exactly).
+   */
+  | { readonly type: 'selectVoice'; readonly voiceIndex: number; readonly keepsBeat?: boolean }
   | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
@@ -122,6 +127,10 @@ export type EditorAction =
   | { readonly type: 'typeFretDigit'; readonly press: DigitPress }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
   | { readonly type: 'toggleDrumNote'; readonly key: number }
+  /** A fretboard position clicked: that string and fret (the fret the note stores) into the cursor's beat, or out of it. */
+  | { readonly type: 'toggleFretNote'; readonly string: number; readonly fret: number }
+  /** A piano key clicked: its pitch into the cursor's beat on a free string near the hand, or the note sounding it out. */
+  | { readonly type: 'togglePitchNote'; readonly pitch: number }
   /** MIDI step entry: notes played together become the cursor's beat (one undo step); the cursor goes to the next beat. */
   | { readonly type: 'enterPlayedNotes'; readonly notes: readonly PlayedNote[] }
   | { readonly type: 'shiftNoteFret'; readonly delta: number }
@@ -144,6 +153,8 @@ export type EditorAction =
   | { readonly type: 'extendSelection'; readonly step: -1 | 1 }
   /** A mouse drag or a shift-click: select from where the cursor was to here. */
   | { readonly type: 'selectTo'; readonly cursor: StringAddress }
+  /** The beats from `anchor` to `cursor` selected as given, a single beat too (MCP select_bars on a bar of one beat). */
+  | { readonly type: 'selectBeats'; readonly anchor: StringAddress; readonly cursor: StringAddress }
   | { readonly type: 'clearSelection' }
   /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. One undo step. */
   | { readonly type: 'cutSelection' }
@@ -235,13 +246,15 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
     case 'moveCursorString':
       return moveCursorString(state, action.delta);
     case 'selectVoice':
-      return selectVoice(state, action.voiceIndex);
+      return selectVoice(state, action.voiceIndex, action.keepsBeat === true);
     case 'toggleMultivoice':
       return { ...state, isMultivoice: state.isMultivoice !== true };
     case 'extendSelection':
       return extendSelection(state, action.step);
     case 'selectTo':
       return selectTo(state, action.cursor);
+    case 'selectBeats':
+      return selectBeats(state, action.anchor, action.cursor);
     case 'clearSelection':
       return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:
@@ -258,6 +271,10 @@ function cursorEditReducer(state: EditorState, action: EditorAction): EditorStat
       return typeFretDigit(state, action.press);
     case 'toggleDrumNote':
       return toggleDrumAtCursor(state, action.key);
+    case 'toggleFretNote':
+      return toggleFretAtCursor(state, action.string, action.fret);
+    case 'togglePitchNote':
+      return togglePitchAtCursor(state, action.pitch);
     case 'enterPlayedNotes':
       return enterPlayed(state, action.notes);
     case 'shiftNoteFret':

@@ -58,6 +58,30 @@ describe('command search', () => {
     expect(searchCommands(allCommands(), 'new', NO_DOCUMENT, []).slice(firstDisabled).every((match) => !match.isEnabled)).toBe(true);
   });
 
+  it('leaves out loose letter-by-letter matches when a command matches the words themselves (“palm”, “transp”)', () => {
+    // Act
+    const palm = searchCommands(allCommands(), 'palm', OPEN_DOCUMENT, []).map((match) => match.command.title);
+    const transp = searchCommands(allCommands(), 'transp', OPEN_DOCUMENT, []).map((match) => match.command.title);
+
+    // Assert
+    expect(palm[0]).toBe('Palm Mute');
+    expect(palm.some((title) => title.startsWith('Directions'))).toBe(false);
+    expect(transp[0]).toBe('Transpose…');
+    expect(transp.some((title) => /Fine|Beam grouping/.test(title))).toBe(false);
+  });
+
+  it('takes letters in order only close together: not spread across a long title', () => {
+    const long = command('a', 'Directions on this bar: Da Capo al Fine, playback jumps home');
+    expect(matchScore(long, 'palm')).toBeUndefined();
+    expect(matchScore(command('b', 'Export PDF…'), 'xpdf')).toBeGreaterThan(0);
+  });
+
+  it('finds a command by its Korean title in the English window too', () => {
+    expect(ids('팜뮤트')[0]).toBe('note.palmMute');
+    expect(ids('조옮김')[0]).toBe('tools.transpose');
+    expect(ids('셋잇단')).toEqual(expect.arrayContaining([expect.stringMatching(/^palette\./)]));
+  });
+
   it('splits titles into lower-case words', () => {
     expect(searchWords('Export ASCII Tab…')).toEqual(['export', 'ascii', 'tab']);
     expect(searchWords('Playback Tempo +5 BPM')).toEqual(['playback', 'tempo', '+5', 'bpm']);

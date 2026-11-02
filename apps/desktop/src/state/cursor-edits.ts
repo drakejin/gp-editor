@@ -8,13 +8,18 @@ import {
   enterPlayedNotes,
   findNote,
   insertMeasure,
+  stringAtPitch,
   setNoteFret,
   setNoteString,
   toggleDrumNote,
+  toggleFretNote,
+  togglePitchNote,
   voiceOf,
 } from '@gp-editor/core';
-import { adjacentBeat, clampCursor, firstCursor } from '../lib/navigation';
-import { refusalHint } from './edit-hints';
+import { t } from '../lib/i18n/i18n';
+import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
+import { pitchNameInKey } from '../lib/pitch';
+import { heldStringHint, refusalHint, stringMoveHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { editAtCursor, withBarRests } from './empty-bars';
@@ -53,17 +58,22 @@ function followBeatStart(before: EditorState, after: EditorState): EditorState {
   return beatIndex < 0 || beatIndex === cursor.beatIndex ? after : { ...after, cursor: { ...cursor, beatIndex } };
 }
 
-/** The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet; the same state past voice 4. */
-export function selectVoice(state: EditorState, voiceIndex: number): EditorState {
+/**
+ * The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet (inside a note of that voice: on
+ * the note's beat, unless `keepsBeat`); the same state past voice 4.
+ */
+export function selectVoice(state: EditorState, voiceIndex: number, keepsBeat = false): EditorState {
   const { cursor, document } = state;
   // A bar without beats offers the voices of the rest drawn there.
   const song = cursor === undefined || document === undefined ? undefined : withBarRests(document.song, cursor);
   const beat = cursor === undefined ? undefined : song?.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex];
   const isSelectable = beat !== undefined && voiceOf(beat, voiceIndex) !== undefined;
-  if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
+  if (cursor === undefined || song === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
     return state;
   }
-  return { ...state, cursor: { ...cursor, voiceIndex } };
+  // Inside a note of that voice (where another voice alone has a beat), on the beat where the note starts.
+  const inVoice = { ...cursor, voiceIndex };
+  return { ...state, cursor: keepsBeat ? inVoice : voiceCursor(song, inVoice) };
 }
 
 /** The cursor moved within the song (from the first beat of the shown track when it has none yet). */
@@ -76,7 +86,10 @@ export function withCursor(state: EditorState, move: (song: Song, cursor: String
   return { ...state, cursor: clampCursor(song, move(song, current)) };
 }
 
-/** A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg) leaves a hint instead. */
+/**
+ * A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg), or a string another voice
+ * sounds on the beat, leaves a hint instead.
+ */
 export function typeFret(state: EditorState, typed: number): EditorState {
   const { document, cursor } = state;
   const fret = document === undefined || cursor === undefined ? typed : storedFret(document.song, cursor, typed);
@@ -84,12 +97,52 @@ export function typeFret(state: EditorState, typed: number): EditorState {
     return { ...state, hint: droneFretHint() };
   }
   const typedState = followBeatStart(state, applyEdit(state, (song, at) => setNoteFret(song, at, fret)));
+  const heldHint = typedState === state && document !== undefined && cursor !== undefined ? heldStringHint(document.song, cursor) : undefined;
+  if (heldHint !== undefined) {
+    return { ...state, hint: heldHint };
+  }
   return typedState.hint === droneFretHint() ? { ...typedState, hint: undefined } : typedState;
 }
 
 /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
 export function toggleDrumAtCursor(state: EditorState, key: number): EditorState {
   return followBeatStart(state, applyEdit(state, (song, at) => toggleDrumNote(song, at, key)));
+}
+
+/**
+ * A fretboard position clicked (Guitar Pro 8's instrument view): that string and fret into the cursor's beat, beside its
+ * other notes, or out of it when the beat plays it there already; the cursor goes to that string, and the hint says
+ * when another voice sounds it.
+ */
+export function toggleFretAtCursor(state: EditorState, string: number, fret: number): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const clicked = followBeatStart(state, applyEdit(state, (song, at) => toggleFretNote(song, { ...at, string }, fret)));
+  if (clicked === state) {
+    const hint = heldStringHint(document.song, { ...cursor, string });
+    return hint === undefined ? state : { ...state, hint };
+  }
+  return clicked.cursor === undefined ? clicked : { ...clicked, cursor: { ...clicked.cursor, string }, hint: undefined };
+}
+
+/**
+ * A piano key clicked: its pitch into the cursor's beat on a free string near the hand (the cursor goes to it), or the
+ * note sounding it out of the beat; the hint says when no free string plays it.
+ */
+export function togglePitchAtCursor(state: EditorState, pitch: number): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const clicked = followBeatStart(state, applyEdit(state, (song, at) => togglePitchNote(song, at, pitch)));
+  if (clicked === state) {
+    const keySignature = document.song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.keySignature ?? 0;
+    return { ...state, hint: t('palette.hint.noStringForPitch', { note: pitchNameInKey(pitch, keySignature) }) };
+  }
+  const string = clicked.document === undefined || clicked.cursor === undefined ? undefined : stringAtPitch(clicked.document.song, clicked.cursor, pitch);
+  return string === undefined || clicked.cursor === undefined ? clicked : { ...clicked, cursor: { ...clicked.cursor, string }, hint: undefined };
 }
 
 /** − / =: the note at the cursor a fret lower or higher. */
@@ -100,14 +153,18 @@ export function shiftNoteFret(state: EditorState, delta: number): EditorState {
   });
 }
 
-/** Option-↑/↓: move the note at the cursor to the neighbouring string; the cursor follows it. */
+/** Option-↑/↓: move the note at the cursor to the neighbouring string at the same pitch; the cursor follows it, or the hint says why it stayed. */
 export function shiftNoteString(state: EditorState, delta: number): EditorState {
-  const { cursor } = state;
-  if (cursor === undefined) {
+  const { cursor, document } = state;
+  if (cursor === undefined || document === undefined) {
     return state;
   }
   const edited = applyEdit(state, (song, at) => setNoteString(song, at, at.string + delta));
-  return edited === state ? state : { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
+  if (edited === state) {
+    const hint = stringMoveHint(document.song, cursor, cursor.string + delta);
+    return hint === undefined || hint === state.hint ? state : { ...state, hint };
+  }
+  return { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
 }
 
 export function deleteNoteAtCursor(state: EditorState): EditorState {
@@ -189,7 +246,7 @@ function applyClipboardEdit(state: EditorState, edit: (song: Song, cursor: Strin
   }
   const result = edit(document.song, cursor);
   const recorded = recordSong(state, document, result.song);
-  return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: undefined };
+  return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: result.hint };
 }
 
 /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. */
@@ -197,10 +254,10 @@ export function cutSelection(state: EditorState): EditorState {
   return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
 }
 
-/** Pastes at the cursor; when the beats cannot go there (drums and other tracks), the hint says why. */
+/** Pastes at the cursor (selection.ts pasteBeatsAt); when nothing changes (drums and other tracks, …), the hint says why. */
 export function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
   const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
   const { document, cursor } = state;
-  const hint = pasted !== state || document === undefined || cursor === undefined ? undefined : pasteRefusal(document.song, cursor, fragment);
+  const hint = pasted !== state || document === undefined || cursor === undefined ? undefined : (pasteRefusal(document.song, cursor, fragment) ?? t('palette.hint.pasteUnchanged'));
   return hint === undefined || hint === state.hint ? pasted : { ...state, hint };
 }

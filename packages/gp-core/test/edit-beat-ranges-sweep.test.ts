@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
+import { pasteBeats } from '../src/edit/beat-paste';
 import { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '../src/edit/beat-ranges';
 import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
 import type { Song } from '../src/model/song';
@@ -66,9 +67,15 @@ describe.each(FIXTURES)('copy, cut and paste on %s/%s', (folder, name) => {
       const fragmentNotes = fragment.items.reduce((total, item) => total + item.notes.length, 0);
       const cut = deleteBeatsFlowing(song, from, to);
       const pasted = insertBeatsFlowing(song, target, fragment);
+      const over = pasteBeats(song, target, fragment);
 
       assertEditInvariants(cut);
       assertEditInvariants(pasted);
+      assertEditInvariants(over.song);
+      if (over.addedBars === 0) {
+        // Pasting over one track leaves every other track as it was: nothing moves against them.
+        expect(over.song.tracks.every((track, index) => index === trackIndex || track === song.tracks[index])).toBe(true);
+      }
       expect(parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)))).toEqual(fragment.items.length === 0 ? undefined : fragment);
       changed += (cut === song ? 0 : 1) + (pasted === song ? 0 : 1);
       if (cut !== song) {

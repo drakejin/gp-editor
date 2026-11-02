@@ -4,6 +4,7 @@ import type { McpServerCommand } from '../native/mcp-server';
 import type { PanelId } from '../state/panels';
 import { type Command, type CommandActions, type RowSpec, editorRow, keyRow, press, row } from './command-types';
 import { type MessageKey, currentLanguage, isMessageKey, memoByLanguage, t, translate } from './i18n/i18n';
+import { LANGUAGES } from './i18n/messages';
 import { KEYS, type KeyCommand, type KeyPress } from './key-commands';
 import { paletteToolCommands } from './palette-commands';
 
@@ -21,13 +22,15 @@ function commandTitle(id: string): string {
   return key === undefined ? id : t(key);
 }
 
-/** Outside English, a command is found by its English title and group too (“transpose” finds 조옮김…). */
+/** A command is found by its title and group in the languages not shown too (“transpose” finds 조옮김…, “팜뮤트” Palm Mute). */
 function searchSpec(id: string, group: GroupId, spec: RowSpec): RowSpec {
   const key = titleKey(id);
-  if (currentLanguage() === 'en' || key === undefined) {
+  const others = LANGUAGES.filter((language) => language !== currentLanguage());
+  if (key === undefined || others.length === 0) {
     return spec;
   }
-  return { ...spec, keywords: [...(spec.keywords ?? []), translate('en', key), translate('en', `commands.group.${group}`)] };
+  const words = others.flatMap((language) => [translate(language, key), translate(language, `commands.group.${group}`)]);
+  return { ...spec, keywords: [...(spec.keywords ?? []), ...words] };
 }
 
 function appRow(id: string, group: GroupId, run: (actions: CommandActions) => void, spec: RowSpec = {}): Command {

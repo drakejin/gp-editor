@@ -122,12 +122,32 @@ describe('editorReducer: edits at the cursor', () => {
     expect(findNote(song(removed), at(removed))).toBeUndefined();
   });
 
-  it('moves the note with ⌥↑/↓ and the cursor follows; a taken string is refused', () => {
+  it('moves the note with ⌥↑/↓ at the same pitch and the cursor follows', () => {
+    // Arrange: string 2 (B3) fret 5 = E4
     const start = editorReducer(loadedState(), { type: 'moveCursorString', delta: 1 });
-    expect(editorReducer(start, { type: 'shiftNoteString', delta: -1 })).toBe(start);
+
+    // Act: onto string 3 (G3)
     const moved = editorReducer(start, { type: 'shiftNoteString', delta: 1 });
+
+    // Assert
     expect(at(moved).string).toBe(3);
-    expect(findNote(song(moved), at(moved))?.fret).toBe(5);
+    expect(findNote(song(moved), at(moved))?.fret).toBe(9);
+  });
+
+  it('says why ⌥↑/↓ moved nothing: a taken string, or a string that cannot play the note', () => {
+    // Arrange: string 2 under string 1's note; bar 2's open low E (string 6) under the A string
+    const onSecond = editorReducer(loadedState(), { type: 'moveCursorString', delta: 1 });
+    const lowE = editorReducer(editorReducer(loadedState(), { type: 'moveCursorBeat', step: 1 }), { type: 'moveCursorString', delta: 5 });
+
+    // Act
+    const taken = editorReducer(onSecond, { type: 'shiftNoteString', delta: -1 });
+    const offNeck = editorReducer(lowE, { type: 'shiftNoteString', delta: -1 });
+
+    // Assert
+    expect(song(taken)).toBe(song(onSecond));
+    expect(taken.hint).toBe('String 1 already sounds a note on this beat: nothing moved.');
+    expect(song(offNeck)).toBe(song(lowE));
+    expect(offNeck.hint).toBe('String 5 cannot play this note: nothing moved.');
   });
 
   it('undoes and redoes, keeping the cursor', () => {
@@ -421,6 +441,44 @@ describe('editorReducer: second voice', () => {
     expect(second.past).toEqual([]);
   });
 
+  it('takes the cursor to the voice’s own beat when the beat it stood on lies inside that voice’s note', () => {
+    // Arrange: voice 1 a half note; voice 2 two quarters, the cursor on the second
+    const half = { ...QUARTER, value: 2 as const };
+    const first = beat(960, [note(1, 5)], half);
+    const second = beat(1920, [], QUARTER);
+    const held = makeSong([[
+      { ...first, voices: [...first.voices, { duration: QUARTER, notes: [note(3, 2)], isEmpty: false, direction: 'none' }] },
+      { ...second, voices: [EMPTY_VOICE, { duration: QUARTER, notes: [note(3, 4)], isEmpty: false, direction: 'none' }] },
+    ]]);
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: held } });
+    const onSecond = editorReducer(editorReducer(loaded, { type: 'selectVoice', voiceIndex: 1 }), { type: 'moveCursorBeat', step: 1 });
+
+    // Act
+    const back = editorReducer(onSecond, { type: 'selectVoice', voiceIndex: 0 });
+    const typed = editorReducer(back, { type: 'setNoteFret', fret: 7 });
+
+    // Assert
+    expect(at(onSecond)).toMatchObject({ beatIndex: 1, voiceIndex: 1 });
+    expect(at(back)).toMatchObject({ beatIndex: 0, voiceIndex: 0 });
+    expect(findNote(song(typed), { ...at(back), string: 1 })?.fret).toBe(7);
+  });
+
+  it('refuses a typed fret on a string another voice sounds on the beat, and says why', () => {
+    // Arrange: voice 1 plays string 1; the cursor on voice 2, string 1
+    const both = makeSong([[{ ...beat(960, [note(1, 5)]), voices: [...beat(960, [note(1, 5)]).voices, { duration: QUARTER, notes: [], isEmpty: false, direction: 'none' }] }]]);
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: both } });
+    const voice2 = editorReducer(loaded, { type: 'selectVoice', voiceIndex: 1 });
+
+    // Act
+    const typed = editorReducer(voice2, { type: 'setNoteFret', fret: 3 });
+    const onString2 = editorReducer(editorReducer(voice2, { type: 'moveCursorString', delta: 1 }), { type: 'setNoteFret', fret: 3 });
+
+    // Assert
+    expect(song(typed)).toBe(both);
+    expect(typed.hint).toBe('Voice 1 sounds string 1 on this beat: a string plays one note at a time.');
+    expect(findNote(song(onString2), { ...at(onString2), string: 2 })?.fret).toBe(3);
+  });
+
   it('selects voices 1 to 4, also on a beat read with fewer voice slots, and no voice past the fourth', () => {
     const start = twoVoices();
     expect(at(editorReducer(start, { type: 'selectVoice', voiceIndex: 2 }))).toEqual({ ...at(start), voiceIndex: 2 });
@@ -434,8 +492,8 @@ describe('editorReducer: second voice', () => {
   });
 
   it('types a fret into voice 3 of a bar read with two voice slots, then sets its duration and rests in voice 4', () => {
-    // Arrange: the cursor on the third beat (a dotted quarter at 960), voice 3
-    let state = twoVoices();
+    // Arrange: the cursor on the third beat (a dotted quarter at 960), voice 3, string 2 (voice 1 plays string 1)
+    let state = editorReducer(twoVoices(), { type: 'moveCursorString', delta: 1 });
     for (let step = 0; step < 2; step++) {
       state = editorReducer(state, { type: 'moveCursorBeat', step: 1 });
     }
@@ -444,7 +502,8 @@ describe('editorReducer: second voice', () => {
     // Act
     const typed = editorReducer(state, { type: 'setNoteFret', fret: 9 });
     const halved = editorReducer(typed, { type: 'edit', edit: { type: 'setNoteValue', value: 8 } });
-    const inVoice4 = editorReducer(editorReducer(halved, { type: 'selectVoice', voiceIndex: 3 }), { type: 'setNoteFret', fret: 2 });
+    const voice4 = editorReducer(editorReducer(halved, { type: 'selectVoice', voiceIndex: 3 }), { type: 'moveCursorString', delta: 1 });
+    const inVoice4 = editorReducer(voice4, { type: 'setNoteFret', fret: 2 });
 
     // Assert
     expect(voiceEvents(typed, 2)).toEqual(['0:4:r', '960:4.:9', '2400:4.:r']);
@@ -453,11 +512,12 @@ describe('editorReducer: second voice', () => {
     expect(voiceEvents(inVoice4, 0)).toEqual(voiceEvents(state, 0));
     expect(at(inVoice4)).toMatchObject({ voiceIndex: 3 });
     expect(inVoice4.past).toHaveLength(3);
+    expect(editorReducer(editorReducer(halved, { type: 'selectVoice', voiceIndex: 3 }), { type: 'setNoteFret', fret: 2 }).document).toBe(halved.document);
   });
 
   it('types a fret into the empty second voice: a note as long as the beat, rests to the bar lines, one undo step', () => {
-    // Arrange: the cursor on the fourth beat (an eighth at 2400), second voice
-    let state = twoVoices();
+    // Arrange: the cursor on the fourth beat (an eighth at 2400), second voice, string 2 (voice 1 plays string 1)
+    let state = editorReducer(twoVoices(), { type: 'moveCursorString', delta: 1 });
     for (let step = 0; step < 3; step++) {
       state = editorReducer(state, { type: 'moveCursorBeat', step: 1 });
     }
