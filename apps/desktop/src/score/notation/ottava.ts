@@ -169,9 +169,15 @@ function writtenRuns(
   }));
 }
 
-/** Where a run's mark goes: over its highest note and the staff for 8va / 15ma, under its lowest and the staff for 8vb / 15mb. */
-function runMarkY(run: OttavaRun, top: number): number {
-  const ys = run.chords.flatMap(chord => chord.heads.map(head => head.y));
+/**
+ * Where a run's mark goes: over its highest notehead, stem tip or beam (`tips`, by event index: a beam's outer edge
+ * at the stem) and the staff for 8va / 15ma, under its lowest and the staff for 8vb / 15mb.
+ */
+function runMarkY(run: OttavaRun, top: number, tips: readonly (number | undefined)[]): number {
+  const ys = run.chords.flatMap(chord => {
+    const tip = tips[chord.eventIndex];
+    return [...chord.heads.map(head => head.y), ...(tip === undefined ? [] : [tip])];
+  });
   return run.ottava > 0 ? Math.min(top, ...ys) - OTTAVA.gap : Math.max(positionY(top, STAFF.bottomLine), ...ys) + OTTAVA.gap;
 }
 
@@ -184,6 +190,7 @@ function runMarks(
   top: number,
   color: string,
   edges: OttavaEdges,
+  tips: readonly (number | undefined)[],
 ): DrawCommand[] {
   const label = LABELS.get(run.ottava);
   if (
@@ -194,7 +201,7 @@ function runMarks(
     return [];
   }
   const isAbove = run.ottava > 0;
-  const y = runMarkY(run, top);
+  const y = runMarkY(run, top, tips);
   const isLabelled = run.fromBefore !== true || edges.isRowStart === true;
   const labels: DrawCommand[] = isLabelled
     ? [{ kind: 'text', x: run.left, y, text: label, size: OTTAVA.fontSize, color, font: 'ui', align: 'left' }]
@@ -218,16 +225,20 @@ function runMarks(
   ];
 }
 
-/** Ottava marks of the measure: its written octave signs, and every run of notes the engraver moved by octaves. */
+/**
+ * Ottava marks of the measure: its written octave signs, and every run of notes the engraver moved by octaves; clear of
+ * the stems and beams (`tips`: each chord's stem tip, by event index, as stemTips gives them).
+ */
 export function ottavaMarks(
   events: readonly VoiceEvent[],
   chords: readonly (Chord | undefined)[],
   top: number,
   color: string,
   edges: OttavaEdges,
+  tips: readonly (number | undefined)[],
 ): DrawCommand[] {
   return [
     ...writtenRuns(events, chords, edges),
     ...chosenRuns(events, chords),
-  ].flatMap(run => runMarks(run, top, color, edges));
+  ].flatMap(run => runMarks(run, top, color, edges, tips));
 }
