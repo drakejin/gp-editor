@@ -43,6 +43,8 @@ export interface Compose {
   readonly open: () => void;
   /** Closes the panel; a run going on is stopped. */
   readonly close: () => void;
+  /** Closes the panel for another AI Wizard panel: a run going on goes on, and the other panel says Claude is busy. */
+  readonly hide: () => void;
   readonly draft: ComposeDraft;
   readonly changeDraft: (change: Partial<ComposeDraft>) => void;
   /** For the shown tab. */
@@ -135,6 +137,7 @@ export function useCompose({ workspace, dispatch, guard }: ComposeSources): Comp
     isOpen,
     open,
     close,
+    hide: useCallback(() => setIsOpen(false), []),
     draft,
     changeDraft: useCallback((change: Partial<ComposeDraft>) => setDraft((current) => ({ ...current, ...change })), []),
     status: run.status,

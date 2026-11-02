@@ -207,6 +207,45 @@ describe('useCompose', () => {
     });
   });
 
+  it('hides its panel for another AI Wizard panel without stopping the run: the bars are still written', async () => {
+    // Arrange
+    let answer: (response: ApiResponse) => void = () => undefined;
+    mockSend.mockReturnValue(new Promise(resolve => (answer = resolve)));
+    const probe = render();
+    ReactTestRenderer.act(() => probe.compose().open());
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+
+    // Act
+    ReactTestRenderer.act(() => probe.compose().hide());
+    const whileHidden = probe.compose().status.kind;
+    answer(streamedMessage(toolMessage('write_bars', ANSWER)));
+    await flush();
+
+    // Assert
+    expect(probe.compose().isOpen).toBe(false);
+    expect(whileHidden).toBe('running');
+    expect(
+      shownSong(probe)?.tracks[0]?.measures[2]?.beats[0]?.voices[0]?.notes[0]
+        ?.fret,
+    ).toBe(12);
+  });
+
+  it('shows its run going on when opened again while hidden', () => {
+    // Arrange
+    mockSend.mockReturnValue(new Promise(() => undefined));
+    const probe = render();
+    ReactTestRenderer.act(() => probe.compose().open());
+    ReactTestRenderer.act(() => probe.compose().compose('claude-opus-5-5'));
+    ReactTestRenderer.act(() => probe.compose().hide());
+
+    // Act
+    ReactTestRenderer.act(() => probe.compose().open());
+
+    // Assert
+    expect(probe.compose().isOpen).toBe(true);
+    expect(probe.compose().status.kind).toBe('running');
+  });
+
   it('writes nothing when the score changed while Claude was writing', async () => {
     // Arrange
     let answer: (response: ApiResponse) => void = () => undefined;

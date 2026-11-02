@@ -21,6 +21,7 @@ import { useStableCallback } from './use-stable-callback';
 import { useRunGuard } from './use-tab-run';
 import { type Tuner, useTuner } from './use-tuner';
 import type { WindowBase } from './use-window';
+import { useWizardPanels } from './use-wizard-panels';
 
 /** The tools and panels of the window's menus: what each one shows and does. */
 export interface WindowTools {
@@ -125,11 +126,12 @@ export function useWindowTools(base: WindowBase): WindowTools {
   const { workspace, dispatch, state, chrome, focusScore } = base;
   const song = state.document?.song;
   const draftPreview = useDraftPreview(song, state.cursor);
-  const songWriter = useWindowSongWriter(base);
-  // Compose from Here and AI Edit share one Claude run at a time.
+  // Compose from Here and AI Edit share one Claude run at a time; the AI Wizard shows one panel at a time.
   const claudeRuns = useRunGuard();
-  const compose = useCompose({ workspace, dispatch, guard: claudeRuns });
-  const aiEdit = useAiEdit({ workspace, dispatch, guard: claudeRuns });
+  const { songWriter, compose, aiEdit } = useWizardPanels(
+    { songWriter: useWindowSongWriter(base), compose: useCompose({ workspace, dispatch, guard: claudeRuns }), aiEdit: useAiEdit({ workspace, dispatch, guard: claudeRuns }) },
+    focusScore,
+  );
   const reference = useMemo(() => (song === undefined ? undefined : describeReference(song, state.trackIndex)), [song, state.trackIndex]);
   const panels = useWindowPanels(base);
   const audio = useAudioTools(song, state.trackIndex, chrome.togglePanel);

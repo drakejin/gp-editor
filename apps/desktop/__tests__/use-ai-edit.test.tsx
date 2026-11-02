@@ -167,6 +167,28 @@ describe('useAiEdit: an instruction', () => {
     expect(shown(probe).document?.song).toBe(before);
     expect(probe.aiEdit().status).toEqual({ kind: 'failed', message: 'Stopped — the score was not changed' });
   });
+
+  it('hides its panel for another AI Wizard panel without stopping the run: Claude’s bars are still written', async () => {
+    // Arrange
+    let answer: (response: ApiResponse) => void = () => undefined;
+    mockSend.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const whole = { parts: [{ track: 0, beats: [{ duration: 'whole', notes: [{ string: 1, fret: 5 }] }] }] };
+    const probe = render();
+    ReactTestRenderer.act(() => {
+      probe.aiEdit().open();
+      probe.aiEdit().changeDraft({ kind: 'instruction', prompt: 'simpler' });
+    });
+    ReactTestRenderer.act(() => probe.aiEdit().run('claude-opus-5-5'));
+
+    // Act
+    ReactTestRenderer.act(() => probe.aiEdit().hide());
+    answer(streamedMessage(toolMessage('write_bars', { bars: [whole, whole] })));
+    await flush();
+
+    // Assert
+    expect(probe.aiEdit().isOpen).toBe(false);
+    expect(frets(shown(probe).document?.song)).toEqual(['1/5']);
+  });
 });
 
 describe('useAiEdit: the draft', () => {
