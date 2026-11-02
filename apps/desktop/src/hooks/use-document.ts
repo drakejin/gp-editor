@@ -194,8 +194,7 @@ async function chooseDestination(document: OpenDocument, saveAs: boolean): Promi
 
 /**
  * Saving one tab: its song in the chosen Guitar Pro format, to its file or through the save panel (or at a path given);
- * what the format cannot hold goes to the hint bar before it is written, and the result to that tab (`inTab`) and the
- * recent files.
+ * the result to that tab (`inTab`: with what the format cannot hold, for the hint bar) and the recent files.
  */
 function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, recentFiles: RecentFileHandlers): Pick<DocumentCommands, 'saveTab' | 'saveTabTo'> {
   const { remember } = recentFiles;
@@ -217,12 +216,10 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
         }
         const { path, format } = destination;
         const written = await songBytesFor(song, format.id);
-        const hint = [saveHint(format, song), written.hint].filter((part) => part !== undefined).join(' ');
-        if (hint !== '') {
-          toTab({ type: 'showHint', hint });
-        }
         const saved = await writeFile(path, bytesToBase64(written.bytes));
-        toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
+        // Only once written: what this save left out replaces the hint of the save before (and none clears it).
+        const hint = [saveHint(format, song), written.hint].filter((part) => part !== undefined).join(' ');
+        toTab({ type: 'saved', fileName: saved.name, path: saved.path, song, ...(hint === '' ? {} : { hint }) });
         remember({ path: saved.path, name: saved.name });
         return true;
       } catch (error: unknown) {

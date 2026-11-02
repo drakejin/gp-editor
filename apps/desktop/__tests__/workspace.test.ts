@@ -120,6 +120,19 @@ describe('workspaceReducer: opening documents in tabs', () => {
     expect(activeEditor(saved).document?.path).toBe('/scores/Mine.gp5');
   });
 
+  it('shows what the last save left out, and nothing once a later save leaves nothing out', () => {
+    // Arrange: saved as .gp (its note), then as .gp5 (nothing left out)
+    const opened = workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: document('A.gp5') });
+    const asGp = workspaceReducer(opened, { type: 'saved', fileName: 'A.gp', path: '/scores/A.gp', song: SONG, hint: 'Guitar Pro 7/8 keeps …' });
+
+    // Act
+    const asGp5 = workspaceReducer(asGp, { type: 'saved', fileName: 'A.gp5', path: '/scores/A.gp5', song: SONG });
+
+    // Assert
+    expect(activeEditor(asGp).hint).toBe('Guitar Pro 7/8 keeps …');
+    expect(activeEditor(asGp5).hint).toBeUndefined();
+  });
+
   it('opens a document with openTab like a loaded file when it is not marked unsaved', () => {
     const state = workspaceReducer(threeTabs(), { type: 'openTab', document: document('D.gp5') });
     expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'D.gp5']);

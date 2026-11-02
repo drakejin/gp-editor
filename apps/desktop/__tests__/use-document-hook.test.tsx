@@ -250,8 +250,8 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp4');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp4')?.note ?? '' }));
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp4', path: '/scores/Etude.gp4', song: SONG }));
+    const hint = SAVE_FORMATS.find((format) => format.id === 'gp4')?.note ?? '';
+    expect(hook.dispatch.mock.calls).toEqual([[inTab('tab-1', { type: 'saved', fileName: 'Etude.gp4', path: '/scores/Etude.gp4', song: SONG, hint })]]);
   });
 
   it('asks where to save a .gpx document with plain Save, offering every format with GP5 chosen', async () => {
@@ -281,8 +281,8 @@ describe('useDocument saving', () => {
 
     // Assert
     expect(songIn(mockFiles.writeFile.mock.calls[0]?.[1]).source.format).toBe('gp3');
-    expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'showHint', hint: SAVE_FORMATS.find((format) => format.id === 'gp3')?.note ?? '' }));
-    expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Etude.gp3', path: '/scores/Etude.gp3', song: SONG }));
+    const hint = SAVE_FORMATS.find((format) => format.id === 'gp3')?.note ?? '';
+    expect(hook.dispatch.mock.calls).toEqual([[inTab('tab-1', { type: 'saved', fileName: 'Etude.gp3', path: '/scores/Etude.gp3', song: SONG, hint })]]);
   });
 
   it('asks where to save a new sheet that has no path yet', async () => {
@@ -310,7 +310,8 @@ describe('useDocument saving', () => {
     // Assert
     expect(mockFiles.showSavePanel).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'Etude.gp4', formatId: 'gp4' }));
     expect(mockFiles.writeFile).toHaveBeenCalledWith('/scores/Copy.gp4', expect.any(String));
-    expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Copy.gp4', path: '/scores/Copy.gp4', song: SONG }));
+    const hint = SAVE_FORMATS.find((format) => format.id === 'gp4')?.note;
+    expect(hook.dispatch).toHaveBeenLastCalledWith(inTab('tab-1', { type: 'saved', fileName: 'Copy.gp4', path: '/scores/Copy.gp4', song: SONG, hint }));
   });
 
   it('writes GP5 when the save panel answers with a format it did not offer', async () => {
@@ -344,6 +345,18 @@ describe('useDocument saving', () => {
 
     // Assert
     expect(hook.dispatch).toHaveBeenCalledWith(inTab('tab-1', { type: 'saveFailed', message: 'The disk is full' }));
+  });
+
+  it('says what a format leaves out only once the file is written: a failed write shows no save hint', async () => {
+    // Arrange: a GP4 save (its note is the hint) whose write fails
+    mockFiles.writeFile.mockRejectedValueOnce(new Error('The disk is full'));
+    const hook = renderHook(opened('Etude.gp4', '/scores/Etude.gp4'));
+
+    // Act
+    await settle(() => hook.current().save(false));
+
+    // Assert
+    expect(hook.dispatch.mock.calls).toEqual([[inTab('tab-1', { type: 'saveFailed', message: 'The disk is full' })]]);
   });
 
   it('dispatches saveFailed when the save panel cannot be shown', async () => {
@@ -519,7 +532,8 @@ describe('useDocument saving at a path (the MCP server’s save_as)', () => {
     expect(isSaved).toBe(true);
     expect(mockFiles.showSavePanel).not.toHaveBeenCalled();
     expect(mockFiles.writeFile.mock.calls[0]?.[0]).toBe('/out/Etude.gp');
-    expect(hook.dispatch.mock.calls.at(-1)).toEqual([inTab('tab-1', { type: 'saved', fileName: 'Etude.gp', path: '/out/Etude.gp', song: SONG })]);
+    const hint = SAVE_FORMATS.find((format) => format.id === 'gp')?.note;
+    expect(hook.dispatch.mock.calls.at(-1)).toEqual([inTab('tab-1', { type: 'saved', fileName: 'Etude.gp', path: '/out/Etude.gp', song: SONG, hint })]);
   });
 
   it('resolves false and tells the tab why when the file cannot be written', async () => {
