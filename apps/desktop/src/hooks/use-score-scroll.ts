@@ -1,7 +1,7 @@
 import { type RefObject, useEffect, useRef } from 'react';
-import type { FlatList, ViewToken } from 'react-native';
+import type { FlatList } from 'react-native';
 import type { StringAddress } from '@gp-editor/core';
-import { isLineOnFirstScreen } from '../lib/score-scroll';
+import { isLineInView, isLineOnFirstScreen, scrollPosition } from '../lib/score-scroll';
 import type { PlayingBeat } from '../score/row';
 import type { ScoreLayout } from '../score/score-layout';
 
@@ -10,9 +10,6 @@ export interface ScoreLine {
   readonly systemIndex: number;
   readonly staffIndex: number;
 }
-
-/** Where a row scrolled into view lands (fraction of the viewport from the top). */
-const SCROLL_POSITION = 0.25;
 
 /** The list's line at `index`: systems one after the other, each its staves in order. */
 export function lineAt(layout: ScoreLayout, index: number): ScoreLine {
@@ -46,39 +43,70 @@ interface ScrollSources {
   readonly playing?: PlayingBeat;
 }
 
+/** The list's scroll event, as much of it as the score reads. */
+export interface ScoreScrollEvent {
+  readonly nativeEvent: { readonly contentOffset: { readonly y: number } };
+}
+
+export interface ScoreScroll {
+  /** The list's onScroll: where the page is scrolled to. */
+  readonly onScroll: (event: ScoreScrollEvent) => void;
+}
+
+/** A line's place and height on screen (zoomed). */
+function shownPlace(sources: ScrollSources, line: number): { readonly top: number; readonly height: number } {
+  const place = linePlace(sources.layout, lineAt(sources.layout, line));
+  return { top: place.top * sources.zoom, height: place.height * sources.zoom };
+}
+
 /**
- * Keeps the playing system (its first staves), and the cursor's line when it leaves the view (a bar picked in the bar
- * map), in view; returns the list's onViewableItemsChanged, which says what it shows.
+ * True when the line shows: as much of it as the view holds (isLineInView). The first look at a page just shown (a
+ * file opened, another tab), at its top, is kinder: a line starting on the first screen stays put, title block and all.
  */
-export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, sources: ScrollSources): (info: { viewableItems: ViewToken[] }) => void {
+function isLineShown(sources: ScrollSources, line: number, scrollTop: number, isFirstLook: boolean): boolean {
+  const { headerHeight, viewportHeight, topMargin } = sources;
+  const place = shownPlace(sources, line);
+  return isFirstLook
+    ? isLineOnFirstScreen(place, { headerHeight, rowHeight: place.height, topMargin, viewportHeight })
+    : isLineInView(place, { headerHeight, topMargin, viewportHeight }, scrollTop);
+}
+
+/** Scrolls the list to a line: a quarter down the view, a line taller than the view at its top. Not animated: react-native-macos's animated scrolls do not move the list. */
+function scrollToLine(listRef: RefObject<FlatList<ScoreLine> | null>, sources: ScrollSources, line: number): void {
+  const viewPosition = scrollPosition(shownPlace(sources, line).height, sources.viewportHeight);
+  listRef.current?.scrollToIndex({ index: line, viewPosition, animated: false });
+}
+
+/**
+ * Keeps the playing system (its first staves), and the cursor's line when any of it leaves the view (the next system,
+ * the one before, a bar picked in the bar map), in view; returns the list's onScroll, which says where the page is.
+ */
+export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, sources: ScrollSources): ScoreScroll {
   const { layout, cursor, playing } = sources;
-  // Read by the cursor's scroll below without making it run again on every layout change.
+  // Read by the scrolls below without making them run again on every layout change.
   const latest = useRef(sources);
   latest.current = sources;
   const playingLine = lineOf(layout, playing?.measureIndex);
   const cursorLine = lineOf(layout, cursor?.measureIndex, cursor?.trackIndex);
-  const visibleLines = useRef<ReadonlySet<number>>(new Set());
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    visibleLines.current = new Set(viewableItems.flatMap((item) => (item.index === null ? [] : [item.index])));
+  const scrollTop = useRef(0);
+  const isFirstLook = useRef(true);
+  const onScroll = useRef((event: ScoreScrollEvent) => {
+    scrollTop.current = event.nativeEvent.contentOffset.y;
   }).current;
-  // Not animated: react-native-macos's animated scrolls do not move the list.
   useEffect(() => {
     if (playingLine >= 0) {
-      listRef.current?.scrollToIndex({ index: playingLine, viewPosition: SCROLL_POSITION, animated: false });
+      scrollToLine(listRef, latest.current, playingLine);
     }
   }, [playingLine, listRef]);
   useEffect(() => {
     if (cursorLine < 0 || playingLine >= 0) {
       return;
     }
-    // Until the list says which lines it shows, the page is at the top (a file just opened, another tab).
-    const { layout: shown, zoom, headerHeight, viewportHeight, topMargin } = latest.current;
-    const place = linePlace(shown, lineAt(shown, cursorLine));
-    const page = { headerHeight, rowHeight: place.height * zoom, topMargin, viewportHeight };
-    const isInView = visibleLines.current.size > 0 ? visibleLines.current.has(cursorLine) : isLineOnFirstScreen({ top: place.top * zoom, height: place.height * zoom }, page);
-    if (!isInView) {
-      listRef.current?.scrollToIndex({ index: cursorLine, viewPosition: SCROLL_POSITION, animated: false });
+    const isShown = isLineShown(latest.current, cursorLine, scrollTop.current, isFirstLook.current);
+    isFirstLook.current = false;
+    if (!isShown) {
+      scrollToLine(listRef, latest.current, cursorLine);
     }
   }, [cursorLine, playingLine, listRef]);
-  return onViewableItemsChanged;
+  return { onScroll };
 }

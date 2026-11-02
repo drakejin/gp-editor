@@ -68,6 +68,8 @@ function rowDesign(item: ScoreLine, staffCount: number, guide: DesignGuide | und
 /** Rows rendered at once and kept around the viewport. */
 const INITIAL_ROWS = 6;
 const WINDOW_SIZE = 5;
+/** Milliseconds between the scroll events that tell the cursor's scroll where the page is. */
+const SCROLL_EVENT_THROTTLE = 32;
 /** Grey desk around the page, and the page's foot. */
 const DESK_MARGIN = 22;
 const PAGE_FOOT = 48;
@@ -182,7 +184,7 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
     [layout],
   );
   const { onPressRow, onDragRow } = useDragSelection({ song, layout, onPressBeat: props.onPressBeat, onDragBeat: props.onDragBeat });
-  const onViewableItemsChanged = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight, topMargin: DESK_MARGIN, cursor, playing });
+  const { onScroll } = useScoreScroll(listRef, { layout, zoom, headerHeight, viewportHeight, topMargin: DESK_MARGIN, cursor, playing });
   const { onPress: pressDesign, onMove: onDesignMove, onRelease: onDesignRelease } = designDrag;
   const onDesignPress = useCallback(
     (systemIndex: number, handle: DesignHandle, x: number, y: number) => pressDesign({ handle, systemIndex, pointerX: x, pointerY: y, song, layout, rowWidth }),
@@ -196,19 +198,19 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
     }),
     [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, props.onContextBeat, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
   );
-  return { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged, deskSide };
+  return { layout, zoom, lines, renderLine, onLayout, onScroll, deskSide };
 }
 
 /**
  * The score as one page on Guitar Pro's grey desk: the title block, then the systems — a staff group per shown track,
- * each its own canvas, virtualised —, zoomed. The playing system, and the cursor's line when it leaves the view (a bar
- * picked in the bar map), are scrolled into view.
+ * each its own canvas, virtualised —, zoomed. The playing system, and the cursor's line when any of it leaves the view
+ * (the next system, the one before, a bar picked in the bar map), are scrolled into view.
  */
 export function ScoreView(props: ScoreViewProps) {
   const { palette, header } = props;
   const listRef = useRef<FlatList<ScoreLine>>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const { layout, zoom, lines, renderLine, onLayout, onViewableItemsChanged, deskSide } = useScorePage(props, listRef, headerHeight);
+  const { layout, zoom, lines, renderLine, onLayout, onScroll, deskSide } = useScorePage(props, listRef, headerHeight);
   return (
     <View style={[styles.desk, { backgroundColor: palette.desk }]} onLayout={onLayout}>
       <FlatList
@@ -218,7 +220,8 @@ export function ScoreView(props: ScoreViewProps) {
         keyExtractor={(line) => lineKey(layout, line)}
         getItemLayout={(_, index) => {
           const place = linePlace(layout, lineAt(layout, index));
-          return { length: place.height * zoom, offset: headerHeight + place.top * zoom, index };
+          // Offsets count from the content's top, the desk's margin above the page included (scrollToIndex lands there).
+          return { length: place.height * zoom, offset: DESK_MARGIN + headerHeight + place.top * zoom, index };
         }}
         extraData={renderLine}
         ListHeaderComponent={
@@ -230,7 +233,8 @@ export function ScoreView(props: ScoreViewProps) {
         contentContainerStyle={[styles.content, { paddingHorizontal: deskSide }]}
         initialNumToRender={INITIAL_ROWS}
         windowSize={WINDOW_SIZE}
-        onViewableItemsChanged={onViewableItemsChanged}
+        onScroll={onScroll}
+        scrollEventThrottle={SCROLL_EVENT_THROTTLE}
         onScrollToIndexFailed={() => undefined}
       />
     </View>
