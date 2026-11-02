@@ -9,8 +9,9 @@
 # drum kit the bank lacks, and the effects UI's actions at random.
 # Then the audio export (export-check.m): a fixture written by GPAudioExporter as WAV, AIFF, FLAC, MP3 and Ogg Vorbis
 # and read back (scripts/audio-codecs/fetch.sh builds the MP3 and Vorbis encoders first; cached).
-# Usage: scripts/audio-check/run.sh [effects|engine|export]   (from apps/desktop; needs npm run pods and npm run soundfont
-# first; no argument runs all three)
+# Then the audio track's files with two apps running (assets-check.m): one app starting never removes the other's.
+# Usage: scripts/audio-check/run.sh [effects|engine|export|assets]   (from apps/desktop; needs npm run pods and npm run
+# soundfont first; no argument runs all four)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -22,6 +23,12 @@ BANK="${SRC}/SoundFonts/GeneralUser-GS.sf2"
 CODECS="${APP_DIR}/macos/ThirdParty/audio-codecs"
 OUT="${APP_DIR}/macos/build/audio-check"
 WHICH="${1:-all}"
+
+if [[ "$WHICH" == "assets" ]]; then
+    mkdir -p "$OUT"
+    clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" "${HERE}/assets-check.m" "${SRC}/GPAudioAssets.m" "${SRC}/GPAppStrings.m" -o "${OUT}/assets-check"
+    exec "${OUT}/assets-check"
+fi
 
 for needed in "$HERMES" "$BANK"; do
     if [[ ! -e "$needed" ]]; then
@@ -91,4 +98,8 @@ if [[ "$WHICH" == "all" || "$WHICH" == "export" ]]; then
         -L "${CODECS}/lib" -lmp3lame -lvorbisfile -lvorbisenc -lvorbis -logg -o "${OUT}/export-check"
     mkdir -p "${OUT}/export"
     "${OUT}/export-check" "$BANK" "${OUT}/bends.mid" "$(cat "${OUT}/bends.seconds")" "${OUT}/export"
+fi
+
+if [[ "$WHICH" == "all" ]]; then
+    "$0" assets
 fi
