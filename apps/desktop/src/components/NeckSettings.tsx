@@ -20,9 +20,10 @@ interface NeckSettingsProps {
 }
 
 /**
- * Above the neck: the track's instrument and tuning, its instrument's presets behind a Tunings button (✓ = plays every
- * note on the 24-fret neck; a click retunes and re-frets the tab), and — when the track is not on a preset that plays
- * it — why, with suggestions. Collapsed it takes one line, so the score keeps its room.
+ * Above the neck: the track's instrument and tuning, a stringed instrument's presets behind a Tunings button (✓ = plays
+ * every note on the 24-fret neck; a click retunes and re-frets the tab), and — when the track is not on a preset that
+ * plays it — why, with suggestions. A keyboard's, voice's or other instrument's strings only hold its notes: no presets.
+ * Collapsed it takes one line, so the score keeps its room.
  */
 function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDismissNotice, style }: NeckSettingsProps) {
   const track = song.tracks[trackIndex];
@@ -41,7 +42,9 @@ function NeckSettingsView({ song, trackIndex, notice, palette, onSetTuning, onDi
     <View style={[styles.container, { backgroundColor: palette.sidebar }, style]}>
       <View style={styles.row}>
         <Text style={[styles.title, { color: palette.text }]}>{neckTitle(advice, track)}</Text>
-        <BarButton label={`${t('window.neck.tunings')} ${isOpen ? '▴' : '▾'}`} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />
+        {advice.presets.length === 0 ? null : (
+          <BarButton label={`${t('window.neck.tunings')} ${isOpen ? '▴' : '▾'}`} palette={palette} isActive={isOpen} onPress={() => setIsOpen(!isOpen)} />
+        )}
         {(isOpen ? advice.presets : []).map(({ preset, unplayableNotes }) => (
           <BarButton
             key={preset.id}

@@ -4,6 +4,7 @@ import {
   findTuningPreset,
   isBassTuning,
   keepsStandardShapes,
+  type Instrument,
   resolveInstrument,
   standardTuningFor,
   tuningPresetsFor,
@@ -16,7 +17,7 @@ import { songOnStrings } from './helpers/tuning-songs';
 const SEVEN_STRING = [64, 59, 55, 50, 45, 40, 35];
 const FIVE_STRING_BASS = [43, 38, 33, 28, 23];
 
-function presetTuning(instrument: 'guitar' | 'bass' | 'banjo', name: string): readonly number[] | undefined {
+function presetTuning(instrument: 'guitar' | 'bass' | 'banjo' | 'ukulele', name: string): readonly number[] | undefined {
   return tuningPresetsFor(instrument).find((preset) => preset.name === name)?.tuning;
 }
 
@@ -81,9 +82,17 @@ describe('tuning presets', () => {
     expect(presetTuning('bass', 'B E A D')).toEqual([38, 33, 28, 23]);
   });
 
-  it('gives every preset a unique id and no presets to percussion', () => {
+  it('lists the ukulele’s presets: standard G C E A (the high g is string 4), then low G', () => {
+    expect(tuningPresetsFor('ukulele').map((preset) => [preset.name, preset.tuning])).toEqual([
+      ['Standard', [69, 64, 60, 67]],
+      ['Low G', [69, 64, 60, 55]],
+    ]);
+    expect(presetTuning('ukulele', 'Standard')).toEqual(standardTuningFor('ukulele'));
+  });
+
+  it('gives every preset a unique id and no presets to percussion, keyboards, voices or other instruments', () => {
     expect(new Set(TUNING_PRESETS.map((preset) => preset.id)).size).toBe(TUNING_PRESETS.length);
-    expect(tuningPresetsFor('percussion')).toEqual([]);
+    expect(['percussion', 'keys', 'vocals', 'other'].map((instrument) => tuningPresetsFor(instrument as Instrument))).toEqual([[], [], [], []]);
   });
 
   it('tells tunings that keep standard chord shapes (lowered, or with a dropped low string) from open tunings', () => {
@@ -120,11 +129,12 @@ describe('resolveInstrument', () => {
     }
   });
 
-  it('calls a track with few strings tuned low a bass, whatever its program', () => {
-    const fourString = songOnStrings(STANDARD_BASS_TUNING, [[[]]], { program: 0 });
+  it('calls a guitar sound on few strings tuned low a bass, and on a ukulele’s strings a ukulele', () => {
+    const fourString = songOnStrings(STANDARD_BASS_TUNING, [[[]]], { program: 25 });
     const fiveString = songOnStrings(FIVE_STRING_BASS, [[[]]], { program: 25 });
-    expect(resolveInstrument(fourString, fourString.tracks[0]!)).toBe('bass');
-    expect(resolveInstrument(fiveString, fiveString.tracks[0]!)).toBe('bass');
+    const ukulele = songOnStrings([69, 64, 60, 67], [[[]]], { program: 24 });
+    const lowG = songOnStrings([69, 64, 60, 55], [[[]]], { program: 24 });
+    expect([fourString, fiveString, ukulele, lowG].map((song) => resolveInstrument(song, song.tracks[0]!))).toEqual(['bass', 'bass', 'ukulele', 'ukulele']);
   });
 
   it('calls the GM banjo program (105) a banjo, on four or five strings', () => {
@@ -141,15 +151,31 @@ describe('resolveInstrument', () => {
     expect(resolveInstrument(bass, bass.tracks[0]!)).toBe('bass');
   });
 
-  it('draws every other pitched track as a guitar: 7 strings, strings ensemble, a part tuned an octave down', () => {
+  it('calls the other guitar sounds guitars: 7 strings, a part tuned an octave down, guitar harmonics', () => {
     const tracks = [
       songOnStrings(SEVEN_STRING, [[[]]], { program: 30 }),
-      songOnStrings([64, 59, 55, 50, 45, 40, 33], [[[]]], { program: 49 }),
-      songOnStrings([52, 47, 43, 38, 33, 35], [[[]]], { program: 47 }),
+      songOnStrings([52, 47, 43, 38, 33, 35], [[[]]], { program: 27 }),
       songOnStrings(STANDARD_TUNING, [[[]]], { program: 31 }),
-      songOnStrings(STANDARD_TUNING, [[[]]], { program: 40 }),
     ];
-    expect(tracks.map((song) => resolveInstrument(song, song.tracks[0]!))).toEqual(['guitar', 'guitar', 'guitar', 'guitar', 'guitar']);
+    expect(tracks.map((song) => resolveInstrument(song, song.tracks[0]!))).toEqual(['guitar', 'guitar', 'guitar']);
+  });
+
+  it('calls keyboards keys, voices vocals and every other instrument other, whatever strings hold their notes', () => {
+    const tracks = [
+      songOnStrings(STANDARD_TUNING, [[[]]], { program: 0 }),
+      songOnStrings(STANDARD_BASS_TUNING, [[[]]], { program: 19 }),
+      songOnStrings(STANDARD_TUNING, [[[]]], { program: 53 }),
+      songOnStrings([64, 59, 55, 50, 45, 40, 33], [[[]]], { program: 49 }),
+      songOnStrings(STANDARD_TUNING, [[[]]], { program: 73 }),
+      songOnStrings(STANDARD_BASS_TUNING, [[[]]], { program: 43 }),
+    ];
+    expect(tracks.map((song) => resolveInstrument(song, song.tracks[0]!))).toEqual(['keys', 'keys', 'vocals', 'other', 'other', 'other']);
+  });
+
+  it('calls a track named like a voice vocals, whatever its sound', () => {
+    const song = songOnStrings(STANDARD_TUNING, [[[]]], { program: 25 });
+    const named = { ...song, tracks: song.tracks.map((track) => ({ ...track, name: 'Lead Vocals' })) };
+    expect(resolveInstrument(named, named.tracks[0]!)).toBe('vocals');
   });
 
   it('classifies the tracks of a real file', () => {
@@ -160,10 +186,19 @@ describe('resolveInstrument', () => {
     const instruments = song.tracks.map((track) => `${track.name}: ${resolveInstrument(song, track)}`);
 
     // Assert
-    expect(instruments).toContain('Strings ensemble: guitar');
-    expect(instruments).toContain('Marco: bass');
-    expect(instruments).toContain('Jukka: percussion');
-    expect(instruments.filter((entry) => entry.endsWith('bass'))).toEqual(['Marco: bass']);
+    expect(instruments).toEqual([
+      'Anette voice: vocals',
+      'Marco voice: vocals',
+      'Choirs: vocals',
+      'Emmpu(Acoustic): guitar',
+      'Emppu(Disto): guitar',
+      'Tuomas: keys',
+      'Marco: bass',
+      'Strings ensemble: other',
+      'Pipe: other',
+      'Timpani/Brass: other',
+      'Jukka: percussion',
+    ]);
   });
 });
 

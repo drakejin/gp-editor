@@ -56,6 +56,24 @@ describe('NeckSettings', () => {
     expect(buttonLabels(rendered)).toEqual([TUNINGS_CLOSED]);
   });
 
+  it('offers a ukulele its own presets, which keep it a ukulele', () => {
+    // Arrange
+    const rendered = render(onStrings(makeSong([[beat(960, [note(1, 3)])]]), [69, 64, 60, 67], { program: 24 }));
+
+    // Act
+    press(rendered, TUNINGS_CLOSED);
+
+    // Assert
+    expect(allText(rendered)).toContain('Ukulele · 4 strings · Standard (G C E A)');
+    expect(buttonLabels(rendered)).toEqual([TUNINGS_OPEN, 'Standard ✓', 'Low G ✓']);
+  });
+
+  it('offers no tunings to a flute, and asks for none', () => {
+    const rendered = render(onStrings(makeSong([[beat(960, [note(1, 30)])]]), [64, 59, 55, 50, 45, 40], { program: 73 }));
+    expect(allText(rendered)).toBe('Flute · 6 strings · E A D G B E');
+    expect(buttonLabels(rendered)).toEqual([]);
+  });
+
   it('shows a button per preset when opened, ticking the ones that play every note', () => {
     // Arrange: a drop D track whose low D needs a dropped string.
     const rendered = render(onStrings(makeSong([[beat(960, [note(6, 0)])]]), DROP_D));
