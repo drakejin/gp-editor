@@ -8,12 +8,17 @@ import {
   enterPlayedNotes,
   findNote,
   insertMeasure,
+  stringAtPitch,
   setNoteFret,
   setNoteString,
   toggleDrumNote,
+  toggleFretNote,
+  togglePitchNote,
   voiceOf,
 } from '@gp-editor/core';
+import { t } from '../lib/i18n/i18n';
 import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
+import { pitchNameInKey } from '../lib/pitch';
 import { heldStringHint, refusalHint, stringMoveHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
@@ -101,6 +106,42 @@ export function typeFret(state: EditorState, typed: number): EditorState {
 /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
 export function toggleDrumAtCursor(state: EditorState, key: number): EditorState {
   return followBeatStart(state, applyEdit(state, (song, at) => toggleDrumNote(song, at, key)));
+}
+
+/**
+ * A fretboard position clicked (Guitar Pro 8's instrument view): that string and fret into the cursor's beat, beside its
+ * other notes, or out of it when the beat plays it there already; the cursor goes to that string, and the hint says
+ * when another voice sounds it.
+ */
+export function toggleFretAtCursor(state: EditorState, string: number, fret: number): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const clicked = followBeatStart(state, applyEdit(state, (song, at) => toggleFretNote(song, { ...at, string }, fret)));
+  if (clicked === state) {
+    const hint = heldStringHint(document.song, { ...cursor, string });
+    return hint === undefined ? state : { ...state, hint };
+  }
+  return clicked.cursor === undefined ? clicked : { ...clicked, cursor: { ...clicked.cursor, string }, hint: undefined };
+}
+
+/**
+ * A piano key clicked: its pitch into the cursor's beat on a free string near the hand (the cursor goes to it), or the
+ * note sounding it out of the beat; the hint says when no free string plays it.
+ */
+export function togglePitchAtCursor(state: EditorState, pitch: number): EditorState {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return state;
+  }
+  const clicked = followBeatStart(state, applyEdit(state, (song, at) => togglePitchNote(song, at, pitch)));
+  if (clicked === state) {
+    const keySignature = document.song.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.keySignature ?? 0;
+    return { ...state, hint: t('palette.hint.noStringForPitch', { note: pitchNameInKey(pitch, keySignature) }) };
+  }
+  const string = clicked.document === undefined || clicked.cursor === undefined ? undefined : stringAtPitch(clicked.document.song, clicked.cursor, pitch);
+  return string === undefined || clicked.cursor === undefined ? clicked : { ...clicked, cursor: { ...clicked.cursor, string }, hint: undefined };
 }
 
 /** − / =: the note at the cursor a fret lower or higher. */

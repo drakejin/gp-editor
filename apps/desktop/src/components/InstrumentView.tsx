@@ -26,6 +26,10 @@ interface InstrumentViewProps {
   readonly onDrumHit?: (key: number) => void;
   /** With "Preview on hover" on: the pitch of a piano key or fret the mouse enters, to play. */
   readonly onHoverPitch?: (pitch: number) => void;
+  /** A fretboard position clicked: its string and stored fret, to enter at the cursor (or take out). */
+  readonly onPressFret?: (string: number, fret: number) => void;
+  /** A piano key clicked: its pitch, to enter at the cursor (or take out). */
+  readonly onPressPitch?: (pitch: number) => void;
   /** View ▸ Drum Key: a button on the drum kit shows or hides it. */
   readonly drumKey?: Pick<DrumKey, 'isOpen' | 'toggle'>;
 }
@@ -35,10 +39,10 @@ const NO_DRUM_HIT = (): void => undefined;
 /**
  * Guitar Pro's instrument view, above the tracks panel: a piano keyboard and the shown track's 24-fret neck, each
  * lighting the notes of the playing beat, else of the cursor's beat; with "Preview on hover", a key or fret the mouse
- * enters plays. A drum track shows a drum kit instead (when either part is on), its drums lit the same way; a click on
- * a drum enters it.
+ * enters plays; a click on a key or a fret enters its note at the cursor, or takes it out (Guitar Pro 8). A drum track
+ * shows a drum kit instead (when either part is on), its drums lit the same way; a click on a drum enters it.
  */
-function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT, onHoverPitch, drumKey }: InstrumentViewProps) {
+function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, showsKeyboard, showsFretboard, scale, onDrumHit = NO_DRUM_HIT, onHoverPitch, onPressFret, onPressPitch, drumKey }: InstrumentViewProps) {
   const track = song.tracks[trackIndex];
   const shown = playing ?? cursor;
   const measureIndex = shown?.measureIndex;
@@ -62,9 +66,17 @@ function InstrumentViewPanel({ song, trackIndex, cursor, playing, palette, shows
   }
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]}>
-      {showsKeyboard ? <Keyboard pitches={pitches} palette={chromePalette} scale={scale} onHoverPitch={onHoverPitch} /> : null}
+      {showsKeyboard ? <Keyboard pitches={pitches} palette={chromePalette} scale={scale} onHoverPitch={onHoverPitch} onPressPitch={onPressPitch} /> : null}
       {showsFretboard ? (
-        <Fretboard track={track} notes={notes} cursorString={playing === undefined ? cursor?.string : undefined} palette={chromePalette} scale={scale} onHoverPitch={onHoverPitch} />
+        <Fretboard
+          track={track}
+          notes={notes}
+          cursorString={playing === undefined ? cursor?.string : undefined}
+          palette={chromePalette}
+          scale={scale}
+          onHoverPitch={onHoverPitch}
+          onPressFret={onPressFret}
+        />
       ) : null}
     </View>
   );

@@ -165,15 +165,18 @@ export interface PitchRegion {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  /** On the neck: the string, and the fret a note there stores (from the capo); absent behind the capo, where no note can go. */
+  readonly neckNote?: { readonly string: number; readonly fret: number };
 }
 
 /**
  * Every position of every string as a cell around its note (the open string left of the nut), with the pitch it sounds
- * as the names show it — for previewing notes on hover. A string that starts up the neck starts at its peg.
+ * as the names show it — for previewing notes on hover and entering them by a click. A string that starts up the neck
+ * starts at its peg.
  */
-export function fretboardHoverRegions(track: Track, width: number): PitchRegion[] {
+export function fretboardHoverRegions(track: Pick<Track, 'strings' | 'offset'>, width: number): PitchRegion[] {
   const geometry = neckGeometry(width, track.strings.length);
-  const tuning = trackTuning(track);
+  const tuning = track.strings.map((guitarString) => guitarString.tuning);
   return track.strings.flatMap((guitarString) => {
     const start = stringStartFret(tuning, guitarString.number);
     const y = stringY(guitarString.number) - FRETBOARD.stringGap / 2;
@@ -181,7 +184,9 @@ export function fretboardHoverRegions(track: Track, width: number): PitchRegion[
       const position = start + i;
       const x = position === 0 ? 0 : geometry.nutX + (position - 1) * geometry.fretWidth;
       const cellWidth = position === 0 ? geometry.nutX : geometry.fretWidth;
-      return { pitch: guitarString.tuning + i, x, y, width: cellWidth, height: FRETBOARD.stringGap };
+      const fret = i - track.offset;
+      const neckNote = fret < 0 ? {} : { neckNote: { string: guitarString.number, fret } };
+      return { pitch: guitarString.tuning + i, x, y, width: cellWidth, height: FRETBOARD.stringGap, ...neckNote };
     });
   });
 }

@@ -17,6 +17,8 @@ import {
   shiftNoteFret,
   shiftNoteString,
   toggleDrumAtCursor,
+  toggleFretAtCursor,
+  togglePitchAtCursor,
   typeFret,
   withCursor,
 } from './cursor-edits';
@@ -122,6 +124,10 @@ export type EditorAction =
   | { readonly type: 'typeFretDigit'; readonly press: DigitPress }
   /** A drum kit piece clicked: its GM key into the cursor's beat, or out of it when the beat already plays it. */
   | { readonly type: 'toggleDrumNote'; readonly key: number }
+  /** A fretboard position clicked: that string and fret (the fret the note stores) into the cursor's beat, or out of it. */
+  | { readonly type: 'toggleFretNote'; readonly string: number; readonly fret: number }
+  /** A piano key clicked: its pitch into the cursor's beat on a free string near the hand, or the note sounding it out. */
+  | { readonly type: 'togglePitchNote'; readonly pitch: number }
   /** MIDI step entry: notes played together become the cursor's beat (one undo step); the cursor goes to the next beat. */
   | { readonly type: 'enterPlayedNotes'; readonly notes: readonly PlayedNote[] }
   | { readonly type: 'shiftNoteFret'; readonly delta: number }
@@ -258,6 +264,10 @@ function cursorEditReducer(state: EditorState, action: EditorAction): EditorStat
       return typeFretDigit(state, action.press);
     case 'toggleDrumNote':
       return toggleDrumAtCursor(state, action.key);
+    case 'toggleFretNote':
+      return toggleFretAtCursor(state, action.string, action.fret);
+    case 'togglePitchNote':
+      return togglePitchAtCursor(state, action.pitch);
     case 'enterPlayedNotes':
       return enterPlayed(state, action.notes);
     case 'shiftNoteFret':

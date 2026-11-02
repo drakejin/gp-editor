@@ -285,7 +285,7 @@ export {
   type DrumTechniqueSymbol,
   drumNotation,
 } from './formats/common/drum-notation';
-export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore } from './edit/pitch-entry';
+export { type PitchEntry, type PlayedNote, enterPlayedNotes, handFretBefore, stringAtPitch, toggleFretNote, togglePitchNote } from './edit/pitch-entry';
 export {
   MAX_TEMPO,
   MIN_TEMPO,

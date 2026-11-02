@@ -4,6 +4,7 @@ import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { DrumKit } from '../src/components/DrumKit';
 import { Fretboard } from '../src/components/Fretboard';
 import { InstrumentView } from '../src/components/InstrumentView';
+import type { ComponentProps } from 'react';
 import { Keyboard } from '../src/components/Keyboard';
 import type { ScaleHighlight } from '../src/score/scale-marks';
 import { PALETTE } from '../test-support/score-helpers';
@@ -12,6 +13,7 @@ import { beat, makeSong, note } from '../test-support/songs';
 /** Bar 1: an E minor shape's top notes — E4 (string 1 open) and B3 (string 2 open). */
 const SONG: Song = makeSong([[beat(960, [note(1, 0), note(2, 0)])]]);
 const CURSOR = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 };
+type InstrumentViewProps = ComponentProps<typeof InstrumentView>;
 
 function render(parts: { readonly showsKeyboard: boolean; readonly showsFretboard: boolean; readonly scale?: ScaleHighlight }, song: Song = SONG) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
@@ -99,21 +101,21 @@ describe('InstrumentView', () => {
   });
 });
 
-describe('InstrumentView hover preview', () => {
-  /** The instrument view with the preview on, laid out 1000 points wide. */
-  function renderHovering(onHoverPitch?: (pitch: number) => void) {
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
-    ReactTestRenderer.act(() => {
-      renderer = ReactTestRenderer.create(<InstrumentView song={SONG} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard onHoverPitch={onHoverPitch} />);
-    });
-    const layout = { nativeEvent: { layout: { width: 1048, height: 100, x: 0, y: 0 } } };
-    for (const part of renderer.root.findAll((node) => (node.type === Keyboard || node.type === Fretboard))) {
-      const container = part.findAll((node) => typeof node.props.onLayout === 'function')[0];
-      ReactTestRenderer.act(() => container?.props.onLayout(layout));
-    }
-    return renderer.root;
+/** The instrument view (the preview on with `onHoverPitch`), laid out 1000 points wide. */
+function renderHovering(onHoverPitch?: (pitch: number) => void, presses: Partial<Pick<InstrumentViewProps, 'onPressFret' | 'onPressPitch'>> = {}, song: Song = SONG) {
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<InstrumentView song={song} trackIndex={0} cursor={CURSOR} palette={PALETTE} showsKeyboard showsFretboard onHoverPitch={onHoverPitch} {...presses} />);
+  });
+  const layout = { nativeEvent: { layout: { width: 1048, height: 100, x: 0, y: 0 } } };
+  for (const part of renderer.root.findAll((node) => (node.type === Keyboard || node.type === Fretboard))) {
+    const container = part.findAll((node) => typeof node.props.onLayout === 'function')[0];
+    ReactTestRenderer.act(() => container?.props.onLayout(layout));
   }
+  return renderer.root;
+}
 
+describe('InstrumentView hover preview', () => {
   it('plays the pitch of a hovered piano key or fret', () => {
     // Arrange
     const hovered: number[] = [];
@@ -127,7 +129,39 @@ describe('InstrumentView hover preview', () => {
     expect(hovered).toEqual([60, 64]);
   });
 
-  it('has no hover areas while the preview is off', () => {
+  it('has no hover areas while the preview is off and nothing takes clicks', () => {
     expect(renderHovering().findAll((node) => typeof node.props.testID === 'string' && node.props.testID.startsWith('hover-'))).toHaveLength(0);
+  });
+});
+
+describe('InstrumentView note entry by click (Guitar Pro 8)', () => {
+  it('enters a clicked fret by its string and stored fret, and a clicked piano key by its pitch', () => {
+    // Arrange: the preview off
+    const frets: string[] = [];
+    const keys: number[] = [];
+    const root = renderHovering(undefined, { onPressFret: (string, fret) => frets.push(`${string}:${fret}`), onPressPitch: (pitch) => keys.push(pitch) });
+
+    // Act: the 5th fret of the high E string (A4), then the piano's middle C
+    ReactTestRenderer.act(() => root.findAllByProps({ testID: 'hover-fret-69' })[0]?.props.onPressIn());
+    ReactTestRenderer.act(() => root.findByProps({ testID: 'hover-key-60' }).props.onPressIn());
+
+    // Assert
+    expect(frets).toEqual(['1:5']);
+    expect(keys).toEqual([60]);
+    expect(root.findByProps({ testID: 'hover-key-60' }).props.onHoverIn).toBeUndefined();
+  });
+
+  it('counts a fret from the capo, and takes no click behind it', () => {
+    // Arrange: a capo at the 2nd fret
+    const capo: Song = { ...SONG, tracks: SONG.tracks.map((track) => ({ ...track, offset: 2 })) };
+    const frets: string[] = [];
+    const root = renderHovering(undefined, { onPressFret: (string, fret) => frets.push(`${string}:${fret}`) }, capo);
+
+    // Act: the first fret (behind the capo), then the 5th (A4)
+    ReactTestRenderer.act(() => root.findAllByProps({ testID: 'hover-fret-65' })[0]?.props.onPressIn());
+    ReactTestRenderer.act(() => root.findAllByProps({ testID: 'hover-fret-69' })[0]?.props.onPressIn());
+
+    // Assert
+    expect(frets).toEqual(['1:3']);
   });
 });
