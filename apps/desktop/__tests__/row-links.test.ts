@@ -6,7 +6,8 @@ import { GLYPH_WIDTH } from '../src/score/notation/metrics';
 import { type RowContext, engraveRow, placeRow } from '../src/score/row';
 import { type ScoreLayout, layoutScore } from '../src/score/score-layout';
 import { engraveSystemStaff, staffDecor } from '../src/score/system-staff';
-import { FRET_BOX, tabStringY, voiceColor } from '../src/score/symbols/tab-geometry';
+import { FRET_BOX } from '../src/score/symbols/small-frets';
+import { tabStringY, voiceColor } from '../src/score/symbols/tab-geometry';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, fromTux, header, makeSong, note, withTrack } from '../test-support/songs';
 

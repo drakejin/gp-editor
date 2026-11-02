@@ -8,7 +8,8 @@ import type {
   PolygonCommand,
   TextCommand,
 } from '../src/score/draw';
-import { FRET_BOX, tabStringY } from '../src/score/symbols/tab-geometry';
+import { FRET_BOX } from '../src/score/symbols/small-frets';
+import { tabStringY } from '../src/score/symbols/tab-geometry';
 import { type TabContext, engraveTabMeasure } from '../src/score/tab';
 import { PALETTE, allFinite } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -264,6 +265,34 @@ describe('bends, grace notes, trills and strokes', () => {
     const [fret] = labelled(commands, '(7)');
     expect(fret!.x).toBeGreaterThan(beatX(context, 0));
     expect(fret!.y).toBe(tabStringY(TOP, 1));
+  });
+
+  it.each([
+    ['quarter', 4],
+    ['eighth', 8],
+    ['sixteenth', 16],
+  ] as const)('keeps a trill’s fret and the next %s’s grace fret apart, each on its own beat’s room', (_name, value) => {
+    // Arrange: 9 trilled to 8, then 10 with a grace 12 before it, on one string
+    const duration = { ...QUARTER, value };
+    const step = 3840 / value;
+    const trill = { fret: 8, duration: { ...QUARTER, value: 16 as const } };
+    const grace = { fret: 12, duration: 2, velocity: 95, transition: 'none' as const, onBeat: false, isDead: false };
+
+    // Act
+    const { commands, context } = engrave([
+      beat(4800, [note(1, 5)], duration),
+      beat(4800 + step, [note(1, 9, { trill })], duration),
+      beat(4800 + 2 * step, [note(1, 10, { grace })], duration),
+    ]);
+
+    // Assert: the boxes on string 1 (frets, the trill's and the grace's) follow one another without overlapping
+    const y = tabStringY(TOP, 1);
+    const boxes = ofKind(commands, 'rect')
+      .filter((rect) => rect.color === PALETTE.paper && rect.y < y && rect.y + rect.height > y)
+      .sort((a, b) => a.x - b.x);
+    expect(boxes.length).toBeGreaterThanOrEqual(5);
+    boxes.slice(1).forEach((box, i) => expect(box.x).toBeGreaterThanOrEqual(boxes[i]!.x + boxes[i]!.width));
+    expect(labelled(commands, '(8)')[0]!.x).toBeLessThan(beatX(context, 2));
   });
 
   it('draws a stroke as an arrow beside the chord pointing the way of the stroke', () => {
