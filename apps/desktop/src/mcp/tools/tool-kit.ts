@@ -112,7 +112,7 @@ export function addressAt(song: Song, editor: EditorState, args: ToolArguments):
 export function placeCursor(host: AppHost, tabId: string, address: StringAddress): WorkspaceState {
   const placed = host.dispatch({ type: 'inTab', tabId, action: { type: 'placeCursor', cursor: address } });
   const cursor = editorIn(placed, tabId)?.cursor;
-  return cursor === undefined || cursor.voiceIndex === address.voiceIndex ? placed : host.dispatch({ type: 'inTab', tabId, action: { type: 'selectVoice', voiceIndex: address.voiceIndex } });
+  return cursor === undefined || cursor.voiceIndex === address.voiceIndex ? placed : host.dispatch({ type: 'inTab', tabId, action: { type: 'selectVoice', voiceIndex: address.voiceIndex, keepsBeat: true } });
 }
 
 /** What an edit did: the editor after it, and whether the song changed (one undo step) or why not. */

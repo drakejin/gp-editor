@@ -189,22 +189,26 @@ function withoutRestBarsPastEnd(bars: readonly VoiceEvents[], songBars: number):
   return count === bars.length ? bars : bars.slice(0, count);
 }
 
+/** The bars with those past `count` joined into the last of the first `count` (it is left over-full, as it was). */
+function keptInBars(bars: readonly VoiceEvents[], count: number): readonly VoiceEvents[] {
+  return bars.length <= count ? bars : [...bars.slice(0, count - 1), bars.slice(count - 1).flat()];
+}
+
 /**
  * The song with the flow's voice laid out as `stream` over its bars from the first through `lastMeasureIndex` only, which
- * the stream fills (a paste written over the voice): later bars keep their events; past the song's last bar, bars are
- * appended (every track) — not for rests only. The same song when a bar cannot be read, or when the stream would run
- * into a bar after `lastMeasureIndex` that the song has.
+ * the stream fills (a paste written over the voice): later bars keep their events — what an over-full bar of the range
+ * holds past its bar line stays in the range's last bar, over-full as before —; past the song's last bar, bars are
+ * appended (every track), not for rests only. The same song when a bar cannot be read.
  */
 export function rewriteVoice(song: Song, flow: VoiceFlow, stream: VoiceEvents, lastMeasureIndex: number): Song {
   const songBars = song.measureHeaders.length - flow.firstMeasureIndex;
-  const bars = withoutRestBarsPastEnd(
+  const laid = withoutRestBarsPastEnd(
     layoutBars(stream, (index) => barTicks(song, flow.firstMeasureIndex + index)),
     songBars,
   );
+  const isLastBar = lastMeasureIndex >= song.measureHeaders.length - 1;
+  const bars = isLastBar ? laid : keptInBars(laid, lastMeasureIndex - flow.firstMeasureIndex + 1);
   const reached = flow.firstMeasureIndex + bars.length - 1;
-  if (reached > lastMeasureIndex && lastMeasureIndex < song.measureHeaders.length - 1) {
-    return song;
-  }
   const extended = appendBars(song, reached + 1 - song.measureHeaders.length);
   return writeBars(extended, flow, bars, Math.max(reached, lastMeasureIndex)) ?? song;
 }

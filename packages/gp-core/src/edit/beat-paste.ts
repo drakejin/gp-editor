@@ -9,6 +9,7 @@ import { type VoiceFlow, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
 import { beatPosition, cutAt, hasVoiceSlot, onTrackStrings } from './beat-ranges';
 import { insertMeasure } from './measures';
+import { updateNote } from './song-paths';
 import { type VoiceEvents, eventTicks, eventsTicks, restEvents, signedRests } from './timeline';
 
 /** A paste's outcome. */
@@ -76,14 +77,33 @@ function withoutLeadingTicks(events: VoiceEvents, ticks: number): VoiceEvents | 
   return [];
 }
 
-/** The events with the first one that has notes untied, when only rests come before it: the note it continued is gone. */
-function untieFirstNotes(events: VoiceEvents): VoiceEvents {
-  const index = events.findIndex((event) => event.voice.notes.length > 0);
-  return index < 0 ? events : [...events.slice(0, index), ...untieFirst(events.slice(index))];
+/** The voice's first beat with notes that starts at `tick` or later (from bar `measureIndex` on); undefined when none. */
+function firstNotesFrom(song: Song, at: BeatAddress, tick: number): BeatAddress | undefined {
+  const measures = song.tracks[at.trackIndex]?.measures ?? [];
+  for (let measureIndex = at.measureIndex; measureIndex < measures.length; measureIndex++) {
+    const beatIndex = measures[measureIndex]?.beats.findIndex((beat) => beat.start >= tick && (beat.voices[at.voiceIndex]?.notes.length ?? 0) > 0) ?? -1;
+    if (beatIndex >= 0) {
+      return { ...at, measureIndex, beatIndex };
+    }
+  }
+  return undefined;
+}
+
+/** The voice's first note after the pasted beats untied: what it was tied to was written over (or moved away by new bars). */
+function untieAfter(song: Song, at: BeatAddress, tick: number): Song {
+  const next = firstNotesFrom(song, at, tick);
+  const notes = next === undefined ? [] : (song.tracks[at.trackIndex]?.measures[next.measureIndex]?.beats[next.beatIndex]?.voices[at.voiceIndex]?.notes ?? []);
+  return next === undefined ? song : notes.filter((note) => note.isTied).reduce((current, note) => updateNote(current, { ...next, string: note.string }, (tiedNote) => ({ ...tiedNote, isTied: false })), song);
+}
+
+/** A paste written: the song, and the song tick its first beat starts at. */
+interface Written {
+  readonly song: Song;
+  readonly start: number;
 }
 
 /** The fragment written over the voice from the beat at `at`; undefined when the voice cannot be read there. */
-function writeOver(song: Song, at: BeatAddress, fragment: BeatFragment): Song | undefined {
+function writeOver(song: Song, at: BeatAddress, fragment: BeatFragment): Written | undefined {
   const track = song.tracks[at.trackIndex];
   const position = hasVoiceSlot(song, at) ? beatPosition(song, at) : undefined;
   const measure = track?.measures[at.measureIndex];
@@ -98,7 +118,9 @@ function writeOver(song: Song, at: BeatAddress, fragment: BeatFragment): Song | 
   const placed = liftVoice(song, flow, lastIndex);
   const cut = placed === undefined ? undefined : cutAt(placed, position.offset, measure);
   const kept = cut === undefined ? undefined : withoutLeadingTicks(cut.after, eventsTicks(inserted));
-  return cut === undefined || kept === undefined ? undefined : rewriteVoice(song, flow, [...cut.before, ...inserted, ...untieFirstNotes(kept)], lastIndex);
+  const barStart = song.measureHeaders[at.measureIndex]?.start ?? 0;
+  const written = cut === undefined || kept === undefined ? song : rewriteVoice(song, flow, [...cut.before, ...inserted, ...kept], lastIndex);
+  return written === song ? undefined : { song: untieAfter(written, at, barStart + start + eventsTicks(inserted)), start: barStart + start };
 }
 
 /**
@@ -107,8 +129,9 @@ function writeOver(song: Song, at: BeatAddress, fragment: BeatFragment): Song | 
  * of its time as rests —, what follows stays in place; past the last bar, bars are appended). Longer, on a bar of the
  * track with notes: whole bars are added before the cursor's bar, as many as it needs, and it goes into them; on an
  * empty bar: it fills the empty bars from there on, with bars added after them for what does not fit. Notes on strings
- * the track lacks are left out; the first pasted beat and the note after the paste lose their ties. The same song for
- * an empty fragment, a missing beat, or drum beats into a track that is not a drum track (and the other way round).
+ * the track lacks are left out; the first pasted beat and the voice's first note after the paste lose their ties. `at`
+ * answers the beat the pasted beats start on. The same song for an empty fragment, a missing beat, or drum beats into
+ * a track that is not a drum track (and the other way round).
  */
 export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment): PastedBeats {
   const unchanged: PastedBeats = { song, addedBars: 0, at };
@@ -120,8 +143,11 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   const ticks = fragment.items.reduce((total, item) => total + durationTicks(item.duration), 0);
   const room = ticks <= headerTicks(header) ? { song, at } : roomForBars(song, at, ticks);
   const written = writeOver(room.song, room.at, fragment);
-  if (written === undefined || written === room.song) {
+  if (written === undefined) {
     return unchanged;
   }
-  return { song: written, addedBars: written.measureHeaders.length - song.measureHeaders.length, at: room.at };
+  // Rests written before the paste into an empty voice can add beats before it: its first beat found by its start.
+  const beatIndex = written.song.tracks[at.trackIndex]?.measures[room.at.measureIndex]?.beats.findIndex((beat) => beat.start === written.start) ?? -1;
+  const first = { ...room.at, beatIndex: beatIndex < 0 ? room.at.beatIndex : beatIndex };
+  return { song: written.song, addedBars: written.song.measureHeaders.length - song.measureHeaders.length, at: first };
 }

@@ -268,6 +268,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.hint.selectedTrackShown': '선택한 트랙은 늘 보입니다. 이 트랙을 숨기려면 다른 트랙을 선택하세요.',
   'palette.hint.pasteDrumsOnly': '드럼 트랙에서 복사한 박은 드럼 트랙에만 붙여넣을 수 있습니다.',
   'palette.hint.pasteIntoDrums': '드럼 트랙에는 드럼 트랙에서 복사한 박만 붙여넣을 수 있습니다.',
+  'palette.hint.pasteUnchanged': '바뀐 것이 없습니다: 복사한 박을 여기에 쓸 수 없거나 같은 박이 이미 있습니다.',
   'palette.hint.pasteAddedBars': { one: '붙여넣은 박을 담으려고 곡에 마디를 하나 넣었습니다 (모든 트랙).', other: '붙여넣은 박을 담으려고 곡에 마디 {count}개를 넣었습니다 (모든 트랙).' },
   'palette.hint.noSelection': '먼저 조옮김할 박을 선택하세요: 악보를 드래그하거나 ⇧← / ⇧→를 누르세요.',
   'palette.hint.syncOrder': '싱크 포인트는 악보와 녹음 모두에서 앞 포인트보다 뒤, 다음 포인트보다 앞에 있어야 합니다.',

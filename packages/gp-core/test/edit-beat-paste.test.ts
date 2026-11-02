@@ -95,6 +95,38 @@ describe('pasteBeats: up to a bar, written over the voice (Guitar Pro 8 complete
   });
 });
 
+describe('pasteBeats: the ties and the cursor around the pasted beats', () => {
+  it('undoes the tie of the next bar’s first note when the paste ends on the bar line', () => {
+    // Arrange: bar 2 starts with a note tied to bar 1's last note
+    const song = bars(FOUR_QUARTERS, [play(4, tied(1, 3)), play(4, n(1, 5)), rest(2)]);
+
+    // Act
+    const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(4, 0)));
+
+    // Assert
+    expect(pasted.song.tracks[0]?.measures[1]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 3, isTied: false });
+  });
+
+  it('undoes the tie of the cursor bar’s first note when whole bars go in before it', () => {
+    const song = bars(FOUR_QUARTERS, [play(4, tied(1, 3)), play(4, n(1, 5)), rest(2)]);
+    const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
+    expect(pasted.song.tracks[0]?.measures[3]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 3, isTied: false });
+  });
+
+  it('answers the beat the pasted beats start on, also when rests written before them into an empty voice add beats', () => {
+    // Arrange: voice 1 a half, a dotted quarter and an eighth; voice 2 empty
+    const song = deepFreeze(buildSong({ tracks: [[[[play(2, n(1, 0)), play(dur(4, { dotted: true }), n(1, 2)), play(8, n(1, 3))], []]]] }));
+
+    // Act: an eighth into voice 2 on the third beat (the eighth at 3360)
+    const pasted = pasteBeats(song, at(0, 2, 1), fragment(item(8, n(3, 9))));
+
+    // Assert
+    const beat = pasted.song.tracks[0]?.measures[0]?.beats[pasted.at.beatIndex];
+    expect(beat?.voices[1]?.notes[0]).toMatchObject({ string: 3, fret: 9 });
+    expect(beat?.voices[0]?.notes[0]).toMatchObject({ fret: 3 });
+  });
+});
+
 describe('pasteBeats: longer than a bar', () => {
   it('adds whole bars before the cursor’s bar, in every track, and pastes into them', () => {
     // Arrange
@@ -132,6 +164,20 @@ describe('pasteBeats: longer than a bar', () => {
     const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
     expect(pasted.addedBars).toBe(0);
     expect(layout(pasted.song, 3)).toEqual(layout(song, 3));
+  });
+});
+
+describe('pasteBeats: an over-full bar', () => {
+  it('writes over a beat of an over-full bar and leaves it over-full, the next bar as it was', () => {
+    // Arrange: five quarters in a 4/4 bar
+    const song = bars([...FOUR_QUARTERS, play(4, n(1, 4))], NEXT_QUARTERS);
+
+    // Act
+    const pasted = pasteBeats(song, at(0, 1), fragment(item(4, n(2, 7))));
+
+    // Assert
+    expect(layout(pasted.song, 0)).toEqual(['0:4:1/0', '960:4:2/7', '1920:4:1/2', '2880:4:1/3', '3840:4:1/4']);
+    expect(pasted.song.tracks[0]?.measures[1]).toBe(song.tracks[0]?.measures[1]);
   });
 });
 

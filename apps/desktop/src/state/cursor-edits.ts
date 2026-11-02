@@ -60,9 +60,9 @@ function followBeatStart(before: EditorState, after: EditorState): EditorState {
 
 /**
  * The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet (inside a note of that voice: on
- * the note's beat); the same state past voice 4.
+ * the note's beat, unless `keepsBeat`); the same state past voice 4.
  */
-export function selectVoice(state: EditorState, voiceIndex: number): EditorState {
+export function selectVoice(state: EditorState, voiceIndex: number, keepsBeat = false): EditorState {
   const { cursor, document } = state;
   // A bar without beats offers the voices of the rest drawn there.
   const song = cursor === undefined || document === undefined ? undefined : withBarRests(document.song, cursor);
@@ -72,7 +72,8 @@ export function selectVoice(state: EditorState, voiceIndex: number): EditorState
     return state;
   }
   // Inside a note of that voice (where another voice alone has a beat), on the beat where the note starts.
-  return { ...state, cursor: voiceCursor(song, { ...cursor, voiceIndex }) };
+  const inVoice = { ...cursor, voiceIndex };
+  return { ...state, cursor: keepsBeat ? inVoice : voiceCursor(song, inVoice) };
 }
 
 /** The cursor moved within the song (from the first beat of the shown track when it has none yet). */
@@ -253,10 +254,10 @@ export function cutSelection(state: EditorState): EditorState {
   return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
 }
 
-/** Pastes at the cursor (selection.ts pasteBeatsAt); when the beats cannot go there (drums and other tracks), the hint says why. */
+/** Pastes at the cursor (selection.ts pasteBeatsAt); when nothing changes (drums and other tracks, …), the hint says why. */
 export function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
   const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
   const { document, cursor } = state;
-  const hint = pasted !== state || document === undefined || cursor === undefined ? undefined : pasteRefusal(document.song, cursor, fragment);
+  const hint = pasted !== state || document === undefined || cursor === undefined ? undefined : (pasteRefusal(document.song, cursor, fragment) ?? t('palette.hint.pasteUnchanged'));
   return hint === undefined || hint === state.hint ? pasted : { ...state, hint };
 }

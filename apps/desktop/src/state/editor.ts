@@ -115,8 +115,11 @@ export type EditorAction =
   | { readonly type: 'placeCursor'; readonly cursor: StringAddress }
   | { readonly type: 'moveCursorBeat'; readonly step: -1 | 1 }
   | { readonly type: 'moveCursorString'; readonly delta: number }
-  /** The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons). */
-  | { readonly type: 'selectVoice'; readonly voiceIndex: number }
+  /**
+   * The cursor on voice 1 (0) to 4 (3) of the same beat (⌘1–⌘4, the palette's Voice buttons); inside a note of that voice,
+   * on the beat where it starts — unless `keepsBeat` (MCP tools address a beat exactly).
+   */
+  | { readonly type: 'selectVoice'; readonly voiceIndex: number; readonly keepsBeat?: boolean }
   | { readonly type: 'toggleMultivoice' }
   /** A fret as the tab shows it (a banjo's short 5th string counts from the main nut). */
   | { readonly type: 'setNoteFret'; readonly fret: number }
@@ -243,7 +246,7 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
     case 'moveCursorString':
       return moveCursorString(state, action.delta);
     case 'selectVoice':
-      return selectVoice(state, action.voiceIndex);
+      return selectVoice(state, action.voiceIndex, action.keepsBeat === true);
     case 'toggleMultivoice':
       return { ...state, isMultivoice: state.isMultivoice !== true };
     case 'extendSelection':

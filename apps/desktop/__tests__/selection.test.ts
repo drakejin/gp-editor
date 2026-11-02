@@ -237,6 +237,13 @@ describe('pasteBeats', () => {
     expect(refused.hint).toBe('Beats copied from a drum track paste into drum tracks only.');
   });
 
+  it('says so when a paste changes nothing (beats that cannot be written there)', () => {
+    const state = loaded();
+    const pasted = reduce(state, { type: 'pasteBeats', fragment: { isPercussion: false, items: [] } });
+    expect(pasted.document?.song).toBe(state.document?.song);
+    expect(pasted.hint).toBe('Nothing changed: the copied beats cannot be written here, or are here already.');
+  });
+
   it('says why guitar beats do not paste into a drum track', () => {
     const song = twoBars();
     const drumSong = { ...song, tracks: song.tracks.map((track) => ({ ...track, isPercussion: true })) };

@@ -181,3 +181,22 @@ describe('undo and redo', () => {
     expect(app.state().tabs.map((tab) => tab.editor.past.length)).toEqual([1, 0]);
   });
 });
+
+describe('an MCP edit addresses its beat exactly', () => {
+  it('never moves a multivoice edit onto an earlier beat where the voice’s note starts', async () => {
+    // Arrange: voice 1 quarters (string 2, then string 1); voice 2 a half note on string 3 over both; multivoice on
+    const half = { ...beat(960, [note(3, 0)]).voices[0]!, duration: { ...beat(960, []).voices[0]!.duration, value: 2 as const } };
+    const first = beat(960, [note(2, 1)]);
+    const second = beat(1920, [note(1, 3)]);
+    const song = makeSong([[{ ...first, voices: [...first.voices, half] }, { ...second, voices: [...second.voices, { ...half, notes: [], isEmpty: true }] }]]);
+    const start = workspaceReducer(workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } }), { type: 'toggleMultivoice' });
+    const app = fakeApp(start);
+
+    // Act: voice 2, beat 2 lies inside its half note
+    const written = await call(app, 'write_note', { bar: 1, beat: 2, voice: 2, string: 1, fret: 5 });
+
+    // Assert
+    expect(written.isError).toBe(true);
+    expect(firstBar(app)?.beats[0]?.voices[1]?.notes.map((n) => n.string)).toEqual([3]);
+  });
+});

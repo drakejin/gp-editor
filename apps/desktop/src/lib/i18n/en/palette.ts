@@ -276,6 +276,7 @@ export const EN_PALETTE = {
   'palette.hint.selectedTrackShown': 'The selected track is always shown. Select another track to hide this one.',
   'palette.hint.pasteDrumsOnly': 'Beats copied from a drum track paste into drum tracks only.',
   'palette.hint.pasteIntoDrums': 'Only beats copied from a drum track paste into a drum track.',
+  'palette.hint.pasteUnchanged': 'Nothing changed: the copied beats cannot be written here, or are here already.',
   'palette.hint.pasteAddedBars': { one: 'A bar was added to the song (every track) to hold the pasted beats.', other: '{count} bars were added to the song (every track) to hold the pasted beats.' },
   'palette.hint.noSelection': 'Select the beats to transpose first: drag across the score, or ⇧← / ⇧→.',
   'palette.hint.syncOrder': 'A sync point must come after the one before it and before the one after it, both in the score and in the recording.',
