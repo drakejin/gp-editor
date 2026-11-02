@@ -60,36 +60,45 @@ function useFollow(props: AudioWaveformProps, scroll: { readonly current: number
   }, [followed, pixelsPerSecond, viewport, scroll, scrollRef]);
 }
 
+/** A marker shown where it is being dragged. */
+interface DragPreview {
+  readonly pointIndex: number;
+  readonly seconds: number;
+}
+
 /**
- * A click on a marker selects it and a drag moves it (the lane shows the bars following it until the mouse goes up);
- * a click elsewhere goes to the bar heard there.
+ * A click on a marker selects it and a drag moves it (the lane shows the bars following it until the mouse goes up,
+ * and the point goes where it is let go); a click elsewhere goes to the bar heard there. The gesture is a ref, not
+ * state: a quick drag's press, moves and release can all be handled before the lane draws again, and state read then
+ * was the press's — no drag —, so the marker stayed where it was.
  */
 function useMarkerDrag(props: AudioWaveformProps) {
   const { map, pixelsPerSecond } = props;
-  const [drag, setDrag] = useState<Drag | undefined>(undefined);
-  const [dragSeconds, setDragSeconds] = useState<number | undefined>(undefined);
-  const shownMap = useMemo(() => previewMap(map, drag?.pointIndex, dragSeconds), [map, drag?.pointIndex, dragSeconds]);
-  const xOf = (event: GestureResponderEvent): number => (drag === undefined ? event.nativeEvent.locationX : drag.x + event.nativeEvent.pageX - drag.pageX);
+  const drag = useRef<Drag | undefined>(undefined);
+  const [preview, setPreview] = useState<DragPreview | undefined>(undefined);
+  const shownMap = useMemo(() => previewMap(map, preview?.pointIndex, preview?.seconds), [map, preview]);
+  const secondsAt = (gesture: Drag, event: GestureResponderEvent) => draggedSeconds(gesture.x + event.nativeEvent.pageX - gesture.pageX, pixelsPerSecond, gesture.range);
   const onPressIn = (event: GestureResponderEvent) => {
     const hit = hitTestAudioLane(map, pixelsPerSecond, event.nativeEvent.locationX);
     const range = hit.kind === 'marker' ? props.pointRange(hit.pointIndex) : undefined;
-    if (hit.kind === 'marker' && range !== undefined) {
-      props.onSelectPoint(hit.pointIndex);
-      setDrag({ pointIndex: hit.pointIndex, x: event.nativeEvent.locationX, pageX: event.nativeEvent.pageX, range });
+    drag.current = hit.kind === 'marker' && range !== undefined ? { pointIndex: hit.pointIndex, x: event.nativeEvent.locationX, pageX: event.nativeEvent.pageX, range } : undefined;
+    if (drag.current !== undefined) {
+      props.onSelectPoint(drag.current.pointIndex);
     }
   };
   const onPressMove = (event: GestureResponderEvent) => {
-    if (drag !== undefined) {
-      setDragSeconds(draggedSeconds(xOf(event), pixelsPerSecond, drag.range));
+    const gesture = drag.current;
+    if (gesture !== undefined) {
+      setPreview({ pointIndex: gesture.pointIndex, seconds: secondsAt(gesture, event) });
     }
   };
   const onPressOut = (event: GestureResponderEvent) => {
-    const seconds = dragSeconds;
-    setDrag(undefined);
-    setDragSeconds(undefined);
-    if (drag !== undefined) {
-      if (seconds !== undefined) {
-        props.onMovePoint(drag.pointIndex, seconds);
+    const gesture = drag.current;
+    drag.current = undefined;
+    setPreview(undefined);
+    if (gesture !== undefined) {
+      if (event.nativeEvent.pageX !== gesture.pageX) {
+        props.onMovePoint(gesture.pointIndex, secondsAt(gesture, event));
       }
       return;
     }

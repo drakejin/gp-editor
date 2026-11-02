@@ -1,6 +1,6 @@
 import { TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
-import { TextField } from '../src/components/TextField';
+import { KeyboardHomeContext, TextField, type TextFieldProps } from '../src/components/TextField';
 
 function render(onKeyDown?: jest.Mock) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
@@ -54,5 +54,65 @@ describe('TextField', () => {
     const field = render();
     ReactTestRenderer.act(() => field.props.onKeyDown(event));
     expect(event.stopPropagation).not.toHaveBeenCalled();
+  });
+});
+
+describe('TextField leaving the window', () => {
+  /** A field under the window’s keyboard home: its TextInput, and a way to take it away. */
+  function mountUnderHome(home: jest.Mock, props: Partial<TextFieldProps> = {}) {
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <KeyboardHomeContext.Provider value={home}>
+          <TextField value="" onChangeText={() => undefined} {...props} />
+        </KeyboardHomeContext.Provider>,
+      );
+    });
+    const input = renderer.root.findByType(TextInput);
+    return { input, unmount: () => ReactTestRenderer.act(() => renderer.unmount()) };
+  }
+
+  it('gives the keyboard back to the window’s home (the score) when it goes away with the keyboard: its panel closed', () => {
+    // Arrange
+    const home = jest.fn();
+    const field = mountUnderHome(home);
+    ReactTestRenderer.act(() => field.input.props.onFocus({ nativeEvent: {} }));
+
+    // Act
+    field.unmount();
+
+    // Assert
+    expect(home).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the keyboard where it is when it goes away without it', () => {
+    const home = jest.fn();
+    const field = mountUnderHome(home);
+    field.unmount();
+    expect(home).not.toHaveBeenCalled();
+  });
+
+  it('leaves the keyboard where it is when it lost it before going away (another field took it)', () => {
+    const home = jest.fn();
+    const field = mountUnderHome(home);
+    ReactTestRenderer.act(() => field.input.props.onFocus({ nativeEvent: {} }));
+    ReactTestRenderer.act(() => field.input.props.onBlur({ nativeEvent: {} }));
+    field.unmount();
+    expect(home).not.toHaveBeenCalled();
+  });
+
+  it('still calls its own focus and blur handlers', () => {
+    // Arrange
+    const onFocus = jest.fn();
+    const onBlur = jest.fn();
+    const field = mountUnderHome(jest.fn(), { onFocus, onBlur });
+
+    // Act
+    ReactTestRenderer.act(() => field.input.props.onFocus({ nativeEvent: {} }));
+    ReactTestRenderer.act(() => field.input.props.onBlur({ nativeEvent: {} }));
+
+    // Assert
+    expect(onFocus).toHaveBeenCalledTimes(1);
+    expect(onBlur).toHaveBeenCalledTimes(1);
   });
 });

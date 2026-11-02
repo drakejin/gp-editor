@@ -368,19 +368,22 @@ describe('the window: ONLINE TOOLS', () => {
     expect(renderer.root.findAll((node) => node.props.testID === 'compose-backdrop').length).toBeGreaterThan(0);
   });
 
-  it('closes AI Edit before Compose from Here with Esc, as AI Edit is drawn over it', async () => {
+  it('shows one AI Wizard panel at a time: AI Edit opened over Compose from Here takes its place, and Esc closes it', async () => {
     // Arrange
     const renderer = await openWindow();
     const count = (testID: string) => renderer.root.findAll((node) => node.props.testID === testID).length;
     await pressTool(renderer, 'aiCompose');
-    await pressTool(renderer, 'aiEdit');
 
     // Act
+    await pressTool(renderer, 'aiEdit');
+    const shown = { aiEdit: count('ai-edit-backdrop'), compose: count('compose-backdrop') };
     await press(renderer, 'Escape');
 
     // Assert
+    expect(shown.aiEdit).toBeGreaterThan(0);
+    expect(shown.compose).toBe(0);
     expect(count('ai-edit-backdrop')).toBe(0);
-    expect(count('compose-backdrop')).toBeGreaterThan(0);
+    expect(count('compose-backdrop')).toBe(0);
   });
 
   it('opens the AI Edit panel from the palette’s AI Edit and from Edit ▸ AI Wizard ▸ AI Edit…, and Esc closes it', async () => {

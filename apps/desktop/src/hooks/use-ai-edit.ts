@@ -51,6 +51,8 @@ export interface AiEdit {
   readonly open: () => void;
   /** Closes the panel; a run going on is stopped. */
   readonly close: () => void;
+  /** Closes the panel for another AI Wizard panel: a run going on goes on, and the other panel says Claude is busy. */
+  readonly hide: () => void;
   readonly draft: AiEditDraft;
   readonly changeDraft: (change: Partial<AiEditDraft>) => void;
   /** For the shown tab. */
@@ -210,6 +212,7 @@ export function useAiEdit({ workspace, dispatch, guard }: AiEditSources): AiEdit
     isOpen,
     open,
     close,
+    hide: useCallback(() => setIsOpen(false), []),
     draft,
     changeDraft: useCallback((change: Partial<AiEditDraft>) => setDraft((current) => ({ ...current, ...change })), []),
     status,

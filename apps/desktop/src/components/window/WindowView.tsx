@@ -4,6 +4,7 @@ import { HANDLED_KEYS } from '../../lib/key-commands';
 import { HintBar } from '../HintBar';
 import { ImportBanner } from '../ImportBanner';
 import { TabStrip } from '../TabStrip';
+import { KeyboardHomeContext } from '../TextField';
 import { ErrorBanner } from '../WindowOverlays';
 import { DocumentView } from './DocumentView';
 import { EditPanels, FilePanels } from './WindowPanels';
@@ -17,30 +18,32 @@ interface WindowViewProps {
 /**
  * Guitar Pro 8's window: the top bar, the tabs, the shown tab's document (or the start screen) with the hint strip, the
  * panels and the banners over it, then what opens over it, the last one on top. Its root view takes the score's keys
- * and file drops.
+ * and file drops, and the keyboard back from a field that goes away with it (its panel closed).
  */
 export function WindowView({ model }: WindowViewProps) {
   const { base, commands } = model;
-  const { palette, keyboardView, setWindowWidth } = base;
+  const { palette, keyboardView, setWindowWidth, focusScore } = base;
   return (
-    <View
-      ref={keyboardView}
-      style={[styles.root, { backgroundColor: palette.chrome }]}
-      focusable
-      enableFocusRing={false}
-      keyDownEvents={HANDLED_KEYS}
-      onKeyDown={commands.editor.onKeyDown}
-      draggedTypes={['fileUrl']}
-      onDrop={commands.editor.onDrop}
-      onLayout={(event: LayoutChangeEvent) => setWindowWidth(event.nativeEvent.layout.width)}
-    >
-      <WindowTopBar model={model} />
-      <WindowTabs model={model} />
-      <DocumentView model={model} top={<UnderTabStrip model={model} />} />
-      <MenuOverlays model={model} />
-      <ToolOverlays model={model} />
-      <WindowDialogs model={model} />
-    </View>
+    <KeyboardHomeContext.Provider value={focusScore}>
+      <View
+        ref={keyboardView}
+        style={[styles.root, { backgroundColor: palette.chrome }]}
+        focusable
+        enableFocusRing={false}
+        keyDownEvents={HANDLED_KEYS}
+        onKeyDown={commands.editor.onKeyDown}
+        draggedTypes={['fileUrl']}
+        onDrop={commands.editor.onDrop}
+        onLayout={(event: LayoutChangeEvent) => setWindowWidth(event.nativeEvent.layout.width)}
+      >
+        <WindowTopBar model={model} />
+        <WindowTabs model={model} />
+        <DocumentView model={model} top={<UnderTabStrip model={model} />} />
+        <MenuOverlays model={model} />
+        <ToolOverlays model={model} />
+        <WindowDialogs model={model} />
+      </View>
+    </KeyboardHomeContext.Provider>
   );
 }
 

@@ -6,7 +6,7 @@
 // sandbox on purpose: the sandboxed app can only read a script inside its own container, which is how sandbox
 // behaviour is checked; everyday QA uses the unsandboxed copy made by scripts/qa/run.sh.
 //
-// Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}},
+// Script: {"steps": [{"open": "/abs/file.gp5"}, {"wait": 1500}, {"click": {"x": 300, "y": 200}} (+ "modifiers": ["shift"]),
 //          {"drag": {"from": {"x": 300, "y": 200}, "to": {"x": 500, "y": 420}, "steps": 8}}, {"rightClick": {"x": 300, "y": 200}}, {"controlClick": …},
 //          {"doubleClick": {"x": 300, "y": 200}} (two clicks, the second's events counting two: a view's onDoubleClick),
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
@@ -23,6 +23,7 @@
 // Coordinates are points in the window's content view, origin top-left. Progress goes to "<script>.log".
 
 #import <AppKit/AppKit.h>
+#import <dlfcn.h>
 
 #import "GPEditorNotifications.h"
 #import "GPQAWindows.h"
@@ -33,6 +34,47 @@ static const int64_t kStartDelaySeconds = 3;
 static const double kRightClickHoldSeconds = 0.2;
 /** Between the moves of a paced drag: long enough for each to be handled before the next is sent. */
 static const double kPacedDragStepSeconds = 0.05;
+/** The CGEvent field AppKit reads an event's window number from (not public: QA only). */
+static const CGEventField kGPQAWindowNumberField = (CGEventField)51;
+
+/** CoreGraphics' setter of an event's place in its window (not public: QA only), looked up once; NULL when it is gone. */
+typedef void (*GPQASetWindowLocation)(CGEventRef, CGPoint);
+
+static GPQASetWindowLocation GPQAWindowLocationSetter(void)
+{
+  static GPQASetWindowLocation setter;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    setter = (GPQASetWindowLocation)dlsym(RTLD_DEFAULT, "CGEventSetWindowLocation");
+  });
+  return setter;
+}
+
+/**
+ * The event, placed as the window server places the events it sends this window: on the screen, in the window (its
+ * number) and at the point in it (`location`: window coordinates), which AppKit reads its locationInWindow from. Made
+ * from window coordinates alone (+mouseEventWithType:…) a queued drag reached React Native offset by the window's origin
+ * — a dragged marker never moved —, and a scroll without a window was hit-tested at its screen position. Releases it.
+ */
+static NSEvent *GPQAPlacedEvent(CGEventRef cgEvent, NSPoint location, NSWindow *window)
+{
+  NSPoint onScreen = [window convertPointToScreen:location];
+  CGEventSetLocation(cgEvent, CGPointMake(onScreen.x, NSScreen.screens.firstObject.frame.size.height - onScreen.y));
+  GPQASetWindowLocation setWindowLocation = GPQAWindowLocationSetter();
+  if (setWindowLocation != NULL) {
+    CGEventSetIntegerValueField(cgEvent, kGPQAWindowNumberField, window.windowNumber);
+    setWindowLocation(cgEvent, CGPointMake(location.x, window.frame.size.height - location.y));
+  }
+  NSEvent *event = [NSEvent eventWithCGEvent:cgEvent];
+  CFRelease(cgEvent);
+  return event;
+}
+
+/** A left-button mouse event for the event queue (a drag's moves and its up), placed in the window. */
+static NSEvent *GPQAQueuedMouseEvent(CGEventType type, NSPoint location, NSWindow *window)
+{
+  return GPQAPlacedEvent(CGEventCreateMouseEvent(NULL, type, CGPointZero, kCGMouseButtonLeft), location, window);
+}
 
 @interface GPQADriver : NSObject
 @property(nonatomic, copy) NSArray<NSDictionary *> *steps;
@@ -127,7 +169,7 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     return 1.0;
   }
   if (step[@"click"] != nil) {
-    [self clickAt:[self windowPoint:step[@"click"] in:window] window:window];
+    [self clickAt:[self windowPoint:step[@"click"] in:window] flags:[self modifierFlags:step[@"modifiers"]] window:window];
     return 0.4;
   }
   if (step[@"doubleClick"] != nil) {
@@ -311,8 +353,14 @@ __attribute__((constructor)) static void GPQADriverStart(void)
  */
 - (void)clickAt:(NSPoint)location window:(NSWindow *)window
 {
-  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location window:window] atStart:NO];
-  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location window:window]];
+  [self clickAt:location flags:0 window:window];
+}
+
+/** A click with modifier keys held (`"modifiers": ["shift"]`: a ⇧-click, a Pressable's press with shiftKey). */
+- (void)clickAt:(NSPoint)location flags:(NSEventModifierFlags)flags window:(NSWindow *)window
+{
+  [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:location flags:flags window:window] atStart:NO];
+  [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:location flags:flags window:window]];
 }
 
 /**
@@ -382,18 +430,20 @@ __attribute__((constructor)) static void GPQADriverStart(void)
 }
 
 /**
- * Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click. With
- * `hold` the mouse stays down (a snapshot shows the drag in progress) until a `mouseUp` step.
+ * Mouse down at `from`, then `steps` drags along the line to `to` and the up there, queued first as for a click (made
+ * as the window server makes them, GPQAQueuedMouseEvent, so they reach the views where they are; AppKit coalesces the
+ * queued moves: a view sees the last one). With `hold` the mouse stays down (a snapshot shows the drag in progress)
+ * until a `mouseUp` step.
  */
 - (void)dragFrom:(NSPoint)from to:(NSPoint)to steps:(NSInteger)steps hold:(BOOL)hold window:(NSWindow *)window
 {
   for (NSInteger i = 1; i <= steps; i++) {
     CGFloat t = (CGFloat)i / (CGFloat)steps;
     NSPoint point = NSMakePoint(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
-    [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseDragged at:point window:window] atStart:NO];
+    [NSApp postEvent:GPQAQueuedMouseEvent(kCGEventLeftMouseDragged, point, window) atStart:NO];
   }
   if (!hold) {
-    [NSApp postEvent:[self mouseEvent:NSEventTypeLeftMouseUp at:to window:window] atStart:NO];
+    [NSApp postEvent:GPQAQueuedMouseEvent(kCGEventLeftMouseUp, to, window) atStart:NO];
   }
   [window sendEvent:[self mouseEvent:NSEventTypeLeftMouseDown at:from window:window]];
 }
@@ -461,9 +511,6 @@ static NSDictionary<NSString *, NSNumber *> *GPQACharacterKeyCodes(void)
   });
   return codes;
 }
-
-/** The CGEvent field AppKit reads a key event's window number from (not public: QA only). */
-static const CGEventField kGPQAWindowNumberField = (CGEventField)51;
 
 /**
  * A key event made the way the window server makes one for this window: AppKit gives it the characters a real press
@@ -619,14 +666,13 @@ static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
   [self log:[NSString stringWithFormat:@"pasteboard: types=%@ text=\"%@\"", [pasteboard.types componentsJoinedByString:@", "], shown]];
 }
 
+/** A scroll wheel event at a point of the window (GPQAPlacedEvent: the window hit-tests that point); logs the view there. */
 - (void)scrollAt:(NSPoint)location by:(double)deltaY window:(NSWindow *)window
 {
-  CGEventRef cgEvent = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1, (int32_t)deltaY);
-  NSPoint onScreen = [window convertPointToScreen:location];
-  CGFloat screenHeight = NSScreen.screens.firstObject.frame.size.height;
-  CGEventSetLocation(cgEvent, CGPointMake(onScreen.x, screenHeight - onScreen.y));
-  NSEvent *event = [NSEvent eventWithCGEvent:cgEvent];
-  CFRelease(cgEvent);
+  NSEvent *event = GPQAPlacedEvent(CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1, (int32_t)deltaY), location, window);
+  NSView *hit = [window.contentView.superview hitTest:event.locationInWindow];
+  [self log:[NSString stringWithFormat:@"scroll at %@: locationInWindow %@, over %@", NSStringFromPoint(location), NSStringFromPoint(event.locationInWindow),
+                                       NSStringFromClass([hit class])]];
   [window sendEvent:event];
 }
 

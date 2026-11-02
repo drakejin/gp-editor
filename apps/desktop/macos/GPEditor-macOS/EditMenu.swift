@@ -45,6 +45,10 @@ final class EditMenuModel: ObservableObject {
         if let self, self.isTextFocused != isFocused {
           self.isTextFocused = isFocused
         }
+        // A field gone with the keyboard never ends its editing: nothing is edited while no shown text has the keys.
+        if let self, !isFocused, self.isEditingText {
+          self.isEditingText = false
+        }
       },
     ]
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -78,7 +82,17 @@ final class EditMenuModel: ObservableObject {
 
   /// The text field's editor or the text view that has the keyboard, if one has it.
   static var focusedText: NSText? {
-    keyboardWindow?.firstResponder as? NSText
+    keyboardWindow.flatMap(shownText(in:))
+  }
+
+  /// The window's first responder when it is a text shown in that window. A closed panel's field can stay the first
+  /// responder out of every window (react-native-macos resigns a recycled view without telling the window): it has
+  /// the keyboard no more, so the score's commands go on to the score.
+  static func shownText(in window: NSWindow) -> NSText? {
+    guard let text = window.firstResponder as? NSText, text.window === window, !text.isHiddenOrHasHiddenAncestor else {
+      return nil
+    }
+    return text
   }
 
   static var isTextFocused: Bool {
@@ -88,7 +102,7 @@ final class EditMenuModel: ObservableObject {
   /// The score's keys in the editor's window, outside a text field: ⌘X / ⌘C / ⌘V, ⌘D, and ⌘Z / ⇧⌘Z with something to
   /// undo / redo, posted for the score. Else the key goes on (a text field's own, the menu's beep).
   private func takeScoreKey(_ event: NSEvent) -> Bool {
-    guard let window = event.window, window == EditMenuModel.editorWindow, !(window.firstResponder is NSText),
+    guard let window = event.window, window == EditMenuModel.editorWindow, EditMenuModel.shownText(in: window) == nil,
           let key = event.charactersIgnoringModifiers?.lowercased() else {
       return false
     }
@@ -115,7 +129,7 @@ final class EditMenuModel: ObservableObject {
   /// ⌘A in a text field of the editor's window: its Select All, whichever state the menu item was last shown in (a field
   /// a panel focuses as it opens has the keyboard before any event has refreshed the item).
   private static func takeSelectAllKey(_ event: NSEvent) -> Bool {
-    guard let window = event.window, window == editorWindow, let text = window.firstResponder as? NSText,
+    guard let window = event.window, window == editorWindow, let text = shownText(in: window),
           event.charactersIgnoringModifiers?.lowercased() == "a",
           event.modifierFlags.intersection([.command, .shift, .option, .control]) == [.command] else {
       return false
