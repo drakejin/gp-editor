@@ -1,4 +1,6 @@
-import type { MeasureHeader } from '@gp-editor/core';
+import { type MeasureHeader, repeatPlays } from '@gp-editor/core';
+import { paletteGroups } from '../src/components/palette/palette-groups';
+import { paletteContext } from '../src/components/palette/palette-tools';
 import { type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import type { SongEdit } from '../src/state/song-edits';
 import { beat, header, makeSong, note } from '../test-support/songs';
@@ -67,7 +69,7 @@ describe('bar edits at the cursor', () => {
     expect(edit(start, { type: 'toggleAlternateEnding', ending })).toBe(start);
   });
 
-  it('changes the repeat count of a repeat close, never below two', () => {
+  it('closes a repeat played twice and changes how many times it plays, never below twice (Guitar Pro’s count)', () => {
     // Arrange
     const closed = edit(loaded(), { type: 'toggleRepeatClose' });
 
@@ -76,10 +78,20 @@ describe('bar edits at the cursor', () => {
     const two = edit(three, { type: 'shiftRepeatCount', delta: -5 });
 
     // Assert
-    expect(bar(closed).repeatClose).toBe(2);
-    expect(bar(three).repeatClose).toBe(3);
-    expect(bar(two).repeatClose).toBe(2);
+    expect([closed, three, two].map((state) => repeatPlays(bar(state)))).toEqual([2, 3, 2]);
     expect(edit(two, { type: 'shiftRepeatCount', delta: -1 })).toBe(two);
+  });
+
+  it('shows the times a repeat plays on the Repeats stepper', () => {
+    // Arrange
+    const stepper = paletteGroups().find((group) => group.id === 'bar')?.steppers?.find((row) => row.id === 'repeats');
+    const shown = (state: EditorState): string | undefined => stepper?.value(paletteContext(state.document!.song, state.cursor));
+
+    // Act
+    const closed = edit(loaded(), { type: 'toggleRepeatClose' });
+
+    // Assert
+    expect([shown(loaded()), shown(closed), shown(edit(closed, { type: 'shiftRepeatCount', delta: 1 }))]).toEqual(['–', '×2', '×3']);
   });
 
   it('changes no repeat count where the bar has no repeat close', () => {

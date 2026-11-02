@@ -1,6 +1,17 @@
-import { NECK_FRETS, type PresetFit, type Track, type TuningAdvice, type TuningChange, type TuningPreset, trackTuning } from '@gp-editor/core';
-import { t } from './i18n/i18n';
-import { tuningName } from './instruments';
+import {
+  type Instrument,
+  NECK_FRETS,
+  type NeckInstrument,
+  type PresetFit,
+  type Track,
+  type TuningAdvice,
+  type TuningChange,
+  type TuningPreset,
+  isNeckInstrument,
+  trackTuning,
+} from '@gp-editor/core';
+import { type MessageKey, t } from './i18n/i18n';
+import { gmProgramName, tuningName } from './instruments';
 import { pitchName, tuningLabel } from './pitch';
 
 /** Suggested presets the hint offers as buttons. */
@@ -16,16 +27,37 @@ export interface TuningHint {
 }
 
 
-/** "Guitar · 6 strings · Drop D (D A D G B E)"; a custom tuning shows only its notes; a capo is added. */
-export function neckTitle(advice: TuningAdvice, track: Track): string {
-  return neckTitleFor(advice.instrument, advice.current, track);
+const INSTRUMENT_TITLES: Readonly<Record<Exclude<Instrument, 'keys' | 'other'>, MessageKey>> = {
+  guitar: 'tools.tuning.instrument.guitar',
+  bass: 'tools.tuning.instrument.bass',
+  banjo: 'tools.tuning.instrument.banjo',
+  ukulele: 'tools.tuning.instrument.ukulele',
+  vocals: 'tools.tuning.instrument.vocals',
+  percussion: 'tools.tuning.instrument.percussion',
+};
+
+const IN_SENTENCE: Readonly<Record<NeckInstrument, MessageKey>> = {
+  guitar: 'tools.tuning.inSentence.guitar',
+  bass: 'tools.tuning.inSentence.bass',
+  banjo: 'tools.tuning.inSentence.banjo',
+  ukulele: 'tools.tuning.inSentence.ukulele',
+};
+
+/** What a track is called above its neck: its stringed instrument or a voice; a keyboard or other instrument by its sound. */
+export function instrumentTitle(instrument: Instrument, program: number): string {
+  return instrument === 'keys' || instrument === 'other' ? gmProgramName(program) : t(INSTRUMENT_TITLES[instrument]);
 }
 
-/** neckTitle from the track's instrument and the preset it is tuned to (undefined: a custom tuning). */
-export function neckTitleFor(instrument: TuningAdvice['instrument'], current: TuningPreset | undefined, track: Track): string {
+/** "Guitar · 6 strings · Drop D (D A D G B E)"; a custom tuning shows only its notes; a capo is added. */
+export function neckTitle(advice: TuningAdvice, track: Track): string {
+  return neckTitleFor(advice.instrument, advice.current, track, advice.program);
+}
+
+/** neckTitle from the track's instrument, the preset it is tuned to (undefined: a custom tuning) and its sound. */
+export function neckTitleFor(instrument: Instrument, current: TuningPreset | undefined, track: Track, program: number): string {
   const notes = tuningLabel(trackTuning(track));
   return [
-    t(`tools.tuning.instrument.${instrument}`),
+    instrumentTitle(instrument, program),
     t('common.strings', { count: track.strings.length }),
     current === undefined ? notes : `${tuningName(current)} (${notes})`,
     ...(track.offset > 0 ? [t('tools.tuning.capo', { fret: track.offset })] : []),
@@ -33,7 +65,7 @@ export function neckTitleFor(instrument: TuningAdvice['instrument'], current: Tu
 }
 
 /** Why standard tuning cannot play the track: a note below its lowest string, past its last fret, or a crowded chord. */
-function standardProblem(advice: TuningAdvice, standard: TuningPreset, track: Track): string {
+function standardProblem(advice: TuningAdvice, instrument: NeckInstrument, standard: TuningPreset, track: Track): string {
   const range = advice.pitchRange;
   const lowestOpen = Math.min(...standard.tuning) + track.offset;
   const highestNote = Math.max(...standard.tuning) + NECK_FRETS;
@@ -43,33 +75,33 @@ function standardProblem(advice: TuningAdvice, standard: TuningPreset, track: Tr
       : range !== undefined && range.highest > highestNote
       ? t('tools.tuning.highestNote', { name: pitchName(range.highest) })
       : t('tools.tuning.sameString');
-  return t('tools.tuning.standardCannot', { instrument: t(`tools.tuning.inSentence.${advice.instrument}`), reason });
+  return t('tools.tuning.standardCannot', { instrument: t(IN_SENTENCE[instrument]), reason });
 }
 
-function trackProblem(advice: TuningAdvice, track: Track, standard: PresetFit): string {
+function trackProblem(advice: TuningAdvice, neck: NeckInstrument, track: Track, standard: PresetFit): string {
   if (standard.unplayableNotes > 0) {
-    return standardProblem(advice, standard.preset, track);
+    return standardProblem(advice, neck, standard.preset, track);
   }
   if (advice.current !== undefined) {
     return t('tools.tuning.presetCannot', { name: tuningName(advice.current), frets: NECK_FRETS });
   }
   const stringCount = standard.preset.tuning.length;
-  const instrument = t(`tools.tuning.inSentence.${advice.instrument}`);
+  const instrument = t(IN_SENTENCE[neck]);
   return track.strings.length === stringCount
     ? t('tools.tuning.notPreset', { notes: tuningLabel(trackTuning(track)), instrument })
     : t('tools.tuning.stringCount', { count: track.strings.length, instrument, expected: stringCount });
 }
 
 /**
- * What the neck settings say when a pitched track is not on a preset of its instrument that plays every note: the
+ * What the neck settings say when a stringed track is not on a preset of its instrument that plays every note: the
  * problem, then the best suggestions (or the closest preset when none fits). Undefined when nothing needs doing.
  */
 export function tuningHint(advice: TuningAdvice, track: Track): TuningHint | undefined {
   const standard = advice.presets[0];
-  if (!advice.needsTuning || standard === undefined) {
+  if (!advice.needsTuning || standard === undefined || !isNeckInstrument(advice.instrument)) {
     return undefined;
   }
-  const message = trackProblem(advice, track, standard);
+  const message = trackProblem(advice, advice.instrument, track, standard);
   if (advice.suggested.length > 0) {
     return { message, lead: t('tools.tuning.suggested'), presets: advice.suggested.slice(0, HINT_SUGGESTIONS) };
   }

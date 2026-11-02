@@ -235,6 +235,14 @@ export function headerTicks(header: Pick<MeasureHeader, 'timeSignature'>): numbe
   return measureTicks(header.timeSignature.numerator, header.timeSignature.denominator);
 }
 
+/**
+ * How many times the bars a header's repeat close ends are played in all: Guitar Pro's count (its Repeat close dialog,
+ * the number over the sign, GPIF's count, GP5's byte); 0 without a repeat close. `repeatClose` counts the repetitions.
+ */
+export function repeatPlays(header: Pick<MeasureHeader, 'repeatClose'>): number {
+  return header.repeatClose > 0 ? header.repeatClose + 1 : 0;
+}
+
 /** True when a voice of the measure runs past its end (an over-full measure; Guitar Pro allows and marks them). */
 export function isMeasureOverfull(measure: Measure, header: MeasureHeader): boolean {
   const end = header.start + headerTicks(header);

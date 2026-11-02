@@ -9,10 +9,10 @@ import {
   nextNoteOnString,
   previousNoteOnString,
 } from './links';
-import { bowCurve, halfArc, textWidth, verticalArrow } from './shapes';
+import { bowCurve, halfArc, verticalArrow } from './shapes';
+import { FRET_BOX, SMALL_FRET, graceOffset, graceText, smallFretWidth, trillOffset, trillText } from './small-frets';
 import {
   BEND_TIP,
-  FRET_BOX,
   beatEndX,
   tabStringY,
   voiceColor,
@@ -62,13 +62,6 @@ const SLIDE = {
   width: 1,
 } as const;
 
-const SMALL_FRET = {
-  size: 8,
-  height: 10,
-  padding: 1,
-  gap: 3,
-  charWidth: 0.6,
-} as const;
 const STROKE = { gap: 3, overhang: 5, width: 1 } as const;
 
 /** A note at its place on the staff. */
@@ -296,9 +289,7 @@ function smallFret(
   context: TabNotesContext,
   color: string,
 ): DrawCommand[] {
-  const width =
-    text.length * SMALL_FRET.size * SMALL_FRET.charWidth +
-    2 * SMALL_FRET.padding;
+  const width = smallFretWidth(text);
   return [
     {
       kind: 'rect',
@@ -327,13 +318,8 @@ function graceFret(
   placed: PlacedNote,
   grace: Grace,
 ): DrawCommand[] {
-  const text = grace.isDead ? 'x' : String(grace.fret);
-  const x =
-    placed.x -
-    FRET_BOX.width / 2 -
-    SMALL_FRET.gap -
-    (text.length * SMALL_FRET.size * SMALL_FRET.charWidth) / 2;
-  return smallFret(text, x, placed.y, context, placed.color);
+  const text = graceText(grace);
+  return smallFret(text, placed.x - graceOffset(text), placed.y, context, placed.color);
 }
 
 function trillFret(
@@ -341,11 +327,10 @@ function trillFret(
   placed: PlacedNote,
   fret: number,
 ): DrawCommand[] {
-  const text = `(${fret})`;
-  const x =
-    placed.x + FRET_BOX.width / 2 + textWidth(text, SMALL_FRET.size) / 2;
-  return smallFret(text, x, placed.y, context, placed.color);
+  const text = trillText(fret);
+  return smallFret(text, placed.x + trillOffset(text), placed.y, context, placed.color);
 }
+
 
 function bend(context: TabNotesContext, placed: PlacedNote): DrawCommand[] {
   const points = placed.note.effect.bend?.points ?? [];

@@ -10,7 +10,21 @@ describe('engraveHeading', () => {
     const headers = [header(1, { marker: { title: 'Intro', color: { r: 255, g: 0, b: 16 } }, repeatAlternative: 0b11, repeatClose: 3 })];
     const song = makeSong([[]], headers);
     const commands = engraveHeading(headers[0]!, layoutMeasure(song, 0, 0), PALETTE);
-    expect(textValues(commands)).toEqual(['1', 'Intro', '♩ = 120', '1, 2.', 'x3']);
+    expect(textValues(commands)).toEqual(['1', 'Intro', '♩ = 120', '1, 2.', 'x4']);
+  });
+
+  it('writes how many times a repeat plays, and nothing for a repeat played twice (as Guitar Pro 8)', () => {
+    // Arrange: repeats played twice and three times
+    const headers = [header(1, { repeatClose: 1 }), header(2, { repeatClose: 2 })];
+    const song = makeSong([[], []], headers);
+
+    // Act
+    const twice = textValues(engraveHeading(headers[0]!, layoutMeasure(song, 0, 0), PALETTE));
+    const thrice = textValues(engraveHeading(headers[1]!, layoutMeasure(song, 0, 1), PALETTE));
+
+    // Assert
+    expect(twice.filter((text) => text.startsWith('x'))).toEqual([]);
+    expect(thrice).toContain('x3');
   });
 
   it('writes a decimal tempo with its decimals and no trailing zero', () => {

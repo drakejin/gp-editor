@@ -202,7 +202,7 @@ function engraveVoiceEvents(
       tupletMarks(group, layout, beamed),
     ),
     ...ties(layout),
-    ...ottavaMarks(events, chords, context.top, ink, context),
+    ...ottavaMarks(events, chords, context.top, ink, context, tips),
     ...techniques(layout),
     ...fingerings(layout, context.isKeyboard === true),
     ...(context.showsPickStrokes === true ? pickStrokes(layout) : []),

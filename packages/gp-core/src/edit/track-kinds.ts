@@ -40,7 +40,7 @@ function choice(id: string, name: string, tuning: readonly number[]): TrackTunin
   return { id, name, tuning };
 }
 
-/** TuxGuitar's tunings for the string counts tuning-presets.ts does not have, and the ukulele's. */
+/** TuxGuitar's tunings for the string counts tuning-presets.ts does not have, and the baritone ukulele. */
 const MORE_TUNINGS: Readonly<Partial<Record<TrackKind, readonly TrackTuningChoice[]>>> = {
   guitar: [
     choice('guitar-7-standard', 'Standard', [64, 59, 55, 50, 45, 40, 35]),
@@ -52,8 +52,7 @@ const MORE_TUNINGS: Readonly<Partial<Record<TrackKind, readonly TrackTuningChoic
     choice('bass-5-tenor', 'Tenor', [48, 43, 38, 33, 28]),
     choice('bass-6-standard', 'Standard', [48, 43, 38, 33, 28, 23]),
   ],
-  // TuxGuitar calls low G "Tenor".
-  ukulele: [choice('ukulele-standard', 'Standard', [69, 64, 60, 67]), choice('ukulele-low-g', 'Low G', [69, 64, 60, 55]), choice('ukulele-baritone', 'Baritone', [64, 59, 55, 50])],
+  ukulele: [choice('ukulele-baritone', 'Baritone', [64, 59, 55, 50])],
   keys: [choice('neck-standard', 'Standard', STANDARD_TUNING)],
   other: [choice('neck-standard', 'Standard', STANDARD_TUNING)],
 };

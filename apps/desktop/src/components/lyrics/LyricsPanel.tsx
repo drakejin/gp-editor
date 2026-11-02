@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Song } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
+import { growingFieldHeight } from '../../lib/field-height';
 import { type LyricsDraft, gp5LyricsNote, lyricsFit } from '../../lib/lyrics-draft';
 import type { Palette } from '../../theme';
 import { ChromeButton } from '../chrome/ChromeButton';
@@ -16,13 +17,13 @@ export interface LyricsPanelProps {
   readonly onClose: () => void;
 }
 
-/** Lines of text the field shows before it scrolls. */
-const TEXT_LINES = 5;
-const LINE_HEIGHT = 17;
+/** Lines of text the field grows to before it scrolls. */
+const MAX_TEXT_LINES = 5;
 
 /**
  * Edit ▸ Lyrics…: a track's lyrics and the bar they start at, as in Guitar Pro's lyrics editor. Above the score, which
- * follows the typing (useLyricsEditor applies it once the typing pauses).
+ * follows the typing (useLyricsEditor applies it once the typing pauses). Compact, so the score keeps its room beside
+ * another panel at the default window: the field grows with the lyrics' lines, the syntax shows while nothing is typed.
  */
 export function LyricsPanel({ palette, song, draft, onChooseTrack, onChangeFrom, onChangeText, onClose }: LyricsPanelProps) {
   const t = useT();
@@ -51,9 +52,9 @@ export function LyricsPanel({ palette, song, draft, onChooseTrack, onChangeFrom,
         autoFocus
         placeholder={t('tools.lyrics.placeholder')}
         placeholderTextColor={palette.chromeMuted}
-        style={[styles.text, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
+        style={[styles.text, { height: growingFieldHeight(draft.text, MAX_TEXT_LINES), color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
       />
-      <Text style={[styles.hint, { color: palette.chromeMuted }]}>{t('tools.lyrics.syntax')}</Text>
+      {draft.text === '' ? <Text style={[styles.hint, { color: palette.chromeMuted }]}>{t('tools.lyrics.syntax')}</Text> : null}
       <Text style={[styles.hint, { color: palette.chromeText }]}>{lyricsFit(song, draft)}</Text>
       {note === undefined ? null : <Text style={[styles.hint, { color: palette.chromeMuted }]}>{note}</Text>}
     </View>
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
   spaced: { marginLeft: 14 },
   bar: { minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: '700' },
   fill: { flex: 1 },
-  text: { height: TEXT_LINES * LINE_HEIGHT + 10, borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, fontSize: 13 },
+  text: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, fontSize: 13 },
   hint: { fontSize: 11 },
 });

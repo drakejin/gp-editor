@@ -1,11 +1,9 @@
 import { type MeasureLayout, TAB } from '../../lib/layout';
 import type { Palette } from '../../theme';
 import { voiceTint } from '../voices';
+import { FRET_BOX } from './small-frets';
 
 /** Tab staff geometry shared by the tab engraver and its technique symbols, in points. */
-
-/** The paper box behind a fret number, hiding the string line. */
-export const FRET_BOX = { width: 22, height: 14 } as const;
 
 /** Effect marks above the tab staff: lanes stack upwards from the marks row (`marksY` is the lowest lane). */
 export const TAB_MARKS = {

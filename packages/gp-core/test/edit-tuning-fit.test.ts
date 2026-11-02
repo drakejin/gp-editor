@@ -144,6 +144,20 @@ describe('suggestTunings', () => {
     expect(advice?.presets.map((fit) => fit.preset)).toEqual(tuningPresetsFor('bass'));
   });
 
+  it('offers a ukulele its own presets, and keeps it on them', () => {
+    const song = songOnStrings([69, 64, 60, 67], [[[play(4, n(1, 3))]]], { program: 24 });
+    const advice = suggestTunings(song, 0);
+    expect(advice).toMatchObject({ instrument: 'ukulele', current: { name: 'Standard' }, needsTuning: false });
+    expect(advice?.presets.map((fit) => fit.preset)).toEqual(tuningPresetsFor('ukulele'));
+  });
+
+  it('offers no tuning to a keyboard, voice or other instrument, whose strings only hold its notes', () => {
+    const tracks = [0, 53, 73].map((program) => songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 30))]]], { program }));
+    expect(tracks.map((song) => suggestTunings(song, 0))).toEqual(
+      ['keys', 'vocals', 'other'].map((instrument) => expect.objectContaining({ instrument, presets: [], suggested: [], needsTuning: false })),
+    );
+  });
+
   it('offers nothing to a percussion track, and nothing for a missing track', () => {
     const drums = songOnStrings([0, 0, 0, 0, 0, 0], [[[play(4, n(1, 36))]]], { isPercussion: true });
     expect(suggestTunings(drums, 0)).toMatchObject({ instrument: 'percussion', presets: [], suggested: [], needsTuning: false });
@@ -162,10 +176,8 @@ describe('suggestTunings', () => {
     const bass = suggestTunings(song, song.tracks.findIndex((track) => track.name === 'Marco' && track.strings.length === 4));
 
     // Assert
-    expect(strings).toMatchObject({ instrument: 'guitar', current: undefined, needsTuning: true, pitchRange: { lowest: 34, highest: 87 } });
-    expect(strings?.presets[0]?.unplayableNotes).toBeGreaterThan(0);
-    expect(choirs?.needsTuning).toBe(true);
-    expect(choirs?.suggested[0]?.name).toBe('Standard');
+    expect(strings).toMatchObject({ instrument: 'other', presets: [], needsTuning: false, pitchRange: { lowest: 34, highest: 87 } });
+    expect(choirs).toMatchObject({ instrument: 'vocals', presets: [], needsTuning: false });
     expect(rhythm).toMatchObject({ current: { name: 'Drop C' }, needsTuning: false });
     expect(bass).toMatchObject({ instrument: 'bass', current: { name: 'Drop C' }, needsTuning: false });
   });

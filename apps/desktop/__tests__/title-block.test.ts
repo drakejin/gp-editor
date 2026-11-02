@@ -37,6 +37,18 @@ describe('titleBlockLines', () => {
     expect(lines).toEqual(['Test', 'Guitar — Guitar · 6 strings · Standard (E A D G B E)']);
   });
 
+  it('names a ukulele and a flute by what they are, not a guitar', () => {
+    // Arrange
+    const ukulele = onStrings(makeSong([]), [69, 64, 60, 67], { program: 24 });
+    const flute = onStrings(makeSong([]), [64, 59, 55, 50, 45, 40], { program: 73 });
+
+    // Act
+    const lines = [ukulele, flute].map((song) => titleBlockLines(song, 0, 'Test').map((line) => line.text)[1]);
+
+    // Assert
+    expect(lines).toEqual(['Guitar — Ukulele · 4 strings · Standard (G C E A)', 'Guitar — Flute · 6 strings · E A D G B E']);
+  });
+
   it('names a drum track without a tuning, and an unnamed track by its number', () => {
     const drums = onStrings(makeSong([]), [0, 0, 0, 0, 0, 0], { isPercussion: true });
     const unnamed: Song = { ...drums, tracks: drums.tracks.map((track) => ({ ...track, name: '' })) };

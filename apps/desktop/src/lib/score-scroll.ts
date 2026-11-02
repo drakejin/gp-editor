@@ -22,3 +22,21 @@ export function isLineOnFirstScreen(line: { readonly top: number; readonly heigh
   const lineTop = page.topMargin + page.headerHeight + line.top;
   return page.viewportHeight > 0 && lineTop + line.height / 2 <= page.viewportHeight;
 }
+
+/** Where a line lands when the score scrolls to it (fraction of the view's free room above it): a quarter down. */
+const SCROLL_FRACTION = 0.25;
+
+/**
+ * True when as much of a line shows as the view can hold — all of it, or a view's height of a line taller than the
+ * view — with the page scrolled `scrollTop` points (the list's content offset); `top` is under the title block.
+ */
+export function isLineInView(line: { readonly top: number; readonly height: number }, page: Omit<PageTop, 'rowHeight'>, scrollTop: number): boolean {
+  const lineTop = page.topMargin + page.headerHeight + line.top;
+  const shown = Math.min(lineTop + line.height, scrollTop + page.viewportHeight) - Math.max(lineTop, scrollTop);
+  return page.viewportHeight > 0 && shown >= Math.min(line.height, page.viewportHeight);
+}
+
+/** The list's viewPosition for a line `height` points tall: a quarter down the view, a line taller than it at its top. */
+export function scrollPosition(height: number, viewportHeight: number): number {
+  return height > viewportHeight ? 0 : SCROLL_FRACTION;
+}

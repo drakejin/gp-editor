@@ -44,7 +44,9 @@ export {
   type NeckInstrument,
   TUNING_PRESETS,
   type TuningPreset,
+  channelProgramOf,
   findTuningPreset,
+  isNeckInstrument,
   isSameTuning,
   resolveInstrument,
   resolveTrackInstrument,
@@ -101,7 +103,7 @@ export { moveBeatsToVoice, moveNotesToVoice } from './edit/voice-moves';
 export { setBeatPickStroke, setBeatStroke, setBeatText } from './edit/beat-attributes';
 export { setBeatRasgueado, toggleBeatPedal, toggleDirection, toggleHairpin } from './edit/marks';
 export { setMeasureClef, setOttava } from './edit/staff-signs';
-export { OTTAVAS, isOttava, ottavaOctaves } from './model/defaults';
+export { OTTAVAS, isOttava, ottavaOctaves, repeatPlays } from './model/defaults';
 export { type KeyMode, type KeyTonic, keySignatureOf, keyTonic } from './edit/key-spelling';
 export { DIRECTION_JUMPS, DIRECTION_TARGETS, MUSICAL_DIRECTIONS, isDirectionTarget } from './formats/common/directions';
 export { RASGUEADO_PATTERNS, type RasgueadoInfo, rasgueadoInfo } from './formats/common/rasgueado';

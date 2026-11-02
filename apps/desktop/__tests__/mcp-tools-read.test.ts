@@ -80,6 +80,17 @@ describe('get_bars', () => {
     });
   });
 
+  it('reads a repeat close as the times it plays, Guitar Pro’s count', async () => {
+    // Arrange: bar 2 closes a repeat played twice
+    const song = makeSong([[beat(960, [])], [beat(4800, [])]], [header(1, { repeatOpen: true }), header(2, { repeatClose: 1 })]);
+
+    // Act
+    const { structured } = await call(fakeApp(openWorkspace(song)), 'get_bars', { fromBar: 1, toBar: 2 });
+
+    // Assert
+    expect(structured).toMatchObject({ bars: [{ bar: 1, repeatOpen: true }, { bar: 2, repeatPlays: 2 }] });
+  });
+
   it('refuses a bar the song does not have, and more than 32 bars at once', async () => {
     const app = fakeApp(openWorkspace(riff()));
     const long = workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: makeSong(Array.from({ length: 40 }, (_, i) => [beat(960 + i * 3840, [])])) } });

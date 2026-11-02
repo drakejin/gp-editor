@@ -1,14 +1,26 @@
-// Tuning presets after TuxGuitar's common/resources/tunings/tunings.xml (LGPL-2.1): its 6-string guitar and 4-string bass groups, named for the app.
+// Tuning presets after TuxGuitar's common/resources/tunings/tunings.xml (LGPL-2.1): its 6-string guitar, 4-string bass
+// and ukulele groups, named for the app.
 import { GM_BANJO_PROGRAM, isGmBassProgram } from '../formats/common/channels';
+import { isGuitarProgram, isKeyboardProgram, isUkuleleTuning } from '../formats/common/instrument-sets';
 import { STANDARD_BASS_TUNING, STANDARD_TUNING } from '../model/defaults';
 import type { Channel, Song, Track } from '../model/song';
 import { isFiveStringBanjo } from './banjo';
+import { isVoiceName } from './track-properties';
 
-/** What neck a track is shown on: a 6-string guitar, a 4-string bass, a banjo, or none (drums). */
-export type Instrument = 'percussion' | 'bass' | 'guitar' | 'banjo';
+/**
+ * What a track is, as Guitar Pro 7/8 give a track one instrument (the kinds of Add Track and of a changed instrument):
+ * a stringed instrument whose strings are its own (guitar, bass, banjo, ukulele), one whose strings only hold its notes
+ * (keys, vocals, any other instrument), or drums.
+ */
+export type Instrument = 'percussion' | 'guitar' | 'bass' | 'banjo' | 'ukulele' | 'keys' | 'vocals' | 'other';
 
-/** An instrument with a neck. */
-export type NeckInstrument = Exclude<Instrument, 'percussion'>;
+/** A stringed instrument: its strings are its own, tuned to its presets. */
+export type NeckInstrument = 'guitar' | 'bass' | 'banjo' | 'ukulele';
+
+/** True for the stringed instruments, which have tuning presets. */
+export function isNeckInstrument(instrument: Instrument): instrument is NeckInstrument {
+  return instrument === 'guitar' || instrument === 'bass' || instrument === 'banjo' || instrument === 'ukulele';
+}
 
 export interface TuningPreset {
   /** Unique across instruments, e.g. "guitar-drop-d". */
@@ -27,7 +39,10 @@ function preset(instrument: NeckInstrument, key: string, name: string, tuning: r
 /** The 5-string banjo's open G (g D G B D): the short 5th string, string 5, is the high g. */
 const BANJO_OPEN_G: readonly number[] = [62, 59, 55, 50, 67];
 
-/** Every preset in menu order: guitar, bass, then banjo, standard (banjo: open G) first. */
+/** The ukulele's re-entrant G C E A: string 4, the high g, above string 3. */
+const UKULELE_STANDARD: readonly number[] = [69, 64, 60, 67];
+
+/** Every preset in menu order: guitar, bass, banjo, then ukulele, standard (banjo: open G) first. */
 export const TUNING_PRESETS: readonly TuningPreset[] = [
   preset('guitar', 'standard', 'Standard', STANDARD_TUNING),
   preset('guitar', 'drop-d', 'Drop D', [64, 59, 55, 50, 45, 38]),
@@ -54,20 +69,31 @@ export const TUNING_PRESETS: readonly TuningPreset[] = [
   preset('banjo', 'tenor', 'Tenor', [69, 62, 55, 48]),
   preset('banjo', 'irish-tenor', 'Irish tenor', [64, 57, 50, 43]),
   preset('banjo', 'plectrum', 'Plectrum', [62, 59, 55, 48]),
+  // TuxGuitar calls low G "Tenor". Its baritone (D G B E) is no preset: tuned like a guitar's top strings, it reads as
+  // a 4-string guitar (isUkuleleTuning), so it stays a choice for a new ukulele (track-kinds.ts).
+  preset('ukulele', 'standard', 'Standard', UKULELE_STANDARD),
+  preset('ukulele', 'low-g', 'Low G', [69, 64, 60, 55]),
 ];
 
 /** Highest open string a bass tuning has: the high C3 of a 6-string bass. */
 const BASS_HIGHEST_OPEN_STRING = 48;
 const BASS_MAX_STRINGS = 6;
 
-/** The instrument's presets in menu order; none for percussion. */
+/** The instrument's presets in menu order; none for percussion, keyboards, voices and other instruments. */
 export function tuningPresetsFor(instrument: Instrument): readonly TuningPreset[] {
   return TUNING_PRESETS.filter((candidate) => candidate.instrument === instrument);
 }
 
+const STANDARD_TUNINGS: Readonly<Record<NeckInstrument, readonly number[]>> = {
+  guitar: STANDARD_TUNING,
+  bass: STANDARD_BASS_TUNING,
+  banjo: BANJO_OPEN_G,
+  ukulele: UKULELE_STANDARD,
+};
+
 /** The standard tuning of a neck instrument. */
 export function standardTuningFor(instrument: NeckInstrument): readonly number[] {
-  return instrument === 'bass' ? STANDARD_BASS_TUNING : instrument === 'banjo' ? BANJO_OPEN_G : STANDARD_TUNING;
+  return STANDARD_TUNINGS[instrument];
 }
 
 /** Open-string pitches of a track, string 1 first. */
@@ -101,11 +127,21 @@ export function isBassTuning(tuning: readonly number[]): boolean {
   return tuning.length > 0 && tuning.length <= BASS_MAX_STRINGS && Math.max(...tuning) <= BASS_HIGHEST_OPEN_STRING;
 }
 
+/** General MIDI 52–54: choir aahs, voice oohs, synth voice. */
+const VOICE_PROGRAMS = { first: 52, last: 54 } as const;
+/** What a track plays when it has no channel: a steel guitar, as the readers' default channel. */
+const DEFAULT_PROGRAM = 25;
+
+/** The General MIDI program the channel plays; a steel guitar for a track without a channel. */
+export function channelProgramOf(channels: readonly Channel[], channelId: number | undefined): number {
+  return channels.find((channel) => channel.id === channelId)?.program ?? DEFAULT_PROGRAM;
+}
+
 /**
- * The neck a track is shown on. Percussion tracks have none. A track is a bass when its channel plays a General MIDI
- * bass (programs 32–39), a banjo when it plays the GM banjo (105) or has a 5-string banjo's tuning (isFiveStringBanjo),
- * else a bass when its strings are tuned like one (isBassTuning). Every other pitched track — strings ensemble, choir,
- * piano, 7-string guitar — is shown on a guitar neck.
+ * What a track is: percussion for a drum track; vocals for a voice program or a track named like a voice; a bass by
+ * its program; a banjo by its program or a 5-string banjo's strings; on a guitar program a ukulele's strings make a
+ * ukulele, a bass's few low strings a bass, any other strings a guitar; pianos and organs keys; everything else other
+ * (strings ensemble, winds, a contrabass), whatever strings hold its notes.
  */
 export function resolveInstrument(song: Song, track: Track): Instrument {
   return resolveTrackInstrument(track, song.channels);
@@ -116,13 +152,19 @@ export function resolveTrackInstrument(track: Track, channels: readonly Channel[
   if (track.isPercussion) {
     return 'percussion';
   }
-  const program = channels.find((channel) => channel.id === track.channelId)?.program;
-  if (program !== undefined && isGmBassProgram(program)) {
+  const program = channelProgramOf(channels, track.channelId);
+  const tuning = trackTuning(track);
+  if ((program >= VOICE_PROGRAMS.first && program <= VOICE_PROGRAMS.last) || isVoiceName(track.name)) {
+    return 'vocals';
+  }
+  if (isGmBassProgram(program)) {
     return 'bass';
   }
-  const tuning = trackTuning(track);
   if (program === GM_BANJO_PROGRAM || isFiveStringBanjo(tuning)) {
     return 'banjo';
   }
-  return isBassTuning(tuning) ? 'bass' : 'guitar';
+  if (isGuitarProgram(program)) {
+    return isUkuleleTuning(tuning) ? 'ukulele' : isBassTuning(tuning) ? 'bass' : 'guitar';
+  }
+  return isKeyboardProgram(program) ? 'keys' : 'other';
 }

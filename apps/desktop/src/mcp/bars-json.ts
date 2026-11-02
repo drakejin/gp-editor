@@ -9,6 +9,7 @@ import {
   type Note,
   type NoteEffect,
   QUARTER,
+  repeatPlays,
   type Song,
   type Tuplet,
   durationTicks,
@@ -101,7 +102,7 @@ export function barJson(song: Song, trackIndex: number, measureIndex: number, vo
     keySignature: measure.keySignature,
     ...(header.marker === undefined ? {} : { section: header.marker.title }),
     ...(header.repeatOpen ? { repeatOpen: true } : {}),
-    ...(header.repeatClose > 0 ? { repeatClose: header.repeatClose } : {}),
+    ...(header.repeatClose > 0 ? { repeatPlays: repeatPlays(header) } : {}),
     voices: voicesJson(measure.beats, header, voiceIndexes),
   };
 }

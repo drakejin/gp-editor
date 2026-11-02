@@ -117,6 +117,22 @@ describe('written octave signs', () => {
     expect(bracketLines(commands)).toHaveLength(2);
   });
 
+  it('puts the 8va mark over its run’s stems and beams, not through them', () => {
+    // Arrange: beamed eighths drawn G4 A4 G4 A4 under an 8va (stems up, their beam above the staff)
+    const eighth = { ...QUARTER, value: 8 as const };
+    const beats = [3, 5, 3, 5].map((fret, i) => signed(beat(960 + i * 480, [note(1, fret)], eighth), '8va'));
+
+    // Act
+    const commands = engrave([beats], 0);
+
+    // Assert: the label and its line clear the beam's top edge
+    const beamTop = Math.min(...commands.flatMap((c) => (c.kind === 'polygon' ? c.points.filter((_, i) => i % 2 === 1) : [])));
+    const [label] = texts(commands, '8va');
+    expect(beamTop).toBeLessThan(TOP);
+    expect(label!.y + OTTAVA.fontSize / 2).toBeLessThanOrEqual(beamTop);
+    expect(Math.max(...bracketLines(commands).flatMap((line) => [line.y1, line.y2]))).toBeLessThanOrEqual(beamTop);
+  });
+
   it('draws 8vb and 15mb notes higher with the mark under the staff, and 15ma two octaves lower', () => {
     // Act: the low E (written E3, under the staff) under 8vb and 15mb
     const lowE = (sign: Ottava) => signed(beat(960, [note(6, 0)]), sign);

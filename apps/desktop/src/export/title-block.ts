@@ -6,6 +6,7 @@ import {
   type TextElement,
   type TextStyle,
   type Track,
+  channelProgramOf,
   findTuningPreset,
   resolveTrackInstrument,
   stylesheetOf,
@@ -108,7 +109,7 @@ function trackLine(song: Song, track: Track): string {
   if (instrument === 'percussion') {
     return name;
   }
-  return `${name} — ${neckTitleFor(instrument, findTuningPreset(instrument, trackTuning(track)), track)}`;
+  return `${name} — ${neckTitleFor(instrument, findTuningPreset(instrument, trackTuning(track)), track, channelProgramOf(song.channels, track.channelId))}`;
 }
 
 /** The title block `width` points wide: headings centred, the track line on the left. */

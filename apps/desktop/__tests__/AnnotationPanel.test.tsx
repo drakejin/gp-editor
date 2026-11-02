@@ -1,4 +1,4 @@
-import { Text, TextInput } from 'react-native';
+import { StyleSheet, Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { AnnotationPanel, type AnnotationPanelProps } from '../src/components/annotations/AnnotationPanel';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
@@ -49,6 +49,11 @@ describe('AnnotationPanel', () => {
     expect(panel.button('Below')?.props.isActive).toBe(true);
     expect(panel.button('Above')?.props.isActive).toBe(false);
     expect(panel.field()?.props).toMatchObject({ value: 'Watch the bend', multiline: true, accessibilityLabel: 'Annotation text' });
+  });
+
+  it('starts two lines tall and grows with the text’s lines up to four, so the score keeps its room', () => {
+    const height = (text: string) => StyleSheet.flatten(render({ draft: { at: { trackIndex: 0, measureIndex: 0, beatIndex: 0 }, text, placement: 'above', isEdited: false } }).field()?.props.style)?.height;
+    expect([height(''), height('a\nb\nc'), height('a\nb\nc\nd\ne\nf')]).toEqual([44, 61, 78]);
   });
 
   it('types, places, applies, deletes and closes through its handlers', () => {

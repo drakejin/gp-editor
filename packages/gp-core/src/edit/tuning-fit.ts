@@ -4,7 +4,9 @@ import {
   type Instrument,
   type NeckInstrument,
   type TuningPreset,
+  channelProgramOf,
   findTuningPreset,
+  isNeckInstrument,
   keepsStandardShapes,
   resolveTrackInstrument,
   standardTuningFor,
@@ -27,11 +29,13 @@ export interface PresetFit {
 /** What the neck settings show for a track: its instrument, how each preset fits, and which to pick. */
 export interface TuningAdvice {
   readonly instrument: Instrument;
+  /** The General MIDI program the track plays (its channel's; a steel guitar without one): what a keyboard or other instrument is called by. */
+  readonly program: number;
   /** The preset the track is tuned to; undefined for a custom tuning or string count. */
   readonly current?: TuningPreset;
   /** Notes the track's own tuning cannot hold on the neck (e.g. past fret 24). */
   readonly currentUnplayableNotes: number;
-  /** The instrument's presets in menu order; empty for percussion. */
+  /** The instrument's presets in menu order; empty but for a stringed instrument (isNeckInstrument). */
   readonly presets: readonly PresetFit[];
   /**
    * Presets that play every note, best first: those that keep standard chord shapes (standard, lowered, drop) by fewest
@@ -42,7 +46,7 @@ export interface TuningAdvice {
   readonly closest?: PresetFit;
   /** Undefined when the track has no notes. */
   readonly pitchRange?: PitchRange;
-  /** True when a pitched track is not on one of its instrument's presets, or its tuning cannot hold every note. */
+  /** True when a stringed track is not on one of its instrument's presets, or its tuning cannot hold every note. */
   readonly needsTuning: boolean;
 }
 
@@ -125,7 +129,7 @@ function rankPresets(fits: readonly PresetFit[]): readonly PresetFit[] {
   });
 }
 
-function adviseNeck(track: Track, instrument: NeckInstrument): Omit<TuningAdvice, 'instrument' | 'pitchRange'> {
+function adviseNeck(track: Track, instrument: NeckInstrument): Omit<TuningAdvice, 'instrument' | 'program' | 'pitchRange'> {
   const tuning = trackTuning(track);
   const current = findTuningPreset(instrument, tuning);
   const currentUnplayableNotes = countUnplayableNotes(track, tuning);
@@ -139,7 +143,7 @@ function adviseNeck(track: Track, instrument: NeckInstrument): Omit<TuningAdvice
 
 /**
  * How the track's tuning fits the neck, and which presets of its instrument play every note (see TuningAdvice).
- * Undefined for a missing track; a percussion track gets no presets.
+ * Undefined for a missing track; percussion, keyboards, voices and other instruments get no presets.
  */
 export function suggestTunings(song: Song, trackIndex: number): TuningAdvice | undefined {
   const track = song.tracks[trackIndex];
@@ -149,8 +153,12 @@ export function suggestTunings(song: Song, trackIndex: number): TuningAdvice | u
 /** suggestTunings from the track and the song's channels alone, so a caller can recompute it only when they change. */
 export function suggestTrackTunings(track: Track, channels: readonly Channel[]): TuningAdvice {
   const instrument = resolveTrackInstrument(track, channels);
+  const program = channelProgramOf(channels, track.channelId);
   if (instrument === 'percussion') {
-    return { instrument, currentUnplayableNotes: 0, presets: [], suggested: [], needsTuning: false };
+    return { instrument, program, currentUnplayableNotes: 0, presets: [], suggested: [], needsTuning: false };
   }
-  return { instrument, pitchRange: trackPitchRange(track), ...adviseNeck(track, instrument) };
+  if (!isNeckInstrument(instrument)) {
+    return { instrument, program, pitchRange: trackPitchRange(track), currentUnplayableNotes: 0, presets: [], suggested: [], needsTuning: false };
+  }
+  return { instrument, program, pitchRange: trackPitchRange(track), ...adviseNeck(track, instrument) };
 }

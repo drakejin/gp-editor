@@ -35,6 +35,19 @@ describe('neckTitle', () => {
     const { advice, track } = adviseOn(onStrings(makeSong([[]]), [43, 38, 33, 28], { program: 33 }));
     expect(neckTitle(advice, track)).toBe('Bass · 4 strings · Standard (E A D G)');
   });
+
+  it('calls a ukulele a ukulele, on its own presets', () => {
+    const { advice, track } = adviseOn(onStrings(makeSong([[]]), [69, 64, 60, 67], { program: 24 }));
+    expect(neckTitle(advice, track)).toBe('Ukulele · 4 strings · Standard (G C E A)');
+  });
+
+  it('names a keyboard, voice or other instrument by what it plays, with the strings that hold its notes', () => {
+    const titles = [0, 53, 73].map((program) => {
+      const { advice, track } = adviseOn(onStrings(makeSong([[]]), [64, 59, 55, 50, 45, 40], { program }));
+      return neckTitle(advice, track);
+    });
+    expect(titles).toEqual(['Acoustic Grand Piano · 6 strings · E A D G B E', 'Voice · 6 strings · E A D G B E', 'Flute · 6 strings · E A D G B E']);
+  });
 });
 
 describe('tuningHint', () => {

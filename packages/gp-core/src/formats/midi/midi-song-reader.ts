@@ -1,10 +1,10 @@
 // Port of TuxGuitar app.tuxguitar.io.midi.MidiSongReader (LGPL-2.1): a Standard MIDI File → Song.
-import { resolveTrackInstrument } from '../../edit/tuning-presets';
+import { isBassTuning } from '../../edit/tuning-presets';
 import { GpFormatError } from '../../errors';
 import type { Charset } from '../../io/text';
 import { DEFAULT_CHANNEL, EMPTY_SONG_INFO, PERCUSSION_TUNING, RED } from '../../model/defaults';
 import { type Channel, type MeasureHeader, QUARTER_TIME, type Song, type Track } from '../../model/song';
-import { GM_INSTRUMENT_NAMES, createChannelName, isGmBassProgram } from '../common/channels';
+import { GM_BANJO_PROGRAM, GM_INSTRUMENT_NAMES, createChannelName, isGmBassProgram } from '../common/channels';
 import type { DetectedFormat } from '../detect';
 import type { ResolvedReadOptions } from '../options';
 import { buildSongChannels } from './midi-channels';
@@ -56,6 +56,12 @@ function defaultTrackName(channel: Channel | undefined, number: number): string 
   return GM_INSTRUMENT_NAMES[channel?.program ?? DEFAULT_CHANNEL.program] ?? `Track ${number}`;
 }
 
+/** A bass's program, or a bass's strings on any program but the banjo's (a cello or tuba part too): read in the bass clef. */
+function isBassPart(track: Track, program: number | undefined): boolean {
+  const tuning = track.strings.map((guitarString) => guitarString.tuning);
+  return !track.isPercussion && ((program !== undefined && isGmBassProgram(program)) || (program !== GM_BANJO_PROGRAM && isBassTuning(tuning)));
+}
+
 function buildTrack(raw: RawTrack, index: number, channelId: number, range: PitchRange | undefined, context: SongContext): Track {
   const channel = context.channels.find((candidate) => candidate.id === channelId);
   const isPercussion = channel?.isPercussion ?? false;
@@ -78,7 +84,7 @@ function buildTrack(raw: RawTrack, index: number, channelId: number, range: Pitc
   const measures = buildTrackMeasures(raw.measures, {
     headers: context.headers,
     keySignatures: isPercussion ? context.keySignatures.map(() => 0) : context.keySignatures,
-    clef: resolveTrackInstrument(draft, context.channels) === 'bass' ? 'bass' : 'treble',
+    clef: isBassPart(draft, channel?.program) ? 'bass' : 'treble',
     placeNotes,
   });
   return { ...draft, measures };
