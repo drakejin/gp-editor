@@ -91,6 +91,20 @@ describe('enterPlayedNotes', () => {
     expect(entry.song.tracks[0]?.measures[0]?.beats[1]?.voices[1]?.notes.map((note) => note.fret)).toEqual([0]);
   });
 
+  it('keeps clear of the strings another voice sounds on the beat, skipping a pitch only those strings play', () => {
+    // Arrange: voice 1 holds string 1 (E4) and string 2 on the first beat
+    const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0), n(2, 1)), rest(4), rest(2)], [rest(4), rest(4), rest(2)]]]);
+    const voice2 = { ...at(0), voiceIndex: 1 };
+
+    // Act: E4 again (strings 2–6 can play it), and the top of the neck, which only string 1 reaches
+    const entry = enterPlayedNotes(song, voice2, [{ pitch: E4 }, { pitch: 64 + 24 }]);
+
+    // Assert
+    expect(entry.song.tracks[0]?.measures[0]?.beats[0]?.voices[1]?.notes.map((note) => note.string)).toEqual([3]);
+    expect(entry.entered).toBe(1);
+    expect(entry.skipped).toEqual([88]);
+  });
+
   it('changes nothing at a missing position', () => {
     const song = songOnStrings(STANDARD_TUNING, [[[rest(1)]]]);
     expect(enterPlayedNotes(song, at(4), [{ pitch: E4 }]).song).toBe(song);

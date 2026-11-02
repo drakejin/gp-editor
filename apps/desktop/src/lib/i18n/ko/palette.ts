@@ -261,6 +261,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.hint.noSelectedNotes': '선택한 박에 이 성부의 음표가 없습니다: 아무것도 지우지 않았습니다.',
   'palette.hint.stringTaken': '{number}번 줄은 이 박에서 이미 다른 음을 내고 있어 아무것도 옮기지 않았습니다.',
   'palette.hint.offNeck': '{number}번 줄로는 이 음을 낼 수 없어 아무것도 옮기지 않았습니다.',
+  'palette.hint.stringInVoice': '성부 {voice}가 이 박에서 {number}번 줄을 내고 있습니다: 한 줄은 한 번에 한 음만 냅니다.',
   'palette.hint.lastTrack': '곡에는 트랙이 하나 이상 있어야 합니다: 이 트랙을 지우기 전에 다른 트랙을 추가하세요.',
   'palette.hint.addTrackFailed': '트랙을 추가하지 못했습니다: 악기와 1–8줄 튜닝을 고르세요.',
   'palette.hint.selectedTrackShown': '선택한 트랙은 늘 보입니다. 이 트랙을 숨기려면 다른 트랙을 선택하세요.',

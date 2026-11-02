@@ -74,7 +74,6 @@ describe('typed digits never carry over to the next note', () => {
     ['the cursor on another string', { type: 'moveCursorString', delta: 1 }],
     ['a click on another beat', { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 0, beatIndex: 2, voiceIndex: 0, string: 1 } }],
     ['a click on the same note', { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 1 } }],
-    ['the cursor on another voice', { type: 'selectVoice', voiceIndex: 1 }],
     ['an edit (a dot)', { type: 'edit', edit: { type: 'toggleDot' } }],
     ['a fret set another way (− / =)', { type: 'shiftNoteFret', delta: 1 }],
     ['undo', { type: 'undo' }],
@@ -86,6 +85,16 @@ describe('typed digits never carry over to the next note', () => {
     const frets = [0, 1, 2, 3].flatMap((beatIndex) => [1, 2].map((string) => fretAt(typed, { beatIndex, string, voiceIndex: typed.cursor!.voiceIndex })));
     expect(frets).not.toContain(12);
     expect(frets).toContain(2);
+  });
+
+  it('starts over after the cursor on another voice: the second digit never makes 12 of voice 1’s note', () => {
+    // Act: voice 2 on the same string, which voice 1 now sounds on this beat
+    const typed = run(openSong(), [digit(1, 0, 1), { type: 'selectVoice', voiceIndex: 1 }, digit(2, 100, 2)]);
+
+    // Assert
+    expect(fretAt(typed)).toBe(1);
+    expect(fretAt(typed, { voiceIndex: 1 })).toBeUndefined();
+    expect(typed.hint).toBe('Voice 1 sounds string 1 on this beat: a string plays one note at a time.');
   });
 
   it('starts over after another key that does not touch the score (Space, a zoom)', () => {

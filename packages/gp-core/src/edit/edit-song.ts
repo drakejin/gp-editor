@@ -1,7 +1,7 @@
 import { DEFAULT_VELOCITY, clampVelocity } from '../formats/common/velocity';
 import { EMPTY_NOTE_EFFECT } from '../model/defaults';
 import type { Note, Song } from '../model/song';
-import { type StringAddress, findNote, findVoice, hasString } from './addresses';
+import { type StringAddress, findNote, findVoice, hasString, otherVoiceOnString } from './addresses';
 import { sortByString, updateNote, updateVoice } from './song-paths';
 import { fillEmptyVoice } from './voice-entry';
 
@@ -25,12 +25,13 @@ export const NECK_FRETS = 24;
  * New song with the fret at the position set (clamped to 0…MAX_FRET, on a drum track to the key range 0…MAX_DRUM_KEY);
  * adds a note when the string is empty. In an empty voice (the second voice where it has no event yet) the note lasts as
  * long as the beat and the voice is filled with rests up to the bar lines (fillEmptyVoice). Same song when the position
- * does not exist or the fret is not a number.
+ * does not exist, the fret is not a number, or the voice has no note on that string and another voice sounds it on the
+ * beat (a string plays one note at a time, and Guitar Pro keeps the other voices locked: nothing of theirs is replaced).
  */
 export function setNoteFret(song: Song, at: StringAddress, fret: number): Song {
   const highest = song.tracks[at.trackIndex]?.isPercussion === true ? MAX_DRUM_KEY : MAX_FRET;
   const clamped = Math.min(highest, Math.max(0, Math.round(fret)));
-  if (!hasString(song, at) || !Number.isFinite(fret)) {
+  if (!hasString(song, at) || !Number.isFinite(fret) || isStringHeldElsewhere(song, at)) {
     return song;
   }
   if (findVoice(song, at)?.isEmpty === true) {
@@ -65,6 +66,11 @@ export function setNoteVelocity(song: Song, at: StringAddress, velocity: number)
   }
   const next = clampVelocity(velocity);
   return updateNote(song, at, (note) => (note.velocity === next ? note : { ...note, velocity: next }));
+}
+
+/** True when another voice of the beat sounds the string where this voice has no note on it (otherVoiceOnString). */
+function isStringHeldElsewhere(song: Song, at: StringAddress): boolean {
+  return findNote(song, at) === undefined && otherVoiceOnString(song, at) !== undefined;
 }
 
 function newNote(string: number, fret: number): Note {

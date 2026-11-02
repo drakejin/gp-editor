@@ -1,5 +1,5 @@
 import type { Song, Track } from '../model/song';
-import { type BeatAddress, locateVoice } from './addresses';
+import { type BeatAddress, locateVoice, otherVoiceOnString } from './addresses';
 import { tabFret } from './banjo';
 import { deleteBeatNotes } from './beats';
 import { MAX_FRET, setNoteFret, setNoteVelocity } from './edit-song';
@@ -60,6 +60,12 @@ export function handFretBefore(song: Song, at: BeatAddress): number {
   return FIRST_POSITION;
 }
 
+/** The strings other voices sound on the beat at `at` (setNoteFret leaves them to those voices). */
+function heldStrings(song: Song, at: BeatAddress): readonly number[] {
+  const stringCount = song.tracks[at.trackIndex]?.strings.length ?? 0;
+  return Array.from({ length: stringCount }, (_, i) => i + 1).filter((string) => otherVoiceOnString(song, { ...at, string }) !== undefined);
+}
+
 /** A played note and where it goes; no spot when it is left out. */
 interface PlacedNote {
   readonly note: PlayedNote;
@@ -80,7 +86,8 @@ function fitsOwnString(note: PlayedNote, track: Track): boolean {
 
 /**
  * Neck notes: a MIDI guitar note keeps its own string when that string can play it; the others take the strings nearest
- * the hand (stringsNearHand), and placeNotes settles clashes. Notes it could only place an octave away are left out.
+ * the hand (stringsNearHand) that no other voice sounds on the beat, and placeNotes settles clashes. Notes it could
+ * only place an octave away, or on a string another voice sounds, are left out.
  */
 function neckSpots(song: Song, at: BeatAddress, track: Track, notes: readonly PlayedNote[]): readonly PlacedNote[] {
   const tuning = trackTuning(track);
@@ -88,13 +95,14 @@ function neckSpots(song: Song, at: BeatAddress, track: Track, notes: readonly Pl
   const owned = notes.filter((note) => fitsOwnString(note, track));
   const others = notes.filter((note) => !fitsOwnString(note, track));
   const ownedStrings = owned.flatMap((note) => (note.string === undefined ? [] : [note.string]));
-  const nearHand = stringsNearHand(others.map((note) => note.pitch - track.offset), tuning, handFretBefore(song, at), neck, ownedStrings);
+  const held = heldStrings(song, at);
+  const nearHand = stringsNearHand(others.map((note) => note.pitch - track.offset), tuning, handFretBefore(song, at), neck, [...ownedStrings, ...held]);
   const preferred = [...ownedStrings, ...nearHand];
   const ordered = [...owned, ...others];
   const placements = placeNotes(ordered.map((note, i) => ({ pitch: note.pitch - track.offset, preferredString: preferred[i] ?? 1 })), tuning, neck);
   return ordered.map((note, i) => {
     const placement = placements[i];
-    const isAtPitch = placement !== undefined && placement.octaves === 0;
+    const isAtPitch = placement !== undefined && placement.octaves === 0 && !held.includes(placement.string);
     return { note, spot: isAtPitch ? { string: placement.string, fret: placement.fret, velocity: note.velocity } : undefined };
   });
 }

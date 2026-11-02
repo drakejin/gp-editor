@@ -78,6 +78,22 @@ describe('findNote', () => {
 });
 
 describe('setNoteFret', () => {
+  it('refuses a new note on a string another voice sounds on the same beat (a string plays one note at a time)', () => {
+    // Arrange: voice 1 string 1 fret 5; voice 2 a rest, then nothing
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 5)), rest(4), rest(2)], [rest(4)]]]] }));
+    const voice2: StringAddress = { ...AT_STRING_1, voiceIndex: 1 };
+
+    // Act + Assert: voice 2's rest, and an empty voice 2 on the next beat, both refuse string 1 where voice 1 plays it
+    expect(setNoteFret(song, voice2, 3)).toBe(song);
+    expect(findNote(setNoteFret(song, { ...voice2, string: 2 }, 3), { ...voice2, string: 2 })?.fret).toBe(3);
+    expect(findNote(setNoteFret(song, { ...voice2, beatIndex: 1 }, 3), { ...voice2, beatIndex: 1 })?.fret).toBe(3);
+  });
+
+  it('still changes the fret of a note the voice has on a string another voice shares (as a file may hold)', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 5))], [play(4, n(1, 3))]]]] }));
+    expect(findNote(setNoteFret(song, { ...AT_STRING_1, voiceIndex: 1 }, 7), { ...AT_STRING_1, voiceIndex: 1 })?.fret).toBe(7);
+  });
+
   it('returns a new song with the fret changed and leaves the original untouched', () => {
     // Arrange
     const song = makeSong();

@@ -269,6 +269,7 @@ export const EN_PALETTE = {
   'palette.hint.noSelectedNotes': 'The selected beats have no notes in this voice: nothing was deleted.',
   'palette.hint.stringTaken': 'String {number} already sounds a note on this beat: nothing moved.',
   'palette.hint.offNeck': 'String {number} cannot play this note: nothing moved.',
+  'palette.hint.stringInVoice': 'Voice {voice} sounds string {number} on this beat: a string plays one note at a time.',
   'palette.hint.lastTrack': 'A song keeps at least one track: add another one before deleting this one.',
   'palette.hint.addTrackFailed': 'That track could not be added: choose an instrument and a tuning of 1 to 8 strings.',
   'palette.hint.selectedTrackShown': 'The selected track is always shown. Select another track to hide this one.',

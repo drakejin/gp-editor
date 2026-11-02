@@ -79,3 +79,9 @@ export function stringMoveHint(song: Song, cursor: StringAddress, string: number
   const isTaken = findNote(song, target) !== undefined || otherVoiceOnString(song, target) !== undefined;
   return t(isTaken ? 'palette.hint.stringTaken' : 'palette.hint.offNeck', { number: string });
 }
+
+/** Why a fret typed at the cursor made no note: another voice sounds that string on the beat; undefined otherwise. */
+export function heldStringHint(song: Song, cursor: StringAddress): string | undefined {
+  const voiceIndex = findNote(song, cursor) === undefined ? otherVoiceOnString(song, cursor) : undefined;
+  return voiceIndex === undefined ? undefined : t('palette.hint.stringInVoice', { voice: voiceIndex + 1, number: cursor.string });
+}

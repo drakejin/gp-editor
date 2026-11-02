@@ -14,7 +14,7 @@ import {
   voiceOf,
 } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
-import { refusalHint, stringMoveHint } from './edit-hints';
+import { heldStringHint, refusalHint, stringMoveHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { editAtCursor, withBarRests } from './empty-bars';
@@ -80,7 +80,10 @@ export function withCursor(state: EditorState, move: (song: Song, cursor: String
   return { ...state, cursor: clampCursor(song, move(song, current)) };
 }
 
-/** A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg) leaves a hint instead. */
+/**
+ * A typed fret at the cursor; a fret the string does not have (below a banjo drone's peg), or a string another voice
+ * sounds on the beat, leaves a hint instead.
+ */
 export function typeFret(state: EditorState, typed: number): EditorState {
   const { document, cursor } = state;
   const fret = document === undefined || cursor === undefined ? typed : storedFret(document.song, cursor, typed);
@@ -88,6 +91,10 @@ export function typeFret(state: EditorState, typed: number): EditorState {
     return { ...state, hint: droneFretHint() };
   }
   const typedState = followBeatStart(state, applyEdit(state, (song, at) => setNoteFret(song, at, fret)));
+  const heldHint = typedState === state && document !== undefined && cursor !== undefined ? heldStringHint(document.song, cursor) : undefined;
+  if (heldHint !== undefined) {
+    return { ...state, hint: heldHint };
+  }
   return typedState.hint === droneFretHint() ? { ...typedState, hint: undefined } : typedState;
 }
 
