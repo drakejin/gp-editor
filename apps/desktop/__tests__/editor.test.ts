@@ -421,6 +421,28 @@ describe('editorReducer: second voice', () => {
     expect(second.past).toEqual([]);
   });
 
+  it('takes the cursor to the voice’s own beat when the beat it stood on lies inside that voice’s note', () => {
+    // Arrange: voice 1 a half note; voice 2 two quarters, the cursor on the second
+    const half = { ...QUARTER, value: 2 as const };
+    const first = beat(960, [note(1, 5)], half);
+    const second = beat(1920, [], QUARTER);
+    const held = makeSong([[
+      { ...first, voices: [...first.voices, { duration: QUARTER, notes: [note(3, 2)], isEmpty: false, direction: 'none' }] },
+      { ...second, voices: [EMPTY_VOICE, { duration: QUARTER, notes: [note(3, 4)], isEmpty: false, direction: 'none' }] },
+    ]]);
+    const loaded = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: held } });
+    const onSecond = editorReducer(editorReducer(loaded, { type: 'selectVoice', voiceIndex: 1 }), { type: 'moveCursorBeat', step: 1 });
+
+    // Act
+    const back = editorReducer(onSecond, { type: 'selectVoice', voiceIndex: 0 });
+    const typed = editorReducer(back, { type: 'setNoteFret', fret: 7 });
+
+    // Assert
+    expect(at(onSecond)).toMatchObject({ beatIndex: 1, voiceIndex: 1 });
+    expect(at(back)).toMatchObject({ beatIndex: 0, voiceIndex: 0 });
+    expect(findNote(song(typed), { ...at(back), string: 1 })?.fret).toBe(7);
+  });
+
   it('selects voices 1 to 4, also on a beat read with fewer voice slots, and no voice past the fourth', () => {
     const start = twoVoices();
     expect(at(editorReducer(start, { type: 'selectVoice', voiceIndex: 2 }))).toEqual({ ...at(start), voiceIndex: 2 });

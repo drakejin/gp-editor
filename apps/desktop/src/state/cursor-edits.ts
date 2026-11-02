@@ -13,7 +13,7 @@ import {
   toggleDrumNote,
   voiceOf,
 } from '@gp-editor/core';
-import { adjacentBeat, clampCursor, firstCursor } from '../lib/navigation';
+import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
 import { refusalHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
@@ -53,17 +53,21 @@ function followBeatStart(before: EditorState, after: EditorState): EditorState {
   return beatIndex < 0 || beatIndex === cursor.beatIndex ? after : { ...after, cursor: { ...cursor, beatIndex } };
 }
 
-/** The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet; the same state past voice 4. */
+/**
+ * The cursor on another voice (1–4) of the same beat, also one the beat has no slot for yet (inside a note of that voice: on
+ * the note's beat); the same state past voice 4.
+ */
 export function selectVoice(state: EditorState, voiceIndex: number): EditorState {
   const { cursor, document } = state;
   // A bar without beats offers the voices of the rest drawn there.
   const song = cursor === undefined || document === undefined ? undefined : withBarRests(document.song, cursor);
   const beat = cursor === undefined ? undefined : song?.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex];
   const isSelectable = beat !== undefined && voiceOf(beat, voiceIndex) !== undefined;
-  if (cursor === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
+  if (cursor === undefined || song === undefined || !isSelectable || cursor.voiceIndex === voiceIndex) {
     return state;
   }
-  return { ...state, cursor: { ...cursor, voiceIndex } };
+  // Inside a note of that voice (where another voice alone has a beat), on the beat where the note starts.
+  return { ...state, cursor: voiceCursor(song, { ...cursor, voiceIndex }) };
 }
 
 /** The cursor moved within the song (from the first beat of the shown track when it has none yet). */
