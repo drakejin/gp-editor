@@ -1,6 +1,7 @@
 import { type HandledKeyEvent, type KeyEvent, StyleSheet, Text, View } from 'react-native';
 import type { AnnotationPlacement } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
+import { growingFieldHeight } from '../../lib/field-height';
 import type { AnnotationDraft } from '../../lib/annotation-draft';
 import type { TrackBeat } from '../../state/song-actions';
 import type { Palette } from '../../theme';
@@ -22,9 +23,8 @@ export interface AnnotationPanelProps {
   readonly onClose: () => void;
 }
 
-/** Lines of text the field shows before it scrolls. */
-const TEXT_LINES = 4;
-const LINE_HEIGHT = 17;
+/** Lines of text the field grows to before it scrolls. */
+const MAX_TEXT_LINES = 4;
 /** ⌘↩ applies; ↩ alone starts a new line. */
 // i18n-exempt: a key's name (react-native's KeyEvent.key)
 const APPLY_KEYS: HandledKeyEvent[] = [{ key: 'Enter', metaKey: true }];
@@ -32,7 +32,8 @@ const APPLY_KEYS: HandledKeyEvent[] = [{ key: 'Enter', metaKey: true }];
 /**
  * Edit ▸ Annotation… (J, the palette's ✎): the annotation of the cursor's beat — a musician's note drawn in a box over or
  * under the staves —, above the score. It follows the cursor; what was typed is written by Apply (⌘↩) or when the
- * cursor goes to another beat or the panel closes (useAnnotationEditor).
+ * cursor goes to another beat or the panel closes (useAnnotationEditor). Compact (the field grows with the text's lines), so
+ * the score below keeps room to click another beat.
  */
 export function AnnotationPanel(props: AnnotationPanelProps) {
   const { palette, draft, hasAnnotation, movable, onChangeText, onChangePlacement, onApply, onDelete, onMoveHere, onClose } = props;
@@ -75,7 +76,7 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
         onKeyDown={onKeyDown}
         placeholder={t('tools.annotation.placeholder')}
         placeholderTextColor={palette.chromeMuted}
-        style={[styles.text, { color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
+        style={[styles.text, { height: growingFieldHeight(draft.text, MAX_TEXT_LINES), color: palette.chromeText, borderColor: palette.chromeBorder, backgroundColor: palette.chromeDeep }]}
       />
       <Text style={[styles.hint, { color: draft.isEdited ? palette.chromeText : palette.chromeMuted }]}>
         {draft.isEdited ? t('tools.annotation.edited') : t('tools.annotation.hint')}
@@ -93,6 +94,6 @@ const styles = StyleSheet.create({
   spaced: { marginLeft: 14 },
   gap: { width: 12 },
   fill: { flex: 1 },
-  text: { height: TEXT_LINES * LINE_HEIGHT + 10, borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, fontSize: 13 },
+  text: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4, fontSize: 13 },
   hint: { fontSize: 11 },
 });

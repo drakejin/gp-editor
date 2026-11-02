@@ -1,4 +1,4 @@
-import { Text, TextInput } from 'react-native';
+import { StyleSheet, Text, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import type { Song } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
@@ -65,11 +65,20 @@ describe('LyricsPanel', () => {
     expect(render({ draft: { trackIndex: 0, from: 3, text: '' } }).button('Start a bar later')?.props.isEnabled).toBe(false);
   });
 
-  it('counts syllables against notes, explains the syntax and warns about Guitar Pro 5’s one lyrics track', () => {
+  it('counts syllables against notes and warns about Guitar Pro 5’s one lyrics track', () => {
     const texts = render().texts();
     expect(texts).toContain('3 syllables for 2 notes from bar 2: the last 1 has no note');
-    expect(texts.some((text) => text.includes('hyphen'))).toBe(true);
     expect(texts).toContain('Saved as Guitar Pro 5, the song keeps one track’s lyrics: those of “Lead”.');
+  });
+
+  it('explains the syntax while nothing is typed, and leaves the room to the score once lyrics are', () => {
+    const explains = (text: string) => render({ draft: { trackIndex: 1, from: 1, text } }).texts().some((shown) => shown.includes('hyphen'));
+    expect([explains(''), explains('Hel-lo you')]).toEqual([true, false]);
+  });
+
+  it('starts two lines tall and grows with the lyrics’ lines up to five, so the score keeps its room', () => {
+    const height = (text: string) => StyleSheet.flatten(render({ draft: { trackIndex: 1, from: 1, text } }).field()?.props.style)?.height;
+    expect([height(''), height('Hel-lo you'), height('a\nb\nc\nd'), height('a\nb\nc\nd\ne\nf\ng')]).toEqual([44, 44, 78, 95]);
   });
 
   it('closes', () => {
