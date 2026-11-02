@@ -79,10 +79,11 @@ function scrollToLine(listRef: RefObject<FlatList<ScoreLine> | null>, sources: S
 
 /**
  * Keeps the playing system (its first staves), and the cursor's line when any of it leaves the view (the next system,
- * the one before, a bar picked in the bar map), in view; returns the list's onScroll, which says where the page is.
+ * the one before, a bar picked in the bar map, the view shortened by a panel opening over it), in view; returns the
+ * list's onScroll, which says where the page is.
  */
 export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, sources: ScrollSources): ScoreScroll {
-  const { layout, cursor, playing } = sources;
+  const { layout, cursor, playing, viewportHeight } = sources;
   // Read by the scrolls below without making them run again on every layout change.
   const latest = useRef(sources);
   latest.current = sources;
@@ -99,7 +100,8 @@ export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, s
     }
   }, [playingLine, listRef]);
   useEffect(() => {
-    if (cursorLine < 0 || playingLine >= 0) {
+    // Nothing to look at before the view is measured: the first look waits for it.
+    if (cursorLine < 0 || playingLine >= 0 || viewportHeight <= 0) {
       return;
     }
     const isShown = isLineShown(latest.current, cursorLine, scrollTop.current, isFirstLook.current);
@@ -107,6 +109,6 @@ export function useScoreScroll(listRef: RefObject<FlatList<ScoreLine> | null>, s
     if (!isShown) {
       scrollToLine(listRef, latest.current, cursorLine);
     }
-  }, [cursorLine, playingLine, listRef]);
+  }, [cursorLine, playingLine, viewportHeight, listRef]);
   return { onScroll };
 }

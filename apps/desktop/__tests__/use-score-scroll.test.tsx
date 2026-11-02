@@ -42,22 +42,28 @@ describe('useScoreScroll', () => {
   };
   const at = (measureIndex: number): StringAddress => ({ trackIndex: 0, measureIndex, beatIndex: 0, voiceIndex: 0, string: 1 });
 
-  function renderScroll(cursor: StringAddress) {
+  function renderScroll(cursor: StringAddress, viewportHeight = 400) {
     const scrollToIndex = jest.fn();
     const listRef = { current: { scrollToIndex } } as unknown as RefObject<FlatList<ScoreLine> | null>;
     let onScroll!: ReturnType<typeof useScoreScroll>['onScroll'];
-    function Probe({ address }: { readonly address: StringAddress }) {
-      onScroll = useScoreScroll(listRef, { layout, zoom: 1, headerHeight: 120, viewportHeight: 400, topMargin: 22, cursor: address }).onScroll;
+    function Probe({ address, height }: { readonly address: StringAddress; readonly height: number }) {
+      onScroll = useScoreScroll(listRef, { layout, zoom: 1, headerHeight: 120, viewportHeight: height, topMargin: 22, cursor: address }).onScroll;
       return null;
     }
     let renderer!: ReactTestRenderer.ReactTestRenderer;
+    let shown = { address: cursor, height: viewportHeight };
+    const update = (next: typeof shown) => {
+      shown = next;
+      ReactTestRenderer.act(() => renderer.update(<Probe address={next.address} height={next.height} />));
+    };
     ReactTestRenderer.act(() => {
-      renderer = ReactTestRenderer.create(<Probe address={cursor} />);
+      renderer = ReactTestRenderer.create(<Probe address={cursor} height={viewportHeight} />);
     });
     return {
       scrollToIndex,
       scrollTo: (y: number) => onScroll({ nativeEvent: { contentOffset: { y } } }),
-      moveTo: (address: StringAddress) => ReactTestRenderer.act(() => renderer.update(<Probe address={address} />)),
+      moveTo: (address: StringAddress) => update({ ...shown, address }),
+      resize: (height: number) => update({ ...shown, height }),
     };
   }
 
@@ -91,5 +97,30 @@ describe('useScoreScroll', () => {
   it('keeps a page just shown at its top while the cursor’s system starts on the first screen', () => {
     const view = renderScroll(at(0));
     expect(view.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('waits for the view’s height before its first look, so a page just shown stays at its top', () => {
+    // Arrange: not measured yet
+    const view = renderScroll(at(0), 0);
+
+    // Act
+    view.resize(400);
+
+    // Assert
+    expect(view.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('brings the cursor’s system back when the view gets shorter under it (a panel opens over the score)', () => {
+    // Arrange: the second system (392–642) shows whole in the 400-point view scrolled to 250
+    const view = renderScroll(at(0));
+    view.moveTo(at(1));
+    view.scrollTo(250);
+    view.scrollToIndex.mockClear();
+
+    // Act: panels leave the score 180 points
+    view.resize(180);
+
+    // Assert: a 250-point system is taller than the view: it goes to its top
+    expect(view.scrollToIndex).toHaveBeenCalledWith({ index: 1, viewPosition: 0, animated: false });
   });
 });
