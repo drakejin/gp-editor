@@ -36,6 +36,9 @@ export function trillOffset(text: string): number {
 /** How far a note's grace fret (before it) or trill fret (after it) reaches from the beat's centre; 0 without. */
 function ornamentReach(note: Note): number {
   const { grace, trill } = note.effect;
+  if (grace === undefined && trill === undefined) {
+    return 0;
+  }
   const graceReach = grace === undefined ? 0 : graceOffset(graceText(grace)) + smallFretWidth(graceText(grace)) / 2;
   const trillReach = trill === undefined ? 0 : trillOffset(trillText(trill.fret)) + smallFretWidth(trillText(trill.fret)) / 2;
   return Math.max(graceReach, trillReach);
@@ -46,6 +49,7 @@ function ornamentReach(note: Note): number {
  * clear of the beats beside it (a trill's "(8)" and the next note's grace); 0 without any.
  */
 export function ornamentWidth(beat: Beat): number {
-  const reach = Math.max(0, ...beat.voices.flatMap((voice) => (voice.isEmpty ? [] : voice.notes.map(ornamentReach))));
+  // Every beat of every shown track comes here on each layout: no arrays made for the common beat without ornaments.
+  const reach = beat.voices.reduce((widest, voice) => (voice.isEmpty ? widest : voice.notes.reduce((most, note) => Math.max(most, ornamentReach(note)), widest)), 0);
   return reach === 0 ? 0 : 2 * (reach + SMALL_FRET.padding);
 }

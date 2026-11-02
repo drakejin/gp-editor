@@ -83,7 +83,7 @@ const SYLLABLE_GAP = 4;
 
 /** Room a beat needs for its syllable at the stylesheet's lyrics `style`, centred under it (0 without one). */
 export function lyricsBeatWidth(track: Track | undefined, measureIndex: number, beatIndex: number, style: TextStyle = DEFAULT_STYLESHEET.texts.lyrics): number {
-  const syllable = track === undefined ? undefined : measureSyllables(track, measureIndex).find((placed) => placed.beatIndex === beatIndex);
+  const syllable = track?.lyrics === undefined ? undefined : measureSyllables(track, measureIndex).find((placed) => placed.beatIndex === beatIndex);
   return syllable === undefined ? 0 : textWidth(syllable.text, styledSize(LYRICS.size, style, DEFAULT_STYLESHEET.texts.lyrics)) + SYLLABLE_GAP;
 }
 
