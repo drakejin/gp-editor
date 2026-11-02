@@ -110,6 +110,54 @@ describe('AudioTrackLane', () => {
     expect(lane.movePoint).toHaveBeenCalledWith(1, 8 + 2 / PPS);
   });
 
+  it('moves the marker when the press, the move and the release all come before the lane draws again (a quick drag)', () => {
+    // Arrange
+    const lane = laneCommands();
+    const { waveform, event } = render(lane);
+    const markerX = laneX(6, PPS);
+
+    // Act: one batch, no render between the events
+    ReactTestRenderer.act(() => {
+      waveform.props.onPressIn(event(markerX + 2, 500));
+      waveform.props.onPressMove(event(0, 500 + 2 * PPS));
+      waveform.props.onPressOut(event(0, 500 + 2 * PPS));
+    });
+
+    // Assert
+    expect(lane.movePoint).toHaveBeenCalledWith(1, 8 + 2 / PPS);
+  });
+
+  it('puts the marker where it is let go, even when its last moves were not seen (coalesced)', () => {
+    // Arrange
+    const lane = laneCommands();
+    const { waveform, event } = render(lane);
+    const markerX = laneX(6, PPS);
+
+    // Act
+    ReactTestRenderer.act(() => waveform.props.onPressIn(event(markerX + 2, 500)));
+    ReactTestRenderer.act(() => waveform.props.onPressMove(event(0, 500 + PPS)));
+    ReactTestRenderer.act(() => waveform.props.onPressOut(event(0, 500 + 2 * PPS)));
+
+    // Assert
+    expect(lane.movePoint).toHaveBeenCalledTimes(1);
+    expect(lane.movePoint).toHaveBeenCalledWith(1, 8 + 2 / PPS);
+  });
+
+  it('only selects a marker clicked without moving: the point stays where it is', () => {
+    // Arrange
+    const lane = laneCommands();
+    const { waveform, event } = render(lane);
+    const markerX = laneX(6, PPS);
+
+    // Act
+    ReactTestRenderer.act(() => waveform.props.onPressIn(event(markerX + 2, 500)));
+    ReactTestRenderer.act(() => waveform.props.onPressOut(event(markerX + 2, 500)));
+
+    // Assert
+    expect(lane.selectPoint).toHaveBeenCalledWith(1);
+    expect(lane.movePoint).not.toHaveBeenCalled();
+  });
+
   it('goes to the bar heard where a click away from the markers lands', () => {
     // Arrange
     const lane = laneCommands();
