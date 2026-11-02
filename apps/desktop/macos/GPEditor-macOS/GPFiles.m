@@ -316,6 +316,27 @@ static NSWindow *_Nullable GPScoreWindow(void)
   return nil;
 }
 
+/** Why the app may not be ended without asking (automatic termination's reason). */
+static NSString *const kUnsavedChangesReason = @"A tab has unsaved changes";
+
+/**
+ * The app supports sudden and automatic termination (Info.plist): AppKit then ends it on ⌘Q, a logout or when it is
+ * hidden without asking its delegate — the edits lost. While a tab is edited both are off, as NSDocument does; a new
+ * edit after a quit's answers asks again.
+ */
+static void GPKeepAliveWhileEdited(BOOL isEdited)
+{
+  NSProcessInfo *process = [NSProcessInfo processInfo];
+  if (isEdited) {
+    gIsQuitAnswered = NO;
+    [process disableSuddenTermination];
+    [process disableAutomaticTermination:kUnsavedChangesReason];
+  } else {
+    [process enableSuddenTermination];
+    [process enableAutomaticTermination:kUnsavedChangesReason];
+  }
+}
+
 /** Sends quitRequested when a tab is edited and JS listens; `window`: its close button asked (nil: the app quits). */
 static BOOL GPFilesAsks(NSWindow *_Nullable window)
 {
@@ -638,8 +659,8 @@ RCT_EXPORT_METHOD(setUndoState : (BOOL)canUndo canRedo : (BOOL)canRedo)
 RCT_EXPORT_METHOD(setHasEditedDocuments : (BOOL)isEdited)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
-    if (isEdited && !gHasEditedDocuments) {
-      gIsQuitAnswered = NO;
+    if (isEdited != gHasEditedDocuments) {
+      GPKeepAliveWhileEdited(isEdited);
     }
     gHasEditedDocuments = isEdited;
     NSWindow *window = GPScoreWindow();
