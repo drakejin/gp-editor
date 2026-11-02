@@ -1,7 +1,7 @@
 // Ties after TuxGuitar's TGChangeTiedNoteAction and TGTrackManager.getPreviousNoteForTie (LGPL-2.1).
 import { EMPTY_NOTE_EFFECT } from '../model/defaults';
 import type { Beat, Note, NoteEffect, Song, Voice } from '../model/song';
-import { type StringAddress, hasString } from './addresses';
+import { type BeatAddress, type StringAddress, hasString } from './addresses';
 import { sortByString, updateNote, updateVoice } from './song-paths';
 
 /** The last event of a voice among `beats`, before `beforeIndex`. */
@@ -40,6 +40,25 @@ export function untieOrphanNotes(song: Song, addresses: readonly StringAddress[]
     (current, address) => (previousNoteForTie(current, address) === undefined ? updateNote(current, address, (note) => (note.isTied ? { ...note, isTied: false } : note)) : current),
     song,
   );
+}
+
+/** The voice's first event after `last`: later in its bar, else in the next bar (where a tie looks back from); undefined when none. */
+export function nextVoiceEvent(song: Song, last: BeatAddress): BeatAddress | undefined {
+  const measures = song.tracks[last.trackIndex]?.measures ?? [];
+  const isEvent = (beat: Beat): boolean => beat.voices[last.voiceIndex]?.isEmpty === false;
+  const inBar = measures[last.measureIndex]?.beats.findIndex((beat, beatIndex) => beatIndex > last.beatIndex && isEvent(beat)) ?? -1;
+  if (inBar >= 0) {
+    return { ...last, beatIndex: inBar };
+  }
+  const inNextBar = measures[last.measureIndex + 1]?.beats.findIndex(isEvent) ?? -1;
+  return inNextBar < 0 ? undefined : { ...last, measureIndex: last.measureIndex + 1, beatIndex: inNextBar };
+}
+
+/** The tied notes on `strings` of the event at `at` (none when there is no event). */
+export function tiedNotesAt(song: Song, at: BeatAddress | undefined, strings: ReadonlySet<number>): readonly StringAddress[] {
+  const voice = at === undefined ? undefined : song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.voices[at.voiceIndex];
+  const notes = voice?.notes.filter((note) => note.isTied && strings.has(note.string)) ?? [];
+  return at === undefined ? [] : notes.map((note) => ({ ...at, string: note.string }));
 }
 
 /** The note tied to `previous`: its fret, no dead note, and its harmonic when it has one. */

@@ -122,12 +122,32 @@ describe('editorReducer: edits at the cursor', () => {
     expect(findNote(song(removed), at(removed))).toBeUndefined();
   });
 
-  it('moves the note with ⌥↑/↓ and the cursor follows; a taken string is refused', () => {
+  it('moves the note with ⌥↑/↓ at the same pitch and the cursor follows', () => {
+    // Arrange: string 2 (B3) fret 5 = E4
     const start = editorReducer(loadedState(), { type: 'moveCursorString', delta: 1 });
-    expect(editorReducer(start, { type: 'shiftNoteString', delta: -1 })).toBe(start);
+
+    // Act: onto string 3 (G3)
     const moved = editorReducer(start, { type: 'shiftNoteString', delta: 1 });
+
+    // Assert
     expect(at(moved).string).toBe(3);
-    expect(findNote(song(moved), at(moved))?.fret).toBe(5);
+    expect(findNote(song(moved), at(moved))?.fret).toBe(9);
+  });
+
+  it('says why ⌥↑/↓ moved nothing: a taken string, or a string that cannot play the note', () => {
+    // Arrange: string 2 under string 1's note; bar 2's open low E (string 6) under the A string
+    const onSecond = editorReducer(loadedState(), { type: 'moveCursorString', delta: 1 });
+    const lowE = editorReducer(editorReducer(loadedState(), { type: 'moveCursorBeat', step: 1 }), { type: 'moveCursorString', delta: 5 });
+
+    // Act
+    const taken = editorReducer(onSecond, { type: 'shiftNoteString', delta: -1 });
+    const offNeck = editorReducer(lowE, { type: 'shiftNoteString', delta: -1 });
+
+    // Assert
+    expect(song(taken)).toBe(song(onSecond));
+    expect(taken.hint).toBe('String 1 already sounds a note on this beat: nothing moved.');
+    expect(song(offNeck)).toBe(song(lowE));
+    expect(offNeck.hint).toBe('String 5 cannot play this note: nothing moved.');
   });
 
   it('undoes and redoes, keeping the cursor', () => {

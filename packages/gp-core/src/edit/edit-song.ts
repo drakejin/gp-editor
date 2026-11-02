@@ -47,18 +47,6 @@ export function setNoteFret(song: Song, at: StringAddress, fret: number): Song {
   });
 }
 
-/** New song with the note at the position moved to `string`. Same song if there is no note, or that string is missing or taken. */
-export function setNoteString(song: Song, at: StringAddress, string: number): Song {
-  const target: StringAddress = { ...at, string };
-  if (!hasString(song, target) || findNote(song, at) === undefined || findNote(song, target) !== undefined) {
-    return song;
-  }
-  return updateVoice(song, at, (voice) => ({
-    ...voice,
-    notes: sortByString(voice.notes.map((note) => (note.string === at.string ? { ...note, string } : note))),
-  }));
-}
-
 /** New song without the note at the position. A voice whose last note is removed becomes a rest. */
 export function deleteNote(song: Song, at: StringAddress): Song {
   if (findNote(song, at) === undefined) {

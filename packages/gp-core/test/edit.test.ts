@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_NOTE_EFFECT, EMPTY_SONG_INFO, NO_STROKE, QUARTER, RED } from '../src/model/defaults';
 import type { Beat, Note, Song } from '../src/model/song';
-import { type StringAddress, deleteNote, findNote, setNoteFret, setNoteString, setNoteVelocity } from '../src/edit/edit-song';
+import { type StringAddress, deleteNote, findNote, setNoteFret, setNoteVelocity } from '../src/edit/edit-song';
+import { setNoteString } from '../src/edit/note-string';
 import { DEFAULT_VELOCITY } from '../src/formats/common/velocity';
 import { readSong } from '../src/read-song';
 import { writeSong } from '../src/write';
@@ -184,10 +185,67 @@ describe('setNoteFret on an empty voice', () => {
 });
 
 describe('setNoteString', () => {
-  it('moves a note to another free string', () => {
-    const edited = setNoteString(makeSong(), AT_STRING_1, 2);
-    expect(findNote(edited, { ...AT_STRING_1, string: 2 })).toMatchObject({ string: 2, fret: 0 });
+  it('moves a note to another free string, keeping its pitch (TuxGuitar shiftNote)', () => {
+    // Arrange: string 1 (E4) open
+    const song = makeSong();
+
+    // Act: onto string 2 (B3)
+    const edited = setNoteString(song, AT_STRING_1, 2);
+
+    // Assert
+    expect(findNote(edited, { ...AT_STRING_1, string: 2 })).toMatchObject({ string: 2, fret: 5 });
     expect(findNote(edited, AT_STRING_1)).toBeUndefined();
+  });
+
+  it('refuses a move that would put the note below the nut or past the last fret', () => {
+    // Arrange: string 6 fret 3 (G2) cannot go onto string 5 (A2); string 1 fret 25 cannot go onto string 2 (fret 30)
+    const low = makeSong();
+    const high = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 25))]]]] }));
+    const lowNote: StringAddress = { ...AT_STRING_1, beatIndex: 1, string: 6 };
+
+    // Act + Assert
+    expect(setNoteString(low, lowNote, 5)).toBe(low);
+    expect(setNoteString(high, AT_STRING_1, 2)).toBe(high);
+  });
+
+  it('moves the grace and trill frets with the note, and refuses when the grace note cannot follow', () => {
+    // Arrange
+    const ornamented: Note = { ...n(2, 7), effect: { ...EMPTY_NOTE_EFFECT, grace: { fret: 5, duration: 2, velocity: 95, transition: 'none', onBeat: false, isDead: false }, trill: { fret: 9, duration: QUARTER } } };
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, ornamented)]]]] }));
+    const openGrace = deepFreeze(buildSong({ tracks: [[[[play(4, { ...ornamented, effect: { ...ornamented.effect, grace: { ...ornamented.effect.grace!, fret: 0 } } })]]]] }));
+    const at: StringAddress = { ...AT_STRING_1, string: 2 };
+
+    // Act
+    const moved = findNote(setNoteString(song, at, 3), { ...at, string: 3 });
+
+    // Assert: string 3 is G3, four semitones under string 2
+    expect(moved).toMatchObject({ fret: 11, effect: { grace: { fret: 9 }, trill: { fret: 13 } } });
+    expect(setNoteString(openGrace, at, 1)).toBe(openGrace);
+  });
+
+  it('drops the left-hand finger, which no longer fits the new place', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, { ...n(1, 3), leftFinger: 'middle' })]]]] }));
+    expect(findNote(setNoteString(song, AT_STRING_1, 2), { ...AT_STRING_1, string: 2 })?.leftFinger).toBeUndefined();
+  });
+
+  it('undoes the ties the move breaks: its own, and the next note’s on the string it left', () => {
+    // Arrange: a note tied into the moved one, and one tied after it, all on string 1 fret 5
+    const tied = (note: Note): Note => ({ ...note, isTied: true });
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 5)), play(4, tied(n(1, 5))), play(4, tied(n(1, 5))), rest(4)]]]] }));
+
+    // Act
+    const edited = setNoteString(song, { ...AT_STRING_1, beatIndex: 1 }, 2);
+
+    // Assert
+    expect(findNote(edited, { ...AT_STRING_1, beatIndex: 1, string: 2 })).toMatchObject({ fret: 10, isTied: false });
+    expect(findNote(edited, { ...AT_STRING_1, beatIndex: 2 })).toMatchObject({ fret: 5, isTied: false });
+    expect(findNote(edited, AT_STRING_1)?.isTied).toBe(false);
+  });
+
+  it('keeps a drum note’s key: a drum track’s strings play no pitch', () => {
+    const base = buildSong({ tracks: [[[[play(4, n(1, 38))]]]] });
+    const drums = deepFreeze({ ...base, tracks: base.tracks.map((track) => ({ ...track, isPercussion: true, strings: track.strings.map((string) => ({ ...string, tuning: 0 })) })) });
+    expect(findNote(setNoteString(drums, AT_STRING_1, 2), { ...AT_STRING_1, string: 2 })?.fret).toBe(38);
   });
 
   it('refuses a string that is taken, does not exist, or an empty position', () => {
@@ -196,6 +254,11 @@ describe('setNoteString', () => {
     expect(setNoteString(song, AT_STRING_1, 7)).toBe(song);
     expect(setNoteString(song, AT_STRING_1, 0)).toBe(song);
     expect(setNoteString(song, { ...AT_STRING_1, string: 2 }, 1)).toBe(song);
+  });
+
+  it('refuses a string another voice plays on the same beat', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(4, n(1, 5))], [play(4, n(2, 3))]]]] }));
+    expect(setNoteString(song, AT_STRING_1, 2)).toBe(song);
   });
 });
 

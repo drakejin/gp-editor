@@ -14,7 +14,7 @@ import {
   voiceOf,
 } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
-import { refusalHint } from './edit-hints';
+import { refusalHint, stringMoveHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { editAtCursor, withBarRests } from './empty-bars';
@@ -104,14 +104,18 @@ export function shiftNoteFret(state: EditorState, delta: number): EditorState {
   });
 }
 
-/** Option-↑/↓: move the note at the cursor to the neighbouring string; the cursor follows it. */
+/** Option-↑/↓: move the note at the cursor to the neighbouring string at the same pitch; the cursor follows it, or the hint says why it stayed. */
 export function shiftNoteString(state: EditorState, delta: number): EditorState {
-  const { cursor } = state;
-  if (cursor === undefined) {
+  const { cursor, document } = state;
+  if (cursor === undefined || document === undefined) {
     return state;
   }
   const edited = applyEdit(state, (song, at) => setNoteString(song, at, at.string + delta));
-  return edited === state ? state : { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
+  if (edited === state) {
+    const hint = stringMoveHint(document.song, cursor, cursor.string + delta);
+    return hint === undefined || hint === state.hint ? state : { ...state, hint };
+  }
+  return { ...edited, cursor: { ...cursor, string: cursor.string + delta } };
 }
 
 export function deleteNoteAtCursor(state: EditorState): EditorState {
