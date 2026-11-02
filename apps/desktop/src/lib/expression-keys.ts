@@ -127,25 +127,34 @@ function keyMatch(keySignature: number, title: string): ExpressionMatch {
   };
 }
 
-/** A key typed by its tonic and mode: "G", "G major", "Eb minor", "key of F#m". */
-function keyByTonic(text: string): ExpressionMatch | undefined {
+/** A key typed by its tonic and mode, as read: the tonic's letter (0 = C) and accidental, the mode, and the mode's word. */
+interface TypedKey {
+  readonly letter: number;
+  readonly alter: number;
+  readonly mode: KeyMode;
+  readonly modeWord: string;
+}
+
+/** "G", "G major", "Eb minor", "F#m" read as a tonic and a mode; undefined for anything else. */
+function parseTonicKey(text: string): TypedKey | undefined {
   const match =
     /^([A-Ga-g])\s*(#|♯|b|♭|-?sharp|-?flat|샵|플랫)?\s*(major|maj|minor|min|m|장조|단조)?$/i.exec(
       text,
     );
   const letter = LETTERS.indexOf((match?.[1] ?? '').toUpperCase());
   const alter = ACCIDENTAL_SHIFTS[(match?.[2] ?? '').replace('-', '').toLowerCase()];
-  const mode = modeOf(match?.[3] ?? '');
-  const keySignature =
-    match === null || letter < 0 || alter === undefined || mode === undefined
-      ? undefined
-      : keySignatureOf(letter, alter, mode);
-  return keySignature === undefined
+  const modeWord = match?.[3] ?? '';
+  const mode = modeOf(modeWord);
+  return match === null || letter < 0 || alter === undefined || mode === undefined ? undefined : { letter, alter, mode, modeWord };
+}
+
+/** A key typed by its tonic and mode: "G", "G major", "Eb minor", "key of F#m". */
+function keyByTonic(text: string): ExpressionMatch | undefined {
+  const typed = parseTonicKey(text);
+  const keySignature = typed === undefined ? undefined : keySignatureOf(typed.letter, typed.alter, typed.mode);
+  return typed === undefined || keySignature === undefined
     ? undefined
-    : keyMatch(
-        keySignature,
-        `${keyName(tonicName(letter, alter ?? 0), mode ?? 'major')} ${accidentalsText(keySignature)}`,
-      );
+    : keyMatch(keySignature, `${keyName(tonicName(typed.letter, typed.alter), typed.mode)} ${accidentalsText(keySignature)}`);
 }
 
 /** A count of accidentals as typed: "3 flats", "2#", or in Korean "플랫 3개", "샵 2". */
@@ -179,13 +188,27 @@ function keyByAccidentals(text: string): ExpressionMatch | undefined {
   );
 }
 
-/** The key signature the text names, by tonic or by accidentals ("key" and "key of" may go with it). */
-export function keyExpression(query: string): readonly ExpressionMatch[] {
-  const text = query
+/** The text without "key" and "key of" around it. */
+function keyText(query: string): string {
+  return query
     .trim()
     .replace(/^key\s+(of\s+)?/i, '')
     .replace(/\s+key$/i, '');
+}
+
+/** The key signature the text names, by tonic or by accidentals ("key" and "key of" may go with it). */
+export function keyExpression(query: string): readonly ExpressionMatch[] {
+  const text = keyText(query);
   return [keyByTonic(text), keyByAccidentals(text)].flatMap(match =>
     match === undefined ? [] : [match],
   );
+}
+
+/**
+ * True when the text names a key with its mode written out ("E minor", "D major" — the field's hint gives "E minor" as
+ * a key): that key comes before the chord the same words spell. "Em", "E min", "G maj" stay chords first.
+ */
+export function namesKeyInFull(query: string): boolean {
+  const modeWord = parseTonicKey(keyText(query))?.modeWord.toLowerCase();
+  return modeWord === 'major' || modeWord === 'minor';
 }

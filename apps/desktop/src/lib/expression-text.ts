@@ -12,7 +12,7 @@ import type {
   ToolScope,
 } from '../components/palette/palette-tools';
 import type { SongEdit } from '../state/song-edits';
-import { chordExpression, keyExpression } from './expression-keys';
+import { chordExpression, keyExpression, namesKeyInFull } from './expression-keys';
 import { t } from './i18n/i18n';
 import { DIRECTION_TEXTS } from '../score/directions';
 
@@ -214,9 +214,10 @@ function kindRank(scored: ScoredExpression): number {
 }
 
 /**
- * Everything the text can name, best first: its name before the start of a name before a part of one, then by kind in
- * Guitar Pro's order (chords, dynamics, key signatures, octave signs, clefs, directions). With nothing typed, the
- * dynamics, octave signs, clefs and directions to choose from.
+ * Everything the text can name, best first: its name before the start of a name before a part of one (a key named in
+ * full, "E minor", before the chord its words spell), then by kind in Guitar Pro's order (chords, dynamics, key
+ * signatures, octave signs, clefs, directions). With nothing typed, the dynamics, octave signs, clefs and directions to
+ * choose from.
  */
 export function searchExpressions(
   query: string,
@@ -226,10 +227,13 @@ export function searchExpressions(
   if (query.trim() === '') {
     return named.map(entry => entry.match);
   }
+  // A key named in full ("E minor") is meant before the chord those words spell (Em).
+  const chordScore: MatchScore = namesKeyInFull(query) ? 1 : 0;
+  const chord = chordExpression(query, context.tuning);
   const parsed: ScoredExpression[] = [
-    chordExpression(query, context.tuning),
-    ...keyExpression(query),
-  ].flatMap(match => (match === undefined ? [] : [{ match, score: 0 }]));
+    ...(chord === undefined ? [] : [{ match: chord, score: chordScore }]),
+    ...keyExpression(query).map((match): ScoredExpression => ({ match, score: 0 })),
+  ];
   const found = named.flatMap((entry): ScoredExpression[] => {
     const score = nameScore(query, entry.names);
     return score === undefined ? [] : [{ match: entry.match, score }];
