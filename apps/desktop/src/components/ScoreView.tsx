@@ -53,6 +53,10 @@ interface ScoreViewProps {
   readonly onDragBeat: (hit: RowHit) => void;
   /** A right-click or ⌃-click on a beat: its annotation (keep the same function: the rows compare it). */
   readonly onContextBeat?: (hit: RowHit) => void;
+  /** A note pressed, then dragged up or down or let go (usePitchDrag; keep the same functions: the rows compare them). */
+  readonly onPressNote?: ScoreRowProps['onPressNote'];
+  readonly onDragNote?: ScoreRowProps['onDragNote'];
+  readonly onEndNote?: ScoreRowProps['onEndNote'];
   /** Design Mode: handles to drag beats, bar lines and spaces, and each system's + − × (View ▸ Design Mode). */
   readonly isDesignMode?: boolean;
   /** A Design Mode drag or button: one undo step. */
@@ -75,7 +79,7 @@ const DESK_MARGIN = 22;
 const PAGE_FOOT = 48;
 
 /** What every line of the page is drawn with: the layout, the cursor, playback, the selection, Design Mode and the handlers. */
-interface LineView extends Pick<ScoreViewProps, 'trackIndex' | 'cursor' | 'isMultivoice' | 'playing' | 'playingTracks' | 'selection' | 'palette'> {
+interface LineView extends Pick<ScoreViewProps, 'trackIndex' | 'cursor' | 'isMultivoice' | 'playing' | 'playingTracks' | 'selection' | 'palette' | 'onPressNote' | 'onDragNote' | 'onEndNote'> {
   readonly song: Song;
   readonly layout: ScoreLayout;
   readonly rowWidth: number;
@@ -108,6 +112,7 @@ function lineRowProps(item: ScoreLine, staff: ScoreStaff, row: RowLayout, view: 
     markLanes: staff.markLanes, hasHeading: staff.hasHeading, decor: staffDecor(song, layout, item.systemIndex, item.staffIndex),
     editedVoiceIndex: editedVoiceOf(cursor, staff.trackIndex, view.isMultivoice), zoom: view.zoom, rowIndex: item.systemIndex,
     onPress: view.onPressRow, onDrag: view.onDragRow, onContextBeat: view.onContextBeat,
+    onPressNote: view.onPressNote, onDragNote: view.onDragNote, onEndNote: view.onEndNote,
     design: view.isDesignMode ? rowDesign(item, layout.staves.length, view.guide) : undefined,
     onDesignPress: view.onDesignPress, onDesignMove: view.onDesignMove, onDesignRelease: view.onDesignRelease,
   };
@@ -174,7 +179,7 @@ function usePageLayout(props: ScoreViewProps, song: Song) {
 
 /** The page's lines, how each is drawn, and what follows the cursor and playback into view. */
 function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLine> | null>, headerHeight: number) {
-  const { trackIndex, cursor, isMultivoice, playing, playingTracks, selection, palette, isDesignMode = false, onLayoutEdit } = props;
+  const { trackIndex, cursor, isMultivoice, playing, playingTracks, selection, palette, isDesignMode = false, onLayoutEdit, onPressNote, onDragNote, onEndNote } = props;
   // A Design Mode drag shows its edit on the score before it becomes one.
   const designDrag = useDesignDrag(props.song, onLayoutEdit);
   const { song, guide } = designDrag;
@@ -194,9 +199,9 @@ function useScorePage(props: ScoreViewProps, listRef: RefObject<FlatList<ScoreLi
   const renderLine = useCallback(
     ({ item }: ListRenderItemInfo<ScoreLine>) => renderScoreLine(item, {
       song, layout, rowWidth, zoom, palette, trackIndex, cursor, isMultivoice, playing, playingTracks, selection, onPressRow, onDragRow, onContextBeat: props.onContextBeat,
-      isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease,
+      isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease, onPressNote, onDragNote, onEndNote,
     }),
-    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, props.onContextBeat, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease],
+    [song, trackIndex, layout, rowWidth, palette, cursor, isMultivoice, playing, playingTracks, selection, zoom, onPressRow, onDragRow, props.onContextBeat, isDesignMode, guide, onDesignEdit, onDesignPress, onDesignMove, onDesignRelease, onPressNote, onDragNote, onEndNote],
   );
   return { layout, zoom, lines, renderLine, onLayout, onScroll, deskSide };
 }

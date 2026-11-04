@@ -18,6 +18,9 @@ export const DRAG_INTENT_DISTANCE = 3;
 /** What a drag that began on a note does: the note's pitch (up or down), or a selection of beats (sideways). */
 export type DragIntent = 'pitch' | 'select';
 
+/** How a gesture that began on a note ended: a pitch drag let go, a click, or a selection drag from the note's beat. */
+export type NoteGestureEnd = 'drag' | 'click' | 'select';
+
 /** The drag's kind once the pointer has gone DRAG_INTENT_DISTANCE from the note (dx, dy in layout points); undefined before. */
 export function dragIntent(dx: number, dy: number): DragIntent | undefined {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < DRAG_INTENT_DISTANCE) {

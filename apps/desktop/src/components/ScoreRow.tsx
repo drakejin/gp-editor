@@ -2,7 +2,7 @@ import { memo, useRef } from 'react';
 import { type GestureResponderEvent, type NativeMouseEvent, type NativeSyntheticEvent, Pressable } from 'react-native';
 import type { Song, StringAddress, Track } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
-import { type DragIntent, dragIntent } from '../lib/pitch-drag';
+import { type DragIntent, type NoteGestureEnd, dragIntent } from '../lib/pitch-drag';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import { type DesignHandle, designHandles, engraveDesign, hitTestDesign } from '../score/design-handles';
@@ -67,9 +67,6 @@ export interface ScoreRowProps {
   /** The gesture that began on a note ended: let go after a pitch drag, let go where it began, or turned into a selection drag. */
   readonly onEndNote?: (end: NoteGestureEnd) => void;
 }
-
-/** How a gesture that began on a note ended: a pitch drag let go, a click, or a selection drag from the note's beat. */
-export type NoteGestureEnd = 'drag' | 'click' | 'select';
 
 /** A canvas's place in its system for Design Mode, and the automatic guideline's x while a drag snaps. */
 export interface RowDesign {

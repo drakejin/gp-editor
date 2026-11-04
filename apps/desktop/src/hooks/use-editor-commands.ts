@@ -11,6 +11,7 @@ import { type PracticeAction, playbackStartTempo } from '../state/practice';
 import { selectionBars, selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
+import { type PitchDrag, usePitchDrag } from './use-pitch-drag';
 import { useStableCallback } from './use-stable-callback';
 import { isOfTypes } from '../lib/type-guards';
 
@@ -20,6 +21,8 @@ export interface EditorCommands {
   readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
   /** A drag reached a beat: the beats from where it began to here are selected. */
   readonly onDragBeat: (hit: RowHit) => void;
+  /** A note dragged up or down: by semitones, one undo step when let go; Esc stops it. */
+  readonly pitchDrag: PitchDrag;
   readonly onKeyDown: (event: KeyEvent) => void;
   readonly onDrop: (event: DragEvent) => void;
 }
@@ -208,9 +211,15 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     focusView(keyboardView.current);
   });
   const onDragBeat = useCallback((hit: RowHit) => onPressBeat(hit, true), [onPressBeat]);
+  const pitchDrag = usePitchDrag({ state: sources.state, dispatch, keyboardView });
   const onKeyDown = useStableCallback((event: KeyEvent) => {
     const press = keyPressOf(event);
     keyIndex.current += 1;
+    // Esc while a note is held: the drag stops first, before any panel closes or playback stops.
+    if (press?.key === 'Escape' && pitchDrag.cancel()) {
+      claimKey(event);
+      return;
+    }
     if (press === undefined || (sources.isOverlayOpen === true && press.key !== 'Escape')) {
       return;
     }
@@ -229,5 +238,5 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     },
     [openPath],
   );
-  return { runCommand, onPressBeat, onDragBeat, onKeyDown, onDrop };
+  return { runCommand, onPressBeat, onDragBeat, pitchDrag, onKeyDown, onDrop };
 }

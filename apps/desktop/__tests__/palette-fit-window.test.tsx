@@ -14,6 +14,9 @@ import { DesignModeBar } from '../src/components/stylesheet/DesignModeBar';
 import { ErrorBanner } from '../src/components/WindowOverlays';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
+import { TAB } from '../src/lib/layout';
+import { PITCH_DRAG_STEP } from '../src/lib/pitch-drag';
+import { placeRow } from '../src/score/row';
 import { readFixture } from '../test-support/fixtures';
 import { placementOf } from '../test-support/palette-fit';
 
@@ -168,6 +171,43 @@ describe('the window around the edition palette', () => {
     // Assert
     expect(placementOf(shown(renderer, ImportPanel), paletteOf(renderer))).toBe('beside');
     expect(keyField().props.value).toBe('typed, not saved yet');
+  });
+});
+
+describe('a note dragged up or down in the window', () => {
+  /** The first system's score row (memoised: found by its props), its Pressable, and its first note on the tab (voice 1). */
+  function firstNote(renderer: ReactTestRenderer.ReactTestRenderer) {
+    const row = renderer.root.find((node) => node.props.rowIndex === 0 && typeof node.props.onEndNote === 'function' && node.props.geometry !== undefined);
+    const pressable = row.find((node) => typeof node.props.onPressMove === 'function');
+    const { song, trackIndex, headerWidth, geometry, zoom } = row.props;
+    const notes = placeRow(row.props.row, headerWidth).flatMap((bar) =>
+      bar.layout.beats.flatMap((beat) => {
+        const found = song.tracks[trackIndex].measures[bar.layout.measureIndex].beats[beat.beatIndex]?.voices[0]?.notes[0];
+        return found === undefined ? [] : [{ note: found, x: bar.x + beat.x }];
+      }),
+    );
+    const { note, x } = notes[0] ?? { note: undefined, x: Number.NaN };
+    const y = geometry.tabTop + (note.string - 1) * TAB.stringGap;
+    return { pressable, note, point: { x: x * zoom, y: y * zoom }, zoom };
+  }
+
+  it('shows the drag’s hint over the score, not as the hint strip, and moves the note when let go', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const { pressable, note, point, zoom } = firstNote(renderer);
+    const [pageX, pageY] = [500, 400];
+
+    // Act: down on the note, then 3 semitones up
+    await ReactTestRenderer.act(async () => pressable.props.onPressIn({ nativeEvent: { locationX: point.x, locationY: point.y, pageX, pageY } }));
+    await ReactTestRenderer.act(async () => pressable.props.onPressMove({ nativeEvent: { pageX, pageY: pageY - 3 * PITCH_DRAG_STEP * zoom } }));
+    const hints = renderer.root.findAllByType(HintBar).map((hint) => ({ message: hint.props.message, isStrip: hint.props.onDismiss !== undefined }));
+    await ReactTestRenderer.act(async () => pressable.props.onPressOut());
+
+    // Assert
+    expect(hints).toEqual([{ message: '+3 semitones: let go to move, Esc to cancel', isStrip: false }]);
+    expect(renderer.root.findAllByType(HintBar)).toHaveLength(0);
+    const moved = firstNote(renderer).note;
+    expect([moved.string, moved.fret]).toEqual([note.string, note.fret + 3]);
   });
 });
 
