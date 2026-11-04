@@ -28,6 +28,7 @@ import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
 import { extendSelection, selectBeats, selectTo, settleSelection } from './selection';
+import { type SemitoneStep, shiftPitch } from './semitone-shift';
 import { type SongAction, isSongAction } from './song-actions';
 import type { SongEdit } from './song-edits';
 import { INITIAL_TRACK_DISPLAY, type TrackDisplay } from './track-display';
@@ -137,6 +138,8 @@ export type EditorAction =
   | { readonly type: 'enterPlayedNotes'; readonly notes: readonly PlayedNote[] }
   | { readonly type: 'shiftNoteFret'; readonly delta: number }
   | { readonly type: 'shiftNoteString'; readonly delta: number }
+  /** ⌥⇧↑ / ⌥⇧↓ (Guitar Pro 8's One semitone up / down): the selected notes, else the cursor's, a semitone higher or lower. */
+  | { readonly type: 'shiftPitch'; readonly delta: SemitoneStep }
   | { readonly type: 'deleteNote' }
   /** Neck settings: the track on new strings, every note re-fretted to keep its pitch. */
   | {
@@ -283,6 +286,8 @@ function cursorEditReducer(state: EditorState, action: EditorAction): EditorStat
       return shiftNoteFret(state, action.delta);
     case 'shiftNoteString':
       return shiftNoteString(state, action.delta);
+    case 'shiftPitch':
+      return shiftPitch(state, action.delta);
     case 'deleteNote':
       return deleteNoteAtCursor(state);
     case 'edit':

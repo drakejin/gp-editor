@@ -110,11 +110,12 @@ export function selectBeats(state: EditorState, anchor: StringAddress, cursor: S
 
 /**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
- * changed the song (but for a transposition) or showed another track (a plain cursor move, a click, an edit, undo).
+ * changed the song (but for a transposition or a semitone step) or showed another track (a plain cursor move, a click,
+ * an edit, undo).
  */
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
-  // A transposition (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
-  const keepsBeats = action.type === 'transpose' || (action.type === 'applyAiEdit' && action.keepsBeats);
+  // A transposition, a semitone up or down (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
+  const keepsBeats = action.type === 'transpose' || action.type === 'shiftPitch' || (action.type === 'applyAiEdit' && action.keepsBeats);
   if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'selectBeats' || keepsBeats) {
     return after;
   }
