@@ -114,10 +114,11 @@ struct GPEditorApp: App {
           UndoRedoCommands(model: editMenu, strings: strings)
         }
         // Edit ▸ Cut / Copy / Paste: the score's beats, or the text being edited (EditMenu.swift); Delete, Select All;
-        // the score's Delete Notes (D) and Delete Bars (⌘D).
+        // the score's Delete Notes (D) and Delete Bars (⌘D), Raise / Lower by a Semitone (⌥⇧↑ / ⌥⇧↓).
         CommandGroup(replacing: .pasteboard) {
           PasteboardCommands(model: editMenu, strings: strings)
           ScoreDeleteCommands(model: editMenu, strings: strings)
+          ScoreSemitoneCommands(model: editMenu, strings: strings)
         }
         // Edit ▸ AI Wizard: tools that ask Claude (the Anthropic key of the PDF import).
         CommandGroup(after: .pasteboard) {

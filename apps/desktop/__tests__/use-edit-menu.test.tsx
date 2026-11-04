@@ -1,12 +1,13 @@
 import ReactTestRenderer from 'react-test-renderer';
 import { useEditMenu } from '../src/hooks/use-edit-menu';
 import type { ClipboardCommand } from '../src/native/clipboard';
-import type { DeleteCommand, UndoEventHandlers } from '../src/native/gp-files';
+import type { DeleteCommand, SemitoneDirection, UndoEventHandlers } from '../src/native/gp-files';
 
 const mockMenu: {
   handlers?: UndoEventHandlers;
   onClipboardRequested?: (command: ClipboardCommand) => void;
   onDeleteRequested?: (command: DeleteCommand) => void;
+  onSemitoneRequested?: (direction: SemitoneDirection) => void;
   states: (readonly [boolean, boolean])[];
   subscriptions: number;
 } = { states: [], subscriptions: 0 };
@@ -23,6 +24,12 @@ jest.mock('../src/native/gp-files', () => ({
     mockMenu.onDeleteRequested = onDeleteRequested;
     return () => {
       mockMenu.onDeleteRequested = undefined;
+    };
+  },
+  subscribeSemitoneRequests: (onSemitoneRequested: (direction: SemitoneDirection) => void) => {
+    mockMenu.onSemitoneRequested = onSemitoneRequested;
+    return () => {
+      mockMenu.onSemitoneRequested = undefined;
     };
   },
 }));
@@ -54,6 +61,7 @@ beforeEach(() => {
   mockMenu.handlers = undefined;
   mockMenu.onClipboardRequested = undefined;
   mockMenu.onDeleteRequested = undefined;
+  mockMenu.onSemitoneRequested = undefined;
   mockMenu.subscriptions = 0;
 });
 
@@ -126,6 +134,24 @@ describe('useEditMenu', () => {
     expect(runCommand.mock.calls).toEqual([[{ type: 'edit', edit: { type: 'deleteNotes' } }], [{ type: 'edit', edit: { type: 'deleteMeasure' } }]]);
   });
 
+  it('moves the notes a semitone up or down when Edit ▸ Raise / Lower by a Semitone is chosen, not under a panel', () => {
+    // Arrange
+    const runCommand = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(<Probe canUndo={false} canRedo={false} runCommand={runCommand} />);
+    });
+
+    // Act
+    mockMenu.onSemitoneRequested?.('up');
+    mockMenu.onSemitoneRequested?.('down');
+    ReactTestRenderer.act(() => renderer?.update(<Probe canUndo={false} canRedo={false} runCommand={runCommand} isOverlayOpen />));
+    mockMenu.onSemitoneRequested?.('up');
+
+    // Assert
+    expect(runCommand.mock.calls).toEqual([[{ type: 'shiftPitch', delta: 1 }], [{ type: 'shiftPitch', delta: -1 }]]);
+  });
+
   it('stops listening to the menu when it unmounts', () => {
     // Arrange
     const runCommand = jest.fn();
@@ -140,6 +166,7 @@ describe('useEditMenu', () => {
     // Assert
     expect(mockMenu.onClipboardRequested).toBeUndefined();
     expect(mockMenu.onDeleteRequested).toBeUndefined();
+    expect(mockMenu.onSemitoneRequested).toBeUndefined();
     expect(mockMenu.handlers).toBeUndefined();
   });
 

@@ -4,8 +4,9 @@
 // (GPFiles.m forwards them to JS; enabled from JS's undo state, GPFiles' setUndoState) and GPEditorClipboardCommand
 // (GPClipboard.m forwards it). While a text field has the keyboard they are its own, as AppKit's items are; Delete and
 // Select All stay the text's alone, as SwiftUI's were. Delete Notes and Delete Bars (⌘D) post GPEditorDeleteCommand for
-// the score (GPFiles.m forwards it); D has no key equivalent: the menu bar takes a key equivalent before the text field
-// with the keyboard, so a bare D would swallow every "d" typed — the score's own keys answer D.
+// the score (GPFiles.m forwards it), Raise / Lower by a Semitone GPEditorSemitoneCommand; D has no key equivalent: the
+// menu bar takes a key equivalent before the text field with the keyboard, so a bare D would swallow every "d" typed —
+// the score's own keys answer D (and ⌥⇧↑ / ⌥⇧↓, the semitone's).
 // SwiftUI refreshes a menu item's enabled state when its menu opens, not when a key equivalent is looked up, so the
 // score's ⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘D, and ⌘A in a text field, are taken by a local key monitor (from state that is current)
 // before the menu sees them.
@@ -162,8 +163,18 @@ final class EditMenuModel: ObservableObject {
 
   /// Delete Notes / Delete Bars ("notes" or "bars"): the score's, in the editor's window while no text has the keyboard.
   static func performScoreDelete(_ what: String) {
+    performOnScore(.GPEditorDeleteCommand, object: what)
+  }
+
+  /// Raise / Lower by a Semitone ("up" or "down"): the score's, as the deletes.
+  static func performScoreSemitone(_ direction: String) {
+    performOnScore(.GPEditorSemitoneCommand, object: direction)
+  }
+
+  /// A score command, posted in the editor's window while no text has the keyboard.
+  private static func performOnScore(_ name: Notification.Name, object: String) {
     if !isTextFocused && keyboardWindow == editorWindow {
-      NotificationCenter.default.post(name: .GPEditorDeleteCommand, object: what as NSString)
+      NotificationCenter.default.post(name: name, object: object as NSString)
     }
   }
 
@@ -240,6 +251,26 @@ struct ScoreDeleteCommands: View {
       EditMenuModel.performScoreDelete("bars")
     }
     .keyboardShortcut("d")
+    .disabled(model.isTextFocused)
+  }
+}
+
+/// Edit ▸ Raise by a Semitone / Lower by a Semitone (Guitar Pro 8's One semitone up / down: the selected notes, or the
+/// note at the cursor), after the deletes; off while a text field has the keyboard. Their keys ⌥⇧↑ / ⌥⇧↓ are the
+/// score's own, no key equivalents: the menu bar would take them from a text field, where they select.
+struct ScoreSemitoneCommands: View {
+  @ObservedObject var model: EditMenuModel
+  @ObservedObject var strings: AppLanguageModel
+
+  var body: some View {
+    Divider()
+    Button(strings("Raise by a Semitone")) {
+      EditMenuModel.performScoreSemitone("up")
+    }
+    .disabled(model.isTextFocused)
+    Button(strings("Lower by a Semitone")) {
+      EditMenuModel.performScoreSemitone("down")
+    }
     .disabled(model.isTextFocused)
   }
 }

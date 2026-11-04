@@ -228,6 +228,32 @@ export function subscribeDeleteRequests(onDeleteRequested: (command: DeleteComma
   });
 }
 
+const SEMITONE_DIRECTIONS = ['up', 'down'] as const;
+
+/** Edit ▸ Raise by a Semitone ("up") or Lower by a Semitone ("down"). */
+export type SemitoneDirection = (typeof SEMITONE_DIRECTIONS)[number];
+
+/** Which way a "semitoneRequested" event moves the notes (`{ direction }`); undefined for anything else. */
+export function toSemitoneDirection(body: unknown): SemitoneDirection | undefined {
+  const direction = typeof body === 'object' && body !== null ? (body as { readonly direction?: unknown }).direction : undefined;
+  return SEMITONE_DIRECTIONS.find((each) => each === direction);
+}
+
+/**
+ * Edit ▸ Raise by a Semitone or Lower by a Semitone chosen while no text field has the keyboard (their keys ⌥⇧↑ / ⌥⇧↓
+ * are the score's own, kept off the menu so text fields keep them); returns the unsubscribe function.
+ */
+export function subscribeSemitoneRequests(onSemitoneRequested: (direction: SemitoneDirection) => void): () => void {
+  return subscribeNativeEvents(native, {
+    semitoneRequested: (body: unknown) => {
+      const direction = toSemitoneDirection(body);
+      if (direction !== undefined) {
+        onSemitoneRequested(direction);
+      }
+    },
+  });
+}
+
 export interface TrackViewEventHandlers {
   /** View ▸ Multitrack (F3). */
   readonly onMultitrackRequested: () => void;

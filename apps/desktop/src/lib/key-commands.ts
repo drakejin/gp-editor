@@ -1,6 +1,6 @@
 // i18n-exempt-file: key names (react-native's KeyEvent.key values) and editor commands, nothing shown
 import type { HandledKeyEvent } from 'react-native';
-import type { DeleteCommand } from '../native/gp-files';
+import type { DeleteCommand, SemitoneDirection } from '../native/gp-files';
 import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
@@ -176,7 +176,7 @@ export const DELETE_COMMANDS: Readonly<Record<DeleteCommand, KeyCommand>> = {
  * ⌥⇧↑ / ⌥⇧↓, Edit ▸ Raise / Lower by a Semitone and the palette's Semi + / Semi −: Guitar Pro 8's One semitone up /
  * down — the selected notes, or the note at the cursor.
  */
-export const SEMITONE_COMMANDS: Readonly<Record<'up' | 'down', EditorAction>> = {
+export const SEMITONE_COMMANDS: Readonly<Record<SemitoneDirection, EditorAction>> = {
   up: { type: 'shiftPitch', delta: 1 },
   down: { type: 'shiftPitch', delta: -1 },
 };
