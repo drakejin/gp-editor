@@ -111,7 +111,9 @@ function useScheduler({ context, queue, isEnded, lastActivity, isPlaying, report
       }
       // The next due tab waits for another pause; a tab done, the next round starts AUTOSAVE_INTERVAL_MS later.
       void reportFailure(queue.run(() => writeTabSnapshot(context, tabId))).then(() => {
-        timer = isStopped ? undefined : setTimeout(tick, due.length > 1 ? AUTOSAVE_IDLE_MS : AUTOSAVE_INTERVAL_MS);
+        const isRoundDone = due.length <= 1;
+        dueSince = isRoundDone ? undefined : dueSince;
+        timer = isStopped ? undefined : setTimeout(tick, isRoundDone ? AUTOSAVE_INTERVAL_MS : AUTOSAVE_IDLE_MS);
       });
     };
     timer = setTimeout(tick, AUTOSAVE_INTERVAL_MS);

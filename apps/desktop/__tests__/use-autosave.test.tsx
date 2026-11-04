@@ -146,6 +146,28 @@ describe('useAutosave: every 30 s', () => {
     expect(mockNative.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('waits for a pause again in the next round, not counting the time of the round before', async () => {
+    // Arrange: a first snapshot, then the song edited again
+    let workspace = workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 7 });
+    const probe = renderAutosave(workspace);
+    await elapse(AUTOSAVE_INTERVAL_MS);
+    workspace = workspaceReducer(workspace, { type: 'setNoteFret', fret: 9 });
+    probe.update(workspace);
+
+    // Act: a key every second across the next round's tick
+    for (let step = 0; step < AUTOSAVE_INTERVAL_MS / 1_000 + 5; step++) {
+      workspace = workspaceReducer(workspace, { type: 'moveCursorBeat', step: step % 2 === 0 ? 1 : -1 });
+      probe.update(workspace);
+      await elapse(1_000);
+    }
+    const whileTyping = mockNative.writeSnapshot.mock.calls.length;
+    await elapse(AUTOSAVE_IDLE_MS);
+
+    // Assert
+    expect(whileTyping).toBe(1);
+    expect(mockNative.writeSnapshot).toHaveBeenCalledTimes(2);
+  });
+
   it('waits while playback plays, but never longer than the longest delay', async () => {
     // Arrange
     renderAutosave(workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 7 }), true);
