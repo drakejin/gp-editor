@@ -263,6 +263,8 @@ export const EN_PALETTE = {
   'palette.hint.voiceBusy': 'Voice {number} plays something else there: nothing moved.',
   'palette.hint.noNoteInSelection': 'No note to move in the selected beats.',
   'palette.hint.semitoneDrums': 'Drum notes do not move by semitones: a drum note’s fret is the drum it plays.',
+  'palette.hint.pitchDrag': '{amount}: let go to move, Esc to cancel',
+  'palette.hint.pitchDragLeft': '{amount} — {hint}',
   'palette.hint.noNoteRest': 'No note to move: the cursor’s beat is a rest.',
   'palette.hint.noNoteInVoice': 'No note to move: voice {number} has nothing at the cursor.',
   'palette.hint.lastBar': 'A song keeps at least one bar: nothing was deleted.',

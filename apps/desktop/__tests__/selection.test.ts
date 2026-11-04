@@ -1,6 +1,6 @@
 import type { Song } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
-import { selectedFragment, selectionBars, selectionRange, selectionSummary } from '../src/state/selection';
+import { isInSelection, selectedFragment, selectionBars, selectionRange, selectionSummary } from '../src/state/selection';
 import { beat, makeSong, note } from '../test-support/songs';
 
 const BAR = 3840;
@@ -141,6 +141,26 @@ describe('selectTo (a mouse drag, a shift-click)', () => {
     const dragged = reduce(loaded(), to(0, 3));
     expect(reduce(dragged, { type: 'moveCursorString', delta: 1 }).selectionAnchor).toBeUndefined();
     expect(reduce(dragged, to(1, 0)).selectionAnchor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+  });
+});
+
+describe('isInSelection (a drag on a selected note moves them all)', () => {
+  const at = (measureIndex: number, beatIndex: number, voiceIndex = 0, trackIndex = 0) => ({ trackIndex, measureIndex, beatIndex, voiceIndex });
+
+  it('takes a beat from the selection’s first to its last, across a bar line, in the selection’s track and voice', () => {
+    // Arrange: from bar 1's third beat to bar 2's second, selected backwards.
+    const placed = reduce(loaded(), { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 1 } });
+    const selected = reduce(placed, { type: 'extendSelection', step: -1 }, { type: 'extendSelection', step: -1 }, { type: 'extendSelection', step: -1 });
+
+    // Act + Assert
+    expect([at(0, 2), at(0, 3), at(1, 0), at(1, 1)].map((each) => isInSelection(selected, each))).toEqual([true, true, true, true]);
+    expect([at(0, 1), at(1, 2)].map((each) => isInSelection(selected, each))).toEqual([false, false]);
+    expect(isInSelection(selected, at(0, 3, 1))).toBe(false);
+    expect(isInSelection(selected, at(0, 3, 0, 1))).toBe(false);
+  });
+
+  it('takes nothing without a selection, not even the cursor’s beat', () => {
+    expect(isInSelection(loaded(), at(0, 0))).toBe(false);
   });
 });
 

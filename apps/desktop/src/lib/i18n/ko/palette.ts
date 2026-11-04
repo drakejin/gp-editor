@@ -255,6 +255,8 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   'palette.hint.voiceBusy': '성부 {number}에는 그 자리에 이미 다른 음이 있어 아무것도 옮기지 않았습니다.',
   'palette.hint.noNoteInSelection': '선택한 박에 옮길 음이 없습니다.',
   'palette.hint.semitoneDrums': '드럼 음은 반음씩 옮기지 않습니다: 드럼 음의 프렛이 곧 치는 드럼입니다.',
+  'palette.hint.pitchDrag': '{amount}: 놓으면 옮기고, Esc를 누르면 취소합니다',
+  'palette.hint.pitchDragLeft': '{amount} — {hint}',
   'palette.hint.noNoteRest': '옮길 음이 없습니다: 커서의 박이 쉼표입니다.',
   'palette.hint.noNoteInVoice': '옮길 음이 없습니다: 커서 자리의 성부 {number}이(가) 비어 있습니다.',
   'palette.hint.lastBar': '곡에는 마디가 하나 이상 있어야 합니다: 아무것도 지우지 않았습니다.',

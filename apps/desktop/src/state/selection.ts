@@ -1,7 +1,7 @@
 import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, pasteBeats } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
-import type { BeatRange } from '../score/selection-tint';
+import type { BeatPosition, BeatRange } from '../score/selection-tint';
 import type { EditorAction, EditorState } from './editor';
 import type { LoopRange } from './practice';
 import { beatAddress } from './song-edits';
@@ -16,7 +16,7 @@ export interface ClipboardEdit {
   readonly hint?: string;
 }
 
-function isBefore(a: StringAddress, b: StringAddress): boolean {
+function isBefore(a: BeatPosition, b: BeatPosition): boolean {
   return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beatIndex < b.beatIndex);
 }
 
@@ -28,6 +28,19 @@ export function selectionRange(state: SelectionState): BeatRange | undefined {
   }
   const [first, last] = isBefore(cursor, anchor) ? [cursor, anchor] : [anchor, cursor];
   return { first: { measureIndex: first.measureIndex, beatIndex: first.beatIndex }, last: { measureIndex: last.measureIndex, beatIndex: last.beatIndex } };
+}
+
+/**
+ * True when a voice of a beat is selected: on a beat from the selection's first to its last, in the selection's track and
+ * voice (the cursor's). Nothing is, without a selection.
+ */
+export function isInSelection(state: SelectionState, at: Omit<StringAddress, 'string'>): boolean {
+  const range = selectionRange(state);
+  const { cursor } = state;
+  if (range === undefined || cursor === undefined || at.trackIndex !== cursor.trackIndex || at.voiceIndex !== cursor.voiceIndex) {
+    return false;
+  }
+  return !isBefore(at, range.first) && !isBefore(range.last, at);
 }
 
 /** Where playing a selection starts: its first beat's bar and song tick (a bar without beats: its start); undefined without a selection. */
