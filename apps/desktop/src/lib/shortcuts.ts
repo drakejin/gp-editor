@@ -22,7 +22,7 @@ const key = (k: string, modifiers: Partial<Omit<KeyPress, 'key'>> = {}): KeyPres
   ...modifiers,
 });
 
-/** A key the Mac keyboard names by a word (Space): shown in the shown language. */
+/** A key the Mac keyboard names by a word (Space), or a mouse gesture (a note dragged): shown in the shown language. */
 interface KeyWord {
   readonly word: MessageKey;
 }
@@ -60,6 +60,8 @@ const NOTE_ROWS: readonly ShortcutRow[] = [
   row('- / =', 'commands.shortcuts.fretDownUp', key('=')),
   row('⌥↑ / ⌥↓', 'commands.shortcuts.noteString', key(KEYS.arrowUp, { altKey: true })),
   row('⌥⇧↑ / ⌥⇧↓', 'commands.shortcuts.semitone', key(KEYS.arrowUp, { altKey: true, shiftKey: true })),
+  // The mouse's way to the same move: no key of its own.
+  row({ word: 'commands.key.dragNote' }, 'commands.shortcuts.dragNote'),
 ];
 
 /** The cursor's beat: erase, delete (its notes, the selected ones, the bars), insert, its length. */

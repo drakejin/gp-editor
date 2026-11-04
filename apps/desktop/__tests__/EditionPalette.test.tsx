@@ -132,8 +132,8 @@ describe('EditionPalette state at the cursor', () => {
     expect(onNote.tool('semitoneDown').props.isEnabled).toBe(true);
     expect(selected.onAction.mock.calls).toEqual([[{ type: 'shiftPitch', delta: -1 }], [{ type: 'shiftPitch', delta: 1 }]]);
     expect([onNote.tool('semitoneDown').props.label, onNote.tool('semitoneUp').props.label]).toEqual(['Semi −', 'Semi +']);
-    expect(onNote.tool('semitoneDown').props.tooltip).toBe('Lower by a semitone: the selected notes, or the note at the cursor (⌥⇧↓)');
-    expect(onNote.tool('semitoneUp').props.tooltip).toBe('Raise by a semitone: the selected notes, or the note at the cursor (⌥⇧↑)');
+    expect(onNote.tool('semitoneDown').props.tooltip).toBe('Lower by a semitone: the selected notes, or the note at the cursor (⌥⇧↓) — or drag the note down');
+    expect(onNote.tool('semitoneUp').props.tooltip).toBe('Raise by a semitone: the selected notes, or the note at the cursor (⌥⇧↑) — or drag the note up');
   });
 
   it('shows the delete keys in the buttons’ corners and says where + Bar adds its bar', () => {

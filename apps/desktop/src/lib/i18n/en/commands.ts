@@ -161,6 +161,7 @@ export const EN_COMMANDS = {
 
   /** The space bar as a key cap. */
   'commands.key.space': 'Space',
+  'commands.key.dragNote': 'Drag ↑ / ↓',
 
   'commands.palette.accessibility': 'Command palette',
   'commands.palette.placeholder': 'Type a command (e.g. exp pdf, transpose)',
@@ -219,6 +220,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.fretDownUp': 'Fret down / up',
   'commands.shortcuts.noteString': 'Move the note to the string above / below',
   'commands.shortcuts.semitone': 'A semitone up / down: the selected notes, or the note at the cursor',
+  'commands.shortcuts.dragNote': 'Drag a note up / down: it moves by semitones, or every selected note does when it is one of them (Esc cancels)',
   'commands.shortcuts.erase': 'Note → rest; on a rest, remove it',
   'commands.shortcuts.deleteBeat': 'Delete the beat',
   'commands.shortcuts.deleteNotes': 'Delete the note, or the selected notes (the beats stay as rests)',
