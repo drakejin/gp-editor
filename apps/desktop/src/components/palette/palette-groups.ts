@@ -12,6 +12,7 @@ import {
   vibratoOf,
 } from '@gp-editor/core';
 import { type MessageKey, memoByLanguage, t } from '../../lib/i18n/i18n';
+import { SEMITONE_COMMANDS } from '../../lib/key-commands';
 import { parseTempoText } from '../../lib/practice-tempo';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import { voiceTint } from '../../score/voices';
@@ -256,8 +257,9 @@ function noteGroup(): PaletteGroup {
     id: 'note',
     title: t('palette.group.note'),
     tools: [
-      { id: 'fretDown', face: t('palette.face.fretDown'), tooltip: t('palette.tool.fretDown'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteFret', delta: -1 } } },
-      { id: 'fretUp', face: t('palette.face.fretUp'), tooltip: t('palette.tool.fretUp'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteFret', delta: 1 } } },
+      // Guitar Pro 8's Lower / Raise by a Semitone (⌥⇧↓ / ⌥⇧↑): the selected notes, or the note at the cursor.
+      { id: 'semitoneDown', face: t('palette.face.semitoneDown'), tooltip: t('palette.tool.semitoneDown'), scope: 'notes', run: { kind: 'action', action: SEMITONE_COMMANDS.down } },
+      { id: 'semitoneUp', face: t('palette.face.semitoneUp'), tooltip: t('palette.tool.semitoneUp'), scope: 'notes', run: { kind: 'action', action: SEMITONE_COMMANDS.up } },
       { id: 'stringUp', face: t('palette.face.stringUp'), tooltip: t('palette.tool.stringUp'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: -1 } } },
       { id: 'stringDown', face: t('palette.face.stringDown'), tooltip: t('palette.tool.stringDown'), scope: 'note', run: { kind: 'action', action: { type: 'shiftNoteString', delta: 1 } } },
       { id: 'deleteNotes', face: t('palette.face.deleteNotes'), key: 'D', tooltip: withKey(t('palette.tool.deleteNotes'), 'D'), scope: 'notes', run: edit({ type: 'deleteNotes' }) },

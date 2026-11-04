@@ -176,7 +176,7 @@ export const DELETE_COMMANDS: Readonly<Record<DeleteCommand, KeyCommand>> = {
  * ⌥⇧↑ / ⌥⇧↓, Edit ▸ Raise / Lower by a Semitone and the palette's Semi + / Semi −: Guitar Pro 8's One semitone up /
  * down — the selected notes, or the note at the cursor.
  */
-export const SEMITONE_COMMANDS: Readonly<Record<'up' | 'down', KeyCommand>> = {
+export const SEMITONE_COMMANDS: Readonly<Record<'up' | 'down', EditorAction>> = {
   up: { type: 'shiftPitch', delta: 1 },
   down: { type: 'shiftPitch', delta: -1 },
 };
