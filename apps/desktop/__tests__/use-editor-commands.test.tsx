@@ -339,14 +339,22 @@ describe('useEditorCommands: playing a selection', () => {
 
 describe('useEditorCommands: typed frets', () => {
   const key = (k: string) => ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false } }) as never;
+  /**
+   * A key of the numeric keypad as react-native-macos hands it to JS (RCTViewComponentView's KeyEvent): the digit it
+   * types, with numericPadKey; the arrows carry it too (and functionKey), as AppKit sets both on them.
+   */
+  const keypadKey = (k: string) =>
+    ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false, ctrlKey: false, numericPadKey: true, functionKey: k.startsWith('Arrow') } }) as never;
 
-  /** The keys typed quickly on the score, and what the dispatched actions make of the song open with the cursor in bar 3. */
-  function typeKeys(keys: readonly string[]): EditorState {
+  /** The key events typed quickly on the score, and what the dispatched actions make of the song open with the cursor in bar 3. */
+  function typeEvents(events: readonly never[]): EditorState {
     const opened = openSong();
     const { commands, sources } = renderCommands(opened);
-    keys.forEach((k) => commands.onKeyDown(key(k)));
+    events.forEach((event) => commands.onKeyDown(event));
     return sources.dispatch.mock.calls.map(([action]) => action as EditorAction).reduce(editorReducer, opened);
   }
+
+  const typeKeys = (keys: readonly string[]): EditorState => typeEvents(keys.map(key));
 
   const fretIn = (state: EditorState, measureIndex: number) => findNote(state.document!.song, { trackIndex: 0, measureIndex, beatIndex: 0, voiceIndex: 0, string: 3 })?.fret;
 
@@ -365,5 +373,16 @@ describe('useEditorCommands: typed frets', () => {
 
   it('starts a new fret after a key that leaves the score as it is (Space plays)', () => {
     expect(fretIn(typeKeys(['1', ' ', '2']), 2)).toBe(2);
+  });
+
+  it('types the numeric keypad’s digits as the top row’s: 1 then 2 at one note make 12, and never join across →', () => {
+    // Act
+    const atOneNote = typeEvents(['1', '2'].map(keypadKey));
+    const noteAfterNote = typeEvents(['1', 'ArrowRight', '2'].map(keypadKey));
+
+    // Assert
+    expect(fretIn(atOneNote, 2)).toBe(12);
+    expect(fretIn(noteAfterNote, 2)).toBe(1);
+    expect(fretIn(noteAfterNote, 3)).toBe(2);
   });
 });
