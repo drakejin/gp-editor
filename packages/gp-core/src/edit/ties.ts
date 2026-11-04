@@ -4,15 +4,28 @@ import type { Beat, Note, NoteEffect, Song, Voice } from '../model/song';
 import { type BeatAddress, type StringAddress, hasString } from './addresses';
 import { sortByString, updateNote, updateVoice } from './song-paths';
 
-/** The last event of a voice among `beats`, before `beforeIndex`. */
-function lastEventBefore(beats: readonly Beat[], beforeIndex: number, voiceIndex: number): Voice | undefined {
+/** Index of the last event of a voice among `beats`, before `beforeIndex`; −1 when there is none. */
+function lastEventIndexBefore(beats: readonly Beat[], beforeIndex: number, voiceIndex: number): number {
   for (let i = Math.min(beforeIndex, beats.length) - 1; i >= 0; i--) {
-    const voice = beats[i]?.voices[voiceIndex];
-    if (voice !== undefined && !voice.isEmpty) {
-      return voice;
+    if (beats[i]?.voices[voiceIndex]?.isEmpty === false) {
+      return i;
     }
   }
-  return undefined;
+  return -1;
+}
+
+function noteAt(song: Song, at: StringAddress): Note | undefined {
+  return song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.voices[at.voiceIndex]?.notes.find((note) => note.string === at.string);
+}
+
+/** Where the note a tie at the address continues is (previousNoteForTie's note); undefined when there is none. */
+function previousTieAddress(song: Song, at: StringAddress): StringAddress | undefined {
+  const measures = song.tracks[at.trackIndex]?.measures ?? [];
+  const inBar = lastEventIndexBefore(measures[at.measureIndex]?.beats ?? [], at.beatIndex, at.voiceIndex);
+  const previousBeats = measures[at.measureIndex - 1]?.beats ?? [];
+  const inPreviousBar = lastEventIndexBefore(previousBeats, previousBeats.length, at.voiceIndex);
+  const address = inBar >= 0 ? { ...at, beatIndex: inBar } : inPreviousBar >= 0 ? { ...at, measureIndex: at.measureIndex - 1, beatIndex: inPreviousBar } : undefined;
+  return address !== undefined && noteAt(song, address) !== undefined ? address : undefined;
 }
 
 /**
@@ -20,15 +33,21 @@ function lastEventBefore(beats: readonly Beat[], beforeIndex: number, voiceIndex
  * measure, else the last event of the previous measure). None when that event is a rest or has no note on the string.
  */
 export function previousNoteForTie(song: Song, at: StringAddress): Note | undefined {
-  const measures = song.tracks[at.trackIndex]?.measures;
-  const beats = measures?.[at.measureIndex]?.beats;
-  if (measures === undefined || beats?.[at.beatIndex] === undefined) {
-    return undefined;
+  const address = song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex] === undefined ? undefined : previousTieAddress(song, at);
+  return address === undefined ? undefined : noteAt(song, address);
+}
+
+/** The first note of the tied chain the note at `at` is in: back through the notes its ties continue (`at` itself when untied). */
+export function tieChainStart(song: Song, at: StringAddress): StringAddress {
+  let current = at;
+  while (noteAt(song, current)?.isTied === true) {
+    const previous = previousTieAddress(song, current);
+    if (previous === undefined) {
+      return current;
+    }
+    current = previous;
   }
-  const inMeasure = lastEventBefore(beats, at.beatIndex, at.voiceIndex);
-  const previousBeats = measures[at.measureIndex - 1]?.beats ?? [];
-  const previous = inMeasure ?? lastEventBefore(previousBeats, previousBeats.length, at.voiceIndex);
-  return previous?.notes.find((note) => note.string === at.string);
+  return current;
 }
 
 /**

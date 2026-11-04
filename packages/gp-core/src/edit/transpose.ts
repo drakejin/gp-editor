@@ -8,6 +8,7 @@ import { type NoteScope, type ScopedTrack, isPercussionTrack, scopedTracks } fro
 import { shiftDiatonic, transposeKeySignature } from './key-spelling';
 import { hasSameItems, replaceAt } from './song-paths';
 import { neckFrets } from './string-placement';
+import { tieChainStart } from './ties';
 import { type BeatContext, type TieMemory, transposeBeatNotes } from './transpose-beat';
 import { trackTuning } from './tuning-presets';
 
@@ -39,6 +40,8 @@ export interface Transposition {
   readonly moved: number;
   /** Notes left as they were: no free string holds the new pitch on the neck, or the note they are tied to stayed. */
   readonly unplaced: number;
+  /** Natural harmonics left where they are (and the notes tied to them): one sounds only at its harmonic fret. */
+  readonly naturalHarmonics: number;
   /** Chords whose name or diagram moved. */
   readonly chords: number;
   /** Chords left as they were: no octave of the shift fits the diagram's shape on the neck. */
@@ -47,7 +50,7 @@ export interface Transposition {
 
 type Counts = Omit<Transposition, 'song'>;
 
-const NO_COUNTS: Counts = { moved: 0, unplaced: 0, chords: 0, unplacedChords: 0 };
+const NO_COUNTS: Counts = { moved: 0, unplaced: 0, naturalHarmonics: 0, chords: 0, unplacedChords: 0 };
 const SEMITONES_PER_OCTAVE = 12;
 const STEPS_PER_OCTAVE = 7;
 
@@ -64,7 +67,13 @@ interface TrackPlan {
 }
 
 function addCounts(a: Counts, b: Counts): Counts {
-  return { moved: a.moved + b.moved, unplaced: a.unplaced + b.unplaced, chords: a.chords + b.chords, unplacedChords: a.unplacedChords + b.unplacedChords };
+  return {
+    moved: a.moved + b.moved,
+    unplaced: a.unplaced + b.unplaced,
+    naturalHarmonics: a.naturalHarmonics + b.naturalHarmonics,
+    chords: a.chords + b.chords,
+    unplacedChords: a.unplacedChords + b.unplacedChords,
+  };
 }
 
 /** The chord with its name and diagram moved; undefined when its diagram cannot move. */
@@ -99,7 +108,13 @@ function transposeBeat(beat: Beat, beatContext: BeatContext, chordMove: (chord: 
   const notes = transposeBeatNotes(beat, beatContext, memory);
   const chord = beat.chord === undefined ? undefined : chordMove(beat.chord);
   const isChordMoved = chord !== undefined && chord !== beat.chord;
-  const counts = { moved: notes.moved, unplaced: notes.unplaced, chords: isChordMoved ? 1 : 0, unplacedChords: beat.chord !== undefined && chord === undefined ? 1 : 0 };
+  const counts = {
+    moved: notes.moved,
+    unplaced: notes.unplaced,
+    naturalHarmonics: notes.naturalHarmonics,
+    chords: isChordMoved ? 1 : 0,
+    unplacedChords: beat.chord !== undefined && chord === undefined ? 1 : 0,
+  };
   return { beat: isChordMoved ? { ...notes.beat, chord } : notes.beat, counts, memory: notes.memory };
 }
 
@@ -138,14 +153,18 @@ function transposeTrack(track: Track, plan: TrackPlan): { readonly track: Track;
 /** One track's part of a scope, down to the notes' strings. */
 type ScopedNotes = Omit<ScopedTrack, 'includes'> & Pick<TrackPlan, 'includes'>;
 
-/** One note's part of a scope: its beat and voice, that string only, never the beat's chord. */
+/**
+ * One note's part of a scope: the first note of its tied chain (the rest follows it), on that string only, never the
+ * beat's chord.
+ */
 function noteScoped(song: Song, at: StringAddress): ReadonlyMap<number, ScopedNotes> | undefined {
-  const beat = scopedTracks(song, { kind: 'beats', from: at, to: at })?.get(at.trackIndex);
+  const start = tieChainStart(song, at);
+  const beat = scopedTracks(song, { kind: 'beats', from: start, to: start })?.get(start.trackIndex);
   if (beat === undefined) {
     return undefined;
   }
-  const includes = (measureIndex: number, beatIndex: number, voiceIndex: number, string: number) => string === at.string && beat.includes(measureIndex, beatIndex, voiceIndex);
-  return new Map([[at.trackIndex, { includes, includesBeat: () => false, isWhole: false }]]);
+  const includes = (measureIndex: number, beatIndex: number, voiceIndex: number, string: number) => string === start.string && beat.includes(measureIndex, beatIndex, voiceIndex);
+  return new Map([[start.trackIndex, { includes, includesBeat: () => false, isWhole: false }]]);
 }
 
 /** Which tracks a scope touches and, per track, which notes and beats; undefined for a scope that names no track. */
@@ -176,8 +195,9 @@ function totalOf(options: TranspositionOptions): number {
  * New song with the notes of `scope` transposed: chromatically by semitones, or diatonically by steps of each measure's
  * key (major and its relative minor share one scale; altered notes keep their alteration). On a fretted track a note
  * keeps its string while the new fret is on the neck (frets 0…NECK_FRETS above the capo), else it goes to the nearest
- * string that holds it; one no free string holds stays as it was and is counted (`unplaced`), as does a natural
- * harmonic. A tied note follows the note it continues, past the scope too; a tied note whose note is not transposed
+ * string that holds it; one no free string holds stays as it was and is counted (`unplaced`), a natural harmonic too
+ * (counted apart, `naturalHarmonics`: it sounds only at its harmonic fret). A one-note scope starts at the first note of
+ * the note's tied chain. A tied note follows the note it continues, past the scope too; a tied note whose note is not transposed
  * starts afresh. Grace, trill and tapped-harmonic frets follow their note. Chord names and diagrams of the scope's
  * beats move with the notes (or alone, `isChordsOnly`; or stay, `isNotesOnly` and a one-note scope). A chromatic
  * transposition of the song or a track moves the key signatures too, unless `isNotesOnly`. Drum tracks never move.

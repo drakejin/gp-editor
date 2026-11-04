@@ -6,10 +6,14 @@ import { sortByString } from './song-paths';
 import type { StringPlacement } from './string-placement';
 import { placeMovingNotes } from './transpose-placement';
 
-/** What happened to a note of the previous event: moved (to a string, at a pitch from the capo), left as it was, or not transposed. */
+/**
+ * What happened to a note of the previous event: moved (to a string, at a pitch from the capo), left as it was (no
+ * string holds it, or a natural harmonic), or not transposed.
+ */
 export type NoteFate =
   | { readonly kind: 'moved'; readonly string: number; readonly pitch: number }
   | { readonly kind: 'stuck' }
+  | { readonly kind: 'harmonic' }
   | { readonly kind: 'kept' };
 
 /** The last event of one voice: its measure and each of its notes' fate, by the note's old string. */
@@ -38,13 +42,19 @@ export interface BeatTransposition {
   readonly beat: Beat;
   readonly moved: number;
   readonly unplaced: number;
+  /** Natural harmonics left where they are (and the notes tied to them). */
+  readonly naturalHarmonics: number;
   readonly memory: TieMemory;
 }
 
-/** A note's plan: not transposed, left as it was (the note it is tied to stayed), or moving to a pitch from the capo. */
+/**
+ * A note's plan: not transposed, left as it was (the note it is tied to stayed; a natural harmonic, or tied to one), or
+ * moving to a pitch from the capo.
+ */
 type Plan =
   | { readonly kind: 'kept' }
   | { readonly kind: 'stuck' }
+  | { readonly kind: 'harmonic' }
   | { readonly kind: 'move'; readonly pitch: number; readonly preferredString: number; readonly tieString?: number; readonly isUntied: boolean };
 
 interface Moving {
@@ -58,6 +68,7 @@ interface Moving {
 
 const KEPT: Plan = { kind: 'kept' };
 const STUCK: Plan = { kind: 'stuck' };
+const HARMONIC: Plan = { kind: 'harmonic' };
 
 /** The note a tied note continues: in the last event of its voice, in this measure or the one before. */
 function tieFor(memory: VoiceMemory | undefined, measureIndex: number, string: number): NoteFate | undefined {
@@ -81,8 +92,11 @@ function planNote(note: Note, voiceIndex: number, context: BeatContext, memory: 
   if (!context.isMoving(voiceIndex, note.string)) {
     return KEPT;
   }
-  if (tie?.kind === 'stuck' || note.effect.harmonic?.type === 'natural') {
+  if (tie?.kind === 'stuck') {
     return STUCK;
+  }
+  if (tie?.kind === 'harmonic' || note.effect.harmonic?.type === 'natural') {
+    return HARMONIC;
   }
   const pitch = context.movePitch(open + context.offset + note.fret) - context.offset;
   return { kind: 'move', pitch, preferredString: note.string, isUntied: tie?.kind === 'kept' };
@@ -104,10 +118,10 @@ function placeBeat(moving: readonly Moving[], plans: readonly (readonly Plan[])[
 }
 
 function fateOf(plan: Plan, placement: StringPlacement | undefined): NoteFate {
-  if (plan.kind === 'kept') {
-    return { kind: 'kept' };
+  if (plan.kind !== 'move') {
+    return plan;
   }
-  return plan.kind === 'stuck' || placement === undefined ? { kind: 'stuck' } : { kind: 'moved', string: placement.string, pitch: plan.pitch };
+  return placement === undefined ? { kind: 'stuck' } : { kind: 'moved', string: placement.string, pitch: plan.pitch };
 }
 
 function remember(beat: Beat, plans: readonly (readonly Plan[])[], placed: ReadonlyMap<string, StringPlacement | undefined>, context: BeatContext, memory: TieMemory): TieMemory {
@@ -141,11 +155,12 @@ export function transposeBeatNotes(beat: Beat, context: BeatContext, memory: Tie
   const placed = moving.length === 0 ? new Map<string, StringPlacement | undefined>() : placeBeat(moving, plans, beat, context);
   const voices = beat.voices.map((voice, v) => rebuildVoice(voice, moving.filter((item) => item.voiceIndex === v), placed));
   const moved = [...placed.values()].filter((placement) => placement !== undefined).length;
-  const stuck = plans.flat().filter((plan) => plan.kind === 'stuck').length;
+  const count = (kind: Plan['kind']) => plans.flat().filter((plan) => plan.kind === kind).length;
   return {
     beat: voices.every((voice, v) => voice === beat.voices[v]) ? beat : { ...beat, voices },
     moved,
-    unplaced: stuck + placed.size - moved,
+    unplaced: count('stuck') + placed.size - moved,
+    naturalHarmonics: count('harmonic'),
     memory: remember(beat, plans, placed, context, memory),
   };
 }
