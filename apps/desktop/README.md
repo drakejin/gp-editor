@@ -92,6 +92,7 @@ React Native 0.83 app with the macOS target from react-native-macos 0.83 (`macos
 | `scripts/anthropic-check/run.sh` | builds `GPAnthropic.m` (the PDF import's and the Song Writer's Messages API calls) with clang against `anthropic-check.m` and a stub of React's module header, and checks it against a mock Messages API on a loopback port with a 1.5 s idle timeout in place of the app's 600 s: a streamed answer flowing for three idle timeouts comes in whole, with its content type; the same answer sent silently (as an answer that is not streamed) times out; a stream that goes quiet times out; an HTTP error comes as JSON with its status; the whole-answer limit ends even a flowing stream; each request carries the key and the API version. Its home is a temporary folder (`CFFIXED_USER_HOME`; it stops unless Application Support is inside it), so the key it saves is never the user's |
 | `scripts/audio-codecs/fetch.sh` | builds LAME, libogg and libvorbis (pinned, checksummed sources) as universal static libraries into `macos/ThirdParty/audio-codecs/` for the audio export (`npm run build:macos` runs it; cached) |
 | `scripts/e2e-open.sh` | opens one file per format in the Release app (`open -a`) and checks it loaded (skips GP1/GP2 when they are not fetched); `GPEDITOR_APP=…` tests another copy |
+| `scripts/app-icon/run.sh` | draws the app icon with CoreGraphics (`icon-art.swift`: a bar of tab as a guitar's neck — the strings its lines, the nut and a fret its bar lines — with the editor's orange-brown cursor on a string, on a navy plate) and writes every file of it: the macOS `AppIcon.appiconset` (16 to 512 points at 1x and 2x, on Apple's 824 / 1024 grid with its shadow, and `Contents.json`) and the Windows bundle's `src-tauri/icons` (32x32, 128x128, 128x128@2x, `icon.png` and `icon.ico` with 16, 24, 32, 48, 64 and 256 as PNGs, as `tauri icon` writes them; a fuller tile with Microsoft's 2 px corners at 48, no shadow); each size drawn on its own, simplified as it shrinks (`Features`, by the plate's side: no side numbers below 90 px, four strings below 44, three and a plain cursor below 20, whole pixels below 64). `--sheet <out.png>` writes a contact sheet of every size on light and dark backgrounds instead; `__tests__/app-icon.test.ts` checks the files |
 | `scripts/release/package.sh` | arm64 and universal release zips + `SHA256SUMS.txt` in `macos/build/release/` |
 | `scripts/qa/run.sh <script.json>` | QA driver run (below) |
 
@@ -112,6 +113,7 @@ scripts/painter-check/run.sh
 scripts/mcp-check/run.sh
 scripts/anthropic-check/run.sh
 scripts/files-check/run.sh
+scripts/app-icon/run.sh   # redraws the app icon's files (macOS and Windows)
 scripts/e2e-open.sh
 ```
 
