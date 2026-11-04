@@ -133,6 +133,10 @@ steps in order; points are in the window's content view, origin top-left:
 - `{"key": "z", "modifiers": ["cmd", "shift", "alt", "ctrl"]}` — ArrowUp/Down/Left/Right, Backspace, Delete, Escape,
   Enter, Tab, Home, End, F3, F7, else the character (with shift a letter is sent as its capital); straight to the window
   when the app is not active, so it skips the menu bar's key equivalents
+- The numeric keypad, in `key` and `appKey`: `Keypad0`–`Keypad9`, `KeypadEnter`, `KeypadDecimal`, `KeypadPlus`,
+  `KeypadMinus` (their own key codes, `NSEventModifierFlagNumericPad`, as the keypad sends them); `"after": 150` beside
+  `"key"` / `"appKey"` waits that many ms before the next step (300 / 400 otherwise): keys typed as quickly as a hand types
+  them (two digits within the 800 ms of one fret)
 - `{"appKey": "c", "modifiers": ["cmd"]}` — a key press as the keyboard makes it: the key's code on the US layout (the
   same names and characters as `key`), the event made the way the window server makes one (AppKit types its
   characters: ⇧⌘P is "p" ignoring modifiers "P"), dispatched by NSApplication — local monitors, then the window's and

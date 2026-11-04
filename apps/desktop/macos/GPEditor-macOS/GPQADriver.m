@@ -11,6 +11,8 @@
 //          {"doubleClick": {"x": 300, "y": 200}} (two clicks, the second's events counting two: a view's onDoubleClick),
 //          {"key": "ArrowDown"}, {"key": "z", "modifiers": ["cmd"]}, {"scroll": {"x": 600, "y": 400, "dy": -300}},
 //          {"appKey": "c", "modifiers": ["cmd"]} (a typed key, dispatched by NSApplication: the menus' key equivalents first),
+//          {"appKey": "Keypad1", "after": 150} (the numeric keypad's keys, Keypad0–9 / Enter / Decimal / Plus / Minus, in
+//          `key` too; "after" = ms before the next step, else 300 for `key`, 400 for `appKey`),
 //          {"menuKeys": true} (logs every menu item with a key equivalent), {"setPasteboard": "text"}, {"logPasteboard": true},
 //          {"hover": {"x": 300, "y": 200}} (the mouse entering the views there: onHoverIn),
 //          {"resize": {"width": 1100, "height": 760}}, {"appearance": "dark"}, {"snapshot": "/abs/out.png"},
@@ -207,11 +209,11 @@ __attribute__((constructor)) static void GPQADriverStart(void)
   }
   if (step[@"key"] != nil) {
     [self pressKey:step[@"key"] modifiers:step[@"modifiers"] window:window];
-    return 0.3;
+    return [self pauseAfter:step otherwise:0.3];
   }
   if ([step[@"appKey"] isKindOfClass:[NSString class]]) {
     [self postKey:step[@"appKey"] modifiers:step[@"modifiers"] window:window];
-    return 0.4;
+    return [self pauseAfter:step otherwise:0.4];
   }
   if (step[@"menuKeys"] != nil) {
     [self logMenuKeys:NSApp.mainMenu path:@""];
@@ -491,9 +493,38 @@ static NSDictionary<NSString *, NSArray *> *GPQANamedKeys(void)
       @"End" : @[ text(NSEndFunctionKey), @119 ],
       @"F3" : @[ text(NSF3FunctionKey), @99 ],
       @"F7" : @[ text(NSF7FunctionKey), @98 ],
+      @"Keypad0" : @[ @"0", @82 ],
+      @"Keypad1" : @[ @"1", @83 ],
+      @"Keypad2" : @[ @"2", @84 ],
+      @"Keypad3" : @[ @"3", @85 ],
+      @"Keypad4" : @[ @"4", @86 ],
+      @"Keypad5" : @[ @"5", @87 ],
+      @"Keypad6" : @[ @"6", @88 ],
+      @"Keypad7" : @[ @"7", @89 ],
+      @"Keypad8" : @[ @"8", @91 ],
+      @"Keypad9" : @[ @"9", @92 ],
+      @"KeypadEnter" : @[ text(NSEnterCharacter), @76 ],
+      @"KeypadDecimal" : @[ @".", @65 ],
+      @"KeypadPlus" : @[ @"+", @69 ],
+      @"KeypadMinus" : @[ @"-", @78 ],
     };
   });
   return named;
+}
+
+/** The numeric keypad's key codes (Events.h kVK_ANSI_Keypad*): a real press of one carries NSEventModifierFlagNumericPad. */
+static BOOL GPQAIsKeypadKey(unsigned short keyCode)
+{
+  static NSIndexSet *codes;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    NSMutableIndexSet *keypad = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(82, 8)];  // 0–7
+    for (NSNumber *code in @[ @65, @67, @69, @71, @75, @76, @78, @81, @91, @92 ]) {  // . * + clear / enter - = 8 9
+      [keypad addIndex:code.unsignedIntegerValue];
+    }
+    codes = keypad;
+  });
+  return [codes containsIndex:keyCode];
 }
 
 /** The US layout's key codes (Events.h kVK_ANSI_*) of the keys a script names by their character. */
@@ -529,12 +560,22 @@ static NSEvent *GPQAKeyboardEvent(unsigned short keyCode, BOOL isDown, NSEventMo
   return event;
 }
 
-/** The function-key flags a real press of this key carries (arrows also the numeric pad's). */
+/** The function-key flags a real press of this key carries (arrows also the numeric pad's; the keypad's keys its alone). */
 static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
 {
   BOOL isArrow = keyCode >= 123 && keyCode <= 126;
   BOOL isFunctionKey = keyCode == 99 || keyCode == 98 || keyCode == 115 || keyCode == 119 || keyCode == 117;
+  if (GPQAIsKeypadKey(keyCode)) {
+    return NSEventModifierFlagNumericPad;
+  }
   return isArrow ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : isFunctionKey ? NSEventModifierFlagFunction : 0;
+}
+
+/** A key step's own pause before the next step (`"after": ms` — keys typed quickly, as a hand types them), else `seconds`. */
+- (NSTimeInterval)pauseAfter:(NSDictionary *)step otherwise:(NSTimeInterval)seconds
+{
+  id after = step[@"after"];
+  return [after isKindOfClass:[NSNumber class]] ? MAX(0.0, [after doubleValue] / 1000.0) : seconds;
 }
 
 - (NSEventModifierFlags)modifierFlags:(NSArray<NSString *> *)modifiers
@@ -556,7 +597,7 @@ static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
   NSString *characters = mapped != nil ? mapped[0] : (isShiftedLetter ? key.uppercaseString : key);
   unsigned short keyCode = mapped != nil ? [mapped[1] unsignedShortValue] : 0;
   NSEventModifierFlags flags = [self modifierFlags:modifiers];
-  flags |= mapped != nil && keyCode >= 123 && keyCode <= 126 ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : 0;
+  flags |= mapped != nil ? GPQAFunctionFlags(keyCode) : 0;
   for (NSNumber *type in @[ @(NSEventTypeKeyDown), @(NSEventTypeKeyUp) ]) {
     NSEvent *event = [NSEvent keyEventWithType:(NSEventType)type.unsignedIntegerValue
                                       location:NSZeroPoint
