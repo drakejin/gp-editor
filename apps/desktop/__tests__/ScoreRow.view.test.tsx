@@ -401,3 +401,114 @@ describe('ScoreRow context action', () => {
     expect(pressableOf(row.canvasNode()).props.onAuxClick).toBeUndefined();
   });
 });
+
+describe('ScoreRow note drags', () => {
+  interface NoteHandlers {
+    readonly onPressNote: jest.Mock;
+    readonly onDragNote: jest.Mock;
+    readonly onEndNote: jest.Mock;
+    readonly onDrag: jest.Mock;
+  }
+
+  /** The row with the note handlers, at `zoom`; the mouse goes down on the fret number of beat 2 (string 2). */
+  function pressNote(zoom = 1, modifiers: { readonly shiftKey?: boolean } = {}): { readonly row: RenderedRow; readonly handlers: NoteHandlers; readonly move: (dx: number, dy: number) => void; readonly release: () => void } {
+    const handlers: NoteHandlers = { onPressNote: jest.fn(), onDragNote: jest.fn(), onEndNote: jest.fn(), onDrag: jest.fn() };
+    const row = render('notationAndTab', SONG, zoom);
+    row.update({ ...row.props, ...handlers });
+    const pressable = pressableOf(row.canvasNode());
+    const { x, y } = tabPoint(row.props, 1, 2);
+    const [pageX, pageY] = [400, 300];
+    ReactTestRenderer.act(() => pressable.props.onPressIn({ nativeEvent: { locationX: x * zoom, locationY: y * zoom, pageX, pageY, ...modifiers } }));
+    return {
+      row,
+      handlers,
+      move: (dx, dy) => ReactTestRenderer.act(() => pressable.props.onPressMove({ nativeEvent: { locationX: 0, locationY: 0, pageX: pageX + dx, pageY: pageY + dy } })),
+      release: () => ReactTestRenderer.act(() => pressable.props.onPressOut()),
+    };
+  }
+
+  it('hands a press on a note to onPressNote, not to a press on its beat', () => {
+    // Act
+    const { row, handlers } = pressNote();
+
+    // Assert
+    expect(handlers.onPressNote).toHaveBeenCalledWith({ trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 0, string: 2 });
+    expect(row.onPress).not.toHaveBeenCalled();
+  });
+
+  it('follows a drag up or down from a note as a pitch drag, in layout points, until the mouse is let go', () => {
+    // Arrange: at 200 %
+    const { row, handlers, move, release } = pressNote(2);
+
+    // Act: 1 point, then 18 and 30 points up on screen (9 and 15 layout points), then let go
+    move(0, -1);
+    move(2, -18);
+    move(4, -30);
+    release();
+
+    // Assert
+    expect(handlers.onDragNote.mock.calls).toEqual([[-9], [-15]]);
+    expect(handlers.onEndNote.mock.calls).toEqual([['drag']]);
+    expect(handlers.onDrag).not.toHaveBeenCalled();
+    expect(row.onPress).not.toHaveBeenCalled();
+  });
+
+  it('turns a drag sideways from a note into a selection drag from its beat', () => {
+    // Arrange
+    const { row, handlers, move, release } = pressNote();
+
+    // Act
+    move(20, 2);
+    move(40, -30);
+    release();
+
+    // Assert
+    expect(handlers.onEndNote.mock.calls).toEqual([['select']]);
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, false);
+    expect(handlers.onDrag).toHaveBeenCalledTimes(2);
+    expect(handlers.onDragNote).not.toHaveBeenCalled();
+  });
+
+  it('calls a press let go where it went down a click on the note', () => {
+    // Arrange
+    const { handlers, move, release } = pressNote();
+
+    // Act
+    move(1, 1);
+    release();
+
+    // Assert
+    expect(handlers.onEndNote.mock.calls).toEqual([['click']]);
+    expect(handlers.onDragNote).not.toHaveBeenCalled();
+  });
+
+  it('grows the selection on a shift-press on a note, as on any beat', () => {
+    // Act
+    const { row, handlers } = pressNote(1, { shiftKey: true });
+
+    // Assert
+    expect(handlers.onPressNote).not.toHaveBeenCalled();
+    expect(row.onPress).toHaveBeenCalledWith({ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, true);
+  });
+
+  it('selects from a press beside the notes, and drags no note in Design Mode', () => {
+    // Arrange
+    const handlers = { onPressNote: jest.fn(), onDragNote: jest.fn(), onEndNote: jest.fn() };
+    const row = render();
+    row.update({ ...row.props, ...handlers });
+    const empty = tabPoint(row.props, 1, 4);
+    const fret = tabPoint(row.props, 1, 2);
+
+    // Act
+    row.pressAt(empty.x, empty.y);
+    row.update({ ...row.props, ...handlers, design: { isTop: false, isLast: false } });
+    row.pressAt(fret.x, fret.y);
+
+    // Assert
+    expect(row.onPress.mock.calls).toEqual([
+      [{ measureIndex: 0, beatIndex: 1, string: 4, trackIndex: 0 }, false],
+      [{ measureIndex: 0, beatIndex: 1, string: 2, trackIndex: 0 }, false],
+    ]);
+    expect(handlers.onPressNote).not.toHaveBeenCalled();
+  });
+});

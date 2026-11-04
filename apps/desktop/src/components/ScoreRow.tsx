@@ -2,6 +2,7 @@ import { memo, useRef } from 'react';
 import { type GestureResponderEvent, type NativeMouseEvent, type NativeSyntheticEvent, Pressable } from 'react-native';
 import type { Song, StringAddress, Track } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
+import { type DragIntent, dragIntent } from '../lib/pitch-drag';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import { type DesignHandle, designHandles, engraveDesign, hitTestDesign } from '../score/design-handles';
@@ -9,6 +10,7 @@ import { ROW, type RowGeometry, type ScoreMode } from '../score/geometry';
 import { scaleCommands } from '../score/draw';
 import { dynamicBefore } from '../score/dynamics';
 import { type RowHit, hitTestRow } from '../score/hit-test';
+import { hitTestNote } from '../score/note-hit';
 import { type PlayingBeat, engraveRow, placeRow } from '../score/row';
 import { type BeatRange, isSameRange } from '../score/selection-tint';
 import { type StaffDecor, engraveSystemStaff } from '../score/system-staff';
@@ -55,7 +57,19 @@ export interface ScoreRowProps {
   readonly onDesignPress?: (rowIndex: number, handle: DesignHandle, x: number, y: number) => void;
   readonly onDesignMove?: (x: number, y: number) => void;
   readonly onDesignRelease?: () => void;
+  /**
+   * The mouse went down on a note (a fret number, a notehead; not with shift, not in Design Mode): the note, as the
+   * cursor's address. Then the drag says what it is: up or down a pitch drag (onDragNote), sideways a selection.
+   */
+  readonly onPressNote?: (note: StringAddress) => void;
+  /** A drag that began on a note went up or down: the pointer `dy` layout points below where it went down. */
+  readonly onDragNote?: (dy: number) => void;
+  /** The gesture that began on a note ended: let go after a pitch drag, let go where it began, or turned into a selection drag. */
+  readonly onEndNote?: (end: NoteGestureEnd) => void;
 }
+
+/** How a gesture that began on a note ended: a pitch drag let go, a click, or a selection drag from the note's beat. */
+export type NoteGestureEnd = 'drag' | 'click' | 'select';
 
 /** A canvas's place in its system for Design Mode, and the automatic guideline's x while a drag snaps. */
 export interface RowDesign {
@@ -76,6 +90,14 @@ interface DragStart {
   readonly pageY: number;
 }
 
+/**
+ * The mouse's gesture on the row, from where it went down: a Design Mode handle dragged, a beat pressed (and a
+ * selection dragged from it), or a note pressed — its beat, and what the drag turned out to be once it moved.
+ */
+type RowGesture =
+  | { readonly kind: 'design' | 'beat'; readonly start: DragStart }
+  | { readonly kind: 'note'; readonly start: DragStart; readonly hit: RowHit; readonly intent?: DragIntent };
+
 /** Design Mode's handles on the row's canvas (none when it is off). */
 function rowHandles(props: ScoreRowProps, height: number): DesignHandle[] {
   const { design, decor } = props;
@@ -95,14 +117,30 @@ interface RowPointer {
   readonly onAuxClick?: (event: NativeSyntheticEvent<NativeMouseEvent>) => void;
 }
 
-/** The row's press, drag and release: a Design Mode handle first (it is dragged), else a beat (and a selection drag). */
-/** The beat (and string) under a point of the canvas, in screen points, on the row's track; and the right-click that hands it to the context action. */
-function rowHits(props: ScoreRowProps): { readonly hitAt: (x: number, y: number) => RowHit | undefined; readonly onAuxClick: RowPointer['onAuxClick'] } {
-  const { row, headerWidth, geometry, zoom, trackIndex, decor, onContextBeat } = props;
-  const stringCount = props.song.tracks[trackIndex]?.strings.length ?? 6;
+interface RowHits {
+  readonly hitAt: (x: number, y: number) => RowHit | undefined;
+  /** The note there that a drag moves; none without onPressNote or in Design Mode. */
+  readonly noteAt: (x: number, y: number) => StringAddress | undefined;
+  readonly onAuxClick: RowPointer['onAuxClick'];
+}
+
+/**
+ * The beat (and string) and the note under a point of the canvas, in screen points, on the row's track; and the
+ * right-click that hands the beat to the context action.
+ */
+function rowHits(props: ScoreRowProps): RowHits {
+  const { song, row, headerWidth, geometry, mode, zoom, trackIndex, decor, onContextBeat, editedVoiceIndex } = props;
+  const stringCount = song.tracks[trackIndex]?.strings.length ?? 6;
+  const placed = () => placeRow(row, headerWidth + (decor?.namesWidth ?? 0));
   const hitAt = (x: number, y: number): RowHit | undefined => {
-    const hit = hitTestRow(placeRow(row, headerWidth + (decor?.namesWidth ?? 0)), geometry, stringCount, x / zoom, y / zoom);
+    const hit = hitTestRow(placed(), geometry, stringCount, x / zoom, y / zoom);
     return hit === undefined ? undefined : { ...hit, trackIndex };
+  };
+  // Design Mode's drags move the layout, not the notes.
+  const canDragNotes = props.onPressNote !== undefined && props.design === undefined;
+  const noteAt = (x: number, y: number): StringAddress | undefined => {
+    const note = canDragNotes ? hitTestNote({ song, trackIndex, placed: placed(), geometry, mode, voiceIndex: editedVoiceIndex }, x / zoom, y / zoom) : undefined;
+    return note === undefined ? undefined : { ...note, trackIndex };
   };
   const onAuxClick = onContextBeat === undefined ? undefined : (event: NativeSyntheticEvent<NativeMouseEvent>) => {
     const hit = hitAt(event.nativeEvent.clientX, event.nativeEvent.clientY);
@@ -110,53 +148,87 @@ function rowHits(props: ScoreRowProps): { readonly hitAt: (x: number, y: number)
       onContextBeat(hit);
     }
   };
-  return { hitAt, onAuxClick };
+  return { hitAt, noteAt, onAuxClick };
+}
+
+/** The mouse went down on the row: a Design Mode handle first (it is dragged), else a note (it may be dragged), else a beat. */
+function pressRow(props: ScoreRowProps, hits: RowHits, handles: readonly DesignHandle[], event: GestureResponderEvent): RowGesture | undefined {
+  const { locationX, locationY, pageX, pageY, shiftKey, ctrlKey } = event.nativeEvent;
+  const { zoom, rowIndex } = props;
+  const start = { x: locationX, y: locationY, pageX, pageY };
+  const handle = hitTestDesign(handles, locationX / zoom, locationY / zoom);
+  if (handle !== undefined) {
+    props.onDesignPress?.(rowIndex, handle, locationX / zoom, locationY / zoom);
+    return { kind: 'design', start };
+  }
+  const hit = hits.hitAt(locationX, locationY);
+  if (hit !== undefined && ctrlKey === true && props.onContextBeat !== undefined) {
+    props.onContextBeat(hit);
+    return undefined;
+  }
+  const note = shiftKey === true ? undefined : hits.noteAt(locationX, locationY);
+  if (note !== undefined && hit !== undefined) {
+    props.onPressNote?.(note);
+    return { kind: 'note', start, hit: { ...hit, string: note.string } };
+  }
+  if (hit !== undefined) {
+    props.onPress(hit, shiftKey === true);
+  }
+  return { kind: 'beat', start };
+}
+
+/**
+ * A drag from a note: nothing until it says what it is (lib/pitch-drag's dragIntent), then up or down the note's pitch,
+ * or sideways a selection from the note's beat — the gesture it becomes.
+ */
+function dragNote(props: ScoreRowProps, gesture: Extract<RowGesture, { kind: 'note' }>, dx: number, dy: number): RowGesture {
+  const intent = gesture.intent ?? dragIntent(dx, dy);
+  if (intent === 'pitch') {
+    props.onDragNote?.(dy);
+    return gesture.intent === intent ? gesture : { ...gesture, intent };
+  }
+  if (intent === 'select') {
+    props.onEndNote?.('select');
+    props.onPress(gesture.hit, false);
+    return { kind: 'beat', start: gesture.start };
+  }
+  return gesture;
 }
 
 function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): RowPointer {
-  const { zoom, rowIndex, trackIndex, onPress, onDrag } = props;
-  const dragStart = useRef<DragStart | undefined>(undefined);
-  // A press on a Design Mode handle drags the handle, not a selection.
-  const isDesignDrag = useRef(false);
-  const { hitAt, onAuxClick } = rowHits(props);
+  const { zoom, rowIndex, trackIndex, onDrag } = props;
+  const gesture = useRef<RowGesture | undefined>(undefined);
+  const hits = rowHits(props);
   const onPressIn = (event: GestureResponderEvent) => {
-    const { locationX, locationY, pageX, pageY, shiftKey } = event.nativeEvent;
-    dragStart.current = { x: locationX, y: locationY, pageX, pageY };
-    const handle = hitTestDesign(handles, locationX / zoom, locationY / zoom);
-    isDesignDrag.current = handle !== undefined;
-    if (handle !== undefined) {
-      props.onDesignPress?.(rowIndex, handle, locationX / zoom, locationY / zoom);
-      return;
-    }
-    const hit = hitAt(locationX, locationY);
-    if (hit !== undefined && event.nativeEvent.ctrlKey === true && props.onContextBeat !== undefined) {
-      dragStart.current = undefined;
-      props.onContextBeat(hit);
-    } else if (hit !== undefined) {
-      onPress(hit, shiftKey === true);
-    }
+    gesture.current = pressRow(props, hits, handles, event);
   };
   // Measured from where the mouse went down, in window points, so the pointer can be followed into other rows.
   const onPressMove = (event: GestureResponderEvent) => {
-    const start = dragStart.current;
-    if (start !== undefined) {
-      const { pageX, pageY } = event.nativeEvent;
-      const [x, y] = [(start.x + pageX - start.pageX) / zoom, (start.y + pageY - start.pageY) / zoom];
-      if (isDesignDrag.current) {
-        props.onDesignMove?.(x, y);
-      } else {
-        onDrag(rowIndex, x, y, trackIndex);
-      }
+    const current = gesture.current;
+    if (current === undefined) {
+      return;
+    }
+    const { start } = current;
+    const [dx, dy] = [(event.nativeEvent.pageX - start.pageX) / zoom, (event.nativeEvent.pageY - start.pageY) / zoom];
+    const [x, y] = [start.x / zoom + dx, start.y / zoom + dy];
+    const next = current.kind === 'note' ? dragNote(props, current, dx, dy) : current;
+    gesture.current = next;
+    if (next.kind === 'design') {
+      props.onDesignMove?.(x, y);
+    } else if (next.kind === 'beat') {
+      onDrag(rowIndex, x, y, trackIndex);
     }
   };
   const onPressOut = () => {
-    dragStart.current = undefined;
-    if (isDesignDrag.current) {
-      isDesignDrag.current = false;
+    const current = gesture.current;
+    gesture.current = undefined;
+    if (current?.kind === 'design') {
       props.onDesignRelease?.();
+    } else if (current?.kind === 'note') {
+      props.onEndNote?.(current.intent === 'pitch' ? 'drag' : 'click');
     }
   };
-  return { onPressIn, onPressMove, onPressOut, onAuxClick };
+  return { onPressIn, onPressMove, onPressOut, onAuxClick: hits.onAuxClick };
 }
 
 function ScoreRowView(props: ScoreRowProps) {
@@ -189,7 +261,7 @@ function ScoreRowView(props: ScoreRowProps) {
 export function isSameRow(a: ScoreRowProps, b: ScoreRowProps): boolean {
   if (
     a.mode !== b.mode || a.palette !== b.palette || a.width !== b.width || a.zoom !== b.zoom || a.headerWidth !== b.headerWidth || a.height !== b.height ||
-    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.onContextBeat !== b.onContextBeat || a.rowIndex !== b.rowIndex ||
+    a.geometry !== b.geometry || a.trackIndex !== b.trackIndex || a.onPress !== b.onPress || a.onDrag !== b.onDrag || a.onContextBeat !== b.onContextBeat || !sameNoteHandlers(a, b) || a.rowIndex !== b.rowIndex ||
     !sameLanes(a.markLanes, b.markLanes) || a.editedVoiceIndex !== b.editedVoiceIndex || a.hasHeading !== b.hasHeading || !sameDecor(a.decor, b.decor) ||
     !sameAddress(a.cursor, b.cursor) || a.playing?.measureIndex !== b.playing?.measureIndex || a.playing?.beatIndex !== b.playing?.beatIndex ||
     !isSameRange(a.selection, b.selection) || a.song.stylesheet !== b.song.stylesheet || !sameDesign(a, b)
@@ -233,6 +305,10 @@ function sameLayout(a: MeasureLayout, b: MeasureLayout): boolean {
 function sameDynamicBefore(props: ScoreRowProps, trackA: Track, trackB: Track): boolean {
   const first = props.row.measures[0]?.measureIndex ?? 0;
   return props.geometry.dynamicsY === undefined || dynamicBefore(trackA.measures, first) === dynamicBefore(trackB.measures, first);
+}
+
+function sameNoteHandlers(a: ScoreRowProps, b: ScoreRowProps): boolean {
+  return a.onPressNote === b.onPressNote && a.onDragNote === b.onDragNote && a.onEndNote === b.onEndNote;
 }
 
 /** Design Mode on or off, the canvas's handles and the guideline through it, and the handlers its drags call. */
