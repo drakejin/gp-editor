@@ -24,7 +24,7 @@ const isSameAddress = (a: StringAddress | undefined, b: StringAddress): boolean 
  * drag is let go: read here, on the state the shift applies to, not on the last one drawn (a quick drag's press,
  * moves and release can reach JS together, before its cursor move is drawn).
  */
-function isStillPressed(state: EditorState, pressed: PressedNote): boolean {
+export function isStillPressed(state: EditorState, pressed: PressedNote): boolean {
   return pressed.isSelected ? isInSelection(state, pressed.note) : isSameAddress(state.cursor, pressed.note);
 }
 

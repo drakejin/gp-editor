@@ -5,7 +5,7 @@ import { type NoteGestureEnd, pitchDragHint } from '../lib/pitch-drag';
 import { focusView } from '../native/focus-view';
 import type { EditorAction, EditorState } from '../state/editor';
 import { isInSelection } from '../state/selection';
-import { shiftPitch } from '../state/semitone-shift';
+import { type PressedNote, isStillPressed, shiftPitch } from '../state/semitone-shift';
 import { useStableCallback } from './use-stable-callback';
 
 /** A note dragged up or down on the score: what the score shows meanwhile, and the rows' handlers (they keep their identity). */
@@ -31,10 +31,9 @@ interface PitchDragSources {
   readonly keyboardView: RefObject<View | null>;
 }
 
-/** The note pressed, whether it is one of the selected notes (the drag moves them all), and the semitones so far. */
+/** The note pressed and whether it is one of the selected notes (the drag moves them all), and the semitones so far. */
 interface NoteGesture {
-  readonly note: StringAddress;
-  readonly isSelected: boolean;
+  readonly pressed: PressedNote;
   readonly semitones: number;
   readonly isCancelled: boolean;
 }
@@ -45,20 +44,24 @@ interface NoteGesture {
  * the cursor on it, as any click; nothing for a selection drag or a lost gesture.
  */
 function releaseAction(gesture: NoteGesture, end: NoteGestureEnd): EditorAction | undefined {
-  const { note, isSelected, semitones } = gesture;
+  const { pressed, semitones } = gesture;
   if (end === 'click') {
-    return isSelected ? { type: 'placeCursor', cursor: note } : undefined;
+    return pressed.isSelected ? { type: 'placeCursor', cursor: pressed.note } : undefined;
   }
-  return end === 'drag' && semitones !== 0 ? { type: 'shiftPitch', delta: semitones, pressed: { note, isSelected } } : undefined;
+  return end === 'drag' && semitones !== 0 ? { type: 'shiftPitch', delta: semitones, pressed } : undefined;
 }
 
-/** The score's song and hint while the drag has gone `semitones`: the editor's own shiftPitch on the shown state. */
-function usePitchPreview(state: EditorState, semitones: number): Pick<PitchDrag, 'song' | 'hint'> {
+/**
+ * The score's song and hint while the drag has gone `semitones`: the editor's own shiftPitch on the shown state, as
+ * letting go will apply it — nothing once the editor no longer points at the pressed note (an arrow key moved the cursor).
+ */
+function usePitchPreview(state: EditorState, semitones: number, pressed: PressedNote | undefined): Pick<PitchDrag, 'song' | 'hint'> {
   return useMemo(() => {
-    const preview = semitones === 0 ? undefined : shiftPitch(state, semitones);
+    const isShown = semitones !== 0 && (pressed === undefined || isStillPressed(state, pressed));
+    const preview = isShown ? shiftPitch(state, semitones, pressed) : undefined;
     const song = preview?.document?.song;
-    return { song: song === state.document?.song ? undefined : song, hint: pitchDragHint(semitones, preview?.hint) };
-  }, [semitones, state]);
+    return { song: song === state.document?.song ? undefined : song, hint: isShown ? pitchDragHint(semitones, preview?.hint) : undefined };
+  }, [semitones, pressed, state]);
 }
 
 /**
@@ -70,13 +73,16 @@ function usePitchPreview(state: EditorState, semitones: number): Pick<PitchDrag,
 export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources): PitchDrag {
   const gesture = useRef<NoteGesture | undefined>(undefined);
   const [semitones, setSemitones] = useState(0);
+  // The same object for the whole gesture, so the preview is laid out again only when the semitones change.
+  const [pressed, setPressed] = useState<PressedNote | undefined>(undefined);
   const keep = (next: NoteGesture | undefined) => {
     gesture.current = next;
     setSemitones(next === undefined || next.isCancelled ? 0 : next.semitones);
+    setPressed(next?.pressed);
   };
   const onPressNote = useStableCallback((note: StringAddress) => {
     const isSelected = isInSelection(state, note);
-    keep({ note, isSelected, semitones: 0, isCancelled: false });
+    keep({ pressed: { note, isSelected }, semitones: 0, isCancelled: false });
     if (!isSelected) {
       dispatch({ type: 'placeCursor', cursor: note });
     }
@@ -104,5 +110,5 @@ export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources
     keep({ ...current, isCancelled: true });
     return current.semitones !== 0;
   });
-  return { ...usePitchPreview(state, semitones), onPressNote, onDragNote, onEndNote, cancel };
+  return { ...usePitchPreview(state, semitones, pressed), onPressNote, onDragNote, onEndNote, cancel };
 }

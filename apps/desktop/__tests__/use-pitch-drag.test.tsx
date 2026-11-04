@@ -226,12 +226,14 @@ describe('usePitchDrag: a note dragged up or down', () => {
     view.run((drag) => drag.onPressNote(at(2)));
     view.run((drag) => drag.onDragNote(2));
     view.dispatch({ type: 'moveCursorBeat', step: 1 });
+    const previewAfterTheKey = view.drag().song;
     view.run((drag) => drag.onEndNote('drag'));
     view.run((drag) => drag.onPressNote(at(1)));
     view.run((drag) => drag.onDragNote(2));
     view.run((drag) => drag.onEndNote('cancel'));
 
-    // Assert
+    // Assert: the score stops previewing what letting go would no longer do.
+    expect(previewAfterTheKey).toBeUndefined();
     expect(view.state().document?.song).toBe(SONG);
     expect(view.drag().song).toBeUndefined();
   });
