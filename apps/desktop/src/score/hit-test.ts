@@ -27,9 +27,13 @@ export function hitTestRow(placed: readonly PlacedMeasure[], geometry: RowGeomet
   if (measure === undefined) {
     return undefined;
   }
-  const localX = x - measure.x;
-  const nearest = measure.layout.beats.reduce<BeatLayout | undefined>((best, beat) => (best === undefined || Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best), undefined);
+  const nearest = nearestBeat(measure.layout.beats, x - measure.x);
   return { measureIndex: measure.layout.measureIndex, beatIndex: nearest?.beatIndex ?? 0, string: tabString(geometry, stringCount, y) };
+}
+
+/** The beat of a measure nearest to `localX` (from the measure's left edge); none in a bar without beats. */
+export function nearestBeat(beats: readonly BeatLayout[], localX: number): BeatLayout | undefined {
+  return beats.reduce<BeatLayout | undefined>((best, beat) => (best === undefined || Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best), undefined);
 }
 
 /**
@@ -55,7 +59,8 @@ export function hitTestDrag(rows: readonly DragRow[], fromRow: number, stringCou
   return hitTestRow(row.placed, row.geometry, stringCount, inRowX, scoreY - row.staffTop);
 }
 
-function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {
+/** The tab string nearest to `y` (from the row's top), within half a string gap of the staff; none off it or without a tab. */
+export function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {
   if (geometry.tabTop === undefined) {
     return undefined;
   }

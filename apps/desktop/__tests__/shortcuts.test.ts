@@ -42,6 +42,13 @@ describe('the shortcut sheet', () => {
     });
   });
 
+  it('lists a note dragged up or down after the semitone keys, with no key of its own', () => {
+    const notes = shortcutGroups().find((group) => group.title === 'Note at the cursor')?.shortcuts ?? [];
+    const index = notes.findIndex((shortcut) => shortcut.keys === 'Drag ↑ / ↓');
+    expect(notes[index]).toEqual({ keys: 'Drag ↑ / ↓', action: 'Drag a note up / down: it moves by semitones, or every selected note does when it is one of them (Esc cancels)' });
+    expect(notes[index - 1]?.keys).toBe('⌥⇧↑ / ⌥⇧↓');
+  });
+
   it('lists the practice keys and View ▸ Focus', () => {
     const keys = shortcutGroups().find((group) => group.title === 'Practice')?.shortcuts.map((shortcut) => shortcut.keys);
     expect(keys).toEqual(['⌥- / ⌥=', '⌥M', '⌥C', '⌥L', '⇧⌘F']);
@@ -60,5 +67,6 @@ describe('the shortcut sheet in Korean', () => {
     expect(groups.map((group) => group.title)).toEqual(['커서의 음표', '박과 쉼표', '이동', '연습', '어디서나']);
     expect(groups[0]?.shortcuts.find((shortcut) => shortcut.keys === 'M')?.action).toBe('팜뮤트');
     expect(groups[4]?.shortcuts[0]).toMatchObject({ keys: '스페이스', action: '재생 / 정지', press: { key: ' ' } });
+    expect(groups[0]?.shortcuts.find((shortcut) => shortcut.keys === '드래그 ↑ / ↓')?.action).toBe('음을 위 / 아래로 드래그: 그 음이 반음씩 옮겨지고, 선택한 음이면 선택한 음 모두가 옮겨집니다 (Esc로 취소)');
   });
 });

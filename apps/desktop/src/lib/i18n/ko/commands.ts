@@ -160,6 +160,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.help.shortcuts': '단축키',
 
   'commands.key.space': '스페이스',
+  'commands.key.dragNote': '드래그 ↑ / ↓',
 
   'commands.palette.accessibility': '명령 팔레트',
   'commands.palette.placeholder': '명령을 입력하세요 (예: pdf 내보내기, 조옮김, ㅈㅇㄱ)',
@@ -218,6 +219,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.fretDownUp': '프렛 내리기 / 올리기',
   'commands.shortcuts.noteString': '음을 위 / 아래 줄로 옮기기',
   'commands.shortcuts.semitone': '반음 올리기 / 내리기: 선택한 음, 또는 커서의 음',
+  'commands.shortcuts.dragNote': '음을 위 / 아래로 드래그: 그 음이 반음씩 옮겨지고, 선택한 음이면 선택한 음 모두가 옮겨집니다 (Esc로 취소)',
   'commands.shortcuts.erase': '음표 → 쉼표, 쉼표면 지우기',
   'commands.shortcuts.deleteBeat': '박 삭제',
   'commands.shortcuts.deleteNotes': '음표 또는 선택한 음표 삭제 (박은 쉼표로 남음)',

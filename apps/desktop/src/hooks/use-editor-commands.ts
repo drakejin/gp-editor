@@ -11,6 +11,7 @@ import { type PracticeAction, playbackStartTempo } from '../state/practice';
 import { selectionBars, selectionStart } from '../state/selection';
 import type { EditorAction, EditorState } from '../state/editor';
 import type { Playback } from './use-playback';
+import { type PitchDrag, usePitchDrag } from './use-pitch-drag';
 import { useStableCallback } from './use-stable-callback';
 import { isOfTypes } from '../lib/type-guards';
 
@@ -20,6 +21,8 @@ export interface EditorCommands {
   readonly onPressBeat: (hit: RowHit, isExtending: boolean) => void;
   /** A drag reached a beat: the beats from where it began to here are selected. */
   readonly onDragBeat: (hit: RowHit) => void;
+  /** A note dragged up or down: by semitones, one undo step when let go; Esc stops it. */
+  readonly pitchDrag: PitchDrag;
   readonly onKeyDown: (event: KeyEvent) => void;
   readonly onDrop: (event: DragEvent) => void;
 }
@@ -200,7 +203,10 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   // Every key press the score sees, counted: a digit joins the one before only when no other key came between them.
   const keyIndex = useRef(0);
   const runCommand = useStableCallback((command: AppCommand | KeyCommand) => (isWindowCommand(command) ? runWindowCommand(sources, command) : dispatch(command)));
+  const pitchDrag = usePitchDrag({ state: sources.state, dispatch, keyboardView });
   const onPressBeat = useStableCallback((hit: RowHit, isExtending: boolean) => {
+    // A press on a beat ends a note's drag that never saw its mouse come up.
+    pitchDrag.onEndNote('cancel');
     const { cursor, trackIndex } = sources.state;
     // A staff of another track (the multitrack view): the cursor goes there and that track is selected.
     const at = { trackIndex: hit.trackIndex ?? trackIndex, measureIndex: hit.measureIndex, beatIndex: hit.beatIndex, voiceIndex: cursor?.voiceIndex ?? 0, string: hit.string ?? cursor?.string ?? 1 };
@@ -211,6 +217,11 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
   const onKeyDown = useStableCallback((event: KeyEvent) => {
     const press = keyPressOf(event);
     keyIndex.current += 1;
+    // Esc while a note is held: the drag stops — and when it had moved the notes, that is all Esc does.
+    if (press?.key === 'Escape' && pitchDrag.cancel()) {
+      claimKey(event);
+      return;
+    }
     if (press === undefined || (sources.isOverlayOpen === true && press.key !== 'Escape')) {
       return;
     }
@@ -229,5 +240,5 @@ export function useEditorCommands(sources: EditorCommandSources): EditorCommands
     },
     [openPath],
   );
-  return { runCommand, onPressBeat, onDragBeat, onKeyDown, onDrop };
+  return { runCommand, onPressBeat, onDragBeat, pitchDrag, onKeyDown, onDrop };
 }

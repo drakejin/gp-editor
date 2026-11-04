@@ -1,7 +1,7 @@
 // First: the native modules every src/native wrapper keeps when it loads.
 import { answerNativeCalls } from '../test-support/native-fakes';
 import type { ElementType } from 'react';
-import { DeviceEventEmitter, View } from 'react-native';
+import { DeviceEventEmitter, StyleSheet, View } from 'react-native';
 import ReactTestRenderer, { type ReactTestInstance } from 'react-test-renderer';
 import App from '../src/App';
 import { AnnotationPanel } from '../src/components/annotations/AnnotationPanel';
@@ -14,6 +14,9 @@ import { DesignModeBar } from '../src/components/stylesheet/DesignModeBar';
 import { ErrorBanner } from '../src/components/WindowOverlays';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
+import { TAB } from '../src/lib/layout';
+import { DRAG_DEAD_ZONE, MIN_PITCH_DRAG_STEP, PITCH_DRAG_STEP } from '../src/lib/pitch-drag';
+import { placeRow } from '../src/score/row';
 import { readFixture } from '../test-support/fixtures';
 import { placementOf } from '../test-support/palette-fit';
 
@@ -168,6 +171,56 @@ describe('the window around the edition palette', () => {
     // Assert
     expect(placementOf(shown(renderer, ImportPanel), paletteOf(renderer))).toBe('beside');
     expect(keyField().props.value).toBe('typed, not saved yet');
+  });
+});
+
+describe('a note dragged up or down in the window', () => {
+  /** The first system's score row (memoised: found by its props), its Pressable, and its first note on the tab (voice 1). */
+  function firstNote(renderer: ReactTestRenderer.ReactTestRenderer) {
+    const row = renderer.root.find((node) => node.props.rowIndex === 0 && typeof node.props.onEndNote === 'function' && node.props.geometry !== undefined);
+    const pressable = row.find((node) => typeof node.props.onPressMove === 'function');
+    const { song, trackIndex, headerWidth, geometry, zoom } = row.props;
+    const notes = placeRow(row.props.row, headerWidth).flatMap((bar) =>
+      bar.layout.beats.flatMap((beat) => {
+        const found = song.tracks[trackIndex].measures[bar.layout.measureIndex].beats[beat.beatIndex]?.voices[0]?.notes[0];
+        return found === undefined ? [] : [{ note: found, x: bar.x + beat.x }];
+      }),
+    );
+    const { note, x } = notes[0] ?? { note: undefined, x: Number.NaN };
+    const y = geometry.tabTop + (note.string - 1) * TAB.stringGap;
+    return { pressable, note, point: { x: x * zoom, y: y * zoom }, zoom };
+  }
+
+  it('shows the drag’s hint laid over the tab strip, not as the hint strip, and moves the note when let go', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const { pressable, note, point, zoom } = firstNote(renderer);
+    const [pageX, pageY] = [500, 400];
+
+    // Act: down on the note, then 3 semitones up
+    await ReactTestRenderer.act(async () => pressable.props.onPressIn({ nativeEvent: { locationX: point.x, locationY: point.y, pageX, pageY } }));
+    const threeSemitones = DRAG_DEAD_ZONE + 3 * Math.max(PITCH_DRAG_STEP * zoom, MIN_PITCH_DRAG_STEP);
+    await ReactTestRenderer.act(async () => pressable.props.onPressMove({ nativeEvent: { pageX, pageY: pageY - threeSemitones } }));
+    const hints = renderer.root.findAllByType(HintBar);
+    const overlay = hints[0]?.parent;
+    const during = { messages: hints.map((hint) => hint.props.message), isStrip: hints.some((hint) => hint.props.onDismiss !== undefined) };
+    const overlayStyle = StyleSheet.flatten(overlay?.props.style);
+    // The overlay's nearest container that holds the tab strip: the strip's own, not the window's (no palette in it).
+    const has = (prop: string) => (node: ReactTestInstance) => Object.prototype.hasOwnProperty.call(node.props, prop);
+    let container = overlay?.parent ?? null;
+    while (container !== null && container.findAll(has('activeTabId')).length === 0) {
+      container = container.parent;
+    }
+    const isOverTabs = container !== null && container.findAll(has('isExpressionTextOpen')).length === 0;
+    await ReactTestRenderer.act(async () => pressable.props.onPressOut());
+
+    // Assert
+    expect(during).toEqual({ messages: ['+3 semitones: let go to move, Esc to cancel'], isStrip: false });
+    expect(overlayStyle).toMatchObject({ position: 'absolute' });
+    expect(isOverTabs).toBe(true);
+    expect(renderer.root.findAllByType(HintBar)).toHaveLength(0);
+    const moved = firstNote(renderer).note;
+    expect([moved.string, moved.fret]).toEqual([note.string, note.fret + 3]);
   });
 });
 

@@ -47,11 +47,27 @@ export function WindowView({ model }: WindowViewProps) {
   );
 }
 
-/** The open documents' tabs. */
+/**
+ * The open documents' tabs; while a note is dragged up or down, its hint over the strip's right end — not as the hint
+ * strip under it, which would move the score under the pointer, nor over the score, where the note may be.
+ */
 function WindowTabs({ model }: WindowViewProps) {
-  const { base, files } = model;
+  const { base, files, commands } = model;
   const { palette, workspace } = base;
-  return workspace.tabs.length > 0 ? <TabStrip palette={palette} tabs={files.tabLabels} activeTabId={workspace.activeTabId} onSelect={files.tabs.switchTo} onClose={files.tabs.requestClose} /> : null;
+  if (workspace.tabs.length === 0) {
+    return null;
+  }
+  const { hint } = commands.editor.pitchDrag;
+  return (
+    <View>
+      <TabStrip palette={palette} tabs={files.tabLabels} activeTabId={workspace.activeTabId} onSelect={files.tabs.switchTo} onClose={files.tabs.requestClose} />
+      {hint === undefined ? null : (
+        <View pointerEvents="none" style={styles.dragHint}>
+          <HintBar palette={palette} message={hint} />
+        </View>
+      )}
+    </View>
+  );
 }
 
 /**
@@ -99,4 +115,5 @@ function WindowBanners({ model }: WindowViewProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  dragHint: { position: 'absolute', top: 0, bottom: 0, right: 8, justifyContent: 'center' },
 });

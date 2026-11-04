@@ -1,4 +1,5 @@
-import type { Measure, Track } from '@gp-editor/core';
+import type { Measure, MeasureHeader, Track } from '@gp-editor/core';
+import type { MeasureLayout } from '../../lib/layout';
 import type { NextInRow } from '../symbols/links';
 import { type BeamGroup, beamGroups, stemDirections } from './beams';
 import { type Chord, layoutChord } from './chords';
@@ -33,6 +34,29 @@ export function layoutChords(
   );
 }
 
+/** Where a measure's noteheads go: its layout and header, its staff's top, the track's written transposition. */
+export interface MeasurePlacement {
+  readonly layout: MeasureLayout;
+  readonly header: MeasureHeader;
+  readonly top: number;
+  /** Semitones the track's notes are written above their sound (`trackTransposition`). */
+  readonly transposition: number;
+  /** Moved right by this much (the next measure's, into this measure's coordinates); 0 when absent. */
+  readonly offset?: number;
+}
+
+/**
+ * A measure's voice events and their chords — noteheads at their staff positions, stems by voice or beam group — as
+ * its engraving places them (`engraveVoices`): what links across a bar line end on, and what a click on a notehead hits.
+ */
+export function placeMeasureChords(track: Track, measure: Measure, placement: MeasurePlacement): Pick<VoiceLayout, 'events' | 'chords'> {
+  const { layout, header, top, transposition, offset = 0 } = placement;
+  const raw = buildVoiceEvents(track, measure, layout, clefKind(track, measure.clef), transposition);
+  const { events, isMultiVoice } = placeVoices(raw);
+  const shifted = offset === 0 ? events : events.map(event => ({ ...event, x: event.x + offset }));
+  return { events: shifted, chords: layoutChords(shifted, beamGroups(shifted, header), isMultiVoice, top) };
+}
+
 /** Where the next measure's noteheads go: its staff's top, this measure's width, the track's written transposition. */
 export interface NextMeasurePlacement {
   readonly top: number;
@@ -53,14 +77,8 @@ export function nextMeasureHeads(
   { top, offset, transposition }: NextMeasurePlacement,
 ): NextBar['headOn'] {
   let placed: Pick<VoiceLayout, 'events' | 'chords'> | undefined;
-  const layoutOnce = (): Pick<VoiceLayout, 'events' | 'chords'> => {
-    const raw = buildVoiceEvents(track, measure, next.layout, clefKind(track, measure.clef), transposition);
-    const { events, isMultiVoice } = placeVoices(raw);
-    const shifted = events.map(event => ({ ...event, x: event.x + offset }));
-    return { events: shifted, chords: layoutChords(shifted, beamGroups(shifted, next.header), isMultiVoice, top) };
-  };
   return (beatIndex, voiceIndex, string) => {
-    placed = placed ?? layoutOnce();
+    placed = placed ?? placeMeasureChords(track, measure, { layout: next.layout, header: next.header, top, transposition, offset });
     return headOnString(placed, beatIndex, voiceIndex, string);
   };
 }

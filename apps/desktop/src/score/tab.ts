@@ -100,7 +100,7 @@ export function engraveTabMeasure(context: TabContext): DrawCommand[] {
 }
 
 /** A voice written as rhythm slashes (its own or its track's slash notation): the tab shows its rhythm, not its frets. */
-function isSlashedVoice(track: Track, voice: Voice): boolean {
+export function isSlashedVoice(track: Track, voice: Voice): boolean {
   return track.hasSlashNotation === true || voice.isSlashed === true;
 }
 

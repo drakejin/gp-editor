@@ -75,11 +75,12 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
   );
 }
 
-/** The score page, showing a bend or tremolo bar panel's draft until it is applied. */
+/** The score page, showing a note being dragged up or down, or a bend or tremolo bar panel's draft until it is applied. */
 function DocumentScore({ model, document }: DocumentPartProps) {
   const { base, media, tools, cursorTools, commands } = model;
   const { palette, state, chrome, dispatch } = base;
   const { trackIndex } = state;
+  const { pitchDrag } = commands.editor;
   // A right-click or ⌃-click on a beat: the cursor goes there and the annotation panel opens (it follows the cursor).
   const onContextBeat = useStableCallback((hit: RowHit) => {
     commands.editor.onPressBeat(hit, false);
@@ -87,7 +88,7 @@ function DocumentScore({ model, document }: DocumentPartProps) {
   });
   return (
     <ScoreView
-      song={tools.draftPreview.song ?? document.song}
+      song={pitchDrag.song ?? tools.draftPreview.song ?? document.song}
       trackIndex={trackIndex}
       staves={media.trackView.staves}
       chordDisplay={state.chordDisplay}
@@ -103,6 +104,9 @@ function DocumentScore({ model, document }: DocumentPartProps) {
       onPressBeat={commands.editor.onPressBeat}
       onDragBeat={commands.editor.onDragBeat}
       onContextBeat={onContextBeat}
+      onPressNote={pitchDrag.onPressNote}
+      onDragNote={pitchDrag.onDragNote}
+      onEndNote={pitchDrag.onEndNote}
       isDesignMode={state.isDesignMode}
       onLayoutEdit={dispatch}
     />
