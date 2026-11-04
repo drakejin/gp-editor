@@ -121,6 +121,8 @@ function menuRequests(event: string): (listener: () => void) => () => void {
 export const subscribeQuitRequests = menuRequests('quitRequested');
 /** File ▸ Import PDF… (⇧⌘I). */
 export const subscribeImportPdfRequests = menuRequests('importPdfRequested');
+/** File ▸ Recover Autosaved Work…. */
+export const subscribeRecoverAutosaveRequests = menuRequests('recoverAutosaveRequested');
 /** File ▸ Export PDF… (⌘P), the same as the Export… button. */
 export const subscribeExportRequests = menuRequests('exportRequested');
 /** File ▸ Export PNG…. */

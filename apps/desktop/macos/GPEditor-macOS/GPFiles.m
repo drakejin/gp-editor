@@ -96,6 +96,8 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       GPEditorNewCommandNotification : GPEvent(@"newRequested", GPNewBody),
       GPEditorOpenCommandNotification : GPEvent(@"openRequested", GPNoBody),
       GPEditorImportPdfCommandNotification : GPEvent(@"importPdfRequested", GPNoBody),
+      // The autosaved work kept (GPAutosave.m holds it).
+      GPEditorRecoverAutosaveCommandNotification : GPEvent(@"recoverAutosaveRequested", GPNoBody),
       GPEditorExportCommandNotification : GPEvent(@"exportRequested", GPNoBody),
       GPEditorExportPngCommandNotification : GPEvent(@"exportPngRequested", GPNoBody),
       GPEditorExportMidiCommandNotification : GPEvent(@"exportMidiRequested", GPNoBody),

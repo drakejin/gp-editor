@@ -26,6 +26,7 @@ NSString *const GPEditorOpenCommandNotification = @"GPEditorOpenCommand";
 NSString *const GPEditorOpenRecentCommandNotification = @"GPEditorOpenRecentCommand";
 NSString *const GPEditorClearRecentCommandNotification = @"GPEditorClearRecentCommand";
 NSString *const GPEditorRecentFilesCommandNotification = @"GPEditorRecentFilesCommand";
+NSString *const GPEditorRecoverAutosaveCommandNotification = @"GPEditorRecoverAutosaveCommand";
 NSString *const GPEditorRecentFilesChangedNotification = @"GPEditorRecentFilesChanged";
 NSString *const GPEditorOpenURLsNotification = @"GPEditorOpenURLs";
 NSString *const GPEditorSaveCommandNotification = @"GPEditorSaveCommand";

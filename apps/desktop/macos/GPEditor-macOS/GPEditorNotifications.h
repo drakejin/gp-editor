@@ -82,6 +82,9 @@ FOUNDATION_EXPORT NSString *const GPEditorClearRecentCommandNotification;
 /** File ▸ Recent Files… was chosen. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorRecentFilesCommandNotification;
 
+/** File ▸ Recover Autosaved Work… was chosen; GPFiles.m forwards it to JS as "recoverAutosaveRequested". No object. */
+FOUNDATION_EXPORT NSString *const GPEditorRecoverAutosaveCommandNotification;
+
 /** GPRecentFiles.m stored a new recent files list (GPRecentFilesDefaultsKey); File ▸ Open Recent reloads it. No object. */
 FOUNDATION_EXPORT NSString *const GPEditorRecentFilesChangedNotification;
 
