@@ -9,7 +9,8 @@
 # drum kit the bank lacks, and the effects UI's actions at random.
 # Then the restart (restart-check.m, sandboxed the same way): the engine in real time, its output tapped, a song played
 # again right away — stopped and played within 10 ms, or played again while it plays — on the shared synth and on a
-# sampler; each play's first note must sound.
+# sampler; each play's first note must sound (AVAudioSequencer drops what falls in its first render cycle when the song
+# before it stopped just then: GPMidiEngine starts each song a lead early).
 # Then the audio export (export-check.m): a fixture written by GPAudioExporter as WAV, AIFF, FLAC, MP3 and Ogg Vorbis
 # and read back (scripts/audio-codecs/fetch.sh builds the MP3 and Vorbis encoders first; cached).
 # Then the audio track's files with two apps running (assets-check.m): one app starting never removes the other's.

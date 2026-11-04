@@ -3,11 +3,13 @@
 // again only when the selected bank changes, and samplers for tracks with effects), an AVAudioSequencer per song, and
 // the line in (GPLineIn). Once the bank is loaded, starting playback costs a sequence load (milliseconds); a channel's
 // program, volume and pan, and every effect value, change while the song plays. Adding, removing or reordering effects
-// rewires the graph, which stops the sequencer: it starts again where it was. MIDISynth keeps the whole bank in memory
-// (about 220 MB for GeneralUser GS, 30 MB for the macOS bank), so the engine is released a minute after playback stops
-// (at once when the line in had opened an input, so the microphone is let go); the first play after that, or after
-// another bank is chosen, loads the bank again (about 250 ms for GeneralUser GS). GPMixRenderer builds the same graph
-// on an engine in manual rendering mode, for offline renders.
+// rewires the graph, which stops the sequencer: it starts again where it was. Every song starts two render cycles
+// early, its events moved that much later in its sequence (AVAudioSequencer may drop what falls in its first render
+// cycle when the song before it stopped just then: the first note of a play right after another). MIDISynth keeps the
+// whole bank in memory (about 220 MB for GeneralUser GS, 30 MB for the macOS bank), so the engine is released a minute
+// after playback stops (at once when the line in had opened an input, so the microphone is let go); the first play
+// after that, or after another bank is chosen, loads the bank again (about 250 ms for GeneralUser GS). GPMixRenderer
+// builds the same graph on an engine in manual rendering mode, for offline renders.
 // Not thread-safe: every method runs on the queue given at init, which is also where the idle release runs.
 
 #import <Foundation/Foundation.h>

@@ -1,6 +1,7 @@
 #import "GPMidiEngine.h"
 
 #import <AVFoundation/AVFoundation.h>
+#import <AudioToolbox/AudioToolbox.h>
 #import <os/log.h>
 
 #import "GPAudioTrackPlayer.h"
@@ -10,6 +11,15 @@
 
 /** How long a stopped engine keeps its bank in memory before it is released (the next play loads it again). */
 static const NSTimeInterval kIdleReleaseSeconds = 60;
+/** A song starts this many of the output's render cycles before its first event (-startSequencer:atSongSeconds:error:)… */
+static const double kStartLeadCycles = 2;
+/** …at least this long (a device whose cycle cannot be read gets it) and at most this long. */
+static const NSTimeInterval kMinStartLead = 0.02;
+static const NSTimeInterval kMaxStartLead = 0.25;
+/** MusicSequence's tempo where a sequence has none (120 bpm): the lead put before a song's own tempo plays at it. */
+static const double kDefaultBeatsPerSecond = 2;
+/** Half a tick of the songs' 960 PPQ, in beats: a start point's own notes stay when the notes before it are taken out. */
+static const AVMusicTimeStamp kHalfTick = 0.5 / 960;
 /** The audio track starts this long after the sequencer's start (see -startAudioAt:)… */
 static const NSTimeInterval kAudioStartLead = 0.04;
 /** …and is prepared again further on when the sequencer, at its first render, is less than this before that. */
@@ -31,7 +41,12 @@ static const NSTimeInterval kRenderedStep = 0.001;
   /** The latest mix, applied to every engine built. */
   NSDictionary *_mix;
   AVAudioSequencer *_sequencer;
+  /** The playing sequence's length in its seconds, the lead included. */
   NSTimeInterval _length;
+  /** How far the playing song's events were moved later in its sequence: song second s is sequence second s + this. */
+  NSTimeInterval _leadSeconds;
+  /** The song second the sequencer was last started for (it plays the lead before it first): no position reads earlier. */
+  NSTimeInterval _startSeconds;
   /** Bumped by every play and stop, so only the latest stop's idle release runs. */
   NSUInteger _generation;
   /** The engine opened an audio input: release it as soon as neither playback nor the line in needs it. */
@@ -126,19 +141,87 @@ static const NSTimeInterval kRenderedStep = 0.001;
     return NO;
   }
   [self routeSequencer:sequencer midi:midi];
+  // After routing, which reads the conductor's set-up on the song's first beat; the tracks it splits off move too.
+  _leadSeconds = DelaySequence(sequencer, [self startLead]);
+  os_log(OS_LOG_DEFAULT, "GPMidiEngine: plays from %.3f s, starting %.1f ms early", MAX(0, seconds), _leadSeconds * 1000);
   NSTimeInterval length = 0;
   for (AVMusicTrack *track in sequencer.tracks) {
     length = MAX(length, track.lengthInSeconds);
   }
-  sequencer.currentPositionInSeconds = MAX(0, seconds);
-  [sequencer prepareToPlay];
-  if (![sequencer startAndReturnError:error]) {
+  if (![self startSequencer:sequencer atSongSeconds:seconds error:error]) {
     return NO;
   }
   _sequencer = sequencer;
   _length = length;
   _audioPlayback = audio;
   return YES;
+}
+
+/**
+ * Prerolls and starts `sequencer` (while the engine does not render, see -playData:…) a lead before `seconds` of the
+ * song, the notes of that lead taken out (they come before the point asked for). AVAudioSequencer drops the events of
+ * its first render cycle, now and then, when the song before it stopped just then — a play while one plays (a bar
+ * button, Home / End, a loop going round, a practice change, a rewire) or a play right after a stop, before the engine
+ * rendered on (Space, Space): the song's first note was not heard (scripts/audio-check run.sh restart; measured: only
+ * the first cycle, 512 or 2048 frames alike, never what comes after it). So every song's events are moved the lead
+ * later in its sequence (DelaySequence) and it starts that much early: what is asked for falls past the first cycle.
+ */
+- (BOOL)startSequencer:(AVAudioSequencer *)sequencer atSongSeconds:(NSTimeInterval)seconds error:(NSError **)error
+{
+  // Song second s is sequence second s + _leadSeconds: sequence second s is the lead before it.
+  NSTimeInterval from = MAX(0, seconds);
+  RemoveNotes(sequencer, [sequencer beatsForSeconds:from], [sequencer beatsForSeconds:from + _leadSeconds] - kHalfTick);
+  _startSeconds = from;
+  sequencer.currentPositionInSeconds = from;
+  [sequencer prepareToPlay];
+  return [sequencer startAndReturnError:error];
+}
+
+/** kStartLeadCycles of the output's render cycles, within kMinStartLead … kMaxStartLead. */
+- (NSTimeInterval)startLead
+{
+  AVAudioOutputNode *output = _engine.outputNode;
+  double rate = [output outputFormatForBus:0].sampleRate;
+  UInt32 frames = 0;
+  UInt32 size = sizeof(frames);
+  OSStatus status = AudioUnitGetProperty(output.audioUnit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global, 0, &frames, &size);
+  NSTimeInterval cycle = status == noErr && rate > 0 ? frames / rate : 0;
+  return MIN(kMaxStartLead, MAX(kMinStartLead, kStartLeadCycles * cycle));
+}
+
+/**
+ * Moves every event of the sequence, its tempo track's too, `seconds` later: the time before plays at the sequence's
+ * default tempo, and every point of the song keeps its distance to the others. Returns the move in the sequence's seconds.
+ */
+static NSTimeInterval DelaySequence(AVAudioSequencer *sequencer, NSTimeInterval seconds)
+{
+  AVMusicTimeStamp beats = seconds * kDefaultBeatsPerSecond;
+  AVMusicTimeStamp end = sequencer.tempoTrack.lengthInBeats;
+  for (AVMusicTrack *track in sequencer.tracks) {
+    end = MAX(end, track.lengthInBeats);
+  }
+  AVBeatRange everything = AVMakeBeatRange(0, end + 1);
+  [sequencer.tempoTrack moveEventsInRange:everything byAmount:beats];
+  for (AVMusicTrack *track in sequencer.tracks) {
+    AVMusicTimeStamp length = track.lengthInBeats;
+    [track moveEventsInRange:everything byAmount:beats];
+    track.lengthInBeats = length + beats;
+  }
+  return [sequencer secondsForBeats:beats];
+}
+
+/** Takes the notes starting in [fromBeat, toBeat) out of the song's tracks. */
+static void RemoveNotes(AVAudioSequencer *sequencer, AVMusicTimeStamp fromBeat, AVMusicTimeStamp toBeat)
+{
+  if (toBeat <= fromBeat) {
+    return;
+  }
+  for (AVMusicTrack *track in sequencer.tracks) {
+    [track enumerateEventsInRange:AVMakeBeatRange(fromBeat, toBeat - fromBeat)
+                       usingBlock:^(AVMusicEvent *event, AVMusicTimeStamp *timeStamp, BOOL *removeEvent) {
+                         *removeEvent = [event isKindOfClass:[AVMIDINoteEvent class]];
+                       }];
+  }
 }
 
 /** The new song's tracks on their instruments (the click tracks on the shared synth), the silent ones muted. */
@@ -272,7 +355,7 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
 {
   uint64_t hostTime = 0;
   @try {
-    hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds)] error:nil];
+    hostTime = [_sequencer hostTimeForBeats:[_sequencer beatsForSeconds:MAX(0, seconds + _leadSeconds)] error:nil];
   } @catch (NSException *exception) {
     os_log(OS_LOG_DEFAULT, "GPMidiEngine: no host time for %.3f s (%{public}@)", seconds, exception.reason);
   }
@@ -301,17 +384,19 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
   if (_audioPlayback == nil || _sequencer == nil) {
     return;
   }
+  // The sequencer started the lead before `seconds` (-startSequencer:atSongSeconds:error:).
+  NSTimeInterval started = MAX(0, seconds) - _leadSeconds;
   CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + kFirstRenderTimeout;
-  while (_sequencer.currentPositionInSeconds < seconds + kRenderedStep && CFAbsoluteTimeGetCurrent() < deadline) {
+  while ([self songPosition] < started + kRenderedStep && CFAbsoluteTimeGetCurrent() < deadline) {
     usleep(1000);
   }
-  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  NSTimeInterval position = [self songPosition];
   NSTimeInterval at = seconds + kAudioStartLead;
   BOOL isLate = position + kAudioStartMargin > at;
   if (isLate) {
     at = position + kAudioStartLead;
   }
-  if (position < seconds + kRenderedStep || (isLate && ![_audioTrack prepare:_audioPlayback fromSeconds:at error:nil])) {
+  if (position < started + kRenderedStep || (isLate && ![_audioTrack prepare:_audioPlayback fromSeconds:at error:nil])) {
     os_log(OS_LOG_DEFAULT, "GPMidiEngine: the audio track did not start (sequencer at %.3f s, started at %.3f s)", position, seconds);
     return;
   }
@@ -384,32 +469,39 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
 /** After a graph change (which stops a playing sequencer): the engine running, the song going on where it was. */
 - (void)resumeAfterRewire
 {
-  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  NSTimeInterval position = self.positionSeconds;
   [_engine pause];
   [_sequencer stop];
   [self restartEngineWithSequencerAt:position error:nil];
 }
 
-/** Starts the stopped engine, the sequencer (if any) prerolled and started at `position` first (see -playData:…). */
-- (BOOL)restartEngineWithSequencerAt:(NSTimeInterval)position error:(NSError **)error
+/** Starts the stopped engine, the sequencer (if any) prerolled and started at `seconds` of the song first (see -playData:…). */
+- (BOOL)restartEngineWithSequencerAt:(NSTimeInterval)seconds error:(NSError **)error
 {
-  if (_audioPlayback != nil && ![self prepareAudio:_audioPlayback at:position error:nil]) {
+  if (_audioPlayback != nil && ![self prepareAudio:_audioPlayback at:seconds error:nil]) {
     _audioPlayback = nil;
   }
-  _sequencer.currentPositionInSeconds = position;
-  [_sequencer prepareToPlay];
-  [_sequencer startAndReturnError:nil];
+  if (_sequencer != nil) {
+    [self startSequencer:_sequencer atSongSeconds:seconds error:nil];
+  }
   if ([self startEngine:error]) {
-    [self startAudioAt:position];
+    [self startAudioAt:seconds];
     return YES;
   }
   [_sequencer stop];
   return NO;
 }
 
+/** The playing song's position in its own seconds (before 0 during the lead its sequence starts with). */
+- (NSTimeInterval)songPosition
+{
+  return _sequencer.currentPositionInSeconds - _leadSeconds;
+}
+
+/** Where the song is, and during the lead the point it is about to play: never before what was asked for. */
 - (NSTimeInterval)positionSeconds
 {
-  return _sequencer == nil ? 0 : _sequencer.currentPositionInSeconds;
+  return _sequencer == nil ? 0 : MAX(_startSeconds, [self songPosition]);
 }
 
 - (BOOL)isPlaying
@@ -454,7 +546,7 @@ static void LogFirstNote(AVMusicTrack *track, NSUInteger index)
     [self buildEngine];
   }
   // The input device is set on a stopped engine; a playing song goes on where it was.
-  NSTimeInterval position = _sequencer.currentPositionInSeconds;
+  NSTimeInterval position = self.positionSeconds;
   [_engine stop];
   [_sequencer stop];
   _hasOpenedInput = YES;
