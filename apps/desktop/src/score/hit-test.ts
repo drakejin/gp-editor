@@ -27,9 +27,13 @@ export function hitTestRow(placed: readonly PlacedMeasure[], geometry: RowGeomet
   if (measure === undefined) {
     return undefined;
   }
-  const localX = x - measure.x;
-  const nearest = measure.layout.beats.reduce<BeatLayout | undefined>((best, beat) => (best === undefined || Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best), undefined);
+  const nearest = nearestBeat(measure.layout.beats, x - measure.x);
   return { measureIndex: measure.layout.measureIndex, beatIndex: nearest?.beatIndex ?? 0, string: tabString(geometry, stringCount, y) };
+}
+
+/** The beat of a measure nearest to `localX` (from the measure's left edge); none in a bar without beats. */
+export function nearestBeat(beats: readonly BeatLayout[], localX: number): BeatLayout | undefined {
+  return beats.reduce<BeatLayout | undefined>((best, beat) => (best === undefined || Math.abs(beat.x - localX) < Math.abs(best.x - localX) ? beat : best), undefined);
 }
 
 /**
