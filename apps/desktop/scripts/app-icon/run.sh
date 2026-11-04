@@ -7,6 +7,13 @@
 #   --sheet  writes a contact sheet of every size on light and dark backgrounds instead of the icon files
 set -euo pipefail
 
+# Anything but no argument or --sheet <out.png> is refused: a mistyped option must not rewrite the tracked icons.
+case "$#:${1:-}" in
+  0:) MODE=write ;;
+  2:--sheet) MODE=sheet ;;
+  *) echo "usage: $0 [--sheet <out.png>]" >&2; exit 2 ;;
+esac
+
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HERE="${APP_DIR}/scripts/app-icon"
 OUT="${APP_DIR}/macos/build/app-icon"
@@ -15,11 +22,10 @@ mkdir -p "$OUT"
 swiftc -O "$HERE/icon-geometry.swift" "$HERE/icon-art.swift" "$HERE/icon-parts.swift" "$HERE/icon-files.swift" \
   "$HERE/icon-sheet.swift" "$HERE/main.swift" -o "$OUT/app-icon"
 
-if [[ "${1:-}" == "--sheet" ]]; then
-  [[ -n "${2:-}" ]] || { echo "usage: $0 --sheet <out.png>" >&2; exit 2; }
-  "$OUT/app-icon" sheet "$2"
-  echo "wrote $2"
-else
+if [[ "$MODE" == write ]]; then
   "$OUT/app-icon" write "$APP_DIR"
   echo "wrote the AppIcon set and src-tauri/icons"
+else
+  "$OUT/app-icon" sheet "$2"
+  echo "wrote $2"
 fi

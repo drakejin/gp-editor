@@ -66,13 +66,42 @@ enum Layout {
     strings: [0.3, 0.5, 0.7].map { StringLine(v: $0, thickness: 0.08, isWound: false) },
     cursor: CursorLayout(stringIndex: 1, u: 0.62, width: 0.38, height: 0.42, corner: 0.07, numberHeight: nil))
   /** The nut and the fret, the bar's two bar lines: across, and how far down they run. */
-  static let nut = (left: CGFloat(0.105), right: CGFloat(0.145))
+  static let nut = (left: CGFloat(0.105), right: CGFloat(0.145), corner: CGFloat(0.008))
   static let fret = (center: CGFloat(0.875), width: CGFloat(0.016))
   static let barLines = (top: CGFloat(0.14), bottom: CGFloat(0.86))
   /** The numbers left of the cursor (a chord on the second and fifth strings): (string index, across, text). */
   static let numbers: [(Int, CGFloat, String)] = [(1, 0.32, "3"), (4, 0.32, "2")]
   static let numberHeight: CGFloat = 0.115
+  /** How far the strings' gap reaches beyond a number's ink, across and down. */
+  static let numberGap = (across: CGFloat(0.022), down: CGFloat(0.02))
   static let cursorText = "5"
+}
+
+/** A soft shadow in plate units: how far it falls down and right, how blurred and how dark it is. */
+struct ShadowStyle {
+  let down: CGFloat
+  let rightward: CGFloat
+  let blur: CGFloat
+  let alpha: CGFloat
+}
+
+/** The light, from above left: each part's shadow, the board's glow, the plate's rim, the cursor's shine. */
+enum Light {
+  static let string = ShadowStyle(down: 0.006, rightward: 0, blur: 0.012, alpha: 0.55)
+  static let nut = ShadowStyle(down: 0.006, rightward: 0.006, blur: 0.016, alpha: 0.55)
+  static let fret = ShadowStyle(down: 0.005, rightward: 0.005, blur: 0.012, alpha: 0.6)
+  static let number = ShadowStyle(down: 0.004, rightward: 0, blur: 0.006, alpha: 0.3)
+  static let cursor = ShadowStyle(down: 0.012, rightward: 0, blur: 0.03, alpha: 0.5)
+  static let cursorNumber = ShadowStyle(down: 0.004, rightward: 0, blur: 0.006, alpha: 0.35)
+  /** The board's glow: its centre, how far it reaches, how white it starts. */
+  static let glow = (u: CGFloat(0.28), v: CGFloat(0.02), radius: CGFloat(0.85), alpha: CGFloat(0.09))
+  /** The light edge inside the plate: its width (at least a pixel) and whiteness. */
+  static let rim = (width: CGFloat(0.005), alpha: CGFloat(0.12))
+  /** The white over the cursor's top half, and its darker edge. */
+  static let cursorShine: CGFloat = 0.28
+  static let cursorEdge = (width: CGFloat(0.004), alpha: CGFloat(0.55))
+  /** How dark a wound string's grooves are. */
+  static let windingAlpha: CGFloat = 0.16
 }
 
 /** What the icon shows at a plate's side in pixels: the smaller, the fewer and plainer its parts. */
@@ -101,7 +130,7 @@ struct IconArt {
   init(plate: Plate) {
     self.plate = plate
     self.features = Features(side: plate.side)
-    self.font = numberFont()
+    self.font = NUMBER_FONT
   }
 
   var strings: [StringLine] { features.layout.strings }

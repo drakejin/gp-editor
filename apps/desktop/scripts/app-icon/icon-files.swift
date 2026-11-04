@@ -53,6 +53,7 @@ private func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
 
 /** An .ico holding PNG images (Windows Vista and later read them; `tauri icon` writes them so). */
 func icoData(_ images: [(pixels: Int, png: Data)]) -> Data {
+  precondition(images.allSatisfy { $0.pixels <= 256 }, "an .ico image is at most 256 pixels")
   let header = littleEndian(UInt16(0)) + littleEndian(UInt16(1)) + littleEndian(UInt16(images.count))
   let firstOffset = 6 + 16 * images.count
   let offsets = images.reduce(into: [firstOffset]) { offsets, image in offsets.append(offsets.last! + image.png.count) }

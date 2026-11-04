@@ -65,9 +65,10 @@ struct Plate {
     self.pixels = pixels
     let fraction = platform == .mac ? MAC_PLATE_FRACTION : WINDOWS_PLATE_FRACTION
     let canvas = CGFloat(pixels)
-    // Whole pixels at small sizes, so the plate's edges stay sharp.
-    let side = pixels < 128 ? (canvas * fraction).rounded() : canvas * fraction
-    let inset = pixels < 128 ? ((canvas - side) / 2).rounded(.down) : (canvas - side) / 2
+    let margin = (canvas - canvas * fraction) / 2
+    // Small sizes: a whole-pixel margin, the same on every side, so the plate's edges stay sharp and centred.
+    let inset = pixels < 128 ? margin.rounded(.down) : margin
+    let side = canvas - 2 * inset
     self.rect = CGRect(x: inset, y: inset, width: side, height: side)
   }
 
@@ -99,14 +100,15 @@ struct Plate {
   }
 }
 
-/** The rounded heavy system font the fret numbers are drawn in (SF Pro Rounded where the system has it). */
-func numberFont() -> CTFont {
+/** The rounded heavy system font the fret numbers are drawn in (SF Pro Rounded; said aloud when the system lacks it). */
+let NUMBER_FONT: CTFont = {
   let base = NSFont.systemFont(ofSize: 100, weight: .heavy)
   guard let rounded = base.fontDescriptor.withDesign(.rounded), let font = NSFont(descriptor: rounded, size: 100) else {
+    FileHandle.standardError.write(Data("app-icon: no rounded system font here, the numbers are drawn in the plain one\n".utf8))
     return base as CTFont
   }
   return font as CTFont
-}
+}()
 
 /** A text's glyph outlines, y up from the baseline, as CoreText lays it out. */
 func textOutline(_ text: String, font: CTFont) -> CGPath {
@@ -131,9 +133,13 @@ func textOutline(_ text: String, font: CTFont) -> CGPath {
 func centeredText(_ text: String, font: CTFont, center: CGPoint, height: CGFloat) -> CGPath {
   let outline = textOutline(text, font: font)
   let bounds = outline.boundingBoxOfPath
+  precondition(bounds.height > 0, "the font has no outline for \"\(text)\"")
   let scale = height / bounds.height
   var transform = CGAffineTransform(translationX: center.x, y: center.y)
     .scaledBy(x: scale, y: -scale)
     .translatedBy(x: -bounds.midX, y: -bounds.midY)
-  return outline.copy(using: &transform) ?? outline
+  guard let placed = outline.copy(using: &transform) else {
+    preconditionFailure("cannot place the outline of \"\(text)\"")
+  }
+  return placed
 }
