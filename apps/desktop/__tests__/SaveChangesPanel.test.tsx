@@ -4,13 +4,13 @@ import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { SaveChangesPanel } from '../src/components/SaveChangesPanel';
 import { PALETTE } from '../test-support/score-helpers';
 
-function render() {
+function render(isQuitting?: boolean) {
   const onSave = jest.fn();
   const onDiscard = jest.fn();
   const onCancel = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<SaveChangesPanel palette={PALETTE} name="Etude" onSave={onSave} onDiscard={onDiscard} onCancel={onCancel} />);
+    renderer = ReactTestRenderer.create(<SaveChangesPanel palette={PALETTE} name="Etude" isQuitting={isQuitting} onSave={onSave} onDiscard={onDiscard} onCancel={onCancel} />);
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
   const press = (label: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.label === label)?.props.onPress());
@@ -42,6 +42,17 @@ describe('SaveChangesPanel', () => {
     expect(panel.onSave).toHaveBeenCalledTimes(1);
     expect(panel.onDiscard).toHaveBeenCalledTimes(1);
     expect(panel.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('says the app is quitting when it asks on ⌘Q, Cancel keeping it open', () => {
+    // Act
+    const panel = render(true);
+
+    // Assert
+    const texts = panel.renderer.root.findAllByType(Text).map((text) => text.props.children);
+    expect(texts).toContain('Save changes to “Etude”?');
+    expect(texts).toContain('GP Editor is quitting: your changes will be lost if you don’t save them.');
+    expect(panel.buttons().map((button) => button.props.tooltip)).toEqual(['Quit without saving this tab', 'Don’t quit: keep GP Editor open (Esc)', 'Save, then go on quitting']);
   });
 
   it('cancels on a click outside the panel', () => {

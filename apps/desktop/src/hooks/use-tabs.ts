@@ -1,5 +1,5 @@
-import { type Dispatch, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { subscribeTabRequests } from '../native/gp-files';
+import { type Dispatch, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { finishQuit, setHasEditedDocuments, subscribeQuitRequests, subscribeTabRequests } from '../native/gp-files';
 import { isEdited } from '../state/editor';
 import { type TabLabel, type WorkspaceAction, type WorkspaceState, tabLabels, tabTitle } from '../state/workspace';
 
@@ -8,6 +8,8 @@ export interface TabClosing {
   readonly tabId: string;
   /** What the question calls it: the tab's title. */
   readonly name: string;
+  /** Asked while the app quits (⌘Q, the window's close button): the next edited tab comes after it; Cancel stops the quit. */
+  readonly isQuitting?: boolean;
 }
 
 /** The tab strip's clicks and File ▸ Close Tab / Next Tab / Previous Tab. */
@@ -17,12 +19,20 @@ export interface Tabs {
   readonly switchTo: (tabId: string) => void;
   /** Closes a tab; an edited one asks first (`closing`). */
   readonly requestClose: (tabId: string) => void;
-  /** Save: saves the tab (⌘S's way), then closes it; a cancelled save panel keeps it open. */
+  /** Save: saves the tab (⌘S's way), then closes it (quitting: goes on); a cancelled save panel keeps it (and the app) open. */
   readonly saveAndClose: () => void;
-  /** Don't Save: closes the tab, its changes lost. */
+  /** Don't Save: closes the tab, its changes lost (quitting: goes on to the next edited tab). */
   readonly discardAndClose: () => void;
-  /** Cancel (also Esc): keeps the tab; false when no question was open, so Esc goes on to other overlays. */
+  /** Cancel (also Esc): keeps the tab (and the app); false when no question was open, so Esc goes on to other overlays. */
   readonly cancelClose: () => boolean;
+}
+
+/** The quit under way: the edited tabs answered so far, asked about one after the other. */
+interface QuitReview {
+  /** A tab was saved or its changes let go: the next edited tab is asked about, or the app quits. */
+  readonly answered: (tabId: string) => void;
+  /** Cancel, or a save that did not happen: the app stays open. */
+  readonly stop: () => void;
 }
 
 /** Switching and closing tabs; `saveTab` saves one tab and says whether it was saved (useDocument). */
@@ -32,42 +42,125 @@ export function useTabs(
   saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>,
 ): Tabs {
   const [closing, setClosing] = useState<TabClosing | undefined>(undefined);
-  // The latest tabs, read through a ref so the menu listeners are not re-added on every edit.
+  // The latest tabs and question, read through refs so the menu listeners are not re-added on every edit.
   const latest = useRef(workspace);
   latest.current = workspace;
+  const shownQuestion = useRef(closing);
+  shownQuestion.current = closing;
+  const quit = useQuitReview(latest, shownQuestion, dispatch, setClosing);
 
   const switchTo = useCallback((tabId: string) => dispatch({ type: 'switchTab', tabId }), [dispatch]);
   const requestClose = useCallback(
     (tabId: string) => {
       const editor = latest.current.tabs.find((tab) => tab.id === tabId)?.editor;
       if (editor?.document !== undefined && isEdited(editor)) {
+        // A quit's question replaced by this tab's own (⌘W over it): the quit is given up, as Cancel does.
+        quit.stop();
         setClosing({ tabId, name: tabTitle(editor.document) });
       } else if (editor !== undefined) {
         dispatch({ type: 'closeTab', tabId });
       }
     },
-    [dispatch],
+    [dispatch, quit],
   );
   useTabMenu(latest, requestClose, dispatch);
+  useEditedDocuments(workspace);
 
+  const answers = useAnswers(closing, setClosing, saveTab, dispatch, quit);
+  return { closing, switchTo, requestClose, ...answers };
+}
+
+type Answers = Pick<Tabs, 'saveAndClose' | 'discardAndClose' | 'cancelClose'>;
+
+/** Save, Don't Save and Cancel of the question shown: a tab closing, or the app quitting (`quit` goes on or stops). */
+function useAnswers(
+  closing: TabClosing | undefined,
+  setClosing: (closing: TabClosing | undefined) => void,
+  saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>,
+  dispatch: Dispatch<WorkspaceAction>,
+  quit: QuitReview,
+): Answers {
   const saveAndClose = useCallback(() => {
-    if (closing !== undefined) {
-      setClosing(undefined);
-      void saveTab(closing.tabId, false).then((isSaved) => isSaved && dispatch({ type: 'closeTab', tabId: closing.tabId }));
+    if (closing === undefined) {
+      return;
     }
-  }, [closing, saveTab, dispatch]);
+    setClosing(undefined);
+    void saveTab(closing.tabId, false).then((isSaved) => {
+      if (closing.isQuitting === true) {
+        return isSaved ? quit.answered(closing.tabId) : quit.stop();
+      }
+      return isSaved && dispatch({ type: 'closeTab', tabId: closing.tabId });
+    });
+  }, [closing, setClosing, saveTab, dispatch, quit]);
   const discardAndClose = useCallback(() => {
     if (closing !== undefined) {
       setClosing(undefined);
-      dispatch({ type: 'closeTab', tabId: closing.tabId });
+      return closing.isQuitting === true ? quit.answered(closing.tabId) : dispatch({ type: 'closeTab', tabId: closing.tabId });
     }
-  }, [closing, dispatch]);
+  }, [closing, setClosing, dispatch, quit]);
   const cancelClose = useCallback(() => {
     setClosing(undefined);
+    // Esc while a quit's save is written (no question shown) leaves the quit going on.
+    if (closing?.isQuitting === true) {
+      quit.stop();
+    }
     return closing !== undefined;
-  }, [closing]);
+  }, [closing, setClosing, quit]);
 
-  return { closing, switchTo, requestClose, saveAndClose, discardAndClose, cancelClose };
+  return { saveAndClose, discardAndClose, cancelClose };
+}
+
+/**
+ * Quitting with edited tabs (⌘Q, the window's close button; the native side asks JS first while a tab is edited): each
+ * edited tab is shown and asked about — Save, Don't Save or Cancel —, then the app quits (`finishQuit`).
+ */
+function useQuitReview(
+  latest: RefObject<WorkspaceState>,
+  shownQuestion: RefObject<TabClosing | undefined>,
+  dispatch: Dispatch<WorkspaceAction>,
+  setClosing: (closing: TabClosing | undefined) => void,
+): QuitReview {
+  // The tabs answered in the quit under way; undefined while none is.
+  const answeredTabs = useRef<ReadonlySet<string> | undefined>(undefined);
+  const askNext = useCallback(() => {
+    const answered = answeredTabs.current;
+    if (answered === undefined) {
+      return;
+    }
+    const next = latest.current.tabs.find((tab) => tab.editor.document !== undefined && isEdited(tab.editor) && !answered.has(tab.id));
+    if (next?.editor.document === undefined) {
+      answeredTabs.current = undefined;
+      finishQuit();
+      return;
+    }
+    dispatch({ type: 'switchTab', tabId: next.id });
+    setClosing({ tabId: next.id, name: tabTitle(next.editor.document), isQuitting: true });
+  }, [latest, dispatch, setClosing]);
+  // Each quit asks from the first edited tab again, unless its question is on screen already.
+  const start = useCallback(() => {
+    if (shownQuestion.current?.isQuitting !== true) {
+      answeredTabs.current = new Set();
+      askNext();
+    }
+  }, [shownQuestion, askNext]);
+  useEffect(() => subscribeQuitRequests(start), [start]);
+  const answered = useCallback(
+    (tabId: string) => {
+      answeredTabs.current = answeredTabs.current === undefined ? undefined : new Set([...answeredTabs.current, tabId]);
+      askNext();
+    },
+    [askNext],
+  );
+  const stop = useCallback(() => {
+    answeredTabs.current = undefined;
+  }, []);
+  return useMemo(() => ({ answered, stop }), [answered, stop]);
+}
+
+/** Tells the native side whether a tab has unsaved changes: the window's close button shows it, and quitting asks first. */
+function useEditedDocuments(workspace: WorkspaceState): void {
+  const hasEdited = workspace.tabs.some((tab) => isEdited(tab.editor));
+  useEffect(() => setHasEditedDocuments(hasEdited), [hasEdited]);
 }
 
 /** File ▸ Close Tab (⌘W) closes the shown tab; Next Tab (⌃Tab) / Previous Tab (⌃⇧Tab) go round the tabs. */

@@ -45,7 +45,15 @@ export function redo(state: EditorState): EditorState {
   return { ...redone, cursor: redone.cursor === undefined ? undefined : clampCursor(next, redone.cursor) };
 }
 
-/** The document under its new file name, `song` being what the file now holds. */
-export function markSaved(state: EditorState, fileName: string, path: string, song: Song): EditorState {
-  return state.document === undefined ? state : { ...state, document: { ...state.document, fileName, path }, savedSong: song };
+/** What a save wrote: the file's new name and path, the song it now holds, what its format left out. */
+export interface SavedDocument {
+  readonly fileName: string;
+  readonly path: string;
+  readonly song: Song;
+  readonly hint?: string;
+}
+
+/** The document under its new file name; the hint strip says what this save left out (or nothing). */
+export function markSaved(state: EditorState, { fileName, path, song, hint }: SavedDocument): EditorState {
+  return state.document === undefined ? state : { ...state, document: { ...state.document, fileName, path }, savedSong: song, hint };
 }

@@ -359,6 +359,23 @@ describe('runImport', () => {
     });
   });
 
+  it('asks no page again once cancelled: a busy page is left for Resume instead of waiting to retry', async () => {
+    // Arrange: page 1 is busy, cancelled while it was with the model
+    let isCancelled = false;
+    const run = fake(() => {
+      isCancelled = true;
+      return apiError(529, 'overloaded_error', 'Overloaded');
+    });
+
+    // Act
+    const finished = await runImport(project(2), run.deps, { ...OPTIONS, isCancelled: () => isCancelled });
+
+    // Assert
+    expect(run.sent).toHaveLength(1);
+    expect(run.waits).toEqual([]);
+    expect(finished.status).toBe('cancelled');
+  });
+
   it('keeps what it has when cancelled', async () => {
     let isCancelled = false;
     const run = fake(page => {

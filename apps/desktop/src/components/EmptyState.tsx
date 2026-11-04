@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../hooks/use-i18n';
 import { SCORE_MODES, SCORE_MODE_LABELS, type ScoreMode } from '../score/geometry';
 import type { Palette } from '../theme';
@@ -16,7 +16,11 @@ interface EmptyStateProps {
   readonly projects?: ReactNode;
 }
 
-/** Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro, Power Tab or TablEdit file. */
+/**
+ * Start screen: a new sheet (score + tab, score or tab) or a Guitar Pro, Power Tab or TablEdit file. Its content scrolls
+ * inside its own area, centred while it fits: with the recent files and many PDF import projects it is taller than a
+ * 1280 × 800 window, and centred unscrolled it ran over the top bar and the banners and lost its last projects.
+ */
 export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, recentFiles, projects }: EmptyStateProps) {
   const t = useT();
   if (isLoading) {
@@ -27,7 +31,7 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
     );
   }
   return (
-    <View style={styles.empty}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       {/* i18n-exempt: the app's name */}
       <Text style={[styles.title, { color: palette.text }]}>GP Editor</Text>
       <Text style={[styles.text, { color: palette.muted }]}>
@@ -51,12 +55,14 @@ export function EmptyState({ isLoading, palette, onCreate, onOpen, onImportPdf, 
       </View>
       {recentFiles === undefined ? null : <View style={styles.recentFiles}>{recentFiles}</View>}
       {projects}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 24 },
   title: { fontSize: 28, fontWeight: '800' },
   text: { fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 20 },
   sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginTop: 24 },

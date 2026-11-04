@@ -14,6 +14,7 @@ import { DrumKeyPanel } from '../drum-key/DrumKeyPanel';
 import { LineInPanel } from '../effects/LineInPanel';
 import { NotePanelView } from '../note-panels/NotePanels';
 import { PracticeMenu } from '../PracticeMenu';
+import { RebuiltSongPanel } from '../RebuiltSongPanel';
 import { SaveChangesPanel } from '../SaveChangesPanel';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { ShortcutSheet } from '../ShortcutSheet';
@@ -252,7 +253,7 @@ export function WindowDialogs({ model }: WindowPartProps) {
   const { palette, state, chrome, dispatch, focusScore } = base;
   const song = state.document?.song;
   const { settingsPanel } = tools;
-  const { tabs } = files;
+  const { tabs, documents } = files;
   return (
     <>
       {settingsPanel.isOpen ? (
@@ -267,7 +268,8 @@ export function WindowDialogs({ model }: WindowPartProps) {
         />
       ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
-      {tabs.closing !== undefined ? <SaveChangesPanel palette={palette} name={tabs.closing.name} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} /> : null}
+      {documents.rebuilt !== undefined ? <RebuiltSongPanel palette={palette} name={documents.rebuilt.name} onShow={documents.showRebuilt} onKeep={documents.keepEdited} /> : null}
+      {tabs.closing !== undefined ? <SaveChangesPanel palette={palette} name={tabs.closing.name} isQuitting={tabs.closing.isQuitting} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} /> : null}
     </>
   );
 }

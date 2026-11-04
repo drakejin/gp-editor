@@ -41,7 +41,7 @@ RCT_EXPORT_MODULE();
     static dispatch_once_t once;
     dispatch_once(&once, ^{
       // The last run's files: nothing refers to them any more.
-      [GPAudioAssets removeAll];
+      [GPAudioAssets cleanUpAtLaunch];
     });
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onAddAudioTrackCommand:) name:GPEditorAddAudioTrackCommandNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onTrackCommand:) name:GPEditorTrackCommandNotification object:nil];

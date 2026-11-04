@@ -74,7 +74,7 @@ async function transcribeRest(run: Run, missing: readonly number[], deps: Import
       if (run.isStopped || options.isCancelled()) {
         return;
       }
-      await record(run, page, await transcribePage(run.project, page, run.pages.get(1), deps), deps, options);
+      await record(run, page, await transcribePage(run.project, page, run.pages.get(1), deps, options.isCancelled), deps, options);
     }
   };
   await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, queue.length) }, worker));
@@ -109,7 +109,7 @@ export async function runImport(start: ImportProject, deps: ImportDeps, options:
   const run: Run = { project: start, pages: await savedPages(start, deps), saving: Promise.resolve(), isStopped: false };
   await update(run, { status: 'transcribing', error: undefined, pagesDone: [...run.pages.keys()].sort((a, b) => a - b) }, deps, options);
   if (!run.pages.has(1) && !options.isCancelled()) {
-    await record(run, 1, await transcribePage(run.project, 1, undefined, deps), deps, options);
+    await record(run, 1, await transcribePage(run.project, 1, undefined, deps, options.isCancelled), deps, options);
   }
   if (run.pages.has(1)) {
     const missing = Array.from({ length: run.project.pageCount }, (_, i) => i + 1).filter((page) => !run.pages.has(page));

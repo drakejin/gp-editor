@@ -102,6 +102,8 @@ export type EditorAction =
       readonly fileName: string;
       readonly path: string;
       readonly song: Song;
+      /** What the format left out, for the hint strip; none clears the last save's. */
+      readonly hint?: string;
     }
   | { readonly type: 'saveFailed'; readonly message: string }
   /** Writing a PDF (File ▸ Export PDF…) failed, or `what` another export wrote ("the MIDI file"). */
@@ -195,7 +197,7 @@ function reduceEditor(state: EditorState, action: EditorAction): EditorState {
     case 'created':
       return openDocument({ fileName: newDocumentName(), path: '', song: buildNewSong() }, action.mode);
     case 'saved':
-      return markSaved(state, action.fileName, action.path, action.song);
+      return markSaved(state, action);
     case 'saveFailed':
       return { ...state, error: t('palette.error.save', { message: action.message }) };
     case 'exportFailed':

@@ -1,3 +1,4 @@
+import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { BarButton } from '../src/components/BarButton';
 import { ImportBanner } from '../src/components/ImportBanner';
@@ -17,6 +18,7 @@ function pdfImport(overrides: Partial<PdfImport>): PdfImport {
   return {
     current: { path: '/p/Etude', project: PROJECT },
     isRunning: false,
+    isCancelling: false,
     projects: [],
     hasKey: true,
     model: 'claude-opus-5-5',
@@ -26,6 +28,7 @@ function pdfImport(overrides: Partial<PdfImport>): PdfImport {
     cancel: noop,
     reveal: noop,
     saveKey: async () => undefined,
+    forgetPending: noop,
     removeKey: noop,
     chooseModel: noop,
     dismiss: noop,
@@ -64,5 +67,23 @@ describe('ImportBanner', () => {
       );
     });
     expect(buttonLabels(renderer)).toEqual(['Cancel', 'Show in Finder']);
+  });
+
+  it('says at once that it is cancelling, and that the page being transcribed still finishes', () => {
+    // Arrange
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    const running = { path: '/p/Etude', project: { ...PROJECT, status: 'transcribing' as const, pagesDone: [] } };
+
+    // Act
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <ImportBanner palette={PALETTE} pdfImport={pdfImport({ isRunning: true, isCancelling: true, current: running })} onOpenSettings={() => undefined} />,
+      );
+    });
+
+    // Assert
+    const line = renderer.root.findAllByType(Text).map((text) => text.props.children).join(' ');
+    expect(line).toContain('Cancelling “Etude” — the page being transcribed still finishes');
+    expect(buttonLabels(renderer)).toEqual(['Show in Finder']);
   });
 });

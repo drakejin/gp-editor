@@ -440,7 +440,18 @@ function dumpHeader(h: MeasureHeader): string {
   return `header ${h.number} ${toTux(h.start)} ${numerator}/${denominator} ${h.tempo} ${repeats} ${TRIPLET_FEEL[h.tripletFeel]}${marker}`;
 }
 
-function dumpTrack(t: Track, isGp5: boolean): string[] {
+/**
+ * Not in TuxGuitar: a GP3/GP4 bar Guitar Pro wrote blank (one empty beat) is a measure without beats, as GP5's reader
+ * and alphaTab read it; TuxGuitar reads the empty beat as a quarter rest, which its dump shows.
+ */
+function tuxGuitarBeats(m: Measure, start: number, isGp5: boolean): readonly Beat[] {
+  if (isGp5 || m.beats.length > 0) {
+    return m.beats;
+  }
+  return [{ start, voices: [{ duration: QUARTER, notes: [], isEmpty: false, direction: 'none' }, EMPTY_VOICE], stroke: NO_STROKE, pickStroke: 'none' }];
+}
+
+function dumpTrack(t: Track, isGp5: boolean, headers: readonly MeasureHeader[]): string[] {
   const color = `${t.color.r},${t.color.g},${t.color.b}`;
   const strings = t.strings.map((s) => ` ${s.number}:${s.tuning}`).join('');
   const lyrics = `${t.lyrics?.from ?? 1}:${t.lyrics?.text ?? ''}`;
@@ -449,7 +460,7 @@ function dumpTrack(t: Track, isGp5: boolean): string[] {
     ...t.measures.flatMap((m, index) => [
       // TuxGuitar encodes flat key signatures as 8 … 14
       ` measure ${index + 1} ${m.clef === 'bass' ? 2 : 1} ${m.keySignature < 0 ? 7 - m.keySignature : m.keySignature}`,
-      ...m.beats.map((beat) => dumpBeat(beat, isGp5)),
+      ...tuxGuitarBeats(m, headers[m.headerIndex]?.start ?? 0, isGp5).map((beat) => dumpBeat(beat, isGp5)),
     ]),
   ];
 }
@@ -459,7 +470,7 @@ function dumpLikeTuxGuitar(song: Song): string {
   const channels = song.channels.map(
     (c) => `channel ${c.id} - ${c.program} ${c.bank} ${c.volume} ${c.balance} ${c.chorus} ${c.reverb} ${c.phaser} ${c.tremolo}`,
   );
-  const lines = [...channels, ...song.measureHeaders.map(dumpHeader), ...song.tracks.flatMap((t) => dumpTrack(t, isGp5))];
+  const lines = [...channels, ...song.measureHeaders.map(dumpHeader), ...song.tracks.flatMap((t) => dumpTrack(t, isGp5, song.measureHeaders))];
   return `${lines.join('\n')}\n`;
 }
 

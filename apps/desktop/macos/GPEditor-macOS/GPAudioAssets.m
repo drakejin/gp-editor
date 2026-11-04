@@ -11,6 +11,8 @@ static const AVAudioFrameCount kReadFrames = 65536;
 /** An audio file larger than this is refused (a long uncompressed recording stays far below). */
 static const unsigned long long kMaxFileBytes = 1ULL << 30;
 static const float kPeakScale = 127;
+/** A file left by a version that kept them all in one folder is removed after a day (a run of it may still use it). */
+static const NSTimeInterval kOldFileSeconds = 24 * 60 * 60;
 
 @implementation GPAudioAssets
 
@@ -35,11 +37,40 @@ static NSError *AssetError(NSString *message)
   return [NSError errorWithDomain:kErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey : message}];
 }
 
+/** Where every running app keeps its audio files, each in a folder of its own (the temporary folder is shared). */
+static NSURL *RootFolder(void)
+{
+  return [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:@"GPEditorAudio" isDirectory:YES];
+}
+
+/** This app's folder, named by its process id: another app starting never empties it. */
 static NSURL *Folder(void)
 {
-  NSURL *folder = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:@"GPEditorAudio" isDirectory:YES];
+  NSString *name = [NSString stringWithFormat:@"%d", getpid()];
+  NSURL *folder = [RootFolder() URLByAppendingPathComponent:name isDirectory:YES];
   [[NSFileManager defaultManager] createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil];
   return folder;
+}
+
+/** Whether a process with this id runs (EPERM: it does, another user's or out of the sandbox's reach). */
+static BOOL IsRunning(pid_t pid)
+{
+  return kill(pid, 0) == 0 || errno == EPERM;
+}
+
+/** A process's folder (named by its id) whose process is gone, or a file an older version kept there a day ago. */
+static BOOL IsStale(NSURL *url)
+{
+  NSString *name = url.lastPathComponent;
+  NSNumber *isFolder = nil;
+  [url getResourceValue:&isFolder forKey:NSURLIsDirectoryKey error:nil];
+  if (isFolder.boolValue) {
+    BOOL isProcessId = name.length > 0 && [name rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet.invertedSet].location == NSNotFound;
+    return isProcessId && name.intValue != getpid() && !IsRunning(name.intValue);
+  }
+  NSDate *modified = nil;
+  [url getResourceValue:&modified forKey:NSURLContentModificationDateKey error:nil];
+  return modified != nil && -modified.timeIntervalSinceNow > kOldFileSeconds;
 }
 
 /** The SHA-256 of the bytes, its first 16 bytes written as a UUID (version 5 and variant bits set, as Guitar Pro's). */
@@ -211,6 +242,17 @@ static NSData *ComputePeaks(AVAudioFile *file, NSError **error)
     gPeaks[assetId] = result;
   });
   return result;
+}
+
++ (void)cleanUpAtLaunch
+{
+  NSFileManager *manager = [NSFileManager defaultManager];
+  NSArray<NSURLResourceKey> *keys = @[ NSURLIsDirectoryKey, NSURLContentModificationDateKey ];
+  for (NSURL *url in [manager contentsOfDirectoryAtURL:RootFolder() includingPropertiesForKeys:keys options:0 error:nil] ?: @[]) {
+    if (IsStale(url)) {
+      [manager removeItemAtURL:url error:nil];
+    }
+  }
 }
 
 + (void)removeAll

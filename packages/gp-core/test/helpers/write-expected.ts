@@ -383,19 +383,11 @@ function withoutGp5Marks(measure: Measure): Measure {
   return { ...measure, beats };
 }
 
-/** A measure without beats is written as Guitar Pro's empty quarter beat, which the GP3/GP4 readers take as a rest. */
-function withEmptyMeasureRest(measure: Measure, start: number): Measure {
-  if (measure.beats.length > 0) {
-    return measure;
-  }
-  const rest: Beat = { start, voices: [{ duration: QUARTER, notes: [], isEmpty: false, direction: 'none' }, EMPTY_VOICE], stroke: NO_STROKE, pickStroke: 'none' };
-  return { ...measure, beats: [rest] };
-}
-
 /**
  * The song a GP3/GP4 round trip should return for a song GP3/GP4 can hold (one voice, no GP5-only
  * effects): channels as for GP5, whole-number tempos, no note audio settings, the clef the GP3/GP4 readers derive from
- * the tuning, a quarter rest in a measure without beats, and no notation marks but fingering.
+ * the tuning, and no notation marks but fingering (a measure without beats is written as Guitar Pro's empty beat, which
+ * the GP3/GP4 readers read back as a measure without beats).
  */
 export function expectedAfterGp34(song: Song, actual?: Song): Song {
   const { master: _master, audioTrack: _audioTrack, stylesheet: _stylesheet, ...rest } = song;
@@ -407,7 +399,7 @@ export function expectedAfterGp34(song: Song, actual?: Song): Song {
       const clef = clefFromTuning(track.strings, track.isPercussion);
       return withoutAudio({
         ...track,
-        measures: track.measures.map((measure) => withEmptyMeasureRest({ ...withoutGp5Marks(measure), clef }, song.measureHeaders[measure.headerIndex]?.start ?? 0)),
+        measures: track.measures.map((measure) => ({ ...withoutGp5Marks(measure), clef })),
       });
     }),
   };

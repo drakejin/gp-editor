@@ -26,6 +26,7 @@
 #import <dlfcn.h>
 
 #import "GPEditorNotifications.h"
+#import "GPFiles.h"
 #import "GPQAWindows.h"
 
 static NSString *const kScriptVariable = @"GPEDITOR_QA_SCRIPT";
@@ -270,7 +271,8 @@ __attribute__((constructor)) static void GPQADriverStart(void)
     return 0.5;
   }
   if (step[@"quit"] != nil) {
-    [NSApp terminate:nil];
+    // The script's end: no unsaved-changes question (GPFiles.h); an appKey ⌘Q step asks as the menu does.
+    GPFilesQuitWithoutAsking();
   }
   return 0;
 }

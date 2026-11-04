@@ -2,7 +2,9 @@
 import { answerNativeCalls, nativeCalls } from '../test-support/native-fakes';
 import { DeviceEventEmitter } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
+import { buildNewSong, writeSong } from '@gp-editor/core';
 import App from '../src/App';
+import { bytesToBase64 } from '../src/lib/base64';
 import { MCP_LIMITS } from '../src/mcp/mcp-limits';
 import { parseMcpRequest } from '../src/native/mcp-server';
 
@@ -14,7 +16,21 @@ jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
 
 const PORT = 18256;
 
-beforeAll(() => answerNativeCalls((moduleName, method) => (moduleName === 'GPMcpServer' && method === 'attach' ? Promise.resolve({ version: '0.16.1', isSandboxed: false }) : undefined)));
+/** Files GPFiles.readFile reads: a song, and bytes no reader takes. */
+const FILES: Readonly<Record<string, string>> = {
+  '/songs/Riff.gp5': bytesToBase64(writeSong(buildNewSong(), 'gp5')),
+  '/songs/corrupt.gp5': bytesToBase64(new Uint8Array([7, 7, 7, 7, 7, 7, 7, 7])),
+};
+
+beforeAll(() =>
+  answerNativeCalls((moduleName, method, args) => {
+    if (moduleName === 'GPFiles' && method === 'readFile') {
+      const path = String(args[0]);
+      return Promise.resolve({ name: path.split('/').pop(), path, base64: FILES[path] ?? '' });
+    }
+    return moduleName === 'GPMcpServer' && method === 'attach' ? Promise.resolve({ version: '0.16.1', isSandboxed: false }) : undefined;
+  }),
+);
 
 const windows: ReactTestRenderer.ReactTestRenderer[] = [];
 
@@ -106,6 +122,21 @@ describe('useMcpServer', () => {
     expect(undone.body).toMatchObject({ result: { isError: false } });
     const setTitle = nativeCalls.get('GPFiles.setDocumentTitle') ?? [];
     expect(setTitle.at(-1)?.[0]).toMatch(/^Untitled/);
+  });
+
+  it('opens a file in the window and answers its tab, or the reason a file could not be read', async () => {
+    // Arrange: a new score in tab-1
+    await openWindow();
+    await post({ id: 1, method: 'tools/call', params: { name: 'new_document', arguments: {} } }, LEGACY);
+
+    // Act
+    const opened = await post({ id: 2, method: 'tools/call', params: { name: 'open_file', arguments: { path: '/songs/Riff.gp5' } } }, LEGACY);
+    const corrupt = await post({ id: 3, method: 'tools/call', params: { name: 'open_file', arguments: { path: '/songs/corrupt.gp5' } } }, LEGACY);
+
+    // Assert
+    expect(opened.body).toMatchObject({ result: { isError: false, structuredContent: { tab: 'tab-2' } } });
+    expect(corrupt.body).toMatchObject({ result: { isError: true } });
+    expect(JSON.stringify(corrupt.body)).toContain('Could not open');
   });
 
   it('refuses a web page’s request with 403 before running anything', async () => {

@@ -15,22 +15,33 @@ import {
 import { isMissingFileError, readRecentFile, subscribeOpenRecentRequests } from '../native/recent-files';
 import type { RecentFileRef } from '../lib/recent-files';
 import type { ScoreMode } from '../score/geometry';
-import { type EditorAction, type OpenDocument, isEdited } from '../state/editor';
+import { type EditorAction, type OpenDocument, isEdited, openFailedMessage } from '../state/editor';
 import { type WorkspaceAction, type WorkspaceState, activeEditor } from '../state/workspace';
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
 import { useLanguage } from './use-i18n';
+import { type RebuiltFile, useRebuiltFile } from './use-rebuilt-file';
+
+/**
+ * How opening a file ended, as the window shows it: in a tab (the file's path, as read), why not (the error banner's
+ * text), the open panel cancelled, or a PDF handed to the import.
+ */
+export type OpenResult =
+  | { readonly kind: 'opened'; readonly path: string }
+  | { readonly kind: 'failed'; readonly message: string }
+  | { readonly kind: 'cancelled' }
+  | { readonly kind: 'imported' };
 
 /** Each document opens in a new tab (or the tab already holding its file is shown); saving acts on one tab. */
-export interface DocumentCommands {
+export interface DocumentCommands extends RebuiltFile {
   /** A blank sheet shown as score + tab, score or tab (File ▸ New, New button, start screen). */
   readonly create: (mode: ScoreMode) => void;
   /** Open panel (⌘O, Open button). */
   readonly openDialog: () => void;
   /** Read a file the system handed over (drop, Finder, a finished PDF import); a PDF is imported instead. Resolves once read (or not). */
-  readonly openPath: (pathOrUrl: string) => Promise<void>;
+  readonly openPath: (pathOrUrl: string) => Promise<OpenResult>;
   /** A file of the recent files list (File ▸ Open Recent, the Recent Files list), read through its bookmark. */
-  readonly openRecent: (path: string) => Promise<void>;
+  readonly openRecent: (path: string) => Promise<OpenResult>;
   /**
    * A song made in the app (no file holds it yet: `path` is empty, `fileName` is what Save suggests) in a new tab,
    * edited until saved, so closing it asks first.
@@ -100,14 +111,15 @@ export function useDocument(
         return open(() => readFile(pathOrUrl));
       }
       onOpenPdf(pathOrUrl);
-      return Promise.resolve();
+      return Promise.resolve<OpenResult>({ kind: 'imported' });
     },
     [open, onOpenPdf],
   );
   const openRecent = useCallback((path: string) => open(() => readRecentFile(path), path), [open]);
+  const rebuiltFile = useRebuiltFile(latest, dispatch, open);
   useFileMenu({ create, openDialog, openPath, openRecent, save });
   useWindowTitle(workspace);
-  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab, saveTabTo };
+  return { create, openDialog, openPath, openRecent, openDocument, save, saveTab, saveTabTo, ...rebuiltFile };
 }
 
 /** File ▸ New, Open…, Open Recent and Save / Save As…, and files Finder hands over. */
@@ -138,34 +150,43 @@ function useWindowTitle(workspace: WorkspaceState): void {
 }
 
 /**
- * Reads a file and opens it in a new tab (`loaded`), then remembers it as a recent file; the window's error banner
- * says why it could not be. `recentPath`: the recent file being opened (marked missing when it is gone).
+ * Reads a file and opens it in a new tab (`loaded`; `deliver` hands it elsewhere), then remembers it as a recent file;
+ * the window's error banner says why it could not be. `recentPath`: the recent file being opened (marked missing when
+ * it is gone).
  */
 function useOpenFile(
   dispatch: Dispatch<WorkspaceAction>,
   recentFiles: RecentFileHandlers,
-): (load: () => Promise<OpenedFile | null>, recentPath?: string) => Promise<void> {
+): (load: () => Promise<OpenedFile | null>, recentPath?: string, deliver?: (document: OpenDocument) => void) => Promise<OpenResult> {
   const { remember, markMissing } = recentFiles;
   return useCallback(
-    async (load: () => Promise<OpenedFile | null>, recentPath?: string) => {
+    async (load: () => Promise<OpenedFile | null>, recentPath?: string, deliver?: (document: OpenDocument) => void): Promise<OpenResult> => {
       dispatch({ type: 'loadStarted' });
       try {
         const file = await load();
         if (file === null) {
           dispatch({ type: 'loadCancelled' });
-          return;
+          return { kind: 'cancelled' };
         }
         const { song, hint } = await withLoadedAudio(readSongFile(base64ToBytes(file.base64)));
-        dispatch({ type: 'loaded', document: { fileName: file.name, path: file.path, song } });
+        const document: OpenDocument = { fileName: file.name, path: file.path, song };
+        if (deliver === undefined) {
+          dispatch({ type: 'loaded', document });
+        } else {
+          deliver(document);
+        }
         if (hint !== undefined) {
           dispatch({ type: 'showHint', hint });
         }
         remember({ path: file.path, name: file.name }, recentPath !== undefined && recentPath !== file.path ? recentPath : undefined);
+        return { kind: 'opened', path: file.path };
       } catch (error: unknown) {
         if (recentPath !== undefined && isMissingFileError(error)) {
           markMissing(recentPath);
         }
-        dispatch({ type: 'loadFailed', message: errorMessage(error, t('window.error.openUnexpected')) });
+        const message = errorMessage(error, t('window.error.openUnexpected'));
+        dispatch({ type: 'loadFailed', message });
+        return { kind: 'failed', message: openFailedMessage(message) };
       }
     },
     [dispatch, remember, markMissing],
@@ -194,8 +215,7 @@ async function chooseDestination(document: OpenDocument, saveAs: boolean): Promi
 
 /**
  * Saving one tab: its song in the chosen Guitar Pro format, to its file or through the save panel (or at a path given);
- * what the format cannot hold goes to the hint bar before it is written, and the result to that tab (`inTab`) and the
- * recent files.
+ * the result to that tab (`inTab`: with what the format cannot hold, for the hint bar) and the recent files.
  */
 function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, recentFiles: RecentFileHandlers): Pick<DocumentCommands, 'saveTab' | 'saveTabTo'> {
   const { remember } = recentFiles;
@@ -217,12 +237,10 @@ function useSaveTab(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceActio
         }
         const { path, format } = destination;
         const written = await songBytesFor(song, format.id);
-        const hint = [saveHint(format, song), written.hint].filter((part) => part !== undefined).join(' ');
-        if (hint !== '') {
-          toTab({ type: 'showHint', hint });
-        }
         const saved = await writeFile(path, bytesToBase64(written.bytes));
-        toTab({ type: 'saved', fileName: saved.name, path: saved.path, song });
+        // Only once written: what this save left out replaces the hint of the save before (and none clears it).
+        const hint = [saveHint(format, song), written.hint].filter((part) => part !== undefined).join(' ');
+        toTab({ type: 'saved', fileName: saved.name, path: saved.path, song, ...(hint === '' ? {} : { hint }) });
         remember({ path: saved.path, name: saved.name });
         return true;
       } catch (error: unknown) {

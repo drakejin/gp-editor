@@ -93,6 +93,16 @@ export function setDocumentTitle(title: string): void {
   }
 }
 
+/** Not on Windows yet (WINDOWS_PORT.md): closing the window does not ask about edited tabs, so nothing listens. */
+export function setHasEditedDocuments(_isEdited: boolean): void {
+  // The Mac's close button dot and quit question only.
+}
+
+/** Not on Windows yet: no quit is held for the edited tabs (subscribeQuitRequests never hears one). */
+export function finishQuit(): void {
+  // The Mac's quit question only.
+}
+
 export interface FileEventHandlers {
   readonly onNewRequested: (mode: ScoreMode) => void;
   readonly onOpenRequested: () => void;
@@ -127,6 +137,8 @@ function menuRequests(event: string): (listener: () => void) => () => void {
 
 /** File ▸ Import PDF… (Ctrl+Shift+I). */
 export const subscribeImportPdfRequests = menuRequests('importPdfRequested');
+/** The Mac's quit with edited tabs; the Windows menu's Exit closes the window without asking yet (WINDOWS_PORT.md). */
+export const subscribeQuitRequests = menuRequests('quitRequested');
 /** File ▸ Export PDF… (Ctrl+Shift+E), the same as the Export… button. */
 export const subscribeExportRequests = menuRequests('exportRequested');
 /** File ▸ Export PNG…. */

@@ -124,7 +124,6 @@ const EVIDENCE: readonly (readonly [string, FixtureFolder, string, WritableForma
   ['drum-tuning', 'guitarpro5', 'percussion-all.gp5', 'gp5'],
   ['gp5-drum-articulations', 'guitarpro5', 'percussion-all.gp5', 'gp5'],
   ['gpif-drum-output', 'guitarpro7', 'drum-tabs.gp', 'gp'],
-  ['gp34-empty-beat', 'guitarpro3', 'effects.gp3', 'gp3'],
   ['lone-slide-or-hammer', 'guitarpro5', 'hammer.gp5', 'gp5'],
   ['lone-slide-or-hammer', 'guitarpro3', 'slides.gp3', 'gp3'],
   ['wide-vibrato-as-slight', 'guitarpro4', 'vibrato.gp4', 'gp4'],

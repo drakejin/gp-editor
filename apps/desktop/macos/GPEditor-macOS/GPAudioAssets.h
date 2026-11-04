@@ -2,8 +2,9 @@
 // .gp file's asset) or the user picks is kept once, as a file in the app's temporary folder named by its content's
 // SHA-256 (its first 16 bytes as a UUID, like Guitar Pro's asset names), so the bytes cross the bridge once per
 // document and JS keeps only the id. AVAudioFile reads them (WAV, AIFF, CAF, MP3, AAC/M4A, FLAC, Ogg Vorbis …). The
-// waveform is computed once per file with Accelerate (min and max of every 1/200 s) and cached. The folder is emptied
-// at launch. Thread-safe.
+// waveform is computed once per file with Accelerate (min and max of every 1/200 s) and cached. Each running app has a
+// folder of its own (GPEditorAudio/<process id>: copies of the app share the temporary folder); a launch removes the
+// folders of apps no longer running. Thread-safe.
 
 #import <AVFoundation/AVFoundation.h>
 
@@ -29,8 +30,11 @@ NS_ASSUME_NONNULL_BEGIN
  */
 + (nullable NSDictionary *)peaksForAssetId:(NSString *)assetId error:(NSError **)error;
 
-/** Empties the folder (at launch: last run's files). */
+/** Empties this app's folder and forgets its files. */
 + (void)removeAll;
+
+/** At the app's launch: the folders of apps no longer running (and an older version's files after a day). */
++ (void)cleanUpAtLaunch;
 
 @end
 

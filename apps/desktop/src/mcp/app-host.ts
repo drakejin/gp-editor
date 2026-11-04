@@ -1,4 +1,5 @@
 import type { WritableFormat } from '@gp-editor/core';
+import type { OpenResult } from '../hooks/use-document';
 import type { Command, CommandActions, CommandState } from '../lib/command-types';
 import type { KeyCommand } from '../lib/key-commands';
 import type { SavedFile } from '../native/gp-files';
@@ -21,8 +22,8 @@ export type PanelExportFormat = 'png' | 'audio';
 
 /** The window's files: the same handlers as File ▸ Open…, Save, Save As… and Export …. */
 export interface FileHost {
-  /** Reads a file into a new tab (a recent file through its bookmark); the workspace says how it went. */
-  readonly open: (path: string) => Promise<void>;
+  /** Reads a file into a new tab (a recent file through its bookmark); how it went, as the window shows it. */
+  readonly open: (path: string) => Promise<OpenResult>;
   readonly showOpenPanel: () => void;
   /** ⌘S on a tab whose file the app writes; true once written. */
   readonly save: (tabId: string) => Promise<boolean>;
@@ -50,8 +51,11 @@ export interface AppHost {
   readonly workspace: () => WorkspaceState;
   /** Runs an editor or tab action as the window does; returns the workspace after it. */
   readonly dispatch: (action: WorkspaceAction) => WorkspaceState;
-  /** Resolves once the window has drawn what was done so far (after an asynchronous file read, say): the workspace then. */
-  readonly settle: () => Promise<WorkspaceState>;
+  /**
+   * Resolves once the window has drawn what was done so far (after an asynchronous file read, say): the workspace then.
+   * With `isReady`, once the drawn workspace holds it (a big song can take longer to draw than one wait), or at a limit.
+   */
+  readonly settle: (isReady?: (workspace: WorkspaceState) => boolean) => Promise<WorkspaceState>;
   /** A key's or a button's command, through the editor's own path (Space's playback, ⌘C …). */
   readonly runCommand: (command: AppCommand | KeyCommand) => void;
   readonly playback: () => PlaybackView;
