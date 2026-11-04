@@ -2,8 +2,9 @@
 // selection, a track or the song moves by semitones — or, not in TuxGuitar, by steps of the key's scale — keeping its
 // string while the new fret is on the neck. TuxGuitar removes a note no string can hold; here it stays and is counted.
 import type { Beat, Chord, Measure, Song, Track } from '../model/song';
+import type { StringAddress } from './addresses';
 import { type NoteNameMove, chromaticNameMove, diatonicNameMove, transposeChord } from './chord-transpose';
-import { type NoteScope, isPercussionTrack, scopedTracks } from './edit-scope';
+import { type NoteScope, type ScopedTrack, isPercussionTrack, scopedTracks } from './edit-scope';
 import { shiftDiatonic, transposeKeySignature } from './key-spelling';
 import { hasSameItems, replaceAt } from './song-paths';
 import { neckFrets } from './string-placement';
@@ -13,8 +14,11 @@ import { trackTuning } from './tuning-presets';
 /** By semitones, or by steps of the scale of each measure's key signature (a raised degree stays raised). */
 export type TranspositionMode = 'chromatic' | 'diatonic';
 
-/** What moves: the whole song, one track, or the beats from one address to another (either order) in one voice of one track. */
-export type TranspositionScope = NoteScope;
+/**
+ * What moves: the whole song, one track, the beats from one address to another (either order) in one voice of one
+ * track, or one note (the one at a string of a beat's voice: Guitar Pro 8's semitone up / down at the cursor).
+ */
+export type TranspositionScope = NoteScope | { readonly kind: 'note'; readonly at: StringAddress };
 
 export interface TranspositionOptions {
   readonly mode: TranspositionMode;
@@ -24,6 +28,8 @@ export interface TranspositionOptions {
   readonly octaves?: number;
   /** Only chord names and diagrams move; the notes and key signatures stay (Guitar Pro's chord transposition). */
   readonly isChordsOnly?: boolean;
+  /** Only the notes move; chord names, diagrams and key signatures stay (a selection moved a semitone at a time). */
+  readonly isNotesOnly?: boolean;
 }
 
 /** A transposed song and what could not move. */
@@ -50,8 +56,8 @@ interface TrackPlan {
   readonly mode: TranspositionMode;
   readonly total: number;
   readonly isChordsOnly: boolean;
-  /** True when the notes of this voice of this beat move (before following ties). */
-  readonly includes: (measureIndex: number, beatIndex: number, voiceIndex: number) => boolean;
+  /** True when the note on this string of this voice of this beat moves (before following ties). */
+  readonly includes: (measureIndex: number, beatIndex: number, voiceIndex: number, string: number) => boolean;
   /** True when this beat's chord moves. */
   readonly includesBeat: (measureIndex: number, beatIndex: number) => boolean;
   readonly movesKey: boolean;
@@ -106,7 +112,7 @@ function transposeMeasure(track: Track, measureIndex: number, plan: TrackPlan, m
   let counts = NO_COUNTS;
   let current = memory;
   const beats = measure.beats.map((beat, beatIndex) => {
-    const isMoving = (voiceIndex: number) => !plan.isChordsOnly && plan.includes(measureIndex, beatIndex, voiceIndex);
+    const isMoving = (voiceIndex: number, string: number) => !plan.isChordsOnly && plan.includes(measureIndex, beatIndex, voiceIndex, string);
     const chordMove = (chord: Chord) => (plan.includesBeat(measureIndex, beatIndex) ? moveChord(chord, track, plan, key, newKey) : chord);
     const result = transposeBeat(beat, { ...base, isMoving }, chordMove, current);
     counts = addCounts(counts, result.counts);
@@ -129,14 +135,33 @@ function transposeTrack(track: Track, plan: TrackPlan): { readonly track: Track;
   return { track: hasSameItems(measures, track.measures) ? track : { ...track, measures }, counts };
 }
 
-/** Which tracks a scope touches and, per track, which beats and voices; undefined for a scope that names no track. */
-function trackPlans(song: Song, scope: TranspositionScope, base: Pick<TrackPlan, 'mode' | 'total' | 'isChordsOnly'>): ReadonlyMap<number, TrackPlan> | undefined {
-  const tracks = scopedTracks(song, scope);
+/** One track's part of a scope, down to the notes' strings. */
+type ScopedNotes = Omit<ScopedTrack, 'includes'> & Pick<TrackPlan, 'includes'>;
+
+/** One note's part of a scope: its beat and voice, that string only, never the beat's chord. */
+function noteScoped(song: Song, at: StringAddress): ReadonlyMap<number, ScopedNotes> | undefined {
+  const beat = scopedTracks(song, { kind: 'beats', from: at, to: at })?.get(at.trackIndex);
+  if (beat === undefined) {
+    return undefined;
+  }
+  const includes = (measureIndex: number, beatIndex: number, voiceIndex: number, string: number) => string === at.string && beat.includes(measureIndex, beatIndex, voiceIndex);
+  return new Map([[at.trackIndex, { includes, includesBeat: () => false, isWhole: false }]]);
+}
+
+/** Which tracks a scope touches and, per track, which notes and beats; undefined for a scope that names no track. */
+function trackPlans(song: Song, scope: TranspositionScope, base: Pick<TrackPlan, 'mode' | 'total' | 'isChordsOnly'> & { readonly isNotesOnly: boolean }): ReadonlyMap<number, TrackPlan> | undefined {
+  const tracks: ReadonlyMap<number, ScopedNotes> | undefined = scope.kind === 'note' ? noteScoped(song, scope.at) : scopedTracks(song, scope);
   if (tracks === undefined) {
     return undefined;
   }
   const movesKey = base.mode === 'chromatic' && !base.isChordsOnly;
-  return new Map([...tracks].map(([trackIndex, scoped]) => [trackIndex, { ...base, includes: scoped.includes, includesBeat: scoped.includesBeat, movesKey: movesKey && scoped.isWhole }]));
+  const { isNotesOnly, ...plan } = base;
+  return new Map(
+    [...tracks].map(([trackIndex, scoped]) => [
+      trackIndex,
+      { ...plan, includes: scoped.includes, includesBeat: isNotesOnly ? () => false : scoped.includesBeat, movesKey: movesKey && !isNotesOnly && scoped.isWhole },
+    ]),
+  );
 }
 
 function totalOf(options: TranspositionOptions): number {
@@ -151,16 +176,18 @@ function totalOf(options: TranspositionOptions): number {
  * New song with the notes of `scope` transposed: chromatically by semitones, or diatonically by steps of each measure's
  * key (major and its relative minor share one scale; altered notes keep their alteration). On a fretted track a note
  * keeps its string while the new fret is on the neck (frets 0…NECK_FRETS above the capo), else it goes to the nearest
- * string that holds it; one no free string holds stays as it was and is counted (`unplaced`). A tied note follows the
- * note it continues, past the scope too; a tied note whose note is not transposed starts afresh. Grace, trill and
- * tapped-harmonic frets follow their note. Chord names and diagrams move with the notes (or alone, `isChordsOnly`).
- * A chromatic transposition of the song or a track moves the key signatures too. Drum tracks never move. Same song
- * (and zero counts) for no amount, an amount that is not whole, or a scope that names no track (a selection across
- * tracks).
+ * string that holds it; one no free string holds stays as it was and is counted (`unplaced`), as does a natural
+ * harmonic. A tied note follows the note it continues, past the scope too; a tied note whose note is not transposed
+ * starts afresh. Grace, trill and tapped-harmonic frets follow their note. Chord names and diagrams of the scope's
+ * beats move with the notes (or alone, `isChordsOnly`; or stay, `isNotesOnly` and a one-note scope). A chromatic
+ * transposition of the song or a track moves the key signatures too, unless `isNotesOnly`. Drum tracks never move.
+ * Same song (and zero counts) for no amount, an amount that is not whole, or a scope that names no track (a selection
+ * across tracks) or no note.
  */
 export function transpose(song: Song, scope: TranspositionScope, options: TranspositionOptions): Transposition {
   const total = totalOf(options);
-  const plans = total === 0 ? undefined : trackPlans(song, scope, { mode: options.mode, total, isChordsOnly: options.isChordsOnly === true });
+  const flags = { isChordsOnly: options.isChordsOnly === true, isNotesOnly: options.isNotesOnly === true };
+  const plans = total === 0 ? undefined : trackPlans(song, scope, { mode: options.mode, total, ...flags });
   if (plans === undefined) {
     return { song, ...NO_COUNTS };
   }

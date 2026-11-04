@@ -28,8 +28,8 @@ export interface BeatContext {
   readonly offset: number;
   readonly neck: number;
   readonly measureIndex: number;
-  /** True when a note of this voice is to move (the scope, unless only chords move). */
-  readonly isMoving: (voiceIndex: number) => boolean;
+  /** True when the note on this string of this voice is to move (the scope, unless only chords move). */
+  readonly isMoving: (voiceIndex: number, string: number) => boolean;
   /** A sounding pitch's new pitch. */
   readonly movePitch: (pitch: number) => number;
 }
@@ -66,7 +66,8 @@ function tieFor(memory: VoiceMemory | undefined, measureIndex: number, string: n
 
 /**
  * A tied note follows the note it continues wherever that moved (also past the scope); a note in the scope moves —
- * starting afresh when the note it was tied to is not transposed, staying when that note could not move.
+ * starting afresh when the note it was tied to is not transposed, staying when that note could not move. A natural
+ * harmonic stays: it sounds only at its harmonic fret, so no fret of its string sounds it at another pitch.
  */
 function planNote(note: Note, voiceIndex: number, context: BeatContext, memory: TieMemory): Plan {
   const open = context.tuning[note.string - 1];
@@ -77,10 +78,10 @@ function planNote(note: Note, voiceIndex: number, context: BeatContext, memory: 
   if (tie?.kind === 'moved') {
     return { kind: 'move', pitch: tie.pitch, preferredString: tie.string, tieString: tie.string, isUntied: false };
   }
-  if (!context.isMoving(voiceIndex)) {
+  if (!context.isMoving(voiceIndex, note.string)) {
     return KEPT;
   }
-  if (tie?.kind === 'stuck') {
+  if (tie?.kind === 'stuck' || note.effect.harmonic?.type === 'natural') {
     return STUCK;
   }
   const pitch = context.movePitch(open + context.offset + note.fret) - context.offset;
