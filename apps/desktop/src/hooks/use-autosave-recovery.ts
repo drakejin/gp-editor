@@ -1,12 +1,13 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readSongFile } from '@gp-editor/core';
 import { oldestKeptDay } from '../autosave/autosave-days';
+import type { AutosaveSession } from '../autosave/autosave-manifest';
 import { type AutosaveEntry, type AutosavedWork, type IsRunning, keptWork, parseEntries, recoverableWork } from '../autosave/autosave-recovery';
 import { withLoadedAudio } from '../lib/audio-track-files';
 import { base64ToBytes } from '../lib/base64';
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
-import { isAutosaveAvailable, listSnapshots, readSnapshot, removeDaysBefore, revealAutosaveFolder, runningProcesses } from '../native/autosave';
+import { currentSession, isAutosaveAvailable, listSnapshots, readSnapshot, removeDaysBefore, revealAutosaveFolder, runningProcesses } from '../native/autosave';
 import type { WorkspaceAction } from '../state/workspace';
 import type { Autosave } from './use-autosave';
 
@@ -17,6 +18,8 @@ export type RecoveryMode = 'launch' | 'list';
 export interface RecoveryPanel {
   readonly mode: RecoveryMode;
   readonly works: readonly AutosavedWork[];
+  /** Why the work could not be listed. */
+  readonly error?: string;
 }
 
 export interface AutosaveRecovery {
@@ -35,13 +38,18 @@ export interface AutosaveRecovery {
   readonly showFolder: () => void;
 }
 
-/** The snapshots on disk and which of their sessions' processes still run. */
+/**
+ * The snapshots on disk and which of their sessions still run: one of another boot does not (a power cut, a restart —
+ * whatever process has its id now), one of this boot while its process does.
+ */
 async function readWork(): Promise<{ readonly entries: readonly AutosaveEntry[]; readonly isRunning: IsRunning }> {
   const entries = parseEntries(await listSnapshots());
-  const pids = [...new Set(entries.map((entry) => entry.manifest.session.pid))];
+  const { bootId } = await currentSession();
+  const isThisBoot = (session: AutosaveSession) => session.bootId === undefined || session.bootId === bootId;
+  const pids = [...new Set(entries.map((entry) => entry.manifest.session).filter(isThisBoot).map((session) => session.pid))];
   const running = await runningProcesses(pids);
   const runningPids = new Set(pids.filter((_, index) => running[index] === true));
-  return { entries, isRunning: (pid) => runningPids.has(pid) };
+  return { entries, isRunning: (session) => isThisBoot(session) && runningPids.has(session.pid) };
 }
 
 /** Reads a document's newest snapshot back and opens it in a tab, edited; its snapshots answer for the tab from now on. */
@@ -79,12 +87,14 @@ export function useAutosaveRecovery(dispatch: Dispatch<WorkspaceAction>, autosav
       return;
     }
     void (async () => {
+      // An old day that cannot be removed is tried again at the next launch; the work is still listed.
       await removeDaysBefore(oldestKeptDay(new Date())).catch(() => 0);
       const { entries, isRunning } = await readWork();
       const works = recoverableWork(entries, sessionId, isRunning);
       if (works.length > 0) {
         setPanel({ mode: 'launch', works });
       }
+      // A list that cannot be read is not asked about at launch: File ▸ Recover Autosaved Work… reads it again and says why.
     })().catch(() => undefined);
   }, [sessionId]);
   const openList = useCallback(() => {
@@ -94,7 +104,7 @@ export function useAutosaveRecovery(dispatch: Dispatch<WorkspaceAction>, autosav
     }
     void readWork()
       .then(({ entries, isRunning }) => setPanel({ mode: 'list', works: keptWork(entries, sessionId, isRunning) }))
-      .catch(() => setPanel({ mode: 'list', works: [] }));
+      .catch((error: unknown) => setPanel({ mode: 'list', works: [], error: t('window.recover.listFailed', { message: errorMessage(error, t('window.autosave.unknownError')) }) }));
   }, [sessionId]);
   const answers = useAnswers(shown, setPanel, autosave, dispatch);
   return useMemo(() => ({ panel, openList, ...answers }), [panel, openList, answers]);

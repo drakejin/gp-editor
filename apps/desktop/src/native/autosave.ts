@@ -1,13 +1,13 @@
 import { NativeModules } from 'react-native';
 
-/** A snapshot as the native side lists it: `<day>/<document>` and its manifest's text (untrusted: autosave-recovery.ts). */
-export interface ListedSnapshot {
-  readonly folder: string;
-  readonly manifest: string;
+/** This run of the app as the native side knows it: its process id and the Mac's boot (kern.bootsessionuuid). */
+export interface NativeSession {
+  readonly pid: number;
+  readonly bootId: string;
 }
 
 interface GPAutosaveModule {
-  processId(): Promise<number>;
+  sessionInfo(): Promise<unknown>;
   writeSnapshot(folder: string, base64: string, manifest: string): Promise<void>;
   writeManifest(folder: string, manifest: string): Promise<void>;
   listSnapshots(): Promise<unknown>;
@@ -33,10 +33,16 @@ export function isAutosaveAvailable(): boolean {
   return native !== undefined;
 }
 
-/** This app's process id: the sessions' manifests name it, so a later launch can tell a crash from a running app. */
-export async function processId(): Promise<number> {
-  const id = await requireNative().processId();
-  return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : 0;
+/**
+ * This app's process id and boot: the sessions' manifests name them, so a later launch can tell a crash (or a power
+ * cut: another boot) from an app still running. A pid of 0 when the answer is not one.
+ */
+export async function currentSession(): Promise<NativeSession> {
+  const info = await requireNative().sessionInfo();
+  const record = typeof info === 'object' && info !== null ? (info as Readonly<Record<string, unknown>>) : {};
+  const { processId, bootId } = record;
+  const pid = typeof processId === 'number' && Number.isInteger(processId) && processId > 0 ? processId : 0;
+  return { pid, bootId: typeof bootId === 'string' ? bootId : '' };
 }
 
 /** The snapshot (a .gp file's bytes in base64), then its manifest, each written whole in place of the last. */

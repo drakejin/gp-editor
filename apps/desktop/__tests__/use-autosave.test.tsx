@@ -9,7 +9,9 @@ import { beat, makeSong, note } from '../test-support/songs';
 
 /** The autosave folder in memory: folder → the snapshot's base64 and the manifest's text. */
 const mockDisk = new Map<string, { base64: string; manifest: string }>();
+const BOOT_ID = 'BAA8756F-444D-4F6E-8783-5D2A67D4F287';
 const mockNative = {
+  currentSession: jest.fn(async () => ({ pid: 4242, bootId: BOOT_ID })),
   writeSnapshot: jest.fn(async (folder: string, base64: string, manifest: string) => {
     mockDisk.set(folder, { base64, manifest });
   }),
@@ -24,7 +26,7 @@ const mockNative = {
 
 jest.mock('../src/native/autosave', () => ({
   isAutosaveAvailable: () => true,
-  processId: async () => 4242,
+  currentSession: () => mockNative.currentSession(),
   writeSnapshot: (folder: string, base64: string, manifest: string) => mockNative.writeSnapshot(folder, base64, manifest),
   writeManifest: (folder: string, manifest: string) => mockNative.writeManifest(folder, manifest),
 }));
@@ -88,6 +90,7 @@ beforeEach(() => {
   jest.setSystemTime(TODAY);
   mockDisk.clear();
   jest.clearAllMocks();
+  mockNative.currentSession.mockImplementation(async () => ({ pid: 4242, bootId: BOOT_ID }));
 });
 
 afterEach(() => {
@@ -108,8 +111,29 @@ describe('useAutosave: every 30 s', () => {
     expect(folder).toMatch(/^2026-11-04\/20261104-100000-[0-9a-z]{4}-tab-2$/);
     expect(fretIn(readSongFile(base64ToBytes(base64)).song)).toBe(7);
     expect(manifests()).toEqual([
-      expect.objectContaining({ title: 'Test', fileName: 'Riff.gp5', path: '/scores/Riff.gp5', format: 'gp5', status: 'unsaved', session: expect.objectContaining({ pid: 4242 }) }),
+      expect.objectContaining({ title: 'Test', fileName: 'Riff.gp5', path: '/scores/Riff.gp5', format: 'gp5', status: 'unsaved', session: expect.objectContaining({ pid: 4242, bootId: BOOT_ID }) }),
     ]);
+  });
+
+  it('writes nothing while the app’s session (its process and boot) is not known', async () => {
+    mockNative.currentSession.mockReturnValue(new Promise(() => undefined));
+    renderAutosave(workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 7 }));
+    await elapse(AUTOSAVE_INTERVAL_MS * 3);
+    expect(mockNative.writeSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('starts again after the session ended when a tab is edited anew (the window closed, the app still running)', async () => {
+    // Arrange
+    const edited = workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 7 });
+    const probe = renderAutosave(edited);
+    await ReactTestRenderer.act(() => probe.current().endSession());
+
+    // Act
+    probe.update(workspaceReducer(edited, { type: 'setNoteFret', fret: 9 }));
+    await elapse(AUTOSAVE_INTERVAL_MS);
+
+    // Assert
+    expect(mockNative.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('writes nothing while nothing changed, and nothing again until the song changes', async () => {
@@ -219,6 +243,65 @@ describe('useAutosave: snapshots no longer needed', () => {
     expect(manifests().map((manifest) => manifest.status)).toEqual(['saved']);
   });
 
+  it('marks it saved when the save question’s Save saved the tab and closed it at once', async () => {
+    // Arrange
+    const { probe, edited } = await editedAndWritten();
+
+    // Act: the saved state never rendered before the tab closed
+    ReactTestRenderer.act(() => probe.current().markSaved('tab-2'));
+    probe.update(workspaceReducer(edited, { type: 'closeTab', tabId: 'tab-2' }));
+    await elapse(0);
+
+    // Assert
+    expect(manifests().map((manifest) => manifest.status)).toEqual(['saved']);
+  });
+
+  it('marks a snapshot saved when its tab was saved while it was being written', async () => {
+    // Arrange: the write waits until the test lets it go
+    let finishWrite: () => void = () => undefined;
+    mockNative.writeSnapshot.mockImplementationOnce(
+      (folder: string, base64: string, manifest: string) =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => {
+            mockDisk.set(folder, { base64, manifest });
+            resolve();
+          };
+        }),
+    );
+    const edited = workspaceReducer(twoTabs(), { type: 'setNoteFret', fret: 7 });
+    const probe = renderAutosave(edited);
+    await elapse(AUTOSAVE_INTERVAL_MS);
+    const song = edited.tabs[1]?.editor.document?.song ?? SONG;
+
+    // Act
+    probe.update(workspaceReducer(edited, { type: 'saved', fileName: 'Riff.gp5', path: '/scores/Riff.gp5', song }));
+    await ReactTestRenderer.act(async () => finishWrite());
+    await elapse(0);
+
+    // Assert
+    expect(manifests().map((manifest) => manifest.status)).toEqual(['saved']);
+  });
+
+  it('tries a mark that could not be written again, and says so once', async () => {
+    // Arrange
+    const { probe, edited } = await editedAndWritten();
+    const song = edited.tabs[1]?.editor.document?.song ?? SONG;
+    mockNative.writeManifest.mockRejectedValueOnce(Object.assign(new Error('disk full'), { code: 'write_failed' }));
+    const saved = workspaceReducer(edited, { type: 'saved', fileName: 'Riff.gp5', path: '/scores/Riff.gp5', song });
+
+    // Act
+    probe.update(saved);
+    await elapse(0);
+    const afterFailure = manifests().map((manifest) => manifest.status);
+    probe.update(workspaceReducer(saved, { type: 'moveCursorBeat', step: 1 }));
+    await elapse(0);
+
+    // Assert
+    expect(afterFailure).toEqual(['unsaved']);
+    expect(manifests().map((manifest) => manifest.status)).toEqual(['saved']);
+    expect(probe.dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'Autosave could not write the work: disk full' });
+  });
+
   it('marks it discarded once the tab is closed with Don’t Save', async () => {
     const { probe, edited } = await editedAndWritten();
     probe.update(workspaceReducer(edited, { type: 'closeTab', tabId: 'tab-2' }));
@@ -226,13 +309,15 @@ describe('useAutosave: snapshots no longer needed', () => {
     expect(manifests().map((manifest) => manifest.status)).toEqual(['discarded']);
   });
 
-  it('ends the session: every snapshot marked as its tab was answered, nothing written after', async () => {
-    // Arrange
+  it('ends the session: every snapshot marked as its tab was answered, nothing of those tabs written after', async () => {
+    // Arrange: the tab edited again since its snapshot, then let go (Don't Save) as the app quits
     const { probe, edited } = await editedAndWritten();
+    const changed = workspaceReducer(edited, { type: 'setNoteFret', fret: 9 });
+    probe.update(changed);
 
     // Act
     await ReactTestRenderer.act(() => probe.current().endSession());
-    probe.update(workspaceReducer(edited, { type: 'setNoteFret', fret: 9 }));
+    probe.update(workspaceReducer(changed, { type: 'moveCursorBeat', step: 1 }));
     await elapse(AUTOSAVE_INTERVAL_MS * 2);
 
     // Assert
@@ -259,7 +344,7 @@ describe('useAutosave: restored work', () => {
     const restoredSong = makeSong([[beat(960, [note(1, 9)])]]);
     const old: AutosaveManifest = {
       version: 1, documentId: 'old-tab-1', title: 'Old', fileName: 'Old.gp5', path: '/scores/Old.gp5', format: 'gp5',
-      savedAt: '2026-11-03T09:00:00.000Z', session: { id: 'old', pid: 99 }, status: 'unsaved',
+      savedAt: '2026-11-03T09:00:00.000Z', session: { id: 'old', pid: 99, bootId: BOOT_ID }, status: 'unsaved',
     };
     mockDisk.set('2026-11-03/old-tab-1', { base64: 'AA==', manifest: JSON.stringify(old) });
     const probe = renderAutosave(INITIAL_WORKSPACE);

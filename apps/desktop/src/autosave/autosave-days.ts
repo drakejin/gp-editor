@@ -6,6 +6,8 @@ export const AUTOSAVE_KEEP_DAYS = 7;
 /** A folder id (a document's, a session's): letters, digits, `-` and `_`, never a path. */
 const FOLDER_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const DAY_NAME = /^\d{4}-\d{2}-\d{2}$/;
+/** A format the manifest keeps: a file extension of letters and digits (autosave-manifest.ts reads no other). */
+const FORMAT = /^[a-z0-9]{1,16}$/;
 /** Characters of a session id's random part. */
 const RANDOM_LENGTH = 4;
 const RANDOM_BASE = 36;
@@ -58,9 +60,10 @@ export function documentIdOf(sessionId: string, tabId: string): string {
   return `${sessionId}-${tabId}`;
 }
 
-/** The format a file was opened from, by its extension (`gp5`, `gpx`, `ptb` …); '' for a new song or none. */
+/** The format a file was opened from, by its extension (`gp5`, `gpx`, `ptb` …); '' for a new song, none or an odd one. */
 export function formatOf(path: string): string {
   const name = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
   const dot = name.lastIndexOf('.');
-  return dot <= 0 ? '' : name.slice(dot + 1).toLowerCase();
+  const extension = dot <= 0 ? '' : name.slice(dot + 1).toLowerCase();
+  return FORMAT.test(extension) ? extension : '';
 }

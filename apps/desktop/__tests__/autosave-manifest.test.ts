@@ -8,7 +8,7 @@ const MANIFEST: AutosaveManifest = {
   path: '/Users/me/Music/Canon.gp5',
   format: 'gp5',
   savedAt: '2026-11-04T10:15:30.000Z',
-  session: { id: '20261104-101500-k3f9', pid: 4242 },
+  session: { id: '20261104-101500-k3f9', pid: 4242, bootId: 'BAA8756F-444D-4F6E-8783-5D2A67D4F287' },
   status: 'unsaved',
   writeMs: 412,
 };
@@ -20,6 +20,11 @@ describe('autosave manifest', () => {
 
     // Assert
     expect(read).toEqual(MANIFEST);
+  });
+
+  it('reads a session without a boot id (the boot is then not known)', () => {
+    const noBoot = { ...MANIFEST, session: { id: 'old', pid: 7 } };
+    expect(parseManifest(manifestText(noBoot))).toEqual(noBoot);
   });
 
   it('reads a new song’s manifest: no path and no format', () => {
@@ -37,6 +42,7 @@ describe('autosave manifest', () => {
     expect(parseManifest(manifestText({ ...MANIFEST, documentId: '../escape' }))).toBeUndefined();
     expect(parseManifest(manifestText({ ...MANIFEST, session: { id: 'a/b', pid: 1 } }))).toBeUndefined();
     expect(parseManifest(manifestText({ ...MANIFEST, session: { id: 'ok', pid: -1 } }))).toBeUndefined();
+    expect(parseManifest(manifestText({ ...MANIFEST, session: { id: 'ok', pid: 1, bootId: 'not a uuid' } }))).toBeUndefined();
     expect(parseManifest(manifestText({ ...MANIFEST, status: 'lost' as 'unsaved' }))).toBeUndefined();
     expect(parseManifest(manifestText({ ...MANIFEST, savedAt: 'yesterday' }))).toBeUndefined();
   });

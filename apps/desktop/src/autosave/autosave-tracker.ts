@@ -138,6 +138,23 @@ export function endMarks(tracker: AutosaveTracker, workspace: WorkspaceState): r
   });
 }
 
+/** A tab's pending snapshots marked `status` (its Save answered the save question: `saved`). */
+export function tabMarks(tracker: AutosaveTracker, tabId: string, status: AutosaveStatus): readonly AutosaveMark[] {
+  const tracked = tracker.tabs[tabId];
+  return tracked === undefined ? [] : marksOf(tabId, tracked, status);
+}
+
+/** Snapshots a tab's marks still answer for (their own mark could not be written). */
+export function keepPending(tracker: AutosaveTracker, tabId: string, entries: readonly AutosaveEntry[]): AutosaveTracker {
+  const tracked = tracker.tabs[tabId];
+  return tracked === undefined || entries.length === 0 ? tracker : { ...tracker, tabs: { ...tracker.tabs, [tabId]: { ...tracked, pending: [...tracked.pending, ...entries] } } };
+}
+
+/** The songs of the edited tabs (what the session's end answered for). */
+export function editedSongs(workspace: WorkspaceState): ReadonlySet<Song> {
+  return new Set(workspace.tabs.flatMap((tab) => (tab.editor.document !== undefined && isEdited(tab.editor) ? [tab.editor.document.song] : [])));
+}
+
 /** A mark written: the snapshot is no longer pending. */
 export function afterMark(tracker: AutosaveTracker, mark: AutosaveMark): AutosaveTracker {
   const tracked = tracker.tabs[mark.tabId];

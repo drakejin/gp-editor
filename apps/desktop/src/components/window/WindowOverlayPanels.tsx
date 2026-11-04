@@ -275,6 +275,7 @@ export function WindowDialogs({ model }: WindowPartProps) {
           palette={palette}
           mode={recovery.panel.mode}
           works={recovery.panel.works}
+          error={recovery.panel.error}
           isAvailable={isAutosaveAvailable()}
           onRestoreAll={recovery.restoreAll}
           onRestore={recovery.restore}

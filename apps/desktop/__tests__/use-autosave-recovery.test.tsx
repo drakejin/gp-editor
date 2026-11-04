@@ -8,7 +8,10 @@ import { bytesToBase64 } from '../src/lib/base64';
 import type { WorkspaceAction } from '../src/state/workspace';
 import { beat, makeSong, note } from '../test-support/songs';
 
+const BOOT = '11111111-2222-3333-4444-555555555555';
+const OTHER_BOOT = '99999999-2222-3333-4444-555555555555';
 const mockNative = {
+  currentSession: jest.fn(async () => ({ pid: 300, bootId: BOOT })),
   listSnapshots: jest.fn<Promise<unknown>, []>(),
   runningProcesses: jest.fn(async (pids: readonly number[]) => pids.map((pid) => pid === 200)),
   readSnapshot: jest.fn<Promise<string>, [string]>(),
@@ -18,6 +21,7 @@ const mockNative = {
 
 jest.mock('../src/native/autosave', () => ({
   isAutosaveAvailable: () => true,
+  currentSession: () => mockNative.currentSession(),
   listSnapshots: () => mockNative.listSnapshots(),
   runningProcesses: (pids: readonly number[]) => mockNative.runningProcesses(pids),
   readSnapshot: (folder: string) => mockNative.readSnapshot(folder),
@@ -27,7 +31,7 @@ jest.mock('../src/native/autosave', () => ({
 
 const SONG = makeSong([[beat(960, [note(1, 9)])]]);
 
-function manifest(documentId: string, status: AutosaveStatus, savedAt: string, pid = 100): AutosaveManifest {
+function manifest(documentId: string, status: AutosaveStatus, savedAt: string, pid = 100, bootId = BOOT): AutosaveManifest {
   return {
     version: 1,
     documentId,
@@ -36,7 +40,7 @@ function manifest(documentId: string, status: AutosaveStatus, savedAt: string, p
     path: `/scores/${documentId}.gp5`,
     format: 'gp5',
     savedAt,
-    session: { id: `session${pid}`, pid },
+    session: { id: `session${pid}`, pid, bootId },
     status,
   };
 }
@@ -66,6 +70,7 @@ async function renderRecovery(): Promise<Probe> {
     sessionId: 'me',
     endSession: jest.fn(async () => undefined),
     adoptRestored: jest.fn<void, [unknown, AutosaveEntry]>(),
+    markSaved: jest.fn<void, [string]>(),
     markEntries: jest.fn(async (_entries: readonly AutosaveEntry[], _status: AutosaveStatus) => undefined),
   };
   let latest: AutosaveRecovery | undefined;
@@ -101,6 +106,12 @@ describe('useAutosaveRecovery: at launch', () => {
     expect(mockNative.removeDaysBefore).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
     expect(probe.current().panel?.mode).toBe('launch');
     expect(probe.current().panel?.works.map((work) => [work.documentId, work.newest.folder])).toEqual([['canon', '2026-11-04/canon']]);
+  });
+
+  it('offers the work of a session from an earlier boot (a power cut) even when a process now has its id', async () => {
+    mockNative.listSnapshots.mockResolvedValue([listed('2026-11-04', manifest('riff', 'unsaved', '2026-11-04T09:30:00.000Z', 200, OTHER_BOOT))]);
+    const probe = await renderRecovery();
+    expect(probe.current().panel?.works.map((work) => work.documentId)).toEqual(['riff']);
   });
 
   it('asks nothing when no work was left unsaved', async () => {
@@ -145,9 +156,14 @@ describe('useAutosaveRecovery: at launch', () => {
       wasOpen = probe.current().close();
     });
 
+    let isOpenAgain = true;
+    await settle(() => {
+      isOpenAgain = probe.current().close();
+    });
+
     // Assert
     expect(wasOpen).toBe(true);
-    expect(probe.current().close()).toBe(false);
+    expect(isOpenAgain).toBe(false);
     expect(probe.autosave.markEntries).not.toHaveBeenCalled();
   });
 
@@ -175,6 +191,13 @@ describe('useAutosaveRecovery: File ▸ Recover Autosaved Work…', () => {
     expect(listedIds).toEqual(['canon', 'etude']);
     expect(probe.current().panel?.works.map((work) => work.documentId)).toEqual(['canon']);
     expect(probe.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'restoreTab' }));
+  });
+
+  it('says why the kept work could not be listed', async () => {
+    mockNative.listSnapshots.mockRejectedValue(new Error('no permission'));
+    const probe = await renderRecovery();
+    await settle(() => probe.current().openList());
+    expect(probe.current().panel).toEqual({ mode: 'list', works: [], error: 'The autosaved work could not be read: no permission' });
   });
 
   it('shows the autosave folder in Finder', async () => {

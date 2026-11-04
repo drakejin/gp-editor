@@ -39,6 +39,7 @@ export const EN_WINDOW = {
   'window.recover.notOnWindows': 'Autosave works in the Mac app only, for now.',
   'window.recover.savedAt': 'autosaved {time}',
   'window.recover.folderFailed': 'The autosave folder could not be shown: {message}',
+  'window.recover.listFailed': 'The autosaved work could not be read: {message}',
   'window.fret': 'Fret {number}',
   'window.capoLower': 'Capo a fret lower',
   'window.capoHigher': 'Capo a fret higher',

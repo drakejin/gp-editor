@@ -62,7 +62,20 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const recovery = useAutosaveRecovery(dispatch, autosave);
   const { openList: openAutosavedWork } = recovery;
   useEffect(() => subscribeRecoverAutosaveRequests(openAutosavedWork), [openAutosavedWork]);
-  const tabs = useTabs(workspace, dispatch, documents.saveTab, autosave.endSession);
+  // The save question's Save: the tab closes (or the app quits) before its saved state is drawn, so autosave hears it here.
+  const { saveTab } = documents;
+  const { markSaved } = autosave;
+  const saveAndMark = useCallback(
+    async (tabId: string, saveAs: boolean) => {
+      const isSaved = await saveTab(tabId, saveAs);
+      if (isSaved) {
+        markSaved(tabId);
+      }
+      return isSaved;
+    },
+    [saveTab, markSaved],
+  );
+  const tabs = useTabs(workspace, dispatch, saveAndMark, autosave.endSession);
   const panel = useImportPanel();
   // A finished or resumed import rewrites its song: the tab already showing it shows the new one (asking if edited).
   // A PDF dropped (or a project resumed) without a key goes on once the key is saved, the settings closing then.

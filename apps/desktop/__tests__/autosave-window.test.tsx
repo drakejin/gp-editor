@@ -37,8 +37,8 @@ let mockListed: readonly { folder: string; manifest: string }[] = [];
 
 function autosaveAnswer(method: string): unknown {
   switch (method) {
-    case 'processId':
-      return Promise.resolve(4242);
+    case 'sessionInfo':
+      return Promise.resolve({ processId: 4242, bootId: 'BAA8756F-444D-4F6E-8783-5D2A67D4F287' });
     case 'removeDaysBefore':
       return Promise.resolve(0);
     case 'listSnapshots':

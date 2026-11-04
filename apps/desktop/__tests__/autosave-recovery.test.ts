@@ -21,7 +21,7 @@ function entry(documentId: string, day: string, status: AutosaveStatus, session 
   return { folder: `${day}/${documentId}`, manifest };
 }
 
-const isRunning = (pid: number) => pid === RUNNING.pid || pid === ME.pid;
+const isRunning = (session: { readonly pid: number }) => session.pid === RUNNING.pid || session.pid === ME.pid;
 
 describe('recoverableWork: what the launch question offers', () => {
   it('offers the unsaved work of sessions that ended without saving or letting it go', () => {

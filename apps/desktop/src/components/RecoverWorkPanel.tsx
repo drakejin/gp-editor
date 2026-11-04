@@ -15,6 +15,8 @@ export interface RecoverWorkPanelProps {
   /** `launch`: the question after a session ended with unsaved work; `list`: File ▸ Recover Autosaved Work…. */
   readonly mode: RecoveryMode;
   readonly works: readonly AutosavedWork[];
+  /** Why the work could not be listed. */
+  readonly error?: string;
   /** False where nothing is autosaved (Windows, for now): the empty list says so. */
   readonly isAvailable: boolean;
   readonly onRestoreAll: () => void;
@@ -57,10 +59,10 @@ function WorkRow({ palette, work, onRestore }: WorkRowProps) {
   );
 }
 
-function WorkList({ palette, works, isAvailable, onRestore }: Pick<RecoverWorkPanelProps, 'palette' | 'works' | 'isAvailable'> & { readonly onRestore?: (documentId: string) => void }) {
+function WorkList({ palette, works, error, isAvailable, onRestore }: Pick<RecoverWorkPanelProps, 'palette' | 'works' | 'error' | 'isAvailable'> & { readonly onRestore?: (documentId: string) => void }) {
   const t = useT();
   if (works.length === 0) {
-    const empty = isAvailable ? t('window.recover.empty', { days: AUTOSAVE_KEEP_DAYS }) : t('window.recover.notOnWindows');
+    const empty = error ?? (isAvailable ? t('window.recover.empty', { days: AUTOSAVE_KEEP_DAYS }) : t('window.recover.notOnWindows'));
     return <Text style={[styles.empty, { color: palette.chromeMuted }]}>{empty}</Text>;
   }
   return (
@@ -77,7 +79,7 @@ function WorkList({ palette, works, isAvailable, onRestore }: Pick<RecoverWorkPa
  * Don't Restore, as SaveChangesPanel asks); from File ▸ Recover Autosaved Work…, the list to restore one at a time.
  */
 export function RecoverWorkPanel(props: RecoverWorkPanelProps) {
-  const { palette, mode, works, isAvailable, onRestoreAll, onRestore, onDecline, onClose, onShowFolder } = props;
+  const { palette, mode, works, error, isAvailable, onRestoreAll, onRestore, onDecline, onClose, onShowFolder } = props;
   const t = useT();
   const isLaunch = mode === 'launch';
   return (
@@ -88,7 +90,7 @@ export function RecoverWorkPanel(props: RecoverWorkPanelProps) {
       accessibilityLabel={t('window.recover.accessibility')}
       onCancel={onClose}
       backdropTestID="recover-work-backdrop"
-      body={<WorkList palette={palette} works={works} isAvailable={isAvailable} onRestore={isLaunch ? undefined : onRestore} />}
+      body={<WorkList palette={palette} works={works} error={error} isAvailable={isAvailable} onRestore={isLaunch ? undefined : onRestore} />}
     >
       {isLaunch ? (
         <>

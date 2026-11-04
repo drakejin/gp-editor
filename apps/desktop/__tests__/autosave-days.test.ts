@@ -60,5 +60,6 @@ describe('autosave days and names', () => {
     expect(formatOf('/scores/song.musicxml')).toBe('musicxml');
     expect(formatOf('')).toBe('');
     expect(formatOf('/scores/README')).toBe('');
+    expect(formatOf('/scores/Song v1.2 final')).toBe('');
   });
 });

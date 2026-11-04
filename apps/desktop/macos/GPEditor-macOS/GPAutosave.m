@@ -2,24 +2,26 @@
 // the sandbox container in the shipped app —, a folder per day (2026-11-04) and in it one per document, holding
 // snapshot.gp (the song as a .gp file, written by gp-core) and manifest.json (what it is of, JSON from JS). Each file is
 // written atomically (a temporary file, then a rename), the snapshot before its manifest. Folders are named only as
-// JS's ids allow (letters, digits, - and _), never a path. At launch JS lists the manifests, removes the days kept long
-// enough and asks whether the processes of the sessions that left unsaved work still run (kill(pid, 0), as
-// GPAudioAssets does). Methods run on a queue of their own, so a big snapshot never waits on the main thread.
+// JS's ids allow (letters, digits, - and _), never a path, and never followed through a link. At launch JS lists the
+// manifests, removes the days kept long enough and asks whether the sessions that left unsaved work still run: one of
+// another boot (kern.bootsessionuuid) is over, else its process is asked (kill(pid, 0), as GPAudioAssets does). Methods
+// run on a queue of their own, so a big snapshot never waits on the main thread.
 
 #import <AppKit/AppKit.h>
 #import <React/RCTBridgeModule.h>
 #include <signal.h>
+#include <sys/sysctl.h>
 
 #import "GPAppStrings.h"
 
 static NSString *const kSnapshotFile = @"snapshot.gp";
 static NSString *const kManifestFile = @"manifest.json";
-/** Snapshots listed at most (seven days of a busy week). */
-static const NSUInteger kMaxListed = 500;
+/** Snapshots listed at most, the newest days first (seven days of a very busy week). */
+static const NSUInteger kMaxListed = 1000;
 /** A manifest larger than this is no manifest JS wrote. */
 static const unsigned long long kMaxManifestBytes = 64 * 1024;
 /** A snapshot read back at most (a .gp file holds its audio track's recording). */
-static const unsigned long long kMaxSnapshotBytes = 512ull * 1024 * 1024;
+static const unsigned long long kMaxSnapshotBytes = 256ull * 1024 * 1024;
 /** The longest folder id (a session's, a document's), as autosave-days.ts allows. */
 static const NSUInteger kMaxIdLength = 80;
 
@@ -118,24 +120,37 @@ RCT_EXPORT_MODULE();
   return root;
 }
 
-/** A document's folder from `<day>/<document>`; nil for anything else. */
+/** A document's folder from `<day>/<document>`; nil for anything else, or for a day or document folder that is a link. */
 + (nullable NSURL *)documentFolder:(NSString *)folder
 {
   NSArray<NSString *> *parts = [folder componentsSeparatedByString:@"/"];
-  if (parts.count != 2 || !IsDayName(parts[0]) || !IsFolderId(parts[1])) {
+  NSURL *root = [GPAutosave rootFolder];
+  if (root == nil || parts.count != 2 || !IsDayName(parts[0]) || !IsFolderId(parts[1])) {
     return nil;
   }
-  return [[[GPAutosave rootFolder] URLByAppendingPathComponent:parts[0] isDirectory:YES] URLByAppendingPathComponent:parts[1] isDirectory:YES];
+  NSURL *day = [root URLByAppendingPathComponent:parts[0] isDirectory:YES];
+  NSURL *document = [day URLByAppendingPathComponent:parts[1] isDirectory:YES];
+  return IsSymbolicLink(day) || IsSymbolicLink(document) ? nil : document;
 }
 
 - (void)rejectBadFolder:(RCTPromiseRejectBlock)reject
 {
-  reject(@"bad_folder", GPLocalizedString(@"Not an autosave folder"), nil);
+  BOOL hasRoot = [GPAutosave rootFolder] != nil;
+  reject(@"bad_folder", hasRoot ? GPLocalizedString(@"Not an autosave folder") : GPLocalizedString(@"The autosave folder could not be made"), nil);
 }
 
-RCT_EXPORT_METHOD(processId : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+/** This boot's id (kern.bootsessionuuid): a session of another boot ended with it, whatever process has its id now. */
+static NSString *BootId(void)
 {
-  resolve(@(getpid()));
+  char uuid[64] = {0};
+  size_t size = sizeof(uuid) - 1;
+  return sysctlbyname("kern.bootsessionuuid", uuid, &size, NULL, 0) == 0 ? [NSString stringWithUTF8String:uuid] : @"";
+}
+
+/** This app's session as the manifests name it: { processId, bootId }. */
+RCT_EXPORT_METHOD(sessionInfo : (RCTPromiseResolveBlock)resolve reject : (RCTPromiseRejectBlock)reject)
+{
+  resolve(@{@"processId" : @(getpid()), @"bootId" : BootId()});
 }
 
 /** The snapshot (base64 bytes), then its manifest, each written whole in place of the last. */
@@ -205,8 +220,11 @@ RCT_EXPORT_METHOD(listSnapshots : (RCTPromiseResolveBlock)resolve reject : (RCTP
   NSMutableArray<NSDictionary *> *entries = [NSMutableArray array];
   for (NSURL *day in [(root == nil ? @[] : DayFolders(root)) reverseObjectEnumerator]) {
     for (NSURL *document in Children(day)) {
+      if (entries.count >= kMaxListed) {
+        break;
+      }
       NSString *manifest = [GPAutosave manifestIn:document];
-      if (manifest != nil && entries.count < kMaxListed) {
+      if (manifest != nil) {
         [entries addObject:@{@"folder" : [NSString stringWithFormat:@"%@/%@", day.lastPathComponent, document.lastPathComponent], @"manifest" : manifest}];
       }
     }

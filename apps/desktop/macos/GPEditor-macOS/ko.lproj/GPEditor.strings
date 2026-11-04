@@ -100,6 +100,7 @@
 "No file format to save in" = "저장할 파일 형식이 없습니다";
 "The file data is not valid base64" = "파일 데이터가 올바른 base64가 아닙니다";
 "Not an autosave folder" = "자동 저장 폴더가 아닙니다";
+"The autosave folder could not be made" = "자동 저장 폴더를 만들지 못했습니다";
 "The autosaved work could not be written" = "자동 저장된 작업을 쓰지 못했습니다";
 "The autosaved work is no longer there" = "자동 저장된 작업이 더 이상 없습니다";
 "The recent files list is not valid" = "최근 파일 목록이 올바르지 않습니다";

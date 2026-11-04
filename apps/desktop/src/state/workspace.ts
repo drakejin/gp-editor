@@ -50,7 +50,8 @@ export type TabAction =
   | { readonly type: 'reloadTab'; readonly document: OpenDocument }
   /**
    * Autosaved work brought back (the restore question, File ▸ Recover Autosaved Work…), edited: in the tab holding its
-   * file as one edit (undo shows what the tab showed), else in a new tab.
+   * file as one edit (undo shows what the tab showed), else in a new tab; beside a tab whose own changes are not saved,
+   * in a new tab no file holds (Save asks where), so neither is lost.
    */
   | { readonly type: 'restoreTab'; readonly document: OpenDocument }
   | { readonly type: 'switchTab'; readonly tabId: string }
@@ -155,13 +156,17 @@ function reloadTab(state: WorkspaceState, document: OpenDocument): WorkspaceStat
 
 /**
  * Autosaved work in the tab holding its file, as one edit: a fresh editor in the tab's view on the restored song, the
- * song it showed one undo step back, still saved as the file is; a new tab, edited, when no tab holds the file.
+ * song it showed one undo step back, still saved as the file is; a new tab, edited, when no tab holds the file. When
+ * the tab holding it has changes of its own, a new tab no file holds: two tabs never write one file.
  */
 function restoreTab(state: WorkspaceState, document: OpenDocument): WorkspaceState {
   const holding = holdingTab(state, document.path);
   const shown = holding?.editor.document;
   if (holding === undefined || shown === undefined) {
     return openDocumentTab(state, document, true);
+  }
+  if (isEdited(holding.editor)) {
+    return openDocumentTab(state, { ...document, path: '' }, true);
   }
   const fresh = editorReducer({ ...INITIAL_EDITOR_STATE, mode: holding.editor.mode }, { type: 'loaded', document: { ...shown, song: document.song } });
   const editor = { ...fresh, savedSong: holding.editor.savedSong, past: [...holding.editor.past, shown.song].slice(-HISTORY_LIMIT) };

@@ -20,13 +20,20 @@ const MAX_FILE_NAME_LENGTH = 255;
 const MAX_PATH_LENGTH = 4096;
 const FORMAT = /^[a-z0-9]{0,16}$/;
 const MAX_PROCESS_ID = 2_147_483_647;
+/** kern.bootsessionuuid: a UUID. */
+const BOOT_ID = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/;
 /** A snapshot's making time beyond this is no time. */
 const MAX_WRITE_MS = 600_000;
 
-/** The run of the app that wrote a snapshot: its id and its process (still running: the snapshot is live work). */
+/**
+ * The run of the app that wrote a snapshot: its id, its process and the Mac's boot it ran in (the process still running
+ * in this boot: the snapshot is live work; a session of another boot is over, whatever process has its id now).
+ */
 export interface AutosaveSession {
   readonly id: string;
   readonly pid: number;
+  /** kern.bootsessionuuid when it was known. */
+  readonly bootId?: string;
 }
 
 export interface AutosaveManifest {
@@ -77,7 +84,14 @@ function parseSession(value: unknown): AutosaveSession | undefined {
   }
   const id = folderId(ownValue(value, 'id'));
   const pid = wholeNumber(ownValue(value, 'pid'), 1, MAX_PROCESS_ID);
-  return id === undefined || pid === undefined ? undefined : { id, pid };
+  const bootId = ownValue(value, 'bootId');
+  if (id === undefined || pid === undefined) {
+    return undefined;
+  }
+  if (bootId === undefined) {
+    return { id, pid };
+  }
+  return typeof bootId === 'string' && BOOT_ID.test(bootId) ? { id, pid, bootId } : undefined;
 }
 
 function parseStatus(value: unknown): AutosaveStatus | undefined {

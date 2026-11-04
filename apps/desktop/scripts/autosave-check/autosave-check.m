@@ -7,7 +7,7 @@
 
 @interface GPAutosave : NSObject <RCTBridgeModule>
 + (nullable NSURL *)rootFolder;
-- (void)processId:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject;
+- (void)sessionInfo:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject;
 - (void)writeSnapshot:(NSString *)folder base64:(NSString *)base64 manifest:(NSString *)manifest resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject;
 - (void)writeManifest:(NSString *)folder manifest:(NSString *)manifest resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject;
 - (void)listSnapshots:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject;
@@ -116,6 +116,30 @@ static void CheckFolderNames(GPAutosave *autosave, NSURL *root)
   Report(refused == bad.count && ![[NSFileManager defaultManager] fileExistsAtPath:outside.path], @"folder names that are no <day>/<document> are refused", [NSString stringWithFormat:@"%lu of %lu", (unsigned long)refused, (unsigned long)bad.count]);
 }
 
+/** A document folder (or a day's) that is a link elsewhere is neither written nor read through. */
+static void CheckLinks(GPAutosave *autosave, NSURL *root)
+{
+  NSFileManager *files = [NSFileManager defaultManager];
+  NSURL *elsewhere = [[root URLByDeletingLastPathComponent] URLByAppendingPathComponent:@"elsewhere" isDirectory:YES];
+  [files createDirectoryAtURL:elsewhere withIntermediateDirectories:YES attributes:nil error:nil];
+  [files createSymbolicLinkAtURL:[root URLByAppendingPathComponent:@"2026-11-04/linked-doc"] withDestinationURL:elsewhere error:nil];
+  [files createSymbolicLinkAtURL:[root URLByAppendingPathComponent:@"2026-11-05"] withDestinationURL:elsewhere error:nil];
+  NSUInteger refused = 0;
+  for (NSString *folder in @[ @"2026-11-04/linked-doc", @"2026-11-05/doc" ]) {
+    Answer *write = Call(^(RCTPromiseResolveBlock resolve, RCTPromiseRejectBlock reject) {
+      [autosave writeSnapshot:folder base64:Base64(@"x") manifest:@"{}" resolve:resolve reject:reject];
+    });
+    Answer *read = Call(^(RCTPromiseResolveBlock resolve, RCTPromiseRejectBlock reject) {
+      [autosave readSnapshot:folder resolve:resolve reject:reject];
+    });
+    refused += write.code != nil && read.code != nil ? 1 : 0;
+  }
+  Report(refused == 2 && Names(elsewhere).count == 0, @"a linked day or document folder is neither written nor read through", [Names(elsewhere) componentsJoinedByString:@", "]);
+  [files removeItemAtURL:[root URLByAppendingPathComponent:@"2026-11-04/linked-doc"] error:nil];
+  [files removeItemAtURL:[root URLByAppendingPathComponent:@"2026-11-05"] error:nil];
+  [files removeItemAtURL:elsewhere error:nil];
+}
+
 static void CheckList(GPAutosave *autosave, NSURL *root)
 {
   NSFileManager *files = [NSFileManager defaultManager];
@@ -173,9 +197,11 @@ static void CheckProcesses(GPAutosave *autosave)
   });
   Report([running.result isEqual:@[ @YES, @NO, @NO ]], @"a running process is told from one that ended", [running.result description] ?: running.code);
   Answer *mine = Call(^(RCTPromiseResolveBlock resolve, RCTPromiseRejectBlock reject) {
-    [autosave processId:resolve reject:reject];
+    [autosave sessionInfo:resolve reject:reject];
   });
-  Report([mine.result isEqual:@(getpid())], @"the app's own process id", [mine.result description] ?: mine.code);
+  NSString *bootId = [mine.result isKindOfClass:[NSDictionary class]] ? mine.result[@"bootId"] : nil;
+  BOOL isSession = [mine.result isKindOfClass:[NSDictionary class]] && [mine.result[@"processId"] isEqual:@(getpid())] && [bootId isKindOfClass:[NSString class]] && [NSUUID.alloc initWithUUIDString:bootId] != nil;
+  Report(isSession, @"the app's own process id and this boot's id (a session from another boot is over, whatever its pid)", [mine.result description] ?: mine.code);
 }
 
 int main(void)
@@ -189,6 +215,7 @@ int main(void)
     NSURL *root = [GPAutosave rootFolder];
     CheckWrites(autosave, root);
     CheckFolderNames(autosave, root);
+    CheckLinks(autosave, root);
     CheckList(autosave, root);
     CheckRemoval(autosave, root);
     CheckProcesses(autosave);

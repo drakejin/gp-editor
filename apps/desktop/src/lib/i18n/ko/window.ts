@@ -40,6 +40,7 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.recover.notOnWindows': '자동 저장은 지금은 Mac 앱에서만 됩니다.',
   'window.recover.savedAt': '{time}에 자동 저장',
   'window.recover.folderFailed': '자동 저장 폴더를 보여 주지 못했습니다: {message}',
+  'window.recover.listFailed': '자동 저장된 작업을 읽지 못했습니다: {message}',
   'window.fret': '{number}프렛',
   'window.capoLower': '카포를 한 프렛 아래로',
   'window.capoHigher': '카포를 한 프렛 위로',

@@ -4,12 +4,12 @@ import { newSessionId } from '../autosave/autosave-days';
 import type { AutosaveSession, AutosaveStatus } from '../autosave/autosave-manifest';
 import type { AutosaveEntry } from '../autosave/autosave-recovery';
 import { AUTOSAVE_IDLE_MS, AUTOSAVE_INTERVAL_MS, nextAutosaveStep } from '../autosave/autosave-schedule';
-import { EMPTY_TRACKER, adopt, endMarks, marksDue, trackTabs } from '../autosave/autosave-tracker';
+import { EMPTY_TRACKER, adopt, editedSongs, endMarks, marksDue, tabMarks, trackTabs } from '../autosave/autosave-tracker';
 import { type AutosaveContext, dueTabs, rewriteManifest, writeMarks, writeTabSnapshot } from '../autosave/autosave-writes';
 import { type SerialQueue, createSerialQueue } from '../autosave/serial-queue';
 import { errorMessage } from '../lib/errors';
 import { t } from '../lib/i18n/i18n';
-import { isAutosaveAvailable, processId } from '../native/autosave';
+import { type NativeSession, currentSession, isAutosaveAvailable } from '../native/autosave';
 import type { WorkspaceAction, WorkspaceState } from '../state/workspace';
 
 /** The quit waits at most this long for the session's last marks. */
@@ -23,6 +23,8 @@ export interface Autosave {
   readonly endSession: () => Promise<void>;
   /** Restored work (`song` about to show in a tab): its snapshot becomes this session's, and that tab's marks answer for it. */
   readonly adoptRestored: (song: Song, entry: AutosaveEntry) => void;
+  /** A tab saved by the save question's Save (closed at once, or the app quitting): its snapshots are `saved`. */
+  readonly markSaved: (tabId: string) => void;
   /** Snapshots answered otherwise (Don't Restore: `declined`; older days' of restored work: `restored`). */
   readonly markEntries: (entries: readonly AutosaveEntry[], status: AutosaveStatus) => Promise<void>;
 }
@@ -31,19 +33,22 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** The session (its process id known once the first task ran) and what the writes read and change. */
-function useAutosaveContext(workspace: WorkspaceState): AutosaveContext & { readonly setProcessId: (pid: number) => void } {
+type SessionContext = AutosaveContext & { readonly setSession: (native: NativeSession) => void };
+
+/** The session (its process and boot known once the first task ran: nothing is written before) and what the writes read. */
+function useAutosaveContext(workspace: WorkspaceState): SessionContext {
   const [sessionId] = useState(() => newSessionId(new Date()));
-  const session = useRef<AutosaveSession>({ id: sessionId, pid: 1 });
+  const session = useRef<AutosaveSession | undefined>(undefined);
   const latest = useRef(workspace);
   latest.current = workspace;
   const tracker = useRef(EMPTY_TRACKER);
   return useMemo(
     () => ({
+      sessionId,
       session: () => session.current,
-      setProcessId: (pid: number) => {
+      setSession: ({ pid, bootId }: NativeSession) => {
         if (pid > 0) {
-          session.current = { id: sessionId, pid };
+          session.current = { id: sessionId, pid, ...(bootId === '' ? {} : { bootId }) };
         }
       },
       workspace: () => latest.current,
@@ -83,6 +88,12 @@ interface SchedulerRefs {
   readonly lastActivity: RefObject<number>;
   readonly isPlaying: RefObject<boolean>;
   readonly reportFailure: (task: Promise<void>) => Promise<void>;
+}
+
+/** The session's end (the quit's answers) and the songs it answered for: a new edit after it starts autosave again. */
+interface SessionEnd {
+  readonly isEnded: RefObject<boolean>;
+  readonly endedSongs: RefObject<ReadonlySet<Song>>;
 }
 
 /** Every AUTOSAVE_INTERVAL_MS, the due tabs' snapshots, one at a time, each once the editing pauses (autosave-schedule.ts). */
@@ -134,46 +145,62 @@ function useScheduler({ context, queue, isEnded, lastActivity, isPlaying, report
 export function useAutosave(workspace: WorkspaceState, dispatch: Dispatch<WorkspaceAction>, isPlaying: boolean): Autosave {
   const context = useAutosaveContext(workspace);
   const [queue] = useState(createSerialQueue);
-  const isEnded = useRef(false);
+  const end: SessionEnd = { isEnded: useRef(false), endedSongs: useRef<ReadonlySet<Song>>(new Set()) };
   const lastActivity = useRef(Date.now());
   const playing = useRef(isPlaying);
   playing.current = isPlaying;
   const reportFailure = useFailureHint(dispatch);
   useEffect(() => {
     if (isAutosaveAvailable()) {
-      void queue.run(async () => context.setProcessId(await processId()));
+      void reportFailure(queue.run(async () => context.setSession(await currentSession())));
     }
-  }, [queue, context]);
+  }, [queue, context, reportFailure]);
+  const { isEnded, endedSongs } = end;
   useEffect(() => {
     lastActivity.current = Date.now();
-    const tracker = trackTabs(context.tracker(), workspace, context.session().id);
+    if (isEnded.current && [...editedSongs(workspace)].some((song) => !endedSongs.current.has(song))) {
+      isEnded.current = false;
+    }
+    const tracker = trackTabs(context.tracker(), workspace, context.sessionId);
     context.setTracker(tracker);
     if (marksDue(tracker, workspace).length > 0) {
-      void queue.run(() => writeMarks(context, marksDue(context.tracker(), context.workspace())));
+      void reportFailure(queue.run(() => writeMarks(context, marksDue(context.tracker(), context.workspace()))));
     }
-  }, [workspace, context, queue]);
+  }, [workspace, context, queue, isEnded, endedSongs, reportFailure]);
   useScheduler({ context, queue, isEnded, lastActivity, isPlaying: playing, reportFailure });
-  return useAutosaveActions(context, queue, isEnded);
+  return useAutosaveActions(context, queue, end, reportFailure);
 }
 
-function useAutosaveActions(context: AutosaveContext, queue: SerialQueue, isEnded: RefObject<boolean>): Autosave {
+function useAutosaveActions(context: AutosaveContext, queue: SerialQueue, { isEnded, endedSongs }: SessionEnd, reportFailure: (task: Promise<void>) => Promise<void>): Autosave {
   const endSession = useCallback((): Promise<void> => {
     if (!isAutosaveAvailable()) {
       return Promise.resolve();
     }
     isEnded.current = true;
+    endedSongs.current = editedSongs(context.workspace());
     const ended = queue.run(() => {
-      const tracker = trackTabs(context.tracker(), context.workspace(), context.session().id);
+      const tracker = trackTabs(context.tracker(), context.workspace(), context.sessionId);
       return writeMarks(context, endMarks(tracker, context.workspace()));
     });
     return Promise.race([ended.catch(() => undefined), delay(END_SESSION_TIMEOUT_MS)]);
-  }, [context, queue, isEnded]);
+  }, [context, queue, isEnded, endedSongs]);
   const adoptRestored = useCallback(
     (song: Song, entry: AutosaveEntry) => {
       context.setTracker(adopt(context.tracker(), song, entry));
-      void queue.run(() => rewriteManifest(entry, { status: 'unsaved', session: context.session() }));
+      void reportFailure(
+        queue.run(async () => {
+          const session = context.session();
+          return session === undefined ? undefined : rewriteManifest(entry, { status: 'unsaved', session });
+        }),
+      );
     },
-    [context, queue],
+    [context, queue, reportFailure],
+  );
+  const markSaved = useCallback(
+    (tabId: string) => {
+      void reportFailure(queue.run(() => writeMarks(context, tabMarks(context.tracker(), tabId, 'saved'))));
+    },
+    [context, queue, reportFailure],
   );
   const markEntries = useCallback(
     (entries: readonly AutosaveEntry[], status: AutosaveStatus) =>
@@ -184,5 +211,5 @@ function useAutosaveActions(context: AutosaveContext, queue: SerialQueue, isEnde
       }),
     [queue],
   );
-  return useMemo(() => ({ sessionId: context.session().id, endSession, adoptRestored, markEntries }), [context, endSession, adoptRestored, markEntries]);
+  return useMemo(() => ({ sessionId: context.sessionId, endSession, adoptRestored, markSaved, markEntries }), [context, endSession, adoptRestored, markSaved, markEntries]);
 }

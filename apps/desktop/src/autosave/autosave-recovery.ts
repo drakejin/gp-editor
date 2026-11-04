@@ -1,7 +1,7 @@
 // The autosaved work there is to bring back: what the launch question offers (the unsaved work of sessions that ended
 // without saving or letting it go — a crash, a force quit, a power cut) and what File ▸ Recover Autosaved Work… lists.
 import { isDayName, isFolderId } from './autosave-days';
-import { type AutosaveManifest, type AutosaveStatus, parseManifest } from './autosave-manifest';
+import { type AutosaveManifest, type AutosaveSession, type AutosaveStatus, parseManifest } from './autosave-manifest';
 
 /** Documents listed at most. */
 export const MAX_LISTED_WORK = 50;
@@ -19,8 +19,8 @@ export interface AutosavedWork {
   readonly entries: readonly AutosaveEntry[];
 }
 
-/** Whether a process (a session's) still runs. */
-export type IsRunning = (pid: number) => boolean;
+/** Whether a session still runs (this boot, its process alive). */
+export type IsRunning = (session: AutosaveSession) => boolean;
 
 /** Work declined or let go, still listed by File ▸ Recover Autosaved Work…. */
 const LISTED_STATUSES: ReadonlySet<AutosaveStatus> = new Set(['declined', 'discarded']);
@@ -29,10 +29,10 @@ function savedTime(entry: AutosaveEntry): number {
   return Date.parse(entry.manifest.savedAt);
 }
 
-/** Unsaved work of a session that is over: not this one, and its process gone. */
+/** Unsaved work of a session that is over: not this one, and not running. */
 function isOrphaned(entry: AutosaveEntry, sessionId: string, isRunning: IsRunning): boolean {
   const { status, session } = entry.manifest;
-  return status === 'unsaved' && session.id !== sessionId && !isRunning(session.pid);
+  return status === 'unsaved' && session.id !== sessionId && !isRunning(session);
 }
 
 /** The entries grouped by document, each group's newest first, the newest groups first, at most MAX_LISTED_WORK. */

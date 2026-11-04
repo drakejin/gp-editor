@@ -2,17 +2,17 @@
 // app's data folder, lists them or removes old ones (src-tauri/src/commands: files, settings), and the port takes no
 // Rust change here — WINDOWS_PORT.md. Nothing is written, nothing is offered back.
 
-export interface ListedSnapshot {
-  readonly folder: string;
-  readonly manifest: string;
+export interface NativeSession {
+  readonly pid: number;
+  readonly bootId: string;
 }
 
 export function isAutosaveAvailable(): boolean {
   return false;
 }
 
-export function processId(): Promise<number> {
-  return Promise.resolve(0);
+export function currentSession(): Promise<NativeSession> {
+  return Promise.resolve({ pid: 0, bootId: '' });
 }
 
 export function writeSnapshot(_folder: string, _base64: string, _manifest: string): Promise<void> {

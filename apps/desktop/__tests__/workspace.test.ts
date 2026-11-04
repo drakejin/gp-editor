@@ -192,6 +192,21 @@ describe('workspaceReducer: opening documents in tabs', () => {
     expect(isEdited(activeEditor(undone))).toBe(false);
   });
 
+  it('restores beside a tab holding the file with changes of its own: a new tab, its file asked for on Save', () => {
+    // Arrange: B.gp5 in tab-2 edited
+    const start = run([{ type: 'switchTab', tabId: 'tab-2' }, { type: 'setNoteFret', fret: 5 }], threeTabs());
+    const autosaved = makeSong([[beat(960, [note(1, 9)])]]);
+
+    // Act
+    const state = workspaceReducer(start, { type: 'restoreTab', document: document('B.gp5', '/scores/B.gp5', autosaved) });
+
+    // Assert
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'B.gp5']);
+    expect(fret(state, 1)).toBe(5);
+    expect(activeEditor(state).document).toMatchObject({ path: '', song: autosaved });
+    expect(isEdited(activeEditor(state))).toBe(true);
+  });
+
   it('opens a document with openTab like a loaded file when it is not marked unsaved', () => {
     const state = workspaceReducer(threeTabs(), { type: 'openTab', document: document('D.gp5') });
     expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'D.gp5']);
