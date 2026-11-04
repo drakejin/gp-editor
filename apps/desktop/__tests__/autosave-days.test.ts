@@ -8,12 +8,17 @@ import {
   newSessionId,
   oldestKeptDay,
   snapshotFolder,
+  timeLabel,
 } from '../src/autosave/autosave-days';
 
 describe('autosave days and names', () => {
   it('names a day by its local date, as the folder of that day’s snapshots', () => {
     expect(dayName(new Date(2026, 10, 4, 23, 59))).toBe('2026-11-04');
     expect(dayName(new Date(2026, 0, 9, 0, 0))).toBe('2026-01-09');
+  });
+
+  it('says when a snapshot was written in local time, to the minute', () => {
+    expect(timeLabel(new Date(2026, 10, 4, 9, 5, 59))).toBe('2026-11-04 09:05');
   });
 
   it('tells a day’s folder name from anything else', () => {

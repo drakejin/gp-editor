@@ -10,18 +10,21 @@ interface QuestionPanelProps {
   /** A click outside the panel: the answer that changes nothing. */
   readonly onCancel: () => void;
   readonly backdropTestID: string;
+  /** What the question is about, between the message and the answers (a list). */
+  readonly body?: ReactNode;
   /** The answers, left to right (`QuestionGap` pushes the later ones right). */
   readonly children: ReactNode;
 }
 
-/** A question over the window (an edited tab closing, a rebuilt file): a small dark panel over a dimmed backdrop. */
-export function QuestionPanel({ palette, title, message, accessibilityLabel, onCancel, backdropTestID, children }: QuestionPanelProps) {
+/** A question over the window (an edited tab closing, a rebuilt file, autosaved work): a small dark panel over a dimmed backdrop. */
+export function QuestionPanel({ palette, title, message, accessibilityLabel, onCancel, backdropTestID, body, children }: QuestionPanelProps) {
   return (
     <View style={styles.overlay}>
       <Pressable testID={backdropTestID} style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onCancel} />
       <View style={[styles.panel, { backgroundColor: palette.chrome, borderColor: palette.chromeBorder }]} accessibilityLabel={accessibilityLabel}>
         <Text style={[styles.title, { color: palette.chromeText }]}>{title}</Text>
         <Text style={[styles.message, { color: palette.chromeMuted }]}>{message}</Text>
+        {body}
         <View style={styles.buttons}>{children}</View>
       </View>
     </View>

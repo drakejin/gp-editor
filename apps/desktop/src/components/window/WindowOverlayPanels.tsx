@@ -5,6 +5,7 @@ import type { WindowModel } from '../../hooks/use-window';
 import { commandActionsOf } from '../../hooks/use-window-commands';
 import { allCommands } from '../../lib/commands';
 import { tunerStrings } from '../../lib/tuner-display';
+import { isAutosaveAvailable } from '../../native/autosave';
 import { AiEditPanel } from '../ai-edit/AiEditPanel';
 import { ChordPanel } from '../chords/ChordPanel';
 import { ChromeMenu } from '../chrome/ChromeMenu';
@@ -15,6 +16,7 @@ import { LineInPanel } from '../effects/LineInPanel';
 import { NotePanelView } from '../note-panels/NotePanels';
 import { PracticeMenu } from '../PracticeMenu';
 import { RebuiltSongPanel } from '../RebuiltSongPanel';
+import { RecoverWorkPanel } from '../RecoverWorkPanel';
 import { SaveChangesPanel } from '../SaveChangesPanel';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { ShortcutSheet } from '../ShortcutSheet';
@@ -247,13 +249,13 @@ function AiEditOverlay({ model }: WindowPartProps) {
   );
 }
 
-/** Settings (over every other panel), the instrument picker and the save question of a tab being closed. */
+/** Settings (over every other panel), the instrument picker, the autosaved work's panel and the questions about tabs. */
 export function WindowDialogs({ model }: WindowPartProps) {
   const { base, files, tools } = model;
   const { palette, state, chrome, dispatch, focusScore } = base;
   const song = state.document?.song;
   const { settingsPanel } = tools;
-  const { tabs, documents } = files;
+  const { tabs, documents, recovery } = files;
   return (
     <>
       {settingsPanel.isOpen ? (
@@ -268,6 +270,19 @@ export function WindowDialogs({ model }: WindowPartProps) {
         />
       ) : null}
       {song !== undefined && chrome.pickingTrackIndex !== undefined ? <PickerOverlay {...{ palette, song, dispatch }} trackIndex={chrome.pickingTrackIndex} onClose={chrome.closePicker} /> : null}
+      {recovery.panel !== undefined ? (
+        <RecoverWorkPanel
+          palette={palette}
+          mode={recovery.panel.mode}
+          works={recovery.panel.works}
+          isAvailable={isAutosaveAvailable()}
+          onRestoreAll={recovery.restoreAll}
+          onRestore={recovery.restore}
+          onDecline={recovery.decline}
+          onClose={recovery.close}
+          onShowFolder={recovery.showFolder}
+        />
+      ) : null}
       {documents.rebuilt !== undefined ? <RebuiltSongPanel palette={palette} name={documents.rebuilt.name} onShow={documents.showRebuilt} onKeep={documents.keepEdited} /> : null}
       {tabs.closing !== undefined ? <SaveChangesPanel palette={palette} name={tabs.closing.name} isQuitting={tabs.closing.isQuitting} onSave={tabs.saveAndClose} onDiscard={tabs.discardAndClose} onCancel={tabs.cancelClose} /> : null}
     </>

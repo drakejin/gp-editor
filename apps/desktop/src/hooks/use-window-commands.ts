@@ -74,6 +74,8 @@ export function commandActionsOf({ base, media, files, tools, cursorTools, comma
     closeTab: () => workspace.activeTabId !== undefined && files.tabs.requestClose(workspace.activeTabId),
     cycleTab: (step) => dispatch({ type: 'cycleTab', step }),
     openRecentFiles: files.recentFiles.openPanel,
+    openAutosavedWork: files.recovery.openList,
+    showAutosaveFolder: files.recovery.showFolder,
     openSongWriter: tools.songWriter.open,
     openShortcuts: chrome.openShortcutSheet,
     openSettings: tools.settingsPanel.open,

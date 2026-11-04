@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { subscribeImportPdfRequests } from '../native/gp-files';
+import { subscribeImportPdfRequests, subscribeRecoverAutosaveRequests } from '../native/gp-files';
 import { type AudioExport, useAudioExport } from './use-audio-export';
+import { type Autosave, useAutosave } from './use-autosave';
+import { type AutosaveRecovery, useAutosaveRecovery } from './use-autosave-recovery';
 import { type Clipboard, useClipboard } from './use-clipboard';
 import { type DocumentCommands, useDocument } from './use-document';
 import { type PdfExport, usePdfExport } from './use-pdf-export';
@@ -35,6 +37,10 @@ export interface WindowFiles {
   /** File ▸ Export Audio…: the song rendered with its sounds and effects, as playback plays it. */
   readonly audioExport: AudioExport;
   readonly clipboard: Clipboard;
+  /** Every 30 s, the edited tabs' snapshots in Application Support (macOS). */
+  readonly autosave: Autosave;
+  /** The launch's question about work a crash left unsaved, and File ▸ Recover Autosaved Work…. */
+  readonly recovery: AutosaveRecovery;
 }
 
 function useImportPanel(): ImportPanel {
@@ -52,7 +58,11 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const openPdf = useCallback((pathOrUrl: string) => importPdfPath.current(pathOrUrl), []);
   const recentFiles = useRecentFiles();
   const documents = useDocument(workspace, dispatch, openPdf, recentFiles);
-  const tabs = useTabs(workspace, dispatch, documents.saveTab);
+  const autosave = useAutosave(workspace, dispatch, playback.isPlaying);
+  const recovery = useAutosaveRecovery(dispatch, autosave);
+  const { openList: openAutosavedWork } = recovery;
+  useEffect(() => subscribeRecoverAutosaveRequests(openAutosavedWork), [openAutosavedWork]);
+  const tabs = useTabs(workspace, dispatch, documents.saveTab, autosave.endSession);
   const panel = useImportPanel();
   // A finished or resumed import rewrites its song: the tab already showing it shows the new one (asking if edited).
   // A PDF dropped (or a project resumed) without a key goes on once the key is saved, the settings closing then.
@@ -71,5 +81,5 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const audioExport = useAudioExport(document, playback.practice, dispatch);
   const clipboard = useClipboard(state, dispatch);
   const tabLabels = useTabLabels(workspace);
-  return { recentFiles, documents, tabs, tabLabels, importPanel, pdfImport, pdfExport, songExport, audioExport, clipboard };
+  return { recentFiles, documents, tabs, tabLabels, importPanel, pdfImport, pdfExport, songExport, audioExport, clipboard, autosave, recovery };
 }

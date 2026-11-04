@@ -19,6 +19,11 @@ export function dayName(time: Date): string {
   return `${time.getFullYear()}-${twoDigits(time.getMonth() + 1)}-${twoDigits(time.getDate())}`;
 }
 
+/** When a snapshot was written, as the panel says it: `2026-11-04 14:32` (local). */
+export function timeLabel(time: Date): string {
+  return `${dayName(time)} ${twoDigits(time.getHours())}:${twoDigits(time.getMinutes())}`;
+}
+
 export function isDayName(name: string): boolean {
   return DAY_NAME.test(name);
 }

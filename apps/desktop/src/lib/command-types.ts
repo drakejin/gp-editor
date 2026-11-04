@@ -39,6 +39,10 @@ export interface CommandActions {
   readonly closeTab: () => void;
   readonly cycleTab: (step: 1 | -1) => void;
   readonly openRecentFiles: () => void;
+  /** File ▸ Recover Autosaved Work…: the work autosave kept, to restore. */
+  readonly openAutosavedWork: () => void;
+  /** The autosave folder in Finder. */
+  readonly showAutosaveFolder: () => void;
   readonly openSongWriter: () => void;
   readonly openShortcuts: () => void;
   /** GP Editor ▸ Settings… (⌘,). */
