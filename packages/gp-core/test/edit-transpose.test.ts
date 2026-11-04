@@ -52,7 +52,7 @@ describe('transpose: songs left as they were', () => {
     // Arrange
     const song = songOnStrings(STANDARD_TUNING, [[[play(4, n(1, 0))]]]);
     const drums = songOnStrings([0, 0, 0, 0, 0, 0], [[[play(4, n(1, 36))]]], { isPercussion: true });
-    const unchanged = { song, moved: 0, unplaced: 0, chords: 0, unplacedChords: 0 };
+    const unchanged = { song, moved: 0, unplaced: 0, naturalHarmonics: 0, chords: 0, unplacedChords: 0 };
 
     // Act + Assert
     expect(transpose(song, SONG, { mode: 'chromatic', amount: 0 })).toEqual(unchanged);
@@ -226,6 +226,106 @@ describe('transpose: a selection', () => {
       to: { trackIndex: 1, measureIndex: 0, beatIndex: 0, voiceIndex: 0 },
     };
     expect(transpose(song, scope, UP_TWO).song).toBe(song);
+  });
+});
+
+describe('transpose: one note', () => {
+  // A C chord on beat 1 (strings 5 4 3 2), its C4 on string 2 tied into beat 2; a chord diagram on beat 1.
+  const song = deepFreeze(
+    withKeyAndChord(
+      songOnStrings(STANDARD_TUNING, [[[play(4, n(5, 3), n(4, 2), n(3, 0), n(2, 1)), play(4, tied(n(2, 1))), rest(2)]]]),
+      0,
+      { name: 'C', firstFret: 1, frets: [0, 1, 0, 2, 3, -1] },
+    ),
+  );
+  const at = (beatIndex: number, string: number): TranspositionScope => ({ kind: 'note', at: { trackIndex: 0, measureIndex: 0, beatIndex, voiceIndex: 0, string } });
+
+  it('moves only the note at the address and the note tied to it; the beat’s chord stays', () => {
+    // Act
+    const result = transpose(song, at(0, 2), { mode: 'chromatic', amount: 1 });
+
+    // Assert
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:2/2,3/0,4/2,5/3', '960:4:2/2', '1920:2:r']);
+    expect(beatAt(result.song, 0, 1).voices[0]?.notes[0]?.isTied).toBe(true);
+    expect(beatAt(result.song, 0, 0).chord?.name).toBe('C');
+    expect(result).toMatchObject({ moved: 2, unplaced: 0, chords: 0 });
+    assertEditInvariants(result.song);
+  });
+
+  it('moves an open string’s note down to a string free on its beat that holds it, the others staying', () => {
+    // Act: G3 open on string 3, down to F#3.
+    const result = transpose(song, at(0, 3), { mode: 'chromatic', amount: -1 });
+
+    // Assert: strings 2, 4 and 5 keep their notes, string 1 is too high: F#3 at fret 14 of string 6.
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:2/1,4/2,5/3,6/14', '960:4:2/1', '1920:2:r']);
+    expect(result).toMatchObject({ moved: 1, unplaced: 0 });
+  });
+
+  it('moves the whole tied chain from a note that continues a tie, so the tie holds', () => {
+    // Act: the C4 on beat 2 continues beat 1's.
+    const result = transpose(song, at(1, 2), { mode: 'chromatic', amount: 1 });
+
+    // Assert
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:2/2,3/0,4/2,5/3', '960:4:2/2', '1920:2:r']);
+    expect(beatAt(result.song, 0, 1).voices[0]?.notes[0]?.isTied).toBe(true);
+    expect(result).toMatchObject({ moved: 2, unplaced: 0 });
+  });
+
+  it('leaves the song as it was where the address holds no note, or names no track', () => {
+    expect(transpose(song, at(0, 1), { mode: 'chromatic', amount: 1 }).song).toBe(song);
+    expect(transpose(song, at(2, 3), { mode: 'chromatic', amount: 1 }).song).toBe(song);
+    expect(transpose(song, { kind: 'note', at: { trackIndex: 4, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 2 } }, { mode: 'chromatic', amount: 1 }).song).toBe(song);
+  });
+});
+
+describe('transpose: notes only', () => {
+  it('moves the selected notes and leaves the chords on their beats as they were', () => {
+    // Arrange
+    const song = withKeyAndChord(songOnStrings(STANDARD_TUNING, [[[play(4, n(5, 3)), play(4, n(5, 5))]]]), 0, { name: 'C', firstFret: 1, frets: [0, 1, 0, 2, 3, -1] });
+    const scope: TranspositionScope = {
+      kind: 'beats',
+      from: { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0 },
+      to: { trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 0 },
+    };
+
+    // Act
+    const result = transpose(song, scope, { mode: 'chromatic', amount: 1, isNotesOnly: true });
+
+    // Assert
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:5/4', '960:4:5/6']);
+    expect(beatAt(result.song, 0, 0).chord).toEqual(beatAt(song, 0, 0).chord);
+    expect(result).toMatchObject({ moved: 2, chords: 0, unplacedChords: 0 });
+  });
+
+  it('leaves the key signatures of a whole track as they were', () => {
+    // Arrange
+    const song = withKeyAndChord(songOnStrings(STANDARD_TUNING, [[[play(4, n(5, 3))]]]), 0);
+
+    // Act
+    const result = transpose(song, { kind: 'track', trackIndex: 0 }, { mode: 'chromatic', amount: 2, isNotesOnly: true });
+
+    // Assert
+    expect(beatPitches(result.song)).toEqual(shifted(beatPitches(song), 2));
+    expect(track(result.song).measures[0]?.keySignature).toBe(0);
+  });
+});
+
+describe('transpose: natural harmonics', () => {
+  it('leaves a natural harmonic and the note tied to it where they are, counted apart: it sounds only at its fret', () => {
+    // Arrange: a natural harmonic at fret 12 of string 3 tied into beat 2, and an artificial one on string 1.
+    const natural = { ...n(3, 12), effect: { ...EMPTY_NOTE_EFFECT, harmonic: { type: 'natural' as const, data: 0 } } };
+    const artificial = { ...n(1, 5), effect: { ...EMPTY_NOTE_EFFECT, harmonic: { type: 'artificial' as const, data: 12 } } };
+    const song = deepFreeze(songOnStrings(STANDARD_TUNING, [[[play(4, artificial, natural), play(4, tied(natural)), rest(2)]]]));
+
+    // Act
+    const result = transpose(song, SONG, { mode: 'chromatic', amount: 1 });
+
+    // Assert: the artificial harmonic moves (its offset is from the fretted note); the natural one stays.
+    expect(voiceLayout(result.song, 0, 0, 0)).toEqual(['0:4:1/6,3/12', '960:4:3/12', '1920:2:r']);
+    expect(beatAt(result.song, 0, 0).voices[0]?.notes[0]?.effect.harmonic).toEqual({ type: 'artificial', data: 12 });
+    expect(beatAt(result.song, 0, 1).voices[0]?.notes[0]?.isTied).toBe(true);
+    expect(result).toMatchObject({ moved: 1, unplaced: 0, naturalHarmonics: 2 });
+    expect(transpose(song, SONG, { mode: 'chromatic', amount: 1, isChordsOnly: true })).toMatchObject({ moved: 0, naturalHarmonics: 0 });
   });
 });
 

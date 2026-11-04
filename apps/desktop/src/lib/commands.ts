@@ -71,6 +71,12 @@ const fileRows = (): readonly Command[] => [
   appRow('file.previousTab', 'file', (a) => a.cycleTab(-1), { when: 'tabs', shortcut: '⌃⇧⇥', keywords: ['document', 'switch'] }),
 ];
 
+/** Edit ▸ Raise / Lower by a Semitone: the id, the arrow with ⌥⇧, one more word each is found by. */
+const SEMITONE_ROWS = [
+  ['edit.semitoneUp', KEYS.arrowUp, 'higher'],
+  ['edit.semitoneDown', KEYS.arrowDown, 'lower'],
+] as const;
+
 const editRows = (): readonly Command[] => [
   appKeyRow('edit.undo', 'edit', press('z', { metaKey: true }), { when: 'undo' }),
   appKeyRow('edit.redo', 'edit', press('z', { metaKey: true, shiftKey: true }), { when: 'redo' }),
@@ -79,6 +85,8 @@ const editRows = (): readonly Command[] => [
   appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
   appKeyRow('edit.deleteNotes', 'edit', press('d'), { when: 'notes', keywords: ['erase', 'remove', 'clear', 'rests', 'selection'] }),
   appKeyRow('edit.deleteBars', 'edit', press('d', { metaKey: true }), { when: 'bar', keywords: ['measures', 'remove', 'selection'] }),
+  // Guitar Pro 8's One semitone up / down. Not 'transpose': Tools ▸ Transpose… stays the first answer to it.
+  ...SEMITONE_ROWS.map(([id, key, word]) => appKeyRow(id, 'edit', press(key, { altKey: true, shiftKey: true }), { when: 'notes', keywords: ['pitch', 'semitone', 'half', 'step', word, 'selection', 'notes'] })),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.voice${number}`, 'edit', press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.moveToVoice${number}`, 'edit', press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
   appEditorRow('edit.multivoice', 'edit', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all', 'voices', 'polyphony', 'fade'] }),
@@ -168,8 +176,8 @@ const noteRows = (): readonly Command[] => [
   appKeyRow('note.tie', 'note', press('t'), { when: 'note' }),
   appKeyRow('note.vibrato', 'note', press('b'), { when: 'note', keywords: ['wide', 'slight'] }),
   appKeyRow('note.bend', 'note', press('c'), { when: 'note', keywords: ['choke', 'release'] }),
-  appKeyRow('note.fretUp', 'note', press('='), { when: 'note', keywords: ['higher', 'semitone'] }),
-  appKeyRow('note.fretDown', 'note', press('-'), { when: 'note', keywords: ['lower', 'semitone'] }),
+  appKeyRow('note.fretUp', 'note', press('='), { when: 'note', keywords: ['higher', 'same', 'string'] }),
+  appKeyRow('note.fretDown', 'note', press('-'), { when: 'note', keywords: ['lower', 'same', 'string'] }),
   appKeyRow('note.stringUp', 'note', press(KEYS.arrowUp, { altKey: true }), { when: 'note' }),
   appKeyRow('note.stringDown', 'note', press(KEYS.arrowDown, { altKey: true }), { when: 'note' }),
   appKeyRow('note.erase', 'note', press(KEYS.backspace), { when: 'beat', keywords: ['delete', 'erase'] }),

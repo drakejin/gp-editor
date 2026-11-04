@@ -117,6 +117,25 @@ describe('EditionPalette state at the cursor', () => {
     expect(selected.onEdit.mock.calls).toEqual([[{ type: 'deleteNotes' }]]);
   });
 
+  it('lowers and raises the selected notes, or the cursor’s, a semitone (Guitar Pro 8’s Note buttons), on with a selection too', () => {
+    // Arrange
+    const alone = render(ON_EMPTY_STRING);
+    const selected = render(ON_EMPTY_STRING, SONG, false, true);
+    const onNote = render();
+
+    // Act
+    selected.press('semitoneDown');
+    selected.press('semitoneUp');
+
+    // Assert
+    expect(alone.tool('semitoneUp').props.isEnabled).toBe(false);
+    expect(onNote.tool('semitoneDown').props.isEnabled).toBe(true);
+    expect(selected.onAction.mock.calls).toEqual([[{ type: 'shiftPitch', delta: -1 }], [{ type: 'shiftPitch', delta: 1 }]]);
+    expect([onNote.tool('semitoneDown').props.label, onNote.tool('semitoneUp').props.label]).toEqual(['Semi −', 'Semi +']);
+    expect(onNote.tool('semitoneDown').props.tooltip).toBe('Lower by a semitone: the selected notes, or the note at the cursor (⌥⇧↓)');
+    expect(onNote.tool('semitoneUp').props.tooltip).toBe('Raise by a semitone: the selected notes, or the note at the cursor (⌥⇧↑)');
+  });
+
   it('shows the delete keys in the buttons’ corners and says where + Bar adds its bar', () => {
     // Arrange
     const palette = render();
@@ -159,11 +178,11 @@ describe('EditionPalette edits', () => {
 
   it('sends cursor actions for the note tools and the voices', () => {
     const palette = render();
-    palette.press('fretUp');
+    palette.press('semitoneUp');
     palette.press('voice2');
     palette.press('voice4');
     expect(palette.onAction.mock.calls.map(([action]) => action)).toEqual([
-      { type: 'shiftNoteFret', delta: 1 },
+      { type: 'shiftPitch', delta: 1 },
       { type: 'selectVoice', voiceIndex: 1 },
       { type: 'selectVoice', voiceIndex: 3 },
     ]);

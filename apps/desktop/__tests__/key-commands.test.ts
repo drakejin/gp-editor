@@ -75,6 +75,14 @@ describe('keyCommand', () => {
     expect(HANDLED_KEYS).toContainEqual({ key: '+', metaKey: true, shiftKey: true });
   });
 
+  it('moves the selected notes, or the cursor’s, a semitone with ⌥⇧↑ / ⌥⇧↓ (Guitar Pro 8’s keys); ⌥↑ / ⌥↓ stay the string moves', () => {
+    expect(keyCommand(press('ArrowUp', { altKey: true, shiftKey: true }))).toEqual({ type: 'shiftPitch', delta: 1 });
+    expect(keyCommand(press('ArrowDown', { altKey: true, shiftKey: true }))).toEqual({ type: 'shiftPitch', delta: -1 });
+    expect(keyCommand(press('ArrowUp', { altKey: true }))).toEqual({ type: 'shiftNoteString', delta: -1 });
+    expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowUp', altKey: true, shiftKey: true });
+    expect(HANDLED_KEYS).toContainEqual({ key: 'ArrowDown', altKey: true, shiftKey: true });
+  });
+
   it('zooms the score with ⌘- and ⌘= (- and = alone step the fret)', () => {
     expect(keyCommand(press('=', { metaKey: true }))).toEqual({ type: 'zoom', direction: 1 });
     expect(keyCommand(press('-', { metaKey: true }))).toEqual({ type: 'zoom', direction: -1 });

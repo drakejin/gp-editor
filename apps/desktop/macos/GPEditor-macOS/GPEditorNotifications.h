@@ -122,6 +122,12 @@ FOUNDATION_EXPORT NSString *const GPEditorClipboardCommandNotification;
  */
 FOUNDATION_EXPORT NSString *const GPEditorDeleteCommandNotification;
 
+/**
+ * Edit ▸ Raise by a Semitone / Lower by a Semitone (⌥⇧↑ / ⌥⇧↓ on the score) for the score (EditMenu.swift); GPFiles.m
+ * forwards it to JS as "semitoneRequested" { direction }. Object: NSString "up" or "down".
+ */
+FOUNDATION_EXPORT NSString *const GPEditorSemitoneCommandNotification;
+
 /** View ▸ Multitrack (F3) was chosen; GPFiles.m forwards it to JS as "multitrackRequested". No object. */
 FOUNDATION_EXPORT NSString *const GPEditorMultitrackCommandNotification;
 

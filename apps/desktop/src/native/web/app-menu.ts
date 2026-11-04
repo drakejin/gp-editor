@@ -128,6 +128,10 @@ function editMenu(): TopMenu {
     command('delete-notes', 'commands.title.edit.deleteNotes', post('deleteRequested', { what: 'notes' })),
     command('delete-bars', 'commands.title.edit.deleteBars', post('deleteRequested', { what: 'bars' }), { key: 'd', ctrl: true }),
     SEPARATOR,
+    // Alt+Shift+Up / Down are the score's own keys: a shortcut here would take them from text fields too.
+    command('semitone-up', 'commands.title.edit.semitoneUp', post('semitoneRequested', { direction: 'up' })),
+    command('semitone-down', 'commands.title.edit.semitoneDown', post('semitoneRequested', { direction: 'down' })),
+    SEPARATOR,
     command('lyrics', 'commands.title.edit.lyrics', post('lyricsRequested')),
     command('annotation', 'commands.title.edit.annotation', post('annotationRequested')),
     {

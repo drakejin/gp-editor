@@ -1,6 +1,6 @@
 // i18n-exempt-file: key names (react-native's KeyEvent.key values) and editor commands, nothing shown
 import type { HandledKeyEvent } from 'react-native';
-import type { DeleteCommand } from '../native/gp-files';
+import type { DeleteCommand, SemitoneDirection } from '../native/gp-files';
 import type { BarJump } from '../state/app-command';
 import type { EditorAction } from '../state/editor';
 import type { SongEdit } from '../state/song-edits';
@@ -100,6 +100,8 @@ export const HANDLED_KEYS: HandledKeyEvent[] = [
   { key: 'ArrowDown' },
   { key: 'ArrowUp', altKey: true },
   { key: 'ArrowDown', altKey: true },
+  { key: 'ArrowUp', altKey: true, shiftKey: true },
+  { key: 'ArrowDown', altKey: true, shiftKey: true },
   { key: 'ArrowUp', metaKey: true },
   { key: 'ArrowDown', metaKey: true },
   { key: 'ArrowLeft' },
@@ -169,6 +171,14 @@ const CLIPBOARD_KEYS: Readonly<Record<string, KeyCommand>> = { c: { type: 'copy'
 export const DELETE_COMMANDS: Readonly<Record<DeleteCommand, KeyCommand>> = {
   notes: { type: 'edit', edit: { type: 'deleteNotes' } },
   bars: { type: 'edit', edit: { type: 'deleteMeasure' } },
+};
+/**
+ * ⌥⇧↑ / ⌥⇧↓, Edit ▸ Raise / Lower by a Semitone and the palette's Semi + / Semi −: Guitar Pro 8's One semitone up /
+ * down — the selected notes, or the note at the cursor.
+ */
+export const SEMITONE_COMMANDS: Readonly<Record<SemitoneDirection, EditorAction>> = {
+  up: { type: 'shiftPitch', delta: 1 },
+  down: { type: 'shiftPitch', delta: -1 },
 };
 /** ⌘1–⌘4: the cursor on voice 1–4 (Guitar Pro 8's Edit Voice keys). */
 const VOICE_KEYS: Readonly<Record<string, KeyCommand>> = Object.fromEntries(
@@ -270,7 +280,8 @@ function letterKeyCommand(key: string): KeyCommand | undefined {
 
 /**
  * The editor's keys: arrows move the cursor (↑/↓ between strings — on into the next shown track in the multitrack view —,
- * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note, digits type
+ * ←/→ between beats, ⌘↑/↓ to the previous / next track), ⌥↑/↓ move the note to another string and ⌥⇧↑/↓ a semitone up
+ * or down (the selected notes too), digits type
  * a fret (two quick digits at one note make 10–29, a drum key up to 127), letters toggle effects (R ring, S slide, H/P hammer-on / pull-off, M palm
  * mute, X dead note, G ghost, A accent, N harmonic, T tie) or open a panel (B vibrato, C bend, K chord, J annotation), ⌫ / ⌦ turn a note into
  * a rest and remove a rest, D deletes the note (or the selected notes: the beats stay as rests), ⇧⌫ deletes the beat,
@@ -291,7 +302,7 @@ export function keyCommand(press: KeyPress, moment: KeyMoment = NO_MOMENT): KeyC
     return command;
   }
   if (altKey && isUpDown(key)) {
-    return { type: 'shiftNoteString', delta: key === 'ArrowUp' ? -1 : 1 };
+    return shiftKey ? SEMITONE_COMMANDS[key === 'ArrowUp' ? 'up' : 'down'] : { type: 'shiftNoteString', delta: key === 'ArrowUp' ? -1 : 1 };
   }
   if (DIGITS.includes(key)) {
     return { type: 'typeFretDigit', press: { digit: Number(key), at: moment.at, keyIndex: moment.index } };

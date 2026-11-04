@@ -3,7 +3,7 @@
 // EditMenu.swift post (GPEditorNotifications.h), forwarded to JS as events by one table, GPMenuEvents: the File menu
 // (New, Open…, Import PDF…, Export PDF… / PNG… / MIDI… / ASCII Tab… / MusicXML… / Compressed MusicXML… / Audio…,
 // Print…, Save, Save As…, Close Tab, Next Tab, Previous Tab), Edit ▸ Undo / Redo (with JS's undo state back:
-// setUndoState), Delete Notes / Delete Bars, Lyrics…, Annotation… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
+// setUndoState), Delete Notes / Delete Bars, Raise / Lower by a Semitone, Lyrics…, Annotation… and AI Wizard ▸ Song Writer…, Tools ▸ Scales…, Transpose…,
 // Online ▸ Songsterr Search…,
 // Command Palette… / Expression Text…, View ▸ Focus / Unfocus, Multitrack, Previous / Next Track, Drum Key, and Help ▸
 // Keyboard Shortcuts. Export's files, like Save's, go through showSavePanel, then writeFile / writeTextFile; Open reads
@@ -55,6 +55,12 @@ static NSDictionary *GPSaveAsBody(NSNotification *note)
 static NSDictionary *GPDeleteBody(NSNotification *note)
 {
   return @{@"what" : [note.object isKindOfClass:[NSString class]] ? note.object : @""};
+}
+
+/** Edit ▸ Raise / Lower by a Semitone: which way, "up" or "down" (JS checks it and ignores anything else). */
+static NSDictionary *GPSemitoneBody(NSNotification *note)
+{
+  return @{@"direction" : [note.object isKindOfClass:[NSString class]] ? note.object : @""};
 }
 
 /** Tools ▸ Command Palette… (⇧⌘P), or Expression Text… (⌥⌘E: the notification's object is @"expression"). */
@@ -115,6 +121,8 @@ static NSDictionary<NSNotificationName, GPMenuEvent *> *GPMenuEvents(void)
       GPEditorRedoCommandNotification : GPEvent(@"redoRequested", GPNoBody),
       // The score's notes (D) or bars (⌘D) deleted (EditMenu.swift: not while a text field has the keyboard).
       GPEditorDeleteCommandNotification : GPEvent(@"deleteRequested", GPDeleteBody),
+      // The score's notes a semitone up or down (EditMenu.swift: not while a text field has the keyboard).
+      GPEditorSemitoneCommandNotification : GPEvent(@"semitoneRequested", GPSemitoneBody),
       GPEditorSongWriterCommandNotification : GPEvent(@"songWriterRequested", GPNoBody),
       GPEditorComposeCommandNotification : GPEvent(@"composeRequested", GPNoBody),
       GPEditorAiEditCommandNotification : GPEvent(@"aiEditRequested", GPNoBody),

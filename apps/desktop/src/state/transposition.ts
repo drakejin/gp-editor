@@ -90,8 +90,14 @@ export function describeTransposition(options: TranspositionOptions): string {
 /** What could not move, as sentences for the hint strip; '' when everything moved. */
 function leftOutText(result: Transposition): string {
   const notes = result.unplaced === 0 ? '' : ` ${t('palette.transpose.unplacedNotes', { count: result.unplaced })}`;
+  const harmonics = result.naturalHarmonics === 0 ? '' : ` ${t('palette.transpose.naturalHarmonics', { count: result.naturalHarmonics })}`;
   const chords = result.unplacedChords === 0 ? '' : ` ${t('palette.transpose.unplacedChords', { count: result.unplacedChords })}`;
-  return `${notes}${chords}`;
+  return `${notes}${harmonics}${chords}`;
+}
+
+/** True when a transposition left some of its notes where they were (no string holds them, natural harmonics). */
+export function hasNotesLeft(result: Transposition): boolean {
+  return result.unplaced > 0 || result.naturalHarmonics > 0;
 }
 
 /** The hint strip after Tools ▸ Transpose…: what moved, by how much, and what could not move. */
@@ -101,7 +107,7 @@ export function transpositionHint(result: Transposition, options: TranspositionO
     const moved = result.chords === 0 ? t('palette.transpose.noChords') : t('palette.transpose.movedChords', { count: result.chords, how });
     return `${moved}${leftOutText(result)}`;
   }
-  if (result.moved === 0 && result.unplaced === 0) {
+  if (result.moved === 0 && !hasNotesLeft(result)) {
     return t('palette.transpose.noNotes');
   }
   const moved = result.moved === 0 ? t('palette.transpose.noneMoved') : t('palette.transpose.movedNotes', { count: result.moved, how });

@@ -3,6 +3,7 @@ import { setLanguage } from '../src/lib/i18n/i18n';
 import { FILE_TOOLS, SANDBOX_NOTE } from '../src/mcp/tools/file-tools';
 import { INITIAL_WORKSPACE, type WorkspaceAction, activeEditor, workspaceReducer } from '../src/state/workspace';
 import { call, fakeApp, openWorkspace } from '../test-support/mcp-host';
+import { beat, header, makeSong, note } from '../test-support/songs';
 
 const newScore = () => workspaceReducer(INITIAL_WORKSPACE, { type: 'created', mode: 'notationAndTab' });
 
@@ -235,5 +236,25 @@ describe('command tools', () => {
     expect(findNote(editor.document!.song, editor.cursor!)?.effect.palmMute).toBe(true);
     expect(missing).toMatchObject({ isError: true, text: 'No command "note.nothing": see list_commands.' });
     expect(undo).toMatchObject({ isError: true, text: expect.stringContaining('cannot run now') });
+  });
+
+  it('moves the selected bars’ notes a semitone with Edit ▸ Raise by a Semitone, the selection kept, one undo step a run', async () => {
+    // Arrange: bar 1 holds E4 + 3 and B3 + 5, bar 2 E4 + 7; bars 1–2 selected.
+    const song = makeSong([[beat(960, [note(1, 3)]), beat(1920, [note(2, 5)])], [beat(4800, [note(1, 7)])]], [header(1), header(2)]);
+    const app = fakeApp(openWorkspace(song));
+    Object.assign(app.host.commands.actions(), { runCommand: (command: WorkspaceAction) => app.host.dispatch(command) });
+    await call(app, 'select_bars', { fromBar: 1, toBar: 2 });
+
+    // Act
+    const first = await call(app, 'run_command', { id: 'edit.semitoneUp' });
+    await call(app, 'run_command', { id: 'edit.semitoneUp' });
+
+    // Assert
+    const editor = activeEditor(app.state());
+    const frets = editor.document?.song.tracks[0]?.measures.flatMap((measure) => measure.beats.map((each) => each.voices[0]?.notes[0]?.fret));
+    expect(first.text).toMatch(/^Ran edit\.semitoneUp \(Raise by a Semitone\)\./);
+    expect(frets).toEqual([5, 7, 9]);
+    expect(editor.selectionAnchor).toBeDefined();
+    expect(editor.past).toHaveLength(2);
   });
 });

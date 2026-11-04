@@ -66,7 +66,7 @@ export {
 } from './edit/tuning-fit';
 export { type TuningChange, setTrackTuning } from './edit/retune';
 export { type Transposition, type TranspositionMode, type TranspositionOptions, type TranspositionScope, transpose } from './edit/transpose';
-export { type NoteScope } from './edit/edit-scope';
+export { type NoteScope, isPercussionTrack } from './edit/edit-scope';
 export { type FingeringCost, type Refingering, fingeringCost, refinger } from './fingering/refinger';
 export { type EasyTransposition, easyTranspose } from './fingering/easy-transpose';
 export { type AdoptOptions, type FingeringAdoption, type PositionsNotTaken, adoptFingering } from './fingering/adopt';
