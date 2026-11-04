@@ -7,6 +7,7 @@ import {
   isEdited,
   openFailedMessage,
 } from './editor';
+import { HISTORY_LIMIT } from './editor-history';
 
 /** One open document, as a tab of the window: its own editor (song, file, undo, cursor, selection, view, hints). */
 export interface DocumentTab {
@@ -47,6 +48,12 @@ export type TabAction =
    * if any, are asked about before, by the caller); a new tab when none holds it.
    */
   | { readonly type: 'reloadTab'; readonly document: OpenDocument }
+  /**
+   * Autosaved work brought back (the restore question, File ▸ Recover Autosaved Work…), edited: in the tab holding its
+   * file as one edit (undo shows what the tab showed), else in a new tab; beside a tab whose own changes are not saved,
+   * in a new tab no file holds (Save asks where), so neither is lost.
+   */
+  | { readonly type: 'restoreTab'; readonly document: OpenDocument }
   | { readonly type: 'switchTab'; readonly tabId: string }
   /** Closes a tab at once (an edited one is asked about before, by the caller); its neighbour is shown. */
   | { readonly type: 'closeTab'; readonly tabId: string }
@@ -77,6 +84,8 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return openDocumentTab(state, action.document, action.isUnsaved ?? false);
     case 'reloadTab':
       return reloadTab(state, action.document);
+    case 'restoreTab':
+      return restoreTab(state, action.document);
     case 'created':
       return addTab(state, editorReducer(INITIAL_EDITOR_STATE, action));
     case 'dismissError':
@@ -120,9 +129,14 @@ export function tabLabels(state: WorkspaceState): readonly TabLabel[] {
   }));
 }
 
+/** The tab holding a file (never one for a song no file holds). */
+function holdingTab(state: WorkspaceState, path: string): DocumentTab | undefined {
+  return path === '' ? undefined : state.tabs.find((tab) => tab.editor.document?.path === path);
+}
+
 /** A document in a new tab in the view of the tab shown before, or the tab that already holds its file. */
 function openDocumentTab(state: WorkspaceState, document: OpenDocument, isUnsaved: boolean): WorkspaceState {
-  const holding = document.path === '' ? undefined : state.tabs.find((tab) => tab.editor.document?.path === document.path);
+  const holding = holdingTab(state, document.path);
   if (holding !== undefined) {
     return { ...state, activeTabId: holding.id, isLoading: false };
   }
@@ -132,11 +146,30 @@ function openDocumentTab(state: WorkspaceState, document: OpenDocument, isUnsave
 
 /** The tab holding the document's file, with a fresh editor on it in the tab's view, shown; else a new tab. */
 function reloadTab(state: WorkspaceState, document: OpenDocument): WorkspaceState {
-  const holding = document.path === '' ? undefined : state.tabs.find((tab) => tab.editor.document?.path === document.path);
+  const holding = holdingTab(state, document.path);
   if (holding === undefined) {
     return openDocumentTab(state, document, false);
   }
   const editor = editorReducer({ ...INITIAL_EDITOR_STATE, mode: holding.editor.mode }, { type: 'loaded', document });
+  return { ...state, tabs: state.tabs.map((tab) => (tab.id === holding.id ? { ...tab, editor } : tab)), activeTabId: holding.id, isLoading: false };
+}
+
+/**
+ * Autosaved work in the tab holding its file, as one edit: a fresh editor in the tab's view on the restored song, the
+ * song it showed one undo step back, still saved as the file is; a new tab, edited, when no tab holds the file. When
+ * the tab holding it has changes of its own, a new tab no file holds: two tabs never write one file.
+ */
+function restoreTab(state: WorkspaceState, document: OpenDocument): WorkspaceState {
+  const holding = holdingTab(state, document.path);
+  const shown = holding?.editor.document;
+  if (holding === undefined || shown === undefined) {
+    return openDocumentTab(state, document, true);
+  }
+  if (isEdited(holding.editor)) {
+    return openDocumentTab(state, { ...document, path: '' }, true);
+  }
+  const fresh = editorReducer({ ...INITIAL_EDITOR_STATE, mode: holding.editor.mode }, { type: 'loaded', document: { ...shown, song: document.song } });
+  const editor = { ...fresh, savedSong: holding.editor.savedSong, past: [...holding.editor.past, shown.song].slice(-HISTORY_LIMIT) };
   return { ...state, tabs: state.tabs.map((tab) => (tab.id === holding.id ? { ...tab, editor } : tab)), activeTabId: holding.id, isLoading: false };
 }
 

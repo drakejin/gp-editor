@@ -38,6 +38,8 @@ function mockActions(): jest.Mocked<CommandActions> {
     closeTab: jest.fn(),
     cycleTab: jest.fn(),
     openRecentFiles: jest.fn(),
+    openAutosavedWork: jest.fn(),
+    showAutosaveFolder: jest.fn(),
     openSongWriter: jest.fn(),
     openShortcuts: jest.fn(),
     openSettings: jest.fn(),
@@ -226,7 +228,7 @@ describe('command registry', () => {
 describe('command registry: when a command can run', () => {
   it('runs only what needs no document when none is open', () => {
     const enabled = appCommands().filter((command) => command.isEnabled(NO_DOCUMENT)).map((command) => command.id);
-    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales', 'tools.songsterr',
+    expect(enabled).toEqual(['file.new', 'file.newScore', 'file.newTab', 'file.open', 'file.recent', 'file.recoverAutosave', 'file.showAutosaveFolder', 'file.importPdf', 'edit.songWriter', 'tools.tuner', 'tools.scales', 'tools.songsterr',
       'tools.mcpServerSettings', 'tools.mcpServerLog', 'tools.mcpServerRestart', 'tools.mcpServerSetupCommand', 'help.shortcuts', 'app.settings',
     ]);
   });
@@ -259,7 +261,7 @@ describe('command registry: running', () => {
     const actions = mockActions();
 
     // Act
-    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'file.exportAudio', 'tools.tuner', 'tools.scales', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer', 'app.settings']) {
+    for (const id of ['file.saveAs', 'file.exportMidi', 'file.exportAsciiTab', 'file.exportMusicXml', 'file.exportCompressedMusicXml', 'file.exportAudio', 'tools.tuner', 'tools.scales', 'file.exportPng', 'file.print', 'file.closeTab', 'file.previousTab', 'tools.transpose', 'view.panel.inspector', 'play.loop', 'help.shortcuts', 'edit.songWriter', 'file.recent', 'file.recoverAutosave', 'file.showAutosaveFolder', 'tools.instrument', 'tools.lineIn', 'view.panel.mixer', 'app.settings']) {
       find(id).run(actions);
     }
 
@@ -282,6 +284,8 @@ describe('command registry: running', () => {
     expect(actions.openShortcuts).toHaveBeenCalled();
     expect(actions.openSongWriter).toHaveBeenCalled();
     expect(actions.openRecentFiles).toHaveBeenCalled();
+    expect(actions.openAutosavedWork).toHaveBeenCalled();
+    expect(actions.showAutosaveFolder).toHaveBeenCalled();
     expect(actions.pickInstrument).toHaveBeenCalled();
     expect(actions.openLineIn).toHaveBeenCalled();
     expect(actions.togglePanel).toHaveBeenCalledWith('mixer');

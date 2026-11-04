@@ -38,12 +38,12 @@ interface Probe {
   readonly unmount: () => void;
 }
 
-function renderTabs(workspace: WorkspaceState = twoTabs()): Probe {
+function renderTabs(workspace: WorkspaceState = twoTabs(), beforeQuit?: () => Promise<void>): Probe {
   const dispatch = jest.fn<void, [WorkspaceAction]>();
   const saveTab = jest.fn<Promise<boolean>, [string, boolean]>();
   let latest: Tabs | undefined;
   function Hook() {
-    latest = useTabs(workspace, dispatch, saveTab);
+    latest = useTabs(workspace, dispatch, saveTab, beforeQuit);
     return null;
   }
   let renderer!: ReactTestRenderer.ReactTestRenderer;
@@ -280,6 +280,24 @@ describe('useTabs: quitting with edited tabs (⌘Q, the window’s close button)
     expect(mockTabEvents.finishQuit).not.toHaveBeenCalled();
     expect(tabs.current().closing).toBeUndefined();
     expect(tabs.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'closeTab' }));
+  });
+
+  it('quits only once the autosave has marked the session’s snapshots (Don’t Save: not offered back)', async () => {
+    // Arrange
+    let finishMarks: () => void = () => undefined;
+    const beforeQuit = jest.fn(() => new Promise<void>((resolve) => (finishMarks = resolve)));
+    const tabs = renderTabs(workspaceReducer(twoTabs(), { type: 'switchTab', tabId: 'tab-1' }), beforeQuit);
+
+    // Act
+    requestQuit();
+    ReactTestRenderer.act(() => tabs.current().discardAndClose());
+    const beforeMarks = mockTabEvents.finishQuit.mock.calls.length;
+    await settle(() => finishMarks());
+
+    // Assert
+    expect(beforeQuit).toHaveBeenCalledTimes(1);
+    expect(beforeMarks).toBe(0);
+    expect(mockTabEvents.finishQuit).toHaveBeenCalledTimes(1);
   });
 
   it('tells the native side whether a tab has unsaved changes (the close button’s dot, the quit question)', () => {

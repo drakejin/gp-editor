@@ -5,7 +5,7 @@ import { NativeModules } from 'react-native';
 
 /** The native modules src/native talks to. */
 const MODULE_NAMES = [
-  'GPAnthropic', 'GPAppSettings', 'GPAudioExport', 'GPAudioInput', 'GPAudioTrack', 'GPClipboard', 'GPFiles', 'GPMidiInput',
+  'GPAnthropic', 'GPAppSettings', 'GPAudioExport', 'GPAutosave', 'GPAudioInput', 'GPAudioTrack', 'GPClipboard', 'GPFiles', 'GPMidiInput',
   'GPMcpServer', 'GPPdfExport', 'GPPlayer', 'GPPngExport', 'GPProjects', 'GPRecentFiles', 'GPStylesheet',
 ] as const;
 

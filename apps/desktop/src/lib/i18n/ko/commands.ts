@@ -20,6 +20,8 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.file.newTab': '새 타브',
   'commands.title.file.open': '열기…',
   'commands.title.file.recent': '최근 파일…',
+  'commands.title.file.recoverAutosave': '자동 저장된 작업 복원…',
+  'commands.title.file.showAutosaveFolder': '자동 저장 폴더 보기',
   'commands.title.file.importPdf': 'PDF 가져오기…',
   'commands.title.file.save': '저장',
   'commands.title.file.saveAs': '다른 이름으로 저장…',

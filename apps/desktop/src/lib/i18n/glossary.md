@@ -150,6 +150,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | tab (an open document) | 탭 | never `타브` |
 | new / open / open recent / recent files | 새로 만들기 / 열기 / 최근 항목 열기 / 최근 파일 | |
 | save / save as | 저장 / 다른 이름으로 저장… | |
+| autosave, autosaved work, autosave folder; restore / don't restore | 자동 저장, 자동 저장된 작업, 자동 저장 폴더; 복원 / 복원 안 함 | the restore question at launch, File ▸ Recover Autosaved Work… = `자동 저장된 작업 복원…` |
 | close tab / next tab / previous tab | 탭 닫기 / 다음 탭 / 이전 탭 | |
 | import / export / print | 가져오기 / 내보내기 / 프린트 | macOS's Korean says 프린트 |
 | undo / redo | 실행 취소 / 실행 복귀 | macOS's words |

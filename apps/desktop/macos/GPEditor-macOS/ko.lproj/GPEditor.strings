@@ -14,6 +14,7 @@
 "Clear Menu" = "메뉴 지우기";
 "%@ (missing)" = "%@ (없음)";
 "Recent Files…" = "최근 파일…";
+"Recover Autosaved Work…" = "자동 저장된 작업 복원…";
 "Import PDF…" = "PDF 가져오기…";
 "Close Tab" = "탭 닫기";
 "Next Tab" = "다음 탭";
@@ -101,6 +102,10 @@
 "“%@” is read-only, so it was left as it is: save it under another name (File ▸ Save As…)" = "“%@” 파일은 읽기 전용이라 그대로 두었습니다. 다른 이름으로 저장하세요(파일 ▸ 다른 이름으로 저장…)";
 "No file format to save in" = "저장할 파일 형식이 없습니다";
 "The file data is not valid base64" = "파일 데이터가 올바른 base64가 아닙니다";
+"Not an autosave folder" = "자동 저장 폴더가 아닙니다";
+"The autosave folder could not be made" = "자동 저장 폴더를 만들지 못했습니다";
+"The autosaved work could not be written" = "자동 저장된 작업을 쓰지 못했습니다";
+"The autosaved work is no longer there" = "자동 저장된 작업이 더 이상 없습니다";
 "The recent files list is not valid" = "최근 파일 목록이 올바르지 않습니다";
 "“%@” is no longer there: it was deleted or moved to the Trash, or its disk is not connected" = "“%@” 파일이 더 이상 없습니다. 삭제되었거나 휴지통으로 옮겨졌거나, 파일이 있는 디스크가 연결되어 있지 않습니다";
 "Nothing to export" = "내보낼 것이 없습니다";

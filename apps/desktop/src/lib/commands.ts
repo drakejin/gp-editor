@@ -51,6 +51,8 @@ const fileRows = (): readonly Command[] => [
   appEditorRow('file.newTab', 'file', { type: 'newFile', mode: 'tab' }, { when: 'always', keywords: ['create', 'tablature'] }),
   appEditorRow('file.open', 'file', { type: 'openFile' }, { when: 'always', shortcut: '⌘O', keywords: ['file', 'gp', 'gp5', 'load', 'musicxml', 'ptb', 'tef', 'midi'] }),
   appRow('file.recent', 'file', (a) => a.openRecentFiles(), { when: 'always', keywords: ['open', 'recent', 'pinned', 'history'] }),
+  appRow('file.recoverAutosave', 'file', (a) => a.openAutosavedWork(), { when: 'always', keywords: ['autosave', 'restore', 'recover', 'crash', 'backup', 'unsaved', 'lost'] }),
+  appRow('file.showAutosaveFolder', 'file', (a) => a.showAutosaveFolder(), { when: 'always', keywords: ['autosave', 'finder', 'backup', 'folder', 'snapshot'] }),
   appEditorRow('file.importPdf', 'file', { type: 'importPdf' }, { when: 'always', shortcut: '⇧⌘I', keywords: ['transcribe', 'ai', 'claude', 'scan'] }),
   appEditorRow('file.save', 'file', { type: 'saveFile' }, { shortcut: '⌘S', keywords: ['write'] }),
   appRow('file.saveAs', 'file', (a) => a.save(true), { shortcut: '⇧⌘S', keywords: ['format', 'gp', 'gp5', 'gp4', 'gp3', 'copy'] }),

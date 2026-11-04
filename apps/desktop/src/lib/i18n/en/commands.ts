@@ -22,6 +22,8 @@ export const EN_COMMANDS = {
   'commands.title.file.newTab': 'New Tab',
   'commands.title.file.open': 'Open…',
   'commands.title.file.recent': 'Recent Files…',
+  'commands.title.file.recoverAutosave': 'Recover Autosaved Work…',
+  'commands.title.file.showAutosaveFolder': 'Show Autosave Folder',
   'commands.title.file.importPdf': 'Import PDF…',
   'commands.title.file.save': 'Save',
   'commands.title.file.saveAs': 'Save As…',

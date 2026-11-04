@@ -35,7 +35,9 @@ plus a small Rust side. The macOS build is untouched (Metro never resolves `.web
 ## Not on Windows yet
 
 The parts whose native side is macOS only: track effects and the master strip (the Mixer's volume / pan / mute / solo
-work, the effects are not heard), Line In, File ▸ Export Audio…, the audio track's playback, the MCP server. Closing
+work, the effects are not heard), Line In, File ▸ Export Audio…, the audio track's playback, the MCP server, autosave and
+the restore question at launch (`autosave.web.ts` does nothing: no Rust command makes, lists or removes folders in the app's
+data folder — it needs one before it can come over; the command palette's Recover Autosaved Work… says so). Closing
 the window with edited documents does not ask to save yet. The installer is not code-signed (SmartScreen warns on
 first run).
 

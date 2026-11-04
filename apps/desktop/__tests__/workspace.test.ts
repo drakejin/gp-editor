@@ -155,6 +155,58 @@ describe('workspaceReducer: opening documents in tabs', () => {
     expect(activeEditor(asGp5).hint).toBeUndefined();
   });
 
+  it('restores autosaved work in a new tab, edited and linked to its file, when no tab holds that file', () => {
+    // Arrange
+    const autosaved = makeSong([[beat(960, [note(1, 9)])]]);
+
+    // Act
+    const state = workspaceReducer(threeTabs(), { type: 'restoreTab', document: document('D.gp5', '/scores/D.gp5', autosaved) });
+
+    // Assert
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'D.gp5']);
+    expect(activeEditor(state).document).toMatchObject({ path: '/scores/D.gp5', song: autosaved });
+    expect(isEdited(activeEditor(state))).toBe(true);
+  });
+
+  it('restores a new song’s work as a new untitled tab, edited', () => {
+    const state = workspaceReducer(INITIAL_WORKSPACE, { type: 'restoreTab', document: document('Untitled', '', SONG) });
+    expect(activeEditor(state).document?.path).toBe('');
+    expect(isEdited(activeEditor(state))).toBe(true);
+  });
+
+  it('restores into the tab holding the file as one edit: shown, edited, undo goes back to what it showed', () => {
+    // Arrange: B.gp5 in tab-2, C shown
+    const start = threeTabs();
+    const autosaved = makeSong([[beat(960, [note(1, 9)])], [beat(960, [note(1, 9)])]]);
+
+    // Act
+    const state = workspaceReducer(start, { type: 'restoreTab', document: document('B.gp5', '/scores/B.gp5', autosaved) });
+    const undone = workspaceReducer(state, { type: 'undo' });
+
+    // Assert
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5']);
+    expect(state.activeTabId).toBe('tab-2');
+    expect(activeEditor(state).document?.song).toBe(autosaved);
+    expect(isEdited(activeEditor(state))).toBe(true);
+    expect(activeEditor(undone).document?.song).toBe(SONG);
+    expect(isEdited(activeEditor(undone))).toBe(false);
+  });
+
+  it('restores beside a tab holding the file with changes of its own: a new tab, its file asked for on Save', () => {
+    // Arrange: B.gp5 in tab-2 edited
+    const start = run([{ type: 'switchTab', tabId: 'tab-2' }, { type: 'setNoteFret', fret: 5 }], threeTabs());
+    const autosaved = makeSong([[beat(960, [note(1, 9)])]]);
+
+    // Act
+    const state = workspaceReducer(start, { type: 'restoreTab', document: document('B.gp5', '/scores/B.gp5', autosaved) });
+
+    // Assert
+    expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'B.gp5']);
+    expect(fret(state, 1)).toBe(5);
+    expect(activeEditor(state).document).toMatchObject({ path: '', song: autosaved });
+    expect(isEdited(activeEditor(state))).toBe(true);
+  });
+
   it('opens a document with openTab like a loaded file when it is not marked unsaved', () => {
     const state = workspaceReducer(threeTabs(), { type: 'openTab', document: document('D.gp5') });
     expect(fileNames(state)).toEqual(['A.gp5', 'B.gp5', 'C.gp5', 'D.gp5']);

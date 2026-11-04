@@ -35,11 +35,15 @@ interface QuitReview {
   readonly stop: () => void;
 }
 
-/** Switching and closing tabs; `saveTab` saves one tab and says whether it was saved (useDocument). */
+/**
+ * Switching and closing tabs; `saveTab` saves one tab and says whether it was saved (useDocument); `beforeQuit` runs
+ * once every edited tab is answered, before the app quits (the autosave's last marks: useAutosave's endSession).
+ */
 export function useTabs(
   workspace: WorkspaceState,
   dispatch: Dispatch<WorkspaceAction>,
   saveTab: (tabId: string, saveAs: boolean) => Promise<boolean>,
+  beforeQuit?: () => Promise<void>,
 ): Tabs {
   const [closing, setClosing] = useState<TabClosing | undefined>(undefined);
   // The latest tabs and question, read through refs so the menu listeners are not re-added on every edit.
@@ -47,7 +51,7 @@ export function useTabs(
   latest.current = workspace;
   const shownQuestion = useRef(closing);
   shownQuestion.current = closing;
-  const quit = useQuitReview(latest, shownQuestion, dispatch, setClosing);
+  const quit = useQuitReview(latest, shownQuestion, dispatch, setClosing, beforeQuit);
 
   const switchTo = useCallback((tabId: string) => dispatch({ type: 'switchTab', tabId }), [dispatch]);
   const requestClose = useCallback(
@@ -119,6 +123,7 @@ function useQuitReview(
   shownQuestion: RefObject<TabClosing | undefined>,
   dispatch: Dispatch<WorkspaceAction>,
   setClosing: (closing: TabClosing | undefined) => void,
+  beforeQuit: (() => Promise<void>) | undefined,
 ): QuitReview {
   // The tabs answered in the quit under way; undefined while none is.
   const answeredTabs = useRef<ReadonlySet<string> | undefined>(undefined);
@@ -130,12 +135,16 @@ function useQuitReview(
     const next = latest.current.tabs.find((tab) => tab.editor.document !== undefined && isEdited(tab.editor) && !answered.has(tab.id));
     if (next?.editor.document === undefined) {
       answeredTabs.current = undefined;
-      finishQuit();
+      if (beforeQuit === undefined) {
+        finishQuit();
+      } else {
+        void beforeQuit().finally(finishQuit);
+      }
       return;
     }
     dispatch({ type: 'switchTab', tabId: next.id });
     setClosing({ tabId: next.id, name: tabTitle(next.editor.document), isQuitting: true });
-  }, [latest, dispatch, setClosing]);
+  }, [latest, dispatch, setClosing, beforeQuit]);
   // Each quit asks from the first edited tab again, unless its question is on screen already.
   const start = useCallback(() => {
     if (shownQuestion.current?.isQuitting !== true) {

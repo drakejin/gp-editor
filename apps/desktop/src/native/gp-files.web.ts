@@ -137,6 +137,8 @@ function menuRequests(event: string): (listener: () => void) => () => void {
 
 /** File ▸ Import PDF… (Ctrl+Shift+I). */
 export const subscribeImportPdfRequests = menuRequests('importPdfRequested');
+/** The Mac's File ▸ Recover Autosaved Work… (autosave is macOS only: the command palette's row opens the panel). */
+export const subscribeRecoverAutosaveRequests = menuRequests('recoverAutosaveRequested');
 /** The Mac's quit with edited tabs; the Windows menu's Exit closes the window without asking yet (WINDOWS_PORT.md). */
 export const subscribeQuitRequests = menuRequests('quitRequested');
 /** File ▸ Export PDF… (Ctrl+Shift+E), the same as the Export… button. */

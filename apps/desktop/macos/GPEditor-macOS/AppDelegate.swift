@@ -39,6 +39,10 @@ struct GPEditorApp: App {
         }
         .keyboardShortcut("o")
         RecentFilesCommands(model: recentFiles, strings: strings)
+        // The work autosaved every 30 s (GPAutosave.m), as the launch after a crash offers it back.
+        Button(strings("Recover Autosaved Work…")) {
+          NotificationCenter.default.post(name: .GPEditorRecoverAutosaveCommand, object: nil)
+        }
         Button(strings("Import PDF…")) {
           NotificationCenter.default.post(name: .GPEditorImportPdfCommand, object: nil)
         }

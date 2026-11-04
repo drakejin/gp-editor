@@ -7,8 +7,8 @@ import type { WindowTools } from './use-window-tools';
 /** What is over the score, and Esc's way through it. */
 export interface WindowOverlays {
   /**
-   * Esc answers the save question first (Cancel), then the rebuilt song's (Keep My Changes), then closes a panel, then
-   * the chrome's overlays; false: none was open.
+   * Esc answers the save question first (Cancel), then the rebuilt song's (Keep My Changes), then closes the autosaved
+   * work's panel (nothing answered), then a panel, then the chrome's overlays; false: none was open.
    */
   readonly closeOverlay: () => boolean;
   /** While anything is over the score, typing goes to it (or nowhere), not to the score. */
@@ -37,12 +37,16 @@ export function useWindowOverlays({ chrome, focusScore }: WindowBase, files: Win
   const closePanel = usePanelCloser(closers, focusScore);
   const { cancelClose } = files.tabs;
   const { keepEdited } = files.documents;
+  const { close: closeRecovery } = files.recovery;
   const { closeOverlay: closeChromeOverlay } = chrome;
-  const closeOverlay = useCallback(() => cancelClose() || keepEdited() || closePanel() || closeChromeOverlay(), [cancelClose, keepEdited, closePanel, closeChromeOverlay]);
+  const closeOverlay = useCallback(
+    () => cancelClose() || keepEdited() || closeRecovery() || closePanel() || closeChromeOverlay(),
+    [cancelClose, keepEdited, closeRecovery, closePanel, closeChromeOverlay],
+  );
   const isChromeOverlayOpen =
     chrome.notePanel !== undefined || chrome.isChordPanelOpen || chrome.isShortcutSheetOpen || chrome.menu !== undefined || chrome.pickingTrackIndex !== undefined;
   // The line in's card is beside the score, not over it: typing still goes to the score.
   const isPanelOpen = closers.some(([isOpen, close]) => isOpen && close !== tools.audio.lineIn.close);
-  const isQuestionOpen = files.tabs.closing !== undefined || files.documents.rebuilt !== undefined;
+  const isQuestionOpen = files.tabs.closing !== undefined || files.documents.rebuilt !== undefined || files.recovery.panel !== undefined;
   return { closeOverlay, isOverlayOpen: isQuestionOpen || isChromeOverlayOpen || isPanelOpen };
 }
