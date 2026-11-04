@@ -1,8 +1,8 @@
-import { memo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { type GestureResponderEvent, type NativeMouseEvent, type NativeSyntheticEvent, Pressable } from 'react-native';
 import type { Song, StringAddress, Track } from '@gp-editor/core';
 import { isKeyboardTrack } from '../lib/fingering';
-import { type DragIntent, type NoteGestureEnd, dragIntent } from '../lib/pitch-drag';
+import { type NoteGestureEnd, dragSemitones, noteDragOf } from '../lib/pitch-drag';
 import type { MeasureLayout, RowLayout } from '../lib/layout';
 import { ScoreCanvas } from '../native/score-canvas';
 import { type DesignHandle, designHandles, engraveDesign, hitTestDesign } from '../score/design-handles';
@@ -62,9 +62,12 @@ export interface ScoreRowProps {
    * cursor's address. Then the drag says what it is: up or down a pitch drag (onDragNote), sideways a selection.
    */
   readonly onPressNote?: (note: StringAddress) => void;
-  /** A drag that began on a note went up or down: the pointer `dy` layout points below where it went down. */
-  readonly onDragNote?: (dy: number) => void;
-  /** The gesture that began on a note ended: let go after a pitch drag, let go where it began, or turned into a selection drag. */
+  /** A drag that began on a note went up or down: the semitones it has reached (lib/pitch-drag's dragSemitones). */
+  readonly onDragNote?: (semitones: number) => void;
+  /**
+   * The gesture that began on a note ended: let go after a pitch drag or before it did anything, turned into a selection
+   * drag, or lost (the row went away before the mouse came up).
+   */
   readonly onEndNote?: (end: NoteGestureEnd) => void;
 }
 
@@ -89,11 +92,11 @@ interface DragStart {
 
 /**
  * The mouse's gesture on the row, from where it went down: a Design Mode handle dragged, a beat pressed (and a
- * selection dragged from it), or a note pressed — its beat, and what the drag turned out to be once it moved.
+ * selection dragged from it), or a note pressed — its place, and whether the drag has become a pitch drag.
  */
 type RowGesture =
   | { readonly kind: 'design' | 'beat'; readonly start: DragStart }
-  | { readonly kind: 'note'; readonly start: DragStart; readonly hit: RowHit; readonly intent?: DragIntent };
+  | { readonly kind: 'note'; readonly start: DragStart; readonly hit: RowHit; readonly isPitch: boolean };
 
 /** Design Mode's handles on the row's canvas (none when it is off). */
 function rowHandles(props: ScoreRowProps, height: number): DesignHandle[] {
@@ -164,9 +167,10 @@ function pressRow(props: ScoreRowProps, hits: RowHits, handles: readonly DesignH
     return undefined;
   }
   const note = shiftKey === true ? undefined : hits.noteAt(locationX, locationY);
-  if (note !== undefined && hit !== undefined) {
+  if (note !== undefined) {
     props.onPressNote?.(note);
-    return { kind: 'note', start, hit: { ...hit, string: note.string } };
+    const { trackIndex, measureIndex, beatIndex, string } = note;
+    return { kind: 'note', start, hit: { trackIndex, measureIndex, beatIndex, string }, isPitch: false };
   }
   if (hit !== undefined) {
     props.onPress(hit, shiftKey === true);
@@ -175,16 +179,20 @@ function pressRow(props: ScoreRowProps, hits: RowHits, handles: readonly DesignH
 }
 
 /**
- * A drag from a note: nothing until it says what it is (lib/pitch-drag's dragIntent), then up or down the note's pitch,
- * or sideways a selection from the note's beat — the gesture it becomes.
+ * A drag from a note, the pointer (dx, dy) screen points from where it went down: nothing until it says what it is
+ * (lib/pitch-drag's noteDragOf), then the note's pitch up or down, or a selection from the note's beat sideways.
  */
 function dragNote(props: ScoreRowProps, gesture: Extract<RowGesture, { kind: 'note' }>, dx: number, dy: number): RowGesture {
-  const intent = gesture.intent ?? dragIntent(dx, dy);
-  if (intent === 'pitch') {
-    props.onDragNote?.(dy);
-    return gesture.intent === intent ? gesture : { ...gesture, intent };
+  if (gesture.isPitch) {
+    props.onDragNote?.(dragSemitones(dy, props.zoom));
+    return gesture;
   }
-  if (intent === 'select') {
+  const drag = noteDragOf(dx, dy, props.zoom);
+  if (drag?.kind === 'pitch') {
+    props.onDragNote?.(drag.semitones);
+    return { ...gesture, isPitch: true };
+  }
+  if (drag?.kind === 'select') {
     props.onEndNote?.('select');
     props.onPress(gesture.hit, false);
     return { kind: 'beat', start: gesture.start };
@@ -192,9 +200,24 @@ function dragNote(props: ScoreRowProps, gesture: Extract<RowGesture, { kind: 'no
   return gesture;
 }
 
+/** A note gesture still going on when the row goes away (scrolled out of the list) ends with nothing done. */
+function useNoteGestureEnd(gesture: { readonly current: RowGesture | undefined }, onEndNote: ScoreRowProps['onEndNote']): void {
+  const latest = useRef(onEndNote);
+  latest.current = onEndNote;
+  useEffect(
+    () => () => {
+      if (gesture.current?.kind === 'note') {
+        latest.current?.('cancel');
+      }
+    },
+    [gesture],
+  );
+}
+
 function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): RowPointer {
   const { zoom, rowIndex, trackIndex, onDrag } = props;
   const gesture = useRef<RowGesture | undefined>(undefined);
+  useNoteGestureEnd(gesture, props.onEndNote);
   const hits = rowHits(props);
   const onPressIn = (event: GestureResponderEvent) => {
     gesture.current = pressRow(props, hits, handles, event);
@@ -206,8 +229,8 @@ function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): 
       return;
     }
     const { start } = current;
-    const [dx, dy] = [(event.nativeEvent.pageX - start.pageX) / zoom, (event.nativeEvent.pageY - start.pageY) / zoom];
-    const [x, y] = [start.x / zoom + dx, start.y / zoom + dy];
+    const [dx, dy] = [event.nativeEvent.pageX - start.pageX, event.nativeEvent.pageY - start.pageY];
+    const [x, y] = [(start.x + dx) / zoom, (start.y + dy) / zoom];
     const next = current.kind === 'note' ? dragNote(props, current, dx, dy) : current;
     gesture.current = next;
     if (next.kind === 'design') {
@@ -222,7 +245,7 @@ function useRowPointer(props: ScoreRowProps, handles: readonly DesignHandle[]): 
     if (current?.kind === 'design') {
       props.onDesignRelease?.();
     } else if (current?.kind === 'note') {
-      props.onEndNote?.(current.intent === 'pitch' ? 'drag' : 'click');
+      props.onEndNote?.(current.isPitch ? 'drag' : 'click');
     }
   };
   return { onPressIn, onPressMove, onPressOut, onAuxClick: hits.onAuxClick };

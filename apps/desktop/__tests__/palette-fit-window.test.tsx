@@ -1,7 +1,7 @@
 // First: the native modules every src/native wrapper keeps when it loads.
 import { answerNativeCalls } from '../test-support/native-fakes';
 import type { ElementType } from 'react';
-import { DeviceEventEmitter, View } from 'react-native';
+import { DeviceEventEmitter, StyleSheet, View } from 'react-native';
 import ReactTestRenderer, { type ReactTestInstance } from 'react-test-renderer';
 import App from '../src/App';
 import { AnnotationPanel } from '../src/components/annotations/AnnotationPanel';
@@ -15,7 +15,7 @@ import { ErrorBanner } from '../src/components/WindowOverlays';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
 import { TAB } from '../src/lib/layout';
-import { PITCH_DRAG_STEP } from '../src/lib/pitch-drag';
+import { DRAG_DEAD_ZONE, MIN_PITCH_DRAG_STEP, PITCH_DRAG_STEP } from '../src/lib/pitch-drag';
 import { placeRow } from '../src/score/row';
 import { readFixture } from '../test-support/fixtures';
 import { placementOf } from '../test-support/palette-fit';
@@ -191,7 +191,7 @@ describe('a note dragged up or down in the window', () => {
     return { pressable, note, point: { x: x * zoom, y: y * zoom }, zoom };
   }
 
-  it('shows the drag’s hint over the score, not as the hint strip, and moves the note when let go', async () => {
+  it('shows the drag’s hint laid over the tab strip, not as the hint strip, and moves the note when let go', async () => {
     // Arrange
     const renderer = await openWindow();
     const { pressable, note, point, zoom } = firstNote(renderer);
@@ -199,12 +199,25 @@ describe('a note dragged up or down in the window', () => {
 
     // Act: down on the note, then 3 semitones up
     await ReactTestRenderer.act(async () => pressable.props.onPressIn({ nativeEvent: { locationX: point.x, locationY: point.y, pageX, pageY } }));
-    await ReactTestRenderer.act(async () => pressable.props.onPressMove({ nativeEvent: { pageX, pageY: pageY - 3 * PITCH_DRAG_STEP * zoom } }));
-    const hints = renderer.root.findAllByType(HintBar).map((hint) => ({ message: hint.props.message, isStrip: hint.props.onDismiss !== undefined }));
+    const threeSemitones = DRAG_DEAD_ZONE + 3 * Math.max(PITCH_DRAG_STEP * zoom, MIN_PITCH_DRAG_STEP);
+    await ReactTestRenderer.act(async () => pressable.props.onPressMove({ nativeEvent: { pageX, pageY: pageY - threeSemitones } }));
+    const hints = renderer.root.findAllByType(HintBar);
+    const overlay = hints[0]?.parent;
+    const during = { messages: hints.map((hint) => hint.props.message), isStrip: hints.some((hint) => hint.props.onDismiss !== undefined) };
+    const overlayStyle = StyleSheet.flatten(overlay?.props.style);
+    // The overlay's nearest container that holds the tab strip: the strip's own, not the window's (no palette in it).
+    const has = (prop: string) => (node: ReactTestInstance) => Object.prototype.hasOwnProperty.call(node.props, prop);
+    let container = overlay?.parent ?? null;
+    while (container !== null && container.findAll(has('activeTabId')).length === 0) {
+      container = container.parent;
+    }
+    const isOverTabs = container !== null && container.findAll(has('isExpressionTextOpen')).length === 0;
     await ReactTestRenderer.act(async () => pressable.props.onPressOut());
 
     // Assert
-    expect(hints).toEqual([{ message: '+3 semitones: let go to move, Esc to cancel', isStrip: false }]);
+    expect(during).toEqual({ messages: ['+3 semitones: let go to move, Esc to cancel'], isStrip: false });
+    expect(overlayStyle).toMatchObject({ position: 'absolute' });
+    expect(isOverTabs).toBe(true);
     expect(renderer.root.findAllByType(HintBar)).toHaveLength(0);
     const moved = firstNote(renderer).note;
     expect([moved.string, moved.fret]).toEqual([note.string, note.fret + 3]);

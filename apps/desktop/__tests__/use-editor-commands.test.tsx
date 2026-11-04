@@ -293,9 +293,10 @@ describe('useEditorCommands: Esc while a note is dragged', () => {
   const escape = { nativeEvent: { key: 'Escape', metaKey: false, shiftKey: false, altKey: false } } as never;
 
   it('stops the drag first; the next Esc stops playback as usual', () => {
-    // Arrange: playing, the mouse down on a note
+    // Arrange: playing, a note dragged 2 semitones up
     const { commands, sources } = renderCommands(openSong(), true);
     ReactTestRenderer.act(() => commands.pitchDrag.onPressNote({ trackIndex: 0, measureIndex: 2, beatIndex: 0, voiceIndex: 0, string: 3 }));
+    ReactTestRenderer.act(() => commands.pitchDrag.onDragNote(2));
 
     // Act
     ReactTestRenderer.act(() => commands.onKeyDown(escape));

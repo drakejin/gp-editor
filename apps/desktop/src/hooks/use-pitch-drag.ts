@@ -1,7 +1,7 @@
 import { type Dispatch, type RefObject, useMemo, useRef, useState } from 'react';
 import type { View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
-import { type NoteGestureEnd, dragSemitones, pitchDragHint } from '../lib/pitch-drag';
+import { type NoteGestureEnd, pitchDragHint } from '../lib/pitch-drag';
 import { focusView } from '../native/focus-view';
 import type { EditorAction, EditorState } from '../state/editor';
 import { isInSelection } from '../state/selection';
@@ -12,15 +12,15 @@ import { useStableCallback } from './use-stable-callback';
 export interface PitchDrag {
   /** The song the score shows while the drag has gone some semitones: the move applied, not yet an undo step. */
   readonly song?: Song;
-  /** The hint over the score meanwhile ("+3 semitones: let go to move, Esc to cancel"). */
+  /** The hint shown meanwhile ("+3 semitones: let go to move, Esc to cancel"). */
   readonly hint?: string;
   /** The mouse went down on a note (ScoreRow's onPressNote). */
   readonly onPressNote: (note: StringAddress) => void;
-  /** The pointer is `dy` layout points below where it went down (ScoreRow's onDragNote). */
-  readonly onDragNote: (dy: number) => void;
+  /** The drag has reached `semitones` (ScoreRow's onDragNote). */
+  readonly onDragNote: (semitones: number) => void;
   /** The gesture ended (ScoreRow's onEndNote). */
   readonly onEndNote: (end: NoteGestureEnd) => void;
-  /** Esc while the mouse holds a note: the drag stops, the notes where they were; true when one was going on. */
+  /** Esc while the mouse holds a note: the gesture stops, the notes where they were; true when it had moved them. */
   readonly cancel: () => boolean;
 }
 
@@ -39,12 +39,37 @@ interface NoteGesture {
   readonly isCancelled: boolean;
 }
 
+const isSameAddress = (a: StringAddress | undefined, b: StringAddress): boolean =>
+  a?.trackIndex === b.trackIndex && a.measureIndex === b.measureIndex && a.beatIndex === b.beatIndex && a.voiceIndex === b.voiceIndex && a.string === b.string;
+
+/**
+ * What letting go does: a pitch drag's semitones as one shiftPitch (none for 0) — while the editor still points at what
+ * was pressed (an arrow key or an MCP tool may have moved the cursor meanwhile) —, a click on a selected note the cursor
+ * on it, as any click; nothing for a selection drag or a lost gesture.
+ */
+function releaseAction(state: EditorState, gesture: NoteGesture, end: NoteGestureEnd): EditorAction | undefined {
+  const { note, isSelected, semitones } = gesture;
+  if (end === 'click') {
+    return isSelected ? { type: 'placeCursor', cursor: note } : undefined;
+  }
+  const isStillPressed = isSelected ? isInSelection(state, note) : isSameAddress(state.cursor, note);
+  return end === 'drag' && semitones !== 0 && isStillPressed ? { type: 'shiftPitch', delta: semitones } : undefined;
+}
+
+/** The score's song and hint while the drag has gone `semitones`: the editor's own shiftPitch on the shown state. */
+function usePitchPreview(state: EditorState, semitones: number): Pick<PitchDrag, 'song' | 'hint'> {
+  return useMemo(() => {
+    const preview = semitones === 0 ? undefined : shiftPitch(state, semitones);
+    const song = preview?.document?.song;
+    return { song: song === state.document?.song ? undefined : song, hint: pitchDragHint(semitones, preview?.hint) };
+  }, [semitones, state]);
+}
+
 /**
  * Dragging a note up or down moves it by semitones: a press on a note outside the selection puts the cursor on it (that
  * note, with the notes tied to it, is what moves), one on a selected note keeps the selection (they all move). While the
- * pointer goes up or down the score shows the move — the editor's own shiftPitch on the shown song —; letting go makes
- * it the one undo step (no semitones: nothing), Esc stops it. The gesture is kept in a ref, so every pointer move sees the
- * last one; only the semitones are React state, for the preview.
+ * drag goes the score shows the move; letting go makes it the one undo step, Esc stops it. The gesture is kept in a ref,
+ * so every pointer move sees the last one; only the semitones are React state, for the preview.
  */
 export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources): PitchDrag {
   const gesture = useRef<NoteGesture | undefined>(undefined);
@@ -61,9 +86,8 @@ export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources
     }
     focusView(keyboardView.current);
   });
-  const onDragNote = useStableCallback((dy: number) => {
+  const onDragNote = useStableCallback((reached: number) => {
     const current = gesture.current;
-    const reached = dragSemitones(dy);
     if (current !== undefined && !current.isCancelled && reached !== current.semitones) {
       keep({ ...current, semitones: reached });
     }
@@ -71,13 +95,9 @@ export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources
   const onEndNote = useStableCallback((end: NoteGestureEnd) => {
     const current = gesture.current;
     keep(undefined);
-    if (current === undefined || current.isCancelled) {
-      return;
-    }
-    if (end === 'drag' && current.semitones !== 0) {
-      dispatch({ type: 'shiftPitch', delta: current.semitones });
-    } else if (end === 'click' && current.isSelected) {
-      dispatch({ type: 'placeCursor', cursor: current.note });
+    const action = current === undefined || current.isCancelled ? undefined : releaseAction(state, current, end);
+    if (action !== undefined) {
+      dispatch(action);
     }
   });
   const cancel = useStableCallback(() => {
@@ -86,13 +106,7 @@ export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources
       return false;
     }
     keep({ ...current, isCancelled: true });
-    return true;
+    return current.semitones !== 0;
   });
-  const preview = useMemo(() => (semitones === 0 ? undefined : shiftPitch(state, semitones)), [semitones, state]);
-  const song = preview?.document?.song;
-  return {
-    song: song === state.document?.song ? undefined : song,
-    hint: pitchDragHint(semitones, preview?.hint),
-    onPressNote, onDragNote, onEndNote, cancel,
-  };
+  return { ...usePitchPreview(state, semitones), onPressNote, onDragNote, onEndNote, cancel };
 }

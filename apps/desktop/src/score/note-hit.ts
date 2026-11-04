@@ -1,7 +1,6 @@
 import type { Song, Track } from '@gp-editor/core';
-import { TAB } from '../lib/layout';
 import { type RowGeometry, type ScoreMode, showsNotation, showsTab } from './geometry';
-import { nearestBeat } from './hit-test';
+import { nearestBeat, tabString } from './hit-test';
 import type { NoteHead } from './notation/chords';
 import type { VoiceEvent } from './notation/events';
 import { NOTATION } from './notation/metrics';
@@ -9,7 +8,6 @@ import { trackTransposition } from './notation/pitch';
 import { placeMeasureChords } from './notation/voice-placement';
 import type { PlacedMeasure } from './row';
 import { FRET_BOX } from './symbols/small-frets';
-import { tabStringY } from './symbols/tab-geometry';
 import { isSlashedVoice } from './tab';
 
 /** A note drawn on a row: its beat in the track, its voice and its string. */
@@ -41,14 +39,12 @@ function isVoiceShown(row: NoteHitRow, voiceIndex: number): boolean {
 
 /** The tab's note whose fret number (its box) is under (x, y): the nearest beat's, on the string under the pointer. */
 function tabNoteAt(row: NoteHitRow, track: Track, bar: PlacedMeasure, x: number, y: number): NoteHit | undefined {
-  const top = row.geometry.tabTop;
-  if (top === undefined || !showsTab(row.mode)) {
+  if (!showsTab(row.mode)) {
     return undefined;
   }
-  const string = Math.round((y - top) / TAB.stringGap) + 1;
-  const isOnString = string >= 1 && string <= track.strings.length && Math.abs(y - tabStringY(top, string)) <= FRET_BOX.height / 2;
+  const string = tabString(row.geometry, track.strings.length, y);
   const beat = nearestBeat(bar.layout.beats, x - bar.x);
-  if (!isOnString || beat === undefined || Math.abs(beat.x - (x - bar.x)) > FRET_BOX.width / 2) {
+  if (string === undefined || beat === undefined || Math.abs(beat.x - (x - bar.x)) > FRET_BOX.width / 2) {
     return undefined;
   }
   const { measureIndex } = bar.layout;

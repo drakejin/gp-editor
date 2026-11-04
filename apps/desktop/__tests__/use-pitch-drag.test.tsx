@@ -2,7 +2,6 @@ import { useReducer } from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { type PitchDrag, usePitchDrag } from '../src/hooks/use-pitch-drag';
-import { PITCH_DRAG_STEP } from '../src/lib/pitch-drag';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { beat, makeSong, note, onStrings } from '../test-support/songs';
 
@@ -26,6 +25,8 @@ function loaded(song: Song = SONG): EditorState {
 interface Rendered {
   readonly drag: () => PitchDrag;
   readonly state: () => EditorState;
+  /** An editor action from elsewhere (an arrow key, an MCP tool) while the mouse is down. */
+  readonly dispatch: (action: EditorAction) => void;
   /** Each act() of its own, as the mouse's events come one by one. */
   readonly run: (step: (drag: PitchDrag) => unknown) => void;
 }
@@ -34,9 +35,11 @@ interface Rendered {
 function renderDrag(initial: EditorState): Rendered {
   let drag: PitchDrag | undefined;
   let state: EditorState = initial;
+  let send: (action: EditorAction) => void = () => undefined;
   function Probe() {
     const [current, dispatch] = useReducer(editorReducer, initial);
     state = current;
+    send = dispatch;
     drag = usePitchDrag({ state: current, dispatch, keyboardView: { current: null } });
     return null;
   }
@@ -54,7 +57,7 @@ function renderDrag(initial: EditorState): Rendered {
       step(latest());
     });
   };
-  return { drag: latest, state: () => state, run };
+  return { drag: latest, state: () => state, run, dispatch: (action) => ReactTestRenderer.act(() => send(action)) };
 }
 
 /** The frets of the bar's beats on string 3 (another string's note as string/fret). */
@@ -62,9 +65,6 @@ function frets(song: Song | undefined): string[] {
   const beats = song?.tracks[0]?.measures[0]?.beats ?? [];
   return beats.map((each) => each.voices[0]?.notes.map((n) => (n.string === 3 ? String(n.fret) : `${n.string}/${n.fret}`)).join(',') ?? '');
 }
-
-/** `semitones` up (positive) or down, as the pointer's offset from where it went down. */
-const dy = (semitones: number): number => -semitones * PITCH_DRAG_STEP;
 
 describe('usePitchDrag: a note dragged up or down', () => {
   it('puts the cursor on a note pressed outside the selection, previews the drag and makes it one undo step when let go', () => {
@@ -74,8 +74,8 @@ describe('usePitchDrag: a note dragged up or down', () => {
     // Act
     view.run((drag) => drag.onPressNote(at(2)));
     const cursor = view.state().cursor;
-    view.run((drag) => drag.onDragNote(dy(1)));
-    view.run((drag) => drag.onDragNote(dy(3)));
+    view.run((drag) => drag.onDragNote(1));
+    view.run((drag) => drag.onDragNote(3));
     const previewed = { song: view.drag().song, hint: view.drag().hint, shown: view.state().document?.song };
     view.run((drag) => drag.onEndNote('drag'));
 
@@ -98,7 +98,7 @@ describe('usePitchDrag: a note dragged up or down', () => {
     // Act
     view.run((drag) => drag.onPressNote(at(2)));
     const during = { cursor: view.state().cursor, anchor: view.state().selectionAnchor };
-    view.run((drag) => drag.onDragNote(dy(-2)));
+    view.run((drag) => drag.onDragNote(-2));
     view.run((drag) => drag.onEndNote('drag'));
 
     // Assert: A3 → G3, B3 → A3, C4 → B♭3.
@@ -128,8 +128,8 @@ describe('usePitchDrag: a note dragged up or down', () => {
 
     // Act
     view.run((drag) => drag.onPressNote(at(1)));
-    view.run((drag) => drag.onDragNote(dy(2)));
-    view.run((drag) => drag.onDragNote(dy(0)));
+    view.run((drag) => drag.onDragNote(2));
+    view.run((drag) => drag.onDragNote(0));
     const back = view.drag().song;
     view.run((drag) => drag.onEndNote('drag'));
     view.run((drag) => drag.onPressNote(at(2)));
@@ -148,12 +148,12 @@ describe('usePitchDrag: a note dragged up or down', () => {
 
     // Act
     view.run((drag) => drag.onPressNote(at(1)));
-    view.run((drag) => drag.onDragNote(dy(2)));
+    view.run((drag) => drag.onDragNote(2));
     view.run((drag) => {
       cancelled = drag.cancel();
     });
     const after = view.drag().song;
-    view.run((drag) => drag.onDragNote(dy(4)));
+    view.run((drag) => drag.onDragNote(4));
     view.run((drag) => drag.onEndNote('drag'));
 
     // Assert
@@ -161,6 +161,42 @@ describe('usePitchDrag: a note dragged up or down', () => {
     expect(after).toBeUndefined();
     expect(view.state().document?.song).toBe(SONG);
     expect(view.drag().cancel()).toBe(false);
+  });
+
+  it('lets Esc on a note not yet dragged do what Esc does, the gesture over all the same', () => {
+    // Arrange
+    const view = renderDrag(loaded());
+    let swallowed = true;
+
+    // Act
+    view.run((drag) => drag.onPressNote(at(1)));
+    view.run((drag) => {
+      swallowed = drag.cancel();
+    });
+    view.run((drag) => drag.onDragNote(2));
+    view.run((drag) => drag.onEndNote('drag'));
+
+    // Assert
+    expect(swallowed).toBe(false);
+    expect(view.state().document?.song).toBe(SONG);
+  });
+
+  it('moves nothing when the cursor left the pressed note before the mouse came up, nor for a lost gesture', () => {
+    // Arrange
+    const view = renderDrag(loaded());
+
+    // Act: an arrow key's move while the note is held, then a drag whose row went away
+    view.run((drag) => drag.onPressNote(at(2)));
+    view.run((drag) => drag.onDragNote(2));
+    view.dispatch({ type: 'moveCursorBeat', step: 1 });
+    view.run((drag) => drag.onEndNote('drag'));
+    view.run((drag) => drag.onPressNote(at(1)));
+    view.run((drag) => drag.onDragNote(2));
+    view.run((drag) => drag.onEndNote('cancel'));
+
+    // Assert
+    expect(view.state().document?.song).toBe(SONG);
+    expect(view.drag().song).toBeUndefined();
   });
 
   it('moves no drum note and says why, while dragging and when let go', () => {
@@ -171,7 +207,7 @@ describe('usePitchDrag: a note dragged up or down', () => {
 
     // Act
     view.run((drag) => drag.onPressNote(at(0, 1)));
-    view.run((drag) => drag.onDragNote(dy(2)));
+    view.run((drag) => drag.onDragNote(2));
     const hint = view.drag().hint;
     view.run((drag) => drag.onEndNote('drag'));
 

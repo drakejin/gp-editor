@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { useStableCallback } from '../../hooks/use-stable-callback';
 import type { WindowModel } from '../../hooks/use-window';
 import type { RowHit } from '../../score/hit-test';
 import type { OpenDocument } from '../../state/editor';
 import { DocumentLayout } from '../DocumentLayout';
-import { HintBar } from '../HintBar';
 import { Inspector } from '../inspector/Inspector';
 import { EditionPalette } from '../palette/EditionPalette';
 import { ScalesPanel } from '../scales/ScalesPanel';
@@ -77,25 +75,8 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
   );
 }
 
-/**
- * The score page, showing a note being dragged up or down — with the drag's hint over the page, so the score does not
- * move under the pointer as the hint strip would move it — or a bend or tremolo bar panel's draft until it is applied.
- */
+/** The score page, showing a note being dragged up or down, or a bend or tremolo bar panel's draft until it is applied. */
 function DocumentScore({ model, document }: DocumentPartProps) {
-  const { pitchDrag } = model.commands.editor;
-  return (
-    <View style={styles.score}>
-      <DocumentPage model={model} document={document} />
-      {pitchDrag.hint === undefined ? null : (
-        <View pointerEvents="none" style={styles.dragHint}>
-          <HintBar palette={model.base.palette} message={pitchDrag.hint} />
-        </View>
-      )}
-    </View>
-  );
-}
-
-function DocumentPage({ model, document }: DocumentPartProps) {
   const { base, media, tools, cursorTools, commands } = model;
   const { palette, state, chrome, dispatch } = base;
   const { trackIndex } = state;
@@ -181,8 +162,3 @@ function DocumentSide({ model, document }: DocumentPartProps) {
     />
   );
 }
-
-const styles = StyleSheet.create({
-  score: { flex: 1 },
-  dragHint: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
-});

@@ -59,6 +59,7 @@ interface RenderedRow {
   readonly pressAt: (x: number, y: number) => void;
   readonly canvasNode: () => ReactTestRenderer.ReactTestInstance;
   readonly update: (next: ScoreRowProps) => void;
+  readonly unmount: () => void;
 }
 
 function render(
@@ -87,6 +88,7 @@ function render(
       ),
     update: next =>
       ReactTestRenderer.act(() => renderer.update(<ScoreRow {...next} />)),
+    unmount: () => renderer.unmount(),
   };
 }
 
@@ -436,21 +438,48 @@ describe('ScoreRow note drags', () => {
     expect(row.onPress).not.toHaveBeenCalled();
   });
 
-  it('follows a drag up or down from a note as a pitch drag, in layout points, until the mouse is let go', () => {
-    // Arrange: at 200 %
+  it('follows a drag up or down from a note as a pitch drag from its first semitone, the step zoomed, until the mouse is let go', () => {
+    // Arrange: at 200 % a semitone is 8 points on screen, past the 3-point dead zone
     const { row, handlers, move, release } = pressNote(2);
 
-    // Act: 1 point, then 18 and 30 points up on screen (9 and 15 layout points), then let go
+    // Act: 1 point up, then 18 and 30 points up, then let go
     move(0, -1);
     move(2, -18);
     move(4, -30);
     release();
 
     // Assert
-    expect(handlers.onDragNote.mock.calls).toEqual([[-9], [-15]]);
+    expect(handlers.onDragNote.mock.calls).toEqual([[1], [3]]);
     expect(handlers.onEndNote.mock.calls).toEqual([['drag']]);
     expect(handlers.onDrag).not.toHaveBeenCalled();
     expect(row.onPress).not.toHaveBeenCalled();
+  });
+
+  it('still selects when a hand that goes sideways wobbled up first, before any semitone', () => {
+    // Arrange
+    const { handlers, move, release } = pressNote();
+
+    // Act
+    move(1, -5);
+    move(20, -5);
+    release();
+
+    // Assert
+    expect(handlers.onDragNote).not.toHaveBeenCalled();
+    expect(handlers.onEndNote.mock.calls).toEqual([['select']]);
+    expect(handlers.onDrag).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends a note gesture whose row goes away before the mouse comes up, doing nothing', () => {
+    // Arrange
+    const { row, handlers, move } = pressNote();
+    move(0, -12);
+
+    // Act
+    ReactTestRenderer.act(() => row.unmount());
+
+    // Assert
+    expect(handlers.onEndNote.mock.calls).toEqual([['cancel']]);
   });
 
   it('turns a drag sideways from a note into a selection drag from its beat', () => {

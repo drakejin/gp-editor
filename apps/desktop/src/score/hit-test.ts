@@ -59,7 +59,8 @@ export function hitTestDrag(rows: readonly DragRow[], fromRow: number, stringCou
   return hitTestRow(row.placed, row.geometry, stringCount, inRowX, scoreY - row.staffTop);
 }
 
-function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {
+/** The tab string nearest to `y` (from the row's top), within half a string gap of the staff; none off it or without a tab. */
+export function tabString(geometry: RowGeometry, stringCount: number, y: number): number | undefined {
   if (geometry.tabTop === undefined) {
     return undefined;
   }
