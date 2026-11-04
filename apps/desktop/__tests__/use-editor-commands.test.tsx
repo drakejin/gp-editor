@@ -339,6 +339,7 @@ describe('useEditorCommands: playing a selection', () => {
 
 describe('useEditorCommands: typed frets', () => {
   const key = (k: string) => ({ nativeEvent: { key: k, metaKey: false, shiftKey: false, altKey: false } }) as never;
+
   /**
    * A key of the numeric keypad as react-native-macos hands it to JS (RCTViewComponentView's KeyEvent): the digit it
    * types, with numericPadKey; the arrows carry it too (and functionKey), as AppKit sets both on them.
@@ -375,14 +376,16 @@ describe('useEditorCommands: typed frets', () => {
     expect(fretIn(typeKeys(['1', ' ', '2']), 2)).toBe(2);
   });
 
-  it('types the numeric keypad’s digits as the top row’s: 1 then 2 at one note make 12, and never join across →', () => {
+  it('makes 12 of keypad 1 then keypad 2 typed at the same note, as the top row does', () => {
+    expect(fretIn(typeEvents(['1', '2'].map(keypadKey)), 2)).toBe(12);
+  });
+
+  it('types keypad 2 on the next note after keypad 1 and →, however quickly', () => {
     // Act
-    const atOneNote = typeEvents(['1', '2'].map(keypadKey));
-    const noteAfterNote = typeEvents(['1', 'ArrowRight', '2'].map(keypadKey));
+    const typed = typeEvents(['1', 'ArrowRight', '2'].map(keypadKey));
 
     // Assert
-    expect(fretIn(atOneNote, 2)).toBe(12);
-    expect(fretIn(noteAfterNote, 2)).toBe(1);
-    expect(fretIn(noteAfterNote, 3)).toBe(2);
+    expect(fretIn(typed, 2)).toBe(1);
+    expect(fretIn(typed, 3)).toBe(2);
   });
 });

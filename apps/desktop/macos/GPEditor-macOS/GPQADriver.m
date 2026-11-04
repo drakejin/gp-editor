@@ -512,19 +512,11 @@ static NSDictionary<NSString *, NSArray *> *GPQANamedKeys(void)
   return named;
 }
 
-/** The numeric keypad's key codes (Events.h kVK_ANSI_Keypad*): a real press of one carries NSEventModifierFlagNumericPad. */
+/** The named keypad keys' codes (Events.h kVK_ANSI_Keypad*: 0–7, 8, 9, decimal, plus, enter, minus). */
 static BOOL GPQAIsKeypadKey(unsigned short keyCode)
 {
-  static NSIndexSet *codes;
-  static dispatch_once_t once;
-  dispatch_once(&once, ^{
-    NSMutableIndexSet *keypad = [NSMutableIndexSet indexSetWithIndexesInRange:NSMakeRange(82, 8)];  // 0–7
-    for (NSNumber *code in @[ @65, @67, @69, @71, @75, @76, @78, @81, @91, @92 ]) {  // . * + clear / enter - = 8 9
-      [keypad addIndex:code.unsignedIntegerValue];
-    }
-    codes = keypad;
-  });
-  return [codes containsIndex:keyCode];
+  BOOL isDigit = (keyCode >= 82 && keyCode <= 89) || keyCode == 91 || keyCode == 92;
+  return isDigit || keyCode == 65 || keyCode == 69 || keyCode == 76 || keyCode == 78;
 }
 
 /** The US layout's key codes (Events.h kVK_ANSI_*) of the keys a script names by their character. */
@@ -560,15 +552,17 @@ static NSEvent *GPQAKeyboardEvent(unsigned short keyCode, BOOL isDown, NSEventMo
   return event;
 }
 
-/** The function-key flags a real press of this key carries (arrows also the numeric pad's; the keypad's keys its alone). */
-static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
+/** The flags a real press of this key carries: the numeric pad's on the keypad, fn on the function keys, both on the arrows. */
+static NSEventModifierFlags GPQAKeyFlags(unsigned short keyCode)
 {
-  BOOL isArrow = keyCode >= 123 && keyCode <= 126;
-  BOOL isFunctionKey = keyCode == 99 || keyCode == 98 || keyCode == 115 || keyCode == 119 || keyCode == 117;
   if (GPQAIsKeypadKey(keyCode)) {
     return NSEventModifierFlagNumericPad;
   }
-  return isArrow ? NSEventModifierFlagFunction | NSEventModifierFlagNumericPad : isFunctionKey ? NSEventModifierFlagFunction : 0;
+  if (keyCode >= 123 && keyCode <= 126) {
+    return NSEventModifierFlagFunction | NSEventModifierFlagNumericPad;
+  }
+  BOOL isFunctionKey = keyCode == 99 || keyCode == 98 || keyCode == 115 || keyCode == 119 || keyCode == 117;
+  return isFunctionKey ? NSEventModifierFlagFunction : 0;
 }
 
 /** A key step's own pause before the next step (`"after": ms` — keys typed quickly, as a hand types them), else `seconds`. */
@@ -597,7 +591,7 @@ static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
   NSString *characters = mapped != nil ? mapped[0] : (isShiftedLetter ? key.uppercaseString : key);
   unsigned short keyCode = mapped != nil ? [mapped[1] unsignedShortValue] : 0;
   NSEventModifierFlags flags = [self modifierFlags:modifiers];
-  flags |= mapped != nil ? GPQAFunctionFlags(keyCode) : 0;
+  flags |= mapped != nil ? GPQAKeyFlags(keyCode) : 0;
   for (NSNumber *type in @[ @(NSEventTypeKeyDown), @(NSEventTypeKeyUp) ]) {
     NSEvent *event = [NSEvent keyEventWithType:(NSEventType)type.unsignedIntegerValue
                                       location:NSZeroPoint
@@ -637,7 +631,7 @@ static NSEventModifierFlags GPQAFunctionFlags(unsigned short keyCode)
     return;
   }
   unsigned short keyCode = code.unsignedShortValue;
-  NSEventModifierFlags flags = [self modifierFlags:modifiers] | GPQAFunctionFlags(keyCode);
+  NSEventModifierFlags flags = [self modifierFlags:modifiers] | GPQAKeyFlags(keyCode);
   // The keyboard's path needs the app active with this window key; otherwise (a locked screen) NSApp dispatches the
   // events at once, as it does a dequeued one: local monitors, key equivalents, then the window.
   BOOL isKeyboardPath = NSApp.isActive && NSApp.keyWindow == window;
