@@ -261,9 +261,10 @@ describe('transpose: one note', () => {
     expect(result).toMatchObject({ moved: 1, unplaced: 0 });
   });
 
-  it('leaves the song as it was where the address holds no note', () => {
+  it('leaves the song as it was where the address holds no note, or names no track', () => {
     expect(transpose(song, at(0, 1), { mode: 'chromatic', amount: 1 }).song).toBe(song);
     expect(transpose(song, at(2, 3), { mode: 'chromatic', amount: 1 }).song).toBe(song);
+    expect(transpose(song, { kind: 'note', at: { trackIndex: 4, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 2 } }, { mode: 'chromatic', amount: 1 }).song).toBe(song);
   });
 });
 
