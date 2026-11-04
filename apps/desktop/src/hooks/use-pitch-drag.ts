@@ -39,21 +39,17 @@ interface NoteGesture {
   readonly isCancelled: boolean;
 }
 
-const isSameAddress = (a: StringAddress | undefined, b: StringAddress): boolean =>
-  a?.trackIndex === b.trackIndex && a.measureIndex === b.measureIndex && a.beatIndex === b.beatIndex && a.voiceIndex === b.voiceIndex && a.string === b.string;
-
 /**
- * What letting go does: a pitch drag's semitones as one shiftPitch (none for 0) — while the editor still points at what
- * was pressed (an arrow key or an MCP tool may have moved the cursor meanwhile) —, a click on a selected note the cursor
- * on it, as any click; nothing for a selection drag or a lost gesture.
+ * What letting go does: a pitch drag's semitones as one shiftPitch (none for 0), naming the note pressed — the reducer
+ * applies it only while the editor still points at that note, on its own up-to-date state —, a click on a selected note
+ * the cursor on it, as any click; nothing for a selection drag or a lost gesture.
  */
-function releaseAction(state: EditorState, gesture: NoteGesture, end: NoteGestureEnd): EditorAction | undefined {
+function releaseAction(gesture: NoteGesture, end: NoteGestureEnd): EditorAction | undefined {
   const { note, isSelected, semitones } = gesture;
   if (end === 'click') {
     return isSelected ? { type: 'placeCursor', cursor: note } : undefined;
   }
-  const isStillPressed = isSelected ? isInSelection(state, note) : isSameAddress(state.cursor, note);
-  return end === 'drag' && semitones !== 0 && isStillPressed ? { type: 'shiftPitch', delta: semitones } : undefined;
+  return end === 'drag' && semitones !== 0 ? { type: 'shiftPitch', delta: semitones, pressed: { note, isSelected } } : undefined;
 }
 
 /** The score's song and hint while the drag has gone `semitones`: the editor's own shiftPitch on the shown state. */
@@ -95,7 +91,7 @@ export function usePitchDrag({ state, dispatch, keyboardView }: PitchDragSources
   const onEndNote = useStableCallback((end: NoteGestureEnd) => {
     const current = gesture.current;
     keep(undefined);
-    const action = current === undefined || current.isCancelled ? undefined : releaseAction(state, current, end);
+    const action = current === undefined || current.isCancelled ? undefined : releaseAction(current, end);
     if (action !== undefined) {
       dispatch(action);
     }

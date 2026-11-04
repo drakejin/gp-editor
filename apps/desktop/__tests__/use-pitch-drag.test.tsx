@@ -90,6 +90,43 @@ describe('usePitchDrag: a note dragged up or down', () => {
     expect(view.drag().hint).toBeUndefined();
   });
 
+  it('applies a quick release whose press, moves and mouse-up reach JS in one batch, before the press is drawn', () => {
+    // Arrange: React Native delivers the queued touch events of a busy JS thread one after the other, rendering after.
+    const view = renderDrag(loaded());
+
+    // Act
+    view.run((drag) => {
+      drag.onPressNote(at(2));
+      drag.onDragNote(1);
+      drag.onDragNote(3);
+      drag.onEndNote('drag');
+    });
+
+    // Assert: B3 → D4, one undo step, nothing left on screen.
+    expect(frets(view.state().document?.song)).toEqual(['0', '2', '7', '5']);
+    expect(view.state().cursor).toEqual(at(2));
+    expect(view.state().past).toHaveLength(1);
+    expect(view.drag().song).toBeUndefined();
+    expect(view.drag().hint).toBeUndefined();
+  });
+
+  it('moves the selected notes on a quick release in one batch too, the selection kept', () => {
+    // Arrange: beats 2–4 selected.
+    const selected = reduce(loaded(), { type: 'selectBeats', anchor: at(1), cursor: at(3) });
+    const view = renderDrag(selected);
+
+    // Act
+    view.run((drag) => {
+      drag.onPressNote(at(2));
+      drag.onDragNote(-2);
+      drag.onEndNote('drag');
+    });
+
+    // Assert
+    expect(frets(view.state().document?.song)).toEqual(['0', '0', '2', '3']);
+    expect(view.state().selectionAnchor).toEqual(selected.selectionAnchor);
+  });
+
   it('moves every selected note when the drag starts on one of them, the selection kept', () => {
     // Arrange: beats 2–4 selected.
     const selected = reduce(loaded(), { type: 'selectBeats', anchor: at(1), cursor: at(3) });

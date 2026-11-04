@@ -215,6 +215,26 @@ describe('editor: a semitone up or down (⌥⇧↑ / ⌥⇧↓)', () => {
     expect(unmoved).toBe(state);
   });
 
+  it('moves a dragged note only while the editor still points at what was pressed: the cursor’s note, or a selected one', () => {
+    // Arrange: bar 2's G3 at the cursor; beats 1–2 of bar 2 selected in another state.
+    const g3: StringAddress = { trackIndex: 0, measureIndex: 1, beatIndex: 0, voiceIndex: 0, string: 3 };
+    const b3: StringAddress = { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 2 };
+    const state = cursorAt(loaded(), 1, 0, 3);
+    const selected = reduce(state, { type: 'extendSelection', step: 1 });
+
+    // Act
+    const atCursor = reduce(state, { type: 'shiftPitch', delta: 2, pressed: { note: g3, isSelected: false } });
+    const elsewhere = reduce(state, { type: 'shiftPitch', delta: 2, pressed: { note: b3, isSelected: false } });
+    const inSelection = reduce(selected, { type: 'shiftPitch', delta: 2, pressed: { note: b3, isSelected: true } });
+    const selectionGone = reduce(state, { type: 'shiftPitch', delta: 2, pressed: { note: b3, isSelected: true } });
+
+    // Assert
+    expect(frets(atCursor, 1)[0]).toBe('3/2');
+    expect(elsewhere).toBe(state);
+    expect(frets(inSelection, 1).slice(0, 2)).toEqual(['3/2', '2/2']);
+    expect(selectionGone).toBe(state);
+  });
+
   it('moves the selected notes of the selection’s voice only (voice 2 here)', () => {
     // Arrange: two beats, each with a note in voice 1 on string 1 and one in voice 2 on string 5; voice 2's selected.
     const twoVoices = (quarter: number, fret: number): Beat => {

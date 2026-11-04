@@ -3,11 +3,30 @@ import { t } from '../lib/i18n/i18n';
 import { noNoteHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
+import { isInSelection } from './selection';
 import { hasNotesLeft, transpositionHint, transpositionScope } from './transposition';
 
 // Guitar Pro 8's One semitone up / down (⌥⇧↑ / ⌥⇧↓, the palette's Raise / Lower by a Semitone): the selected notes, or
 // the note at the cursor, a semitone higher or lower — gp-core's transpose on that scope, the chords and key left as
 // they are (Tools ▸ Transpose… moves those). A note dragged up or down moves the same way, by the drag's semitones.
+
+/** The note a drag began on, and whether it was one of the selected notes (the drag moved them all). */
+export interface PressedNote {
+  readonly note: StringAddress;
+  readonly isSelected: boolean;
+}
+
+const isSameAddress = (a: StringAddress | undefined, b: StringAddress): boolean =>
+  a?.trackIndex === b.trackIndex && a.measureIndex === b.measureIndex && a.beatIndex === b.beatIndex && a.voiceIndex === b.voiceIndex && a.string === b.string;
+
+/**
+ * Whether the editor still points at the note a drag began on — at the cursor, or among the selected notes — when the
+ * drag is let go: read here, on the state the shift applies to, not on the last one drawn (a quick drag's press,
+ * moves and release can reach JS together, before its cursor move is drawn).
+ */
+function isStillPressed(state: EditorState, pressed: PressedNote): boolean {
+  return pressed.isSelected ? isInSelection(state, pressed.note) : isSameAddress(state.cursor, pressed.note);
+}
 
 function semitoneOptions(delta: number): TranspositionOptions {
   return { mode: 'chromatic', amount: delta, isNotesOnly: true };
@@ -44,11 +63,13 @@ function withHint(state: EditorState, hint: string | undefined): EditorState {
  * (positive) or down — a press ±1, a drag any whole number —: one undo step. A note keeps its string while its fret
  * allows, else goes to a string free on its beat (the cursor goes with its note); one that fits nowhere stays, as does a
  * natural harmonic, and the hint strip says so. The selection stays, for the next press. Drum tracks never move: a drum
- * note's fret is its drum. No semitones (a drag let go where it began) change nothing.
+ * note's fret is its drum. No semitones (a drag let go where it began) change nothing, nor a drag whose `pressed` note
+ * the editor no longer points at (an arrow key or an MCP tool moved the cursor while the mouse was down).
  */
-export function shiftPitch(state: EditorState, delta: number): EditorState {
+export function shiftPitch(state: EditorState, delta: number, pressed?: PressedNote): EditorState {
   const { document, cursor } = state;
-  if (document === undefined || cursor === undefined || delta === 0 || !Number.isInteger(delta)) {
+  const hasLeftPressedNote = pressed !== undefined && !isStillPressed(state, pressed);
+  if (document === undefined || cursor === undefined || delta === 0 || !Number.isInteger(delta) || hasLeftPressedNote) {
     return state;
   }
   const { song } = document;
