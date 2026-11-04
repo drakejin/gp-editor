@@ -35,7 +35,7 @@ function frets(state: EditorState, measureIndex: number): string[] {
   return beats.map((b) => b.voices[0]?.notes.map((n) => `${n.string}/${n.fret}`).join(',') ?? '');
 }
 
-const RESULT: Transposition = { song: twoBars(), moved: 0, unplaced: 0, chords: 0, unplacedChords: 0 };
+const RESULT: Transposition = { song: twoBars(), moved: 0, unplaced: 0, naturalHarmonics: 0, chords: 0, unplacedChords: 0 };
 
 describe('transposition draft', () => {
   it('starts two semitones up, on the selection when there is one, else on the shown track', () => {
@@ -93,6 +93,15 @@ describe('transpositionHint', () => {
     );
     expect(transpositionHint({ ...RESULT, unplaced: 2 }, UP_TWO)).toBe('No notes moved. 2 notes did not fit on the neck at the new pitch and stayed as they were.');
     expect(transpositionHint(RESULT, UP_TWO)).toBe('No notes to transpose here (drum tracks never move).');
+  });
+
+  it('says a natural harmonic stayed, and why', () => {
+    expect(transpositionHint({ ...RESULT, moved: 3, naturalHarmonics: 1 }, UP_TWO)).toBe(
+      'Transposed 3 notes up 2 semitones. 1 natural harmonic stayed where it was: it sounds only at its harmonic fret.',
+    );
+    expect(transpositionHint({ ...RESULT, naturalHarmonics: 2 }, UP_TWO)).toBe(
+      'No notes moved. 2 natural harmonics stayed where they were: they sound only at their harmonic frets.',
+    );
   });
 
   it('speaks of chords when only chords move', () => {

@@ -148,17 +148,45 @@ describe('editor: a semitone up or down (⌥⇧↑ / ⌥⇧↓)', () => {
     expect(raised.hint).toBe('Drum notes do not move by semitones: a drum note’s fret is the drum it plays.');
   });
 
-  it('leaves a natural harmonic where it is and says why', () => {
-    // Arrange
-    const harmonic = makeSong([[beat(at(0, 0), [note(3, 12, { harmonic: { type: 'natural', data: 0 } })])]]);
+  it('leaves a natural harmonic where it is and says why, at the cursor or in a selection', () => {
+    // Arrange: a natural harmonic at fret 12 of string 3, then A3 on string 3.
+    const harmonic = makeSong([[beat(at(0, 0), [note(3, 12, { harmonic: { type: 'natural', data: 0 } })]), beat(at(0, 1), [note(3, 2)])]]);
     const state = cursorAt(loaded(harmonic), 0, 0, 3);
+
+    // Act
+    const raised = reduce(state, UP);
+    const both = reduce(state, { type: 'extendSelection', step: 1 }, UP);
+
+    // Assert
+    expect(raised.document?.song).toBe(state.document?.song);
+    expect(raised.hint).toBe('No notes moved. 1 natural harmonic stayed where it was: it sounds only at its harmonic fret.');
+    expect(frets(both, 0)).toEqual(['3/12', '3/3']);
+    expect(both.hint).toBe('Transposed 1 note up 1 semitone. 1 natural harmonic stayed where it was: it sounds only at its harmonic fret.');
+  });
+
+  it('moves a tied note with the note it continues, so the tie holds', () => {
+    // Arrange: the cursor on beat 2's C4, tied to beat 1's.
+    const state = cursorAt(loaded(), 0, 1, 2);
 
     // Act
     const raised = reduce(state, UP);
 
     // Assert
-    expect(raised.document?.song).toBe(state.document?.song);
-    expect(raised.hint).toBe('A natural harmonic sounds only at its harmonic fret: it stays where it is.');
+    expect(frets(raised, 0).slice(0, 2)).toEqual(['2/2,3/0,4/2,5/3', '2/2']);
+    expect(raised.document?.song.tracks[0]?.measures[0]?.beats[1]?.voices[0]?.notes[0]?.isTied).toBe(true);
+  });
+
+  it('takes the cursor with its note to another string in a selection too', () => {
+    // Arrange: bar 2's G3 and B3 open selected, the cursor on the G3 (string 3).
+    const selected = reduce(cursorAt(loaded(), 1, 1, 3), { type: 'extendSelection', step: -1 });
+
+    // Act
+    const lowered = reduce(selected, DOWN);
+
+    // Assert: G3 → F#3 at fret 4 of string 4, B3 → B♭3 at fret 3 of string 3.
+    expect(frets(lowered, 1).slice(0, 2)).toEqual(['4/4', '3/3']);
+    expect(lowered.cursor?.string).toBe(4);
+    expect(lowered.selectionAnchor).toBeDefined();
   });
 
   it('moves the selected notes of the selection’s voice only (voice 2 here)', () => {

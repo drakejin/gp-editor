@@ -263,7 +263,6 @@ export const EN_PALETTE = {
   'palette.hint.voiceBusy': 'Voice {number} plays something else there: nothing moved.',
   'palette.hint.noNoteInSelection': 'No note to move in the selected beats.',
   'palette.hint.semitoneDrums': 'Drum notes do not move by semitones: a drum note’s fret is the drum it plays.',
-  'palette.hint.semitoneNaturalHarmonic': 'A natural harmonic sounds only at its harmonic fret: it stays where it is.',
   'palette.hint.noNoteRest': 'No note to move: the cursor’s beat is a rest.',
   'palette.hint.noNoteInVoice': 'No note to move: voice {number} has nothing at the cursor.',
   'palette.hint.lastBar': 'A song keeps at least one bar: nothing was deleted.',
@@ -294,6 +293,10 @@ export const EN_PALETTE = {
   'palette.transpose.unplacedNotes': {
     one: '{count} note did not fit on the neck at the new pitch and stayed as it was.',
     other: '{count} notes did not fit on the neck at the new pitch and stayed as they were.',
+  },
+  'palette.transpose.naturalHarmonics': {
+    one: '{count} natural harmonic stayed where it was: it sounds only at its harmonic fret.',
+    other: '{count} natural harmonics stayed where they were: they sound only at their harmonic frets.',
   },
   'palette.transpose.unplacedChords': {
     one: '{count} chord diagram did not fit on the neck and stayed as it was.',

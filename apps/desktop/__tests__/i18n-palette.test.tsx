@@ -106,8 +106,11 @@ describe('the editor’s hints in Korean', () => {
 
     expect(describeTransposition({ mode: 'chromatic', amount: -1 })).toBe('1반음 아래로');
     expect(describeTransposition({ mode: 'diatonic', amount: 0, octaves: 2 })).toBe('2옥타브 위로');
-    expect(transpositionHint({ song: makeSong([[]]), moved: 24, unplaced: 1, chords: 3, unplacedChords: 0 }, { mode: 'chromatic', amount: 2 })).toBe(
+    expect(transpositionHint({ song: makeSong([[]]), moved: 24, unplaced: 1, naturalHarmonics: 0, chords: 3, unplacedChords: 0 }, { mode: 'chromatic', amount: 2 })).toBe(
       '음표 24개를 2반음 위로 조옮김했습니다. 코드 3개도 함께 옮겼습니다. 음표 1개는 새 음높이에서 지판에 맞지 않아 그대로 두었습니다.',
+    );
+    expect(transpositionHint({ song: makeSong([[]]), moved: 0, unplaced: 0, naturalHarmonics: 1, chords: 0, unplacedChords: 0 }, { mode: 'chromatic', amount: 1 })).toBe(
+      '옮긴 음표가 없습니다. 내추럴 하모닉스 1개는 하모닉스 프렛에서만 소리 나므로 그대로 두었습니다.',
     );
   });
 });
