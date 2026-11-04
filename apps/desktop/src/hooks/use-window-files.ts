@@ -50,7 +50,7 @@ function useImportPanel(): ImportPanel {
   return useMemo(() => ({ isOpen, open, close }), [isOpen, open, close]);
 }
 
-export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { trackView, playback }: WindowMedia): WindowFiles {
+export function useWindowFiles({ workspace, dispatch, state, focusScore }: WindowBase, { trackView, playback }: WindowMedia): WindowFiles {
   const { document, trackIndex } = state;
   // A PDF handed over like a song (dropped on the window, `open -a`) is imported; the import hook comes later, as it
   // opens its result.
@@ -62,6 +62,13 @@ export function useWindowFiles({ workspace, dispatch, state }: WindowBase, { tra
   const recovery = useAutosaveRecovery(dispatch, autosave);
   const { openList: openAutosavedWork } = recovery;
   useEffect(() => subscribeRecoverAutosaveRequests(openAutosavedWork), [openAutosavedWork]);
+  // The question at launch comes before anything has the keyboard: the window's root takes it, so Esc reaches the panel.
+  const isRecoveryShown = recovery.panel !== undefined;
+  useEffect(() => {
+    if (isRecoveryShown) {
+      focusScore();
+    }
+  }, [isRecoveryShown, focusScore]);
   // The save question's Save: the tab closes (or the app quits) before its saved state is drawn, so autosave hears it here.
   const { saveTab } = documents;
   const { markSaved } = autosave;

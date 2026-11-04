@@ -14,7 +14,8 @@ import { readFixture } from '../test-support/fixtures';
 // unsaved, Restore, and an edited tab's snapshot 30 s later.
 
 jest.mock('../src/native/specs/GPScoreCanvasNativeComponent', () => 'GPScoreCanvas');
-jest.mock('../src/native/focus-view', () => ({ focusView: () => undefined }));
+const mockFocus = jest.fn();
+jest.mock('../src/native/focus-view', () => ({ focusView: () => mockFocus() }));
 
 const FILE_PATH = '/songs/nightwish.gp5';
 const NIGHTWISH = readFixture('guitarpro5', 'nightwish.gp5');
@@ -70,6 +71,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.setSystemTime(new Date(2026, 10, 4, 10, 0, 0));
   nativeCalls.clear();
+  mockFocus.mockClear();
   mockListed = [{ folder: FOLDER, manifest: manifestText(CRASHED) }];
 });
 
@@ -102,11 +104,13 @@ describe('autosave in the window', () => {
     // Arrange
     const renderer = await launch();
     const question = propsOf(renderer, 'onRestoreAll');
+    const focusedWithQuestion = mockFocus.mock.calls.length;
 
     // Act
     await ReactTestRenderer.act(async () => question?.onRestoreAll());
 
     // Assert
+    expect(focusedWithQuestion).toBe(1);
     expect(question?.mode).toBe('launch');
     expect(question?.works.map((work: { documentId: string }) => work.documentId)).toEqual([CRASHED.documentId]);
     expect(propsOf(renderer, 'onRestoreAll')).toBeUndefined();
@@ -127,6 +131,7 @@ describe('autosave in the window', () => {
 
     // Assert
     expect(atLaunch).toBeUndefined();
+    expect(mockFocus).toHaveBeenCalledTimes(1);
     expect(propsOf(renderer, 'onRestoreAll')?.mode).toBe('list');
     expect(propsOf(renderer, 'onRestoreAll')?.works).toHaveLength(1);
   });
