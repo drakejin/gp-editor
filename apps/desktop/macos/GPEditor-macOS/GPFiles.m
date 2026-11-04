@@ -316,6 +316,23 @@ static NSWindow *_Nullable GPScoreWindow(void)
   return nil;
 }
 
+/**
+ * The score window in front, the app active: where the question is shown (Quit from the Dock while another app is in
+ * front, the window minimized, an MCP window over it).
+ */
+static void GPShowScoreWindow(void)
+{
+  for (NSWindow *window in NSApp.windows) {
+    BOOL isScoreWindow = (window.isVisible || window.isMiniaturized) && window.canBecomeMainWindow && ![window.identifier hasPrefix:@"GPMcp"];
+    if (isScoreWindow) {
+      [window deminiaturize:nil];
+      [NSApp activate];
+      [window makeKeyAndOrderFront:nil];
+      return;
+    }
+  }
+}
+
 /** Why the app may not be ended without asking (automatic termination's reason). */
 static NSString *const kUnsavedChangesReason = @"A tab has unsaved changes";
 
@@ -349,6 +366,7 @@ static BOOL GPFilesAsks(NSWindow *_Nullable window)
     return NO;
   }
   [GPCloseButtonGuard shared].askingWindow = window;
+  GPShowScoreWindow();
   [files sendEventWithName:kQuitRequestedEvent body:@{}];
   return YES;
 }
