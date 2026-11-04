@@ -186,11 +186,14 @@ function useAutosaveActions(context: AutosaveContext, queue: SerialQueue, { isEn
   }, [context, queue, isEnded, endedSongs]);
   const adoptRestored = useCallback(
     (song: Song, entry: AutosaveEntry) => {
-      context.setTracker(adopt(context.tracker(), song, entry));
+      // The tab's later marks rewrite this manifest: it names this session from now on (known by now: the restore read it).
+      const known = context.session();
+      const adopted = known === undefined ? entry : { ...entry, manifest: { ...entry.manifest, status: 'unsaved' as const, session: known } };
+      context.setTracker(adopt(context.tracker(), song, adopted));
       void reportFailure(
         queue.run(async () => {
           const session = context.session();
-          return session === undefined ? undefined : rewriteManifest(entry, { status: 'unsaved', session });
+          return session === undefined ? undefined : rewriteManifest(adopted, { status: 'unsaved', session });
         }),
       );
     },

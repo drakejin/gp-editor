@@ -359,4 +359,26 @@ describe('useAutosave: restored work', () => {
     expect(manifests()).toEqual([expect.objectContaining({ documentId: 'old-tab-1', status: 'unsaved', session: expect.objectContaining({ pid: 4242 }) })]);
     expect(mockNative.writeSnapshot).not.toHaveBeenCalled();
   });
+  it('keeps this session on a restored snapshot when its tab is then saved', async () => {
+    // Arrange
+    const restoredSong = makeSong([[beat(960, [note(1, 9)])]]);
+    const old: AutosaveManifest = {
+      version: 1, documentId: 'old-tab-1', title: 'Old', fileName: 'Old.gp5', path: '/scores/Old.gp5', format: 'gp5',
+      savedAt: '2026-11-03T09:00:00.000Z', session: { id: 'old', pid: 99, bootId: BOOT_ID }, status: 'declined',
+    };
+    mockDisk.set('2026-11-03/old-tab-1', { base64: 'AA==', manifest: JSON.stringify(old) });
+    const probe = renderAutosave(INITIAL_WORKSPACE);
+    await elapse(0);
+    ReactTestRenderer.act(() => probe.current().adoptRestored(restoredSong, { folder: '2026-11-03/old-tab-1', manifest: old }));
+    const restored = workspaceReducer(INITIAL_WORKSPACE, { type: 'restoreTab', document: { fileName: 'Old.gp5', path: '/scores/Old.gp5', song: restoredSong } });
+    probe.update(restored);
+    await elapse(0);
+
+    // Act
+    probe.update(workspaceReducer(restored, { type: 'saved', fileName: 'Old.gp5', path: '/scores/Old.gp5', song: restoredSong }));
+    await elapse(0);
+
+    // Assert
+    expect(manifests()).toEqual([expect.objectContaining({ status: 'saved', session: expect.objectContaining({ pid: 4242 }) })]);
+  });
 });
