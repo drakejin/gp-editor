@@ -189,6 +189,32 @@ describe('editor: a semitone up or down (⌥⇧↑ / ⌥⇧↓)', () => {
     expect(lowered.selectionAnchor).toBeDefined();
   });
 
+  it('moves by several semitones in one undo step (a note dragged up or down)', () => {
+    // Arrange: bar 2's G3 open on string 3.
+    const state = cursorAt(loaded(), 1, 0, 3);
+
+    // Act
+    const raised = reduce(state, { type: 'shiftPitch', delta: 3 });
+    const undone = reduce(raised, { type: 'undo' });
+
+    // Assert: B♭3 at fret 3 of string 3.
+    expect(frets(raised, 1)[0]).toBe('3/3');
+    expect(raised.past).toHaveLength(state.past.length + 1);
+    expect(raised.hint).toBeUndefined();
+    expect(undone.document?.song).toBe(state.document?.song);
+  });
+
+  it('changes nothing and adds no undo step for no semitones (a drag let go where it began)', () => {
+    // Arrange
+    const state = cursorAt(loaded(), 1, 0, 3);
+
+    // Act
+    const unmoved = reduce(state, { type: 'shiftPitch', delta: 0 });
+
+    // Assert
+    expect(unmoved).toBe(state);
+  });
+
   it('moves the selected notes of the selection’s voice only (voice 2 here)', () => {
     // Arrange: two beats, each with a note in voice 1 on string 1 and one in voice 2 on string 5; voice 2's selected.
     const twoVoices = (quarter: number, fret: number): Beat => {
