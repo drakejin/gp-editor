@@ -1,10 +1,10 @@
 import { DEFAULT_CHANNEL, NO_STROKE, QUARTER } from '@gp-editor/core';
 import type { Beat, Song, Track } from '@gp-editor/core';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { sliderThumbX } from '../src/components/MixerSlider';
 import { TRACK_TABLE } from '../src/components/TrackMixerRow';
-import { TracksPanel, type TracksPanelProps } from '../src/components/TracksPanel';
+import { TRACKS_PANEL, TracksPanel, type TracksPanelProps } from '../src/components/TracksPanel';
 import { ScoreCanvas } from '../src/native/score-canvas';
 import { BAR_MAP, barMapCellX, barMapHeight, barMapWidth, scrollOffsetToShowBar } from '../src/score/bar-map';
 import type { DrawCommand } from '../src/score/draw';
@@ -467,5 +467,19 @@ describe('TracksPanel bar map', () => {
     // Assert
     expect(onAddAudioTrack).toHaveBeenCalledTimes(1);
     expect(render().texts()).not.toContain('+ Audio Track');
+  });
+});
+
+describe('TracksPanel height', () => {
+  it('gives way to a panel over the score down to three tracks, so a lyrics or annotation field still shows at 1280 × 800', () => {
+    // Act
+    const panel = render();
+
+    // Assert: the panel shrinks before the window runs out (DocumentLayout's column), never under its header and three rows; it scrolls inside
+    const outer = panel.renderer.root.findAllByType(View)[0];
+    expect(StyleSheet.flatten(outer?.props.style)).toMatchObject({ flexShrink: 1, minHeight: TRACKS_PANEL.minHeight });
+    expect(TRACKS_PANEL.minHeight).toBe(BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight);
+    const vertical = panel.renderer.root.findAllByType(ScrollView).find((node) => node.props.horizontal !== true);
+    expect(StyleSheet.flatten(vertical?.props.style)).toMatchObject({ flexGrow: 0, maxHeight: TRACKS_PANEL.maxHeight });
   });
 });

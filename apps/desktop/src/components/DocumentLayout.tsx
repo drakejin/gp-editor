@@ -24,7 +24,8 @@ export const MIN_SCORE_HEIGHT = 180;
  * Guitar Pro 8's window under the tab strip: the edition palette down the whole left side, and beside it the hint, the
  * panels and the banners, score | inspector, and the instrument and tracks panels below them — so nothing but the
  * window's height shortens the palette (every tool shows at the default window: __tests__/palette-fit*.test.ts*). The top
- * takes the room it needs but leaves the score MIN_SCORE_HEIGHT: past that, its panels scroll.
+ * takes the room it needs but leaves the score MIN_SCORE_HEIGHT, the tracks panel giving way with it (down to its
+ * `TRACKS_PANEL.minHeight`): past that, its panels scroll.
  */
 export function DocumentLayout({ top, left, center, right, bottom }: DocumentLayoutProps) {
   return (

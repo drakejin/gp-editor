@@ -16,6 +16,11 @@ import { TRACK_TABLE, TrackMixerRow, TrackTableFooter, TrackTableHeader } from '
 export const TRACKS_PANEL = {
   /** Past this the panel scrolls (about eight tracks). */
   maxHeight: 220,
+  /**
+   * The least it shrinks to (its header and three tracks) when a panel over the score needs the room — a lyrics or
+   * annotation field at 1280 × 800 with the keyboard and fretboard shown —; it scrolls inside.
+   */
+  minHeight: BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight,
 } as const;
 
 export interface TracksPanelProps {
@@ -169,7 +174,7 @@ function BarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIn
 }
 
 const styles = StyleSheet.create({
-  panel: { borderTopWidth: 1 },
+  panel: { borderTopWidth: 1, flexShrink: 1, minHeight: TRACKS_PANEL.minHeight },
   // ScrollView grows by default; the panel keeps its content's height up to its maximum.
   vertical: { flexGrow: 0, maxHeight: TRACKS_PANEL.maxHeight },
   columns: { flexDirection: 'row' },
