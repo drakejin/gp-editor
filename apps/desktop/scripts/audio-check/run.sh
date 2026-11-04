@@ -7,11 +7,14 @@
 # signed with GPEditor.entitlements under an identifier of its own, ENGINE_CHECK_ID (its container under
 # ~/Library/Containers keeps the bank and the song while it runs; the container itself stays) —, every effect made, a
 # drum kit the bank lacks, and the effects UI's actions at random.
+# Then the restart (restart-check.m, sandboxed the same way): the engine in real time, its output tapped, a song played
+# again right away — stopped and played within 10 ms, or played again while it plays — on the shared synth and on a
+# sampler; each play's first note must sound.
 # Then the audio export (export-check.m): a fixture written by GPAudioExporter as WAV, AIFF, FLAC, MP3 and Ogg Vorbis
 # and read back (scripts/audio-codecs/fetch.sh builds the MP3 and Vorbis encoders first; cached).
 # Then the audio track's files with two apps running (assets-check.m): one app starting never removes the other's.
-# Usage: scripts/audio-check/run.sh [effects|engine|export|assets]   (from apps/desktop; needs npm run pods and npm run
-# soundfont first; no argument runs all four)
+# Usage: scripts/audio-check/run.sh [effects|engine|restart|export|assets]   (from apps/desktop; needs npm run pods and
+# npm run soundfont first; no argument runs all five)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -30,7 +33,9 @@ if [[ "$WHICH" == "assets" ]]; then
     exec "${OUT}/assets-check"
 fi
 
-for needed in "$HERMES" "$BANK"; do
+NEEDED=("$HERMES" "$BANK")
+[[ "$WHICH" != "restart" ]] || NEEDED=("$BANK")
+for needed in "${NEEDED[@]}"; do
     if [[ ! -e "$needed" ]]; then
         echo "[audio-check] error: ${needed} not found — run npm run pods and npm run soundfont first" >&2
         exit 1
@@ -38,26 +43,29 @@ for needed in "$HERMES" "$BANK"; do
 done
 mkdir -p "$OUT"
 
-# The songs as playback renders them: an 11-track song, a 12-track one, and bends.
-node -e '
-const fs = require("fs"), path = require("path");
-const [root, out] = process.argv.slice(1);
-const songs = { song: "guitarpro5/nightwish.gp5", twelve: "guitarpro8/transposition-tonality-c.gp", bends: "guitarpro5/bends.gp5" };
-const entries = Object.entries(songs).map(([name, file]) => ({ name, base64: fs.readFileSync(path.join(root, file)).toString("base64") }));
-fs.writeFileSync(out, "export default " + JSON.stringify(entries) + ";\n");
-' "$FIXTURES" "${HERE}/fixtures.generated.js"
-(cd "$APP_DIR" && npx react-native bundle --platform macos --dev false --minify false \
-    --entry-file scripts/audio-check/entry.js --bundle-output "${OUT}/midi.js" >/dev/null)
-rm -f "${HERE}/fixtures.generated.js"
-"$HERMES" "${OUT}/midi.js" > "${OUT}/midi.json"
-node -e '
-const fs = require("fs"), path = require("path");
-const [json, out] = process.argv.slice(1);
-for (const [name, { base64, seconds }] of Object.entries(JSON.parse(fs.readFileSync(json, "utf8")))) {
-  fs.writeFileSync(path.join(out, name + ".mid"), Buffer.from(base64, "base64"));
-  fs.writeFileSync(path.join(out, name + ".seconds"), String(seconds));
-}
-' "${OUT}/midi.json" "$OUT"
+# The songs as playback renders them (the restart check makes its own).
+if [[ "$WHICH" != "restart" ]]; then
+    # An 11-track song, a 12-track one, and bends.
+    node -e '
+    const fs = require("fs"), path = require("path");
+    const [root, out] = process.argv.slice(1);
+    const songs = { song: "guitarpro5/nightwish.gp5", twelve: "guitarpro8/transposition-tonality-c.gp", bends: "guitarpro5/bends.gp5" };
+    const entries = Object.entries(songs).map(([name, file]) => ({ name, base64: fs.readFileSync(path.join(root, file)).toString("base64") }));
+    fs.writeFileSync(out, "export default " + JSON.stringify(entries) + ";\n");
+    ' "$FIXTURES" "${HERE}/fixtures.generated.js"
+    (cd "$APP_DIR" && npx react-native bundle --platform macos --dev false --minify false \
+        --entry-file scripts/audio-check/entry.js --bundle-output "${OUT}/midi.js" >/dev/null)
+    rm -f "${HERE}/fixtures.generated.js"
+    "$HERMES" "${OUT}/midi.js" > "${OUT}/midi.json"
+    node -e '
+    const fs = require("fs"), path = require("path");
+    const [json, out] = process.argv.slice(1);
+    for (const [name, { base64, seconds }] of Object.entries(JSON.parse(fs.readFileSync(json, "utf8")))) {
+      fs.writeFileSync(path.join(out, name + ".mid"), Buffer.from(base64, "base64"));
+      fs.writeFileSync(path.join(out, name + ".seconds"), String(seconds));
+    }
+    ' "${OUT}/midi.json" "$OUT"
+fi
 
 RENDER_SOURCES=("${SRC}/GPConvolver.m" "${SRC}/GPCabinetImpulses.m" "${SRC}/GPDSPKernels.m" "${SRC}/GPDSPUnit.m"
     "${SRC}/GPEffectNodes.m" "${SRC}/GPMixGraph.m" "${SRC}/GPTrackInstruments.m" "${SRC}/GPMixRenderer.m"
@@ -74,19 +82,36 @@ ENGINE_CHECK_ID="com.drakejin.gpeditor.audio-check"
 # The audio units' own chatter on stderr; anything else (an exception, a crash) still shows.
 UNIT_NOISE='EnvelopeState|AudioConverter|SamplerUtils|AUSampler|throwing -10'
 
-if [[ "$WHICH" == "all" || "$WHICH" == "engine" ]]; then
+# Builds a tool on the real-time engine (its name, then its own sources) and signs it for the App Sandbox, as shipped.
+build_sandboxed() {
+    local name="$1"
+    shift
     printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>%s</string></dict></plist>\n' \
         "$ENGINE_CHECK_ID" > "${OUT}/engine-check-info.plist"
     clang -fobjc-arc -fmodules -O2 -Wall -I "$SRC" -I "$HERE" "${RENDER_SOURCES[@]}" "${SRC}/GPLineIn.m" "${SRC}/GPSandbox.m" \
-        "${SRC}/GPMidiEngine.m" "${HERE}/engine-stress.m" "${HERE}/engine-check.m" \
-        -Wl,-sectcreate,__TEXT,__info_plist,"${OUT}/engine-check-info.plist" -o "${OUT}/engine-check"
-    codesign --force --sign - --identifier "$ENGINE_CHECK_ID" --entitlements "${SRC}/GPEditor.entitlements" "${OUT}/engine-check"
+        "${SRC}/GPMidiEngine.m" "$@" -Wl,-sectcreate,__TEXT,__info_plist,"${OUT}/engine-check-info.plist" -o "${OUT}/${name}"
+    codesign --force --sign - --identifier "$ENGINE_CHECK_ID" --entitlements "${SRC}/GPEditor.entitlements" "${OUT}/${name}"
+}
+
+if [[ "$WHICH" == "all" || "$WHICH" == "engine" ]]; then
+    build_sandboxed engine-check "${HERE}/engine-stress.m" "${HERE}/engine-check.m"
     CONTAINER_HOME="$("${OUT}/engine-check")"
     mkdir -p "${CONTAINER_HOME}/audio-check"
     cp "$BANK" "${OUT}/song.mid" "${CONTAINER_HOME}/audio-check/"
     status=0
     "${OUT}/engine-check" "${CONTAINER_HOME}/audio-check/$(basename "$BANK")" "${CONTAINER_HOME}/audio-check/song.mid" \
         2> >(grep -v -E "$UNIT_NOISE" >&2) || status=$?
+    rm -rf "${CONTAINER_HOME}/audio-check"
+    (( status == 0 )) || exit "$status"
+fi
+
+if [[ "$WHICH" == "all" || "$WHICH" == "restart" ]]; then
+    build_sandboxed restart-check "${HERE}/output-recorder.m" "${HERE}/restart-check.m"
+    CONTAINER_HOME="$("${OUT}/restart-check")"
+    mkdir -p "${CONTAINER_HOME}/audio-check"
+    cp "$BANK" "${CONTAINER_HOME}/audio-check/"
+    status=0
+    "${OUT}/restart-check" "${CONTAINER_HOME}/audio-check/$(basename "$BANK")" 2> >(grep -v -E "$UNIT_NOISE" >&2) || status=$?
     rm -rf "${CONTAINER_HOME}/audio-check"
     (( status == 0 )) || exit "$status"
 fi

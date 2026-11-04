@@ -76,6 +76,28 @@ NSData *ChordMidi(uint8_t program, NSArray<NSNumber *> *keys)
   return ChannelMidi(0, -1, program, keys);
 }
 
+NSData *NotesMidi(uint8_t program, NSArray<NSArray<NSNumber *> *> *notes, uint32_t endTick)
+{
+  const uint8_t header[] = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, 0, 2, 0x03, 0xC0}; // format 1, 2 tracks, 960 PPQ
+  NSMutableData *midi = [NSMutableData dataWithBytes:header length:sizeof(header)];
+  [midi appendData:Track(@[
+    @[ @0, @0xFF, @0x51, @3, @0x07, @0xA1, @0x20 ], // 120 bpm
+    @[ @0, @0xB0, @101, @0 ], @[ @0, @0xB0, @100, @0 ], @[ @0, @0xB0, @6, @12 ], @[ @0, @0xB0, @38, @0 ],
+    @[ @(endTick), @0xFF, @0x2F, @0 ],
+  ])];
+  NSMutableArray<NSArray<NSNumber *> *> *events = [NSMutableArray arrayWithArray:@[ @[ @0, @0xB0, @7, @100 ], @[ @0, @0xC0, @(program) ] ]];
+  for (NSArray<NSNumber *> *note in notes) {
+    [events addObject:@[ note[1], @0x90, note[0], @110 ]];
+    [events addObject:@[ note[2], @0x80, note[0], @0 ]];
+  }
+  [events sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSArray<NSNumber *> *a, NSArray<NSNumber *> *b) {
+    return [a[0] compare:b[0]];
+  }];
+  [events addObject:@[ @(endTick), @0xFF, @0x2F, @0 ]];
+  [midi appendData:Track(events)];
+  return midi;
+}
+
 // MARK: - Measures
 
 /** Mean square of both channels over [from, to) seconds. */

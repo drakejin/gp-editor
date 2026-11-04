@@ -18,6 +18,13 @@ NSData *ChordMidi(uint8_t program, NSArray<NSNumber *> *keys);
  */
 NSData *ChannelMidi(uint8_t channel, int bank, uint8_t program, NSArray<NSNumber *> *keys);
 
+/**
+ * Notes `{ key, on tick, off tick }` on channel 0 with a GM `program`, at 120 bpm and 960 PPQ (0.5 s a quarter); the
+ * conductor sets the channel's pitch-bend range as renderMidi's does, so it stays the sequence's first track (and the
+ * notes' track is song track 0: on a sampler when that track has effects).
+ */
+NSData *NotesMidi(uint8_t program, NSArray<NSArray<NSNumber *> *> *notes, uint32_t endTick);
+
 /** Mean square of both channels over [from, to) seconds. */
 double Power(AVAudioPCMBuffer *buffer, double from, double to);
 
