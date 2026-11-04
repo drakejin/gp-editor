@@ -288,3 +288,48 @@ describe('useTabs: quitting with edited tabs (⌘Q, the window’s close button)
     expect(mockTabEvents.setHasEditedDocuments.mock.calls).toEqual([[true], [false]]);
   });
 });
+
+describe('useTabs: a quit whose question was replaced or is waiting for a save', () => {
+  it('asks again on the next quit when ⌘W replaced the quit question with the tab’s own', () => {
+    // Arrange: quitting asks about Etude (tab-1, shown then); ⌘W closes that tab with its own question
+    const tabs = renderTabs(workspaceReducer(twoEditedTabs(), { type: 'switchTab', tabId: 'tab-1' }));
+    requestQuit();
+    ReactTestRenderer.act(() => menu().onCloseTabRequested());
+    ReactTestRenderer.act(() => tabs.current().discardAndClose());
+
+    // Act
+    requestQuit();
+
+    // Assert
+    expect(tabs.dispatch).toHaveBeenCalledWith({ type: 'closeTab', tabId: 'tab-1' });
+    expect(tabs.current().closing).toMatchObject({ isQuitting: true });
+  });
+
+  it('goes on quitting once a save answers, even when Esc was pressed while it was being written', async () => {
+    // Arrange: Save chosen for Etude, its write still going
+    const tabs = renderTabs(twoEditedTabs());
+    const writing = deferredSave();
+    tabs.saveTab.mockReturnValueOnce(writing.promise);
+    requestQuit();
+    ReactTestRenderer.act(() => tabs.current().saveAndClose());
+
+    // Act: Esc with no question shown, then the write ends
+    let wasAsked = true;
+    ReactTestRenderer.act(() => {
+      wasAsked = tabs.current().cancelClose();
+    });
+    await settle(() => writing.resolve(true));
+
+    // Assert: Riff is asked about next
+    expect(wasAsked).toBe(false);
+    expect(tabs.current().closing).toEqual({ tabId: 'tab-2', name: 'Riff', isQuitting: true });
+  });
+});
+
+function deferredSave(): { readonly promise: Promise<boolean>; readonly resolve: (isSaved: boolean) => void } {
+  let resolve: (isSaved: boolean) => void = () => undefined;
+  const promise = new Promise<boolean>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
