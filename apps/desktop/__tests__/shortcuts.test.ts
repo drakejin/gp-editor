@@ -34,6 +34,14 @@ describe('the shortcut sheet', () => {
     expect(beats?.find((shortcut) => shortcut.keys === '⌘D')).toMatchObject({ action: 'Delete the bar, or the selected bars', press: { key: 'd', metaKey: true } });
   });
 
+  it('lists ⌥⇧↑ / ⌥⇧↓, a semitone up or down, with the note keys', () => {
+    const notes = shortcutGroups().find((group) => group.title === 'Note at the cursor')?.shortcuts;
+    expect(notes?.find((shortcut) => shortcut.keys === '⌥⇧↑ / ⌥⇧↓')).toMatchObject({
+      action: 'A semitone up / down: the selected notes, or the note at the cursor',
+      press: { key: 'ArrowUp', altKey: true, shiftKey: true },
+    });
+  });
+
   it('lists the practice keys and View ▸ Focus', () => {
     const keys = shortcutGroups().find((group) => group.title === 'Practice')?.shortcuts.map((shortcut) => shortcut.keys);
     expect(keys).toEqual(['⌥- / ⌥=', '⌥M', '⌥C', '⌥L', '⇧⌘F']);

@@ -59,6 +59,7 @@ const NOTE_ROWS: readonly ShortcutRow[] = [
   row('T', 'commands.shortcuts.tie', key('t')),
   row('- / =', 'commands.shortcuts.fretDownUp', key('=')),
   row('⌥↑ / ⌥↓', 'commands.shortcuts.noteString', key(KEYS.arrowUp, { altKey: true })),
+  row('⌥⇧↑ / ⌥⇧↓', 'commands.shortcuts.semitone', key(KEYS.arrowUp, { altKey: true, shiftKey: true })),
 ];
 
 /** The cursor's beat: erase, delete (its notes, the selected ones, the bars), insert, its length. */

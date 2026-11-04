@@ -71,6 +71,12 @@ const fileRows = (): readonly Command[] => [
   appRow('file.previousTab', 'file', (a) => a.cycleTab(-1), { when: 'tabs', shortcut: '⌃⇧⇥', keywords: ['document', 'switch'] }),
 ];
 
+/** Edit ▸ Raise / Lower by a Semitone: the id, the arrow with ⌥⇧, one more word each is found by. */
+const SEMITONE_ROWS = [
+  ['edit.semitoneUp', KEYS.arrowUp, 'higher'],
+  ['edit.semitoneDown', KEYS.arrowDown, 'lower'],
+] as const;
+
 const editRows = (): readonly Command[] => [
   appKeyRow('edit.undo', 'edit', press('z', { metaKey: true }), { when: 'undo' }),
   appKeyRow('edit.redo', 'edit', press('z', { metaKey: true, shiftKey: true }), { when: 'redo' }),
@@ -79,6 +85,10 @@ const editRows = (): readonly Command[] => [
   appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
   appKeyRow('edit.deleteNotes', 'edit', press('d'), { when: 'notes', keywords: ['erase', 'remove', 'clear', 'rests', 'selection'] }),
   appKeyRow('edit.deleteBars', 'edit', press('d', { metaKey: true }), { when: 'bar', keywords: ['measures', 'remove', 'selection'] }),
+  // Guitar Pro 8's One semitone up / down; Korean words beyond the titles too (조옮김 transpose, 음높이 pitch).
+  ...SEMITONE_ROWS.map(([id, key, word]) =>
+    appKeyRow(id, 'edit', press(key, { altKey: true, shiftKey: true }), { when: 'notes', keywords: ['transpose', 'pitch', 'semitone', 'half', 'step', word, 'selection', 'notes', '조옮김', '음높이'] }),
+  ),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.voice${number}`, 'edit', press(String(number), { metaKey: true }), { when: 'beat', keywords: ['voice', 'polyphony', 'multivoice'] })),
   ...[1, 2, 3, 4].map((number) => appKeyRow(`edit.moveToVoice${number}`, 'edit', press(String(number), { altKey: true }), { when: 'beat', keywords: ['voice', 'move', 'note', 'polyphony'] })),
   appEditorRow('edit.multivoice', 'edit', { type: 'toggleMultivoice' }, { when: 'beat', keywords: ['voice', 'all', 'voices', 'polyphony', 'fade'] }),

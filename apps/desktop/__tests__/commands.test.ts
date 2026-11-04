@@ -162,6 +162,23 @@ describe('command registry', () => {
     expect(find('palette.insertMeasure').title).toBe('Add a bar after the bar you clicked (the cursor’s), in every track — Track ▸ Insert Bar in This Track adds one to that track only');
   });
 
+  it('lists Edit ▸ Raise by a Semitone (⌥⇧↑) and Lower by a Semitone (⌥⇧↓) once, the palette’s buttons being the same commands, found by “transpose” and in Korean', () => {
+    // Arrange
+    const up = find('edit.semitoneUp');
+    const down = find('edit.semitoneDown');
+
+    // Act
+    const ids = allCommands().filter((command) => command.command?.type === 'shiftPitch').map((command) => command.id);
+
+    // Assert
+    expect(up).toMatchObject({ title: 'Raise by a Semitone', shortcut: '⌥⇧↑', command: { type: 'shiftPitch', delta: 1 } });
+    expect(down).toMatchObject({ title: 'Lower by a Semitone', shortcut: '⌥⇧↓', command: { type: 'shiftPitch', delta: -1 } });
+    expect(ids).toEqual(['edit.semitoneUp', 'edit.semitoneDown']);
+    expect(up.keywords).toEqual(expect.arrayContaining(['transpose', 'pitch', 'selection', '반음 올리기']));
+    expect(up.isEnabled(ON_NOTE)).toBe(true);
+    expect(up.isEnabled(NO_DOCUMENT)).toBe(false);
+  });
+
   it('lists Track ▸ Insert Bar in This Track and Delete Bar in This Track, which need a bar', () => {
     expect(find('track.insertBar')).toMatchObject({ title: 'Insert Bar in This Track', command: { type: 'edit', edit: { type: 'insertTrackMeasure' } } });
     expect(find('track.deleteBar')).toMatchObject({ title: 'Delete Bar in This Track', command: { type: 'edit', edit: { type: 'deleteTrackMeasure' } } });
