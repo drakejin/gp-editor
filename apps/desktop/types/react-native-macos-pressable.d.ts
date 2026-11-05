@@ -16,5 +16,7 @@ declare module 'react-native' {
     shiftKey?: boolean | null | undefined;
     /** macOS: control was held (a ⌃-click, which macOS takes as a right click). */
     ctrlKey?: boolean | null | undefined;
+    /** macOS: option was held (an ⌥-click: the palette's +Bar and −Bar in the cursor's track only). */
+    altKey?: boolean | null | undefined;
   }
 }

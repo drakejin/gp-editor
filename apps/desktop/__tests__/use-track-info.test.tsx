@@ -1,5 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { type TrackInfo, type TrackInfoScope, useTrackInfo } from '../src/hooks/use-track-info';
+import type { View } from 'react-native';
+import { type TrackInfo, type TrackInfoScope, anchorAt, useTrackInfo } from '../src/hooks/use-track-info';
 
 /** The hook in a probe whose scope the test changes; the hook's latest value, re-read after every act(). */
 function renderTrackInfo(scope: TrackInfoScope) {
@@ -61,5 +62,20 @@ describe('useTrackInfo', () => {
     ReactTestRenderer.act(() => panel.current().open(2, { x: 0, y: 0 }));
     panel.rescope({ tabId: 'a', trackCount: 2 });
     expect(panel.current().isOpen).toBe(false);
+  });
+});
+
+describe('anchorAt', () => {
+  it('places a point of a view in the window: the view’s place plus the point', () => {
+    // Arrange
+    const onAnchor = jest.fn();
+    const view = { measure: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => callback(0, 0, 50, 20, 300, 600) };
+
+    // Act
+    anchorAt(view as unknown as View, 12, 7, onAnchor);
+    anchorAt(null, 12, 7, onAnchor);
+
+    // Assert
+    expect(onAnchor.mock.calls).toEqual([[{ x: 312, y: 607 }], [{ x: 12, y: 7 }]]);
   });
 });

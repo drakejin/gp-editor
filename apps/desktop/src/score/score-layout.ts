@@ -1,7 +1,7 @@
 import { type Song, type Stylesheet, type Track, type TrackNameFormat, abbreviateTrackName, stylesheetOf } from '@gp-editor/core';
 import { layoutAlignedMeasures, layoutAlignedRows } from '../lib/aligned-measures';
-import { t } from '../lib/i18n/i18n';
 import type { BeatRoom, MeasureLayout, RowLayout } from '../lib/layout';
+import { trackLabel } from '../lib/track-label';
 import { withBeatOffsets } from '../lib/system-design';
 import { annotationRowBands, annotationTrackBands } from './annotations';
 import { type ChordDisplay, chordBands, chordBeatWidth } from './chords';
@@ -261,7 +261,7 @@ export function staffLabel(track: Pick<Track, 'name' | 'number' | 'shortName'>, 
   if (format === 'hidden') {
     return '';
   }
-  const name = track.name.trim() === '' ? t('common.trackNumber', { number: track.number }) : track.name.trim();
+  const name = trackLabel(track);
   return format === 'full' ? name : (track.shortName ?? abbreviateTrackName(name));
 }
 

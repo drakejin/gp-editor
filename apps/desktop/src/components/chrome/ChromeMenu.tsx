@@ -3,8 +3,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../../hooks/use-i18n';
 import type { Palette } from '../../theme';
 
-const MENU_WIDTH = 270;
-const EDGE = 8;
+/**
+ * The menus' measures in points: width, least distance from the window's edge, how far left of the click it starts,
+ * its padding and border, and the heights of an item, a heading (one line) and a separator.
+ */
+export const CHROME_MENU = { width: 270, edge: 8, inset: 16, padding: 5, border: 1, itemHeight: 22, headingHeight: 17, separatorHeight: 11 } as const;
+const MENU_WIDTH = CHROME_MENU.width;
+const EDGE = CHROME_MENU.edge;
+/** A heading's line and the room above it; the room below makes up CHROME_MENU.headingHeight. */
+const HEADING_LINE = 12;
+const HEADING_TOP = 2;
 
 interface ChromeMenuProps {
   readonly palette: Palette;
@@ -19,7 +27,7 @@ interface ChromeMenuProps {
 
 /** A dark drop-down menu over the whole window; a click outside closes it. */
 export function ChromeMenu({ palette, x, top, windowWidth, onClose, children }: ChromeMenuProps) {
-  const left = Math.max(EDGE, Math.min(x - 16, windowWidth - MENU_WIDTH - EDGE));
+  const left = Math.max(EDGE, Math.min(x - CHROME_MENU.inset, windowWidth - MENU_WIDTH - EDGE));
   return (
     <View style={StyleSheet.absoluteFill}>
       <Pressable testID="chrome-menu-backdrop" style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -56,7 +64,11 @@ export function MenuSeparator({ palette }: { readonly palette: Palette }) {
 }
 
 export function MenuHeading({ palette, label }: { readonly palette: Palette; readonly label: string }) {
-  return <Text style={[styles.heading, { color: palette.chromeMuted }]}>{label}</Text>;
+  return (
+    <Text numberOfLines={1} style={[styles.heading, { color: palette.chromeMuted }]}>
+      {label}
+    </Text>
+  );
 }
 
 interface MenuStepperProps {
@@ -93,19 +105,28 @@ const styles = StyleSheet.create({
   menu: {
     position: 'absolute',
     width: MENU_WIDTH,
-    paddingVertical: 5,
+    paddingVertical: CHROME_MENU.padding,
     borderRadius: 7,
-    borderWidth: 1,
+    borderWidth: CHROME_MENU.border,
     shadowColor: '#000000',
     shadowOpacity: 0.45,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
-  item: { flexDirection: 'row', alignItems: 'center', height: 22, paddingHorizontal: 8, marginHorizontal: 4, borderRadius: 4 },
+  item: { flexDirection: 'row', alignItems: 'center', height: CHROME_MENU.itemHeight, paddingHorizontal: 8, marginHorizontal: 4, borderRadius: 4 },
   check: { width: 16, fontSize: 12 },
   itemText: { fontSize: 13 },
-  separator: { height: 1, marginVertical: 5, marginHorizontal: 8 },
-  heading: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: 12, paddingTop: 2, paddingBottom: 3 },
+  separator: { height: 1, marginVertical: (CHROME_MENU.separatorHeight - 1) / 2, marginHorizontal: 8 },
+  heading: {
+    fontSize: 10,
+    lineHeight: HEADING_LINE,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    paddingHorizontal: 12,
+    paddingTop: HEADING_TOP,
+    paddingBottom: CHROME_MENU.headingHeight - HEADING_LINE - HEADING_TOP,
+  },
   stepperRow: { flexDirection: 'row', alignItems: 'center', height: 26, paddingHorizontal: 12 },
   stepperLabel: { flex: 1, fontSize: 12 },
   stepperValue: { minWidth: 64, textAlign: 'center', fontSize: 12, fontWeight: '600' },

@@ -196,8 +196,17 @@ function barGroup(): PaletteGroup {
     title: t('palette.group.bar'),
     tools: [
       // + Bar adds after the bar clicked (the cursor's): the mouse is on the palette when it is pressed, not on a bar.
-      { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }) },
-      { id: 'deleteMeasure', face: t('palette.face.deleteMeasure'), key: '⌘D', tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'), scope: 'bar', run: edit({ type: 'deleteMeasure' }) },
+      // With ⌥ both act on the cursor's track only (the palette has no room for two more buttons at 1280 × 800).
+      { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }), optionClick: { run: edit({ type: 'insertTrackMeasure', position: 'after' }), tooltip: t('palette.tool.insertMeasure.option') } },
+      {
+        id: 'deleteMeasure',
+        face: t('palette.face.deleteMeasure'),
+        key: '⌘D',
+        tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'),
+        scope: 'bar',
+        run: edit({ type: 'deleteMeasure' }),
+        optionClick: { run: edit({ type: 'deleteTrackMeasure' }), tooltip: t('palette.tool.deleteMeasure.option') },
+      },
       { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
       { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
       endingsTool(),

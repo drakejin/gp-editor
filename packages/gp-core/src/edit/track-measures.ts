@@ -89,28 +89,32 @@ function isBarOf(song: Song, track: Track | undefined, measureIndex: number): tr
 }
 
 /**
- * New song where the track's bars from `measureIndex` move one bar later and the track rests in that bar, as if a bar
- * were inserted in this track alone: the song gets one more bar at the end (a copy of the last one's time signature
- * and tempo, without repeats or marker; rests in the other tracks, which are otherwise untouched). Moved bars are
+ * New song where the track's bars from `measureIndex` (`'after'`: from the bar after it) move one bar later and the
+ * track rests in that bar, as if a bar were inserted in this track alone: the song gets one more bar at the end (a copy
+ * of the last one's time signature and tempo, without repeats or marker; rests in the other tracks, which are otherwise
+ * untouched). The bar of rests takes the clef of the bar at `measureIndex` and the key of its own bar. Moved bars are
  * fitted to their new bars (moveMusic); a tie into the moved music is undone. Same song for a track or bar it lacks.
  */
-export function insertTrackMeasure(song: Song, trackIndex: number, measureIndex: number): Song {
+export function insertTrackMeasure(song: Song, trackIndex: number, measureIndex: number, position: 'before' | 'after' = 'before'): Song {
   const track = song.tracks[trackIndex];
   if (!isBarOf(song, track, measureIndex)) {
     return song;
   }
+  const insertIndex = position === 'before' ? measureIndex : measureIndex + 1;
   const longer = insertMeasure(song, song.measureHeaders.length - 1, 'after');
   const slots = longer.tracks[trackIndex]?.measures ?? [];
   const measures = slots.map((slot, index) => {
     const header = longer.measureHeaders[index];
     const music = track.measures[index - 1];
     const from = song.measureHeaders[index - 1];
-    if (index < measureIndex || header === undefined) {
+    if (index < insertIndex || header === undefined) {
       return slot;
     }
-    return index === measureIndex || music === undefined || from === undefined ? restMeasure(track, measureIndex, header, index) : moveMusic(music, from, header, index, slot.keySignature);
+    return index === insertIndex || music === undefined || from === undefined
+      ? { ...restMeasure(track, measureIndex, header, index), keySignature: slot.keySignature }
+      : moveMusic(music, from, header, index, slot.keySignature);
   });
-  return withTrackMusic(longer, trackIndex, track, measures, { measureIndex, bars: 1 });
+  return withTrackMusic(longer, trackIndex, track, measures, { measureIndex: insertIndex, bars: 1 });
 }
 
 /**

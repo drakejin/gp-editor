@@ -25,7 +25,7 @@ export function undo(state: EditorState): EditorState {
     return state;
   }
   const undone = followTrackChanges(
-    { ...state, document: { ...state.document, song: previous }, past: state.past.slice(0, -1), future: [state.document.song, ...state.future], notice: undefined },
+    { ...state, document: { ...state.document, song: previous }, past: state.past.slice(0, -1), future: [state.document.song, ...state.future], notice: undefined, hint: undefined },
     state.document.song,
     previous,
   );
@@ -38,7 +38,7 @@ export function redo(state: EditorState): EditorState {
     return state;
   }
   const redone = followTrackChanges(
-    { ...state, document: { ...state.document, song: next }, past: [...state.past, state.document.song].slice(-HISTORY_LIMIT), future: rest, notice: undefined },
+    { ...state, document: { ...state.document, song: next }, past: [...state.past, state.document.song].slice(-HISTORY_LIMIT), future: rest, notice: undefined, hint: undefined },
     state.document.song,
     next,
   );

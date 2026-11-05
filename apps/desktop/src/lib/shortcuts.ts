@@ -70,6 +70,8 @@ const BEAT_ROWS: readonly ShortcutRow[] = [
   row('⇧⌫', 'commands.shortcuts.deleteBeat', key(KEYS.backspace, { shiftKey: true })),
   row('D', 'commands.shortcuts.deleteNotes', key('d')),
   row('⌘D', 'commands.shortcuts.deleteBars', key('d', { metaKey: true })),
+  // The Track menu's own keys (its items take them): no press of the score's.
+  row('⌥⌘I / ⌥⌘⌫', 'commands.shortcuts.trackBars'),
   row('I', 'commands.shortcuts.insertBeat', key('i')),
   row('K', 'commands.shortcuts.chord', key('k')),
   row('J', 'commands.shortcuts.annotation', key('j')),

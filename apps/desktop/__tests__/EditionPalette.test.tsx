@@ -145,8 +145,34 @@ describe('EditionPalette state at the cursor', () => {
     expect(texts('deleteNotes')).toEqual(['Del.', 'D']);
     expect(texts('deleteMeasure')).toEqual(['−Bar', '⌘D']);
     expect(palette.tool('deleteNotes').props.tooltip).toBe('Delete the note at the cursor, or the selected notes — the beats stay as rests (D)');
-    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars, in every track — Track ▸ Delete Bar in This Track deletes it in that track only (⌘D)');
-    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked (the cursor’s), in every track — Track ▸ Insert Bar in This Track adds one to that track only');
+    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars, in every track (⌘D) — ⌥-click: in the cursor’s track only, its later bars moving earlier');
+    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add a bar after the bar you clicked (the cursor’s), in every track — ⌥-click: in the cursor’s track only, the other tracks unchanged');
+  });
+
+  it('adds or deletes a bar in the cursor’s track only on an ⌥-click of +Bar or −Bar, in every track on a plain click', () => {
+    // Arrange
+    const palette = render();
+    const click = (id: string, altKey: boolean) => ReactTestRenderer.act(() => palette.tool(id).props.onPress({ nativeEvent: { altKey } }));
+
+    // Act
+    click('insertMeasure', true);
+    click('deleteMeasure', true);
+    click('insertMeasure', false);
+    click('deleteMeasure', false);
+
+    // Assert
+    expect(palette.onEdit.mock.calls).toEqual([
+      [{ type: 'insertTrackMeasure', position: 'after' }],
+      [{ type: 'deleteTrackMeasure' }],
+      [{ type: 'insertMeasure' }],
+      [{ type: 'deleteMeasure' }],
+    ]);
+  });
+
+  it('runs a tool without an ⌥ variant as it is on an ⌥-click', () => {
+    const palette = render();
+    ReactTestRenderer.act(() => palette.tool('value8').props.onPress({ nativeEvent: { altKey: true } }));
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'setNoteValue', value: 8 });
   });
 
   it('disables everything without a cursor', () => {

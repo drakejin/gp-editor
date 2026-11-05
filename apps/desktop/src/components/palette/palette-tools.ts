@@ -92,6 +92,11 @@ export interface PaletteTool {
   readonly scope: ToolScope;
   readonly isActive?: (context: PaletteContext) => boolean;
   readonly run: PaletteRun;
+  /**
+   * What an ⌥-click does instead (+Bar and −Bar: in the cursor's track only) and what the tooltip says of it after its
+   * own text; none: an ⌥-click is a click.
+   */
+  readonly optionClick?: { readonly run: PaletteRun; readonly tooltip: string };
   /** A fixed width, for a one-character face that must fit the end of a full row (the Beat group's >). */
   readonly width?: number;
   /** A colour strip under the face (each Voice button in its voice's colour). */

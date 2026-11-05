@@ -8,6 +8,8 @@
  *   capture), and the innermost pressable takes the press, as in React Native.
  * - `tooltip` (react-native-macos) becomes the element's `title`; a pressable's role stays an attribute (no nested
  *   <button>s).
+ * - `onAuxClick` (react-native-macos: a right or middle click, at clientX / clientY in the view) is called on the
+ *   element's context menu (the browser's menu kept away) and on a middle click, with the point in the view.
  * - TextInput calls `onKeyDown` and lets the keys it does not stop bubble on, as react-native-macos does.
  * - Text shows macOS key symbols (⌘, ⇧, ⌥ …) the Windows way (platform-text.ts).
  */
@@ -24,6 +26,7 @@ import {
   useState,
 } from 'react';
 import * as Web from 'react-native-web';
+import { type AuxClickEvent, auxClickHandlers } from './aux-click';
 import { platformText } from './platform-text';
 
 export * from 'react-native-web';
@@ -84,6 +87,8 @@ interface PressableProps {
   readonly onLongPress?: PressHandler;
   readonly onHoverIn?: (event: unknown) => void;
   readonly onHoverOut?: (event: unknown) => void;
+  /** react-native-macos: a right or middle click, at clientX / clientY in the view. */
+  readonly onAuxClick?: (event: AuxClickEvent) => void;
   readonly pressRetentionOffset?: Insets | number;
   readonly tooltip?: string;
   readonly testID?: string;
@@ -235,6 +240,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
     /* eslint-enable @typescript-eslint/no-unused-vars */
     onHoverIn,
     onHoverOut,
+    onAuxClick,
     tooltip,
     accessibilityRole,
     role,
@@ -269,6 +275,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
         setHovered(false);
         onHoverOut?.(event);
       }}
+      {...auxClickHandlers(onAuxClick, () => element.current)}
       {...handlers}
     >
       {resolve(children, state)}

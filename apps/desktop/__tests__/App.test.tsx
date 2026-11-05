@@ -6,9 +6,10 @@ import ReactTestRenderer from 'react-test-renderer';
 import App from '../src/App';
 import { bytesToBase64 } from '../src/lib/base64';
 import { HANDLED_KEYS } from '../src/lib/key-commands';
-import { readSong } from '@gp-editor/core';
+import { insertTrackMeasure, readSong } from '@gp-editor/core';
 import { searchUrl, songQueryOf } from '../src/songsterr/songsterr-urls';
 import { readFixture } from '../test-support/fixtures';
+import { BAR_MAP, barMapCellX } from '../src/score/bar-map';
 import { answerMeasure } from '../test-support/measure';
 
 // The window as it runs: App with every native module answering (menu events through the device event emitter, as
@@ -307,6 +308,59 @@ describe('App: a track’s information', () => {
     expect(firstTrack(renderer)).toEqual(expect.objectContaining({ name: 'Uke', iconId: 7 }));
     expect(topBar(renderer).trackIcon).toBe('ukulele');
     expect(control(renderer, 'Icon of track 1').props.tooltip).toBe('Ukulele: click for the track’s colour, icon and names');
+  });
+});
+
+describe('App: the bar map’s menu', () => {
+  const song = (renderer: ReactTestRenderer.ReactTestRenderer) => propsOf(renderer, 'onContextBar').song;
+  const menuItem = (renderer: ReactTestRenderer.ReactTestRenderer, label: string) =>
+    renderer.root
+      .findAll((node) => node.props.accessibilityRole === 'menuitem' && typeof node.props.onPress === 'function')
+      .find((item) => item.findAll((node) => node.props.children === label).length > 0);
+  const map = (renderer: ReactTestRenderer.ReactTestRenderer) => renderer.root.findAll((node) => node.props.testID === 'tracks-panel-bar-map' && typeof node.props.onAuxClick === 'function')[0]!;
+
+  /** A right-click on bar 3 of track 2 in the bar map, the map measured at (300, 600) in the window. */
+  async function rightClickBar3OfTrack2(renderer: ReactTestRenderer.ReactTestRenderer): Promise<void> {
+    await ReactTestRenderer.act(async () => map(renderer).props.onAuxClick({ nativeEvent: { clientX: barMapCellX(2) + 5, clientY: BAR_MAP.headerHeight + 1.5 * BAR_MAP.rowHeight, button: 2 } }));
+    await ReactTestRenderer.act(async () => answerMeasure(map(renderer), 300, 600));
+  }
+
+  it('puts the cursor on the right-clicked bar and inserts a bar after it in that track only, one undo step', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const before = song(renderer);
+
+    // Act
+    await rightClickBar3OfTrack2(renderer);
+    const cursor = propsOf(renderer, 'onContextBar').cursorMeasureIndex;
+    const shownTrack = propsOf(renderer, 'onContextBar').selectedTrackIndex;
+    await ReactTestRenderer.act(async () => menuItem(renderer, 'Insert Bar After in This Track')?.props.onPress());
+    const inserted = song(renderer);
+    const isClosed = menuItem(renderer, 'Insert Bar After in This Track') === undefined;
+    await press(renderer, 'z', { metaKey: true });
+
+    // Assert
+    expect([shownTrack, cursor]).toEqual([1, 2]);
+    expect(inserted).toEqual(insertTrackMeasure(before, 1, 2, 'after'));
+    expect(inserted.tracks[0].measures.slice(0, before.measureHeaders.length)).toEqual(before.tracks[0].measures);
+    expect(isClosed).toBe(true);
+    expect(song(renderer)).toBe(before);
+  });
+
+  it('closes with Esc, changing nothing', async () => {
+    // Arrange
+    const renderer = await openWindow();
+    const before = song(renderer);
+
+    // Act
+    await rightClickBar3OfTrack2(renderer);
+    const isOpen = menuItem(renderer, 'Delete This Bar in This Track') !== undefined;
+    await press(renderer, 'Escape');
+
+    // Assert
+    expect(isOpen).toBe(true);
+    expect(menuItem(renderer, 'Delete This Bar in This Track')).toBeUndefined();
+    expect(song(renderer)).toBe(before);
   });
 });
 

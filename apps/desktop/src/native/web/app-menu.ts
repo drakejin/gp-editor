@@ -182,8 +182,9 @@ function trackMenu(): TopMenu {
     command('track-up', 'commands.title.track.moveUp', post('trackCommandRequested', { command: 'moveUp' })),
     command('track-down', 'commands.title.track.moveDown', post('trackCommandRequested', { command: 'moveDown' })),
     SEPARATOR,
-    command('track-insert-bar', 'commands.title.track.insertBar', post('trackCommandRequested', { command: 'insertBar' })),
-    command('track-delete-bar', 'commands.title.track.deleteBar', post('trackCommandRequested', { command: 'deleteBar' })),
+    command('track-insert-bar', 'commands.title.track.insertBar', post('trackCommandRequested', { command: 'insertBar' }), { key: 'i', ctrl: true, alt: true }),
+    // i18n-exempt: a key's name (KeyboardEvent.key)
+    command('track-delete-bar', 'commands.title.track.deleteBar', post('trackCommandRequested', { command: 'deleteBar' }), { key: 'Backspace', ctrl: true, alt: true }),
   ]);
 }
 
@@ -221,8 +222,11 @@ function commandItems(entries: readonly MenuEntry[]): CommandItem[] {
 
 /** Editor keys the root view handles itself (key-commands.ts: Ctrl acts as ⌘); the menu only shows them. */
 const EDITOR_KEYS = new Set(['undo', 'cut', 'copy', 'paste', 'delete-bars']);
-/** Ctrl+Y (Redo) is the Windows key for the editor's ⇧⌘Z; in a text field it is the field's. */
-const FIELD_KEYS = new Set(['redo']);
+/**
+ * In a text field these keys are the field's: Ctrl+Y (Redo, the Windows key for the editor's ⇧⌘Z), and the bar in this
+ * track's Ctrl+Alt+I / Ctrl+Alt+Backspace (Ctrl+Alt is AltGr on many keyboards: a letter typed, not a bar).
+ */
+const FIELD_KEYS = new Set(['redo', 'track-insert-bar', 'track-delete-bar']);
 
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);

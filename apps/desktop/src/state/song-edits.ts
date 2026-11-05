@@ -74,8 +74,11 @@ export type SongEdit =
   | NotationEdit
   | VoiceEdit
   | { readonly type: 'insertMeasure' }
-  /** A bar of rests at the cursor's bar in the cursor's track only: its bars from there move one bar later (Track ▸ Insert Bar in This Track). */
-  | { readonly type: 'insertTrackMeasure' }
+  /**
+   * A bar of rests at the cursor's bar in the cursor's track only: its bars from there move one bar later (Track ▸ Insert
+   * Bar in This Track); `after`: after the cursor's bar (the palette's ⌥-click on +Bar, the bar map's menu).
+   */
+  | { readonly type: 'insertTrackMeasure'; readonly position?: 'before' | 'after' }
   /**
    * The cursor's bar, or every bar from `from` (the selection's start) to it, out of the cursor's track only: its later
    * bars move earlier (Track ▸ Delete Bar in This Track), as − Bar deletes them from every track.
@@ -87,6 +90,11 @@ export type SongEdit =
   | { readonly type: 'deleteNotes'; readonly from?: BeatPlace }
   /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
   | { readonly type: 'erase' };
+
+/** The bar a bar inserted in the cursor's track takes: the cursor's (its music moving on), or the one after it. */
+export function insertedBarIndex(measureIndex: number, position: 'before' | 'after' | undefined): number {
+  return position === 'after' ? measureIndex + 1 : measureIndex;
+}
 
 const TRIPLET: Tuplet = tupletOf(3) ?? NORMAL_TUPLET;
 /** Stroke speed a new stroke gets: a sixteenth (TuxGuitar's stroke dialog default). */
@@ -133,7 +141,7 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'insertTrackMeasure':
-      return insertTrackMeasure(song, cursor.trackIndex, cursor.measureIndex);
+      return insertTrackMeasure(song, cursor.trackIndex, cursor.measureIndex, edit.position ?? 'before');
     case 'deleteTrackMeasure':
       return deleteTrackMeasures(song, cursor.trackIndex, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
     case 'deleteMeasure':

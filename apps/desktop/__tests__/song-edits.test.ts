@@ -291,6 +291,40 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect(inserted.cursor).toMatchObject({ trackIndex: 0, measureIndex: 0, beatIndex: 0 });
     expect(inserted.past).toHaveLength(1);
     expect(song(edit(inserted, { type: 'undo' }))).toBe(inserted.past[0]);
+    expect(inserted.hint).toBe('Bar 1 inserted in “Guitar” only — the other tracks are unchanged; the song is one bar longer.');
+  });
+
+  it('says nothing more of the bar once it is undone or redone: the hint told what the edit did', () => {
+    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure' } });
+    const undone = edit(inserted, { type: 'undo' });
+    expect([undone.hint, edit(undone, { type: 'redo' }).hint]).toEqual([undefined, undefined]);
+  });
+
+  it('puts the bar after the cursor’s bar with side “after”, the cursor on it, in one undo step', () => {
+    // Act
+    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } });
+
+    // Assert
+    expect([0, 1, 2].map((measureIndex) => fret(inserted, 0, measureIndex))).toEqual([1, undefined, 2]);
+    expect([0, 1, 2].map((measureIndex) => fret(inserted, 1, measureIndex))).toEqual([7, 9, undefined]);
+    expect(inserted.cursor).toMatchObject({ trackIndex: 0, measureIndex: 1, beatIndex: 0 });
+    expect(inserted.past).toHaveLength(1);
+    expect(inserted.hint).toBe('Bar 2 inserted in “Guitar” only — the other tracks are unchanged; the song is one bar longer.');
+  });
+
+  it('puts the bar after the last bar with side “after”', () => {
+    // Arrange
+    const start = twoTracks();
+    const atLast = edit(start, { type: 'placeCursor', cursor: { ...start.cursor!, trackIndex: 1, measureIndex: 1 } });
+
+    // Act
+    const inserted = edit(atLast, { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } });
+
+    // Assert
+    expect(song(inserted).measureHeaders).toHaveLength(3);
+    expect([0, 1, 2].map((measureIndex) => fret(inserted, 1, measureIndex))).toEqual([7, 9, undefined]);
+    expect(inserted.cursor).toMatchObject({ trackIndex: 1, measureIndex: 2 });
+    expect(inserted.hint).toBe('Bar 3 inserted in “Track 2” only — the other tracks are unchanged; the song is one bar longer.');
   });
 
   it('takes the selected bars out of the cursor’s track, as −Bar takes them out of every track', () => {
@@ -306,6 +340,7 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect([0, 1].map((measureIndex) => fret(deleted, 1, measureIndex))).toEqual([7, 9]);
     expect(deleted.cursor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
     expect(deleted.past).toHaveLength(1);
+    expect(deleted.hint).toBe('Bars 1–2 deleted from “Guitar” only — its later bars moved 2 bars earlier; the other tracks are unchanged.');
   });
 
   it('changes nothing where the track holds only rests from the bar on, and says so', () => {
@@ -331,5 +366,12 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect([0, 1].map((measureIndex) => fret(deleted, 0, measureIndex))).toEqual([2, undefined]);
     expect([0, 1].map((measureIndex) => fret(deleted, 1, measureIndex))).toEqual([7, 9]);
     expect(deleted.past).toHaveLength(1);
+    expect(deleted.hint).toBe('Bar 1 deleted from “Guitar” only — its later bars moved one bar earlier; the other tracks are unchanged.');
+  });
+
+  it('names a track without a name by its number', () => {
+    const start = twoTracks();
+    const unnamed = { ...start, document: { ...start.document!, song: { ...song(start), tracks: song(start).tracks.map((track) => ({ ...track, name: ' ' })) } } };
+    expect(edit(unnamed, { type: 'edit', edit: { type: 'deleteTrackMeasure' } }).hint).toBe('Bar 1 deleted from “Track 1” only — its later bars moved one bar earlier; the other tracks are unchanged.');
   });
 });

@@ -19,10 +19,11 @@ export interface WindowOverlays {
 function panelClosers(files: WindowFiles, tools: WindowTools): readonly PanelCloser[] {
   const { importPanel, pdfExport, audioExport, recentFiles } = files;
   const { settingsPanel, tuner, songWriter, compose, aiEdit, lyricsEditor, closeLyricsPanel, annotationEditor, closeAnnotationPanel, scales, transposePanel, scoreDesign, commandPalette, audio } = tools;
-  const { trackManager, drumKey, songsterr, trackInfo } = tools;
+  const { trackManager, drumKey, songsterr, trackInfo, barMenu } = tools;
   return [
-    // Settings first: it is over every other panel; then as drawn, the top one first (one AI Wizard panel at a time).
-    [settingsPanel.isOpen, settingsPanel.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [aiEdit.isOpen, aiEdit.close], [compose.isOpen, compose.close],
+    // Settings first: it is over every other panel; then the bar map's menu (opened over everything else); then as
+    // drawn, the top one first (one AI Wizard panel at a time).
+    [settingsPanel.isOpen, settingsPanel.close], [barMenu.isOpen, barMenu.close], [tuner.isOpen, tuner.close], [songWriter.isOpen, songWriter.close], [aiEdit.isOpen, aiEdit.close], [compose.isOpen, compose.close],
     [importPanel.isOpen, importPanel.close],
     [pdfExport.isOpen, pdfExport.close], [audioExport.isOpen, audioExport.close], [recentFiles.isPanelOpen, recentFiles.closePanel], [lyricsEditor.isOpen, closeLyricsPanel],
     [annotationEditor.isOpen, closeAnnotationPanel],
