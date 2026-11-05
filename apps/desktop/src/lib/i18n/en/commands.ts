@@ -102,6 +102,7 @@ export const EN_COMMANDS = {
   'commands.title.track.moveUp': 'Move Track Up',
   'commands.title.track.moveDown': 'Move Track Down',
   'commands.title.track.insertBar': 'Insert Bar in This Track',
+  'commands.title.track.insertBarAfter': 'Insert Bar After in This Track',
   'commands.title.track.deleteBar': 'Delete Bar in This Track',
   'commands.title.track.addAudioTrack': 'Add Audio Track…',
   'commands.title.track.removeAudioTrack': 'Remove the Audio Track',

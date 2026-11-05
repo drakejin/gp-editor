@@ -100,6 +100,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.title.track.moveUp': '트랙 위로 이동',
   'commands.title.track.moveDown': '트랙 아래로 이동',
   'commands.title.track.insertBar': '이 트랙에만 마디 넣기',
+  'commands.title.track.insertBarAfter': '이 트랙에만 뒤에 마디 넣기',
   'commands.title.track.deleteBar': '이 트랙의 마디만 삭제',
   'commands.title.track.addAudioTrack': '오디오 트랙 추가…',
   'commands.title.track.removeAudioTrack': '오디오 트랙 제거',

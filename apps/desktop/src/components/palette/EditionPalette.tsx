@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { type GestureResponderEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
 import { useStableCallback } from '../../hooks/use-stable-callback';
@@ -79,8 +79,8 @@ function EditionPaletteView(props: EditionPaletteProps) {
   // One tool's options or text field is open at a time, under its group.
   const [openToolId, setOpenToolId] = useState<string | undefined>(undefined);
   // The same function on every render: the tool buttons (memoised) redraw only when they change.
-  const press = useStableCallback((tool: PaletteTool) => {
-    const { run } = tool;
+  const press = useStableCallback((tool: PaletteTool, isOption: boolean) => {
+    const run = isOption ? (tool.optionClick?.run ?? tool.run) : tool.run;
     if (run.kind === 'edit') {
       onEdit(run.edit);
     } else if (run.kind === 'action') {
@@ -120,7 +120,8 @@ interface GroupViewProps {
   readonly group: PaletteGroup;
   readonly context: PaletteContext;
   readonly openToolId?: string;
-  readonly onPress: (tool: PaletteTool) => void;
+  /** `isOption`: ⌥ was held (the tool's ⌥-click). */
+  readonly onPress: (tool: PaletteTool, isOption: boolean) => void;
   readonly onChoose: (edit: SongEdit) => void;
   readonly onEdit: (edit: SongEdit) => void;
 }
@@ -158,7 +159,12 @@ interface ToolButtonProps {
   readonly width?: number;
   readonly isEnabled: boolean;
   readonly isActive: boolean;
-  readonly onPress: (tool: PaletteTool) => void;
+  readonly onPress: (tool: PaletteTool, isOption: boolean) => void;
+}
+
+/** ⌥ held on the click (a press from the keyboard or VoiceOver has no modifiers). */
+function isOptionPress(event: GestureResponderEvent | undefined): boolean {
+  return event?.nativeEvent.altKey === true;
 }
 
 /** One tool; memoised: a cursor move redraws only the tools it lights, greys or ungreys. */
@@ -169,14 +175,14 @@ function ToolButtonView({ palette, tool, width, isEnabled, isActive, onPress }: 
       palette={palette}
       label={tool.face}
       icon={toolIcon(palette, tool, isActive)}
-      tooltip={tool.tooltip}
+      tooltip={tool.optionClick === undefined ? tool.tooltip : `${tool.tooltip} — ${tool.optionClick.tooltip}`}
       fontSize={PALETTE_LAYOUT.faceSize}
       minWidth={PALETTE_LAYOUT.toolMinWidth}
       width={width}
       height={PALETTE_ROW_HEIGHT}
       isEnabled={isEnabled}
       isActive={isActive}
-      onPress={() => onPress(tool)}
+      onPress={(event?: GestureResponderEvent) => onPress(tool, isOptionPress(event))}
     />
   );
 }
