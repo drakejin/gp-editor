@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from '../src/edit/lyrics';
+import { lyricsSyllables, separateCjkSyllables, setTrackLyrics, withBlankSyllable } from '../src/edit/lyrics';
 import type { Song } from '../src/model/song';
 import { buildSong, deepFreeze, n, play } from './helpers/edit-songs';
 
@@ -70,6 +70,38 @@ describe('lyricsSyllables', () => {
 
   it('keeps hyphens that start or fill a syllable', () => {
     expect(lyricsSyllables('- --la')).toEqual(['-', '--', 'la']);
+  });
+});
+
+describe('withBlankSyllable', () => {
+  /** The syllables with a blank inserted at `index`, as the text with the blank must read. */
+  function expected(text: string, index: number): readonly string[] {
+    const syllables = lyricsSyllables(text);
+    return index >= syllables.length ? syllables : [...syllables.slice(0, index), '', ...syllables.slice(index)];
+  }
+
+  it('leaves a note bare before a word: one more space', () => {
+    expect(withBlankSyllable('one two three', 1)).toBe('one  two three');
+    expect(withBlankSyllable('one two three', 0)).toBe(' one two three');
+  });
+
+  it('splits a hyphenated word with a bare note between its syllables', () => {
+    expect(withBlankSyllable('Beau-ti-ful', 1)).toBe('Beau-  ti-ful');
+    expect(lyricsSyllables(withBlankSyllable('Beau-ti-ful', 2))).toEqual(['Beau-', 'ti-', '', 'ful']);
+  });
+
+  it('keeps line breaks, comments, joined words and held syllables as they are', () => {
+    const texts = ['[Verse 1]\nsing a [la la] song', 'a+lot of love__ __', 'Pa- per\r\nboats', 'one  two', '- --la', '[Intro] la la', 'la\rla [x]'];
+    for (const text of texts) {
+      for (let index = 0; index <= lyricsSyllables(text).length; index++) {
+        expect(lyricsSyllables(withBlankSyllable(text, index)), `${JSON.stringify(text)} at ${index}`).toEqual(expected(text, index));
+      }
+    }
+  });
+
+  it('changes nothing past the last syllable', () => {
+    expect(withBlankSyllable('one two', 2)).toBe('one two');
+    expect(withBlankSyllable('one two', 9)).toBe('one two');
   });
 });
 

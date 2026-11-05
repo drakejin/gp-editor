@@ -1,5 +1,5 @@
 // Track lyrics after TuxGuitar's TGSetTrackLyricsAction and TGLyric#getLyricBeats (LGPL-2.1); hyphens, "+" and "_" as Guitar Pro reads them.
-import type { Lyrics, Song, Track } from '../model/song';
+import type { Beat, Lyrics, Song, Track } from '../model/song';
 import { updateTrack } from './song-paths';
 
 /**
@@ -35,6 +35,72 @@ const HOLD = /_+$/;
 /** A comment in brackets where a syllable would start ("[Chorus]"), and the spaces after it: no note takes it. */
 const COMMENT = /(^|\s)\[[^\]]*\]\s*/g;
 
+/** A beat that takes a syllable: one with notes in any voice (TuxGuitar's TGLyricImpl; alphaTab and Guitar Pro alike, tied notes too). */
+export function isSungBeat(beat: Beat): boolean {
+  return beat.voices.some((voice) => voice.notes.length > 0);
+}
+
+/** A syllable of a lyrics text as typed: its text, where it ends in the text, and whether a space (not a hyphen) comes before it. */
+interface SyllableSpan {
+  readonly text: string;
+  readonly end: number;
+  readonly isWordStart: boolean;
+}
+
+/** A character a reading of the lyrics keeps, and its index in the text. */
+interface KeptCharacter {
+  readonly character: string;
+  readonly index: number;
+}
+
+/** The characters a reading keeps: comments in brackets left out (a space before one stays), trailing spaces trimmed, line breaks as spaces. */
+function keptCharacters(text: string): readonly KeptCharacter[] {
+  const kept: KeptCharacter[] = [];
+  const keep = (from: number, to: number): void => {
+    for (let index = from; index < to; index++) {
+      kept.push({ character: text[index] as string, index });
+    }
+  };
+  const comments = new RegExp(COMMENT.source, 'g');
+  let from = 0;
+  for (let match = comments.exec(text); match !== null; match = comments.exec(text)) {
+    keep(from, match.index + (match[1]?.length ?? 0));
+    from = match.index + match[0].length;
+  }
+  keep(from, text.length);
+  // Spaces at the end leave no note bare (and a comment there leaves the space before it).
+  while (kept.length > 0 && /\s/.test(kept[kept.length - 1]?.character ?? '')) {
+    kept.pop();
+  }
+  // A line break is a space; "\r\n" is one.
+  return kept.flatMap((entry, i) => {
+    if (entry.character === '\n' && kept[i - 1]?.character === '\r') {
+      return [];
+    }
+    return [/[\r\n]/.test(entry.character) ? { ...entry, character: ' ' } : entry];
+  });
+}
+
+/** The syllables of a lyrics text with where each ends (see lyricsSyllables). */
+function syllableSpans(text: string): readonly SyllableSpan[] {
+  const kept = keptCharacters(text);
+  const line = kept.map((entry) => entry.character).join('');
+  const spans: SyllableSpan[] = [];
+  let offset = 0;
+  for (const word of line.split(' ')) {
+    const pieces = word === '' ? [''] : (word.match(HYPHENATED) ?? [word]);
+    let pieceOffset = offset;
+    pieces.forEach((piece, index) => {
+      const last = kept[pieceOffset + piece.length - 1];
+      const end = piece === '' ? (kept[offset]?.index ?? text.length) : (last?.index ?? 0) + 1;
+      spans.push({ text: piece, end, isWordStart: index === 0 });
+      pieceOffset += piece.length;
+    });
+    offset += word.length + 1;
+  }
+  return spans;
+}
+
 /**
  * The syllables of a lyrics text, one per note with notes: line breaks count as spaces and every single space
  * separates two, so two spaces leave a note without a syllable (TuxGuitar's TGLyric); as in Guitar Pro, a hyphen also
@@ -42,14 +108,22 @@ const COMMENT = /(^|\s)\[[^\]]*\]\s*/g;
  * brackets are left out.
  */
 export function lyricsSyllables(text: string): readonly string[] {
-  return text
-    .replace(COMMENT, '$1')
-    // Spaces at the end leave no note bare (and a comment there leaves the space before it).
-    .trimEnd()
-    .replace(/\r\n|\r|\n/g, ' ')
-    .split(' ')
-    .flatMap((word) => (word === '' ? [''] : (word.match(HYPHENATED) ?? [word])))
-    .map((syllable) => syllable.replace(/\+/g, ' ').replace(HOLD, ''));
+  return syllableSpans(text).map((span) => span.text.replace(/\+/g, ' ').replace(HOLD, ''));
+}
+
+/**
+ * The lyrics text with a blank syllable before syllable `index` (a note left bare, so the later syllables sing one note
+ * later): one more space before a word, two inside a hyphenated one. The same text past the last syllable.
+ */
+export function withBlankSyllable(text: string, index: number): string {
+  const spans = syllableSpans(text);
+  const span = spans[index];
+  if (span === undefined || index < 0) {
+    return text;
+  }
+  const at = index === 0 ? 0 : (spans[index - 1]?.end ?? 0);
+  const blank = span.isWordStart ? ' ' : '  ';
+  return `${text.slice(0, at)}${blank}${text.slice(at)}`;
 }
 
 /** Hangul syllables and jamo, kana, CJK ideographs: each one is sung on a note of its own. */

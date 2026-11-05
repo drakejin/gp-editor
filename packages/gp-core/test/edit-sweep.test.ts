@@ -195,31 +195,51 @@ function secondaryEvents(song: Song): BeatAddress[] {
   );
 }
 
-const BEAT_EDITS: readonly ((song: Song, at: BeatAddress, random: Random) => Song)[] = [
-  (song, at, random) => setBeatDuration(song, at, randomDuration(random)),
-  (song, at, random) => insertBeat(song, at, random() < 0.5 ? 'before' : 'after'),
-  (song, at) => deleteBeat(song, at),
+/** The beat edits; those that keep every note of the voice (a note a bar line cuts goes on as tied notes). */
+const BEAT_EDITS: readonly { readonly keepsNotes: boolean; readonly edit: (song: Song, at: BeatAddress, random: Random) => Song }[] = [
+  { keepsNotes: true, edit: (song, at, random) => setBeatDuration(song, at, randomDuration(random)) },
+  { keepsNotes: true, edit: (song, at, random) => insertBeat(song, at, random() < 0.5 ? 'before' : 'after') },
+  { keepsNotes: false, edit: (song, at) => deleteBeat(song, at) },
 ];
 
-/** Tracks other than `at`'s, and measures of its track other than `at`'s, that are not the same objects as before. */
+/** The notes the voice of `at`'s track plays in the whole song, tied continuations left out: what a ripple must keep. */
+function voiceAttacks(song: Song, at: BeatAddress): string[] {
+  return (song.tracks[at.trackIndex]?.measures ?? []).flatMap((measure) =>
+    measure.beats.flatMap((beat) => (beat.voices[at.voiceIndex]?.notes ?? []).filter((note) => !note.isTied).map((note) => `${note.string}/${note.fret}`)),
+  );
+}
+
+/**
+ * Tracks other than `at`'s whose bars are not the same objects as before (bars a ripple added at the end aside), and
+ * bars of `at`'s track before `at`'s that are not: a beat edit changes its voice from its bar on.
+ */
 function otherChanges(before: Song, after: Song, at: BeatAddress): string[] {
   return after.tracks.flatMap((track, trackIndex) => {
-    const original = before.tracks[trackIndex];
-    if (trackIndex !== at.trackIndex) {
-      return track === original ? [] : [`track ${trackIndex}`];
-    }
-    return track.measures.flatMap((measure, measureIndex) =>
-      measureIndex === at.measureIndex || measure === original?.measures[measureIndex] ? [] : [`track ${trackIndex} measure ${measureIndex}`],
-    );
+    const original = before.tracks[trackIndex]?.measures ?? [];
+    const changed = track.measures.flatMap((measure, measureIndex) => {
+      const isEdited = trackIndex === at.trackIndex && measureIndex >= at.measureIndex;
+      return isEdited || measureIndex >= original.length || measure === original[measureIndex] ? [] : [`track ${trackIndex} measure ${measureIndex}`];
+    });
+    return changed;
   });
 }
 
+/** True when the edit changed a bar of `at`'s track after `at`'s (it moved music across a bar line). */
+function hasLaterBarChanged(before: Song, after: Song, at: BeatAddress): boolean {
+  const original = before.tracks[at.trackIndex]?.measures ?? [];
+  return (after.tracks[at.trackIndex]?.measures ?? []).some((measure, measureIndex) => measureIndex > at.measureIndex && measure !== original[measureIndex]);
+}
+
 function expectOnlyVoiceChanged(before: Song, after: Song, at: BeatAddress): void {
-  expect(after.measureHeaders).toBe(before.measureHeaders);
+  const kept = after.measureHeaders.slice(0, before.measureHeaders.length);
+  expect(kept.every((header, index) => header === before.measureHeaders[index])).toBe(true);
   expect(otherChanges(before, after, at)).toEqual([]);
-  for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
-    if (voiceIndex !== at.voiceIndex) {
-      expect(playedEvents(after, at, voiceIndex)).toEqual(playedEvents(before, at, voiceIndex));
+  for (let measureIndex = at.measureIndex; measureIndex < before.measureHeaders.length; measureIndex++) {
+    for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
+      if (voiceIndex !== at.voiceIndex) {
+        const bar = { ...at, measureIndex };
+        expect(playedEvents(after, bar, voiceIndex)).toEqual(playedEvents(before, bar, voiceIndex));
+      }
     }
   }
 }
@@ -229,24 +249,29 @@ describe('random beat edits on multi-voice files', () => {
     ['guitarpro5', 'nightwish.gp5'],
     ['guitarpro6', 'time-signatures.gpx'],
     ['guitarpro7', 'time-signatures.gp'],
-  ] as const)('%s/%s never move another voice\'s notes or touch another measure', (folder, name) => {
+  ] as const)('%s/%s never move another voice\'s notes, nor bars before the edited one or of another track', (folder, name) => {
     // Arrange
     let song = deepFreeze(readSong(loadFixture(folder, name)));
     const random = createRandom(name.length * 104729);
     let secondaryChanges = 0;
+    let ripples = 0;
 
     // Act + Assert after every step
     for (let step = 0; step < STEPS; step++) {
       const secondary = random() < 0.5 ? secondaryEvents(song) : [];
       const at = secondary.length > 0 ? pick(random, secondary) : randomEvent(song, random);
-      const next = deepFreeze(pick(random, BEAT_EDITS)(song, at, random));
+      const { keepsNotes, edit } = pick(random, BEAT_EDITS);
+      const next = deepFreeze(edit(song, at, random));
       if (next !== song) {
         expectOnlyVoiceChanged(song, next, at);
+        expect(keepsNotes ? voiceAttacks(next, at) : []).toEqual(keepsNotes ? voiceAttacks(song, at) : []);
         secondaryChanges += at.voiceIndex > 0 ? 1 : 0;
+        ripples += hasLaterBarChanged(song, next, at) ? 1 : 0;
       }
       expect(editInvariantViolations(next), `step ${step}`).toEqual([]);
       song = next;
     }
     expect(secondaryChanges).toBeGreaterThan(0);
+    expect(ripples).toBeGreaterThan(0);
   });
 });

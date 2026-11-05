@@ -3,6 +3,8 @@
 import { type DurationTuplets, NORMAL_TUPLET, durationTicks, isNoteValue, measureTicks } from '../model/defaults';
 import type { Duration, Measure, MeasureHeader, Song, Tuplet } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
+import type { VoiceFlow } from './bar-flow';
+import { type BeatChange, flowVoiceOn, pullVoiceBack } from './bar-ripple';
 import { replaceAt, updateMeasure, updateVoice } from './song-paths';
 import {
   type MeasureVoices,
@@ -23,6 +25,7 @@ import { restDurations } from './rests';
 import { takeRestsAfter, trimTrailingRests } from './voice-fit';
 
 export type { BeatAddress } from './addresses';
+export type { BarFlow, BeatChange } from './bar-ripple';
 
 /** One voice of a measure, as a beat edit sees it. */
 interface VoiceContext {
@@ -41,6 +44,8 @@ interface VoiceContext {
 interface VoiceChange {
   readonly events: VoiceEvents;
   readonly tuplets: DurationTuplets;
+  /** Events kept whatever the rests at the end are trimmed to: through the edited (or inserted) one. */
+  readonly keptCount?: number;
 }
 
 function voiceContext(song: Song, at: BeatAddress): VoiceContext | undefined {
@@ -59,24 +64,39 @@ function voiceContext(song: Song, at: BeatAddress): VoiceContext | undefined {
   return { header, measure, measureVoices, events, index, length };
 }
 
+/** The flowing voice of an edit at `at`, from its bar. */
+function flowAt(at: BeatAddress): VoiceFlow {
+  return { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
+}
+
+/** True when the edit made the voice run past the bar line, longer than it was: the excess flows on. */
+function isOverflowing(settled: VoiceEvents, context: VoiceContext): boolean {
+  const ticks = eventsTicks(settled);
+  return ticks > context.length && ticks > eventsTicks(context.events);
+}
+
 /**
  * Applies `change` to the addressed voice's events, trims the free rests left past the measure end and rebuilds the
- * measure's beats. Notes are never dropped: like Guitar Pro, an edit that needs more time than the measure has lets
- * the voice run past the end (an over-full measure, which the score marks). Other voices never move.
+ * measure's beats. Notes are never dropped: an edit that needs more time than the measure has passes what runs past
+ * its end on into the next bars (flowVoiceOn), or — where a tuplet group would cross the bar line — lets the voice
+ * run past the end (an over-full measure, which the score marks). Other voices never move.
  */
-function editVoiceEvents(song: Song, at: BeatAddress, change: (context: VoiceContext) => VoiceChange | undefined): Song {
+function editVoiceEvents(song: Song, at: BeatAddress, change: (context: VoiceContext) => VoiceChange | undefined): BeatChange {
   const context = voiceContext(song, at);
   const proposed = context === undefined ? undefined : change(context);
   if (context === undefined || proposed === undefined) {
-    return song;
+    return { song };
   }
-  const settled = trimTrailingRests(proposed.events, context.length, proposed.tuplets);
+  const settled = trimTrailingRests(proposed.events, context.length, proposed.tuplets, proposed.keptCount);
   if (hasSameEvents(settled, context.events)) {
-    return song;
+    return { song };
+  }
+  if (isOverflowing(settled, context)) {
+    return flowVoiceOn(song, flowAt(at), settled);
   }
   const voices = replaceAt(context.measureVoices.voices, at.voiceIndex, settled);
   const beats = toBeats(context.header.start, { ...context.measureVoices, voices }, context.measure.beats);
-  return updateMeasure(song, at.trackIndex, at.measureIndex, (measure) => ({ ...measure, beats }));
+  return { song: updateMeasure(song, at.trackIndex, at.measureIndex, (measure) => ({ ...measure, beats })) };
 }
 
 function isPositiveInteger(value: number): boolean {
@@ -112,15 +132,21 @@ function normalizeDuration(duration: Duration): Duration | undefined {
 }
 
 /**
- * New song with the addressed event's duration changed (value, dots, tuplet and the tuplet inside it). A shorter event leaves rests of the new
- * duration behind it, or gives the time to the rest after it when the two make one rest on its beat; a longer one takes the time from the free rests that follow (later notes move right only as far
- * as needed, past the measure end when the rests run out). Same song when the duration is the same or invalid, or the
- * voice is empty there.
+ * New song with the addressed event's duration changed (value, dots, tuplet and the tuplet inside it). A shorter event
+ * leaves rests of the new duration behind it, or gives the time to the rest after it when the two make one rest on its
+ * beat; a longer one takes the time from the free rests that follow (later notes move right only as far as needed),
+ * and what then runs past the bar line flows on into the next bars (flowVoiceOn; the event itself becomes tied notes
+ * when it crosses the bar line). Same song when the duration is the same or invalid, or the voice is empty there.
  */
 export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration): Song {
+  return setBeatDurationWithFlow(song, at, duration).song;
+}
+
+/** setBeatDuration, with what it moved across bar lines. */
+export function setBeatDurationWithFlow(song: Song, at: BeatAddress, duration: Duration): BeatChange {
   const next = normalizeDuration(duration);
   if (next === undefined) {
-    return song;
+    return { song };
   }
   return editVoiceEvents(song, at, ({ events, index }) => {
     const event = events[index];
@@ -130,7 +156,7 @@ export function setBeatDuration(song: Song, at: BeatAddress, duration: Duration)
     const replaced = replaceAt(events, index, { ...event, voice: { ...event.voice, duration: next } });
     const delta = durationTicks(next) - eventTicks(event);
     const resized = delta > 0 ? takeRestsAfter(replaced, index, delta, next) : restAfter(replaced, index, -delta, next);
-    return resized === undefined ? undefined : { events: resized, tuplets: next };
+    return resized === undefined ? undefined : { events: resized, tuplets: next, keptCount: index + 1 };
   });
 }
 
@@ -175,9 +201,15 @@ export function deleteBeatNotes(song: Song, at: BeatAddress): Song {
 
 /**
  * New song with a rest as long as the addressed event inserted before or after it in that voice. The events after it
- * move right; free rests pushed past the measure end are dropped and notes pushed past it make the measure over-full.
+ * move right: free rests pushed past the measure end are dropped, and what else runs past it flows on into the next
+ * bars (flowVoiceOn) — the inserted rest too, after a full bar's last beat.
  */
 export function insertBeat(song: Song, at: BeatAddress, position: 'before' | 'after'): Song {
+  return insertBeatWithFlow(song, at, position).song;
+}
+
+/** insertBeat, with what it moved across bar lines. */
+export function insertBeatWithFlow(song: Song, at: BeatAddress, position: 'before' | 'after'): BeatChange {
   return editVoiceEvents(song, at, ({ events, index }) => {
     const event = events[index];
     if (event === undefined) {
@@ -185,25 +217,47 @@ export function insertBeat(song: Song, at: BeatAddress, position: 'before' | 'af
     }
     const insertIndex = position === 'before' ? index : index + 1;
     const inserted = [...events.slice(0, insertIndex), ...signedRests([restEvent(event.voice.duration)], event), ...events.slice(insertIndex)];
-    return { events: inserted, tuplets: event.voice.duration };
+    return { events: inserted, tuplets: event.voice.duration, keptCount: insertIndex + 1 };
   });
 }
 
 /**
- * New song without the addressed event of that voice: the events after it move left and the voice is padded at the
- * end with rests of the removed length (as far as the measure allows), so a full measure stays full. When the padding
- * cannot be written as rests (an odd remainder in an overfull measure) the voice is left short rather than the delete
- * refused: nothing is lost and the measure stays valid.
+ * New song without the addressed event of that voice: the events after it move left. A bar that was full and does not
+ * end in a rest pulls the time it lacks back from the next bars (pullVoiceBack); otherwise the voice is padded at the
+ * end with rests of the removed length (as far as the measure allows). When the padding cannot be written as rests
+ * (an odd remainder in an overfull measure) the voice is left short rather than the delete refused: nothing is lost
+ * and the measure stays valid.
  */
 export function deleteBeat(song: Song, at: BeatAddress): Song {
-  return editVoiceEvents(song, at, ({ events, index, length }) => {
-    const removed = events[index];
-    if (removed === undefined) {
-      return undefined;
-    }
-    const remaining = [...events.slice(0, index), ...events.slice(index + 1)];
-    const padding = Math.max(0, Math.min(eventsTicks(events), length) - eventsTicks(remaining));
-    const padded = [...remaining, ...signedRests(restEvents(padding, removed.voice.duration) ?? [], remaining[remaining.length - 1] ?? removed)];
-    return { events: padded, tuplets: removed.voice.duration };
-  });
+  return deleteBeatWithFlow(song, at).song;
+}
+
+/** deleteBeat, with what it moved across bar lines. */
+export function deleteBeatWithFlow(song: Song, at: BeatAddress): BeatChange {
+  const context = voiceContext(song, at);
+  const removed = context?.events[context.index];
+  if (context === undefined || removed === undefined) {
+    return { song };
+  }
+  const { events, index, length } = context;
+  const remaining = withoutEvent(events, index);
+  const isPulling = eventsTicks(events) >= length && eventsTicks(remaining) < length;
+  const pulled = isPulling ? pullVoiceBack(song, flowAt(at), remaining, removed.voice.duration) : undefined;
+  return pulled ?? editVoiceEvents(song, at, paddedWithoutEvent);
+}
+
+function withoutEvent(events: VoiceEvents, index: number): VoiceEvents {
+  return [...events.slice(0, index), ...events.slice(index + 1)];
+}
+
+/** The voice without the addressed event, padded at the end with rests of its length as far as the bar allows. */
+function paddedWithoutEvent({ events, index, length }: VoiceContext): VoiceChange | undefined {
+  const removed = events[index];
+  if (removed === undefined) {
+    return undefined;
+  }
+  const remaining = withoutEvent(events, index);
+  const padding = Math.max(0, Math.min(eventsTicks(events), length) - eventsTicks(remaining));
+  const padded = [...remaining, ...signedRests(restEvents(padding, removed.voice.duration) ?? [], remaining[remaining.length - 1] ?? removed)];
+  return { events: padded, tuplets: removed.voice.duration };
 }

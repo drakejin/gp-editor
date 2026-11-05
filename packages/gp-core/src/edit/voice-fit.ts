@@ -44,9 +44,12 @@ function cutRest(event: VoiceEvent, ticks: number, tuplets: DurationTuplets | un
   return [event.attributes === undefined ? first : { ...first, attributes: event.attributes }, ...signedRests(others, event)];
 }
 
-/** The events with the free rests after the last other event trimmed to end by `length` (removeVoicesOutOfTime). */
-export function trimTrailingRests(events: VoiceEvents, length: number, tuplets?: DurationTuplets): VoiceEvents {
-  const fixedCount = lastFixedIndex(events) + 1;
+/**
+ * The events with the free rests after the last other event trimmed to end by `length` (removeVoicesOutOfTime); the
+ * first `keptCount` events stay whatever they are (an edited or inserted rest is the user's).
+ */
+export function trimTrailingRests(events: VoiceEvents, length: number, tuplets?: DurationTuplets, keptCount = 0): VoiceEvents {
+  const fixedCount = Math.max(lastFixedIndex(events) + 1, Math.min(keptCount, events.length));
   const kept: VoiceEvent[] = events.slice(0, fixedCount);
   let position = eventsTicks(kept);
   for (const event of events.slice(fixedCount)) {
