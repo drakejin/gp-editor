@@ -198,12 +198,13 @@ function keptInBars(bars: readonly VoiceEvents[], count: number): readonly Voice
  * The song with the flow's voice laid out as `stream` over its bars from the first through `lastMeasureIndex` only, which
  * the stream fills (a paste written over the voice): later bars keep their events — what an over-full bar of the range
  * holds past its bar line stays in the range's last bar, over-full as before —; past the song's last bar, bars are
- * appended (every track), not for rests only. The same song when a bar cannot be read.
+ * appended (every track), not for rests only. `barLength` gives bar `measureIndex`'s room (default: its time
+ * signature's; a paste gives an over-full bar its own length, so it keeps it). The same song when a bar cannot be read.
  */
-export function rewriteVoice(song: Song, flow: VoiceFlow, stream: VoiceEvents, lastMeasureIndex: number): Song {
+export function rewriteVoice(song: Song, flow: VoiceFlow, stream: VoiceEvents, lastMeasureIndex: number, barLength = (measureIndex: number): number => barTicks(song, measureIndex)): Song {
   const songBars = song.measureHeaders.length - flow.firstMeasureIndex;
   const laid = withoutRestBarsPastEnd(
-    layoutBars(stream, (index) => barTicks(song, flow.firstMeasureIndex + index)),
+    layoutBars(stream, (index) => barLength(flow.firstMeasureIndex + index)),
     songBars,
   );
   const isLastBar = lastMeasureIndex >= song.measureHeaders.length - 1;

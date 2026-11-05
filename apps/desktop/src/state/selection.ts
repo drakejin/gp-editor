@@ -1,4 +1,4 @@
-import { type BeatFragment, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, pasteBeats } from '@gp-editor/core';
+import { type BeatFragment, type PastedBeats, type Song, type StringAddress, clearBeats, copyBeats, pasteBeats } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import type { BeatPosition, BeatRange } from '../score/selection-tint';
@@ -151,11 +151,15 @@ function beatStart(song: Song, at: StringAddress): number | undefined {
   return song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.start;
 }
 
-/** ⌘X: the selected beats (or the cursor's beat) deleted, what follows moved up; the cursor on the first removed place. */
+/**
+ * ⌘X: the selected beats (or the cursor's beat) taken out of the cursor's track and voice, rests of their lengths left
+ * in their place (gp-core clearBeats): nothing after them moves, so the track stays in time with the others and ⌘V
+ * there puts them back. The cursor on the first cut place.
+ */
 export function cutSelectionAt(song: Song, cursor: StringAddress, anchor: StringAddress | undefined): ClipboardEdit {
   const from = anchor ?? cursor;
   const first = isBefore(cursor, from) ? cursor : from;
-  const next = deleteBeatsFlowing(song, beatAddress(from), beatAddress(cursor));
+  const next = clearBeats(song, beatAddress(from), beatAddress(cursor));
   return { song: next, cursor: cursorAt(next, { ...cursor, measureIndex: first.measureIndex, beatIndex: first.beatIndex }, beatStart(song, first)) };
 }
 
@@ -168,14 +172,23 @@ export function pasteRefusal(song: Song, cursor: StringAddress, fragment: BeatFr
   return t(fragment.isPercussion ? 'palette.hint.pasteDrumsOnly' : 'palette.hint.pasteIntoDrums');
 }
 
+/** "5 beats pasted over bars 2–3 of Guitar.", and the bars added at the end when the paste ran past it. */
+function pasteHint(song: Song, cursor: StringAddress, count: number, pasted: PastedBeats): string {
+  const track = song.tracks[cursor.trackIndex];
+  const name = track === undefined ? '' : track.name.trim() || t('common.trackNumber', { number: track.number });
+  const first = pasted.at.measureIndex + 1;
+  const last = pasted.lastMeasureIndex + 1;
+  const over = first === last ? t('palette.hint.pastedInBar', { count, bar: first, track: name }) : t('palette.hint.pastedInBars', { count, first, last, track: name });
+  return pasted.addedBars > 0 ? `${over} ${t('palette.hint.pasteAddedBars', { count: pasted.addedBars })}` : over;
+}
+
 /**
- * ⌘V: Guitar Pro 8's paste (gp-core pasteBeats) — up to a bar written over the voice from the cursor, longer into whole
- * bars added before the cursor's bar (or into the empty bars there); the cursor on the first pasted beat, and the hint
- * says when bars were added, which moves every track.
+ * ⌘V: Guitar Pro 8's single track paste (gp-core pasteBeats) — written over the cursor's track and voice from the
+ * cursor, as many bars as it needs, no other track changed; bars added at the end only for what runs past it. The
+ * cursor on the first pasted beat; the hint says which bars of which track were written over.
  */
 export function pasteBeatsAt(song: Song, cursor: StringAddress, fragment: BeatFragment): ClipboardEdit {
   const pasted = pasteBeats(song, beatAddress(cursor), fragment);
   const first = { ...cursor, measureIndex: pasted.at.measureIndex, beatIndex: pasted.at.beatIndex };
-  const hint = pasted.addedBars > 0 ? t('palette.hint.pasteAddedBars', { count: pasted.addedBars }) : undefined;
-  return { song: pasted.song, cursor: clampCursor(pasted.song, first) ?? cursor, hint };
+  return { song: pasted.song, cursor: clampCursor(pasted.song, first) ?? cursor, hint: pasteHint(pasted.song, cursor, fragment.items.length, pasted) };
 }

@@ -1,7 +1,7 @@
-import type { Song } from '@gp-editor/core';
+import { QUARTER, type Song } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { isInSelection, selectedFragment, selectionBars, selectionRange, selectionSummary } from '../src/state/selection';
-import { beat, makeSong, note } from '../test-support/songs';
+import { beat, makeSong, note, withTrack } from '../test-support/songs';
 
 const BAR = 3840;
 const QUARTER_TICKS = 960;
@@ -165,16 +165,18 @@ describe('isInSelection (a drag on a selected note moves them all)', () => {
 });
 
 describe('cutSelection', () => {
-  it('deletes the selected beats, pulls the next bar back and puts the cursor where they were', () => {
-    // Arrange
-    const state = reduce(loaded(), { type: 'moveCursorBeat', step: 1 }, RIGHT);
+  it('takes the selected beats out of the track, rests in their place: nothing after them moves', () => {
+    // Arrange: a second track; beats 2–3 of bar 1 selected
+    const state = reduce(loaded(withTrack(twoBars(), [[beat(960, [note(2, 9)])], []])), { type: 'moveCursorBeat', step: 1 }, RIGHT);
 
     // Act
     const cut = reduce(state, { type: 'cutSelection' });
 
     // Assert
-    expect(frets(cut, 0)).toEqual(['0', '3', '4', '5']);
-    expect(frets(cut, 1)).toEqual(['6', '7', 'r']);
+    expect(frets(cut, 0)).toEqual(['0', 'r', 'r', '3']);
+    expect(frets(cut, 1)).toEqual(['4', '5', '6', '7']);
+    expect(cut.document?.song.tracks[1]).toBe(state.document?.song.tracks[1]);
+    expect(cut.document?.song.measureHeaders).toBe(state.document?.song.measureHeaders);
     expect(cut.cursor).toMatchObject({ measureIndex: 0, beatIndex: 1 });
     expect(cut.selectionAnchor).toBeUndefined();
     expect(cut.past).toHaveLength(1);
@@ -183,8 +185,24 @@ describe('cutSelection', () => {
 
   it('cuts the cursor beat when nothing is selected', () => {
     const cut = reduce(loaded(), { type: 'cutSelection' });
-    expect(frets(cut, 0)).toEqual(['1', '2', '3', '4']);
+    expect(frets(cut, 0)).toEqual(['r', '1', '2', '3']);
     expect(cut.cursor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+  });
+
+  it('gives the song back when the cut beats are pasted where they were (⌘X, then ⌘V)', () => {
+    // Arrange: bar 1's last two beats and bar 2's first two selected
+    const state = reduce(loaded(), { type: 'moveCursorBeat', step: 1 }, { type: 'moveCursorBeat', step: 1 }, RIGHT, RIGHT, RIGHT);
+    const fragment = selectedFragment(state)!;
+
+    // Act
+    const cut = reduce(state, { type: 'cutSelection' });
+    const pasted = reduce(cut, { type: 'pasteBeats', fragment });
+
+    // Assert
+    expect(frets(cut, 0)).toEqual(['0', '1', 'r', 'r']);
+    expect(frets(cut, 1)).toEqual(['r', 'r', '6', '7']);
+    expect(pasted.document?.song).toEqual(state.document?.song);
+    expect(pasted.hint).toBe('4 beats pasted over bars 1–2 of Guitar.');
   });
 
   it('does nothing without a document', () => {
@@ -222,11 +240,31 @@ describe('pasteBeats', () => {
     expect(pasted.document?.song.measureHeaders).toHaveLength(2);
     expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 2 });
     expect(pasted.past).toHaveLength(1);
-    expect(pasted.hint).toBeUndefined();
+    expect(pasted.hint).toBe('2 beats pasted over bar 2 of Guitar.');
   });
 
-  it('pastes beats longer than a bar into whole bars added before the cursor’s bar, and says so', () => {
-    // Arrange: five beats copied (bar 1 and the first beat of bar 2), the cursor on bar 2, beat 2
+  it('pastes beats longer than a bar over this track’s bars from the cursor: no bar added, the other tracks untouched', () => {
+    // Arrange: a second track; five beats copied (bar 1 and the first beat of bar 2), the cursor on bar 1, beat 2
+    const state = loaded(withTrack(twoBars(), [[beat(960, [note(2, 9)], { ...QUARTER, value: 1 })], []]));
+    const fragment = selectedFragment(reduce(state, RIGHT, RIGHT, RIGHT, RIGHT))!;
+    const atBeat2 = reduce(state, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 0, string: 1 } });
+
+    // Act
+    const pasted = reduce(atBeat2, { type: 'pasteBeats', fragment });
+
+    // Assert
+    expect(frets(pasted, 0)).toEqual(['0', '0', '1', '2']);
+    expect(frets(pasted, 1)).toEqual(['3', '4', '6', '7']);
+    expect(pasted.document?.song.measureHeaders).toBe(state.document?.song.measureHeaders);
+    expect(pasted.document?.song.tracks[1]).toBe(state.document?.song.tracks[1]);
+    expect(pasted.cursor).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+    expect(pasted.hint).toBe('5 beats pasted over bars 1–2 of Guitar.');
+    expect(pasted.past).toHaveLength(1);
+    expect(reduce(pasted, { type: 'undo' }).document?.song).toBe(state.document?.song);
+  });
+
+  it('adds bars at the end only when the paste runs past the last bar, and says so', () => {
+    // Arrange: five beats copied, the cursor on bar 2, beat 2
     const state = loaded();
     const fragment = selectedFragment(reduce(state, RIGHT, RIGHT, RIGHT, RIGHT))!;
     const atSecondBar = reduce(state, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 1 } });
@@ -235,11 +273,10 @@ describe('pasteBeats', () => {
     const pasted = reduce(atSecondBar, { type: 'pasteBeats', fragment });
 
     // Assert
-    expect(frets(pasted, 1)).toEqual(['0', '1', '2', '3']);
-    expect(frets(pasted, 2)).toEqual(['4', 'r']);
-    expect(frets(pasted, 3)).toEqual(['4', '5', '6', '7']);
-    expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 0 });
-    expect(pasted.hint).toBe('2 bars were added to the song (every track) to hold the pasted beats.');
+    expect(frets(pasted, 1)).toEqual(['4', '0', '1', '2']);
+    expect(frets(pasted, 2)).toEqual(['3', '4', 'r']);
+    expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 1 });
+    expect(pasted.hint).toBe('5 beats pasted over bars 2–3 of Guitar. A bar was added at the end of the song, in every track.');
     expect(pasted.past).toHaveLength(1);
   });
 
