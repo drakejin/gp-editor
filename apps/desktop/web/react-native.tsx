@@ -8,6 +8,8 @@
  *   capture), and the innermost pressable takes the press, as in React Native.
  * - `tooltip` (react-native-macos) becomes the element's `title`; a pressable's role stays an attribute (no nested
  *   <button>s).
+ * - `onAuxClick` (react-native-macos: a right or middle click, at clientX / clientY in the view) is called on the
+ *   element's context menu (the browser's menu kept away) and on a middle click, with the point in the view.
  * - TextInput calls `onKeyDown` and lets the keys it does not stop bubble on, as react-native-macos does.
  * - Text shows macOS key symbols (⌘, ⇧, ⌥ …) the Windows way (platform-text.ts).
  */
@@ -24,6 +26,7 @@ import {
   useState,
 } from 'react';
 import * as Web from 'react-native-web';
+import { type AuxClickEvent, auxClickEvent } from './aux-click';
 import { platformText } from './platform-text';
 
 export * from 'react-native-web';
@@ -84,6 +87,8 @@ interface PressableProps {
   readonly onLongPress?: PressHandler;
   readonly onHoverIn?: (event: unknown) => void;
   readonly onHoverOut?: (event: unknown) => void;
+  /** react-native-macos: a right or middle click, at clientX / clientY in the view. */
+  readonly onAuxClick?: (event: AuxClickEvent) => void;
   readonly pressRetentionOffset?: Insets | number;
   readonly tooltip?: string;
   readonly testID?: string;
@@ -213,6 +218,33 @@ function usePress(props: PressableProps, element: { current: HTMLElement | null 
   };
 }
 
+/** The middle button, which browsers report as auxclick (the right one opens the context menu). */
+const MIDDLE_BUTTON = 1;
+const RIGHT_BUTTON = 2;
+
+/** The element's context menu and middle clicks as react-native-macos's onAuxClick; none without a handler. */
+function auxClickHandlers(onAuxClick: PressableProps['onAuxClick'], element: { current: HTMLElement | null }) {
+  if (onAuxClick === undefined) {
+    return {};
+  }
+  const send = (event: MouseEvent, button: number) => {
+    const node = element.current;
+    if (node !== null) {
+      event.preventDefault();
+      event.stopPropagation();
+      onAuxClick(auxClickEvent(event, node.getBoundingClientRect(), button));
+    }
+  };
+  return {
+    onContextMenu: (event: MouseEvent) => send(event, RIGHT_BUTTON),
+    onAuxClick: (event: MouseEvent) => {
+      if (event.button === MIDDLE_BUTTON) {
+        send(event, MIDDLE_BUTTON);
+      }
+    },
+  };
+}
+
 function resolve<T>(value: T | ((state: PressState) => T), state: PressState): T {
   return typeof value === 'function' ? (value as (state: PressState) => T)(state) : value;
 }
@@ -235,6 +267,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
     /* eslint-enable @typescript-eslint/no-unused-vars */
     onHoverIn,
     onHoverOut,
+    onAuxClick,
     tooltip,
     accessibilityRole,
     role,
@@ -269,6 +302,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function WebPre
         setHovered(false);
         onHoverOut?.(event);
       }}
+      {...auxClickHandlers(onAuxClick, element)}
       {...handlers}
     >
       {resolve(children, state)}
