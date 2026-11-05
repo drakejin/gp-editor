@@ -4,14 +4,14 @@
 // first fills the empty bars". Its "additional bars are added before the bar where the paste is performed" belongs to the
 // multitrack copy, which copies whole bars of every track (the app has none): a paste here writes over the cursor's track
 // only, so it never moves one track against the others, and bars are added only past the song's end.
-import { headerTicks } from '../model/defaults';
+import { NO_STROKE, headerTicks } from '../model/defaults';
 import type { Song } from '../model/song';
 import type { BeatAddress } from './addresses';
 import { type VoiceFlow, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
-import { beatPosition, cutAt, hasVoiceSlot, onTrackStrings } from './beat-ranges';
+import { beatPosition, copyBeats, cutAt, hasVoiceSlot, onTrackStrings } from './beat-ranges';
 import { updateNote } from './song-paths';
-import { type VoiceEvents, eventTicks, eventsTicks, restEvents, signedRests } from './timeline';
+import { type VoiceEvents, eventTicks, eventsTicks, isFreeRest, restEvents, signedRests } from './timeline';
 
 /** A paste's outcome. */
 export interface PastedBeats {
@@ -127,4 +127,36 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   const beatIndex = written.song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats.findIndex((beat) => beat.start === written.start) ?? -1;
   const first = { ...at, beatIndex: beatIndex < 0 ? at.beatIndex : beatIndex };
   return { song: written.song, addedBars: written.song.measureHeaders.length - song.measureHeaders.length, at: first, lastMeasureIndex: written.lastMeasureIndex };
+}
+
+/** The run's first beat in `from`'s track and voice (the earlier of its two ends); undefined when a beat is missing. */
+function runStart(song: Song, from: BeatAddress, to: BeatAddress): BeatAddress | undefined {
+  const other = { ...to, trackIndex: from.trackIndex, voiceIndex: from.voiceIndex };
+  const a = beatPosition(song, from);
+  const b = beatPosition(song, other);
+  if (a === undefined || b === undefined) {
+    return undefined;
+  }
+  return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.offset <= b.offset) ? from : other;
+}
+
+/** The fragment's items as rests of the same lengths, without notes or marks. */
+function restsOf(fragment: BeatFragment): BeatFragment {
+  return { ...fragment, items: fragment.items.map((item) => ({ duration: item.duration, notes: [], stroke: NO_STROKE, pickStroke: 'none' })) };
+}
+
+/**
+ * ⌘X's edit, Guitar Pro 8's single track cut (as its copy, it "does not account for bar structures"): the beats from
+ * `from` to `to` (inclusive, either order, as copyBeats picks them) of `from`'s track and voice replaced by rests of the
+ * same lengths — their notes and beat marks go, nothing after them moves, no other track changes, so pasting the copied
+ * beats back there gives the song back. The voice's first note after the run loses its ties. The same song when a beat
+ * is missing or the run holds only rests.
+ */
+export function clearBeats(song: Song, from: BeatAddress, to: BeatAddress): Song {
+  const start = runStart(song, from, to);
+  const fragment = copyBeats(song, from, to);
+  if (start === undefined || fragment.items.map(itemEvent).every(isFreeRest)) {
+    return song;
+  }
+  return pasteBeats(song, start, restsOf(fragment)).song;
 }

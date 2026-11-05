@@ -10,7 +10,7 @@ export interface Clipboard {
   /** Puts the selected beats (or the cursor's beat) on the system clipboard. */
   readonly copy: () => void;
   /**
-   * Copies, then deletes the copied beats (what follows moves up) at once, so what is deleted is what was copied; if
+   * Copies, then takes the copied beats out (rests in their place) at once, so what is taken out is what was copied; if
    * the clipboard then fails, the error banner says so and ⌘Z brings the beats back.
    */
   readonly cut: () => void;

@@ -1,4 +1,4 @@
-import { type BeatFragment, type PastedBeats, type Song, type StringAddress, copyBeats, deleteBeatsFlowing, pasteBeats } from '@gp-editor/core';
+import { type BeatFragment, type PastedBeats, type Song, type StringAddress, clearBeats, copyBeats, pasteBeats } from '@gp-editor/core';
 import { adjacentBeat, clampCursor, cursorInTrack } from '../lib/navigation';
 import { t } from '../lib/i18n/i18n';
 import type { BeatPosition, BeatRange } from '../score/selection-tint';
@@ -151,11 +151,15 @@ function beatStart(song: Song, at: StringAddress): number | undefined {
   return song.tracks[at.trackIndex]?.measures[at.measureIndex]?.beats[at.beatIndex]?.start;
 }
 
-/** ⌘X: the selected beats (or the cursor's beat) deleted, what follows moved up; the cursor on the first removed place. */
+/**
+ * ⌘X: the selected beats (or the cursor's beat) taken out of the cursor's track and voice, rests of their lengths left
+ * in their place (gp-core clearBeats): nothing after them moves, so the track stays in time with the others and ⌘V
+ * there puts them back. The cursor on the first cut place.
+ */
 export function cutSelectionAt(song: Song, cursor: StringAddress, anchor: StringAddress | undefined): ClipboardEdit {
   const from = anchor ?? cursor;
   const first = isBefore(cursor, from) ? cursor : from;
-  const next = deleteBeatsFlowing(song, beatAddress(from), beatAddress(cursor));
+  const next = clearBeats(song, beatAddress(from), beatAddress(cursor));
   return { song: next, cursor: cursorAt(next, { ...cursor, measureIndex: first.measureIndex, beatIndex: first.beatIndex }, beatStart(song, first)) };
 }
 

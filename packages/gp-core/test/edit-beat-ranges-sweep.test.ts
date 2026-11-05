@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
-import { pasteBeats } from '../src/edit/beat-paste';
+import { clearBeats, pasteBeats } from '../src/edit/beat-paste';
 import { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from '../src/edit/beat-ranges';
 import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
 import type { Song } from '../src/model/song';
@@ -68,10 +68,16 @@ describe.each(FIXTURES)('copy, cut and paste on %s/%s', (folder, name) => {
       const cut = deleteBeatsFlowing(song, from, to);
       const pasted = insertBeatsFlowing(song, target, fragment);
       const over = pasteBeats(song, target, fragment);
+      const cleared = clearBeats(song, from, to);
 
       assertEditInvariants(cut);
       assertEditInvariants(pasted);
       assertEditInvariants(over.song);
+      assertEditInvariants(cleared);
+      // A cut leaves rests in place: the bars and every other track stay, and the run's notes are all that go.
+      expect(cleared.measureHeaders).toBe(song.measureHeaders);
+      expect(cleared.tracks.every((track, index) => index === trackIndex || track === song.tracks[index])).toBe(true);
+      expect(noteCount(cleared, trackIndex, voiceIndex)).toBeGreaterThanOrEqual(noteCount(song, trackIndex, voiceIndex) - fragmentNotes);
       // Pasting over one track leaves every other track as it was — nothing moves against them —, bars added at the end only.
       const songBars = song.measureHeaders.length;
       expect(over.song.measureHeaders.slice(0, songBars)).toEqual(song.measureHeaders);

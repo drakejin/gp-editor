@@ -256,7 +256,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.tempo': 'Playback tempo +5 / −5 BPM',
   'commands.shortcuts.undo': 'Undo / redo',
   'commands.shortcuts.copy': 'Copy the selected beats (or the cursor’s beat)',
-  'commands.shortcuts.cut': 'Cut the beats (rests too)',
+  'commands.shortcuts.cut': 'Cut the selected beats (rests take their place)',
   'commands.shortcuts.paste': 'Paste over this track from the cursor, across bar lines',
   'commands.shortcuts.save': 'Save / save as',
   'commands.shortcuts.print': 'Print',

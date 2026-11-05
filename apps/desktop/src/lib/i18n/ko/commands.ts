@@ -253,7 +253,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.tempo': '재생 템포 +5 / −5 BPM',
   'commands.shortcuts.undo': '실행 취소 / 실행 복귀',
   'commands.shortcuts.copy': '선택한 박 복사하기 (선택이 없으면 커서의 박)',
-  'commands.shortcuts.cut': '박 오려두기 (쉼표 포함)',
+  'commands.shortcuts.cut': '선택한 박 오려두기 (그 자리는 쉼표로 남음)',
   'commands.shortcuts.paste': '커서부터 이 트랙에 덮어써서 붙여넣기 (세로줄을 넘어서도)',
   'commands.shortcuts.save': '저장 / 다른 이름으로 저장',
   'commands.shortcuts.print': '프린트',

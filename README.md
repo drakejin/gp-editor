@@ -320,11 +320,11 @@ Guitar Pro's own files differently are listed, with that evidence, in
   - copy and paste: drag across the score — into other rows too — or ⇧← / ⇧→ or ⇧-click select beats from the
     cursor (tinted on both staves; any other move clears the selection); ⌘C copies them — or the cursor's beat when
     nothing is selected —, in the cursor's track and voice whatever the view, to the clipboard, ⌘X cuts them, rests
-    too, and the beats after them move up; ⌘V writes the copied beats over the cursor's track from the cursor, across
-    bar lines, for as many bars as they need (Guitar Pro 8's single track paste): nothing is inserted and no other track
-    changes, a note that runs over a bar line becomes tied notes, and bars are added at the end (rests in the other
-    tracks) only when the paste runs past the last bar; the hint strip says which bars were written over. Cut and paste
-    are one undo step each; drum beats paste only into drum tracks.
+    taking their place (nothing after them moves); ⌘V writes the copied beats over the cursor's track from the
+    cursor, across bar lines, for as many bars as they need (Guitar Pro 8's single track paste): nothing is inserted
+    and no other track changes, a note that runs over a bar line becomes tied notes, and bars are added at the end
+    (rests in the other tracks) only when the paste runs past the last bar; the hint strip says which bars were written
+    over. Cut and paste are one undo step each; drum beats paste only into drum tracks.
 - **Keys everywhere**: Space play / stop; `]` / `[` the playback tempo 5 BPM up / down (the speed menu follows; the
   song is not edited); ⌥= / ⌥- the speed 5% up / down; ⌥M metronome, ⌥C count-in, ⌥L tempo lock; ⇧⌘F Focus / Unfocus;
   Esc closes the open panel, sheet or menu, else stops playback; ⌘S save; ⌘W close the tab; ⌃⇥ / ⌃⇧⇥ next / previous

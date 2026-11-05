@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
 import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
-import { pasteBeats } from '../src/edit/beat-paste';
+import { clearBeats, pasteBeats } from '../src/edit/beat-paste';
 import { copyBeats } from '../src/edit/beat-ranges';
 import { NO_STROKE } from '../src/model/defaults';
 import type { Note, Song } from '../src/model/song';
@@ -253,5 +253,72 @@ describe('pasteBeats: what it leaves alone', () => {
     expect(pasteBeats(song, at(0, 0), fragment()).song).toBe(song);
     expect(pasteBeats(song, at(0, 9), fragment(item(4, n(1, 1)))).song).toBe(song);
     expect(pasteBeats(song, at(0, 0), { isPercussion: true, items: [item(4, n(1, 38))] }).song).toBe(song);
+  });
+});
+
+/** The song with `text` on a beat of track 1. */
+function withBeatText(song: Song, measureIndex: number, beatIndex: number, text: string): Song {
+  const tracks = song.tracks.map((track, trackIndex) =>
+    trackIndex !== 0
+      ? track
+      : {
+          ...track,
+          measures: track.measures.map((measure, index) =>
+            index !== measureIndex ? measure : { ...measure, beats: measure.beats.map((beat, i) => (i === beatIndex ? { ...beat, text } : beat)) },
+          ),
+        },
+  );
+  return deepFreeze({ ...song, tracks });
+}
+
+describe('clearBeats (⌘X): the run taken out of this track, rests in its place', () => {
+  it('leaves rests of the same lengths where the run was: nothing after it moves, the other tracks untouched', () => {
+    // Arrange
+    const song = twoTracks([FOUR_QUARTERS, NEXT_QUARTERS], [NEXT_QUARTERS, FOUR_QUARTERS]);
+
+    // Act: bar 1's second beat to bar 2's first
+    const cleared = clearBeats(song, at(0, 1), at(1, 0));
+
+    // Assert
+    expect(layout(cleared, 0)).toEqual(['0:4:1/0', '960:4:r', '1920:4:r', '2880:4:r']);
+    expect(layout(cleared, 1)).toEqual(['0:4:r', '960:4:1/5', '1920:4:1/6', '2880:4:1/7']);
+    expect(cleared.tracks[1]).toBe(song.tracks[1]);
+    expect(cleared.measureHeaders).toBe(song.measureHeaders);
+    assertEditInvariants(cleared);
+  });
+
+  it('takes the run between its two ends in either order', () => {
+    const song = bars(FOUR_QUARTERS, NEXT_QUARTERS);
+    expect(clearBeats(song, at(1, 0), at(0, 1))).toEqual(clearBeats(song, at(0, 1), at(1, 0)));
+  });
+
+  it('takes the run’s beat marks with its notes: they went to the clipboard with them', () => {
+    const song = withBeatText(bars(FOUR_QUARTERS), 0, 1, 'solo');
+    const cleared = clearBeats(song, at(0, 1), at(0, 1));
+    expect(cleared.tracks[0]?.measures[0]?.beats[1]?.text).toBeUndefined();
+  });
+
+  it('undoes the tie of the note after the run: the note it continued is gone', () => {
+    const song = bars(FOUR_QUARTERS, [play(4, tied(1, 3)), play(4, n(1, 5)), rest(2)]);
+    const cleared = clearBeats(song, at(0, 3), at(0, 3));
+    expect(cleared.tracks[0]?.measures[1]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 3, isTied: false });
+  });
+
+  it('gives the song back when the run holds only rests or a beat is missing', () => {
+    const song = bars([play(2, n(1, 0)), rest(2)]);
+    expect(clearBeats(song, at(0, 1), at(0, 1))).toBe(song);
+    expect(clearBeats(song, at(0, 9), at(0, 0))).toBe(song);
+  });
+
+  it('pasted back where it was cut, the run gives the song back (⌘X then ⌘V)', () => {
+    // Arrange
+    const song = twoTracks([FOUR_QUARTERS, NEXT_QUARTERS, FOUR_QUARTERS], [NEXT_QUARTERS, FOUR_QUARTERS, NEXT_QUARTERS]);
+    const copied = copyBeats(song, at(0, 2), at(1, 3));
+
+    // Act
+    const pasted = pasteBeats(clearBeats(song, at(0, 2), at(1, 3)), at(0, 2), copied);
+
+    // Assert
+    expect(pasted.song).toEqual(song);
   });
 });

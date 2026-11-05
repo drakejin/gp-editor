@@ -249,7 +249,7 @@ function applyClipboardEdit(state: EditorState, edit: (song: Song, cursor: Strin
   return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: result.hint };
 }
 
-/** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. */
+/** Cuts the selected beats (the cursor's beat when none are selected): rests take their place, nothing moves. */
 export function cutSelection(state: EditorState): EditorState {
   return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
 }

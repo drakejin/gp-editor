@@ -165,16 +165,18 @@ describe('isInSelection (a drag on a selected note moves them all)', () => {
 });
 
 describe('cutSelection', () => {
-  it('deletes the selected beats, pulls the next bar back and puts the cursor where they were', () => {
-    // Arrange
-    const state = reduce(loaded(), { type: 'moveCursorBeat', step: 1 }, RIGHT);
+  it('takes the selected beats out of the track, rests in their place: nothing after them moves', () => {
+    // Arrange: a second track; beats 2–3 of bar 1 selected
+    const state = reduce(loaded(withTrack(twoBars(), [[beat(960, [note(2, 9)])], []])), { type: 'moveCursorBeat', step: 1 }, RIGHT);
 
     // Act
     const cut = reduce(state, { type: 'cutSelection' });
 
     // Assert
-    expect(frets(cut, 0)).toEqual(['0', '3', '4', '5']);
-    expect(frets(cut, 1)).toEqual(['6', '7', 'r']);
+    expect(frets(cut, 0)).toEqual(['0', 'r', 'r', '3']);
+    expect(frets(cut, 1)).toEqual(['4', '5', '6', '7']);
+    expect(cut.document?.song.tracks[1]).toBe(state.document?.song.tracks[1]);
+    expect(cut.document?.song.measureHeaders).toBe(state.document?.song.measureHeaders);
     expect(cut.cursor).toMatchObject({ measureIndex: 0, beatIndex: 1 });
     expect(cut.selectionAnchor).toBeUndefined();
     expect(cut.past).toHaveLength(1);
@@ -183,8 +185,24 @@ describe('cutSelection', () => {
 
   it('cuts the cursor beat when nothing is selected', () => {
     const cut = reduce(loaded(), { type: 'cutSelection' });
-    expect(frets(cut, 0)).toEqual(['1', '2', '3', '4']);
+    expect(frets(cut, 0)).toEqual(['r', '1', '2', '3']);
     expect(cut.cursor).toMatchObject({ measureIndex: 0, beatIndex: 0 });
+  });
+
+  it('gives the song back when the cut beats are pasted where they were (⌘X, then ⌘V)', () => {
+    // Arrange: bar 1's last two beats and bar 2's first two selected
+    const state = reduce(loaded(), { type: 'moveCursorBeat', step: 1 }, { type: 'moveCursorBeat', step: 1 }, RIGHT, RIGHT, RIGHT);
+    const fragment = selectedFragment(state)!;
+
+    // Act
+    const cut = reduce(state, { type: 'cutSelection' });
+    const pasted = reduce(cut, { type: 'pasteBeats', fragment });
+
+    // Assert
+    expect(frets(cut, 0)).toEqual(['0', '1', 'r', 'r']);
+    expect(frets(cut, 1)).toEqual(['r', 'r', '6', '7']);
+    expect(pasted.document?.song).toEqual(state.document?.song);
+    expect(pasted.hint).toBe('4 beats pasted over bars 1–2 of Guitar.');
   });
 
   it('does nothing without a document', () => {
