@@ -1,4 +1,4 @@
-import { type ReactNode, type Ref, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type Ref, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type GestureResponderEvent, type KeyEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Channel, Track, TrackIconName } from '@gp-editor/core';
 import { type Translate, useT } from '../hooks/use-i18n';
@@ -319,8 +319,6 @@ interface TrackTableBandProps {
   /** View ▸ Multitrack (F3), lit while on. */
   readonly isMultitrack?: boolean;
   readonly onToggleMultitrack?: () => void;
-  /** Guitar Pro's "Audio track" button (the song has none yet). */
-  readonly onAddAudioTrack?: () => void;
 }
 
 /** "Tracks" over the table, Multitrack, and the mixer columns named, as tall as the bar numbers beside it. */
@@ -353,29 +351,12 @@ function TrackTableHeaderView({ palette, isMultitrack = false, onToggleMultitrac
 /** Memoised: the table's header stays while the song is edited. */
 export const TrackTableHeader = memo(TrackTableHeaderView);
 
-interface TrackTableFooterProps extends TrackTableBandProps {
-  /** The track buttons (+, duplicate, delete, move up / down), beside "+ Audio Track". */
-  readonly trackActions?: ReactNode;
-}
-
-/** Beside the sections row of the bar map: the track buttons, and "+ Audio Track" while the song has none. */
-export function TrackTableFooter({ palette, onAddAudioTrack, trackActions }: TrackTableFooterProps) {
+/** Beside the sections row of the bar map: its name (the track and bar buttons are under the panel, TracksPanelFooter). */
+export function TrackTableSections({ palette }: TrackTableBandProps) {
   const t = useT();
   return (
     <View style={[styles.band, { height: BAR_MAP.sectionsHeight, backgroundColor: palette.chromeDeep }]}>
       <Text style={[styles.caption, styles.sections, { color: palette.chromeMuted }]}>{t('window.tracks.sections')}</Text>
-      {trackActions}
-      {onAddAudioTrack === undefined ? null : (
-        <Pressable
-          testID="tracks-panel-add-audio-track"
-          onPress={onAddAudioTrack}
-          tooltip={t('window.tracks.addAudioTooltip')}
-          accessibilityRole="button"
-          accessibilityLabel={t('window.tracks.addAudioAccessibility')}
-        >
-          <Text style={[styles.caption, { color: palette.chromeText }]}>{t('window.tracks.addAudio')}</Text>
-        </Pressable>
-      )}
     </View>
   );
 }

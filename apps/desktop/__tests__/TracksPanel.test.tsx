@@ -273,8 +273,8 @@ describe('TracksPanel track buttons', () => {
     // Arrange
     const actions = trackActions();
     const panel = render({ trackActions: actions, selectedTrackIndex: 1, cursorMeasureIndex: 0 });
-    const insertTooltip = 'Insert a bar in this track only, at the cursor’s bar: the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are (Track ▸ Insert Bar in This Track). The palette’s +Bar adds a bar to every track.';
-    const deleteTooltip = 'Delete the cursor’s bar, or the selected bars, in this track only: the track’s later bars move earlier and its last bars become rests; the other tracks and the song’s bars stay (Track ▸ Delete Bar in This Track). The palette’s −Bar deletes the bars in every track.';
+    const insertTooltip = 'Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar to every track (⌥-click: this track only).';
+    const deleteTooltip = 'Delete the cursor’s bar, or the selected bars, in this track only (Track ▸ Delete Bar in This Track, ⌥⌘⌫): the track’s later bars move earlier and its last bars become rests; the other tracks and the song’s bars stay. The palette’s −Bar deletes the bars in every track (⌥-click: this track only).';
 
     // Act
     panel.press(insertTooltip);
@@ -285,9 +285,34 @@ describe('TracksPanel track buttons', () => {
     expect(actions.onDeleteBar).toHaveBeenCalledTimes(1);
   });
 
+  it('says on the bar buttons that they act on this track', () => {
+    const texts = render({ trackActions: trackActions(), cursorMeasureIndex: 0 }).texts();
+    expect(texts).toEqual(expect.arrayContaining(['+ Bar (this track)', '− Bar (this track)']));
+  });
+
+  it('keeps the track and bar buttons under the tracks, outside the table that scrolls, however many tracks there are', () => {
+    // Arrange: twelve tracks, more than the table shows
+    const many: Song = { ...SONG, tracks: Array.from({ length: 12 }, (_, index) => ({ ...SONG.tracks[0]!, number: index + 1 })) };
+
+    // Act
+    const panel = render({ song: many, trackActions: trackActions(), onAddAudioTrack: jest.fn(), cursorMeasureIndex: 0 });
+
+    // Assert: the footer is the panel's last child, after the vertical scroll view, and holds every button
+    const outer = panel.renderer.root.findAllByType(View)[0]!;
+    const vertical = panel.renderer.root.findAllByType(ScrollView).find((node) => node.props.horizontal !== true)!;
+    const footer = panel.renderer.root.findByProps({ testID: 'tracks-panel-footer' });
+    expect(vertical.findAll((node) => node.props.testID === 'tracks-panel-footer')).toEqual([]);
+    expect(outer.findAll((node) => node.props.testID === 'tracks-panel-footer').length).toBeGreaterThan(0);
+    expect(StyleSheet.flatten(footer.props.style)).toMatchObject({ height: TRACKS_PANEL.footerHeight });
+    for (const id of ['tracks-panel-add-track', 'tracks-panel-insert-bar', 'tracks-panel-delete-bar', 'tracks-panel-add-audio-track']) {
+      expect(footer.findAll((node) => node.props.testID === id).length).toBeGreaterThan(0);
+    }
+    expect(vertical.findAll((node) => node.props.children === 'Sections').length).toBeGreaterThan(0);
+  });
+
   it('offers no bar of its own without a cursor', () => {
     const panel = render({ trackActions: trackActions(), cursorMeasureIndex: undefined });
-    expect(panel.control('Insert a bar in this track only, at the cursor’s bar: the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are (Track ▸ Insert Bar in This Track). The palette’s +Bar adds a bar to every track.').props.disabled).toBe(true);
+    expect(panel.control('Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar to every track (⌥-click: this track only).').props.disabled).toBe(true);
   });
 
   it('cannot move the first track up, the last one down, or delete the only track', () => {
@@ -527,7 +552,7 @@ describe('TracksPanel height', () => {
     // Assert: the panel shrinks before the window runs out (DocumentLayout's column), never under its header and three rows; it scrolls inside
     const outer = panel.renderer.root.findAllByType(View)[0];
     expect(StyleSheet.flatten(outer?.props.style)).toMatchObject({ flexShrink: 1, minHeight: TRACKS_PANEL.minHeight });
-    expect(TRACKS_PANEL.minHeight).toBe(BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight);
+    expect(TRACKS_PANEL.minHeight).toBe(BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight + TRACKS_PANEL.footerHeight);
     const vertical = panel.renderer.root.findAllByType(ScrollView).find((node) => node.props.horizontal !== true);
     expect(StyleSheet.flatten(vertical?.props.style)).toMatchObject({ flexGrow: 0, maxHeight: TRACKS_PANEL.maxHeight });
   });

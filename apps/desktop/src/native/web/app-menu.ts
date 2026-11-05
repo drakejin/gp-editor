@@ -182,8 +182,9 @@ function trackMenu(): TopMenu {
     command('track-up', 'commands.title.track.moveUp', post('trackCommandRequested', { command: 'moveUp' })),
     command('track-down', 'commands.title.track.moveDown', post('trackCommandRequested', { command: 'moveDown' })),
     SEPARATOR,
-    command('track-insert-bar', 'commands.title.track.insertBar', post('trackCommandRequested', { command: 'insertBar' })),
-    command('track-delete-bar', 'commands.title.track.deleteBar', post('trackCommandRequested', { command: 'deleteBar' })),
+    command('track-insert-bar', 'commands.title.track.insertBar', post('trackCommandRequested', { command: 'insertBar' }), { key: 'i', ctrl: true, alt: true }),
+    // i18n-exempt: a key's name (KeyboardEvent.key)
+    command('track-delete-bar', 'commands.title.track.deleteBar', post('trackCommandRequested', { command: 'deleteBar' }), { key: 'Backspace', ctrl: true, alt: true }),
   ]);
 }
 

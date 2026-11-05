@@ -73,7 +73,7 @@
 "Delete Track" = "트랙 삭제";
 "Move Track Up" = "트랙 위로 이동";
 "Move Track Down" = "트랙 아래로 이동";
-"Insert Bar in This Track" = "이 트랙에만 마디 넣기";
+"Insert Empty Bar in This Track" = "이 트랙에만 빈 마디 넣기";
 "Delete Bar in This Track" = "이 트랙의 마디만 삭제";
 "Add Audio Track…" = "오디오 트랙 추가…";
 "Keyboard Shortcuts" = "단축키";

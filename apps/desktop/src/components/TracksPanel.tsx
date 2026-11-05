@@ -11,16 +11,19 @@ import { type PanelAnchor, anchorAt } from '../hooks/use-track-info';
 import type { TrackPanelActions } from '../hooks/use-track-manager';
 import type { Palette } from '../theme';
 import { TrackActions } from './TrackActions';
-import { TRACK_TABLE, TrackMixerRow, TrackTableFooter, TrackTableHeader } from './TrackMixerRow';
+import { TRACK_TABLE, TrackMixerRow, TrackTableHeader, TrackTableSections } from './TrackMixerRow';
+import { TRACKS_FOOTER_HEIGHT, TracksPanelFooter } from './TracksPanelFooter';
 
 export const TRACKS_PANEL = {
-  /** Past this the panel scrolls (about eight tracks). */
+  /** Past this the table and the bar map scroll (about eight tracks). */
   maxHeight: 220,
+  /** The track and bar buttons' row under them, outside their scroll (TracksPanelFooter). */
+  footerHeight: TRACKS_FOOTER_HEIGHT,
   /**
-   * The least it shrinks to (its header and three tracks) when a panel over the score needs the room — a lyrics or
-   * annotation field at 1280 × 800 with the keyboard and fretboard shown —; it scrolls inside.
+   * The least it shrinks to (its header, three tracks and the buttons' row) when a panel over the score needs the room —
+   * a lyrics or annotation field at 1280 × 800 with the keyboard and fretboard shown —; the tracks scroll inside.
    */
-  minHeight: BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight,
+  minHeight: BAR_MAP.headerHeight + 3 * BAR_MAP.rowHeight + TRACKS_FOOTER_HEIGHT,
 } as const;
 
 export interface TracksPanelProps {
@@ -61,10 +64,11 @@ export interface TracksPanelProps {
 /**
  * Guitar Pro's tracks panel, dark in both appearances: the track table (colour strip and icon — both open the track's
  * information —, name, show / mute / solo, volume, pan; Multitrack over it, the eyes choosing the tracks it shows) on the left and the bar map on the right — a cell per bar, filled where the track has notes, the cursor's bar
- * marked; clicking a cell goes there. The two halves share their row heights, and the whole panel scrolls vertically.
+ * marked; clicking a cell goes there, a right-click opens its menu. The two halves share their row heights and scroll
+ * vertically together; the track and bar buttons stay under them.
  */
 function TracksPanelView(props: TracksPanelProps) {
-  const { palette } = props;
+  const { song, palette, trackActions, selectedTrackIndex } = props;
   return (
     <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
       <ScrollView style={styles.vertical}>
@@ -73,6 +77,13 @@ function TracksPanelView(props: TracksPanelProps) {
           <BarMap {...props} />
         </View>
       </ScrollView>
+      <TracksPanelFooter
+        palette={palette}
+        onAddAudioTrack={props.onAddAudioTrack}
+        trackActions={
+          trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} hasCursor={props.cursorMeasureIndex !== undefined} actions={trackActions} />
+        }
+      />
     </View>
   );
 }
@@ -125,11 +136,7 @@ function TrackTable(props: TracksPanelProps) {
         />
       ))}
       {drag === undefined ? null : <DropMarker palette={palette} {...drag} />}
-      <TrackTableFooter
-        palette={palette}
-        onAddAudioTrack={props.onAddAudioTrack}
-        trackActions={trackActions === undefined ? undefined : <TrackActions palette={palette} trackCount={song.tracks.length} selectedTrackIndex={selectedTrackIndex} hasCursor={props.cursorMeasureIndex !== undefined} actions={trackActions} />}
-      />
+      <TrackTableSections palette={palette} />
     </View>
   );
 }

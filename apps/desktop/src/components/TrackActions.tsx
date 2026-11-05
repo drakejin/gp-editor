@@ -43,8 +43,8 @@ function TrackActionsView({ palette, trackCount, selectedTrackIndex, hasCursor, 
       {button('▲', t('window.trackActions.moveUp'), () => actions.onMoveTrack(selectedTrackIndex, selectedTrackIndex - 1), selectedTrackIndex > 0)}
       {button('▼', t('window.trackActions.moveDown'), () => actions.onMoveTrack(selectedTrackIndex, selectedTrackIndex + 1), selectedTrackIndex < trackCount - 1)}
       <View style={styles.barActions}>
-        <ChromeButton palette={palette} label={t('window.trackActions.insertBar')} tooltip={t('window.trackActions.insertBarTooltip')} height={BUTTON_SIZE} fontSize={10} isEnabled={hasCursor} onPress={actions.onInsertBar} />
-        <ChromeButton palette={palette} label={t('window.trackActions.deleteBar')} tooltip={t('window.trackActions.deleteBarTooltip')} height={BUTTON_SIZE} fontSize={10} isEnabled={hasCursor} onPress={actions.onDeleteBar} />
+        <ChromeButton testID="tracks-panel-insert-bar" palette={palette} label={t('window.trackActions.insertBar')} tooltip={t('window.trackActions.insertBarTooltip')} height={BUTTON_SIZE} fontSize={10} isEnabled={hasCursor} onPress={actions.onInsertBar} />
+        <ChromeButton testID="tracks-panel-delete-bar" palette={palette} label={t('window.trackActions.deleteBar')} tooltip={t('window.trackActions.deleteBarTooltip')} height={BUTTON_SIZE} fontSize={10} isEnabled={hasCursor} onPress={actions.onDeleteBar} />
       </View>
     </View>
   );

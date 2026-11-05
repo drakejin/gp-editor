@@ -12,6 +12,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
   Never `~해요`, never `~하십시오`.
 - Tooltips: what the control does, as a noun phrase or a short sentence (`마디 삭제`, `커서 뒤에 박을 넣습니다 (I)`).
 - Keys stay as macOS writes them: `⌘`, `⇧`, `⌥`, `⌃`, `⌫`, `↩`, `Esc`, `Space` → `스페이스`.
+- A click with a key held and the other button: `⌥-클릭`, `⌃-클릭`, `오른쪽 클릭`.
 - Numbers come before Korean counters without a space: `3마디`, `4박`, `2반음`; ordinal positions: `마디 3`, `1번 줄`,
   `트랙 2`, `성부 1`. Counted things that have no counter take `개`: `음표 5개`, `트랙 3개`.
 - Particles after a placeholder whose last sound is unknown use both forms: `{name}(을)를`, `{name}(이)가`, or the
@@ -40,6 +41,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | system (a row of staves) | 단 | |
 | track | 트랙 | |
 | measure, bar | 마디 | |
+| empty bar; in this track only / in every track (a bar inserted or deleted); the bar map (the tracks panel's cells) | 빈 마디; 이 트랙에만 (지울 때 이 트랙에서만) / 모든 트랙에; 마디 맵 | `Insert Empty Bar in This Track` = `이 트랙에만 빈 마디 넣기`, `Delete Bar in This Track` = `이 트랙의 마디만 삭제`; the buttons `+ 마디 (이 트랙)` |
 | bar line | 세로줄 | |
 | beat (one moment of a voice) | 박 | `Insert a beat` = `박 넣기` |
 | voice | 성부 | `Multivoice` = `멀티 성부` |

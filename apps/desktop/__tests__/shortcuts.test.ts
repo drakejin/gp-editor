@@ -34,6 +34,13 @@ describe('the shortcut sheet', () => {
     expect(beats?.find((shortcut) => shortcut.keys === '⌘D')).toMatchObject({ action: 'Delete the bar, or the selected bars', press: { key: 'd', metaKey: true } });
   });
 
+  it('lists ⌥⌘I / ⌥⌘⌫ (an empty bar inserted, the bar deleted, in this track only) after ⌘D', () => {
+    const beats = shortcutGroups().find((group) => group.title === 'Beats and rests')?.shortcuts ?? [];
+    const index = beats.findIndex((shortcut) => shortcut.keys === '⌥⌘I / ⌥⌘⌫');
+    expect(beats[index]).toEqual({ keys: '⌥⌘I / ⌥⌘⌫', action: 'Insert an empty bar / delete the bar (or the selected bars) in this track only (Track menu)' });
+    expect(beats[index - 1]?.keys).toBe('⌘D');
+  });
+
   it('lists ⌥⇧↑ / ⌥⇧↓, a semitone up or down, with the note keys', () => {
     const notes = shortcutGroups().find((group) => group.title === 'Note at the cursor')?.shortcuts;
     expect(notes?.find((shortcut) => shortcut.keys === '⌥⇧↑ / ⌥⇧↓')).toMatchObject({
