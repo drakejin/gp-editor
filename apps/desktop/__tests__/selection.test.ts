@@ -1,7 +1,7 @@
-import type { Song } from '@gp-editor/core';
+import { QUARTER, type Song } from '@gp-editor/core';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { isInSelection, selectedFragment, selectionBars, selectionRange, selectionSummary } from '../src/state/selection';
-import { beat, makeSong, note } from '../test-support/songs';
+import { beat, makeSong, note, withTrack } from '../test-support/songs';
 
 const BAR = 3840;
 const QUARTER_TICKS = 960;
@@ -222,11 +222,31 @@ describe('pasteBeats', () => {
     expect(pasted.document?.song.measureHeaders).toHaveLength(2);
     expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 2 });
     expect(pasted.past).toHaveLength(1);
-    expect(pasted.hint).toBeUndefined();
+    expect(pasted.hint).toBe('2 beats pasted over bar 2 of Guitar.');
   });
 
-  it('pastes beats longer than a bar into whole bars added before the cursor’s bar, and says so', () => {
-    // Arrange: five beats copied (bar 1 and the first beat of bar 2), the cursor on bar 2, beat 2
+  it('pastes beats longer than a bar over this track’s bars from the cursor: no bar added, the other tracks untouched', () => {
+    // Arrange: a second track; five beats copied (bar 1 and the first beat of bar 2), the cursor on bar 1, beat 2
+    const state = loaded(withTrack(twoBars(), [[beat(960, [note(2, 9)], { ...QUARTER, value: 1 })], []]));
+    const fragment = selectedFragment(reduce(state, RIGHT, RIGHT, RIGHT, RIGHT))!;
+    const atBeat2 = reduce(state, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 0, beatIndex: 1, voiceIndex: 0, string: 1 } });
+
+    // Act
+    const pasted = reduce(atBeat2, { type: 'pasteBeats', fragment });
+
+    // Assert
+    expect(frets(pasted, 0)).toEqual(['0', '0', '1', '2']);
+    expect(frets(pasted, 1)).toEqual(['3', '4', '6', '7']);
+    expect(pasted.document?.song.measureHeaders).toBe(state.document?.song.measureHeaders);
+    expect(pasted.document?.song.tracks[1]).toBe(state.document?.song.tracks[1]);
+    expect(pasted.cursor).toMatchObject({ measureIndex: 0, beatIndex: 1 });
+    expect(pasted.hint).toBe('5 beats pasted over bars 1–2 of Guitar.');
+    expect(pasted.past).toHaveLength(1);
+    expect(reduce(pasted, { type: 'undo' }).document?.song).toBe(state.document?.song);
+  });
+
+  it('adds bars at the end only when the paste runs past the last bar, and says so', () => {
+    // Arrange: five beats copied, the cursor on bar 2, beat 2
     const state = loaded();
     const fragment = selectedFragment(reduce(state, RIGHT, RIGHT, RIGHT, RIGHT))!;
     const atSecondBar = reduce(state, { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 1, voiceIndex: 0, string: 1 } });
@@ -235,11 +255,10 @@ describe('pasteBeats', () => {
     const pasted = reduce(atSecondBar, { type: 'pasteBeats', fragment });
 
     // Assert
-    expect(frets(pasted, 1)).toEqual(['0', '1', '2', '3']);
-    expect(frets(pasted, 2)).toEqual(['4', 'r']);
-    expect(frets(pasted, 3)).toEqual(['4', '5', '6', '7']);
-    expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 0 });
-    expect(pasted.hint).toBe('2 bars were added to the song (every track) to hold the pasted beats.');
+    expect(frets(pasted, 1)).toEqual(['4', '0', '1', '2']);
+    expect(frets(pasted, 2)).toEqual(['3', '4', 'r']);
+    expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 1 });
+    expect(pasted.hint).toBe('5 beats pasted over bars 2–3 of Guitar. A bar was added at the end of the song (rests in the other tracks).');
     expect(pasted.past).toHaveLength(1);
   });
 

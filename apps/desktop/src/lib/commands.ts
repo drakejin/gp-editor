@@ -84,7 +84,7 @@ const editRows = (): readonly Command[] => [
   appKeyRow('edit.redo', 'edit', press('z', { metaKey: true, shiftKey: true }), { when: 'redo' }),
   appKeyRow('edit.copy', 'edit', press('c', { metaKey: true }), { when: 'beat', keywords: ['clipboard'] }),
   appKeyRow('edit.cut', 'edit', press('x', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'delete'] }),
-  appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'insert'] }),
+  appKeyRow('edit.paste', 'edit', press('v', { metaKey: true }), { when: 'beat', keywords: ['clipboard', 'overwrite'] }),
   appKeyRow('edit.deleteNotes', 'edit', press('d'), { when: 'notes', keywords: ['erase', 'remove', 'clear', 'rests', 'selection'] }),
   appKeyRow('edit.deleteBars', 'edit', press('d', { metaKey: true }), { when: 'bar', keywords: ['measures', 'remove', 'selection'] }),
   // Guitar Pro 8's One semitone up / down. Not 'transpose': Tools ▸ Transpose… stays the first answer to it.

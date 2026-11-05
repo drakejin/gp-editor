@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
 import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
 import { pasteBeats } from '../src/edit/beat-paste';
+import { copyBeats } from '../src/edit/beat-ranges';
 import { NO_STROKE } from '../src/model/defaults';
 import type { Note, Song } from '../src/model/song';
+import { readSong } from '../src/read-song';
 import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, dur, n, play, rest, voiceLayout } from './helpers/edit-songs';
+import { loadFixture } from './helpers/fixtures';
 
 function at(measureIndex: number, beatIndex: number, voiceIndex = 0, trackIndex = 0): BeatAddress {
   return { trackIndex, measureIndex, beatIndex, voiceIndex };
@@ -107,10 +110,15 @@ describe('pasteBeats: the ties and the cursor around the pasted beats', () => {
     expect(pasted.song.tracks[0]?.measures[1]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 3, isTied: false });
   });
 
-  it('undoes the tie of the cursor bar’s first note when whole bars go in before it', () => {
-    const song = bars(FOUR_QUARTERS, [play(4, tied(1, 3)), play(4, n(1, 5)), rest(2)]);
-    const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
-    expect(pasted.song.tracks[0]?.measures[3]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 3, isTied: false });
+  it('undoes the tie of the note after a paste of several bars: the note it continued was written over', () => {
+    // Arrange: bar 3 starts with a note tied to bar 2's last note
+    const song = bars(FOUR_QUARTERS, NEXT_QUARTERS, [play(4, tied(1, 7)), play(4, n(1, 5)), rest(2)]);
+
+    // Act: eight quarters over bars 1–2
+    const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(8, 0)));
+
+    // Assert
+    expect(pasted.song.tracks[0]?.measures[2]?.beats[0]?.voices[0]?.notes[0]).toMatchObject({ fret: 7, isTied: false });
   });
 
   it('answers the beat the pasted beats start on, also when rests written before them into an empty voice add beats', () => {
@@ -127,25 +135,38 @@ describe('pasteBeats: the ties and the cursor around the pasted beats', () => {
   });
 });
 
-describe('pasteBeats: longer than a bar', () => {
-  it('adds whole bars before the cursor’s bar, in every track, and pastes into them', () => {
+describe('pasteBeats: longer than a bar, written over this track only', () => {
+  it('writes over the voice from the cursor across as many bars as it needs: no bar added, the other tracks untouched', () => {
     // Arrange
-    const song = twoTracks([FOUR_QUARTERS, NEXT_QUARTERS], [NEXT_QUARTERS, FOUR_QUARTERS]);
+    const song = twoTracks([FOUR_QUARTERS, NEXT_QUARTERS, FOUR_QUARTERS], [NEXT_QUARTERS, FOUR_QUARTERS, NEXT_QUARTERS]);
 
-    // Act: six quarters with the cursor on bar 2, beat 3
-    const pasted = pasteBeats(song, at(1, 2), fragment(...quarters(6, 0)));
+    // Act: six quarters with the cursor on bar 1, beat 3
+    const pasted = pasteBeats(song, at(0, 2), fragment(...quarters(6, 0)));
 
     // Assert
-    expect(pasted).toMatchObject({ addedBars: 2, at: at(1, 0) });
-    expect(layout(pasted.song, 1)).toEqual(['0:4:3/0', '960:4:3/1', '1920:4:3/2', '2880:4:3/3']);
-    expect(layout(pasted.song, 2)).toEqual(['0:4:3/4', '960:4:3/5', '1920:2:r']);
-    expect(layout(pasted.song, 3)).toEqual(layout(song, 1));
-    expect(layout(pasted.song, 3, 1)).toEqual(layout(song, 1, 1));
-    expect(pasted.song.measureHeaders).toHaveLength(4);
+    expect(pasted).toMatchObject({ addedBars: 0, at: at(0, 2), lastMeasureIndex: 1 });
+    expect(layout(pasted.song, 0)).toEqual(['0:4:1/0', '960:4:1/1', '1920:4:3/0', '2880:4:3/1']);
+    expect(layout(pasted.song, 1)).toEqual(['0:4:3/2', '960:4:3/3', '1920:4:3/4', '2880:4:3/5']);
+    expect(pasted.song.tracks[0]?.measures[2]).toBe(song.tracks[0]?.measures[2]);
+    expect(pasted.song.tracks[1]).toBe(song.tracks[1]);
+    expect(pasted.song.measureHeaders).toBe(song.measureHeaders);
     assertEditInvariants(pasted.song);
   });
 
-  it('fills the empty bars from the cursor on first, then adds bars for what does not fit', () => {
+  it('leaves the rest of the time of a note the paste’s end cuts into as rests, the bar lines where they were', () => {
+    // Arrange: bar 2 holds one whole note
+    const song = bars(FOUR_QUARTERS, [play(1, n(1, 9))], NEXT_QUARTERS);
+
+    // Act: five quarters from bar 1's start
+    const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(5, 0)));
+
+    // Assert
+    expect(layout(pasted.song, 1)).toEqual(['0:4:3/4', '960:2.:r']);
+    expect(layout(pasted.song, 2)).toEqual(layout(song, 2));
+    expect(pasted.song.measureHeaders).toHaveLength(3);
+  });
+
+  it('fills an empty bar from the cursor and writes on over the bars after it, adding none', () => {
     // Arrange: bar 2 is empty, bar 3 has music
     const song = bars(FOUR_QUARTERS, [rest(1)], NEXT_QUARTERS);
 
@@ -153,10 +174,34 @@ describe('pasteBeats: longer than a bar', () => {
     const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
 
     // Assert
-    expect(pasted).toMatchObject({ addedBars: 1, at: at(1, 0) });
+    expect(pasted).toMatchObject({ addedBars: 0, at: at(1, 0), lastMeasureIndex: 2 });
     expect(layout(pasted.song, 1)).toEqual(['0:4:3/0', '960:4:3/1', '1920:4:3/2', '2880:4:3/3']);
+    expect(layout(pasted.song, 2)).toEqual(['0:4:3/4', '960:4:3/5', '1920:4:1/6', '2880:4:1/7']);
+    expect(pasted.song.measureHeaders).toHaveLength(3);
+  });
+
+  it('adds bars at the end only for what runs past the last bar, rests in the other tracks', () => {
+    // Arrange
+    const song = twoTracks([FOUR_QUARTERS, NEXT_QUARTERS], [NEXT_QUARTERS, FOUR_QUARTERS]);
+
+    // Act: six quarters with the cursor on bar 2
+    const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
+
+    // Assert
+    expect(pasted).toMatchObject({ addedBars: 1, at: at(1, 0), lastMeasureIndex: 2 });
+    expect(layout(pasted.song, 0)).toEqual(layout(song, 0));
     expect(layout(pasted.song, 2)).toEqual(['0:4:3/4', '960:4:3/5', '1920:2:r']);
-    expect(layout(pasted.song, 3)).toEqual(layout(song, 2));
+    expect(pasted.song.tracks[1]?.measures.slice(0, 2)).toEqual(song.tracks[1]?.measures);
+    expect(layout(pasted.song, 2, 1).every((beat) => beat.endsWith(':r'))).toBe(true);
+    assertEditInvariants(pasted.song);
+  });
+
+  it('writes bars of rests over bars with notes (a cut’s rests pasted elsewhere)', () => {
+    const song = bars([rest(1)], [rest(1)], FOUR_QUARTERS, NEXT_QUARTERS);
+    const pasted = pasteBeats(song, at(2, 0), fragment(item(1), item(1)));
+    expect(layout(pasted.song, 2)).toEqual(['0:1:r']);
+    expect(layout(pasted.song, 3)).toEqual(['0:1:r']);
+    expect(pasted.song.measureHeaders).toHaveLength(4);
   });
 
   it('adds no bar where the empty bars hold it all', () => {
@@ -164,6 +209,27 @@ describe('pasteBeats: longer than a bar', () => {
     const pasted = pasteBeats(song, at(1, 0), fragment(...quarters(6, 0)));
     expect(pasted.addedBars).toBe(0);
     expect(layout(pasted.song, 3)).toEqual(layout(song, 3));
+  });
+});
+
+describe('pasteBeats: canon.gp5, the user’s case', () => {
+  it('pastes two bars of track 1 over its bars 10–11: the bar count and every other track stay as they were', () => {
+    // Arrange: bars 12–13 of track 1 copied
+    const song = deepFreeze(readSong(loadFixture('guitarpro5', 'canon.gp5')));
+    const lastBeat = (song.tracks[0]?.measures[12]?.beats.length ?? 1) - 1;
+    const copied = copyBeats(song, at(11, 0), at(12, lastBeat));
+
+    // Act
+    const pasted = pasteBeats(song, at(9, 0), copied);
+
+    // Assert
+    expect(pasted).toMatchObject({ addedBars: 0, lastMeasureIndex: 10 });
+    expect(pasted.song.measureHeaders).toBe(song.measureHeaders);
+    expect(layout(pasted.song, 9)).toEqual(layout(song, 11));
+    expect(layout(pasted.song, 10)).toEqual(layout(song, 12));
+    expect(layout(pasted.song, 11)).toEqual(layout(song, 11));
+    expect(pasted.song.tracks.every((track, index) => index === 0 || track === song.tracks[index])).toBe(true);
+    assertEditInvariants(pasted.song);
   });
 });
 

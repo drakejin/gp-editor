@@ -257,7 +257,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.undo': 'Undo / redo',
   'commands.shortcuts.copy': 'Copy the selected beats (or the cursor’s beat)',
   'commands.shortcuts.cut': 'Cut the beats (rests too)',
-  'commands.shortcuts.paste': 'Paste at the cursor, across bar lines',
+  'commands.shortcuts.paste': 'Paste over this track from the cursor, across bar lines',
   'commands.shortcuts.save': 'Save / save as',
   'commands.shortcuts.print': 'Print',
   'commands.shortcuts.exportPdf': 'Export PDF',
