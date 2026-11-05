@@ -190,7 +190,7 @@ describe('command registry', () => {
   });
 
   it('lists Insert Bar After in This Track (the palette’s ⌥-click on +Bar, the bar map’s menu), which needs a bar', () => {
-    expect(find('track.insertBarAfter')).toMatchObject({ title: 'Insert Empty Bar After in This Track', group: 'Track', command: { type: 'edit', edit: { type: 'insertTrackMeasure', side: 'after' } } });
+    expect(find('track.insertBarAfter')).toMatchObject({ title: 'Insert Empty Bar After in This Track', group: 'Track', command: { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } } });
     expect(find('track.insertBarAfter').isEnabled(NO_DOCUMENT)).toBe(false);
     expect(find('track.insertBarAfter').isEnabled(ON_NOTE)).toBe(true);
   });

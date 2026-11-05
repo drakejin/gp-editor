@@ -197,7 +197,7 @@ function barGroup(): PaletteGroup {
     tools: [
       // + Bar adds after the bar clicked (the cursor's): the mouse is on the palette when it is pressed, not on a bar.
       // With ⌥ both act on the cursor's track only (the palette has no room for two more buttons at 1280 × 800).
-      { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }), optionClick: { run: edit({ type: 'insertTrackMeasure', side: 'after' }), tooltip: t('palette.tool.insertMeasure.option') } },
+      { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }), optionClick: { run: edit({ type: 'insertTrackMeasure', position: 'after' }), tooltip: t('palette.tool.insertMeasure.option') } },
       {
         id: 'deleteMeasure',
         face: t('palette.face.deleteMeasure'),

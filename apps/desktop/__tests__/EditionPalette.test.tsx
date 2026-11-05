@@ -162,7 +162,7 @@ describe('EditionPalette state at the cursor', () => {
 
     // Assert
     expect(palette.onEdit.mock.calls).toEqual([
-      [{ type: 'insertTrackMeasure', side: 'after' }],
+      [{ type: 'insertTrackMeasure', position: 'after' }],
       [{ type: 'deleteTrackMeasure' }],
       [{ type: 'insertMeasure' }],
       [{ type: 'deleteMeasure' }],

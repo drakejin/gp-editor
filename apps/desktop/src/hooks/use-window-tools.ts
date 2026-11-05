@@ -147,6 +147,6 @@ export function useWindowTools(base: WindowBase): WindowTools {
   };
   const trackManager = useTrackManager({ song, shownTrackIndex: state.trackIndex, tabId: workspace.activeTabId, dispatch, onClosed: focusScore, onTracksRemapped: followTracks });
   const { cursor, selectionAnchor } = state;
-  const barMenu = useBarMenu({ tabId: workspace.activeTabId, trackCount: song?.tracks.length ?? 0, cursor, selectionAnchor, dispatch, onClosed: focusScore });
+  const barMenu = useBarMenu({ tabId: workspace.activeTabId, song, cursor, selectionAnchor, dispatch, onClosed: focusScore });
   return { draftPreview, songWriter, compose, aiEdit, reference, ...panels, audio, trackManager, trackInfo, barMenu };
 }

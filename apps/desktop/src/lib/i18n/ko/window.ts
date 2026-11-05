@@ -250,7 +250,6 @@ export const KO_WINDOW: Catalog<typeof EN_WINDOW> = {
   'window.tracks.barMapTooltip': '채워진 마디에는 음표가 있습니다. 마디를 클릭하면 그곳으로 가고, 오른쪽 클릭(또는 ⌃-클릭)하면 그 트랙에만 마디를 넣거나 지웁니다.',
   'window.tracks.barMap': '마디 맵',
   'window.tracks.barMapHint': '클릭한 트랙과 마디로 갑니다',
-  'window.barMenu.title': '마디 메뉴',
   'window.barMenu.heading': '마디 {number} — {track}',
   'window.barMenu.headingBars': '마디 {first}–{last} — {track}',
   'window.barMenu.insertBefore': '이 트랙에만 앞에 마디 넣기',

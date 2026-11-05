@@ -3,21 +3,19 @@ import { useT } from '../hooks/use-i18n';
 import type { PanelAnchor } from '../hooks/use-track-info';
 import { BAR_MENU_ITEMS, type BarMenuItem, type BarMenuTarget, barMenuHeading, barMenuLabel } from '../lib/bar-map-menu';
 import type { Palette } from '../theme';
-import { ChromeMenu, MenuHeading, MenuItem, MenuSeparator } from './chrome/ChromeMenu';
+import { CHROME_MENU, ChromeMenu, MenuHeading, MenuItem, MenuSeparator } from './chrome/ChromeMenu';
 
-/**
- * The menu's height as ChromeMenu lays it out, in points (to open it above the click): its padding and border (12), the
- * heading (17), five items (22 each) and a separator (11).
- */
-export const BAR_MENU_HEIGHT = 12 + 17 + 5 * 22 + 11;
-/** Its least distance from the window's top, and ChromeMenu's offset of its left edge from the click. */
-const EDGE = 8;
-const MENU_INSET = 16;
+/** The menu's height as ChromeMenu lays it out, in points (to open it above the click): its heading, items and separators. */
+export const BAR_MENU_HEIGHT =
+  2 * (CHROME_MENU.border + CHROME_MENU.padding) +
+  CHROME_MENU.headingHeight +
+  BAR_MENU_ITEMS.flat().length * CHROME_MENU.itemHeight +
+  (BAR_MENU_ITEMS.length - 1) * CHROME_MENU.separatorHeight;
 
 /** Where the menu's top goes: above the click (the bar map is at the window's bottom), else under it. */
 export function barMenuTop(anchor: PanelAnchor): number {
   const above = anchor.y - BAR_MENU_HEIGHT;
-  return above >= EDGE ? above : anchor.y;
+  return above >= CHROME_MENU.edge ? above : anchor.y;
 }
 
 export interface BarMapMenuProps {
@@ -40,7 +38,7 @@ export interface BarMapMenuProps {
 export function BarMapMenu({ palette, target, trackName, anchor, windowWidth, onChoose, onClose }: BarMapMenuProps) {
   useT();
   return (
-    <ChromeMenu palette={palette} x={anchor.x + MENU_INSET} top={barMenuTop(anchor)} windowWidth={windowWidth} onClose={onClose}>
+    <ChromeMenu palette={palette} x={anchor.x + CHROME_MENU.inset} top={barMenuTop(anchor)} windowWidth={windowWidth} onClose={onClose}>
       <MenuHeading palette={palette} label={barMenuHeading(target, trackName)} />
       {BAR_MENU_ITEMS.map((items, groupIndex) => (
         <Fragment key={items.join()}>

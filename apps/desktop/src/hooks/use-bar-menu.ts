@@ -1,5 +1,5 @@
 import { type Dispatch, useCallback, useEffect, useMemo, useState } from 'react';
-import type { StringAddress } from '@gp-editor/core';
+import type { Song, StringAddress } from '@gp-editor/core';
 import { type BarMenuItem, type BarMenuTarget, barMenuActions, barMenuCursor, barMenuTarget } from '../lib/bar-map-menu';
 import type { EditorAction } from '../state/editor';
 import { useStableCallback } from './use-stable-callback';
@@ -26,7 +26,8 @@ export interface BarMenu {
 /** The shown tab's editor, as far as the menu needs it. */
 export interface BarMenuSources {
   readonly tabId?: string;
-  readonly trackCount: number;
+  /** The shown tab's song: the menu acts on the bars of this song only. */
+  readonly song?: Song;
   readonly cursor?: StringAddress;
   readonly selectionAnchor?: StringAddress;
   /** Editor actions to the shown tab. */
@@ -38,14 +39,16 @@ export interface BarMenuSources {
 interface OpenBarMenu {
   /** The tab it was opened in: another tab shown, it is closed. */
   readonly tabId?: string;
+  /** The song it was opened on: any edit (a key, a menu, the MCP server, undo, a track added or gone) closes it. */
+  readonly song?: Song;
   readonly target: BarMenuTarget;
   readonly anchor: PanelAnchor;
 }
 
-export function useBarMenu({ tabId, trackCount, cursor, selectionAnchor, dispatch, onClosed }: BarMenuSources): BarMenu {
+export function useBarMenu({ tabId, song, cursor, selectionAnchor, dispatch, onClosed }: BarMenuSources): BarMenu {
   const [opened, setOpened] = useState<OpenBarMenu | undefined>(undefined);
-  // Another tab shown, or its track gone, closes it — for good: nothing over the window swallows clicks and keys unseen.
-  const shown = opened !== undefined && opened.tabId === tabId && opened.target.trackIndex < trackCount ? opened : undefined;
+  // Another tab shown or the song edited closes it — for good: the bars it names may be others now.
+  const shown = opened !== undefined && opened.tabId === tabId && opened.song === song ? opened : undefined;
   const isShown = shown !== undefined;
   useEffect(() => {
     if (!isShown) {
@@ -58,7 +61,7 @@ export function useBarMenu({ tabId, trackCount, cursor, selectionAnchor, dispatc
     if (!target.isSelection) {
       dispatch({ type: 'placeCursor', cursor: barMenuCursor(target, measureIndex) });
     }
-    setOpened({ tabId, target, anchor });
+    setOpened({ tabId, song, target, anchor });
   });
   const close = useCallback(() => {
     if (isShown) {

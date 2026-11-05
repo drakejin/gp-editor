@@ -254,7 +254,6 @@ export const EN_WINDOW = {
   'window.tracks.barMapTooltip': 'Filled bars hold notes. Click a bar to go there; right-click (or ⌃-click) it to insert or delete a bar in that track only.',
   'window.tracks.barMap': 'Bar map',
   'window.tracks.barMapHint': 'Goes to the clicked track and bar',
-  'window.barMenu.title': 'Bar menu',
   'window.barMenu.heading': 'Bar {number} — {track}',
   'window.barMenu.headingBars': 'Bars {first}–{last} — {track}',
   'window.barMenu.insertBefore': 'Insert Bar Before in This Track',

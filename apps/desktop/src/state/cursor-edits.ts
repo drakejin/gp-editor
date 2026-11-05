@@ -26,7 +26,7 @@ import { editAtCursor, withBarRests } from './empty-bars';
 import { withSelectionStart } from './mark-edits';
 import { droneFretHint, playedNotesHint, storedFret } from './note-entry';
 import { type ClipboardEdit, cutSelectionAt, pasteBeatsAt, pasteRefusal } from './selection';
-import { type SongEdit, applySongEdit } from './song-edits';
+import { type SongEdit, applySongEdit, insertedBarIndex } from './song-edits';
 
 // The editor's edits at the cursor (editor.ts routes the actions here): the cursor follows what they insert or remove.
 
@@ -207,7 +207,7 @@ function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringA
       return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
     case 'insertTrackMeasure':
       // The bar of rests put there.
-      return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + (edit.side === 'after' ? 1 : 0), beatIndex: 0 });
+      return clampCursor(song, { ...cursor, measureIndex: insertedBarIndex(cursor.measureIndex, edit.position), beatIndex: 0 });
     case 'deleteTrackMeasure':
       // The first deleted bar, which the music after the deleted ones moved into.
       return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex), beatIndex: 0 });

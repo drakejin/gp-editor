@@ -294,9 +294,15 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect(inserted.hint).toBe('Bar 1 inserted in “Guitar” only — the other tracks are unchanged; the song is one bar longer.');
   });
 
+  it('says nothing more of the bar once it is undone or redone: the hint told what the edit did', () => {
+    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure' } });
+    const undone = edit(inserted, { type: 'undo' });
+    expect([undone.hint, edit(undone, { type: 'redo' }).hint]).toEqual([undefined, undefined]);
+  });
+
   it('puts the bar after the cursor’s bar with side “after”, the cursor on it, in one undo step', () => {
     // Act
-    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure', side: 'after' } });
+    const inserted = edit(twoTracks(), { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } });
 
     // Assert
     expect([0, 1, 2].map((measureIndex) => fret(inserted, 0, measureIndex))).toEqual([1, undefined, 2]);
@@ -312,7 +318,7 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     const atLast = edit(start, { type: 'placeCursor', cursor: { ...start.cursor!, trackIndex: 1, measureIndex: 1 } });
 
     // Act
-    const inserted = edit(atLast, { type: 'edit', edit: { type: 'insertTrackMeasure', side: 'after' } });
+    const inserted = edit(atLast, { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } });
 
     // Assert
     expect(song(inserted).measureHeaders).toHaveLength(3);

@@ -2,7 +2,7 @@ import { type Song, type StringAddress, type TimeSignature, findNote, otherVoice
 import { t } from '../lib/i18n/i18n';
 import { trackLabel } from '../lib/track-label';
 import { needsNote } from './note-edits';
-import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
+import { type SongEdit, cursorVoice, insertedBarIndex, isInTuplet } from './song-edits';
 import { voiceMoveHint } from './voice-edits';
 
 /**
@@ -16,7 +16,7 @@ export function trackBarHint(song: Song, cursor: StringAddress, edit: SongEdit):
   }
   const name = trackLabel(track);
   if (edit.type === 'insertTrackMeasure') {
-    return t('palette.hint.trackBarInserted', { number: cursor.measureIndex + (edit.side === 'after' ? 2 : 1), track: name });
+    return t('palette.hint.trackBarInserted', { number: insertedBarIndex(cursor.measureIndex, edit.position) + 1, track: name });
   }
   const from = edit.from?.measureIndex ?? cursor.measureIndex;
   const [first, last] = [Math.min(from, cursor.measureIndex), Math.max(from, cursor.measureIndex)];

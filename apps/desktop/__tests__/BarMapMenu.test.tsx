@@ -42,6 +42,11 @@ describe('BarMapMenu', () => {
     ]);
   });
 
+  it('keeps its heading on one line, so the menu is as tall as it is placed (above the click)', () => {
+    const heading = render({ trackName: 'A very long track name that would not fit on one line of the menu' }).renderer.root.findAllByType(Text)[0];
+    expect(heading?.props.numberOfLines).toBe(1);
+  });
+
   it('names the selected bars it acts on', () => {
     const menu = render({ target: { trackIndex: 0, firstIndex: 2, lastIndex: 5, string: 1, isSelection: true }, trackName: 'Guitar' });
     expect(menu.texts()).toEqual(expect.arrayContaining(['Bars 3–6 — Guitar', 'Delete Bars 3–6 in This Track', 'Delete Bars 3–6 in All Tracks']));

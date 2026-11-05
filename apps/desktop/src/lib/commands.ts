@@ -159,7 +159,7 @@ const trackRows = (): readonly Command[] => [
   appRow('track.moveUp', 'track', (a) => a.runTrackCommand('moveUp'), { keywords: ['order', 'reorder'] }),
   appRow('track.moveDown', 'track', (a) => a.runTrackCommand('moveDown'), { keywords: ['order', 'reorder'] }),
   appEditorRow('track.insertBar', 'track', { type: 'edit', edit: { type: 'insertTrackMeasure' } }, { when: 'bar', shortcut: '⌥⌘I', keywords: ['measure', 'add', 'empty', 'single', 'one', 'shift', 'move', 'later'] }),
-  appEditorRow('track.insertBarAfter', 'track', { type: 'edit', edit: { type: 'insertTrackMeasure', side: 'after' } }, { when: 'bar', keywords: ['measure', 'add', 'empty', 'single', 'one', 'next', 'after'] }),
+  appEditorRow('track.insertBarAfter', 'track', { type: 'edit', edit: { type: 'insertTrackMeasure', position: 'after' } }, { when: 'bar', keywords: ['measure', 'add', 'empty', 'single', 'one', 'next', 'after'] }),
   appEditorRow('track.deleteBar', 'track', { type: 'edit', edit: { type: 'deleteTrackMeasure' } }, { when: 'bar', shortcut: '⌥⌘⌫', keywords: ['measure', 'remove', 'single', 'one', 'shift', 'move', 'earlier'] }),
   appRow('track.addAudioTrack', 'track', (a) => a.addAudioTrack(), { keywords: ['backing', 'track', 'recording', 'audio', 'mp3', 'wav', 'sync'] }),
   appEditorRow('track.removeAudioTrack', 'track', { type: 'setAudioTrack', audioTrack: undefined }, { keywords: ['backing', 'track', 'recording', 'audio'] }),

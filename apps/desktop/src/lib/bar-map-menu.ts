@@ -58,7 +58,7 @@ function itemEdit(target: BarMenuTarget, item: BarMenuItem): { readonly measureI
     case 'insertBefore':
       return { measureIndex: firstIndex, edit: { type: 'insertTrackMeasure' } };
     case 'insertAfter':
-      return { measureIndex: lastIndex, edit: { type: 'insertTrackMeasure', side: 'after' } };
+      return { measureIndex: lastIndex, edit: { type: 'insertTrackMeasure', position: 'after' } };
     case 'deleteInTrack':
       return { measureIndex: lastIndex, edit: { type: 'deleteTrackMeasure', ...from } };
     case 'insertInAllTracks':

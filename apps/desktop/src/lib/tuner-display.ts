@@ -1,6 +1,7 @@
 import { STANDARD_TUNING, type Track, type TunerReading, trackTuning } from '@gp-editor/core';
 import { t } from './i18n/i18n';
 import { pitchClassName, pitchName, pitchOctave, tuningLabel } from './pitch';
+import { trackLabel } from './track-label';
 import type { TunerStatus } from './tuner-input';
 
 /** Within this many cents a note shows as in tune (green), as most tuners do. */
@@ -66,7 +67,7 @@ export function tunerStrings(track: Track | undefined): TunerStrings {
     return { tuning: STANDARD_TUNING, caption: t('tools.tuner.standardGuitar') };
   }
   const tuning = trackTuning(track);
-  return { tuning, caption: `${track.name.trim() || t('common.trackNumber', { number: track.number })} · ${tuningLabel(tuning)}` };
+  return { tuning, caption: `${trackLabel(track)} · ${tuningLabel(tuning)}` };
 }
 
 /**
