@@ -59,6 +59,11 @@ export interface TracksPanelProps {
   readonly trackActions?: TrackPanelActions;
   /** Guitar Pro's "Audio track" button, while the song has none (Track ▸ Add Audio Track…). */
   readonly onAddAudioTrack?: () => void;
+  /**
+   * The bar map's menu is open: the panel takes no clicks — react-native-macos hit-tested the cells and rows under the
+   * menu before the menu (its lower items and its backdrop over the panel lost their clicks to them, in the app).
+   */
+  readonly isMenuOpen?: boolean;
 }
 
 /**
@@ -70,7 +75,7 @@ export interface TracksPanelProps {
 function TracksPanelView(props: TracksPanelProps) {
   const { song, palette, trackActions, selectedTrackIndex } = props;
   return (
-    <View style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
+    <View pointerEvents={props.isMenuOpen === true ? 'none' : 'auto'} style={[styles.panel, { backgroundColor: palette.chrome, borderTopColor: palette.chromeBorder }]}>
       <ScrollView style={styles.vertical}>
         <View style={styles.columns}>
           <TrackTable {...props} />

@@ -58,6 +58,7 @@ function DocumentTracks({ model, document }: DocumentPartProps) {
         onAddAudioTrack={audioTrack === undefined ? audioLane.addAudioTrack : undefined}
         trackActions={tools.trackManager.panelActions}
         onContextBar={tools.barMenu.openAt}
+        isMenuOpen={tools.barMenu.isOpen}
         {...track}
       />
       {audioTrack !== undefined ? (

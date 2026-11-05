@@ -496,6 +496,15 @@ describe('TracksPanel bar map', () => {
     expect(onContextBar).not.toHaveBeenCalled();
   });
 
+  it('lets no click through to its tracks and cells while its bar menu is over them', () => {
+    // Arrange / Act
+    const outer = (isMenuOpen: boolean) => render({ onContextBar: jest.fn(), isMenuOpen }).renderer.root.findAllByType(View)[0];
+
+    // Assert: react-native-macos hit-tests the panel's cells before the menu over them, so the menu's clicks land there
+    expect(outer(true)?.props.pointerEvents).toBe('none');
+    expect(outer(false)?.props.pointerEvents).toBe('auto');
+  });
+
   it('takes no right click without a menu to open', () => {
     expect(render().renderer.root.findByProps({ testID: 'tracks-panel-bar-map' }).props.onAuxClick).toBeUndefined();
   });
