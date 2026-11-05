@@ -272,6 +272,8 @@ describe('random beat edits on multi-voice files', () => {
       song = next;
     }
     expect(secondaryChanges).toBeGreaterThan(0);
-    expect(ripples).toBeGreaterThan(0);
+    // Rests alone flow nowhere: the time-signature files hold only rests.
+    const hasNotes = song.tracks.some((track) => track.measures.some((measure) => measure.beats.some((each) => each.voices.some((voice) => voice.notes.length > 0))));
+    expect(ripples > 0 || !hasNotes).toBe(true);
   });
 });

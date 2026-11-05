@@ -23,8 +23,8 @@ interface CutPlace {
 }
 
 function isTupletEvent(event: VoiceEvent): boolean {
-  const { tuplet } = event.voice.duration;
-  return tuplet.enters !== tuplet.times;
+  const { tuplet, innerTuplet } = event.voice.duration;
+  return tuplet.enters !== tuplet.times || (innerTuplet !== undefined && innerTuplet.enters !== innerTuplet.times);
 }
 
 /** True for time plain durations can write, without a tuplet. */

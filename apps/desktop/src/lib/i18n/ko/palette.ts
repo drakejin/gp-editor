@@ -287,7 +287,7 @@ export const KO_PALETTE: Catalog<typeof EN_PALETTE> = {
   },
   'palette.hint.pulledBackRests': '마디 {bar}에서 쉼표를 당겨 왔습니다.',
   'palette.hint.pulledBackRestsThrough': '마디 {bar}에서 쉼표를 당겨 왔고, 이 성부가 마디 {last}까지 앞으로 당겨졌습니다.',
-  'palette.hint.flowAddedBars': { one: '곡 끝에 마디를 하나 넣었습니다.', other: '곡 끝에 {count}마디를 넣었습니다.' },
+  'palette.hint.flowAddedBars': { one: '곡 끝에 마디를 하나 넣었습니다 (모든 트랙).', other: '곡 끝에 {count}마디를 넣었습니다 (모든 트랙).' },
   'palette.hint.tupletStaysLong': '마디 {bar}(은)는 길이가 넘친 채로 남습니다: 잇단음표는 세로줄을 넘어가지 않습니다.',
   'palette.hint.tupletNotPulled': '마디 {bar}에서는 당겨 오지 않았습니다: 잇단음표는 세로줄을 넘어가지 않습니다.',
   'palette.hint.noSelection': '먼저 조옮김할 박을 선택하세요: 악보를 드래그하거나 ⇧← / ⇧→를 누르세요.',

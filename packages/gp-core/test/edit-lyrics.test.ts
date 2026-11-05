@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lyricsSyllables, separateCjkSyllables, setTrackLyrics, withBlankSyllable } from '../src/edit/lyrics';
+import { lyricsSyllables, separateCjkSyllables, setTrackLyrics, withBlankSyllable, withBlankSyllables } from '../src/edit/lyrics';
 import type { Song } from '../src/model/song';
 import { buildSong, deepFreeze, n, play } from './helpers/edit-songs';
 
@@ -108,6 +108,20 @@ describe('withBlankSyllable', () => {
   it('changes nothing past the last syllable', () => {
     expect(withBlankSyllable('one two', 2)).toBe('one two');
     expect(withBlankSyllable('one two', 9)).toBe('one two');
+  });
+});
+
+describe('withBlankSyllables', () => {
+  it('leaves bare notes at each index of the lyrics as they will be sung, in one pass', () => {
+    expect(withBlankSyllables('a b c d', [1, 3])).toBe('a  b  c d');
+    expect(lyricsSyllables(withBlankSyllables('a b c d', [1, 3]))).toEqual(['a', '', 'b', '', 'c', 'd']);
+    expect(lyricsSyllables(withBlankSyllables('a b-c d', [1, 2, 4]))).toEqual(['a', '', '', 'b-', '', 'c', 'd']);
+  });
+
+  it('reads like inserting the blanks one at a time', () => {
+    const text = 'Beau-ti-ful [x] day\r\nto+night__ end';
+    const indexes = [0, 2, 3, 6, 9];
+    expect(lyricsSyllables(withBlankSyllables(text, indexes))).toEqual(lyricsSyllables(indexes.reduce((current, index) => withBlankSyllable(current, index), text)));
   });
 });
 

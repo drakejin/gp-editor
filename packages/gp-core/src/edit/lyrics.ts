@@ -113,20 +113,47 @@ export function lyricsSyllables(text: string): readonly string[] {
 
 /**
  * The lyrics text with a blank syllable before syllable `index` (a note left bare, so the later syllables sing one note
- * later): one more space before a word, two inside a hyphenated one. The same text past the last syllable, or where
- * the spaces would read otherwise (they would make a bracketed syllable a comment).
+ * later): see withBlankSyllables.
  */
 export function withBlankSyllable(text: string, index: number): string {
+  return withBlankSyllables(text, [index]);
+}
+
+/** Each syllable's number of blanks before it, for blanks at `indexes` of the syllables as they will be sung. */
+function blanksBefore(indexes: readonly number[], syllableCount: number): ReadonlyMap<number, number> {
+  const sorted = [...new Set(indexes.filter((index) => Number.isInteger(index) && index >= 0))].sort((a, b) => a - b);
+  const counts = new Map<number, number>();
+  // The k-th blank (from the first) has k blanks before it: it goes before syllable index - k of the text as it is.
+  sorted.forEach((index, k) => {
+    const syllable = index - k;
+    if (syllable < syllableCount) {
+      counts.set(syllable, (counts.get(syllable) ?? 0) + 1);
+    }
+  });
+  return counts;
+}
+
+/**
+ * The lyrics text with blank syllables at `indexes` of the syllables as they will be sung (notes left bare, so the later
+ * syllables sing that many notes later), in one pass: one more space before a word for each, two inside a hyphenated
+ * one for the first. Blanks past the last syllable change nothing. The same text where the spaces would read otherwise
+ * (they would make a bracketed syllable a comment).
+ */
+export function withBlankSyllables(text: string, indexes: readonly number[]): string {
   const spans = syllableSpans(text);
-  const span = spans[index];
-  if (span === undefined || index < 0) {
+  const counts = blanksBefore(indexes, spans.length);
+  if (counts.size === 0) {
     return text;
   }
-  const at = index === 0 ? 0 : (spans[index - 1]?.end ?? 0);
-  const blanked = `${text.slice(0, at)}${span.isWordStart ? ' ' : '  '}${text.slice(at)}`;
-  const syllables = spans.map((entry) => entry.text);
-  const expected = [...syllables.slice(0, index), '', ...syllables.slice(index)];
-  const read = syllableSpans(blanked).map((entry) => entry.text);
+  const blanked = [...counts.entries()]
+    .sort(([a], [b]) => b - a)
+    .reduce((current, [syllable, count]) => {
+      const at = syllable === 0 ? 0 : (spans[syllable - 1]?.end ?? 0);
+      const spaces = ' '.repeat(spans[syllable]?.isWordStart === true ? count : count + 1);
+      return `${current.slice(0, at)}${spaces}${current.slice(at)}`;
+    }, text);
+  const expected = spans.flatMap((span, index) => [...Array.from({ length: counts.get(index) ?? 0 }, () => ''), span.text]);
+  const read = syllableSpans(blanked).map((span) => span.text);
   return read.length === expected.length && read.every((syllable, i) => syllable === expected[i]) ? blanked : text;
 }
 

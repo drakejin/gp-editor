@@ -3,7 +3,7 @@
 import { type DurationTuplets, NORMAL_TUPLET, durationTicks, isNoteValue, measureTicks } from '../model/defaults';
 import type { Duration, Measure, MeasureHeader, Song, Tuplet } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
-import type { VoiceFlow } from './bar-flow';
+import { voiceFlowAt } from './bar-flow';
 import { type BeatChange, flowVoiceOn, pullVoiceBack } from './bar-ripple';
 import { replaceAt, updateMeasure, updateVoice } from './song-paths';
 import {
@@ -64,11 +64,6 @@ function voiceContext(song: Song, at: BeatAddress): VoiceContext | undefined {
   return { header, measure, measureVoices, events, index, length };
 }
 
-/** The flowing voice of an edit at `at`, from its bar. */
-function flowAt(at: BeatAddress): VoiceFlow {
-  return { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
-}
-
 /** True when the edit made the voice run past the bar line, longer than it was: the excess flows on. */
 function isOverflowing(settled: VoiceEvents, context: VoiceContext): boolean {
   const ticks = eventsTicks(settled);
@@ -92,7 +87,7 @@ function editVoiceEvents(song: Song, at: BeatAddress, change: (context: VoiceCon
     return { song };
   }
   if (isOverflowing(settled, context)) {
-    return flowVoiceOn(song, flowAt(at), settled);
+    return flowVoiceOn(song, voiceFlowAt(at), settled);
   }
   const voices = replaceAt(context.measureVoices.voices, at.voiceIndex, settled);
   const beats = toBeats(context.header.start, { ...context.measureVoices, voices }, context.measure.beats);
@@ -242,7 +237,7 @@ export function deleteBeatWithFlow(song: Song, at: BeatAddress): BeatChange {
   const { events, index, length } = context;
   const remaining = withoutEvent(events, index);
   const isPulling = eventsTicks(events) >= length && eventsTicks(remaining) < length;
-  const pulled = isPulling ? pullVoiceBack(song, flowAt(at), remaining, removed.voice.duration) : undefined;
+  const pulled = isPulling ? pullVoiceBack(song, voiceFlowAt(at), remaining, removed.voice.duration) : undefined;
   return pulled ?? editVoiceEvents(song, at, paddedWithoutEvent);
 }
 

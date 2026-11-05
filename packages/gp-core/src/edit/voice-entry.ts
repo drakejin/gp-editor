@@ -2,6 +2,7 @@
 import { durationTicks, headerTicks } from '../model/defaults';
 import type { Measure, Note, Song, Voice } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
+import { voiceFlowAt } from './bar-flow';
 import { flowVoiceOn } from './bar-ripple';
 import { replaceAt, updateMeasure } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, measureGapRests, toBeats, toMeasureVoices } from './timeline';
@@ -86,9 +87,9 @@ export function placeVoiceEvent(song: Song, at: BeatAddress, voice: Voice, mayMo
   }
   const filled = [...placed, ...(measureGapRests(measure, length - eventsTicks(placed)) ?? [])];
   const settled = trimTrailingRests(filled, length, duration);
-  if (eventsTicks(settled) > length) {
-    // Later notes pushed past the bar line flow on into the next bars.
-    return flowVoiceOn(song, { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex }, settled).song;
+  if (eventsTicks(settled) > Math.max(length, eventsTicks(events ?? []))) {
+    // Later notes pushed past the bar line flow on into the next bars (not what ran past it before).
+    return flowVoiceOn(song, voiceFlowAt(at), settled).song;
   }
   const voices = replaceAt(measureVoices.voices, at.voiceIndex, settled);
   const beats = toBeats(header.start, { ...measureVoices, voices }, measure.beats);

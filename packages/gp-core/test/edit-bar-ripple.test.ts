@@ -92,6 +92,19 @@ describe('a beat edit that makes a bar too long', () => {
     expect(edited.flow).toEqual({ direction: 'later', movedNotes: 0, lastMeasureIndex: 1, addedBars: 0 });
   });
 
+  it('adds no bar for rests alone: a rest inserted after the song’s last full bar goes nowhere', () => {
+    const song = bars(quarters(0, 1, 2, 3));
+    expect(insertBeatWithFlow(song, at(0, 3), 'after')).toEqual({ song });
+    expect(insertBeatWithFlow(song, at(0, 3), 'after').song).toBe(song);
+  });
+
+  it('leaves a bar of rests as it is when only rests are pushed into it', () => {
+    const song = bars(quarters(0, 1, 2, 3), [rest(1)], quarters(8, 9, 10, 11));
+    const edited = insertBeatWithFlow(song, at(0, 3), 'after');
+    expect(edited.song).toBe(song);
+    expect(edited.flow).toBeUndefined();
+  });
+
   it('keeps an edit that only eats the rests at the end of its bar inside the bar', () => {
     const song = bars([...quarters(0, 1), rest(2)], quarters(4, 5, 6, 7));
     const edited = insertBeatWithFlow(song, at(0, 0), 'after');
@@ -378,5 +391,27 @@ describe('a note typed into an empty voice where the voice has no room', () => {
     expect(layout(edited, 1, 1)).toEqual(['0:4:4/0~', '960:2.:r']);
     expect(layout(edited, 0, 0)).toEqual(['0:4:1/0', '960:2:1/1', '2880:4:1/2']);
     assertEditInvariants(edited);
+  });
+});
+
+describe('a voice too long already (as a file may have it)', () => {
+  it('does not flow on when a typed fret adds no time to it', () => {
+    // Arrange: voice 2 plays 5 quarters' worth (a quarter, a gap, a half, a quarter); voice 1 four quarters
+    const song = bars(quarters(0, 1, 2, 3), [rest(1)]);
+    const header = song.measureHeaders[0]!;
+    const quarter = (song.measureHeaders[1]!.start - header.start) / 4;
+    const two = (ticks: number, fret: number, value: 1 | 2 | 4) => ({ duration: dur(value), notes: [n(4, fret)], isEmpty: false, direction: 'none' as const });
+    const track = song.tracks[0]!;
+    const measure = track.measures[0]!;
+    const beats = [...measure.beats.map((beat, index) => ({ ...beat, voices: [beat.voices[0]!, index === 0 ? two(0, 1, 4) : index === 2 ? two(0, 2, 2) : beat.voices[1]!] })),
+      { start: header.start + 4 * quarter, voices: [measure.beats[0]!.voices[1]!, two(0, 3, 4)], stroke: measure.beats[0]!.stroke, pickStroke: 'none' as const }];
+    const overfull = deepFreeze({ ...song, tracks: [{ ...track, measures: [{ ...measure, beats }, track.measures[1]!] }] });
+
+    // Act: a fret typed on voice 2 in the gap (beat 2)
+    const typed = setNoteFret(overfull, { ...at(0, 1, 1), string: 4 }, 7);
+
+    // Assert: the gap is filled, nothing moves into bar 2
+    expect(layout(typed, 0, 1)).toEqual(['0:4:4/1', '960:4:4/7', '1920:2:4/2', '3840:4:4/3']);
+    expect(typed.tracks[0]?.measures[1]).toBe(overfull.tracks[0]?.measures[1]);
   });
 });

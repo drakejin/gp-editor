@@ -5,7 +5,7 @@
 import { durationTicks, headerTicks } from '../model/defaults';
 import type { Song } from '../model/song';
 import type { BeatAddress } from './addresses';
-import { type VoiceFlow, liftVoice, rewriteVoice } from './bar-flow';
+import { type VoiceFlow, barTicks, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
 import { beatPosition, cutAt, hasVoiceSlot, onTrackStrings } from './beat-ranges';
 import { insertMeasure } from './measures';
@@ -21,16 +21,10 @@ export interface PastedBeats {
   readonly at: BeatAddress;
 }
 
-/** Length of bar `measureIndex`; bars past the end are as long as the last one. */
-function barLength(song: Song, measureIndex: number): number {
-  const header = song.measureHeaders[measureIndex] ?? song.measureHeaders[song.measureHeaders.length - 1];
-  return header === undefined ? 0 : headerTicks(header);
-}
-
 /** The bar that tick `ticks` (from bar `firstIndex`'s start, exclusive) ends in; past the song, a bar index after its last. */
 function barReached(song: Song, firstIndex: number, ticks: number): number {
   let index = firstIndex;
-  for (let left = ticks - barLength(song, index); left > 0; left -= barLength(song, index)) {
+  for (let left = ticks - barTicks(song, index); left > 0; left -= barTicks(song, index)) {
     index += 1;
   }
   return index;
@@ -51,7 +45,7 @@ function withBarsBefore(song: Song, measureIndex: number, count: number): Song {
 function roomForBars(song: Song, at: BeatAddress, ticks: number): { readonly song: Song; readonly at: BeatAddress } {
   const empty = emptyBarsFrom(song, at);
   if (empty === 0) {
-    const count = Math.ceil(ticks / barLength(song, at.measureIndex));
+    const count = Math.ceil(ticks / barTicks(song, at.measureIndex));
     return { song: withBarsBefore(song, at.measureIndex, count), at: { ...at, beatIndex: 0 } };
   }
   const offset = beatPosition(song, at)?.offset ?? 0;

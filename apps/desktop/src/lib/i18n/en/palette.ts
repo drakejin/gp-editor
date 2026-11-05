@@ -295,7 +295,7 @@ export const EN_PALETTE = {
   },
   'palette.hint.pulledBackRests': 'Rests pulled back from bar {bar}.',
   'palette.hint.pulledBackRestsThrough': 'Rests pulled back from bar {bar}; the voice moved earlier up to bar {last}.',
-  'palette.hint.flowAddedBars': { one: 'A bar was added at the end.', other: '{count} bars were added at the end.' },
+  'palette.hint.flowAddedBars': { one: 'A bar was added at the end of the song (every track).', other: '{count} bars were added at the end of the song (every track).' },
   'palette.hint.tupletStaysLong': 'Bar {bar} stays too long: a tuplet does not cross a bar line.',
   'palette.hint.tupletNotPulled': 'Nothing was pulled back from bar {bar}: a tuplet does not cross a bar line.',
   'palette.hint.noSelection': 'Select the beats to transpose first: drag across the score, or ⇧← / ⇧→.',

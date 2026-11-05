@@ -69,7 +69,7 @@ describe('beat edits that move music across bar lines', () => {
   it('says how far the ripple went and that bars were added at the end', () => {
     const inserted = reduce(loaded([0, 1, 2, 3], [4, 5, 6, 7]), place(at(0, 0)), insertBeat);
     expect(frets(inserted, 2)).toEqual(['7', 'r']);
-    expect(inserted.hint).toBe('1 note moved on into bar 2; the voice moved later up to bar 3. A bar was added at the end.');
+    expect(inserted.hint).toBe('1 note moved on into bar 2; the voice moved later up to bar 3. A bar was added at the end of the song (every track).');
   });
 
   it('moves a longer note’s excess on as a tied note, the cursor staying on it', () => {

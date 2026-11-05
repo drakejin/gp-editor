@@ -45,15 +45,17 @@ function runEdit(host: AppHost, args: ToolArguments, action: EditorAction, descr
     return edited.result;
   }
   const { editor, isChanged } = edited.outcome;
-  // The hint says what an edit moved across bar lines (a beat inserted or deleted, a longer duration).
-  return isChanged ? cursorAnswer(editor.hint === undefined ? describe : `${describe} ${editor.hint}`, editor) : unchanged(editor, refused);
+  // A cursor edit sets the hint afresh: what it moved across bar lines (a beat inserted or deleted, a longer duration).
+  // The other actions leave the strip's last hint, which is not theirs to tell.
+  const hint = action.type === 'edit' ? editor.hint : undefined;
+  return isChanged ? cursorAnswer(hint === undefined ? describe : `${describe} ${hint}`, editor) : unchanged(editor, refused);
 }
 
 const writeNote: McpTool<AppHost> = {
   name: 'write_note',
   title: 'Write a note',
   description:
-    'Writes a fret on a string at the cursor (or the bar/beat given), as typing the fret does: an empty voice is filled with rests to the bar line first. Set the duration with set_duration before or after. advance: true then moves to the next beat (to write a melody: set_duration, write_note with advance, repeat). Not for drum tracks (use toggle_drum_note).',
+    'Writes a fret on a string at the cursor (or the bar/beat given), as typing the fret does: an empty voice is filled with rests to the bar line first (a later note of that voice it has no room for moves on into the next bars). Set the duration with set_duration before or after. advance: true then moves to the next beat (to write a melody: set_duration, write_note with advance, repeat). Not for drum tracks (use toggle_drum_note).',
   inputSchema: objectSchema(
     {
       string: STRING_ARGUMENT,

@@ -1,6 +1,6 @@
 import type { Measure, Song, Track } from '../model/song';
 import type { VoiceFlow } from './bar-flow';
-import { isSungBeat, withBlankSyllable } from './lyrics';
+import { isSungBeat, withBlankSyllables } from './lyrics';
 import { replaceAt } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, eventTicks } from './timeline';
 
@@ -23,12 +23,13 @@ interface PiecePlace {
 }
 
 function piecePlaces(song: Song, writes: readonly WrittenBar[], pieces: readonly VoiceEvent[]): readonly PiecePlace[] {
+  const isPiece = new Set(pieces);
   return writes.flatMap(({ measureIndex, events }) => {
     let start = song.measureHeaders[measureIndex]?.start ?? 0;
     return events.flatMap((event) => {
       const place = { measureIndex, start };
       start += eventTicks(event);
-      return pieces.includes(event) ? [place] : [];
+      return isPiece.has(event) ? [place] : [];
     });
   });
 }
@@ -56,9 +57,7 @@ export function blankSyllablesForTies(song: Song, flow: VoiceFlow, writes: reado
     return song;
   }
   const firstIndex = Math.max(0, lyrics.from - 1);
-  const indexes = piecePlaces(song, writes, pieces)
-    .flatMap((place) => sungIndex(track, firstIndex, place, flow.voiceIndex) ?? [])
-    .sort((a, b) => a - b);
-  const text = indexes.reduce(withBlankSyllable, lyrics.text);
+  const indexes = piecePlaces(song, writes, pieces).flatMap((place) => sungIndex(track, firstIndex, place, flow.voiceIndex) ?? []);
+  const text = withBlankSyllables(lyrics.text, indexes);
   return text === lyrics.text ? song : { ...song, tracks: replaceAt(song.tracks, flow.trackIndex, { ...track, lyrics: { ...lyrics, text } }) };
 }

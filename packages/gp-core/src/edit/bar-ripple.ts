@@ -1,8 +1,7 @@
-import { headerTicks } from '../model/defaults';
 import type { Duration, Measure, Song } from '../model/song';
 import { type EventCut, cutAtBarLine, cutEventsAt } from './bar-cut';
-import { type VoiceFlow, appendBars, barEvents, rewriteBar } from './bar-flow';
-import { blankSyllablesForTies } from './lyrics-ties';
+import { type VoiceFlow, appendBars, barEvents, barTicks, rewriteBar } from './bar-flow';
+import { type WrittenBar, blankSyllablesForTies } from './lyrics-ties';
 import { hasSameItems, updateTrack } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, distinctTuplets, eventsTicks, gapRests, isFreeRest, restEvents, signedRests } from './timeline';
 import { trimTrailingRests } from './voice-fit';
@@ -39,27 +38,16 @@ export interface BeatChange {
 /** Most bars one ripple may add: a note longer than many bars cut into tied pieces at the end of the song. */
 const MAX_ADDED_BARS = 256;
 
-/** A bar's new events in the flowing voice. */
-interface BarWrite {
-  readonly measureIndex: number;
-  readonly events: VoiceEvents;
-}
-
 /** The ripple so far: the song (with the bars added), the bars to write, and the tied pieces a bar line made. */
 interface Ripple {
   readonly song: Song;
-  readonly writes: readonly BarWrite[];
+  readonly writes: readonly WrittenBar[];
   readonly movedNotes: number;
   readonly addedBars: number;
   readonly pieces: readonly VoiceEvent[];
 }
 
-function barLength(song: Song, measureIndex: number): number {
-  const header = song.measureHeaders[measureIndex];
-  return header === undefined ? 0 : headerTicks(header);
-}
-
-function noteEvents(events: VoiceEvents): number {
+function countNoteEvents(events: VoiceEvents): number {
   return events.filter((event) => event.voice.notes.length > 0).length;
 }
 
@@ -91,12 +79,49 @@ function writeRipple(ripple: Ripple, flow: VoiceFlow): Song | undefined {
 /** The ripple's song and report; the original song when a bar cannot be written. */
 function finish(original: Song, ripple: Ripple, flow: VoiceFlow, report: Omit<BarFlow, 'movedNotes' | 'addedBars'>): BeatChange {
   const song = writeRipple(ripple, flow);
-  return song === undefined ? { song: original } : { song, flow: { ...report, movedNotes: ripple.movedNotes, addedBars: ripple.addedBars } };
+  if (song === undefined || song === original) {
+    return { song: original };
+  }
+  return { song, flow: { ...report, movedNotes: ripple.movedNotes, addedBars: ripple.addedBars } };
+}
+
+/** The ripple with one more bar to write and the tied pieces its cut made; `moved` = what crossed the edited bar's line. */
+function withWrite(ripple: Ripple, write: WrittenBar, cut: EventCut, moved?: VoiceEvents): Ripple {
+  return {
+    ...ripple,
+    writes: [...ripple.writes, write],
+    movedNotes: moved === undefined ? ripple.movedNotes : countNoteEvents(moved),
+    pieces: withPieces(ripple.pieces, cut),
+  };
 }
 
 /** The ripple with the song one bar longer when `measureIndex` is past its last bar. */
 function withBar(ripple: Ripple, measureIndex: number): Ripple {
   return measureIndex < ripple.song.measureHeaders.length ? ripple : { ...ripple, song: appendBars(ripple.song, 1), addedBars: ripple.addedBars + 1 };
+}
+
+/** Where a carry goes: into the next bar (its events with the carry before them), or nowhere further. */
+type NextBar =
+  | { readonly kind: 'bar'; readonly ripple: Ripple; readonly bar: VoiceEvents }
+  /** Rests alone, into no bar past the song's end nor into a bar of rests (its rests take them). */
+  | { readonly kind: 'absorbed'; readonly ripple: Ripple }
+  | { readonly kind: 'unreadable'; readonly ripple: Ripple };
+
+/** The next bar's events with `carry` before them, its rests at the end trimmed to it (see NextBar). */
+function nextBar(ripple: Ripple, flow: VoiceFlow, measureIndex: number, carry: VoiceEvents): NextBar {
+  const isRests = carry.every(isFreeRest);
+  if (isRests && measureIndex >= ripple.song.measureHeaders.length) {
+    return { kind: 'absorbed', ripple };
+  }
+  const grown = withBar(ripple, measureIndex);
+  const own = barEvents(grown.song, flow, measureIndex);
+  if (own === undefined) {
+    return { kind: 'unreadable', ripple };
+  }
+  if (isRests && own.every(isFreeRest)) {
+    return { kind: 'absorbed', ripple: grown };
+  }
+  return { kind: 'bar', ripple: grown, bar: trimTrailingRests([...carry, ...own], barTicks(grown.song, measureIndex)) };
 }
 
 /**
@@ -107,21 +132,25 @@ export function flowVoiceOn(song: Song, flow: VoiceFlow, events: VoiceEvents): B
   let ripple: Ripple = { song, writes: [], movedNotes: 0, addedBars: 0, pieces: [] };
   let bar = events;
   for (let measureIndex = flow.firstMeasureIndex; ; measureIndex++) {
-    const length = barLength(ripple.song, measureIndex);
+    const length = barTicks(ripple.song, measureIndex);
     const cut = eventsTicks(bar) > length ? cutAtBarLine(bar, length) : { before: bar, after: [] };
-    const isStopped = cut === undefined || ripple.addedBars >= MAX_ADDED_BARS;
-    if (isStopped || cut.after.length === 0) {
-      const done = { ...ripple, writes: [...ripple.writes, { measureIndex, events: isStopped ? bar : cut.before }] };
-      return finish(song, done, flow, { direction: 'later', lastMeasureIndex: measureIndex, ...(isStopped ? { keptMeasureIndex: measureIndex } : {}) });
+    if (cut === undefined || cut.after.length === 0 || ripple.addedBars >= MAX_ADDED_BARS) {
+      const done = { ...ripple, writes: [...ripple.writes, { measureIndex, events: cut?.after.length === 0 ? cut.before : bar }] };
+      const kept = cut === undefined ? { keptMeasureIndex: measureIndex } : {};
+      return finish(song, done, flow, { direction: 'later', lastMeasureIndex: measureIndex, ...kept });
     }
     const isFirst = measureIndex === flow.firstMeasureIndex;
-    ripple = withBar({ ...ripple, writes: [...ripple.writes, { measureIndex, events: cut.before }], movedNotes: isFirst ? noteEvents(cut.after) : ripple.movedNotes, pieces: withPieces(ripple.pieces, cut) }, measureIndex + 1);
-    const next = barEvents(ripple.song, flow, measureIndex + 1);
-    if (next === undefined) {
-      const kept = { ...ripple, writes: [...ripple.writes.slice(0, -1), { measureIndex, events: bar }] };
-      return finish(song, kept, flow, { direction: 'later', lastMeasureIndex: measureIndex, keptMeasureIndex: measureIndex });
+    const next = nextBar(withWrite(ripple, { measureIndex, events: cut.before }, cut, isFirst ? cut.after : undefined), flow, measureIndex + 1, cut.after);
+    if (next.kind === 'unreadable') {
+      // The bar after cannot take the excess: this one stays too long, as before.
+      const kept = { ...ripple, writes: [...ripple.writes, { measureIndex, events: bar }] };
+      return finish(song, kept, flow, { direction: 'later', lastMeasureIndex: measureIndex });
     }
-    bar = trimTrailingRests([...cut.after, ...next], barLength(ripple.song, measureIndex + 1));
+    if (next.kind === 'absorbed') {
+      return finish(song, next.ripple, flow, { direction: 'later', lastMeasureIndex: measureIndex });
+    }
+    ripple = next.ripple;
+    bar = next.bar;
   }
 }
 
@@ -148,10 +177,10 @@ export function pullVoiceBack(song: Song, flow: VoiceFlow, events: VoiceEvents, 
   let ripple: Ripple = { song, writes: [], movedNotes: 0, addedBars: 0, pieces: [] };
   let bar = events;
   for (let measureIndex = flow.firstMeasureIndex; ; measureIndex++) {
-    const length = barLength(song, measureIndex);
+    const length = barTicks(song, measureIndex);
     const need = length - eventsTicks(bar);
     const next = need <= 0 || endsInRest(bar) ? undefined : barEvents(song, flow, measureIndex + 1);
-    const isPulling = next !== undefined && !next.every(isFreeRest) && barLength(song, measureIndex + 1) >= need;
+    const isPulling = next !== undefined && !next.every(isFreeRest) && barTicks(song, measureIndex + 1) >= need;
     const cut = isPulling ? cutEventsAt(next, need) : undefined;
     if (cut === undefined) {
       const done = { ...ripple, writes: [...ripple.writes, { measureIndex, events: filled(bar, length, preferred) }] };
@@ -160,7 +189,7 @@ export function pullVoiceBack(song: Song, flow: VoiceFlow, events: VoiceEvents, 
       return isMoved ? finish(song, done, flow, { direction: 'earlier', lastMeasureIndex: measureIndex, ...kept }) : undefined;
     }
     const isFirst = measureIndex === flow.firstMeasureIndex;
-    ripple = { ...ripple, writes: [...ripple.writes, { measureIndex, events: [...bar, ...cut.before] }], movedNotes: isFirst ? noteEvents(cut.before) : ripple.movedNotes, pieces: withPieces(ripple.pieces, cut) };
+    ripple = withWrite(ripple, { measureIndex, events: [...bar, ...cut.before] }, cut, isFirst ? cut.before : undefined);
     bar = cut.after;
   }
 }

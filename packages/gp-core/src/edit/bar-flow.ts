@@ -1,5 +1,6 @@
 import { headerTicks } from '../model/defaults';
 import type { Measure, Song } from '../model/song';
+import type { BeatAddress } from './addresses';
 import { insertMeasure } from './measures';
 import { hasSameItems, updateTrack } from './song-paths';
 import { splitAtBarLines } from './tied-pieces';
@@ -28,6 +29,11 @@ export interface VoiceFlow {
   readonly trackIndex: number;
   readonly voiceIndex: number;
   readonly firstMeasureIndex: number;
+}
+
+/** The flow of the voice an edit at `at` changes, from its bar. */
+export function voiceFlowAt(at: BeatAddress): VoiceFlow {
+  return { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
 }
 
 /** An event of the voice, with its bar and its offset in ticks from the bar's start. */
@@ -158,7 +164,7 @@ function withoutTrailingFreeRests(events: VoiceEvents): VoiceEvents {
 }
 
 /** Length of bar `measureIndex`; bars past the end are as long as the last one. */
-function barTicks(song: Song, measureIndex: number): number {
+export function barTicks(song: Song, measureIndex: number): number {
   const header = song.measureHeaders[measureIndex] ?? song.measureHeaders[song.measureHeaders.length - 1];
   return header === undefined ? 0 : headerTicks(header);
 }
