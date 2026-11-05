@@ -139,6 +139,43 @@ describe('insertTrackMeasure', () => {
     expect(insertTrackMeasure(song, 5, 0)).toBe(song);
     expect(insertTrackMeasure(song, 0, 3)).toBe(song);
     expect(insertTrackMeasure(song, 0, -1)).toBe(song);
+    expect(insertTrackMeasure(song, 0, 3, 'after')).toBe(song);
+  });
+
+  it('puts the bar of rests after the bar with position “after”: the track’s bars after it move one bar later', () => {
+    // Act
+    const edited = insertTrackMeasure(makeSong(), 0, 1, 'after');
+
+    // Assert
+    expect(edited.measureHeaders).toHaveLength(4);
+    expect([0, 1, 2, 3].map((measureIndex) => voiceLayout(edited, 0, measureIndex, 0))).toEqual([['0:1:1/1'], ['0:2:1/2', '1920:2:r'], ['0:1:r'], ['0:1:1/3']]);
+    expect(edited.tracks[1]!.measures.slice(0, 3)).toEqual(makeSong().tracks[1]!.measures);
+    assertEditInvariants(edited);
+  });
+
+  it('adds a bar of rests at the end of the track after its last bar, with that bar’s clef and key', () => {
+    // Arrange: a bass clef and two sharps in track 1's last bar.
+    const keyed = withMeasures(makeSong(), 0, (measure, index) => (index === 2 ? { ...measure, keySignature: 2, clef: 'bass' } : measure));
+
+    // Act
+    const edited = insertTrackMeasure(keyed, 0, 2, 'after');
+
+    // Assert
+    expect([2, 3].map((measureIndex) => voiceLayout(edited, 0, measureIndex, 0))).toEqual([['0:1:1/3'], ['0:1:r']]);
+    expect(edited.tracks[0]!.measures[3]).toMatchObject({ clef: 'bass', keySignature: 2 });
+    expect(voiceLayout(edited, 1, 3, 0)).toEqual(['0:1:r']);
+    assertEditInvariants(edited);
+  });
+
+  it('gives a bar of rests put after a bar the key of its own bar', () => {
+    // Arrange: a key change to one flat at bar 3 (every track).
+    const keyed = withMeasures(withMeasures(makeSong(), 0, (measure, index) => (index === 2 ? { ...measure, keySignature: -1 } : measure)), 1, (measure, index) => (index === 2 ? { ...measure, keySignature: -1 } : measure));
+
+    // Act
+    const edited = insertTrackMeasure(keyed, 0, 1, 'after');
+
+    // Assert
+    expect(edited.tracks[0]!.measures.map((measure) => measure.keySignature)).toEqual([0, 0, -1, -1]);
   });
 });
 
