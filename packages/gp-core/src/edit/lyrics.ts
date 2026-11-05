@@ -113,7 +113,8 @@ export function lyricsSyllables(text: string): readonly string[] {
 
 /**
  * The lyrics text with a blank syllable before syllable `index` (a note left bare, so the later syllables sing one note
- * later): one more space before a word, two inside a hyphenated one. The same text past the last syllable.
+ * later): one more space before a word, two inside a hyphenated one. The same text past the last syllable, or where
+ * the spaces would read otherwise (they would make a bracketed syllable a comment).
  */
 export function withBlankSyllable(text: string, index: number): string {
   const spans = syllableSpans(text);
@@ -122,8 +123,11 @@ export function withBlankSyllable(text: string, index: number): string {
     return text;
   }
   const at = index === 0 ? 0 : (spans[index - 1]?.end ?? 0);
-  const blank = span.isWordStart ? ' ' : '  ';
-  return `${text.slice(0, at)}${blank}${text.slice(at)}`;
+  const blanked = `${text.slice(0, at)}${span.isWordStart ? ' ' : '  '}${text.slice(at)}`;
+  const syllables = spans.map((entry) => entry.text);
+  const expected = [...syllables.slice(0, index), '', ...syllables.slice(index)];
+  const read = syllableSpans(blanked).map((entry) => entry.text);
+  return read.length === expected.length && read.every((syllable, i) => syllable === expected[i]) ? blanked : text;
 }
 
 /** Hangul syllables and jamo, kana, CJK ideographs: each one is sung on a note of its own. */

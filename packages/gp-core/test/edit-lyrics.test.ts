@@ -99,6 +99,12 @@ describe('withBlankSyllable', () => {
     }
   });
 
+  it('leaves the text as it is where the spaces would turn a bracketed syllable into a comment', () => {
+    expect(lyricsSyllables('la-[x] b')).toEqual(['la-', '[x]', 'b']);
+    expect(withBlankSyllable('la-[x] b', 1)).toBe('la-[x] b');
+    expect(withBlankSyllable('la-[x] b', 2)).toBe('la-[x]  b');
+  });
+
   it('changes nothing past the last syllable', () => {
     expect(withBlankSyllable('one two', 2)).toBe('one two');
     expect(withBlankSyllable('one two', 9)).toBe('one two');
