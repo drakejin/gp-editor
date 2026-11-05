@@ -282,7 +282,7 @@ export const EN_PALETTE = {
   'palette.hint.pasteUnchanged': 'Nothing changed: the copied beats cannot be written here, or are here already.',
   'palette.hint.pastedInBar': { one: '{count} beat pasted over bar {bar} of {track}.', other: '{count} beats pasted over bar {bar} of {track}.' },
   'palette.hint.pastedInBars': { one: '{count} beat pasted over bars {first}–{last} of {track}.', other: '{count} beats pasted over bars {first}–{last} of {track}.' },
-  'palette.hint.pasteAddedBars': { one: 'A bar was added at the end of the song (rests in the other tracks).', other: '{count} bars were added at the end of the song (rests in the other tracks).' },
+  'palette.hint.pasteAddedBars': { one: 'A bar was added at the end of the song, in every track.', other: '{count} bars were added at the end of the song, in every track.' },
   'palette.hint.noSelection': 'Select the beats to transpose first: drag across the score, or ⇧← / ⇧→.',
   'palette.hint.syncOrder': 'A sync point must come after the one before it and before the one after it, both in the score and in the recording.',
   'palette.hint.twoSyncPoints': 'Add two sync points first: the tempo is the pace of the recording between them.',

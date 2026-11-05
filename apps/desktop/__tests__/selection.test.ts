@@ -276,7 +276,7 @@ describe('pasteBeats', () => {
     expect(frets(pasted, 1)).toEqual(['4', '0', '1', '2']);
     expect(frets(pasted, 2)).toEqual(['3', '4', 'r']);
     expect(pasted.cursor).toMatchObject({ measureIndex: 1, beatIndex: 1 });
-    expect(pasted.hint).toBe('5 beats pasted over bars 2–3 of Guitar. A bar was added at the end of the song (rests in the other tracks).');
+    expect(pasted.hint).toBe('5 beats pasted over bars 2–3 of Guitar. A bar was added at the end of the song, in every track.');
     expect(pasted.past).toHaveLength(1);
   });
 

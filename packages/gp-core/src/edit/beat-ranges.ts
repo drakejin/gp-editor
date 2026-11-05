@@ -64,6 +64,16 @@ function beatOf(track: Track, placed: PlacedEvent): Beat | undefined {
 }
 
 /**
+ * The events of `from`'s track and voice that start from `from` to `to` (inclusive, either order, across bars), with
+ * their bars and offsets — what copyBeats copies and clearBeats cuts; undefined when a beat is missing.
+ */
+export function runEvents(song: Song, from: BeatAddress, to: BeatAddress): readonly PlacedEvent[] | undefined {
+  const range = resolveRange(song, from, to);
+  const placed = range === undefined ? undefined : liftVoice(song, range.flow, range.last.measureIndex);
+  return range === undefined || placed === undefined ? undefined : placed.filter((event) => isInRange(event, range));
+}
+
+/**
  * The beats from `from` to `to` (inclusive, either order, across bars) of `from`'s track and voice, as a fragment:
  * each event of the voice that starts in the run, rests included (time the voice leaves unused reads as rests), with
  * the stroke, pick stroke, chord diagram and text of its beat. A tie keeps only when it starts inside the run (a note tied over a bar
@@ -71,12 +81,11 @@ function beatOf(track: Track, placed: PlacedEvent): Beat | undefined {
  */
 export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatFragment {
   const track = song.tracks[from.trackIndex];
-  const range = resolveRange(song, from, to);
-  const placed = range === undefined ? undefined : liftVoice(song, range.flow, range.last.measureIndex);
-  if (track === undefined || range === undefined || placed === undefined) {
+  const run = runEvents(song, from, to);
+  if (track === undefined || run === undefined) {
     return { isPercussion: track?.isPercussion ?? false, items: [] };
   }
-  const items = placed.filter((event) => isInRange(event, range)).map((event) => fragmentItem(event.event.voice, beatOf(track, event)));
+  const items = run.map((event) => fragmentItem(event.event.voice, beatOf(track, event)));
   return { isPercussion: track.isPercussion, items: settleFragmentTies(items) };
 }
 

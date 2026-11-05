@@ -4,7 +4,7 @@ import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
 import { clearBeats, pasteBeats } from '../src/edit/beat-paste';
 import { copyBeats } from '../src/edit/beat-ranges';
 import { NO_STROKE } from '../src/model/defaults';
-import type { Note, Song } from '../src/model/song';
+import type { Beat, Note, Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, dur, n, play, rest, voiceLayout } from './helpers/edit-songs';
 import { loadFixture } from './helpers/fixtures';
@@ -212,6 +212,48 @@ describe('pasteBeats: longer than a bar, written over this track only', () => {
   });
 });
 
+describe('pasteBeats: over-full bars, voices and the bars it names', () => {
+  it('writes over an over-full bar inside a longer paste, keeping it over-full and the next bars in place', () => {
+    // Arrange: five quarters in a 4/4 bar, then a full bar
+    const song = bars([...FOUR_QUARTERS, play(4, n(1, 4))], NEXT_QUARTERS);
+
+    // Act: six quarters from the start
+    const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(6, 0)));
+
+    // Assert
+    expect(pasted).toMatchObject({ addedBars: 0, lastMeasureIndex: 1 });
+    expect(layout(pasted.song, 0)).toEqual(['0:4:3/0', '960:4:3/1', '1920:4:3/2', '2880:4:3/3', '3840:4:3/4']);
+    expect(layout(pasted.song, 1)).toEqual(['0:4:3/5', '960:4:1/5', '1920:4:1/6', '2880:4:1/7']);
+  });
+
+  it('names the song’s last bar, not one past it, when the fragment ends in rests that run past the end', () => {
+    const song = bars(FOUR_QUARTERS, NEXT_QUARTERS, FOUR_QUARTERS);
+    const pasted = pasteBeats(song, at(2, 0), fragment(...quarters(4, 0), item(1)));
+    expect(pasted).toMatchObject({ addedBars: 0, lastMeasureIndex: 2 });
+  });
+
+  it('answers the bar the pasted beats start in when a note held across the cursor pushes them into the next bar', () => {
+    // Arrange: voice 2 holds a whole note in bar 1
+    const song = deepFreeze(buildSong({ tracks: [[[FOUR_QUARTERS, [play(1, n(3, 9))]], [NEXT_QUARTERS, [rest(1)]]]] }));
+
+    // Act: a quarter into voice 2 at bar 1's fourth beat
+    const pasted = pasteBeats(song, at(0, 3, 1), fragment(item(4, n(4, 2))));
+
+    // Assert
+    expect(pasted).toMatchObject({ at: at(1, 0, 1), lastMeasureIndex: 1 });
+    expect(voiceLayout(pasted.song, 0, 1, 1)).toEqual(['0:4:4/2', '960:2.:r']);
+  });
+
+  it('writes over voice 2 only, voice 1 and the other bars as they were', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[FOUR_QUARTERS, []], [NEXT_QUARTERS, []], [FOUR_QUARTERS, []]]] }));
+    const pasted = pasteBeats(song, at(0, 2, 1), fragment(...quarters(4, 0)));
+    expect(voiceLayout(pasted.song, 0, 0, 1)).toEqual(['0:2:r', '1920:4:3/0', '2880:4:3/1']);
+    expect(voiceLayout(pasted.song, 0, 1, 1)).toEqual(['0:4:3/2', '960:4:3/3', '1920:2:r']);
+    expect([0, 1, 2].map((m) => voiceLayout(pasted.song, 0, m, 0))).toEqual([0, 1, 2].map((m) => voiceLayout(song, 0, m, 0)));
+    expect(pasted.song.tracks[0]?.measures[2]).toBe(song.tracks[0]?.measures[2]);
+  });
+});
+
 describe('pasteBeats: canon.gp5, the user’s case', () => {
   it('pastes two bars of track 1 over its bars 10–11: the bar count and every other track stay as they were', () => {
     // Arrange: bars 12–13 of track 1 copied
@@ -256,15 +298,15 @@ describe('pasteBeats: what it leaves alone', () => {
   });
 });
 
-/** The song with `text` on a beat of track 1. */
-function withBeatText(song: Song, measureIndex: number, beatIndex: number, text: string): Song {
+/** The song with `marks` on beats of track 1's bar (every beat when `beatIndex` is left out). */
+function withBeatMarks(song: Song, measureIndex: number, marks: Partial<Beat>, beatIndex?: number): Song {
   const tracks = song.tracks.map((track, trackIndex) =>
     trackIndex !== 0
       ? track
       : {
           ...track,
           measures: track.measures.map((measure, index) =>
-            index !== measureIndex ? measure : { ...measure, beats: measure.beats.map((beat, i) => (i === beatIndex ? { ...beat, text } : beat)) },
+            index !== measureIndex ? measure : { ...measure, beats: measure.beats.map((beat, i) => (beatIndex === undefined || i === beatIndex ? { ...beat, ...marks } : beat)) },
           ),
         },
   );
@@ -293,7 +335,7 @@ describe('clearBeats (⌘X): the run taken out of this track, rests in its place
   });
 
   it('takes the run’s beat marks with its notes: they went to the clipboard with them', () => {
-    const song = withBeatText(bars(FOUR_QUARTERS), 0, 1, 'solo');
+    const song = withBeatMarks(bars(FOUR_QUARTERS), 0, { text: 'solo' }, 1);
     const cleared = clearBeats(song, at(0, 1), at(0, 1));
     expect(cleared.tracks[0]?.measures[0]?.beats[1]?.text).toBeUndefined();
   });
@@ -308,6 +350,39 @@ describe('clearBeats (⌘X): the run taken out of this track, rests in its place
     const song = bars([play(2, n(1, 0)), rest(2)]);
     expect(clearBeats(song, at(0, 1), at(0, 1))).toBe(song);
     expect(clearBeats(song, at(0, 9), at(0, 0))).toBe(song);
+  });
+
+  it('starts at the run’s first event when the cursor beat is an empty place of the voice inside a rest', () => {
+    // Arrange: voice 1 eight eighths; voice 2 a half rest, then two quarters
+    const eighths = Array.from({ length: 8 }, (_, i) => play(8, n(1, i)));
+    const song = deepFreeze(buildSong({ tracks: [[[eighths, [rest(2), play(4, n(3, 5)), play(4, n(3, 6))]]]] }));
+
+    // Act: from the third eighth (inside voice 2's rest) to the seventh
+    const cleared = clearBeats(song, at(0, 2, 1), at(0, 6, 1));
+
+    // Assert: both quarters go, nothing else moves
+    expect(voiceLayout(cleared, 0, 0, 1)).toEqual(['0:2:r', '1920:4:r', '2880:4:r']);
+    expect(voiceLayout(cleared, 0, 0, 0)).toEqual(voiceLayout(song, 0, 0, 0));
+  });
+
+  it('keeps an over-full bar of the run over-full and moves nothing after it, adding no bar', () => {
+    // Arrange: five quarters in a 4/4 bar, then a full bar
+    const song = bars([...FOUR_QUARTERS, play(4, n(1, 4))], NEXT_QUARTERS);
+
+    // Act
+    const cleared = clearBeats(song, at(0, 0), at(1, 0));
+
+    // Assert
+    expect(layout(cleared, 0)).toEqual(['0:4:r', '960:4:r', '1920:4:r', '2880:4:r', '3840:4:r']);
+    expect(layout(cleared, 1)).toEqual(['0:4:r', '960:4:1/5', '1920:4:1/6', '2880:4:1/7']);
+    expect(cleared.measureHeaders).toBe(song.measureHeaders);
+  });
+
+  it('keeps the octave sign over the rests it leaves', () => {
+    const song = withBeatMarks(bars(FOUR_QUARTERS), 0, { ottava: '8va' });
+    const cleared = clearBeats(song, at(0, 1), at(0, 2));
+    expect(cleared.tracks[0]?.measures[0]?.beats.map((beat) => beat.ottava)).toEqual(['8va', '8va', '8va', '8va']);
+    expect(layout(cleared, 0)).toEqual(['0:4:1/0', '960:4:r', '1920:4:r', '2880:4:1/3']);
   });
 
   it('pasted back where it was cut, the run gives the song back (⌘X then ⌘V)', () => {

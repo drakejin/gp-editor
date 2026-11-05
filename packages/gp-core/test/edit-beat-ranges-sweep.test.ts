@@ -81,6 +81,7 @@ describe.each(FIXTURES)('copy, cut and paste on %s/%s', (folder, name) => {
       // Pasting over one track leaves every other track as it was — nothing moves against them —, bars added at the end only.
       const songBars = song.measureHeaders.length;
       expect(over.song.measureHeaders.slice(0, songBars)).toEqual(song.measureHeaders);
+      expect(over.lastMeasureIndex).toBeLessThan(over.song.measureHeaders.length);
       expect(over.song.tracks.every((track, index) => index === trackIndex || track.measures.slice(0, songBars).every((measure, at) => measure === song.tracks[index]?.measures[at]))).toBe(true);
       expect(parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)))).toEqual(fragment.items.length === 0 ? undefined : fragment);
       changed += (cut === song ? 0 : 1) + (pasted === song ? 0 : 1);
