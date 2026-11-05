@@ -1,5 +1,6 @@
 import {
   type BeatAddress,
+  type BeatChange,
   type Chord,
   type Duration,
   NORMAL_TUPLET,
@@ -11,21 +12,21 @@ import {
   type StrokeDirection,
   type Tuplet,
   type Voice,
-  deleteBeat,
   deleteBeatNotes,
+  deleteBeatWithFlow,
   deleteMeasures,
   deleteNote,
   deleteRunNotes,
   deleteTrackMeasures,
   findNote,
   findVoice,
-  insertBeat,
+  insertBeatWithFlow,
   insertMeasure,
   insertTrackMeasure,
   isSameTuplet,
   setBeatChord,
   setBeatChordNotes,
-  setBeatDuration,
+  setBeatDurationWithFlow,
   setBeatPickStroke,
   setBeatStroke,
   setBeatText,
@@ -88,7 +89,7 @@ export type SongEdit =
   | { readonly type: 'deleteMeasure'; readonly from?: BeatPlace }
   /** D: the note at the cursor, or every note of the beats from `from` (the selection's start) to it in its voice; the beats stay as rests. */
   | { readonly type: 'deleteNotes'; readonly from?: BeatPlace }
-  /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes. */
+  /** ⌫ / ⌦: the note at the cursor becomes a rest; on a rest, the rest beat goes and what follows moves up (deleteBeat). */
   | { readonly type: 'erase' };
 
 /** The bar a bar inserted in the cursor's track takes: the cursor's (its music moving on), or the one after it. */
@@ -120,12 +121,24 @@ const isBeatEdit = isOfTypes<BeatEdit>({ insertBeat: true, deleteBeat: true, mak
 
 /** Applies one cursor edit to the song. */
 export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit): Song {
+  return applySongEditWithFlow(song, cursor, edit).song;
+}
+
+/**
+ * applySongEdit, with what the edit moved across bar lines: a beat inserted or deleted (⌫ / ⌦ on a rest too) and a
+ * duration ripple through the voice (gp-core's BarFlow); none for the other edits.
+ */
+export function applySongEditWithFlow(song: Song, cursor: StringAddress, edit: SongEdit): BeatChange {
   if (isDurationEdit(edit)) {
     return editDuration(song, cursor, edit);
   }
   if (isBeatEdit(edit)) {
     return editBeat(song, beatAddress(cursor), edit);
   }
+  return edit.type === 'erase' ? erase(song, cursor) : { song: applyOtherEdit(song, cursor, edit) };
+}
+
+function applyOtherEdit(song: Song, cursor: StringAddress, edit: Exclude<SongEdit, DurationEdit | BeatEdit | { readonly type: 'erase' }>): Song {
   if (isBarEdit(edit)) {
     return applyBarEdit(song, cursor, edit);
   }
@@ -136,8 +149,6 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
     return applyMarkEdit(song, cursor, edit);
   }
   switch (edit.type) {
-    case 'erase':
-      return erase(song, cursor);
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'insertTrackMeasure':
@@ -156,55 +167,40 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
   }
 }
 
-/** The note at the cursor goes (its beat becomes a rest when it was the last); on a rest, the beat itself goes. */
-function erase(song: Song, cursor: StringAddress): Song {
+/** The note at the cursor goes (its beat becomes a rest when it was the last); on a rest, the beat itself goes and what follows moves up. */
+function erase(song: Song, cursor: StringAddress): BeatChange {
   if (findNote(song, cursor) !== undefined) {
-    return deleteNote(song, cursor);
+    return { song: deleteNote(song, cursor) };
   }
   const voice = cursorVoice(song, cursor);
-  return voice !== undefined && !voice.isEmpty && voice.notes.length === 0 ? deleteBeat(song, beatAddress(cursor)) : song;
+  return voice !== undefined && !voice.isEmpty && voice.notes.length === 0 ? deleteBeatWithFlow(song, beatAddress(cursor)) : { song };
 }
 
-function editBeat(song: Song, at: BeatAddress, edit: BeatEdit): Song {
+function editBeat(song: Song, at: BeatAddress, edit: BeatEdit): BeatChange {
   switch (edit.type) {
     case 'insertBeat':
-      return insertBeat(song, at, 'after');
+      return insertBeatWithFlow(song, at, 'after');
     case 'deleteBeat':
-      return deleteBeat(song, at);
+      return deleteBeatWithFlow(song, at);
     case 'makeRest':
-      return deleteBeatNotes(song, at);
+      return { song: deleteBeatNotes(song, at) };
     case 'setStroke':
-      return setBeatStroke(
-        song,
-        at,
-        edit.direction === 'none'
-          ? NO_STROKE
-          : { direction: edit.direction, value: STROKE_VALUE },
-      );
+      return { song: setBeatStroke(song, at, edit.direction === 'none' ? NO_STROKE : { direction: edit.direction, value: STROKE_VALUE }) };
     case 'setPickStroke':
-      return setBeatPickStroke(song, at, edit.direction);
+      return { song: setBeatPickStroke(song, at, edit.direction) };
     case 'setBeatText':
-      return setBeatText(song, at, edit.text);
+      return { song: setBeatText(song, at, edit.text) };
     case 'setBeatChord': {
       const chorded = setBeatChord(song, at, edit.chord);
-      return edit.withNotes === true && edit.chord !== undefined ? setBeatChordNotes(chorded, at, edit.chord) : chorded;
+      return { song: edit.withNotes === true && edit.chord !== undefined ? setBeatChordNotes(chorded, at, edit.chord) : chorded };
     }
   }
 }
 
-function editDuration(
-  song: Song,
-  cursor: StringAddress,
-  edit: DurationEdit,
-): Song {
+function editDuration(song: Song, cursor: StringAddress, edit: DurationEdit): BeatChange {
   const current = cursorVoice(song, cursor)?.duration;
-  if (current === undefined) {
-    return song;
-  }
-  const next = nextDuration(current, edit);
-  return next === undefined
-    ? song
-    : setBeatDuration(song, beatAddress(cursor), next);
+  const next = current === undefined ? undefined : nextDuration(current, edit);
+  return next === undefined ? { song } : setBeatDurationWithFlow(song, beatAddress(cursor), next);
 }
 
 function nextDuration(

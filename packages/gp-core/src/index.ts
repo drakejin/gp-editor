@@ -97,7 +97,18 @@ export {
 } from './tuner/notes';
 export { type QueuedFrequency, TUNER_QUEUE_SIZE, pushFrequency, stableFrequency } from './tuner/tuner-queue';
 export { TunerError } from './errors';
-export { type BeatAddress, deleteBeat, deleteBeatNotes, insertBeat, setBeatDuration } from './edit/beats';
+export {
+  type BarFlow,
+  type BeatAddress,
+  type BeatChange,
+  deleteBeat,
+  deleteBeatNotes,
+  deleteBeatWithFlow,
+  insertBeat,
+  insertBeatWithFlow,
+  setBeatDuration,
+  setBeatDurationWithFlow,
+} from './edit/beats';
 export { deleteRunNotes } from './edit/run-notes';
 export { findVoice, isVoiceIndex, otherVoiceOnString, voiceOf } from './edit/addresses';
 export { moveBeatsToVoice, moveNotesToVoice } from './edit/voice-moves';
@@ -373,7 +384,7 @@ export { WRITE_BARS_TOOL } from './composition/write-bars-tool';
 export { parseComposedBars } from './composition/parse-bars';
 export { applyComposedBars } from './composition/apply-bars';
 export { trackInstrumentOf, trackProgramOf } from './composition/track-instrument';
-export { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
+export { isSungBeat, lyricsSyllables, separateCjkSyllables, setTrackLyrics } from './edit/lyrics';
 export { ANNOTATION_PLACEMENTS, MAX_ANNOTATION_LENGTH, MAX_ANNOTATION_LINES, isAnnotationPlacement, isSameAnnotation, normalizeAnnotationText, toAnnotation } from './annotations/annotation-text';
 export { readSongAnnotations, songAnnotationsToJson } from './annotations/song-annotations';
 export { type PlacedAnnotation, hasAnnotations, moveBeatAnnotation, setBeatAnnotation, songAnnotations, withoutAnnotations } from './edit/annotations';

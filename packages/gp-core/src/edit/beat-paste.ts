@@ -4,10 +4,9 @@
 // first fills the empty bars". Its "additional bars are added before the bar where the paste is performed" belongs to the
 // multitrack copy, which copies whole bars of every track (the app has none): a paste here writes over the cursor's track
 // only, so it never moves one track against the others, and bars are added only past the song's end.
-import { headerTicks } from '../model/defaults';
 import type { Song } from '../model/song';
 import type { BeatAddress } from './addresses';
-import { type VoiceFlow, liftVoice, rewriteVoice } from './bar-flow';
+import { type VoiceFlow, barTicks, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
 import { beatPosition, cutAt, hasVoiceSlot, onTrackStrings, runEvents } from './beat-ranges';
 import { updateNote } from './song-paths';
@@ -24,12 +23,6 @@ export interface PastedBeats {
   readonly lastMeasureIndex: number;
 }
 
-/** Length of bar `measureIndex`; bars past the end are as long as the last one. */
-function barLength(song: Song, measureIndex: number): number {
-  const header = song.measureHeaders[measureIndex] ?? song.measureHeaders[song.measureHeaders.length - 1];
-  return header === undefined ? 0 : headerTicks(header);
-}
-
 /**
  * The room of each bar in the flow's voice: its time signature's length, or the voice's own where it over-fills the
  * bar (a paste keeps an over-full bar over-full, so nothing after it moves); read once per bar.
@@ -42,7 +35,7 @@ function voiceBarRoom(song: Song, flow: VoiceFlow): (measureIndex: number) => nu
       return known;
     }
     const placed = measureIndex < song.measureHeaders.length ? liftVoice(song, { ...flow, firstMeasureIndex: measureIndex }, measureIndex) : undefined;
-    const room = Math.max(barLength(song, measureIndex), eventsTicks((placed ?? []).map((each) => each.event)));
+    const room = Math.max(barTicks(song, measureIndex), eventsTicks((placed ?? []).map((each) => each.event)));
     rooms.set(measureIndex, room);
     return room;
   };

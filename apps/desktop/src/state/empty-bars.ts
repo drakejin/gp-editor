@@ -1,4 +1,4 @@
-import { type Song, type StringAddress, fillEmptyMeasure } from '@gp-editor/core';
+import { type BeatChange, type Song, type StringAddress, fillEmptyMeasure } from '@gp-editor/core';
 
 /**
  * Bars without beats: many files leave a bar empty where a track rests, and the score draws a whole rest there. The
@@ -16,11 +16,16 @@ export function withBarRests(song: Song, cursor: StringAddress): Song {
  * fill the bar. The same song when neither changes anything.
  */
 export function editAtCursor(song: Song, at: StringAddress, edit: (song: Song, at: StringAddress) => Song): Song {
+  return editAtCursorWithFlow(song, at, (current, place) => ({ song: edit(current, place) })).song;
+}
+
+/** editAtCursor for an edit that also says what it moved across bar lines (gp-core's BeatChange). */
+export function editAtCursorWithFlow(song: Song, at: StringAddress, edit: (song: Song, at: StringAddress) => BeatChange): BeatChange {
   const edited = edit(song, at);
-  const filled = edited === song ? withBarRests(song, at) : song;
+  const filled = edited.song === song ? withBarRests(song, at) : song;
   if (filled === song) {
     return edited;
   }
   const refilled = edit(filled, at);
-  return refilled === filled ? song : refilled;
+  return refilled.song === filled ? { song } : refilled;
 }

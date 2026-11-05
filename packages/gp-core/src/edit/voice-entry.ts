@@ -2,6 +2,8 @@
 import { durationTicks, headerTicks } from '../model/defaults';
 import type { Measure, Note, Song, Voice } from '../model/song';
 import { type BeatAddress, locateVoice } from './addresses';
+import { voiceFlowAt } from './bar-flow';
+import { flowVoiceOn } from './bar-ripple';
 import { replaceAt, updateMeasure } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, eventTicks, eventsTicks, isFreeRest, measureGapRests, toBeats, toMeasureVoices } from './timeline';
 import { takeRestsAfter, trimTrailingRests } from './voice-fit';
@@ -60,8 +62,8 @@ function freeTicksFrom(after: VoiceEvents, offset: number, length: number): numb
 /**
  * New song where voice `at.voiceIndex` plays `voice` from where the addressed beat starts, in time the voice leaves
  * empty or rests in (free rests are taken over, cut where needed), filled with rests to the bar lines. A later note of
- * the voice moves right when `mayMoveNotes`; otherwise the same song when the free time there is too short. Same song
- * when the position lies inside another event of that voice.
+ * the voice moves right when `mayMoveNotes` (past the bar line on into the next bars, flowVoiceOn); otherwise the same
+ * song when the free time there is too short. Same song when the position lies inside another event of that voice.
  */
 export function placeVoiceEvent(song: Song, at: BeatAddress, voice: Voice, mayMoveNotes: boolean): Song {
   const location = locateVoice(song, at);
@@ -84,7 +86,12 @@ export function placeVoiceEvent(song: Song, at: BeatAddress, voice: Voice, mayMo
     return song;
   }
   const filled = [...placed, ...(measureGapRests(measure, length - eventsTicks(placed)) ?? [])];
-  const voices = replaceAt(measureVoices.voices, at.voiceIndex, trimTrailingRests(filled, length, duration));
+  const settled = trimTrailingRests(filled, length, duration);
+  if (eventsTicks(settled) > Math.max(length, eventsTicks(events ?? []))) {
+    // Later notes pushed past the bar line flow on into the next bars (not what ran past it before).
+    return flowVoiceOn(song, voiceFlowAt(at), settled).song;
+  }
+  const voices = replaceAt(measureVoices.voices, at.voiceIndex, settled);
   const beats = toBeats(header.start, { ...measureVoices, voices }, measure.beats);
   return updateMeasure(song, at.trackIndex, at.measureIndex, (current) => ({ ...current, beats }));
 }

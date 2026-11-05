@@ -93,7 +93,7 @@ describe('setBeatDuration', () => {
     assertEditInvariants(edited);
   });
 
-  it('lets the measure overflow when no rest makes room for a longer duration', () => {
+  it('moves on into a bar added at the end what no rest makes room for in a longer duration', () => {
     // Arrange
     const song = oneMeasure(play(4, n(1, 0)), play(4, n(1, 1)), play(4, n(1, 2)), play(4, n(1, 3)));
 
@@ -101,9 +101,11 @@ describe('setBeatDuration', () => {
     const first = setBeatDuration(song, AT, dur(2));
     const last = setBeatDuration(song, { ...AT, beatIndex: 3 }, dur(2));
 
-    // Assert: no note is lost; the later notes move past the measure end
-    expect(layout(first)).toEqual(['0:2:1/0', '1920:4:1/1', '2880:4:1/2', '3840:4:1/3']);
-    expect(layout(last)).toEqual(['0:4:1/0', '960:4:1/1', '1920:4:1/2', '2880:2:1/3']);
+    // Assert: no note is lost; what runs past the bar line flows on (a note across it as tied notes)
+    expect(layout(first)).toEqual(['0:2:1/0', '1920:4:1/1', '2880:4:1/2']);
+    expect(layout(first, 0, 1)).toEqual(['0:4:1/3', '960:2.:r']);
+    expect(layout(last)).toEqual(['0:4:1/0', '960:4:1/1', '1920:4:1/2', '2880:4:1/3']);
+    expect(last.tracks[0]?.measures[1]?.beats[0]?.voices[0]?.notes[0]?.isTied).toBe(true);
     assertEditInvariants(first);
     assertEditInvariants(last);
   });
@@ -276,7 +278,7 @@ describe('insertBeat', () => {
     expect(layout(insertBeat(song, AT, 'after'))).toEqual(['0:8:1/0', '480:8:r', '960:8:r', '1440:4:r', '2400:4.:r']);
   });
 
-  it('pushes notes past the end of a full measure instead of dropping them', () => {
+  it('pushes notes past the end of a full measure on into the next bar instead of dropping them', () => {
     // Arrange
     const song = oneMeasure(play(4, n(1, 0)), play(4, n(1, 1)), play(4, n(1, 2)), play(4, n(1, 3)));
 
@@ -284,7 +286,8 @@ describe('insertBeat', () => {
     const edited = insertBeat(song, AT, 'after');
 
     // Assert
-    expect(layout(edited)).toEqual(['0:4:1/0', '960:4:r', '1920:4:1/1', '2880:4:1/2', '3840:4:1/3']);
+    expect(layout(edited)).toEqual(['0:4:1/0', '960:4:r', '1920:4:1/1', '2880:4:1/2']);
+    expect(layout(edited, 0, 1)).toEqual(['0:4:1/3', '960:2.:r']);
     assertEditInvariants(edited);
   });
 

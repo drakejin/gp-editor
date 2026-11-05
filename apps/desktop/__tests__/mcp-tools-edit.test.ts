@@ -86,6 +86,42 @@ describe('notes, rests and beats', () => {
     expect(undoSteps(app)).toBe(4);
   });
 
+  it('moves music across bar lines through the editor’s own edits, and says what moved', async () => {
+    // Arrange: two full bars of quarters, a third of rests
+    const quarters = (bar: number) => [0, 1, 2, 3].map((i) => beat(960 + bar * 3840 + i * 960, bar === 2 ? [] : [note(1, bar * 4 + i)]));
+    const song = makeSong([quarters(0), quarters(1), quarters(2)]);
+    const app = fakeApp(workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song } }));
+    const barFrets = (index: number) => activeEditor(app.state()).document?.song.tracks[0]?.measures[index]?.beats.map((each) => each.voices[0]?.notes[0]?.fret ?? 'r');
+
+    // Act
+    const inserted = await call(app, 'insert_beat', { bar: 1, beat: 1 });
+    const insertedFrets = [barFrets(1), barFrets(2)];
+    const longer = await call(app, 'set_duration', { value: 2, bar: 1, beat: 4 });
+    const removed = await call(app, 'delete_beat', { bar: 1, beat: 2 });
+
+    // Assert
+    expect(inserted.text).toContain('A beat is inserted. 1 note moved on into bar 2; the voice moved later up to bar 3.');
+    expect(insertedFrets).toEqual([[3, 4, 5, 6], [7, 'r', 'r', 'r']]);
+    expect(longer.text).toContain('The duration is set. 1 note moved on into bar 2');
+    expect(removed.text).toContain('The beat is deleted. 1 note pulled back from bar 2');
+    expect(undoSteps(app)).toBe(3);
+  });
+
+  it('tells no stale hint: an edit that moved nothing across a bar line says only what it did', async () => {
+    // Arrange: a beat inserted into a full bar leaves its hint in the strip
+    const quarters = [0, 1, 2, 3].map((i) => beat(960 + i * 960, [note(1, i)]));
+    const app = fakeApp(workspaceReducer(INITIAL_WORKSPACE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: makeSong([quarters, [beat(4800, [])]]) } }));
+    await call(app, 'insert_beat', { bar: 1, beat: 1 });
+
+    // Act
+    const deleted = await call(app, 'delete_note', { string: 1, bar: 1, beat: 1 });
+    const rest = await call(app, 'write_rest', { bar: 1, beat: 3 });
+
+    // Assert
+    expect(deleted.text.split('\n')[0]).toBe('The note is deleted.');
+    expect(rest.text.split('\n')[0]).toBe('The beat is a rest.');
+  });
+
   it('writes drums with toggle_drum_note only on a drum track, and notes with write_note only on others', async () => {
     // Arrange
     const withDrums = addTrack(makeSong([[beat(960, [])]]), { kind: 'drums', name: 'Drums' });

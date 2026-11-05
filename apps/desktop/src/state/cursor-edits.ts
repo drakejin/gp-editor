@@ -1,10 +1,12 @@
 import {
+  type BarFlow,
   type Beat,
   type BeatFragment,
   type PlayedNote,
   type Song,
   type StringAddress,
   deleteNote,
+  durationTicks,
   enterPlayedNotes,
   findNote,
   insertMeasure,
@@ -22,11 +24,12 @@ import { pitchNameInKey } from '../lib/pitch';
 import { heldStringHint, refusalHint, stringMoveHint, trackBarHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
-import { editAtCursor, withBarRests } from './empty-bars';
+import { editAtCursor, editAtCursorWithFlow, withBarRests } from './empty-bars';
+import { barFlowHint } from './flow-hints';
 import { withSelectionStart } from './mark-edits';
 import { droneFretHint, playedNotesHint, storedFret } from './note-entry';
 import { type ClipboardEdit, cutSelectionAt, pasteBeatsAt, pasteRefusal } from './selection';
-import { type SongEdit, applySongEdit, insertedBarIndex } from './song-edits';
+import { type SongEdit, applySongEditWithFlow, insertedBarIndex } from './song-edits';
 
 // The editor's edits at the cursor (editor.ts routes the actions here): the cursor follows what they insert or remove.
 
@@ -196,13 +199,31 @@ export function enterPlayed(state: EditorState, notes: readonly PlayedNote[]): E
 }
 
 /**
+ * The cursor on the rest an inserted beat added, right after the cursor's beat: in its bar, or at the start of the next
+ * one when it went on past a full bar's line (gp-core's ripple).
+ */
+function insertedBeatCursor(before: Song, after: Song, cursor: StringAddress): StringAddress | undefined {
+  const beat = before.tracks[cursor.trackIndex]?.measures[cursor.measureIndex]?.beats[cursor.beatIndex];
+  const voice = beat?.voices[cursor.voiceIndex];
+  const start = beat === undefined || voice === undefined ? undefined : beat.start + durationTicks(voice.duration);
+  for (const measureIndex of [cursor.measureIndex, cursor.measureIndex + 1]) {
+    const beats = after.tracks[cursor.trackIndex]?.measures[measureIndex]?.beats ?? [];
+    const beatIndex = beats.findIndex((candidate) => candidate.start === start && candidate.voices[cursor.voiceIndex]?.isEmpty === false);
+    if (beatIndex >= 0) {
+      return { ...cursor, measureIndex, beatIndex };
+    }
+  }
+  return clampCursor(after, { ...cursor, beatIndex: cursor.beatIndex + 1 });
+}
+
+/**
  * Where the cursor goes after an edit: on the beat or bar it inserted, on the bar that took the place of the deleted
  * ones (in one track: the bar's first beat), and inside the song after deletions.
  */
-function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringAddress | undefined {
+function cursorAfter(before: Song, song: Song, cursor: StringAddress, edit: SongEdit): StringAddress | undefined {
   switch (edit.type) {
     case 'insertBeat':
-      return clampCursor(song, { ...cursor, beatIndex: cursor.beatIndex + 1 });
+      return insertedBeatCursor(before, song, cursor);
     case 'insertMeasure':
       return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
     case 'insertTrackMeasure':
@@ -218,25 +239,39 @@ function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringA
   }
 }
 
+/** A cursor edit on the song, recorded for undo, and what it moved across bar lines. */
+function applyFlowingEdit(state: EditorState, edit: SongEdit): { readonly state: EditorState; readonly flow?: BarFlow } {
+  const { document, cursor } = state;
+  if (document === undefined || cursor === undefined) {
+    return { state };
+  }
+  const change = editAtCursorWithFlow(document.song, cursor, (song, at) => applySongEditWithFlow(song, at, edit));
+  const recorded = recordSong(state, document, change.song);
+  return change.flow === undefined ? { state: recorded } : { state: recorded, flow: change.flow };
+}
+
 /**
  * A cursor edit (from the selection's start when beats are selected); the cursor follows inserted beats and measures and
  * stays inside the song after deletions, and stays on its beat where notes moved to another voice, or a chord into an
- * empty voice, add rests before it. An edit that changes nothing leaves a hint saying why.
+ * empty voice, add rests before it. An edit that changes nothing leaves a hint saying why; one that moves music across
+ * bar lines (a beat inserted or deleted, a longer duration) says what moved.
  */
 export function applyCursorEdit(state: EditorState, cursorEdit: SongEdit): EditorState {
   const edit = withSelectionStart(cursorEdit, state.selectionAnchor);
-  const applied = applyEdit(state, (song, at) => applySongEdit(song, at, edit));
+  const { state: applied, flow } = applyFlowingEdit(state, edit);
   const edited = edit.type === 'moveToVoice' || (edit.type === 'setBeatChord' && edit.withNotes === true) ? followBeatStart(state, applied) : applied;
   if (edited === state) {
     const hint = state.document === undefined || state.cursor === undefined ? undefined : refusalHint(withBarRests(state.document.song, state.cursor), state.cursor, edit);
     return hint === state.hint ? state : { ...state, hint };
   }
   const song = edited.document?.song;
-  const hint = state.document === undefined || state.cursor === undefined ? undefined : trackBarHint(state.document.song, state.cursor, edit);
-  if (song === undefined || edited.cursor === undefined) {
-    return { ...edited, hint };
+  const before = state.document?.song;
+  // A bar in one track says the other tracks stayed; an edit that moved music across bar lines says what moved.
+  const trackHint = before === undefined || state.cursor === undefined ? undefined : trackBarHint(before, state.cursor, edit);
+  if (song === undefined || before === undefined || edited.cursor === undefined) {
+    return { ...edited, hint: trackHint };
   }
-  return { ...edited, cursor: cursorAfter(song, edited.cursor, edit), hint };
+  return { ...edited, cursor: cursorAfter(before, song, edited.cursor, edit), hint: trackHint ?? barFlowHint(flow, edited.cursor.measureIndex) };
 }
 
 /** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */

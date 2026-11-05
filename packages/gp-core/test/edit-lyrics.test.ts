@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lyricsSyllables, separateCjkSyllables, setTrackLyrics } from '../src/edit/lyrics';
+import { lyricsSyllables, separateCjkSyllables, setTrackLyrics, withBlankSyllable, withBlankSyllables } from '../src/edit/lyrics';
 import type { Song } from '../src/model/song';
 import { buildSong, deepFreeze, n, play } from './helpers/edit-songs';
 
@@ -70,6 +70,58 @@ describe('lyricsSyllables', () => {
 
   it('keeps hyphens that start or fill a syllable', () => {
     expect(lyricsSyllables('- --la')).toEqual(['-', '--', 'la']);
+  });
+});
+
+describe('withBlankSyllable', () => {
+  /** The syllables with a blank inserted at `index`, as the text with the blank must read. */
+  function expected(text: string, index: number): readonly string[] {
+    const syllables = lyricsSyllables(text);
+    return index >= syllables.length ? syllables : [...syllables.slice(0, index), '', ...syllables.slice(index)];
+  }
+
+  it('leaves a note bare before a word: one more space', () => {
+    expect(withBlankSyllable('one two three', 1)).toBe('one  two three');
+    expect(withBlankSyllable('one two three', 0)).toBe(' one two three');
+  });
+
+  it('splits a hyphenated word with a bare note between its syllables', () => {
+    expect(withBlankSyllable('Beau-ti-ful', 1)).toBe('Beau-  ti-ful');
+    expect(lyricsSyllables(withBlankSyllable('Beau-ti-ful', 2))).toEqual(['Beau-', 'ti-', '', 'ful']);
+  });
+
+  it('keeps line breaks, comments, joined words and held syllables as they are', () => {
+    const texts = ['[Verse 1]\nsing a [la la] song', 'a+lot of love__ __', 'Pa- per\r\nboats', 'one  two', '- --la', '[Intro] la la', 'la\rla [x]'];
+    for (const text of texts) {
+      for (let index = 0; index <= lyricsSyllables(text).length; index++) {
+        expect(lyricsSyllables(withBlankSyllable(text, index)), `${JSON.stringify(text)} at ${index}`).toEqual(expected(text, index));
+      }
+    }
+  });
+
+  it('leaves the text as it is where the spaces would turn a bracketed syllable into a comment', () => {
+    expect(lyricsSyllables('la-[x] b')).toEqual(['la-', '[x]', 'b']);
+    expect(withBlankSyllable('la-[x] b', 1)).toBe('la-[x] b');
+    expect(withBlankSyllable('la-[x] b', 2)).toBe('la-[x]  b');
+  });
+
+  it('changes nothing past the last syllable', () => {
+    expect(withBlankSyllable('one two', 2)).toBe('one two');
+    expect(withBlankSyllable('one two', 9)).toBe('one two');
+  });
+});
+
+describe('withBlankSyllables', () => {
+  it('leaves bare notes at each index of the lyrics as they will be sung, in one pass', () => {
+    expect(withBlankSyllables('a b c d', [1, 3])).toBe('a  b  c d');
+    expect(lyricsSyllables(withBlankSyllables('a b c d', [1, 3]))).toEqual(['a', '', 'b', '', 'c', 'd']);
+    expect(lyricsSyllables(withBlankSyllables('a b-c d', [1, 2, 4]))).toEqual(['a', '', '', 'b-', '', 'c', 'd']);
+  });
+
+  it('reads like inserting the blanks one at a time', () => {
+    const text = 'Beau-ti-ful [x] day\r\nto+night__ end';
+    const indexes = [0, 2, 3, 6, 9];
+    expect(lyricsSyllables(withBlankSyllables(text, indexes))).toEqual(lyricsSyllables(indexes.reduce((current, index) => withBlankSyllable(current, index), text)));
   });
 });
 

@@ -1,5 +1,6 @@
 import { headerTicks } from '../model/defaults';
 import type { Measure, Song } from '../model/song';
+import type { BeatAddress } from './addresses';
 import { insertMeasure } from './measures';
 import { hasSameItems, updateTrack } from './song-paths';
 import { splitAtBarLines } from './tied-pieces';
@@ -30,6 +31,11 @@ export interface VoiceFlow {
   readonly firstMeasureIndex: number;
 }
 
+/** The flow of the voice an edit at `at` changes, from its bar. */
+export function voiceFlowAt(at: BeatAddress): VoiceFlow {
+  return { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
+}
+
 /** An event of the voice, with its bar and its offset in ticks from the bar's start. */
 export interface PlacedEvent {
   readonly event: VoiceEvent;
@@ -38,7 +44,7 @@ export interface PlacedEvent {
 }
 
 /** The voice's events of one bar, with rests for time it leaves unused up to the bar's end; undefined when unreadable. */
-function barEvents(song: Song, flow: VoiceFlow, measureIndex: number): VoiceEvents | undefined {
+export function barEvents(song: Song, flow: VoiceFlow, measureIndex: number): VoiceEvents | undefined {
   const header = song.measureHeaders[measureIndex];
   const measure = song.tracks[flow.trackIndex]?.measures[measureIndex];
   const voices = header === undefined || measure === undefined ? undefined : toMeasureVoices(measure, header.start, flow.voiceIndex);
@@ -122,7 +128,7 @@ function fillBar(events: VoiceEvents, length: number): VoiceEvents {
  * The measure with the flow's voice replaced by `events` (filled with rests to the bar's end). The measure itself when
  * nothing changes, or when the voice had nothing there and still holds only rests; undefined when unreadable.
  */
-function rewriteBar(song: Song, flow: VoiceFlow, measureIndex: number, events: VoiceEvents): Measure | undefined {
+export function rewriteBar(song: Song, flow: VoiceFlow, measureIndex: number, events: VoiceEvents): Measure | undefined {
   const header = song.measureHeaders[measureIndex];
   const measure = song.tracks[flow.trackIndex]?.measures[measureIndex];
   const voices = header === undefined || measure === undefined ? undefined : toMeasureVoices(measure, header.start, flow.voiceIndex);
@@ -158,13 +164,13 @@ function withoutTrailingFreeRests(events: VoiceEvents): VoiceEvents {
 }
 
 /** Length of bar `measureIndex`; bars past the end are as long as the last one. */
-function barTicks(song: Song, measureIndex: number): number {
+export function barTicks(song: Song, measureIndex: number): number {
   const header = song.measureHeaders[measureIndex] ?? song.measureHeaders[song.measureHeaders.length - 1];
   return header === undefined ? 0 : headerTicks(header);
 }
 
 /** The song with `count` bars added at the end (insertMeasure: the last bar's header, clef and key; rests in every track). */
-function appendBars(song: Song, count: number): Song {
+export function appendBars(song: Song, count: number): Song {
   return Array.from({ length: Math.max(0, count) }).reduce<Song>((current) => insertMeasure(current, current.measureHeaders.length - 1, 'after'), song);
 }
 

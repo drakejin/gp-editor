@@ -64,7 +64,9 @@ describe('hints for a note key on an empty string', () => {
   });
 
   it('says nothing for an edit that needs no note', () => {
-    const next = editorReducer(emptyString(), { type: 'edit', edit: { type: 'toggleDot' } });
+    // A shorter beat: a dot would make the full bar too long, and the hint would say what moved on into the next bar.
+    const next = editorReducer(emptyString(), { type: 'edit', edit: { type: 'shiftNoteValue', step: 1 } });
+    expect(next.document?.song).not.toBe(emptyString().document?.song);
     expect(next.hint).toBeUndefined();
   });
 
