@@ -5,8 +5,10 @@ import type { WindowModel } from '../../hooks/use-window';
 import { commandActionsOf } from '../../hooks/use-window-commands';
 import { allCommands } from '../../lib/commands';
 import { tunerStrings } from '../../lib/tuner-display';
+import { trackLabel } from '../../lib/track-label';
 import { isAutosaveAvailable } from '../../native/autosave';
 import { AiEditPanel } from '../ai-edit/AiEditPanel';
+import { BarMapMenu } from '../BarMapMenu';
 import { ChordPanel } from '../chords/ChordPanel';
 import { ChromeMenu } from '../chrome/ChromeMenu';
 import { ComposePanel } from '../compose/ComposePanel';
@@ -133,7 +135,29 @@ export function ToolOverlays({ model }: WindowPartProps) {
       ) : null}
       <TrackManagerOverlays manager={tools.trackManager} palette={chromePalette} />
       <TrackInfoOverlay model={model} />
+      <BarMenuOverlay model={model} />
     </>
+  );
+}
+
+/** The bar map's menu at a right-clicked bar (over everything: it opens at the click). */
+function BarMenuOverlay({ model }: WindowPartProps) {
+  const { base, tools } = model;
+  const { barMenu } = tools;
+  const track = barMenu.target === undefined ? undefined : base.state.document?.song.tracks[barMenu.target.trackIndex];
+  if (barMenu.target === undefined || barMenu.anchor === undefined || track === undefined) {
+    return null;
+  }
+  return (
+    <BarMapMenu
+      palette={base.chromePalette}
+      target={barMenu.target}
+      trackName={trackLabel(track)}
+      anchor={barMenu.anchor}
+      windowWidth={base.windowWidth}
+      onChoose={barMenu.choose}
+      onClose={barMenu.close}
+    />
   );
 }
 

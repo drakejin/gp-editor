@@ -36,6 +36,18 @@ export function useAnchoredPress(onOpen: ((anchor: PanelAnchor) => void) | undef
   return { ref, onPress };
 }
 
+/**
+ * A point of a view in the window's layout points (where a panel or menu is placed): the view measured, plus the point
+ * in it. Without a view to measure (tests), the point itself.
+ */
+export function anchorAt(view: View | null, x: number, y: number, onAnchor: (anchor: PanelAnchor) => void): void {
+  if (view === null || typeof view.measure !== 'function') {
+    onAnchor({ x, y });
+    return;
+  }
+  view.measure((_x, _y, _width, _height, pageX, pageY) => onAnchor({ x: pageX + x, y: pageY + y }));
+}
+
 interface OpenTrackInfo {
   /** The tab it was opened in: another tab shown, it is closed. */
   readonly tabId?: string;

@@ -426,6 +426,55 @@ describe('TracksPanel bar map', () => {
     expect(panel.props.onSelectBar).not.toHaveBeenCalled();
   });
 
+  it('opens the bar menu at a right-clicked cell, with its track and bar', () => {
+    // Arrange
+    const onContextBar = jest.fn();
+    const panel = render({ onContextBar });
+    const map = panel.renderer.root.findByProps({ testID: 'tracks-panel-bar-map' });
+
+    // Act: the map is measured in the window's layout
+    ReactTestRenderer.act(() => map.props.onAuxClick({ nativeEvent: { clientX: cellCentre(5), clientY: rowCentre(1), button: 2 } }));
+    ReactTestRenderer.act(() => answerMeasure(map, 200, 600));
+
+    // Assert
+    expect(onContextBar).toHaveBeenCalledWith(1, 5, { x: 200 + cellCentre(5), y: 600 + rowCentre(1) });
+    expect(panel.props.onSelectBar).not.toHaveBeenCalled();
+  });
+
+  it('opens the bar menu on a ⌃-click of a cell instead of going there', () => {
+    // Arrange
+    const onContextBar = jest.fn();
+    const panel = render({ onContextBar });
+    const map = panel.renderer.root.findByProps({ testID: 'tracks-panel-bar-map' });
+
+    // Act
+    ReactTestRenderer.act(() => map.props.onPress({ nativeEvent: { locationX: cellCentre(2), locationY: rowCentre(0), ctrlKey: true } }));
+    ReactTestRenderer.act(() => answerMeasure(map, 170, 640));
+
+    // Assert
+    expect(onContextBar).toHaveBeenCalledWith(0, 2, { x: 170 + cellCentre(2), y: 640 + rowCentre(0) });
+    expect(panel.props.onSelectBar).not.toHaveBeenCalled();
+  });
+
+  it('opens no menu for a middle click, the bar numbers or past the last bar', () => {
+    // Arrange
+    const onContextBar = jest.fn();
+    const map = render({ onContextBar }).renderer.root.findByProps({ testID: 'tracks-panel-bar-map' });
+    const auxClick = (x: number, y: number, button: number) => ReactTestRenderer.act(() => map.props.onAuxClick({ nativeEvent: { clientX: x, clientY: y, button } }));
+
+    // Act
+    auxClick(cellCentre(1), rowCentre(0), 1);
+    auxClick(cellCentre(1), BAR_MAP.headerHeight / 2, 2);
+    auxClick(barMapWidth(SONG) + 10, rowCentre(0), 2);
+
+    // Assert
+    expect(onContextBar).not.toHaveBeenCalled();
+  });
+
+  it('takes no right click without a menu to open', () => {
+    expect(render().renderer.root.findByProps({ testID: 'tracks-panel-bar-map' }).props.onAuxClick).toBeUndefined();
+  });
+
   it('scrolls the cursor’s bar into view when it moves out of sight', () => {
     // Arrange: a map 150 pt wide, scrolled to the start
     const panel = render({ cursorMeasureIndex: 0 });

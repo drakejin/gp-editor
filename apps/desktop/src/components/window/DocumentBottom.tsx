@@ -57,6 +57,7 @@ function DocumentTracks({ model, document }: DocumentPartProps) {
         onRenameEnd={base.focusScore}
         onAddAudioTrack={audioTrack === undefined ? audioLane.addAudioTrack : undefined}
         trackActions={tools.trackManager.panelActions}
+        onContextBar={tools.barMenu.openAt}
         {...track}
       />
       {audioTrack !== undefined ? (

@@ -8,6 +8,7 @@ import { type CommandPalette, type TransposePanel, useCommandPalette, useTranspo
 import { type DraftPreview, useDraftPreview } from './use-draft-preview';
 import { type DrumKey, useDrumKey } from './use-drum-key';
 import { type AnnotationEditor, useAnnotationEditor } from './use-annotation-editor';
+import { type BarMenu, useBarMenu } from './use-bar-menu';
 import { type AiEdit, useAiEdit } from './use-ai-edit';
 import { type Compose, useCompose } from './use-compose';
 import { type LyricsEditor, useLyricsEditor } from './use-lyrics-editor';
@@ -70,6 +71,8 @@ export interface WindowTools {
   readonly songsterr: SongsterrSearch;
   /** A track's name, short name, colour and icon (Guitar Pro 8's track information), a small panel over the window. */
   readonly trackInfo: TrackInfo;
+  /** The bar map's menu (a right-click on a track's bar): a bar inserted or deleted in that track only, or in every track. */
+  readonly barMenu: BarMenu;
 }
 
 /** Edit ▸ AI Wizard ▸ Song Writer…: a written song opens in a new tab, unsaved, with a summary in the hint strip. */
@@ -143,5 +146,7 @@ export function useWindowTools(base: WindowBase): WindowTools {
     trackInfo.close();
   };
   const trackManager = useTrackManager({ song, shownTrackIndex: state.trackIndex, tabId: workspace.activeTabId, dispatch, onClosed: focusScore, onTracksRemapped: followTracks });
-  return { draftPreview, songWriter, compose, aiEdit, reference, ...panels, audio, trackManager, trackInfo };
+  const { cursor, selectionAnchor } = state;
+  const barMenu = useBarMenu({ tabId: workspace.activeTabId, trackCount: song?.tracks.length ?? 0, cursor, selectionAnchor, dispatch, onClosed: focusScore });
+  return { draftPreview, songWriter, compose, aiEdit, reference, ...panels, audio, trackManager, trackInfo, barMenu };
 }
