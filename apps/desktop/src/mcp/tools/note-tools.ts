@@ -45,7 +45,8 @@ function runEdit(host: AppHost, args: ToolArguments, action: EditorAction, descr
     return edited.result;
   }
   const { editor, isChanged } = edited.outcome;
-  return isChanged ? cursorAnswer(describe, editor) : unchanged(editor, refused);
+  // The hint says what an edit moved across bar lines (a beat inserted or deleted, a longer duration).
+  return isChanged ? cursorAnswer(editor.hint === undefined ? describe : `${describe} ${editor.hint}`, editor) : unchanged(editor, refused);
 }
 
 const writeNote: McpTool<AppHost> = {
@@ -125,7 +126,7 @@ const setDuration: McpTool<AppHost> = {
   name: 'set_duration',
   title: 'Set the beat’s duration',
   description:
-    'Sets the duration of the beat at the cursor in one undo step: note value (1 whole, 2 half, 4 quarter, 8 eighth, 16, 32, 64), dots and tuplet (3 = triplet, 1 = none). A shorter beat leaves rests after it; a longer one takes the time of what follows.',
+    'Sets the duration of the beat at the cursor in one undo step: note value (1 whole, 2 half, 4 quarter, 8 eighth, 16, 32, 64), dots and tuplet (3 = triplet, 1 = none). A shorter beat leaves rests after it; a longer one takes the time of the rests that follow, and what then runs past the bar line moves on into the next bars (a note across it as tied notes) until a rest at the end of a bar takes it.',
   inputSchema: objectSchema(
     {
       value: { type: 'integer', enum: NOTE_VALUES, description: 'Note value: 1, 2, 4, 8, 16, 32 or 64.' },
@@ -147,7 +148,7 @@ const setDuration: McpTool<AppHost> = {
 const insertBeat: McpTool<AppHost> = {
   name: 'insert_beat',
   title: 'Insert a beat',
-  description: 'Inserts a rest after the cursor’s beat, of its duration, and moves onto it (the I key); what follows moves on.',
+  description: 'Inserts a rest after the cursor’s beat, of its duration, and moves onto it (the I key); what follows moves on, past the bar line into the next bars until a rest at the end of a bar takes it.',
   inputSchema: objectSchema(POSITION_ARGUMENTS),
   annotations: EDIT,
   run: (args, host) => runEdit(host, args, { type: 'edit', edit: { type: 'insertBeat' } }, 'A beat is inserted.', 'Nothing changed.'),
@@ -156,7 +157,7 @@ const insertBeat: McpTool<AppHost> = {
 const deleteBeat: McpTool<AppHost> = {
   name: 'delete_beat',
   title: 'Delete a beat',
-  description: 'Deletes the cursor’s beat (⇧⌫); what follows moves up and the bar is padded with rests.',
+  description: 'Deletes the cursor’s beat (⇧⌫); what follows moves up: from the next bars too (until a bar ending in a rest), unless the bar ends in a rest, which grows.',
   inputSchema: objectSchema(POSITION_ARGUMENTS),
   annotations: ERASE,
   run: (args, host) => runEdit(host, args, { type: 'edit', edit: { type: 'deleteBeat' } }, 'The beat is deleted.', 'Nothing changed.'),

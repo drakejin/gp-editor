@@ -1,4 +1,4 @@
-import { DEFAULT_STYLESHEET, type Measure, type TextStyle, type Track, lyricsSyllables } from '@gp-editor/core';
+import { DEFAULT_STYLESHEET, type Measure, type TextStyle, type Track, isSungBeat, lyricsSyllables } from '@gp-editor/core';
 import type { MeasureLayout } from '../lib/layout';
 import type { Palette } from '../theme';
 import type { TextCommand } from './draw';
@@ -19,9 +19,9 @@ export function hasLyrics(track: Track | undefined): boolean {
   return (track?.lyrics?.text.trim() ?? '') !== '';
 }
 
-/** Indexes of the measure's beats that have notes in any voice: each takes one syllable (TuxGuitar's TGLyricImpl). */
+/** Indexes of the measure's beats that have notes in any voice: each takes one syllable (gp-core's isSungBeat, TuxGuitar's TGLyricImpl). */
 export function sungBeats(measure: Measure | undefined): readonly number[] {
-  return (measure?.beats ?? []).flatMap((beat, index) => (beat.voices.some((voice) => voice.notes.length > 0) ? [index] : []));
+  return (measure?.beats ?? []).flatMap((beat, index) => (isSungBeat(beat) ? [index] : []));
 }
 
 /** Each of the track's bars' syllables, kept per track (an edit makes a new track). */
