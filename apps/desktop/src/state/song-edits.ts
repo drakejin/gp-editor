@@ -74,8 +74,11 @@ export type SongEdit =
   | NotationEdit
   | VoiceEdit
   | { readonly type: 'insertMeasure' }
-  /** A bar of rests at the cursor's bar in the cursor's track only: its bars from there move one bar later (Track ▸ Insert Bar in This Track). */
-  | { readonly type: 'insertTrackMeasure' }
+  /**
+   * A bar of rests at the cursor's bar in the cursor's track only: its bars from there move one bar later (Track ▸ Insert
+   * Bar in This Track); `after`: after the cursor's bar (the palette's ⌥-click on +Bar, the bar map's menu).
+   */
+  | { readonly type: 'insertTrackMeasure'; readonly side?: 'before' | 'after' }
   /**
    * The cursor's bar, or every bar from `from` (the selection's start) to it, out of the cursor's track only: its later
    * bars move earlier (Track ▸ Delete Bar in This Track), as − Bar deletes them from every track.
@@ -133,7 +136,7 @@ export function applySongEdit(song: Song, cursor: StringAddress, edit: SongEdit)
     case 'insertMeasure':
       return insertMeasure(song, cursor.measureIndex, 'after');
     case 'insertTrackMeasure':
-      return insertTrackMeasure(song, cursor.trackIndex, cursor.measureIndex);
+      return insertTrackMeasure(song, cursor.trackIndex, cursor.measureIndex, edit.side ?? 'before');
     case 'deleteTrackMeasure':
       return deleteTrackMeasures(song, cursor.trackIndex, edit.from?.measureIndex ?? cursor.measureIndex, cursor.measureIndex);
     case 'deleteMeasure':

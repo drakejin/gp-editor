@@ -19,7 +19,7 @@ import {
 import { t } from '../lib/i18n/i18n';
 import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
 import { pitchNameInKey } from '../lib/pitch';
-import { heldStringHint, refusalHint, stringMoveHint } from './edit-hints';
+import { heldStringHint, refusalHint, stringMoveHint, trackBarHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { editAtCursor, withBarRests } from './empty-bars';
@@ -207,7 +207,7 @@ function cursorAfter(song: Song, cursor: StringAddress, edit: SongEdit): StringA
       return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + 1, beatIndex: 0 });
     case 'insertTrackMeasure':
       // The bar of rests put there.
-      return clampCursor(song, { ...cursor, beatIndex: 0 });
+      return clampCursor(song, { ...cursor, measureIndex: cursor.measureIndex + (edit.side === 'after' ? 1 : 0), beatIndex: 0 });
     case 'deleteTrackMeasure':
       // The first deleted bar, which the music after the deleted ones moved into.
       return clampCursor(song, { ...cursor, measureIndex: Math.min(cursor.measureIndex, edit.from?.measureIndex ?? cursor.measureIndex), beatIndex: 0 });
@@ -232,10 +232,11 @@ export function applyCursorEdit(state: EditorState, cursorEdit: SongEdit): Edito
     return hint === state.hint ? state : { ...state, hint };
   }
   const song = edited.document?.song;
+  const hint = state.document === undefined || state.cursor === undefined ? undefined : trackBarHint(state.document.song, state.cursor, edit);
   if (song === undefined || edited.cursor === undefined) {
-    return { ...edited, hint: undefined };
+    return { ...edited, hint };
   }
-  return { ...edited, cursor: cursorAfter(song, edited.cursor, edit), hint: undefined };
+  return { ...edited, cursor: cursorAfter(song, edited.cursor, edit), hint };
 }
 
 /** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */

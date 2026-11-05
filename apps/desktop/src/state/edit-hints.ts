@@ -1,8 +1,29 @@
 import { type Song, type StringAddress, type TimeSignature, findNote, otherVoiceOnString } from '@gp-editor/core';
 import { t } from '../lib/i18n/i18n';
+import { trackLabel } from '../lib/track-label';
 import { needsNote } from './note-edits';
 import { type SongEdit, cursorVoice, isInTuplet } from './song-edits';
 import { voiceMoveHint } from './voice-edits';
+
+/**
+ * What a bar inserted into or deleted from one track did, for the hint strip — so it is plain the other tracks were left
+ * as they were; undefined for any other edit. `cursor` and `song` as before the edit.
+ */
+export function trackBarHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
+  const track = song.tracks[cursor.trackIndex];
+  if (track === undefined || (edit.type !== 'insertTrackMeasure' && edit.type !== 'deleteTrackMeasure')) {
+    return undefined;
+  }
+  const name = trackLabel(track);
+  if (edit.type === 'insertTrackMeasure') {
+    return t('palette.hint.trackBarInserted', { number: cursor.measureIndex + (edit.side === 'after' ? 2 : 1), track: name });
+  }
+  const from = edit.from?.measureIndex ?? cursor.measureIndex;
+  const [first, last] = [Math.min(from, cursor.measureIndex), Math.max(from, cursor.measureIndex)];
+  return first === last
+    ? t('palette.hint.trackBarDeleted', { number: first + 1, track: name })
+    : t('palette.hint.trackBarsDeleted', { first: first + 1, last: last + 1, count: last - first + 1, track: name });
+}
 
 /** The note values a time signature's beat can be, in order (÷ steps through them). */
 const DENOMINATORS: readonly number[] = [1, 2, 4, 8, 16, 32, 64];
