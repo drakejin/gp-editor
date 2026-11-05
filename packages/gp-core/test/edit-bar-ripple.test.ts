@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BeatAddress } from '../src/edit/addresses';
 import { deleteBeat, deleteBeatWithFlow, insertBeat, insertBeatWithFlow, setBeatDuration, setBeatDurationWithFlow } from '../src/edit/beats';
 import { setNoteFret } from '../src/edit/edit-song';
+import { buildAudioTrack } from '../src/audio-track/audio-track';
 import { isMeasureOverfull } from '../src/model/defaults';
 import type { Song } from '../src/model/song';
 import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, dur, n, play, rest, voiceLayout } from './helpers/edit-songs';
@@ -241,6 +242,26 @@ describe('a beat edit that makes a bar too long', () => {
     const twoVoices = deepFreeze(buildSong({ tracks: [[[quarters(0, 1, 2, 3), [rest(1)]], [[rest(1)], [play(1, n(4, 5))]]]] }));
     const voiced = deepFreeze({ ...twoVoices, tracks: [{ ...twoVoices.tracks[0]!, lyrics: { from: 1, text: 'a b c d e' } }] });
     expect(setBeatDuration(voiced, at(0, 3), dur(2)).tracks[0]?.lyrics?.text).toBe('a b c d e');
+  });
+
+  it('ripples a drum track as any other, and keeps the audio track’s sync points on their bars', () => {
+    // Arrange: a drum track (a note's fret is its drum key) under a backing track synced at bars 1 and 2
+    const song = bars([play(4, n(1, 36)), play(4, n(1, 38)), play(4, n(1, 36)), play(4, n(1, 38))], [play(4, n(1, 42)), rest(4), rest(2)]);
+    const drums = deepFreeze({
+      ...song,
+      tracks: [{ ...song.tracks[0]!, isPercussion: true }],
+      audioTrack: buildAudioTrack({ assetId: 'a', syncPoints: [{ measureIndex: 0, occurrence: 0, position: 0, seconds: 0 }, { measureIndex: 1, occurrence: 0, position: 0, seconds: 2 }] }),
+    });
+
+    // Act
+    const edited = insertBeat(drums, at(0, 0), 'after');
+
+    // Assert
+    expect(layout(edited, 1)).toEqual(['0:4:1/38', '960:4:1/42', '1920:4:r', '2880:4:r']);
+    expect(edited.audioTrack).toBe(drums.audioTrack);
+    const grown = setBeatDuration(edited, at(1, 1), dur(1));
+    expect(grown.measureHeaders).toHaveLength(3);
+    expect(grown.audioTrack?.syncPoints).toEqual(drums.audioTrack.syncPoints);
   });
 
   it('keeps every note and every tie through a long ripple (no time is lost)', () => {
