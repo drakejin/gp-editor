@@ -8,7 +8,7 @@ import type { Song } from '../model/song';
 import { type BeatAddress, voiceOf } from './addresses';
 import type { DurationTuplets } from '../model/defaults';
 import { type VoiceFlow, barEvents, barTicks, liftVoice, rewriteVoice } from './bar-flow';
-import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
+import { type BeatFragment, type FragmentLayout, itemEvent, untieFirst } from './beat-fragment';
 import { type VoicePosition, beatPosition, cutAt, hasVoiceSlot, runEvents } from './beat-ranges';
 import { type FittedFragment, fitFragment } from './paste-fit';
 import { updateNote } from './song-paths';
@@ -54,13 +54,32 @@ function voiceBarRoom(song: Song, flow: VoiceFlow): BarRoom {
 }
 
 /**
+ * The copied run's own bar lengths (but its last bar's), when the paste starts where the run did in its bar and lands
+ * on bars of the same time signatures: each copied over-full bar stays one bar. Undefined otherwise, or when the lengths
+ * do not fit the run (`ticks` long: they come from the clipboard).
+ */
+function copiedBarLengths(song: Song, flow: VoiceFlow, start: number, ticks: number, layout: FragmentLayout | undefined): readonly number[] | undefined {
+  const spanned = layout?.offset === start ? layout.bars.slice(0, -1) : [];
+  const isAligned = spanned.length > 0 && spanned.every((bar, k) => bar.ticks === barTicks(song, flow.firstMeasureIndex + k) && bar.length >= bar.ticks);
+  const lengths = spanned.map((bar) => bar.length);
+  return isAligned && lengths.reduce((sum, length) => sum + length, 0) - start <= ticks ? lengths : undefined;
+}
+
+/**
  * A paste's rooms: each bar takes its time signature's length, so a bar the paste writes over is written whole — an
  * over-full one too, whose extra time the paste's own beats then fill, never shifting the bars after it —; the first
- * bar keeps its own length when the paste starts past its bar line (in its over-full part).
+ * bar keeps its own length when the paste starts past its bar line (in its over-full part); a copied over-full bar
+ * keeps its length when the paste lands as the copy lay (copiedBarLengths).
  */
-function pasteBarRoom(song: Song, flow: VoiceFlow, start: number): BarRoom {
+function pasteBarRoom(song: Song, flow: VoiceFlow, start: number, copied: readonly number[] | undefined): BarRoom {
   const own = voiceBarRoom(song, flow);
-  return (measureIndex) => (measureIndex === flow.firstMeasureIndex && start >= barTicks(song, measureIndex) ? own(measureIndex) : barTicks(song, measureIndex));
+  return (measureIndex) => {
+    const length = copied?.[measureIndex - flow.firstMeasureIndex];
+    if (length !== undefined) {
+      return length;
+    }
+    return measureIndex === flow.firstMeasureIndex && start >= barTicks(song, measureIndex) ? own(measureIndex) : barTicks(song, measureIndex);
+  };
 }
 
 /** Where `ticks` of stream from `start` in bar `firstIndex` end: the bar and the offset in it (at most its room). */
@@ -212,7 +231,8 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   const flow: VoiceFlow = { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
   const { items, ...fit } = fitFragment(fragment, track);
   const inserted = untieFirst(items.map(itemEvent));
-  const written = writeEvents(song, flow, position.offset, inserted, (start) => pasteBarRoom(song, flow, start));
+  const rooms = (start: number): BarRoom => pasteBarRoom(song, flow, start, copiedBarLengths(song, flow, start, eventsTicks(inserted), fragment.layout));
+  const written = writeEvents(song, flow, position.offset, inserted, rooms);
   if (written === undefined) {
     return unchanged;
   }

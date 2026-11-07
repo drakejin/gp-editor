@@ -1,8 +1,8 @@
 import type { Beat, Measure, Song, Track } from '../model/song';
 import { type BeatAddress, isVoiceIndex, voiceOf } from './addresses';
-import { type PlacedEvent, type VoiceFlow, liftVoice, reflowVoice } from './bar-flow';
-import { type BeatFragment, type BeatFragmentItem, fragmentItem, itemEvent, settleFragmentTies, untieFirst } from './beat-fragment';
-import { type VoiceEvents, eventTicks, isFreeRest, measureGapRests } from './timeline';
+import { type PlacedEvent, type VoiceFlow, barEvents, barTicks, liftVoice, reflowVoice } from './bar-flow';
+import { type BeatFragment, type BeatFragmentItem, type FragmentLayout, fragmentItem, itemEvent, settleFragmentTies, untieFirst } from './beat-fragment';
+import { type VoiceEvents, eventTicks, eventsTicks, isFreeRest, measureGapRests } from './timeline';
 
 /** A position in a voice: a bar, and ticks from its start. */
 export interface VoicePosition {
@@ -73,11 +73,26 @@ export function runEvents(song: Song, from: BeatAddress, to: BeatAddress): reado
   return range === undefined || placed === undefined ? undefined : placed.filter((event) => isInRange(event, range));
 }
 
+/** Where the run sat in its bars, when a bar of it before its last is over-full (FragmentLayout); else undefined. */
+function runLayout(song: Song, from: BeatAddress, run: readonly PlacedEvent[]): FragmentLayout | undefined {
+  const first = run[0];
+  const last = run[run.length - 1];
+  if (first === undefined || last === undefined) {
+    return undefined;
+  }
+  const flow: VoiceFlow = { trackIndex: from.trackIndex, voiceIndex: from.voiceIndex, firstMeasureIndex: first.measureIndex };
+  const bars = Array.from({ length: last.measureIndex - first.measureIndex + 1 }, (_, k) => {
+    const measureIndex = first.measureIndex + k;
+    return { ticks: barTicks(song, measureIndex), length: eventsTicks(barEvents(song, flow, measureIndex) ?? []) };
+  });
+  return bars.slice(0, -1).some((bar) => bar.length > bar.ticks) ? { offset: first.offset, bars } : undefined;
+}
+
 /**
  * The beats from `from` to `to` (inclusive, either order, across bars) of `from`'s track and voice, as a fragment:
  * each event of the voice that starts in the run, rests included (time the voice leaves unused reads as rests), with
  * the stroke, pick stroke, chord diagram and text of its beat — and a pitched track's tuning and capo, which a paste into
- * another track places the notes by. A tie keeps only when it starts inside the run (a note tied over a bar line into
+ * another track places the notes by, and where an over-full bar of the run lay (runLayout). A tie keeps only when it starts inside the run (a note tied over a bar line into
  * the run loses it). No items when a beat is missing.
  */
 export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatFragment {
@@ -88,7 +103,8 @@ export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatF
   }
   const items = run.map((event) => fragmentItem(event.event.voice, beatOf(track, event)));
   const pitches = track.isPercussion ? {} : { tuning: track.strings.map((guitarString) => guitarString.tuning), capo: track.offset };
-  return { isPercussion: track.isPercussion, items: settleFragmentTies(items), ...pitches };
+  const layout = runLayout(song, from, run);
+  return { isPercussion: track.isPercussion, items: settleFragmentTies(items), ...pitches, ...(layout === undefined ? {} : { layout }) };
 }
 
 /**

@@ -31,6 +31,7 @@ const FRAGMENT: BeatFragment = {
   isPercussion: false,
   tuning: [64, 59, 55, 50, 45, 40],
   capo: 2,
+  layout: { offset: 960, bars: [{ ticks: 3840, length: 4800 }, { ticks: 3840, length: 3840 }] },
   items: [
     {
       duration: dur(4),
@@ -188,6 +189,11 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['an open string past the MIDI range', (value) => (value.tuning = [128, 59, 55, 50, 45, 40])],
     ['a capo that is no whole number', (value) => (value.capo = 1.5)],
     ['a capo past the MIDI range', (value) => (value.capo = 200)],
+    ['a layout without bars', (value) => (value.layout = { offset: 0, bars: [] })],
+    ['a layout at a negative offset', (value) => (value.layout = { offset: -1, bars: [{ ticks: 3840, length: 3840 }] })],
+    ['a layout bar shorter than its time signature', (value) => (value.layout = { offset: 0, bars: [{ ticks: 3840, length: 960 }] })],
+    ['a layout bar of no length', (value) => (value.layout = { offset: 0, bars: [{ ticks: 0, length: 0 }] })],
+    ['a layout that is no object', (value) => (value.layout = 'bars')],
     ['a text that is no text', (value) => (rawItem(value).text = 42)],
   ])('rejects %s', (_label, tamper) => {
     expect(parseTampered(tamper)).toBeUndefined();

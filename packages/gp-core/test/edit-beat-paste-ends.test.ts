@@ -5,7 +5,7 @@ import { pasteBeats } from '../src/edit/beat-paste';
 import { barEvents } from '../src/edit/bar-flow';
 import { copyBeats } from '../src/edit/beat-ranges';
 import { NO_STROKE, durationTicks, headerTicks } from '../src/model/defaults';
-import type { Duration, Note, Song } from '../src/model/song';
+import { type Duration, type Note, QUARTER_TIME, type Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { type EventSpec, assertEditInvariants, buildSong, deepFreeze, dur, n, play, voiceLayout } from './helpers/edit-songs';
 import { loadFixture } from './helpers/fixtures';
@@ -178,5 +178,53 @@ describe('pasteBeats: where the voice goes on after the pasted beats (⌘V, ⌘V
     const song = bars(FIRST_BAR);
     expect(pasteBeats(song, at(0, 0), fragment())).toMatchObject({ song, isPasted: false });
     expect(pasteBeats(song, at(0, 9), fragment(...quarters(1, 9)))).toMatchObject({ song, isPasted: false });
+  });
+});
+
+describe('pasteBeats: a copied over-full bar stays one bar', () => {
+  /** Track 1: a full bar, an over-full bar of five quarters, two full bars; track 2 quarter rests. */
+  function withOverfullBar(): Song {
+    const over = [...FIRST_BAR, play(4, n(1, 9))];
+    const rests = [play(4), play(4), play(4), play(4)];
+    return deepFreeze(buildSong({ tracks: [[[FIRST_BAR], [over], [NEXT_BAR], [FIRST_BAR]], [[rests], [rests], [rests], [rests]]] }));
+  }
+
+  it('records where the copied beats sat in their bars when one of them is over-full', () => {
+    const song = withOverfullBar();
+    expect(copyBeats(song, at(0, 1), at(2, 0)).layout).toEqual({ offset: QUARTER_TIME, bars: [{ ticks: 4 * QUARTER_TIME, length: 4 * QUARTER_TIME }, { ticks: 4 * QUARTER_TIME, length: 5 * QUARTER_TIME }, { ticks: 4 * QUARTER_TIME, length: 4 * QUARTER_TIME }] });
+    expect(copyBeats(song, at(2, 0), at(3, 3)).layout).toBeUndefined();
+  });
+
+  it('pastes the over-full bar into one bar at the same place in a bar, the bars after it on their bar lines', () => {
+    // Arrange
+    const song = withOverfullBar();
+
+    // Act: bars 1–4 of track 1 into track 2
+    const pasted = pasteBeats(song, at(0, 0, 0, 1), copyBeats(song, at(0, 0), at(3, 3)));
+
+    // Assert
+    expect([0, 1, 2, 3].map((m) => voiceLayout(pasted.song, 1, m, 0))).toEqual([0, 1, 2, 3].map((m) => voiceLayout(song, 0, m, 0)));
+    assertEditInvariants(pasted.song);
+  });
+
+  it('flows the over-full bar on across the bar line when pasted at another place in a bar', () => {
+    const song = withOverfullBar();
+    const pasted = pasteBeats(song, at(0, 1, 0, 1), copyBeats(song, at(0, 0), at(1, 4)));
+    expect(voiceLayout(pasted.song, 1, 2, 0)).toEqual(['0:4:1/3', '960:4:1/9', '1920:4:r', '2880:4:r']);
+  });
+
+  it('canon.gp5: the whole of track 1 pasted into track 3 reads back bar for bar, its over-full bars 60, 140, 219 and 222 too', () => {
+    // Arrange
+    const song = deepFreeze(readSong(loadFixture('guitarpro5', 'canon.gp5')));
+    const last = song.measureHeaders.length - 1;
+    const copied = copyBeats(song, at(0, 0), at(last, Math.max(0, (song.tracks[0]?.measures[last]?.beats.length ?? 1) - 1)));
+
+    // Act
+    const pasted = pasteBeats(song, at(0, 0, 0, 2), copied);
+
+    // Assert
+    const bars = song.measureHeaders.map((_, k) => k);
+    expect(bars.filter((k) => barItems(pasted.song, 2, k) !== barItems(song, 0, k))).toEqual([]);
+    expect(pasted.song.measureHeaders).toBe(song.measureHeaders);
   });
 });
