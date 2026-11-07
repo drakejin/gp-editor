@@ -375,3 +375,36 @@ describe('a bar inserted or deleted in one track (Track ▸ Insert / Delete Bar 
     expect(edit(unnamed, { type: 'edit', edit: { type: 'deleteTrackMeasure' } }).hint).toBe('Bar 1 deleted from “Track 1” only — its later bars moved one bar earlier; the other tracks are unchanged.');
   });
 });
+
+describe('a bar inserted or deleted in every track (+Bar and −Bar at All, ⌘D)', () => {
+  /** Three bars in two tracks, the cursor on track 2's bar 2. */
+  function threeBars(): EditorState {
+    const bars = [[beat(960, [note(1, 1)], WHOLE)], [beat(4800, [note(1, 2)], WHOLE)], [beat(8640, [note(1, 3)], WHOLE)]];
+    const opened = editorReducer(INITIAL_EDITOR_STATE, { type: 'loaded', document: { fileName: 'a.gp5', path: '/a.gp5', song: withTrack(makeSong(bars), bars) } });
+    return edit(opened, { type: 'placeCursor', cursor: { ...opened.cursor!, trackIndex: 1, measureIndex: 1 } });
+  }
+
+  it('says the bar went into every track, in one undo step', () => {
+    // Act
+    const inserted = edit(threeBars(), { type: 'edit', edit: { type: 'insertMeasure' } });
+
+    // Assert
+    expect(song(inserted).measureHeaders).toHaveLength(4);
+    expect(inserted.past).toHaveLength(1);
+    expect(inserted.hint).toBe('Bar 3 inserted in every track.');
+  });
+
+  it('says which bars left every track: the cursor’s, or the selected ones', () => {
+    // Arrange
+    const start = threeBars();
+    const selected = edit(start, { type: 'selectTo', cursor: { ...start.cursor!, measureIndex: 2 } });
+
+    // Act
+    const one = edit(start, { type: 'edit', edit: { type: 'deleteMeasure' } });
+    const two = edit(selected, { type: 'edit', edit: { type: 'deleteMeasure' } });
+
+    // Assert
+    expect([song(one).measureHeaders.length, one.hint]).toEqual([2, 'Bar 2 deleted from every track.']);
+    expect([song(two).measureHeaders.length, two.hint]).toEqual([1, 'Bars 2–3 deleted from every track.']);
+  });
+});
