@@ -195,6 +195,20 @@ describe('command registry', () => {
     expect(find('track.insertBarAfter').isEnabled(ON_NOTE)).toBe(true);
   });
 
+  it('lists the palette’s Bar group switch, All tracks and This track, as rows of their own, and finds the bar in this track by the palette’s words', () => {
+    // Act
+    const [all, track] = [find('palette.barScopeAll'), find('palette.barScopeTrack')];
+
+    // Assert
+    expect(all).toMatchObject({ title: 'All tracks: +Bar and −Bar add and delete bars in every track', group: 'Bar', command: { type: 'setBarScope', scope: 'all' } });
+    expect(track).toMatchObject({ title: 'This track: +Bar and −Bar add and delete bars in the cursor’s track only, the other tracks unchanged', command: { type: 'setBarScope', scope: 'track' } });
+    expect(track.keywords).toEqual(expect.arrayContaining(['This track', 'palette']));
+    expect(track.keywords.some((keyword) => keyword.startsWith('이 트랙:'))).toBe(true);
+    expect(track.isEnabled(NO_DOCUMENT)).toBe(true);
+    expect(find('track.insertBarAfter').keywords).toEqual(expect.arrayContaining(['palette', '+bar', 'this']));
+    expect(find('track.deleteBar').keywords).toEqual(expect.arrayContaining(['palette', '−bar', 'this']));
+  });
+
   it('lists a palette tool that does what a key does once, with the key', () => {
     const commands = allCommands().flatMap((command) => (command.command === undefined ? [] : [JSON.stringify(command.command)]));
     expect(new Set(commands).size).toBe(commands.length);

@@ -44,6 +44,7 @@ export function useWindowCommands({ base, media, files, tools, overlays, cursorT
     onComposePanel: tools.compose.open,
     onAiEditPanel: tools.aiEdit.open,
     onSongsterrPanel: tools.songsterr.open,
+    onBarScope: chrome.setBarScope,
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
     closeOverlay: overlays.closeOverlay,
     isOverlayOpen: overlays.isOverlayOpen,

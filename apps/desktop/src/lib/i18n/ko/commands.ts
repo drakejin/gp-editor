@@ -162,6 +162,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
 
   'commands.key.space': '스페이스',
   'commands.key.dragNote': '드래그 ↑ / ↓',
+  'commands.key.paletteBars': '+마디 / −마디',
 
   'commands.palette.accessibility': '명령 팔레트',
   'commands.palette.placeholder': '명령을 입력하세요 (예: pdf 내보내기, 조옮김, ㅈㅇㄱ)',
@@ -226,6 +227,7 @@ export const KO_COMMANDS: Catalog<typeof EN_COMMANDS> = {
   'commands.shortcuts.deleteNotes': '음표 또는 선택한 음표 삭제 (박은 쉼표로 남음)',
   'commands.shortcuts.deleteBars': '마디 또는 선택한 마디 삭제',
   'commands.shortcuts.trackBars': '이 트랙에만 빈 마디 넣기 / 이 트랙의 마디(또는 선택한 마디)만 삭제 (트랙 메뉴)',
+  'commands.shortcuts.paletteBars': '팔레트의 마디 그룹: 커서가 있는 마디 뒤에 마디 넣기 / 마디(또는 선택한 마디) 삭제 — 모든 트랙에, 또는 옆의 스위치를 이 트랙에 두면 이 트랙에만',
   'commands.shortcuts.insertBeat': '커서 뒤에 박 넣기',
   'commands.shortcuts.chord': '코드 다이어그램… (그리드, 이름, 코드 라이브러리)',
   'commands.shortcuts.annotation': '메모… (박에 남기는 메모, 보표 위나 아래 상자). 박을 오른쪽 클릭하거나 ⌃-클릭해도 됩니다',

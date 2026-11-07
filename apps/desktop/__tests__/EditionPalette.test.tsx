@@ -4,6 +4,7 @@ import { BEND_PRESETS, type Song, type StringAddress } from '@gp-editor/core';
 import { ChromeButton } from '../src/components/chrome/ChromeButton';
 import { EditionPalette } from '../src/components/palette/EditionPalette';
 import { paletteGroups } from '../src/components/palette/palette-groups';
+import type { BarScope } from '../src/lib/key-commands';
 import { voiceTint } from '../src/score/voices';
 import { PALETTE } from '../test-support/score-helpers';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -13,16 +14,29 @@ const SONG: Song = makeSong([[beat(960, [{ ...note(2, 5, { palmMute: true, bend:
 const ON_NOTE: StringAddress = { trackIndex: 0, measureIndex: 0, beatIndex: 0, voiceIndex: 0, string: 2 };
 const ON_EMPTY_STRING: StringAddress = { ...ON_NOTE, string: 4 };
 
-/** `null`: no cursor. */
-function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false, hasSelection = false) {
+/** `null`: no cursor; `barScope`: the Bar group's switch (where +Bar and −Bar act), All when not given. */
+function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMultivoice = false, hasSelection = false, barScope?: BarScope) {
   const onEdit = jest.fn();
   const onAction = jest.fn();
   const onOpenPanel = jest.fn();
   const onOpenChordPanel = jest.fn();
+  const onCommand = jest.fn();
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(
-      <EditionPalette palette={PALETTE} song={song} cursor={cursor ?? undefined} isMultivoice={isMultivoice} hasSelection={hasSelection} onEdit={onEdit} onAction={onAction} onOpenPanel={onOpenPanel} onOpenChordPanel={onOpenChordPanel} />,
+      <EditionPalette
+        palette={PALETTE}
+        song={song}
+        cursor={cursor ?? undefined}
+        isMultivoice={isMultivoice}
+        hasSelection={hasSelection}
+        barScope={barScope}
+        onEdit={onEdit}
+        onAction={onAction}
+        onOpenPanel={onOpenPanel}
+        onOpenChordPanel={onOpenChordPanel}
+        onCommand={onCommand}
+      />,
     );
   });
   const buttons = () => renderer.root.findAllByType(ChromeButton);
@@ -39,7 +53,7 @@ function render(cursor: StringAddress | null = ON_NOTE, song: Song = SONG, isMul
   const pressTooltip = (tooltip: string) => ReactTestRenderer.act(() => buttons().find((button) => button.props.tooltip === tooltip)?.props.onPress());
   const groupTitles = new Set(paletteGroups().map((group) => group.title.toUpperCase()));
   const titles = () => renderer.root.findAllByType(Text).map((text) => [text.props.children].flat().join('')).filter((text) => groupTitles.has(text));
-  return { renderer, onEdit, onAction, onOpenPanel, onOpenChordPanel, tool, byLabel, press, pressLabel, pressTooltip, titles };
+  return { renderer, onEdit, onAction, onOpenPanel, onOpenChordPanel, onCommand, tool, byLabel, press, pressLabel, pressTooltip, titles };
 }
 
 describe('EditionPalette layout', () => {
@@ -167,6 +181,68 @@ describe('EditionPalette state at the cursor', () => {
       [{ type: 'insertMeasure' }],
       [{ type: 'deleteMeasure' }],
     ]);
+  });
+
+  it('puts the switch between every track and the cursor’s track first in the Bar group, +Bar and −Bar beside it on a row of their own', () => {
+    // Act
+    const bar = paletteGroups().find((group) => group.id === 'bar');
+
+    // Assert
+    expect(bar?.tools.slice(0, 5).map((tool) => tool.id)).toEqual(['barScopeAll', 'barScopeTrack', 'insertMeasure', 'deleteMeasure', 'repeatOpen']);
+    expect(bar?.tools.filter((tool) => tool.endsRow === true).map((tool) => tool.id)).toEqual(['deleteMeasure']);
+    expect([render().tool('barScopeAll').props.label, render().tool('barScopeTrack').props.label]).toEqual(['All', 'This track']);
+    // The row ends after −Bar whatever its width: what follows starts the next row.
+    expect(render().renderer.root.findAll((node) => node.props.testID === 'palette-deleteMeasure-row-end' && typeof node.type === 'string')).toHaveLength(1);
+  });
+
+  it('lights the side of the switch +Bar and −Bar follow, All when nothing else was chosen', () => {
+    // Act
+    const [all, track] = [render(), render(ON_NOTE, SONG, false, false, 'track')];
+
+    // Assert
+    expect([all.tool('barScopeAll').props.isActive, all.tool('barScopeTrack').props.isActive]).toEqual([true, false]);
+    expect([track.tool('barScopeAll').props.isActive, track.tool('barScopeTrack').props.isActive]).toEqual([false, true]);
+  });
+
+  it('switches where +Bar and −Bar act as a window command, without a cursor too', () => {
+    // Arrange
+    const palette = render(null);
+
+    // Act
+    palette.press('barScopeTrack');
+    palette.press('barScopeAll');
+
+    // Assert
+    expect(palette.tool('barScopeTrack').props.isEnabled).toBe(true);
+    expect(palette.onCommand.mock.calls).toEqual([[{ type: 'setBarScope', scope: 'track' }], [{ type: 'setBarScope', scope: 'all' }]]);
+    expect(palette.onEdit).not.toHaveBeenCalled();
+  });
+
+  it('adds an empty bar after the cursor’s bar and deletes bars in the cursor’s track only with the switch at This track, clicked or ⌥-clicked', () => {
+    // Arrange
+    const palette = render(ON_NOTE, SONG, false, false, 'track');
+    const click = (id: string, altKey: boolean) => ReactTestRenderer.act(() => palette.tool(id).props.onPress({ nativeEvent: { altKey } }));
+
+    // Act
+    click('insertMeasure', false);
+    click('deleteMeasure', false);
+    click('insertMeasure', true);
+
+    // Assert
+    expect(palette.onEdit.mock.calls).toEqual([[{ type: 'insertTrackMeasure', position: 'after' }], [{ type: 'deleteTrackMeasure' }], [{ type: 'insertTrackMeasure', position: 'after' }]]);
+  });
+
+  it('says in +Bar’s and −Bar’s tooltips which tracks they change, and shows ⌘D only where −Bar does what ⌘D does', () => {
+    // Arrange
+    const palette = render(ON_NOTE, SONG, false, false, 'track');
+    const texts = (id: string) => palette.tool(id).findAllByType(Text).map((text) => text.props.children);
+
+    // Act / Assert
+    expect(texts('deleteMeasure')).toEqual(['−Bar']);
+    expect(palette.tool('insertMeasure').props.tooltip).toBe('Add an empty bar after the cursor’s bar, in its track only — the other tracks unchanged, the song one bar longer');
+    expect(palette.tool('deleteMeasure').props.tooltip).toBe('Delete the cursor’s bar, or the selected bars, in its track only — its later bars moving earlier, the other tracks unchanged (⌥⌘⌫)');
+    expect(palette.tool('barScopeTrack').props.tooltip).toBe('This track: +Bar and −Bar add and delete bars in the cursor’s track only, the other tracks unchanged');
+    expect(palette.tool('barScopeAll').props.tooltip).toBe('All tracks: +Bar and −Bar add and delete bars in every track');
   });
 
   it('runs a tool without an ⌥ variant as it is on an ⌥-click', () => {

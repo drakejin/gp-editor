@@ -1,5 +1,6 @@
 import { paletteGroups } from '../src/components/palette/palette-groups';
-import type { PaletteGroup } from '../src/components/palette/palette-tools';
+import { type PaletteGroup, toolInScope } from '../src/components/palette/palette-tools';
+import type { BarScope } from '../src/lib/key-commands';
 import { type Language, withLanguage } from '../src/lib/i18n/i18n';
 import { DEFAULT_WINDOW_HEIGHT, PALETTE_GROUPS_TOP, PALETTE_INNER_WIDTH, type TextRequest, groupHeight, groupRows, textKey, toolTexts } from '../test-support/palette-fit';
 import { PALETTE_TEXT_WIDTHS } from '../test-support/palette-text-widths';
@@ -17,11 +18,13 @@ declare const process: {
 };
 
 const LANGUAGES: readonly Language[] = ['en', 'ko'];
+const SCOPES: readonly BarScope[] = ['all', 'track'];
 
 const groupsIn = (language: Language): readonly PaletteGroup[] => withLanguage(language, () => paletteGroups());
 
+/** Every text the groups draw, with the Bar group's switch at either side (−Bar has no key at This track). */
 function textsOf(groups: readonly PaletteGroup[]): readonly TextRequest[] {
-  return groups.flatMap((group) => group.tools.flatMap((tool) => toolTexts(tool, group)));
+  return groups.flatMap((group) => group.tools.flatMap((tool) => SCOPES.flatMap((scope) => toolTexts(toolInScope(tool, scope), group))));
 }
 
 function widthOf(request: TextRequest): number {
@@ -63,14 +66,27 @@ describe('the edition palette at the default 1280 × 800 window', () => {
     expect(height).toBeLessThanOrEqual(room);
   });
 
-  it.each(LANGUAGES)('puts ONLINE TOOLS’ three tools on one row, and keeps the Bar group’s tools in two rows (%s)', (language) => {
+  it.each(LANGUAGES)('puts ONLINE TOOLS’ three tools on one row, and keeps the Bar group’s tools in three rows (%s)', (language) => {
     // Arrange
     const groups = groupsIn(language);
     const rowsOf = (id: string) => groupRows(groups.find((group) => group.id === id) as PaletteGroup, widthOf);
 
     // Act / Assert
     expect(rowsOf('online').map((row) => row.length)).toEqual([3]);
-    expect(rowsOf('bar')).toHaveLength(2);
+    expect(rowsOf('bar')).toHaveLength(3);
     expect(Math.max(...groups.flatMap((group) => groupRows(group, widthOf)).map((row) => row.reduce((sum, width) => sum + width, 0)))).toBeLessThanOrEqual(PALETTE_INNER_WIDTH);
+  });
+
+  it.each(SCOPES)('puts the Bar group’s switch, +Bar and −Bar alone on its first row with the switch at %s, in both languages', (scope) => {
+    // Arrange
+    const barIn = (language: Language) => groupsIn(language).find((group) => group.id === 'bar') as PaletteGroup;
+    const scoped = (group: PaletteGroup): PaletteGroup => ({ ...group, tools: group.tools.map((tool) => toolInScope(tool, scope)) });
+
+    // Act
+    const rows = LANGUAGES.map((language) => groupRows(scoped(barIn(language)), widthOf));
+
+    // Assert: the same rows either way — a click on the switch moves nothing under the pointer.
+    expect(rows.map((bar) => bar.map((row) => row.length))).toEqual(LANGUAGES.map((language) => groupRows(barIn(language), widthOf).map((row) => row.length)));
+    expect(rows.map((bar) => bar[0]?.length)).toEqual([4, 4]);
   });
 });

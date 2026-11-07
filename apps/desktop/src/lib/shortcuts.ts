@@ -72,6 +72,8 @@ const BEAT_ROWS: readonly ShortcutRow[] = [
   row('⌘D', 'commands.shortcuts.deleteBars', key('d', { metaKey: true })),
   // The Track menu's own keys (its items take them): no press of the score's.
   row('⌥⌘I / ⌥⌘⌫', 'commands.shortcuts.trackBars'),
+  // The palette's buttons, which follow the switch beside them: no key of their own.
+  row({ word: 'commands.key.paletteBars' }, 'commands.shortcuts.paletteBars'),
   row('I', 'commands.shortcuts.insertBeat', key('i')),
   row('K', 'commands.shortcuts.chord', key('k')),
   row('J', 'commands.shortcuts.annotation', key('j')),
