@@ -8,9 +8,14 @@ export const HISTORY_LIMIT = 200;
 
 /** The document with `next` as its song, the previous one kept for undo; the same state when nothing changed. */
 export function recordSong(state: EditorState, document: OpenDocument, next: Song): EditorState {
-  if (next === document.song) {
-    return state;
-  }
+  return next === document.song ? state : recordStep(state, document, next);
+}
+
+/**
+ * The document with `next` as its song and one undo step, also when `next` is the song it had: an action the user sees
+ * as a step of its own (a paste of what was there) is undone as one.
+ */
+export function recordStep(state: EditorState, document: OpenDocument, next: Song): EditorState {
   return {
     ...state,
     document: { ...document, song: next },

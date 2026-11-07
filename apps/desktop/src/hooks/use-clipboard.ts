@@ -1,6 +1,7 @@
 import { type Dispatch, useCallback } from 'react';
 import { type BeatFragment, parseBeatFragment, serializeBeatFragment } from '@gp-editor/core';
 import { errorMessage } from '../lib/errors';
+import { t } from '../lib/i18n/i18n';
 import { readBeats, writeBeats } from '../native/clipboard';
 import type { EditorAction, EditorState } from '../state/editor';
 import { selectedFragment, selectionSummary } from '../state/selection';
@@ -14,16 +15,13 @@ export interface Clipboard {
    * the clipboard then fails, the error banner says so and ⌘Z brings the beats back.
    */
   readonly cut: () => void;
-  /** Inserts the beats on the clipboard at the cursor; anything else on the clipboard is left alone. */
+  /** Writes the beats on the clipboard over the cursor's track from the cursor; the hint says when there are none to paste. */
   readonly paste: () => void;
 }
 
-/** Longest clipboard text read as beats (far above MAX_FRAGMENT_ITEMS beats of JSON). */
-export const MAX_CLIPBOARD_TEXT_LENGTH = 16 * 1024 * 1024;
-
-/** Beats from the clipboard's text, checked (parseBeatFragment); undefined for no text, other text or anything invalid. */
+/** Beats from the clipboard's text, however many, checked (parseBeatFragment); undefined for no text, other text or anything invalid. */
 export function parseClipboardText(text: string | null): BeatFragment | undefined {
-  if (text === null || text.length > MAX_CLIPBOARD_TEXT_LENGTH) {
+  if (text === null) {
     return undefined;
   }
   try {
@@ -68,6 +66,9 @@ export function useClipboard(state: EditorState, dispatch: Dispatch<EditorAction
         const fragment = parseClipboardText(text);
         if (fragment !== undefined) {
           dispatch({ type: 'pasteBeats', fragment });
+        } else {
+          // Never silent: no beats copied, or beats that cannot be read.
+          dispatch({ type: 'showHint', hint: t(text === null ? 'palette.hint.pasteEmptyClipboard' : 'palette.hint.pasteClipboardUnreadable') });
         }
       })
       .catch(reportFailure);

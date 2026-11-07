@@ -23,12 +23,13 @@ import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navi
 import { pitchNameInKey } from '../lib/pitch';
 import { heldStringHint, refusalHint, stringMoveHint, trackBarHint } from './edit-hints';
 import type { EditorState } from './editor';
-import { recordSong } from './editor-history';
+import { recordSong, recordStep } from './editor-history';
 import { editAtCursor, editAtCursorWithFlow, withBarRests } from './empty-bars';
 import { barFlowHint } from './flow-hints';
 import { withSelectionStart } from './mark-edits';
 import { droneFretHint, playedNotesHint, storedFret } from './note-entry';
-import { type ClipboardEdit, cutSelectionAt, pasteBeatsAt, pasteRefusal } from './selection';
+import { pasteBeatsAt } from './paste-edits';
+import { type ClipboardEdit, cutSelectionAt } from './selection';
 import { type SongEdit, applySongEditWithFlow, insertedBarIndex } from './song-edits';
 
 // The editor's edits at the cursor (editor.ts routes the actions here): the cursor follows what they insert or remove.
@@ -274,15 +275,21 @@ export function applyCursorEdit(state: EditorState, cursorEdit: SongEdit): Edito
   return { ...edited, cursor: cursorAfter(before, song, edited.cursor, edit), hint: trackHint ?? barFlowHint(flow, edited.cursor.measureIndex) };
 }
 
-/** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */
+/**
+ * A cut or paste (one undo step — for a paste of what was there too): the cursor goes where the edit says, the selection
+ * is gone; one that does nothing leaves only its hint.
+ */
 function applyClipboardEdit(state: EditorState, edit: (song: Song, cursor: StringAddress) => ClipboardEdit): EditorState {
   const { document, cursor } = state;
   if (document === undefined || cursor === undefined) {
     return state;
   }
   const result = edit(document.song, cursor);
-  const recorded = recordSong(state, document, result.song);
-  return recorded === state ? state : { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: result.hint };
+  const recorded = result.isStep === true ? recordStep(state, document, result.song) : recordSong(state, document, result.song);
+  if (recorded === state) {
+    return result.hint === undefined || result.hint === state.hint ? state : { ...state, hint: result.hint };
+  }
+  return { ...recorded, cursor: result.cursor, selectionAnchor: undefined, hint: result.hint };
 }
 
 /** Cuts the selected beats (the cursor's beat when none are selected): rests take their place, nothing moves. */
@@ -290,10 +297,7 @@ export function cutSelection(state: EditorState): EditorState {
   return applyClipboardEdit(state, (song, cursor) => cutSelectionAt(song, cursor, state.selectionAnchor));
 }
 
-/** Pastes at the cursor (selection.ts pasteBeatsAt); when nothing changes (drums and other tracks, …), the hint says why. */
+/** Pastes at the cursor (paste-edits.ts pasteBeatsAt): the cursor goes on past the pasted beats; the hint says what happened. */
 export function pasteBeats(state: EditorState, fragment: BeatFragment): EditorState {
-  const pasted = applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
-  const { document, cursor } = state;
-  const hint = pasted !== state || document === undefined || cursor === undefined ? undefined : (pasteRefusal(document.song, cursor, fragment) ?? t('palette.hint.pasteUnchanged'));
-  return hint === undefined || hint === state.hint ? pasted : { ...state, hint };
+  return applyClipboardEdit(state, (song, cursor) => pasteBeatsAt(song, cursor, fragment));
 }
