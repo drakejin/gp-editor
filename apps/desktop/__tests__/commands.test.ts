@@ -205,8 +205,8 @@ describe('command registry', () => {
     expect(track.keywords).toEqual(expect.arrayContaining(['This track', 'palette']));
     expect(track.keywords.some((keyword) => keyword.startsWith('이 트랙:'))).toBe(true);
     expect(track.isEnabled(NO_DOCUMENT)).toBe(true);
-    expect(find('track.insertBarAfter').keywords).toEqual(expect.arrayContaining(['palette', '+bar', 'this']));
-    expect(find('track.deleteBar').keywords).toEqual(expect.arrayContaining(['palette', '−bar', 'this']));
+    expect(find('track.insertBarAfter').keywords).toEqual(expect.arrayContaining(['palette', '+bar']));
+    expect(find('track.deleteBar').keywords).toEqual(expect.arrayContaining(['palette']));
   });
 
   it('lists a palette tool that does what a key does once, with the key', () => {

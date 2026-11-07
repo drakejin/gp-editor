@@ -23,7 +23,7 @@ interface WindowCommandSources {
 }
 
 export function useWindowCommands({ base, media, files, tools, overlays, cursorTools }: WindowCommandSources): WindowCommands {
-  const { state, dispatch, chrome, keyboardView } = base;
+  const { state, dispatch, chrome, keyboardView, focusScore } = base;
   const { documents } = files;
   const editor = useEditorCommands({
     state,
@@ -44,7 +44,11 @@ export function useWindowCommands({ base, media, files, tools, overlays, cursorT
     onComposePanel: tools.compose.open,
     onAiEditPanel: tools.aiEdit.open,
     onSongsterrPanel: tools.songsterr.open,
-    onBarScope: chrome.setBarScope,
+    // The palette's Bar group switch: the keyboard goes back to the score, as after the palette's edits.
+    onBarScope: (scope) => {
+      chrome.setBarScope(scope);
+      focusScore();
+    },
     onMarkSyncPoint: cursorTools.audioLane.markSyncPoint,
     closeOverlay: overlays.closeOverlay,
     isOverlayOpen: overlays.isOverlayOpen,

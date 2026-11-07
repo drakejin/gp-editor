@@ -227,9 +227,35 @@ describe('EditionPalette state at the cursor', () => {
     click('insertMeasure', false);
     click('deleteMeasure', false);
     click('insertMeasure', true);
+    click('deleteMeasure', true);
 
     // Assert
-    expect(palette.onEdit.mock.calls).toEqual([[{ type: 'insertTrackMeasure', position: 'after' }], [{ type: 'deleteTrackMeasure' }], [{ type: 'insertTrackMeasure', position: 'after' }]]);
+    expect(palette.onEdit.mock.calls).toEqual([
+      [{ type: 'insertTrackMeasure', position: 'after' }],
+      [{ type: 'deleteTrackMeasure' }],
+      [{ type: 'insertTrackMeasure', position: 'after' }],
+      [{ type: 'deleteTrackMeasure' }],
+    ]);
+  });
+
+  it('turns +Bar and −Bar into their one-track selves when the switch moves to This track, and back', () => {
+    // Arrange
+    const palette = render();
+    const props = { palette: PALETTE, song: SONG, cursor: ON_NOTE, onEdit: palette.onEdit, onAction: palette.onAction, onOpenPanel: palette.onOpenPanel, onCommand: palette.onCommand };
+    const shown = () => ({ tooltip: palette.tool('insertMeasure').props.tooltip, keys: palette.tool('deleteMeasure').findAllByType(Text).map((text) => text.props.children) });
+    const before = shown();
+
+    // Act
+    ReactTestRenderer.act(() => palette.renderer.update(<EditionPalette {...props} barScope="track" />));
+    const atTrack = shown();
+    palette.press('insertMeasure');
+    ReactTestRenderer.act(() => palette.renderer.update(<EditionPalette {...props} barScope="all" />));
+
+    // Assert
+    expect(atTrack).toEqual({ tooltip: 'Add an empty bar after the cursor’s bar, in its track only — the other tracks unchanged, the song one bar longer', keys: ['−Bar'] });
+    expect(palette.onEdit).toHaveBeenCalledWith({ type: 'insertTrackMeasure', position: 'after' });
+    expect(shown()).toEqual(before);
+    expect(before.keys).toEqual(['−Bar', '⌘D']);
   });
 
   it('says in +Bar’s and −Bar’s tooltips which tracks they change, and shows ⌘D only where −Bar does what ⌘D does', () => {

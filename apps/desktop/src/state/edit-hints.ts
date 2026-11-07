@@ -19,7 +19,7 @@ function deletedBars(cursor: StringAddress, from: BeatPlace | undefined): { read
  */
 export function barHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
   if (edit.type === 'insertMeasure') {
-    return t('palette.hint.barInserted', { number: cursor.measureIndex + 2 });
+    return t('palette.hint.barInserted', { number: insertedBarIndex(cursor.measureIndex, 'after') + 1 });
   }
   if (edit.type === 'deleteMeasure') {
     const { first, last } = deletedBars(cursor, edit.from);

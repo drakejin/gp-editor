@@ -387,9 +387,14 @@ describe('a bar inserted or deleted in every track (+Bar and −Bar at All, ⌘D
   it('says the bar went into every track, in one undo step', () => {
     // Act
     const inserted = edit(threeBars(), { type: 'edit', edit: { type: 'insertMeasure' } });
+    const frets = (trackIndex: number) => [0, 1, 2, 3].map((measureIndex) => findNote(song(inserted), { trackIndex, measureIndex, beatIndex: 0, voiceIndex: 0, string: 1 })?.fret);
 
     // Assert
     expect(song(inserted).measureHeaders).toHaveLength(4);
+    expect([frets(0), frets(1)]).toEqual([
+      [1, 2, undefined, 3],
+      [1, 2, undefined, 3],
+    ]);
     expect(inserted.past).toHaveLength(1);
     expect(inserted.hint).toBe('Bar 3 inserted in every track.');
   });

@@ -1,9 +1,9 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { Fragment, memo, useCallback, useMemo, useState } from 'react';
 import { type GestureResponderEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Song, StringAddress } from '@gp-editor/core';
 import { useT } from '../../hooks/use-i18n';
 import { useStableCallback } from '../../hooks/use-stable-callback';
-import type { BarScope, KeyCommand, NotePanel } from '../../lib/key-commands';
+import { type BarScope, DEFAULT_BAR_SCOPE, type KeyCommand, type NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { SongEdit } from '../../state/song-edits';
 import type { Palette } from '../../theme';
@@ -17,7 +17,7 @@ export const EDITION_PALETTE_WIDTH = 214;
 /**
  * Rows of tools and steppers are this tall (the chrome's buttons are 26), so every group shows at the default window
  * (1280 × 800, English and Korean: __tests__/palette-fit.test.ts lays the groups out with these measures) — 22.5, not
- * 23, since the Bar group's switch, +Bar and −Bar took a row of their own: 693 of 694 points.
+ * 23, since the Bar group's switch, +Bar and −Bar took a row of their own.
  */
 export const PALETTE_ROW_HEIGHT = 22.5;
 
@@ -75,7 +75,7 @@ export interface EditionPaletteProps {
  * note, beat or bar has.
  */
 function EditionPaletteView(props: EditionPaletteProps) {
-  const { palette, song, cursor, isMultivoice = false, isDesignMode = false, hasSelection = false, barScope = 'all', onEdit, onAction, onOpenPanel, isExpressionTextOpen = false } = props;
+  const { palette, song, cursor, isMultivoice = false, isDesignMode = false, hasSelection = false, barScope = DEFAULT_BAR_SCOPE, onEdit, onAction, onOpenPanel, isExpressionTextOpen = false } = props;
   // The groups' texts are built in the shown language (useT re-renders the palette when it changes).
   useT();
   const context = { ...paletteContext(song, cursor), isMultivoice, isDesignMode, hasSelection, barScope };
@@ -138,19 +138,20 @@ function GroupView({ palette, group, context, openToolId, onPress, onChoose, onE
     <View style={[styles.group, { borderColor: palette.chromeBorder }]} accessibilityLabel={group.title}>
       <Text style={[styles.groupTitle, { color: palette.chromeMuted }]}>{group.title.toUpperCase()}</Text>
       <View style={styles.tools}>
-        {tools.map((tool) => [
-          <ToolButton
-            key={tool.id}
-            palette={palette}
-            tool={tool}
-            width={tool.width ?? group.toolWidth}
-            isEnabled={isToolEnabled(tool, context)}
-            isActive={tool.id === openToolId || (tool.isActive?.(context) ?? false)}
-            onPress={onPress}
-          />,
-          // A row of its own: the next tool starts the next row.
-          tool.endsRow === true ? <View key={`${tool.id}-row-end`} testID={`palette-${tool.id}-row-end`} style={styles.rowEnd} /> : null,
-        ])}
+        {tools.map((tool) => (
+          <Fragment key={tool.id}>
+            <ToolButton
+              palette={palette}
+              tool={tool}
+              width={tool.width ?? group.toolWidth}
+              isEnabled={isToolEnabled(tool, context)}
+              isActive={tool.id === openToolId || (tool.isActive?.(context) ?? false)}
+              onPress={onPress}
+            />
+            {/* A row of its own: the next tool starts the next row. */}
+            {tool.endsRow === true ? <View testID={`palette-${tool.id}-row-end`} style={styles.rowEnd} /> : null}
+          </Fragment>
+        ))}
       </View>
       {open?.run.kind === 'options' ? <PaletteOptionStrip palette={palette} options={open.run.options} context={context} onChoose={onChoose} /> : null}
       {open?.run.kind === 'text' ? <PaletteTextField palette={palette} key={open.id} run={open.run} context={context} onChoose={onChoose} /> : null}

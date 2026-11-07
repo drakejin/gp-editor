@@ -15,6 +15,9 @@ export type NotePanel = 'vibrato' | 'bend' | 'tremoloBar';
 /** Where the palette's +Bar and −Bar add and delete bars: every track, or the cursor's track only (the Bar group's switch). */
 export type BarScope = 'all' | 'track';
 
+/** Every track: where +Bar and −Bar act until the switch says otherwise (they did before it was there). */
+export const DEFAULT_BAR_SCOPE: BarScope = 'all';
+
 /**
  * What a key press does: an editor action, a playback control (play, the playback tempo), a jump to another bar, a
  * zoom step, a note panel, or the clipboard.

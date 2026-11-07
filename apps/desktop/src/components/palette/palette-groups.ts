@@ -12,7 +12,7 @@ import {
   vibratoOf,
 } from '@gp-editor/core';
 import { type MessageKey, memoByLanguage, t } from '../../lib/i18n/i18n';
-import { type BarScope, SEMITONE_COMMANDS } from '../../lib/key-commands';
+import { type BarScope, DEFAULT_BAR_SCOPE, SEMITONE_COMMANDS } from '../../lib/key-commands';
 import { parseTempoText } from '../../lib/practice-tempo';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import { voiceTint } from '../../score/voices';
@@ -189,7 +189,7 @@ function barSteppers(): readonly PaletteStepper[] {
 
 /** One side of the Bar group's switch: +Bar and −Bar in every track, or in the cursor's track only; lit when chosen. */
 function barScopeTool(barScope: BarScope, id: string, face: MessageKey, tooltip: MessageKey): PaletteTool {
-  return { id, face: t(face), tooltip: t(tooltip), scope: 'always', run: { kind: 'command', command: { type: 'setBarScope', scope: barScope } }, isActive: (c) => (c.barScope ?? 'all') === barScope };
+  return { id, face: t(face), tooltip: t(tooltip), scope: 'always', run: { kind: 'command', command: { type: 'setBarScope', scope: barScope } }, isActive: (c) => (c.barScope ?? DEFAULT_BAR_SCOPE) === barScope };
 }
 
 /**
