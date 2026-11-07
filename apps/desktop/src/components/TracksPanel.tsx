@@ -42,6 +42,12 @@ export interface TracksPanelProps {
   readonly onSelectTrack: (trackIndex: number) => void;
   /** A bar cell (or a bar number / section with the selected track) was clicked. */
   readonly onSelectBar: (trackIndex: number, measureIndex: number) => void;
+  /** A drag across a track's cells: its bars from the pressed one to the one under the pointer are selected. */
+  readonly onSelectBars?: (trackIndex: number, fromMeasureIndex: number, toMeasureIndex: number) => void;
+  /** A ⇧-click on a bar: the selection grows to it (whole bars). */
+  readonly onExtendBars?: (trackIndex: number, measureIndex: number) => void;
+  /** The selected beats' bars, shown on the selected track's cells. */
+  readonly selectedBars?: { readonly fromMeasureIndex: number; readonly toMeasureIndex: number };
   /** A bar cell was right-clicked or ⌃-clicked: its menu opens at `anchor` (window points); none: no menu. */
   readonly onContextBar?: (trackIndex: number, measureIndex: number, anchor: PanelAnchor) => void;
   readonly onSetTrackMute: (trackIndex: number, isMute: boolean) => void;
@@ -158,9 +164,59 @@ export const TracksPanel = memo(TracksPanelView);
 /** The right mouse button, as onAuxClick reports it (a middle click is 1). */
 const RIGHT_BUTTON = 2;
 
-/** The bar map's clicks: a cell goes there; a right-click or ⌃-click on a cell opens its menu (when there is one). */
-function useBarMapPointer({ song, selectedTrackIndex, onSelectBar, onContextBar }: TracksPanelProps) {
+/** A press on a track's cell, followed by the pointer: where it went down and the last bar it selected to. */
+interface BarDrag {
+  readonly trackIndex: number;
+  readonly measureIndex: number;
+  readonly x: number;
+  readonly y: number;
+  readonly pageX: number;
+  readonly lastMeasureIndex: number;
+}
+
+/** The track (the selected one off the cells) and bar at a point of the map; undefined past the bars. */
+function barAt(song: Song, selectedTrackIndex: number, x: number, y: number): { readonly trackIndex: number; readonly measureIndex: number } | undefined {
+  const hit = hitTestBarMap(song, x, y);
+  return hit === undefined ? undefined : { trackIndex: 'trackIndex' in hit ? hit.trackIndex : selectedTrackIndex, measureIndex: hit.measureIndex };
+}
+
+/**
+ * A drag across a track's cells (GP8's Global View): from the bar it went down on to the one under the pointer, along
+ * that track, once per bar it reaches. `isDragging` stays true until the next press, so the release's press is not a click.
+ */
+function useBarDrag({ song, onSelectBars }: TracksPanelProps) {
+  const drag = useRef<BarDrag | undefined>(undefined);
+  const isDragging = useRef(false);
+  const onPressIn = (event: GestureResponderEvent) => {
+    const { locationX, locationY, pageX } = event.nativeEvent;
+    const hit = hitTestBarMap(song, locationX, locationY);
+    isDragging.current = false;
+    drag.current = hit !== undefined && 'trackIndex' in hit ? { ...hit, x: locationX, y: locationY, pageX, lastMeasureIndex: hit.measureIndex } : undefined;
+  };
+  const onPressMove = (event: GestureResponderEvent) => {
+    const start = drag.current;
+    const hit = start === undefined ? undefined : hitTestBarMap(song, start.x + event.nativeEvent.pageX - start.pageX, start.y);
+    if (start === undefined || hit === undefined || hit.measureIndex === start.lastMeasureIndex || onSelectBars === undefined) {
+      return;
+    }
+    drag.current = { ...start, lastMeasureIndex: hit.measureIndex };
+    isDragging.current = true;
+    onSelectBars(start.trackIndex, start.measureIndex, hit.measureIndex);
+  };
+  const onPressOut = () => {
+    drag.current = undefined;
+  };
+  return { onPressIn, onPressMove, onPressOut, isDragging };
+}
+
+/**
+ * The bar map's clicks: a cell goes there, ⇧-click grows the selection to it, a drag selects bars (useBarDrag); a
+ * right-click or ⌃-click on a cell opens its menu (when there is one).
+ */
+function useBarMapPointer(props: TracksPanelProps) {
+  const { song, selectedTrackIndex, onSelectBar, onExtendBars, onContextBar } = props;
   const mapRef = useRef<View>(null);
+  const barDrag = useBarDrag(props);
   // True when the point is a track's bar and its menu opens.
   const openMenu = (x: number, y: number): boolean => {
     const hit = hitTestBarMap(song, x, y);
@@ -171,13 +227,15 @@ function useBarMapPointer({ song, selectedTrackIndex, onSelectBar, onContextBar 
     return true;
   };
   const onPress = (event: GestureResponderEvent) => {
-    const { locationX, locationY, ctrlKey } = event.nativeEvent;
-    if (ctrlKey === true && openMenu(locationX, locationY)) {
+    const { locationX, locationY, ctrlKey, shiftKey } = event.nativeEvent;
+    if (barDrag.isDragging.current || (ctrlKey === true && openMenu(locationX, locationY))) {
       return;
     }
-    const hit = hitTestBarMap(song, locationX, locationY);
-    if (hit !== undefined) {
-      onSelectBar('trackIndex' in hit ? hit.trackIndex : selectedTrackIndex, hit.measureIndex);
+    const bar = barAt(song, selectedTrackIndex, locationX, locationY);
+    if (bar !== undefined && shiftKey === true && onExtendBars !== undefined) {
+      onExtendBars(bar.trackIndex, bar.measureIndex);
+    } else if (bar !== undefined) {
+      onSelectBar(bar.trackIndex, bar.measureIndex);
     }
   };
   const onAuxClick =
@@ -188,17 +246,18 @@ function useBarMapPointer({ song, selectedTrackIndex, onSelectBar, onContextBar 
             openMenu(event.nativeEvent.clientX, event.nativeEvent.clientY);
           }
         };
-  return { mapRef, onPress, onAuxClick };
+  return { mapRef, onPress, onPressIn: barDrag.onPressIn, onPressMove: barDrag.onPressMove, onPressOut: barDrag.onPressOut, onAuxClick };
 }
 
 /** The bar map on the native canvas, in a horizontal scroll view that keeps the playing (else the cursor's) bar in view. */
 function BarMap(props: TracksPanelProps) {
-  const { song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette } = props;
+  const { song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette, selectedBars } = props;
   const t = useT();
-  const commands = useMemo(
-    () => engraveBarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette }),
-    [song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette],
-  );
+  const [fromBar, toBar] = [selectedBars?.fromMeasureIndex, selectedBars?.toMeasureIndex];
+  const commands = useMemo(() => {
+    const bars = fromBar === undefined || toBar === undefined ? {} : { selectedBars: { fromMeasureIndex: fromBar, toMeasureIndex: toBar } };
+    return engraveBarMap({ song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette, ...bars });
+  }, [song, selectedTrackIndex, cursorMeasureIndex, playingMeasureIndex, palette, fromBar, toBar]);
   const { scrollRef, onLayout, onScroll } = useBarInView(playingMeasureIndex ?? cursorMeasureIndex);
   const size = { width: barMapWidth(song), height: barMapHeight(song) };
   const pointer = useBarMapPointer(props);
@@ -208,6 +267,9 @@ function BarMap(props: TracksPanelProps) {
         ref={pointer.mapRef}
         testID="tracks-panel-bar-map"
         onPress={pointer.onPress}
+        onPressIn={pointer.onPressIn}
+        onPressMove={pointer.onPressMove}
+        onPressOut={pointer.onPressOut}
         onAuxClick={pointer.onAuxClick}
         tooltip={t('window.tracks.barMapTooltip')}
         accessibilityRole="button"

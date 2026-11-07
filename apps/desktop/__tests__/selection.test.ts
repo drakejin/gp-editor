@@ -225,6 +225,33 @@ describe('selectBeats', () => {
   });
 });
 
+describe('selectBars (the bar map)', () => {
+  it('selects whole bars of a track, first beat to last, showing that track; the selection stays', () => {
+    // Arrange: a second track; the cursor on track 1
+    const state = loaded(withTrack(twoBars(), [[beat(960, [note(2, 9)])], [beat(960 + BAR, [note(2, 7)]), beat(960 + BAR + QUARTER_TICKS, [])]]));
+
+    // Act
+    const selected = reduce(state, { type: 'selectBars', trackIndex: 1, fromMeasureIndex: 1, toMeasureIndex: 0 });
+
+    // Assert
+    expect(selected.trackIndex).toBe(1);
+    expect(selected.selectionAnchor).toMatchObject({ trackIndex: 1, measureIndex: 0, beatIndex: 0 });
+    expect(selected.cursor).toMatchObject({ trackIndex: 1, measureIndex: 1, beatIndex: 1 });
+    expect(selectionBars(selected)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 1 });
+  });
+
+  it('grows from the selection’s start, else the cursor’s bar, to a bar when no first bar is given (⇧-click)', () => {
+    const fromCursor = reduce(loaded(), { type: 'placeCursor', cursor: { trackIndex: 0, measureIndex: 1, beatIndex: 2, voiceIndex: 0, string: 1 } }, { type: 'selectBars', trackIndex: 0, toMeasureIndex: 0 });
+    expect(selectionBars(fromCursor)).toEqual({ fromMeasureIndex: 0, toMeasureIndex: 1 });
+    expect(selectedFragment(fromCursor)?.items).toHaveLength(8);
+  });
+
+  it('copies every beat of the selected bars', () => {
+    const selected = reduce(loaded(), { type: 'selectBars', trackIndex: 0, fromMeasureIndex: 0, toMeasureIndex: 1 });
+    expect(selectedFragment(selected)?.items.map((item) => item.notes[0]?.fret)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+});
+
 describe('clipboardFailed', () => {
   it('shows the failure in the error banner', () => {
     const state = reduce(loaded(), { type: 'clipboardFailed', message: 'pasteboard busy' });

@@ -566,3 +566,53 @@ describe('TracksPanel height', () => {
     expect(StyleSheet.flatten(vertical?.props.style)).toMatchObject({ flexGrow: 0, maxHeight: TRACKS_PANEL.maxHeight });
   });
 });
+
+describe('TracksPanel bar map selection', () => {
+  /** A press at one cell, moves to others (window points follow the map's), then the release's press. */
+  function drag(panel: ReturnType<typeof render>, trackIndex: number, from: number, to: readonly number[]): void {
+    const map = panel.renderer.root.findByProps({ testID: 'tracks-panel-bar-map' });
+    const start = { locationX: cellCentre(from), locationY: rowCentre(trackIndex), pageX: 500, pageY: 300 };
+    ReactTestRenderer.act(() => map.props.onPressIn({ nativeEvent: start }));
+    for (const measureIndex of to) {
+      ReactTestRenderer.act(() => map.props.onPressMove({ nativeEvent: { ...start, pageX: start.pageX + cellCentre(measureIndex) - cellCentre(from) } }));
+    }
+    ReactTestRenderer.act(() => map.props.onPressOut({ nativeEvent: start }));
+    ReactTestRenderer.act(() => map.props.onPress({ nativeEvent: start }));
+  }
+
+  it('selects whole bars of a track by a drag across its cells, the release leaving the selection', () => {
+    // Arrange
+    const onSelectBars = jest.fn();
+    const panel = render({ onSelectBars });
+
+    // Act
+    drag(panel, 1, 2, [3, 5]);
+
+    // Assert
+    expect(onSelectBars).toHaveBeenNthCalledWith(1, 1, 2, 3);
+    expect(onSelectBars).toHaveBeenLastCalledWith(1, 2, 5);
+    expect(panel.props.onSelectBar).not.toHaveBeenCalled();
+  });
+
+  it('goes to the bar on a press and release without a move', () => {
+    const onSelectBars = jest.fn();
+    const panel = render({ onSelectBars });
+    drag(panel, 0, 4, []);
+    expect(onSelectBars).not.toHaveBeenCalled();
+    expect(panel.props.onSelectBar).toHaveBeenCalledWith(0, 4);
+  });
+
+  it('grows the selection to a ⇧-clicked bar', () => {
+    const onExtendBars = jest.fn();
+    const panel = render({ onExtendBars });
+    ReactTestRenderer.act(() => panel.renderer.root.findByProps({ testID: 'tracks-panel-bar-map' }).props.onPress({ nativeEvent: { locationX: cellCentre(6), locationY: rowCentre(1), shiftKey: true } }));
+    expect(onExtendBars).toHaveBeenCalledWith(1, 6);
+    expect(panel.props.onSelectBar).not.toHaveBeenCalled();
+  });
+
+  it('draws the selected bars on the map', () => {
+    const panel = render({ selectedBars: { fromMeasureIndex: 1, toMeasureIndex: 2 } });
+    const shade = (panel.canvas().props.commands as DrawCommand[]).find((command) => command.kind === 'rect' && command.color.startsWith(PALETTE.chromeAccent) && command.height < BAR_MAP.rowHeight);
+    expect(shade).toBeDefined();
+  });
+});

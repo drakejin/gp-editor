@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { selectionBars } from '../../state/selection';
 import { AudioTrackLane } from '../audio-track/AudioTrackLane';
 import { MixerPanel } from '../effects/MixerPanel';
 import { InstrumentView } from '../InstrumentView';
@@ -40,11 +42,16 @@ function DocumentTracks({ model, document }: DocumentPartProps) {
   const { audioLane } = cursorTools;
   const { track } = panelCommands;
   const { audioTrack } = document.song;
+  // The selection's bars by value, so the memoised panel is redrawn only when they change.
+  const bars = selectionBars(state);
+  const [fromBar, toBar] = [bars?.fromMeasureIndex, bars?.toMeasureIndex];
+  const selectedBars = useMemo(() => (fromBar === undefined || toBar === undefined ? undefined : { fromMeasureIndex: fromBar, toMeasureIndex: toBar }), [fromBar, toBar]);
   return (
     <>
       <TracksPanel
         song={document.song}
         selectedTrackIndex={state.trackIndex}
+        selectedBars={selectedBars}
         shownTrackIndexes={trackView.shownTrackIndexes}
         isMultitrack={trackView.isMultitrack}
         onToggleMultitrack={trackView.toggleMultitrack}

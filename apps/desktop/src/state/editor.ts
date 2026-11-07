@@ -27,7 +27,7 @@ import { markSaved, redo, undo } from './editor-history';
 import { type TypedFret, settleTypedFret, typeFretDigit } from './fret-entry';
 import { type LayoutAction, isLayoutAction } from './layout-edits';
 import { type TrackDisplayAction, moveCursorString, placeCursor, reduceTrackDisplay, setScoreMode } from './multitrack';
-import { extendSelection, selectBeats, selectTo, settleSelection } from './selection';
+import { extendSelection, selectBars, selectBeats, selectTo, settleSelection } from './selection';
 import { type PressedNote, shiftPitch } from './semitone-shift';
 import { type SongAction, isSongAction } from './song-actions';
 import type { SongEdit } from './song-edits';
@@ -163,10 +163,12 @@ export type EditorAction =
   | { readonly type: 'selectTo'; readonly cursor: StringAddress }
   /** The beats from `anchor` to `cursor` selected as given, a single beat too (MCP select_bars on a bar of one beat). */
   | { readonly type: 'selectBeats'; readonly anchor: StringAddress; readonly cursor: StringAddress }
+  /** The bar map: whole bars of a track selected, from `fromMeasureIndex` (else the selection's start or the cursor's bar) to `toMeasureIndex`. */
+  | { readonly type: 'selectBars'; readonly trackIndex: number; readonly fromMeasureIndex?: number; readonly toMeasureIndex: number }
   | { readonly type: 'clearSelection' }
-  /** Deletes the selected beats (the cursor's beat when none are selected); what follows moves up. One undo step. */
+  /** Takes the selected beats (the cursor's beat when none are selected) out, rests in their place. One undo step. */
   | { readonly type: 'cutSelection' }
-  /** Inserts beats at the cursor; what follows moves on. One undo step. */
+  /** Writes the copied beats over the cursor's track from the cursor; the cursor goes on past them. One undo step. */
   | { readonly type: 'pasteBeats'; readonly fragment: BeatFragment }
   /** The system clipboard could not be read or written. */
   | { readonly type: 'clipboardFailed'; readonly message: string }
@@ -263,6 +265,8 @@ function cursorReducer(state: EditorState, action: EditorAction): EditorState {
       return selectTo(state, action.cursor);
     case 'selectBeats':
       return selectBeats(state, action.anchor, action.cursor);
+    case 'selectBars':
+      return selectBars(state, action.trackIndex, action.toMeasureIndex, action.fromMeasureIndex);
     case 'clearSelection':
       return state.selectionAnchor === undefined ? state : { ...state, selectionAnchor: undefined };
     default:

@@ -124,6 +124,25 @@ export function selectBeats(state: EditorState, anchor: StringAddress, cursor: S
 }
 
 /**
+ * Whole bars of `trackIndex` selected in the cursor's voice — the bar map's drag and ⇧-click —, from `fromMeasureIndex`
+ * (else the selection's start, or the cursor's bar, on that track; else the bar itself) to `toMeasureIndex`, either
+ * order: the anchor on the first bar's first beat, the cursor on the last bar's last; that track shown. The same state
+ * without a song or that track.
+ */
+export function selectBars(state: EditorState, trackIndex: number, toMeasureIndex: number, fromMeasureIndex?: number): EditorState {
+  const track = state.document?.song.tracks[trackIndex];
+  if (track === undefined) {
+    return state;
+  }
+  const start = state.selectionAnchor ?? state.cursor;
+  const from = fromMeasureIndex ?? (start?.trackIndex === trackIndex ? start.measureIndex : toMeasureIndex);
+  const [first, last] = from <= toMeasureIndex ? [from, toMeasureIndex] : [toMeasureIndex, from];
+  const lastBeat = Math.max(0, (track.measures[last]?.beats.length ?? 1) - 1);
+  const place = { trackIndex, voiceIndex: state.cursor?.voiceIndex ?? 0, string: state.cursor?.string ?? 1 };
+  return selectBeats({ ...state, trackIndex }, { ...place, measureIndex: first, beatIndex: 0 }, { ...place, measureIndex: last, beatIndex: lastBeat });
+}
+
+/**
  * The state after `action`, without the selection when the action moved the cursor some other way than extending it,
  * changed the song (but for a transposition or a semitone step) or showed another track (a plain cursor move, a click,
  * an edit, undo).
@@ -131,7 +150,8 @@ export function selectBeats(state: EditorState, anchor: StringAddress, cursor: S
 export function settleSelection(before: EditorState, after: EditorState, action: EditorAction): EditorState {
   // A transposition, a semitone up or down (or AI Edit's exact edit) changes no beat, so the selection stays for another one.
   const keepsBeats = action.type === 'transpose' || action.type === 'shiftPitch' || (action.type === 'applyAiEdit' && action.keepsBeats);
-  if (after.selectionAnchor === undefined || action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'selectBeats' || keepsBeats) {
+  const selects = action.type === 'extendSelection' || action.type === 'selectTo' || action.type === 'selectBeats' || action.type === 'selectBars';
+  if (after.selectionAnchor === undefined || selects || keepsBeats) {
     return after;
   }
   return isScoreUntouched(before, after) ? after : { ...after, selectionAnchor: undefined };
