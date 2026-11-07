@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
-import { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
+import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
 import { MAX_CURVE_POINTS } from '../src/edit/fragment-values-json';
 import { EMPTY_NOTE_EFFECT, NO_STROKE } from '../src/model/defaults';
 import type { Note, NoteEffect } from '../src/model/song';
@@ -29,6 +29,8 @@ const ALL_FLAGS: NoteEffect = {
 
 const FRAGMENT: BeatFragment = {
   isPercussion: false,
+  tuning: [64, 59, 55, 50, 45, 40],
+  capo: 2,
   items: [
     {
       duration: dur(4),
@@ -135,23 +137,24 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['no drum flag', (value) => delete value.isPercussion],
     ['items that are no list', (value) => (value.items = { 0: rawItem(value) })],
     ['no items', (value) => (value.items = [])],
-    ['too many items', (value) => (value.items = Array.from({ length: MAX_FRAGMENT_ITEMS + 1 }, () => rawItem(value, 2)))],
     ['an item that is no object', (value) => ((value.items as unknown[])[1] = 'rest')],
     ['a note value that does not exist', (value) => ((rawItem(value).duration as Raw).value = 3)],
     ['two kinds of dot', (value) => Object.assign(rawItem(value).duration as Raw, { dotted: true, doubleDotted: true })],
-    ['a tuplet Guitar Pro has not', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 4, times: 3 })],
-    ['a tuplet with the wrong time', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 3, times: 3 })],
+    ['a tuplet of no notes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 0, times: 2 })],
+    ['a tuplet as long as its notes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 3, times: 3 })],
+    ['a tuplet no whole number of ticks long', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 17, times: 16 })],
+    ['a tuplet of more notes than any score writes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 1024, times: 512 })],
     ['an inner tuplet without an outer one', (value) => ((rawItem(value).duration as Raw).innerTuplet = { enters: 3, times: 2 })],
-    ['an inner tuplet Guitar Pro has not', (value) => ((rawItem(value, 1).duration as Raw).innerTuplet = { enters: 4, times: 3 })],
+    ['an inner tuplet of no time', (value) => ((rawItem(value, 1).duration as Raw).innerTuplet = { enters: 3, times: 0 })],
     ['string 0', (value) => (rawNote(value).string = 0)],
-    ['string 8', (value) => (rawNote(value).string = 8)],
+    ['string 26', (value) => (rawNote(value).string = 26)],
     ['a negative fret', (value) => (rawNote(value).fret = -1)],
     ['a fret past MAX_FRET', (value) => (rawNote(value).fret = 30)],
     ['a fractional fret', (value) => (rawNote(value).fret = 2.5)],
     ['a velocity past 127', (value) => (rawNote(value).velocity = 128)],
     ['a tie that is no flag', (value) => (rawNote(value).isTied = 'yes')],
     ['two notes on one string', (value) => (rawItem(value).notes = [rawNote(value), rawNote(value)])],
-    ['more notes than strings', (value) => (rawItem(value).notes = Array.from({ length: 8 }, (_, i) => ({ ...rawNote(value), string: i + 1 })))],
+    ['more notes than a track has strings', (value) => (rawItem(value).notes = Array.from({ length: 26 }, (_, i) => ({ ...rawNote(value), string: i + 1 })))],
     ['notes that are no list', (value) => (rawItem(value).notes = rawNote(value))],
     ['a missing effect flag', (value) => delete rawEffect(value).vibrato],
     ['an effect flag that is no flag', (value) => (rawEffect(value).palmMute = 1)],
@@ -179,10 +182,55 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['a chord first fret past the MIDI range', (value) => ((rawItem(value).chord as Raw).firstFret = 128)],
     ['a chord that is null', (value) => (rawItem(value).chord = null)],
     ['an empty text', (value) => (rawItem(value).text = '  ')],
-    ['a text that is too long', (value) => (rawItem(value).text = 'x'.repeat(1025))],
+    ['a tuning that is no list', (value) => (value.tuning = 64)],
+    ['a tuning of no strings', (value) => (value.tuning = [])],
+    ['a tuning of more strings than a track has', (value) => (value.tuning = Array.from({ length: 26 }, () => 40))],
+    ['an open string past the MIDI range', (value) => (value.tuning = [128, 59, 55, 50, 45, 40])],
+    ['a capo that is no whole number', (value) => (value.capo = 1.5)],
+    ['a capo past the MIDI range', (value) => (value.capo = 200)],
     ['a text that is no text', (value) => (rawItem(value).text = 42)],
   ])('rejects %s', (_label, tamper) => {
     expect(parseTampered(tamper)).toBeUndefined();
+  });
+
+  it('reads back a fragment of any length: a whole song of sixteenths and more', () => {
+    // Arrange
+    const long: BeatFragment = { isPercussion: false, items: Array.from({ length: 20_000 }, (_, i) => ({ ...item([n(1, i % 12)]), duration: dur(16) })) };
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(serializeBeatFragment(long)));
+
+    // Assert
+    expect(parsed?.items).toHaveLength(20_000);
+  });
+
+  it('reads back notes on an 8-string guitar’s eighth string', () => {
+    const eight: BeatFragment = { isPercussion: false, tuning: [64, 59, 55, 50, 45, 40, 35, 30], capo: 0, items: [item([n(1, 0), n(8, 3)])] };
+    expect(parseBeatFragment(JSON.parse(serializeBeatFragment(eight)))).toEqual(eight);
+  });
+
+  it('reads back a beat text of any length', () => {
+    const parsed = parseTampered((value) => (rawItem(value).text = 'x'.repeat(5000)));
+    expect(parsed?.items[0]?.text).toHaveLength(5000);
+  });
+
+  it.each([
+    ['5:2, as Guitar Pro 7 writes it', { enters: 5, times: 2 }],
+    ['2:3, a duplet in compound time', { enters: 2, times: 3 }],
+    ['4:3', { enters: 4, times: 3 }],
+  ])('reads back any tuplet a song holds: %s', (_label, tuplet) => {
+    const fragment: BeatFragment = { isPercussion: false, items: [{ ...item([n(1, 5)]), duration: dur(8, { tuplet }) }] };
+    expect(parseBeatFragment(JSON.parse(serializeBeatFragment(fragment)))).toEqual(fragment);
+  });
+
+  it('reads a fragment without the copied track’s tuning, as an earlier version wrote it', () => {
+    const parsed = parseTampered((value) => {
+      delete value.tuning;
+      delete value.capo;
+    });
+    expect(parsed).toBeDefined();
+    expect(parsed?.tuning).toBeUndefined();
+    expect(parsed?.capo).toBeUndefined();
   });
 
   it('reads back a tuplet inside a tuplet', () => {

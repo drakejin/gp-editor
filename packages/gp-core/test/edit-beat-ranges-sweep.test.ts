@@ -6,7 +6,7 @@ import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-j
 import type { Song } from '../src/model/song';
 import { readSong } from '../src/read-song';
 import { assertEditInvariants, deepFreeze } from './helpers/edit-songs';
-import { type FixtureFolder, loadFixture } from './helpers/fixtures';
+import { type FixtureFolder, listFixtures, loadFixture } from './helpers/fixtures';
 
 /** Real files with several tracks, voices, tuplets, time signatures, beat texts and chord diagrams. */
 const FIXTURES: readonly (readonly [FixtureFolder, string])[] = [
@@ -93,5 +93,24 @@ describe.each(FIXTURES)('copy, cut and paste on %s/%s', (folder, name) => {
       }
     }
     expect(changed).toBeGreaterThan(ROUNDS);
+  }, SWEEP_TIMEOUT_MS);
+});
+
+describe('the clipboard reads back every whole track copied from the Guitar Pro fixtures', () => {
+  const folders: readonly FixtureFolder[] = ['guitarpro3', 'guitarpro4', 'guitarpro5', 'guitarpro6', 'guitarpro7', 'guitarpro8'];
+  it.each(folders)('%s', (folder) => {
+    const rejected: string[] = [];
+    for (const name of listFixtures(folder)) {
+      const song = readSong(loadFixture(folder, name));
+      song.tracks.forEach((track, trackIndex) => {
+        const last = song.measureHeaders.length - 1;
+        const lastBeat = Math.max(0, (track.measures[last]?.beats.length ?? 1) - 1);
+        const fragment = copyBeats(song, { trackIndex, voiceIndex: 0, measureIndex: 0, beatIndex: 0 }, { trackIndex, voiceIndex: 0, measureIndex: last, beatIndex: lastBeat });
+        if (fragment.items.length > 0 && parseBeatFragment(JSON.parse(serializeBeatFragment(fragment))) === undefined) {
+          rejected.push(`${name} track ${trackIndex + 1}`);
+        }
+      });
+    }
+    expect(rejected).toEqual([]);
   }, SWEEP_TIMEOUT_MS);
 });

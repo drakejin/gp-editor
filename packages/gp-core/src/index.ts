@@ -141,7 +141,7 @@ export { songChords } from './chords/song-chords';
 export type { BeatFragment, BeatFragmentItem } from './edit/beat-fragment';
 export { copyBeats, deleteBeatsFlowing, insertBeatsFlowing } from './edit/beat-ranges';
 export { type PastedBeats, clearBeats, pasteBeats } from './edit/beat-paste';
-export { MAX_FRAGMENT_ITEMS, parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';
+export { parseBeatFragment, serializeBeatFragment } from './edit/fragment-json';
 export {
   BEND_PRESETS,
   type BendPresetName,

@@ -218,11 +218,22 @@ function dotRatio(duration: Duration): readonly [number, number] {
 }
 
 /** Length of a duration in ticks (QUARTER_TIME per quarter note): exact for every duration Guitar Pro writes. */
-export function durationTicks(duration: Duration): number {
+/** A duration's length as a fraction of ticks: numerator and denominator. */
+function tickFraction(duration: Duration): readonly [number, number] {
   const inner = duration.innerTuplet ?? NORMAL_TUPLET;
   const [dotTimes, dotParts] = dotRatio(duration);
-  const numerator = QUARTER_TIME * 4 * dotTimes * duration.tuplet.times * inner.times;
-  return Math.floor(numerator / (duration.value * dotParts * duration.tuplet.enters * inner.enters));
+  return [QUARTER_TIME * 4 * dotTimes * duration.tuplet.times * inner.times, duration.value * dotParts * duration.tuplet.enters * inner.enters];
+}
+
+export function durationTicks(duration: Duration): number {
+  const [numerator, denominator] = tickFraction(duration);
+  return Math.floor(numerator / denominator);
+}
+
+/** True when the duration lasts a whole number of ticks, as every tuplet Guitar Pro writes does (a 17:16 does not). */
+export function hasWholeTicks(duration: Duration): boolean {
+  const [numerator, denominator] = tickFraction(duration);
+  return numerator % denominator === 0;
 }
 
 /** Length of a measure in ticks for a time signature. */

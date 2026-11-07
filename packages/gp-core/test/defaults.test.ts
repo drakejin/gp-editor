@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NORMAL_TUPLET, NOTE_VALUES, durationTicks, isMeasureOverfull, measureTicks, roundTempo, tupletOf } from '../src/model/defaults';
+import { NORMAL_TUPLET, NOTE_VALUES, durationTicks, hasWholeTicks, isMeasureOverfull, measureTicks, roundTempo, tupletOf } from '../src/model/defaults';
 import { type Duration, QUARTER_TIME, type Song, type Tuplet } from '../src/model/song';
 import { buildSong, n, play, rest } from './helpers/edit-songs';
 
@@ -193,5 +193,14 @@ describe('roundTempo', () => {
     expect(roundTempo(92.456)).toBe(92.46);
     expect(roundTempo(120)).toBe(120);
     expect(roundTempo(60.004)).toBe(60);
+  });
+});
+
+describe('hasWholeTicks', () => {
+  it('is true for every tuplet Guitar Pro writes and for 5:2, false for a 17:16 the timeline cannot hold', () => {
+    const quarter = (tuplet: Tuplet): Duration => ({ value: 4, dotted: false, doubleDotted: false, tuplet });
+    expect([3, 5, 6, 7, 9, 10, 11, 12].every((enters) => hasWholeTicks(quarter(tupletOf(enters) ?? NORMAL_TUPLET)))).toBe(true);
+    expect(hasWholeTicks(quarter({ enters: 5, times: 2 }))).toBe(true);
+    expect(hasWholeTicks(quarter({ enters: 17, times: 16 }))).toBe(false);
   });
 });
