@@ -132,3 +132,51 @@ describe('pasteBeats: a long paste stays on the bar lines', () => {
     assertEditInvariants(pasted.song);
   });
 });
+
+function quarters(count: number, firstFret: number): readonly BeatFragmentItem[] {
+  return Array.from({ length: count }, (_, i) => item(dur(4), n(3, firstFret + i)));
+}
+
+const FIRST_BAR = [play(4, n(1, 0)), play(4, n(1, 1)), play(4, n(1, 2)), play(4, n(1, 3))];
+
+describe('pasteBeats: where the voice goes on after the pasted beats (⌘V, ⌘V, ⌘V lays copies one after another)', () => {
+  it('answers the beat right after the pasted beats, and a paste there lays the next copy after the first', () => {
+    // Arrange
+    const song = bars(FIRST_BAR, NEXT_BAR);
+    const copy = fragment(...quarters(2, 9));
+
+    // Act
+    const first = pasteBeats(song, at(0, 0), copy);
+    const second = first.next === undefined ? first : pasteBeats(first.song, first.next, copy);
+
+    // Assert
+    expect(first.next).toEqual(at(0, 2));
+    expect(voiceLayout(second.song, 0, 0, 0)).toEqual(['0:4:3/9', '960:4:3/10', '1920:4:3/9', '2880:4:3/10']);
+    expect(second.next).toEqual(at(1, 0));
+  });
+
+  it('is still a paste when it writes what is already there: the same song, and the beat after it', () => {
+    const song = bars(FIRST_BAR, NEXT_BAR);
+    const pasted = pasteBeats(song, at(0, 0), copyBeats(song, at(0, 0), at(0, 1)));
+    expect(pasted).toMatchObject({ song, isPasted: true, at: at(0, 0), next: at(0, 2) });
+  });
+
+  it('goes on at the next bar’s start, a bar without beats too', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[FIRST_BAR], []]] }));
+    const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(4, 9)));
+    expect(song.tracks[0]?.measures[1]?.beats).toEqual([]);
+    expect(pasted.next).toEqual(at(1, 0));
+  });
+
+  it('goes on inside the bar it added at the end, or nowhere when the pasted beats end the song', () => {
+    const song = bars(FIRST_BAR);
+    expect(pasteBeats(song, at(0, 3), fragment(...quarters(2, 9)))).toMatchObject({ addedBars: 1, next: at(1, 1) });
+    expect(pasteBeats(song, at(0, 0), fragment(...quarters(4, 9))).next).toBeUndefined();
+  });
+
+  it('pastes nothing for an empty fragment or a beat the track lacks', () => {
+    const song = bars(FIRST_BAR);
+    expect(pasteBeats(song, at(0, 0), fragment())).toMatchObject({ song, isPasted: false });
+    expect(pasteBeats(song, at(0, 9), fragment(...quarters(1, 9)))).toMatchObject({ song, isPasted: false });
+  });
+});

@@ -5,7 +5,7 @@
 // multitrack copy, which copies whole bars of every track (the app has none): a paste here writes over the cursor's track
 // only, so it never moves one track against the others, and bars are added only past the song's end.
 import type { Song } from '../model/song';
-import type { BeatAddress } from './addresses';
+import { type BeatAddress, voiceOf } from './addresses';
 import type { DurationTuplets } from '../model/defaults';
 import { type VoiceFlow, barEvents, barTicks, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
@@ -22,6 +22,13 @@ export interface PastedBeats {
   readonly at: BeatAddress;
   /** The last bar the pasted beats reach (`at`'s bar for a paste within it). */
   readonly lastMeasureIndex: number;
+  /**
+   * False when nothing could be written there (an empty fragment, a beat the track lacks, a bar its voice cannot be read
+   * in). A paste that writes what is already there is a paste: the same song, true.
+   */
+  readonly isPasted: boolean;
+  /** The beat right after the pasted beats, where the next paste lays the next copy; absent when they end the song. */
+  readonly next?: BeatAddress;
 }
 
 /** How much of a stream each bar takes, by bar index. */
@@ -118,11 +125,12 @@ function untieAfter(song: Song, flow: VoiceFlow, tick: number): Song {
   return next === undefined ? song : notes.filter((note) => note.isTied).reduce((current, note) => updateNote(current, { ...next, string: note.string }, (tiedNote) => ({ ...tiedNote, isTied: false })), song);
 }
 
-/** Events written over a voice: the song, the song tick the first one starts at, and the last bar they reach. */
+/** Events written over a voice: the song, the song tick the first one starts at, the last bar they reach and where they end. */
 interface Written {
   readonly song: Song;
   readonly start: number;
   readonly lastMeasureIndex: number;
+  readonly end: VoicePosition;
 }
 
 /**
@@ -153,7 +161,7 @@ function writeEvents(song: Song, flow: VoiceFlow, offset: number, inserted: Voic
   const endBar = song.measureHeaders[end.measureIndex];
   const untied = endBar === undefined ? written : untieAfter(written, flow, endBar.start + end.offset);
   const barStart = song.measureHeaders[flow.firstMeasureIndex]?.start ?? 0;
-  return { song: untied, start: barStart + start, lastMeasureIndex: Math.min(end.measureIndex, untied.measureHeaders.length - 1) };
+  return { song: untied, start: barStart + start, lastMeasureIndex: Math.min(end.measureIndex, untied.measureHeaders.length - 1), end };
 }
 
 /** The beat of the voice's track that starts at song tick `tick`, from bar `measureIndex` on; `at` itself when none does. */
@@ -168,17 +176,33 @@ function beatStartingAt(song: Song, at: BeatAddress, tick: number): BeatAddress 
 }
 
 /**
+ * The flow's beat where its voice goes on at `end`: the beat starting there in that bar, else the next bar's first (beat
+ * 0 of a bar without beats too); undefined past the song's last bar.
+ */
+function beatAfter(song: Song, flow: VoiceFlow, end: VoicePosition): BeatAddress | undefined {
+  const header = song.measureHeaders[end.measureIndex];
+  const beats = song.tracks[flow.trackIndex]?.measures[end.measureIndex]?.beats ?? [];
+  const beatIndex = header === undefined ? -1 : beats.findIndex((beat) => beat.start === header.start + end.offset && voiceOf(beat, flow.voiceIndex)?.isEmpty === false);
+  const address = { trackIndex: flow.trackIndex, voiceIndex: flow.voiceIndex };
+  if (beatIndex >= 0) {
+    return { ...address, measureIndex: end.measureIndex, beatIndex };
+  }
+  return end.measureIndex + 1 < song.measureHeaders.length ? { ...address, measureIndex: end.measureIndex + 1, beatIndex: 0 } : undefined;
+}
+
+/**
  * Guitar Pro 8's single track paste of `fragment` at `at`, in that voice: written over the voice from the cursor for as
  * many bars as it needs (what played in its time is replaced — a free rest across its end cut, a note across it leaving
  * the rest of its time as rests —, an empty bar or voice filled, what follows stays in place, an over-full bar kept
  * over-full); nothing is inserted and no other track changes, but bars are appended (rests in every other track) for
  * what runs past the last bar. Notes on strings the track lacks are left out; the first pasted beat and the voice's
  * first note after the paste lose their ties. `at` answers the beat the pasted beats start on (in the next bar when a
- * note held across the cursor runs into it). The same song for an empty fragment, a missing beat, or drum beats into a
- * track that is not a drum track (and the other way round).
+ * note held across the cursor runs into it) and `next` the beat right after them. A paste that writes what is there is
+ * a paste (the same song). Nothing pasted for an empty fragment, a missing beat, or drum beats into a track that is not
+ * a drum track (and the other way round).
  */
 export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment): PastedBeats {
-  const unchanged: PastedBeats = { song, addedBars: 0, at, lastMeasureIndex: at.measureIndex };
+  const unchanged: PastedBeats = { song, addedBars: 0, at, lastMeasureIndex: at.measureIndex, isPasted: false };
   const track = song.tracks[at.trackIndex];
   const position = hasVoiceSlot(song, at) ? beatPosition(song, at) : undefined;
   if (track === undefined || position === undefined || fragment.items.length === 0 || fragment.isPercussion !== track.isPercussion) {
@@ -187,12 +211,14 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   const flow: VoiceFlow = { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
   const inserted = untieFirst(onTrackStrings(fragment.items, track.strings.length).map(itemEvent));
   const written = writeEvents(song, flow, position.offset, inserted, (start) => pasteBarRoom(song, flow, start));
-  if (written === undefined || written.song === song) {
+  if (written === undefined) {
     return unchanged;
   }
   // Rests written before the paste into an empty voice can add beats before it: its first beat found by its start.
   const first = beatStartingAt(written.song, at, written.start);
-  return { song: written.song, addedBars: written.song.measureHeaders.length - song.measureHeaders.length, at: first, lastMeasureIndex: written.lastMeasureIndex };
+  const next = beatAfter(written.song, flow, written.end);
+  const addedBars = written.song.measureHeaders.length - song.measureHeaders.length;
+  return { song: written.song, addedBars, at: first, lastMeasureIndex: written.lastMeasureIndex, isPasted: true, ...(next === undefined ? {} : { next }) };
 }
 
 /**
