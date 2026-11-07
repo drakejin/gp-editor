@@ -6,11 +6,12 @@
 // only, so it never moves one track against the others, and bars are added only past the song's end.
 import type { Song } from '../model/song';
 import type { BeatAddress } from './addresses';
-import { type VoiceFlow, barTicks, liftVoice, rewriteVoice } from './bar-flow';
+import type { DurationTuplets } from '../model/defaults';
+import { type VoiceFlow, barEvents, barTicks, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
-import { beatPosition, cutAt, hasVoiceSlot, onTrackStrings, runEvents } from './beat-ranges';
+import { type VoicePosition, beatPosition, cutAt, hasVoiceSlot, onTrackStrings, runEvents } from './beat-ranges';
 import { updateNote } from './song-paths';
-import { type VoiceEvents, eventTicks, eventsTicks, isFreeRest, restEvent, restEvents, signedRests } from './timeline';
+import { type VoiceEvent, type VoiceEvents, distinctTuplets, eventTicks, eventsTicks, isFreeRest, mixedGapRests, restEvent, signedRests } from './timeline';
 
 /** A paste's outcome. */
 export interface PastedBeats {
@@ -23,11 +24,14 @@ export interface PastedBeats {
   readonly lastMeasureIndex: number;
 }
 
+/** How much of a stream each bar takes, by bar index. */
+type BarRoom = (measureIndex: number) => number;
+
 /**
- * The room of each bar in the flow's voice: its time signature's length, or the voice's own where it over-fills the
- * bar (a paste keeps an over-full bar over-full, so nothing after it moves); read once per bar.
+ * The room of each bar in the flow's voice as it is: its time signature's length, or the voice's own where it over-fills
+ * the bar (a cut leaves every bar as long as it was, so nothing after it moves); read once per bar.
  */
-function voiceBarRoom(song: Song, flow: VoiceFlow): (measureIndex: number) => number {
+function voiceBarRoom(song: Song, flow: VoiceFlow): BarRoom {
   const rooms = new Map<number, number>();
   return (measureIndex) => {
     const known = rooms.get(measureIndex);
@@ -41,26 +45,54 @@ function voiceBarRoom(song: Song, flow: VoiceFlow): (measureIndex: number) => nu
   };
 }
 
-/** The bar that tick `ticks` (from bar `firstIndex`'s start, exclusive) ends in; past the song, a bar index after its last. */
-function barReached(room: (measureIndex: number) => number, firstIndex: number, ticks: number): number {
-  let index = firstIndex;
-  for (let left = ticks - room(index); left > 0; left -= room(index)) {
-    index += 1;
-  }
-  return index;
+/**
+ * A paste's rooms: each bar takes its time signature's length, so a bar the paste writes over is written whole — an
+ * over-full one too, whose extra time the paste's own beats then fill, never shifting the bars after it —; the first
+ * bar keeps its own length when the paste starts past its bar line (in its over-full part).
+ */
+function pasteBarRoom(song: Song, flow: VoiceFlow, start: number): BarRoom {
+  const own = voiceBarRoom(song, flow);
+  return (measureIndex) => (measureIndex === flow.firstMeasureIndex && start >= barTicks(song, measureIndex) ? own(measureIndex) : barTicks(song, measureIndex));
 }
 
-/** The events without their first `ticks`: an event across that point leaves the rest of its time as rests. */
-function withoutLeadingTicks(events: VoiceEvents, ticks: number): VoiceEvents | undefined {
+/** Where `ticks` of stream from `start` in bar `firstIndex` end: the bar and the offset in it (at most its room). */
+function endOf(room: BarRoom, firstIndex: number, start: number, ticks: number): VoicePosition {
+  let measureIndex = firstIndex;
+  let offset = start;
+  let left = ticks;
+  // At least a tick per bar, so a bar of no length cannot stall the loop.
+  while (left > Math.max(1, room(measureIndex)) - offset) {
+    left -= Math.max(1, room(measureIndex)) - offset;
+    measureIndex += 1;
+    offset = 0;
+  }
+  return { measureIndex, offset: offset + left };
+}
+
+/**
+ * Rests for the `ticks` left of `event` after a paste's end: in any tuplet of the event or the paste (two of them mixed
+ * if need be, mixedGapRests); when none can write that time, a rest of the event's own length, which over-fills the bar
+ * a little rather than leaving it unreadable. Under the event's octave sign.
+ */
+function restOfEvent(event: VoiceEvent, ticks: number, tuplets: readonly DurationTuplets[]): VoiceEvents {
+  const rests = mixedGapRests(ticks, distinctTuplets([event.voice.duration, ...tuplets]));
+  return signedRests(rests ?? [restEvent(event.voice.duration)], event);
+}
+
+/**
+ * The flow's voice in bar `measureIndex` from `offset` on (nothing past the song's end): an event across that point
+ * leaves the rest of its time as rests (restOfEvent). Undefined when the bar cannot be read as events.
+ */
+function eventsFrom(song: Song, flow: VoiceFlow, at: VoicePosition, tuplets: readonly DurationTuplets[]): VoiceEvents | undefined {
+  const events = at.measureIndex < song.measureHeaders.length ? barEvents(song, flow, at.measureIndex) : [];
+  if (events === undefined) {
+    return undefined;
+  }
   let position = 0;
   for (const [index, event] of events.entries()) {
     const end = position + eventTicks(event);
-    if (end > ticks) {
-      if (position >= ticks) {
-        return events.slice(index);
-      }
-      const tail = restEvents(end - ticks, undefined, event.voice.duration);
-      return tail === undefined ? undefined : [...signedRests(tail, event), ...events.slice(index + 1)];
+    if (end > at.offset) {
+      return position >= at.offset ? events.slice(index) : [...restOfEvent(event, end - at.offset, tuplets), ...events.slice(index + 1)];
     }
     position = end;
   }
@@ -95,30 +127,33 @@ interface Written {
 
 /**
  * `inserted` written over the flow's voice from `offset` in its first bar (a note held across that point stays, and the
- * events go in after it): what played in their time is replaced — a free rest across their end cut, a note across it
- * leaving the rest of its time as rests —, what follows stays in place, bars are appended for what runs past the song's
- * end. Undefined when the voice cannot be read there or nothing changes.
+ * events go in after it), each bar taking as much as `roomOf` gives it (from where the events start in the first bar):
+ * what played in their time is replaced — a free rest across their end cut, a note across it leaving the rest of its
+ * time as rests —, what follows in the bar they end in stays in place, bars are appended for what runs past the song's
+ * end. The same song when nothing changes; undefined when the voice cannot be read there.
  */
-function writeEvents(song: Song, flow: VoiceFlow, offset: number, inserted: VoiceEvents): Written | undefined {
+function writeEvents(song: Song, flow: VoiceFlow, offset: number, inserted: VoiceEvents, roomOf: (start: number) => BarRoom): Written | undefined {
   const measure = song.tracks[flow.trackIndex]?.measures[flow.firstMeasureIndex];
   const firstBar = liftVoice(song, flow, flow.firstMeasureIndex);
   if (measure === undefined || firstBar === undefined) {
     return undefined;
   }
-  const room = voiceBarRoom(song, flow);
-  const start = eventsTicks(cutAt(firstBar, offset, measure).before);
-  const end = start + eventsTicks(inserted);
-  const reached = barReached(room, flow.firstMeasureIndex, end);
-  const lastIndex = Math.min(reached, song.measureHeaders.length - 1);
-  const placed = liftVoice(song, flow, lastIndex);
-  const cut = placed === undefined ? undefined : cutAt(placed, offset, measure);
-  const kept = cut === undefined ? undefined : withoutLeadingTicks(cut.after, eventsTicks(inserted));
-  const written = cut === undefined || kept === undefined ? song : rewriteVoice(song, flow, [...cut.before, ...inserted, ...kept], lastIndex, room);
-  if (written === song) {
+  const before = cutAt(firstBar, offset, measure).before;
+  const start = eventsTicks(before);
+  const room = roomOf(start);
+  const end = endOf(room, flow.firstMeasureIndex, start, eventsTicks(inserted));
+  const kept = eventsFrom(song, flow, end, inserted.map((event) => event.voice.duration));
+  if (kept === undefined) {
     return undefined;
   }
+  const lastIndex = Math.min(end.measureIndex, song.measureHeaders.length - 1);
+  // The bar the events end in keeps what follows them there, over-full or not.
+  const layoutRoom: BarRoom = (measureIndex) => (measureIndex === end.measureIndex ? Math.max(room(measureIndex), end.offset + eventsTicks(kept)) : room(measureIndex));
+  const written = rewriteVoice(song, flow, [...before, ...inserted, ...kept], lastIndex, layoutRoom);
+  const endBar = song.measureHeaders[end.measureIndex];
+  const untied = endBar === undefined ? written : untieAfter(written, flow, endBar.start + end.offset);
   const barStart = song.measureHeaders[flow.firstMeasureIndex]?.start ?? 0;
-  return { song: untieAfter(written, flow, barStart + end), start: barStart + start, lastMeasureIndex: Math.min(reached, written.measureHeaders.length - 1) };
+  return { song: untied, start: barStart + start, lastMeasureIndex: Math.min(end.measureIndex, untied.measureHeaders.length - 1) };
 }
 
 /** The beat of the voice's track that starts at song tick `tick`, from bar `measureIndex` on; `at` itself when none does. */
@@ -151,8 +186,8 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   }
   const flow: VoiceFlow = { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
   const inserted = untieFirst(onTrackStrings(fragment.items, track.strings.length).map(itemEvent));
-  const written = writeEvents(song, flow, position.offset, inserted);
-  if (written === undefined) {
+  const written = writeEvents(song, flow, position.offset, inserted, (start) => pasteBarRoom(song, flow, start));
+  if (written === undefined || written.song === song) {
     return unchanged;
   }
   // Rests written before the paste into an empty voice can add beats before it: its first beat found by its start.
@@ -175,5 +210,5 @@ export function clearBeats(song: Song, from: BeatAddress, to: BeatAddress): Song
   }
   const flow: VoiceFlow = { trackIndex: from.trackIndex, voiceIndex: from.voiceIndex, firstMeasureIndex: first.measureIndex };
   const rests = run.flatMap(({ event }) => signedRests([restEvent(event.voice.duration)], event));
-  return writeEvents(song, flow, first.offset, rests)?.song ?? song;
+  return writeEvents(song, flow, first.offset, rests, () => voiceBarRoom(song, flow))?.song ?? song;
 }

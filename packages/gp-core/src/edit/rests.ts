@@ -12,8 +12,8 @@ function fillCandidates(tuplets: DurationTuplets): readonly Duration[] {
 
 const PLAIN_CANDIDATES = fillCandidates(NO_TUPLETS);
 
-/** Plain values, those of the outer tuplet, and those of the tuplet inside it. */
-function candidatesFor(tuplets: DurationTuplets): readonly Duration[] {
+/** Plain and dotted values, those of the outer tuplet, and those of the tuplet inside it, longest first. */
+export function restCandidates(tuplets: DurationTuplets): readonly Duration[] {
   const { tuplet, innerTuplet } = tuplets;
   if (tuplet.enters === tuplet.times) {
     return PLAIN_CANDIDATES;
@@ -39,7 +39,7 @@ export function restDurations(ticks: number, preferred?: Duration, tuplets: Dura
     durations.push(preferred);
     remaining -= preferredTicks;
   }
-  for (const candidate of candidatesFor(tuplets)) {
+  for (const candidate of restCandidates(tuplets)) {
     const length = durationTicks(candidate);
     while (remaining >= length) {
       durations.push(candidate);
