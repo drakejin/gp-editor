@@ -4,6 +4,8 @@ import { scrollOffsetToShowBar } from '../score/bar-map';
 
 export interface BarInView {
   readonly scrollRef: RefObject<ScrollView | null>;
+  /** How far the view is scrolled now (a drag over the map follows the content under the pointer). */
+  readonly scrollX: { readonly current: number };
   readonly onLayout: (event: LayoutChangeEvent) => void;
   readonly onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
@@ -40,5 +42,5 @@ export function useBarInView(measureIndex: number | undefined): BarInView {
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollX.current = event.nativeEvent.contentOffset.x;
   }, []);
-  return { scrollRef, onLayout, onScroll };
+  return { scrollRef, scrollX, onLayout, onScroll };
 }

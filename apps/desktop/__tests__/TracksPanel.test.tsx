@@ -594,6 +594,23 @@ describe('TracksPanel bar map selection', () => {
     expect(panel.props.onSelectBar).not.toHaveBeenCalled();
   });
 
+  it('follows the pointer while the map scrolls under it (to keep the selection’s end in view)', () => {
+    // Arrange
+    const onSelectBars = jest.fn();
+    const panel = render({ onSelectBars });
+    const map = panel.renderer.root.findByProps({ testID: 'tracks-panel-bar-map' });
+    const start = { locationX: cellCentre(2), locationY: rowCentre(0), pageX: 500, pageY: 300 };
+
+    // Act: the map scrolls ten bars on, the pointer where it was
+    ReactTestRenderer.act(() => map.props.onPressIn({ nativeEvent: start }));
+    ReactTestRenderer.act(() => map.props.onPressMove({ nativeEvent: { ...start, pageX: start.pageX + cellCentre(3) - cellCentre(2) } }));
+    ReactTestRenderer.act(() => barScroll(panel.renderer).props.onScroll({ nativeEvent: { contentOffset: { x: 10 * (BAR_MAP.cellWidth + BAR_MAP.gap), y: 0 } } }));
+    ReactTestRenderer.act(() => map.props.onPressMove({ nativeEvent: { ...start, pageX: start.pageX + cellCentre(3) - cellCentre(2) + 1 } }));
+
+    // Assert
+    expect(onSelectBars).toHaveBeenLastCalledWith(0, 2, 13);
+  });
+
   it('goes to the bar on a press and release without a move', () => {
     const onSelectBars = jest.fn();
     const panel = render({ onSelectBars });

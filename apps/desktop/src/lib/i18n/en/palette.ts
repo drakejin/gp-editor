@@ -287,7 +287,7 @@ export const EN_PALETTE = {
   'palette.hint.pasteDrumsAsPitches': 'Each drum became the pitch of its MIDI key.',
   'palette.hint.pasteRhythmOnly': 'Only their rhythm: the copied beats do not say which pitches their notes are.',
   'palette.hint.pasteOctaveShifted': { one: '{count} note moved by octaves to fit the neck.', other: '{count} notes moved by octaves to fit the neck.' },
-  'palette.hint.pasteLeftOutStrings': { one: '{count} note on a string {track} lacks was left out.', other: '{count} notes on strings {track} lacks were left out.' },
+  'palette.hint.pasteLeftOutStrings': { one: '{count} note on a string that {track} does not have was left out.', other: '{count} notes on strings that {track} does not have were left out.' },
   'palette.hint.pasteLeftOutChords': {
     one: '{count} note was left out: its beat holds more notes than {track} has strings.',
     other: '{count} notes were left out: their beats hold more notes than {track} has strings.',
