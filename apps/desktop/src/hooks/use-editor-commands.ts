@@ -1,6 +1,6 @@
 import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 import type { DragEvent, KeyEvent, View } from 'react-native';
-import { type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
+import { type BarScope, type KeyCommand, type NotePanel, keyCommand } from '../lib/key-commands';
 import type { ScoreZoom } from '../lib/score-zoom';
 import { focusView } from '../native/focus-view';
 import { claimKey, keyPressOf } from '../native/key-event';
@@ -56,6 +56,8 @@ interface EditorCommandSources {
   readonly onAiEditPanel?: () => void;
   /** Tools ▸ Online ▸ Songsterr Search…, the palette's Songsterr: the Songsterr search panel. */
   readonly onSongsterrPanel?: () => void;
+  /** The palette's Bar group switch: where +Bar and −Bar act. */
+  readonly onBarScope?: (scope: BarScope) => void;
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now. */
   readonly onMarkSyncPoint?: () => void;
   /** A popup or menu is over the score: keys do nothing to the score then, except Esc, which closes it. */
@@ -133,7 +135,7 @@ type WindowCommand = Exclude<AppCommand | KeyCommand, EditorAction>;
 const isWindowCommand = isOfTypes<WindowCommand>({
   newFile: true, openFile: true, importPdf: true, saveFile: true, exportPdf: true, togglePlayback: true, stopPlayback: true, goToBar: true,
   shiftPlaybackTempo: true, shiftPlaybackSpeed: true, togglePractice: true, zoom: true, zoomTo: true, openNotePanel: true, openChordPanel: true,
-  openAnnotationPanel: true, openLyricsPanel: true, openComposePanel: true, openAiEditPanel: true, openSongsterrPanel: true, markSyncPoint: true, copy: true, cut: true, paste: true,
+  openAnnotationPanel: true, openLyricsPanel: true, openComposePanel: true, openAiEditPanel: true, openSongsterrPanel: true, setBarScope: true, markSyncPoint: true, copy: true, cut: true, paste: true,
 });
 
 function runWindowCommand(sources: EditorCommandSources, command: WindowCommand): void {
@@ -160,6 +162,8 @@ function runWindowCommand(sources: EditorCommandSources, command: WindowCommand)
       return sources.onAiEditPanel?.();
     case 'openSongsterrPanel':
       return sources.onSongsterrPanel?.();
+    case 'setBarScope':
+      return sources.onBarScope?.(command.scope);
     case 'markSyncPoint':
       return sources.onMarkSyncPoint?.();
     case 'shiftPlaybackTempo':

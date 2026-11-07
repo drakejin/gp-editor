@@ -165,6 +165,7 @@ export const EN_COMMANDS = {
   /** The space bar as a key cap. */
   'commands.key.space': 'Space',
   'commands.key.dragNote': 'Drag ↑ / ↓',
+  'commands.key.paletteBars': '+Bar / −Bar',
 
   'commands.palette.accessibility': 'Command palette',
   'commands.palette.placeholder': 'Type a command (e.g. exp pdf, transpose)',
@@ -229,6 +230,7 @@ export const EN_COMMANDS = {
   'commands.shortcuts.deleteNotes': 'Delete the note, or the selected notes (the beats stay as rests)',
   'commands.shortcuts.deleteBars': 'Delete the bar, or the selected bars',
   'commands.shortcuts.trackBars': 'Insert an empty bar / delete the bar (or the selected bars) in this track only (Track menu)',
+  'commands.shortcuts.paletteBars': 'The palette’s Bar group: a bar after the cursor’s bar / the bar (or the selected bars) deleted — in every track, or in this track only with the switch beside them at This track',
   'commands.shortcuts.insertBeat': 'Insert a beat after the cursor',
   'commands.shortcuts.chord': 'Chord diagram… (grid, name, chord library)',
   'commands.shortcuts.annotation': 'Annotation… (a note on the beat, in a box over or under the staves); right-click or ⌃-click a beat too',

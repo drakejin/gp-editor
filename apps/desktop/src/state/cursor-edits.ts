@@ -21,7 +21,7 @@ import {
 import { t } from '../lib/i18n/i18n';
 import { adjacentBeat, clampCursor, firstCursor, voiceCursor } from '../lib/navigation';
 import { pitchNameInKey } from '../lib/pitch';
-import { heldStringHint, refusalHint, stringMoveHint, trackBarHint } from './edit-hints';
+import { barHint, heldStringHint, refusalHint, stringMoveHint } from './edit-hints';
 import type { EditorState } from './editor';
 import { recordSong } from './editor-history';
 import { editAtCursor, editAtCursorWithFlow, withBarRests } from './empty-bars';
@@ -266,12 +266,12 @@ export function applyCursorEdit(state: EditorState, cursorEdit: SongEdit): Edito
   }
   const song = edited.document?.song;
   const before = state.document?.song;
-  // A bar in one track says the other tracks stayed; an edit that moved music across bar lines says what moved.
-  const trackHint = before === undefined || state.cursor === undefined ? undefined : trackBarHint(before, state.cursor, edit);
+  // A bar says which tracks it went into or left; an edit that moved music across bar lines says what moved.
+  const barsHint = before === undefined || state.cursor === undefined ? undefined : barHint(before, state.cursor, edit);
   if (song === undefined || before === undefined || edited.cursor === undefined) {
-    return { ...edited, hint: trackHint };
+    return { ...edited, hint: barsHint };
   }
-  return { ...edited, cursor: cursorAfter(before, song, edited.cursor, edit), hint: trackHint ?? barFlowHint(flow, edited.cursor.measureIndex) };
+  return { ...edited, cursor: cursorAfter(before, song, edited.cursor, edit), hint: barsHint ?? barFlowHint(flow, edited.cursor.measureIndex) };
 }
 
 /** A cut or paste (one undo step): the cursor goes where the edit says, the selection is gone. */

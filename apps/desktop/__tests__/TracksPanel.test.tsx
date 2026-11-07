@@ -273,8 +273,8 @@ describe('TracksPanel track buttons', () => {
     // Arrange
     const actions = trackActions();
     const panel = render({ trackActions: actions, selectedTrackIndex: 1, cursorMeasureIndex: 0 });
-    const insertTooltip = 'Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar to every track (⌥-click: this track only).';
-    const deleteTooltip = 'Delete the cursor’s bar, or the selected bars, in this track only (Track ▸ Delete Bar in This Track, ⌥⌘⌫): the track’s later bars move earlier and its last bars become rests; the other tracks and the song’s bars stay. The palette’s −Bar deletes the bars in every track (⌥-click: this track only).';
+    const insertTooltip = 'Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar after the cursor’s bar, in every track or — with the switch beside it at This track — in this track only.';
+    const deleteTooltip = 'Delete the cursor’s bar, or the selected bars, in this track only (Track ▸ Delete Bar in This Track, ⌥⌘⌫): the track’s later bars move earlier and its last bars become rests; the other tracks and the song’s bars stay. The palette’s −Bar deletes them in every track or — with the switch beside it at This track — in this track only.';
 
     // Act
     panel.press(insertTooltip);
@@ -312,7 +312,7 @@ describe('TracksPanel track buttons', () => {
 
   it('offers no bar of its own without a cursor', () => {
     const panel = render({ trackActions: trackActions(), cursorMeasureIndex: undefined });
-    expect(panel.control('Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar to every track (⌥-click: this track only).').props.disabled).toBe(true);
+    expect(panel.control('Insert an empty bar in this track only, at the cursor’s bar (Track ▸ Insert Empty Bar in This Track, ⌥⌘I): the track’s bars from there move one bar later, the song gets one more bar at the end, the other tracks stay as they are. The palette’s +Bar adds a bar after the cursor’s bar, in every track or — with the switch beside it at This track — in this track only.').props.disabled).toBe(true);
   });
 
   it('cannot move the first track up, the last one down, or delete the only track', () => {

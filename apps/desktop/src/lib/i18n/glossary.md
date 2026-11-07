@@ -41,7 +41,7 @@ not dictionary translations; engraving terms follow 음악 교과서 usage.
 | system (a row of staves) | 단 | |
 | track | 트랙 | |
 | measure, bar | 마디 | |
-| empty bar; in this track only / in every track (a bar inserted or deleted); the bar map (the tracks panel's cells) | 빈 마디; 이 트랙에만 (지울 때 이 트랙에서만) / 모든 트랙에; 마디 맵 | `Insert Empty Bar in This Track` = `이 트랙에만 빈 마디 넣기`, `Delete Bar in This Track` = `이 트랙의 마디만 삭제`; the buttons `+ 마디 (이 트랙)` |
+| empty bar; in this track only / in every track (a bar inserted or deleted); the bar map (the tracks panel's cells) | 빈 마디; 이 트랙에만 (지울 때 이 트랙에서만) / 모든 트랙에; 마디 맵 | `Insert Empty Bar in This Track` = `이 트랙에만 빈 마디 넣기`, `Delete Bar in This Track` = `이 트랙의 마디만 삭제`; the buttons `+ 마디 (이 트랙)`; the palette's Bar group switch `All` · `This track` = `전체` · `이 트랙` |
 | bar line | 세로줄 | |
 | beat (one moment of a voice) | 박 | `Insert a beat` = `박 넣기` |
 | voice | 성부 | `Multivoice` = `멀티 성부` |

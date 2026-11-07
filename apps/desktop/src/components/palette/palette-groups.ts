@@ -12,7 +12,7 @@ import {
   vibratoOf,
 } from '@gp-editor/core';
 import { type MessageKey, memoByLanguage, t } from '../../lib/i18n/i18n';
-import { SEMITONE_COMMANDS } from '../../lib/key-commands';
+import { type BarScope, DEFAULT_BAR_SCOPE, SEMITONE_COMMANDS } from '../../lib/key-commands';
 import { parseTempoText } from '../../lib/practice-tempo';
 import { DYNAMIC_GLYPHS, PICK_STROKE_GLYPHS } from '../../score/symbols/smufl';
 import { voiceTint } from '../../score/voices';
@@ -81,10 +81,7 @@ const HARMONICS: readonly (readonly [HarmonicType, string])[] = [
   ['semi', 'S.H.'], // i18n-exempt: notation abbreviation
 ];
 
-/**
- * The repeat signs' buttons (a thin bar line and two dots): narrower than a glyph's own 36 points, so the Bar group's
- * first row keeps +Bar −Bar |: :| 1. 2. in Korean too (+마디 and −마디 ⌘D are wider than their English faces).
- */
+/** The repeat signs' buttons (a thin bar line and two dots): narrower than a glyph's own 36 points. */
 const REPEAT_SIGN_WIDTH = 30;
 
 const VOICE_INDEXES = [0, 1, 2, 3] as const;
@@ -190,23 +187,52 @@ function barSteppers(): readonly PaletteStepper[] {
   ];
 }
 
+/** One side of the Bar group's switch: +Bar and −Bar in every track, or in the cursor's track only; lit when chosen. */
+function barScopeTool(barScope: BarScope, id: string, face: MessageKey, tooltip: MessageKey): PaletteTool {
+  return { id, face: t(face), tooltip: t(tooltip), scope: 'always', run: { kind: 'command', command: { type: 'setBarScope', scope: barScope } }, isActive: (c) => (c.barScope ?? DEFAULT_BAR_SCOPE) === barScope };
+}
+
+/**
+ * Adding and deleting bars, one feature for every track and for one track: the switch, then +Bar and −Bar, which follow
+ * it (an ⌥-click acts on the cursor's track at All too), on a row of their own. + Bar adds after the bar clicked (the
+ * cursor's) either way: the mouse is on the palette when it is pressed, not on a bar.
+ */
+function barCountTools(): readonly PaletteTool[] {
+  const insertInTrack = edit({ type: 'insertTrackMeasure', position: 'after' });
+  const deleteInTrack = edit({ type: 'deleteTrackMeasure' });
+  return [
+    barScopeTool('all', 'barScopeAll', 'palette.face.barScopeAll', 'palette.tool.barScopeAll'),
+    barScopeTool('track', 'barScopeTrack', 'palette.face.barScopeTrack', 'palette.tool.barScopeTrack'),
+    {
+      id: 'insertMeasure',
+      face: t('palette.face.insertMeasure'),
+      tooltip: t('palette.tool.insertMeasure'),
+      scope: 'bar',
+      run: edit({ type: 'insertMeasure' }),
+      optionClick: { run: insertInTrack, tooltip: t('palette.tool.insertMeasure.option') },
+      inTrack: { run: insertInTrack, tooltip: t('palette.tool.insertMeasure.track') },
+    },
+    {
+      id: 'deleteMeasure',
+      face: t('palette.face.deleteMeasure'),
+      // ⌘D deletes in every track: at This track the key in the corner goes (⌥⌘⌫ is in the tooltip).
+      key: '⌘D',
+      tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'),
+      scope: 'bar',
+      run: edit({ type: 'deleteMeasure' }),
+      optionClick: { run: deleteInTrack, tooltip: t('palette.tool.deleteMeasure.option') },
+      inTrack: { run: deleteInTrack, tooltip: withKey(t('palette.tool.deleteMeasure.track'), '⌥⌘⌫') },
+      endsRow: true,
+    },
+  ];
+}
+
 function barGroup(): PaletteGroup {
   return {
     id: 'bar',
     title: t('palette.group.bar'),
     tools: [
-      // + Bar adds after the bar clicked (the cursor's): the mouse is on the palette when it is pressed, not on a bar.
-      // With ⌥ both act on the cursor's track only (the palette has no room for two more buttons at 1280 × 800).
-      { id: 'insertMeasure', face: t('palette.face.insertMeasure'), tooltip: t('palette.tool.insertMeasure'), scope: 'bar', run: edit({ type: 'insertMeasure' }), optionClick: { run: edit({ type: 'insertTrackMeasure', position: 'after' }), tooltip: t('palette.tool.insertMeasure.option') } },
-      {
-        id: 'deleteMeasure',
-        face: t('palette.face.deleteMeasure'),
-        key: '⌘D',
-        tooltip: withKey(t('palette.tool.deleteMeasure'), '⌘D'),
-        scope: 'bar',
-        run: edit({ type: 'deleteMeasure' }),
-        optionClick: { run: edit({ type: 'deleteTrackMeasure' }), tooltip: t('palette.tool.deleteMeasure.option') },
-      },
+      ...barCountTools(),
       { id: 'repeatOpen', face: GLYPH.repeatOpen, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatOpen'), scope: 'bar', run: edit({ type: 'toggleRepeatOpen' }), isActive: (c) => c.header?.repeatOpen === true },
       { id: 'repeatClose', face: GLYPH.repeatClose, glyph: 'barline', width: REPEAT_SIGN_WIDTH, tooltip: t('palette.tool.repeatClose'), scope: 'bar', run: edit({ type: 'toggleRepeatClose' }), isActive: (c) => (c.header?.repeatClose ?? 0) > 0 },
       endingsTool(),

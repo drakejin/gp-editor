@@ -72,13 +72,17 @@ export function toolWidth(tool: PaletteTool, group: PaletteGroup, widthOf: (requ
   return Math.max(PALETTE_LAYOUT.toolMinWidth, Math.ceil(face + key) + 2 * padding) + 2 * margin;
 }
 
-/** The widths of a group's tools, row by row, as flex-wrap lays them in PALETTE_INNER_WIDTH. */
+/**
+ * The widths of a group's tools, row by row, as flex-wrap lays them in PALETTE_INNER_WIDTH: a tool goes on the row when
+ * it fits there and the tool before it does not end its row (`endsRow`, the row end EditionPalette draws after it).
+ */
 export function groupRows(group: PaletteGroup, widthOf: (request: TextRequest) => number): readonly (readonly number[])[] {
-  return group.tools.reduce<readonly (readonly number[])[]>((rows, tool) => {
+  return group.tools.reduce<readonly (readonly number[])[]>((rows, tool, index) => {
     const width = toolWidth(tool, group, widthOf);
     const last = rows[rows.length - 1];
     const used = last?.reduce((sum, w) => sum + w, 0) ?? 0;
-    return last !== undefined && used + width <= PALETTE_INNER_WIDTH ? [...rows.slice(0, -1), [...last, width]] : [...rows, [width]];
+    const isRowEnded = group.tools[index - 1]?.endsRow === true;
+    return last !== undefined && !isRowEnded && used + width <= PALETTE_INNER_WIDTH ? [...rows.slice(0, -1), [...last, width]] : [...rows, [width]];
   }, []);
 }
 

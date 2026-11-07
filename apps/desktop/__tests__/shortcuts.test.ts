@@ -41,6 +41,16 @@ describe('the shortcut sheet', () => {
     expect(beats[index - 1]?.keys).toBe('⌘D');
   });
 
+  it('lists the palette’s +Bar / −Bar and the switch beside them after the keys of a bar in this track', () => {
+    const beats = shortcutGroups().find((group) => group.title === 'Beats and rests')?.shortcuts ?? [];
+    const index = beats.findIndex((shortcut) => shortcut.keys === '+Bar / −Bar');
+    expect(beats[index]).toEqual({
+      keys: '+Bar / −Bar',
+      action: 'The palette’s Bar group: a bar after the cursor’s bar / the bar (or the selected bars) deleted — in every track, or in this track only with the switch beside them at This track',
+    });
+    expect(beats[index - 1]?.keys).toBe('⌥⌘I / ⌥⌘⌫');
+  });
+
   it('lists ⌥⇧↑ / ⌥⇧↓, a semitone up or down, with the note keys', () => {
     const notes = shortcutGroups().find((group) => group.title === 'Note at the cursor')?.shortcuts;
     expect(notes?.find((shortcut) => shortcut.keys === '⌥⇧↑ / ⌥⇧↓')).toMatchObject({

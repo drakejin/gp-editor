@@ -1,6 +1,6 @@
 import type { GlyphKind } from './MusicIcon';
 import { type Beat, type Measure, type MeasureHeader, type Note, type Song, type StringAddress, type Voice, findNote } from '@gp-editor/core';
-import type { KeyCommand, NotePanel } from '../../lib/key-commands';
+import type { BarScope, KeyCommand, NotePanel } from '../../lib/key-commands';
 import type { EditorAction } from '../../state/editor';
 import type { Palette } from '../../theme';
 import { withBarRests } from '../../state/empty-bars';
@@ -24,6 +24,8 @@ export interface PaletteContext {
   readonly isDesignMode?: boolean;
   /** Beats are selected (the editor's): the tools over a selection act on it. */
   readonly hasSelection?: boolean;
+  /** Where +Bar and −Bar act (the window's, the Bar group's switch): every track when not given. */
+  readonly barScope?: BarScope;
 }
 
 export function paletteContext(edited: Song, cursor: StringAddress | undefined): PaletteContext {
@@ -97,6 +99,13 @@ export interface PaletteTool {
    * own text; none: an ⌥-click is a click.
    */
   readonly optionClick?: { readonly run: PaletteRun; readonly tooltip: string };
+  /**
+   * +Bar and −Bar in the cursor's track only: what the tool is while the Bar group's switch says This track — its run,
+   * tooltip and key (none: no key in the corner); `toolInScope` makes it so.
+   */
+  readonly inTrack?: { readonly run: PaletteRun; readonly tooltip: string; readonly key?: string };
+  /** The last tool of its row: the next one starts a row, whatever room is left (the switch, +Bar and −Bar: a row of their own). */
+  readonly endsRow?: boolean;
   /** A fixed width, for a one-character face that must fit the end of a full row (the Beat group's >). */
   readonly width?: number;
   /** A colour strip under the face (each Voice button in its voice's colour). */
@@ -141,4 +150,16 @@ export function isToolEnabled(tool: Pick<PaletteTool, 'scope'>, context: Palette
     case 'always':
       return true;
   }
+}
+
+/**
+ * The tool as the Bar group's switch has it: +Bar and −Bar with the switch at This track run, say and show what they do
+ * in the cursor's track only (an ⌥-click then does the same); every other tool, and every tool at All, as it is.
+ */
+export function toolInScope(tool: PaletteTool, scope: BarScope | undefined): PaletteTool {
+  const { inTrack } = tool;
+  if (inTrack === undefined || scope !== 'track') {
+    return tool;
+  }
+  return { ...tool, run: inTrack.run, tooltip: inTrack.tooltip, key: inTrack.key, optionClick: undefined, inTrack: undefined };
 }

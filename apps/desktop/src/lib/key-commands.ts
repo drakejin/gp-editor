@@ -12,6 +12,12 @@ import type { ScoreZoom } from './score-zoom';
  */
 export type NotePanel = 'vibrato' | 'bend' | 'tremoloBar';
 
+/** Where the palette's +Bar and −Bar add and delete bars: every track, or the cursor's track only (the Bar group's switch). */
+export type BarScope = 'all' | 'track';
+
+/** Every track: where +Bar and −Bar act until the switch says otherwise (they did before it was there). */
+export const DEFAULT_BAR_SCOPE: BarScope = 'all';
+
 /**
  * What a key press does: an editor action, a playback control (play, the playback tempo), a jump to another bar, a
  * zoom step, a note panel, or the clipboard.
@@ -42,6 +48,8 @@ export type KeyCommand =
   | { readonly type: 'openAiEditPanel' }
   /** Tools ▸ Online ▸ Songsterr Search… and the palette's Songsterr (no key): the Songsterr search panel. */
   | { readonly type: 'openSongsterrPanel' }
+  /** The palette's Bar group switch: +Bar and −Bar in every track, or in the cursor's track only (for the session). */
+  | { readonly type: 'setBarScope'; readonly scope: BarScope }
   /** Y: while the audio track plays, the cursor's bar starts at the moment heard now (a sync point). */
   | { readonly type: 'markSyncPoint' }
   | { readonly type: 'copy' }

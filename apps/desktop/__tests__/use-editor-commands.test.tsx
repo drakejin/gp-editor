@@ -22,6 +22,7 @@ interface Sources {
   readonly onComposePanel: jest.Mock;
   readonly onAiEditPanel: jest.Mock;
   readonly onSongsterrPanel: jest.Mock;
+  readonly onBarScope: jest.Mock;
   readonly start: jest.Mock;
   readonly stop: jest.Mock;
   readonly closeOverlay: jest.Mock;
@@ -56,6 +57,7 @@ function renderCommands(
     onComposePanel: jest.fn(),
     onAiEditPanel: jest.fn(),
     onSongsterrPanel: jest.fn(),
+    onBarScope: jest.fn(),
     start: jest.fn(),
     stop: jest.fn(),
     closeOverlay: jest.fn(() => isOverlayOpen),
@@ -114,6 +116,21 @@ describe('useEditorCommands: the palette’s online tools', () => {
     expect(sources.onSongsterrPanel).toHaveBeenCalledTimes(1);
     expect(sources.onComposePanel).toHaveBeenCalledTimes(1);
     expect(sources.onAiEditPanel).toHaveBeenCalledTimes(1);
+    expect(sources.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditorCommands: the palette’s Bar group switch', () => {
+  it('hands the window where +Bar and −Bar act, the score left as it is', () => {
+    // Arrange
+    const { commands, sources } = renderCommands(openSong());
+
+    // Act
+    commands.runCommand({ type: 'setBarScope', scope: 'track' });
+    commands.runCommand({ type: 'setBarScope', scope: 'all' });
+
+    // Assert
+    expect(sources.onBarScope.mock.calls).toEqual([['track'], ['all']]);
     expect(sources.dispatch).not.toHaveBeenCalled();
   });
 });

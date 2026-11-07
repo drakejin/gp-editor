@@ -119,3 +119,18 @@ describe('useWindowChrome: the score’s zoom', () => {
     ReactTestRenderer.act(() => current().setZoom(1));
   });
 });
+
+describe('useWindowChrome: where the palette’s +Bar and −Bar act', () => {
+  it('starts at every track and keeps the switch’s choice for the session', () => {
+    // Arrange
+    const current = renderChrome();
+    const first = current().barScope;
+
+    // Act
+    ReactTestRenderer.act(() => current().setBarScope('track'));
+
+    // Assert
+    expect(first).toBe('all');
+    expect(current().barScope).toBe('track');
+  });
+});

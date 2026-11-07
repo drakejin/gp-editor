@@ -2,14 +2,29 @@ import { type Song, type StringAddress, type TimeSignature, findNote, otherVoice
 import { t } from '../lib/i18n/i18n';
 import { trackLabel } from '../lib/track-label';
 import { needsNote } from './note-edits';
+import type { BeatPlace } from './mark-edits';
 import { type SongEdit, cursorVoice, insertedBarIndex, isInTuplet } from './song-edits';
 import { voiceMoveHint } from './voice-edits';
 
+/** The bars a deletion takes, 1-based: from the selection's start (`from`) to the cursor's bar, either way round. */
+function deletedBars(cursor: StringAddress, from: BeatPlace | undefined): { readonly first: number; readonly last: number } {
+  const start = from?.measureIndex ?? cursor.measureIndex;
+  return { first: Math.min(start, cursor.measureIndex) + 1, last: Math.max(start, cursor.measureIndex) + 1 };
+}
+
 /**
- * What a bar inserted into or deleted from one track did, for the hint strip — so it is plain the other tracks were left
- * as they were; undefined for any other edit. `cursor` and `song` as before the edit.
+ * What a bar inserted or deleted did, for the hint strip: in every track (+Bar and −Bar at All, ⌘D), or in one track
+ * only — so it is plain the other tracks were left as they were; undefined for any other edit. `cursor` and `song` as
+ * before the edit.
  */
-export function trackBarHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
+export function barHint(song: Song, cursor: StringAddress, edit: SongEdit): string | undefined {
+  if (edit.type === 'insertMeasure') {
+    return t('palette.hint.barInserted', { number: insertedBarIndex(cursor.measureIndex, 'after') + 1 });
+  }
+  if (edit.type === 'deleteMeasure') {
+    const { first, last } = deletedBars(cursor, edit.from);
+    return first === last ? t('palette.hint.barDeleted', { number: first }) : t('palette.hint.barsDeleted', { first, last });
+  }
   const track = song.tracks[cursor.trackIndex];
   if (track === undefined || (edit.type !== 'insertTrackMeasure' && edit.type !== 'deleteTrackMeasure')) {
     return undefined;
@@ -18,11 +33,10 @@ export function trackBarHint(song: Song, cursor: StringAddress, edit: SongEdit):
   if (edit.type === 'insertTrackMeasure') {
     return t('palette.hint.trackBarInserted', { number: insertedBarIndex(cursor.measureIndex, edit.position) + 1, track: name });
   }
-  const from = edit.from?.measureIndex ?? cursor.measureIndex;
-  const [first, last] = [Math.min(from, cursor.measureIndex), Math.max(from, cursor.measureIndex)];
+  const { first, last } = deletedBars(cursor, edit.from);
   return first === last
-    ? t('palette.hint.trackBarDeleted', { number: first + 1, track: name })
-    : t('palette.hint.trackBarsDeleted', { first: first + 1, last: last + 1, count: last - first + 1, track: name });
+    ? t('palette.hint.trackBarDeleted', { number: first, track: name })
+    : t('palette.hint.trackBarsDeleted', { first, last, count: last - first + 1, track: name });
 }
 
 /** The note values a time signature's beat can be, in order (÷ steps through them). */

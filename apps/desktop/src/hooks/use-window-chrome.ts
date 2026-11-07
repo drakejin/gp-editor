@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ChromeMenuId } from '../components/TopBar';
-import type { NotePanel } from '../lib/key-commands';
+import { type BarScope, DEFAULT_BAR_SCOPE, type NotePanel } from '../lib/key-commands';
 import type { ScoreZoom } from '../lib/score-zoom';
 import { INITIAL_PANELS, type PanelId, type PanelLayout, type PanelVisibility, isFocused, stepZoom, toggleFocus, togglePanel } from '../state/panels';
 import { changeScoreZoom } from '../state/settings-store';
@@ -42,6 +42,9 @@ export interface WindowChrome {
   readonly isChordPanelOpen: boolean;
   readonly openChordPanel: () => void;
   readonly closeChordPanel: () => void;
+  /** Where the palette's +Bar and −Bar act: every track (at first) or the cursor's track only — its Bar group's switch. */
+  readonly barScope: BarScope;
+  readonly setBarScope: (scope: BarScope) => void;
   /** The keyboard shortcut sheet (⌘H). */
   readonly isShortcutSheetOpen: boolean;
   readonly openShortcutSheet: () => void;
@@ -63,6 +66,7 @@ export function useWindowChrome(): WindowChrome {
   const [notePanel, setNotePanel] = useState<NotePanel | undefined>(undefined);
   const [isChordPanelOpen, setIsChordPanelOpen] = useState(false);
   const [isShortcutSheetOpen, setIsShortcutSheetOpen] = useState(false);
+  const [barScope, setBarScope] = useState<BarScope>(DEFAULT_BAR_SCOPE);
   // Same order as App draws them, the last one on top.
   const closeOverlay = useCallback(() => {
     if (pickingTrackIndex !== undefined) {
@@ -102,6 +106,8 @@ export function useWindowChrome(): WindowChrome {
     isChordPanelOpen,
     openChordPanel: useCallback(() => setIsChordPanelOpen(true), []),
     closeChordPanel: useCallback(() => setIsChordPanelOpen(false), []),
+    barScope,
+    setBarScope,
     isShortcutSheetOpen,
     openShortcutSheet: useCallback(() => setIsShortcutSheetOpen(true), []),
     closeShortcutSheet: useCallback(() => setIsShortcutSheetOpen(false), []),

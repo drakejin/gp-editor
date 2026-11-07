@@ -62,6 +62,7 @@ function DocumentPalette({ model, document }: DocumentPartProps) {
       isMultivoice={state.isMultivoice}
       isDesignMode={state.isDesignMode}
       hasSelection={state.selectionAnchor !== undefined}
+      barScope={chrome.barScope}
       onEdit={cursorTools.editAtCursor}
       onAction={cursorTools.actAtCursor}
       onOpenPanel={cursorTools.openNotePanel}
