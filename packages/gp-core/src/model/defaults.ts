@@ -217,7 +217,6 @@ function dotRatio(duration: Duration): readonly [number, number] {
   return duration.doubleDotted ? [7, 4] : [1, 1];
 }
 
-/** Length of a duration in ticks (QUARTER_TIME per quarter note): exact for every duration Guitar Pro writes. */
 /** A duration's length as a fraction of ticks: numerator and denominator. */
 function tickFraction(duration: Duration): readonly [number, number] {
   const inner = duration.innerTuplet ?? NORMAL_TUPLET;
@@ -225,6 +224,7 @@ function tickFraction(duration: Duration): readonly [number, number] {
   return [QUARTER_TIME * 4 * dotTimes * duration.tuplet.times * inner.times, duration.value * dotParts * duration.tuplet.enters * inner.enters];
 }
 
+/** Length of a duration in ticks (QUARTER_TIME per quarter note): exact for every duration Guitar Pro writes. */
 export function durationTicks(duration: Duration): number {
   const [numerator, denominator] = tickFraction(duration);
   return Math.floor(numerator / denominator);

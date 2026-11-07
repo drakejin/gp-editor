@@ -143,6 +143,7 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['two kinds of dot', (value) => Object.assign(rawItem(value).duration as Raw, { dotted: true, doubleDotted: true })],
     ['a tuplet of no notes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 0, times: 2 })],
     ['a tuplet as long as its notes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 3, times: 3 })],
+    ['a tuplet of one note', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 1, times: 2 })],
     ['a tuplet no whole number of ticks long', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 17, times: 16 })],
     ['a tuplet of more notes than any score writes', (value) => ((rawItem(value).duration as Raw).tuplet = { enters: 1024, times: 512 })],
     ['an inner tuplet without an outer one', (value) => ((rawItem(value).duration as Raw).innerTuplet = { enters: 3, times: 2 })],
@@ -194,6 +195,7 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['a layout bar shorter than its time signature', (value) => (value.layout = { offset: 0, bars: [{ ticks: 3840, length: 960 }] })],
     ['a layout bar of no length', (value) => (value.layout = { offset: 0, bars: [{ ticks: 0, length: 0 }] })],
     ['a layout that is no object', (value) => (value.layout = 'bars')],
+    ['a layout whose first beat lies past its first bar', (value) => (value.layout = { offset: 4800, bars: [{ ticks: 3840, length: 3840 }] })],
     ['a text that is no text', (value) => (rawItem(value).text = 42)],
   ])('rejects %s', (_label, tamper) => {
     expect(parseTampered(tamper)).toBeUndefined();

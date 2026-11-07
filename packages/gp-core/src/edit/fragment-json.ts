@@ -151,8 +151,10 @@ function parseTuning(value: unknown): { readonly tuning?: readonly number[] } | 
   if (value === undefined) {
     return {};
   }
-  const isTuning = Array.isArray(value) && value.length > 0 && value.length <= MAX_TRACK_STRINGS && value.every((open: unknown) => isIntegerIn(open, 0, MAX_PITCH));
-  return isTuning ? { tuning: value as number[] } : null;
+  const opens: readonly unknown[] = Array.isArray(value) ? value : [];
+  const isPitch = (open: unknown): open is number => isIntegerIn(open, 0, MAX_PITCH);
+  const tuning = opens.filter(isPitch);
+  return tuning.length > 0 && tuning.length === opens.length && tuning.length <= MAX_TRACK_STRINGS ? { tuning } : null;
 }
 
 /** No capo, or a whole number of semitones within the MIDI range (a track's capo, or a transposition below it); `null` stands for invalid. */
@@ -170,16 +172,21 @@ function parseFragmentBar(value: unknown): FragmentBar | undefined {
   return { ticks: value.ticks, length: value.length };
 }
 
-/** No layout, or an offset and one bar or more, each as long as its time signature or longer; `null` stands for invalid. */
+/**
+ * No layout, or one bar or more, each as long as its time signature or longer, and an offset inside the first; `null`
+ * stands for invalid.
+ */
 function parseLayout(value: unknown): { readonly layout?: FragmentLayout } | null {
   if (value === undefined) {
     return {};
   }
   const bars = isRawObject(value) && Array.isArray(value.bars) ? value.bars.map(parseFragmentBar) : [];
-  if (!isRawObject(value) || !isIntegerIn(value.offset, 0, Number.MAX_SAFE_INTEGER) || bars.length === 0 || !bars.every((bar): bar is FragmentBar => bar !== undefined)) {
+  if (!isRawObject(value) || !bars.every((bar): bar is FragmentBar => bar !== undefined)) {
     return null;
   }
-  return { layout: { offset: value.offset, bars } };
+  // The first beat lies inside the first bar, as a copy records it.
+  const [first] = bars;
+  return first !== undefined && isIntegerIn(value.offset, 0, first.length) ? { layout: { offset: value.offset, bars } } : null;
 }
 
 /**

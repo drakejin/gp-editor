@@ -7,7 +7,7 @@
 import type { Song } from '../model/song';
 import { type BeatAddress, voiceOf } from './addresses';
 import type { DurationTuplets } from '../model/defaults';
-import { type VoiceFlow, barEvents, barTicks, liftVoice, rewriteVoice } from './bar-flow';
+import { type VoiceFlow, barEvents, barTicks, layoutBars, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, type FragmentLayout, itemEvent, untieFirst } from './beat-fragment';
 import { type VoicePosition, beatPosition, cutAt, hasVoiceSlot, runEvents } from './beat-ranges';
 import { type FittedFragment, fitFragment } from './paste-fit';
@@ -25,7 +25,7 @@ export interface PastedBeats extends Omit<FittedFragment, 'items'> {
   readonly lastMeasureIndex: number;
   /**
    * False when nothing could be written there (an empty fragment, a beat the track lacks, a bar its voice cannot be read
-   * in). A paste that writes what is already there is a paste: the same song, true.
+   * in). A paste that writes what is already there is a paste all the same: true, its song equal to the one it was.
    */
   readonly isPasted: boolean;
   /** The beat right after the pasted beats, where the next paste lays the next copy; absent when they end the song. */
@@ -59,7 +59,8 @@ function voiceBarRoom(song: Song, flow: VoiceFlow): BarRoom {
  * do not fit the run (`ticks` long: they come from the clipboard).
  */
 function copiedBarLengths(song: Song, flow: VoiceFlow, start: number, ticks: number, layout: FragmentLayout | undefined): readonly number[] | undefined {
-  const spanned = layout?.offset === start ? layout.bars.slice(0, -1) : [];
+  const isFromStart = layout !== undefined && layout.offset === start && start <= (layout.bars[0]?.length ?? 0);
+  const spanned = isFromStart ? layout.bars.slice(0, -1) : [];
   const isAligned = spanned.length > 0 && spanned.every((bar, k) => bar.ticks === barTicks(song, flow.firstMeasureIndex + k) && bar.length >= bar.ticks);
   const lengths = spanned.map((bar) => bar.length);
   return isAligned && lengths.reduce((sum, length) => sum + length, 0) - start <= ticks ? lengths : undefined;
@@ -82,24 +83,21 @@ function pasteBarRoom(song: Song, flow: VoiceFlow, start: number, copied: readon
   };
 }
 
-/** Where `ticks` of stream from `start` in bar `firstIndex` end: the bar and the offset in it (at most its room). */
-function endOf(room: BarRoom, firstIndex: number, start: number, ticks: number): VoicePosition {
-  let measureIndex = firstIndex;
-  let offset = start;
-  let left = ticks;
-  // At least a tick per bar, so a bar of no length cannot stall the loop.
-  while (left > Math.max(1, room(measureIndex)) - offset) {
-    left -= Math.max(1, room(measureIndex)) - offset;
-    measureIndex += 1;
-    offset = 0;
-  }
-  return { measureIndex, offset: offset + left };
+/**
+ * Where `stream` (from bar `firstIndex`'s start) ends once laid into bars of `room` as rewriteVoice lays it — a piece
+ * that cannot be split at a bar line stays whole and over-fills its bar —: the bar and the offset in it.
+ */
+function endOf(stream: VoiceEvents, room: BarRoom, firstIndex: number): VoicePosition {
+  const bars = layoutBars(stream, (index) => room(firstIndex + index));
+  const last = Math.max(0, bars.length - 1);
+  return { measureIndex: firstIndex + last, offset: eventsTicks(bars[last] ?? []) };
 }
 
 /**
  * Rests for the `ticks` left of `event` after a paste's end: in any tuplet of the event or the paste (two of them mixed
  * if need be, mixedGapRests); when none can write that time, a rest of the event's own length, which over-fills the bar
- * a little rather than leaving it unreadable. Under the event's octave sign.
+ * a little rather than leaving it unreadable (what follows in that bar then comes that much later). Under the event's
+ * octave sign.
  */
 function restOfEvent(event: VoiceEvent, ticks: number, tuplets: readonly DurationTuplets[]): VoiceEvents {
   const rests = mixedGapRests(ticks, distinctTuplets([event.voice.duration, ...tuplets]));
@@ -169,7 +167,7 @@ function writeEvents(song: Song, flow: VoiceFlow, offset: number, inserted: Voic
   const before = cutAt(firstBar, offset, measure).before;
   const start = eventsTicks(before);
   const room = roomOf(start);
-  const end = endOf(room, flow.firstMeasureIndex, start, eventsTicks(inserted));
+  const end = endOf([...before, ...inserted], room, flow.firstMeasureIndex);
   const kept = eventsFrom(song, flow, end, inserted.map((event) => event.voice.duration));
   if (kept === undefined) {
     return undefined;
@@ -184,14 +182,27 @@ function writeEvents(song: Song, flow: VoiceFlow, offset: number, inserted: Voic
   return { song: untied, start: barStart + start, lastMeasureIndex: Math.min(end.measureIndex, untied.measureHeaders.length - 1), end };
 }
 
-/** The beat of the voice's track that starts at song tick `tick`, from bar `measureIndex` on; `at` itself when none does. */
+/** The beat of bar `measureIndex` of the track where the voice has an event starting at song tick `tick`; -1 when none. */
+function voiceBeatAt(song: Song, at: BeatAddress, measureIndex: number, tick: number): number {
+  const beats = song.tracks[at.trackIndex]?.measures[measureIndex]?.beats ?? [];
+  return beats.findIndex((beat) => beat.start === tick && voiceOf(beat, at.voiceIndex)?.isEmpty === false);
+}
+
+/**
+ * The voice's beat that starts at song tick `tick`: in `at`'s bar (its over-full part too), else in the bar whose time
+ * holds it; `at` itself when none does.
+ */
 function beatStartingAt(song: Song, at: BeatAddress, tick: number): BeatAddress {
+  const own = voiceBeatAt(song, at, at.measureIndex, tick);
+  if (own >= 0) {
+    return { ...at, beatIndex: own };
+  }
   const headers = song.measureHeaders;
   let measureIndex = at.measureIndex;
   while ((headers[measureIndex + 1]?.start ?? Number.POSITIVE_INFINITY) <= tick) {
     measureIndex += 1;
   }
-  const beatIndex = song.tracks[at.trackIndex]?.measures[measureIndex]?.beats.findIndex((beat) => beat.start === tick) ?? -1;
+  const beatIndex = voiceBeatAt(song, at, measureIndex, tick);
   return beatIndex < 0 ? at : { ...at, measureIndex, beatIndex };
 }
 
@@ -219,7 +230,7 @@ function beatAfter(song: Song, flow: VoiceFlow, end: VoicePosition): BeatAddress
  * between drums and pitched tracks by MIDI number —; the first pasted beat and the voice's first note after the paste
  * lose their ties. `at` answers the beat the pasted beats start on (in the next bar when a
  * note held across the cursor runs into it) and `next` the beat right after them. A paste that writes what is there is
- * a paste (the same song). Nothing pasted only for an empty fragment or a missing beat.
+ * a paste (an equal song). Nothing pasted only for an empty fragment or a missing beat.
  */
 export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment): PastedBeats {
   const unchanged: PastedBeats = { song, addedBars: 0, at, lastMeasureIndex: at.measureIndex, isPasted: false, mapping: 'asCopied', octaveShifted: 0, leftOut: 0 };

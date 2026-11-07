@@ -48,15 +48,16 @@ const MAX_TUPLET_COUNT = 128;
 
 /**
  * Any tuplet a song holds — Guitar Pro's 3:2 … 12:8 and what Guitar Pro 7 writes besides, 5:2, a 2:3 duplet —, or the
- * normal 1:1: whole counts of 1…MAX_TUPLET_COUNT, not as many notes as beats of time unless 1:1.
+ * normal 1:1: whole counts of 2…MAX_TUPLET_COUNT notes in 1…MAX_TUPLET_COUNT beats of time, never as many as each other.
  */
 function parseTuplet(value: unknown): Tuplet | undefined {
   if (!isRawObject(value) || !isIntegerIn(value.enters, 1, MAX_TUPLET_COUNT) || !isIntegerIn(value.times, 1, MAX_TUPLET_COUNT)) {
     return undefined;
   }
   const { enters, times } = value;
-  if (enters === times) {
-    return enters === 1 ? NORMAL_TUPLET : undefined;
+  if (enters === 1 || enters === times) {
+    // A tuplet of one note is no tuplet: the normal 1:1 only.
+    return enters === 1 && times === 1 ? NORMAL_TUPLET : undefined;
   }
   return { enters, times };
 }

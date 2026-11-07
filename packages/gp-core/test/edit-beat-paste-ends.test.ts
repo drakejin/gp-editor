@@ -228,3 +228,33 @@ describe('pasteBeats: a copied over-full bar stays one bar', () => {
     expect(pasted.song.measureHeaders).toBe(song.measureHeaders);
   });
 });
+
+describe('pasteBeats: a pasted note that cannot be cut at a bar line', () => {
+  it('over-fills the bar it starts in and leaves the bars after it where they were, the beat after it there', () => {
+    // Arrange: three bars of quarters; a triplet eighth then a whole note, which no tied pieces can split at the bar line
+    const song = bars(FIRST_BAR, NEXT_BAR, FIRST_BAR);
+
+    // Act
+    const pasted = pasteBeats(song, at(0, 0), fragment(item(dur(8, { tuplet: TRIPLET }), n(2, 1)), item(dur(1), n(2, 3))));
+
+    // Assert
+    expect(voiceLayout(pasted.song, 0, 0, 0)).toEqual(['0:8/3:2:2/1', '320:1:2/3']);
+    expect(voiceLayout(pasted.song, 0, 1, 0)).toEqual(voiceLayout(song, 0, 1, 0));
+    expect(pasted).toMatchObject({ lastMeasureIndex: 0, next: at(1, 0) });
+    assertEditInvariants(pasted.song);
+  });
+});
+
+describe('pasteBeats: where the pasted beats start', () => {
+  it('names the over-full part of the cursor’s bar, not the next bar’s beat at the same moment', () => {
+    // Arrange: five quarters in a 4/4 bar; its fifth starts as bar 2 does
+    const song = bars([...FIRST_BAR, play(4, n(1, 9))], NEXT_BAR);
+
+    // Act
+    const pasted = pasteBeats(song, at(0, 4), fragment(item(dur(4), n(2, 5))));
+
+    // Assert
+    expect(pasted.at).toEqual(at(0, 4));
+    expect(voiceLayout(pasted.song, 0, 1, 0)).toEqual(voiceLayout(song, 0, 1, 0));
+  });
+});

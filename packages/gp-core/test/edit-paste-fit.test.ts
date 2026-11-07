@@ -119,6 +119,13 @@ describe('fitFragment: between drums and pitched tracks, by MIDI number', () => 
     expect(pitches(fitted.items[0], guitar)).toEqual([42, 48, 50]);
   });
 
+  it('brings a pitch outside the drum keys 0–127 into them by octaves', () => {
+    const high = fitFragment(pitched([120], 0, item(n(1, 20))), DRUMS);
+    const low = fitFragment(pitched([3], -10, item(n(1, 2))), DRUMS);
+    expect(pitches(high.items[0], DRUMS)).toEqual([128 - 12]);
+    expect(pitches(low.items[0], DRUMS)).toEqual([-5 + 12]);
+  });
+
   it('keeps only the rhythm onto drums from a clipboard without a tuning, every note counted out', () => {
     const fitted = fitFragment({ isPercussion: false, items: [item(n(1, 3), n(2, 1)), item(n(1, 0))] }, DRUMS);
     expect(fitted).toMatchObject({ mapping: 'rhythmOnly', leftOut: 3 });

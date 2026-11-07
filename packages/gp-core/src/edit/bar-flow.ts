@@ -1,7 +1,7 @@
 import { headerTicks } from '../model/defaults';
 import type { Measure, Song } from '../model/song';
 import type { BeatAddress } from './addresses';
-import { insertMeasure } from './measures';
+import { appendMeasures } from './measures';
 import { hasSameItems, updateTrack } from './song-paths';
 import { splitAtBarLines } from './tied-pieces';
 import {
@@ -169,9 +169,9 @@ export function barTicks(song: Song, measureIndex: number): number {
   return header === undefined ? 0 : headerTicks(header);
 }
 
-/** The song with `count` bars added at the end (insertMeasure: the last bar's header, clef and key; rests in every track). */
+/** The song with `count` bars added at the end (appendMeasures: the last bar's header, clef and key; rests in every track). */
 export function appendBars(song: Song, count: number): Song {
-  return Array.from({ length: Math.max(0, count) }).reduce<Song>((current) => insertMeasure(current, current.measureHeaders.length - 1, 'after'), song);
+  return appendMeasures(song, count);
 }
 
 /**
