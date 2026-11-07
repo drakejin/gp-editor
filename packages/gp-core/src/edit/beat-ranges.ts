@@ -76,8 +76,9 @@ export function runEvents(song: Song, from: BeatAddress, to: BeatAddress): reado
 /**
  * The beats from `from` to `to` (inclusive, either order, across bars) of `from`'s track and voice, as a fragment:
  * each event of the voice that starts in the run, rests included (time the voice leaves unused reads as rests), with
- * the stroke, pick stroke, chord diagram and text of its beat. A tie keeps only when it starts inside the run (a note tied over a bar
- * line into the run loses it). No items when a beat is missing.
+ * the stroke, pick stroke, chord diagram and text of its beat — and a pitched track's tuning and capo, which a paste into
+ * another track places the notes by. A tie keeps only when it starts inside the run (a note tied over a bar line into
+ * the run loses it). No items when a beat is missing.
  */
 export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatFragment {
   const track = song.tracks[from.trackIndex];
@@ -86,7 +87,8 @@ export function copyBeats(song: Song, from: BeatAddress, to: BeatAddress): BeatF
     return { isPercussion: track?.isPercussion ?? false, items: [] };
   }
   const items = run.map((event) => fragmentItem(event.event.voice, beatOf(track, event)));
-  return { isPercussion: track.isPercussion, items: settleFragmentTies(items) };
+  const pitches = track.isPercussion ? {} : { tuning: track.strings.map((guitarString) => guitarString.tuning), capo: track.offset };
+  return { isPercussion: track.isPercussion, items: settleFragmentTies(items), ...pitches };
 }
 
 /**

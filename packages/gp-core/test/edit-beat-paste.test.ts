@@ -291,11 +291,11 @@ describe('pasteBeats: an over-full bar', () => {
 });
 
 describe('pasteBeats: what it leaves alone', () => {
-  it('changes nothing for an empty fragment, a missing beat, or drum beats into another track', () => {
+  it('changes nothing for an empty fragment or a missing beat, and pastes drum beats into a guitar (edit-paste-fit)', () => {
     const song = bars(FOUR_QUARTERS);
     expect(pasteBeats(song, at(0, 0), fragment()).song).toBe(song);
     expect(pasteBeats(song, at(0, 9), fragment(item(4, n(1, 1)))).song).toBe(song);
-    expect(pasteBeats(song, at(0, 0), { isPercussion: true, items: [item(4, n(1, 38))] }).song).toBe(song);
+    expect(pasteBeats(song, at(0, 0), { isPercussion: true, items: [item(4, n(1, 38))] })).toMatchObject({ isPasted: true, mapping: 'drumsToPitched' });
   });
 });
 

@@ -9,12 +9,13 @@ import { type BeatAddress, voiceOf } from './addresses';
 import type { DurationTuplets } from '../model/defaults';
 import { type VoiceFlow, barEvents, barTicks, liftVoice, rewriteVoice } from './bar-flow';
 import { type BeatFragment, itemEvent, untieFirst } from './beat-fragment';
-import { type VoicePosition, beatPosition, cutAt, hasVoiceSlot, onTrackStrings, runEvents } from './beat-ranges';
+import { type VoicePosition, beatPosition, cutAt, hasVoiceSlot, runEvents } from './beat-ranges';
+import { type FittedFragment, fitFragment } from './paste-fit';
 import { updateNote } from './song-paths';
 import { type VoiceEvent, type VoiceEvents, distinctTuplets, eventTicks, eventsTicks, isFreeRest, mixedGapRests, restEvent, signedRests } from './timeline';
 
-/** A paste's outcome. */
-export interface PastedBeats {
+/** A paste's outcome: how the copied notes went onto the track (`mapping`, what moved by octaves or was left out) too. */
+export interface PastedBeats extends Omit<FittedFragment, 'items'> {
   readonly song: Song;
   /** Bars added at the end of the song (rests in the other tracks) for what ran past its last bar. */
   readonly addedBars: number;
@@ -195,21 +196,22 @@ function beatAfter(song: Song, flow: VoiceFlow, end: VoicePosition): BeatAddress
  * many bars as it needs (what played in its time is replaced — a free rest across its end cut, a note across it leaving
  * the rest of its time as rests —, an empty bar or voice filled, what follows stays in place, an over-full bar kept
  * over-full); nothing is inserted and no other track changes, but bars are appended (rests in every other track) for
- * what runs past the last bar. Notes on strings the track lacks are left out; the first pasted beat and the voice's
- * first note after the paste lose their ties. `at` answers the beat the pasted beats start on (in the next bar when a
+ * what runs past the last bar. The notes go onto the track as fitFragment puts them — by pitch onto another tuning,
+ * between drums and pitched tracks by MIDI number —; the first pasted beat and the voice's first note after the paste
+ * lose their ties. `at` answers the beat the pasted beats start on (in the next bar when a
  * note held across the cursor runs into it) and `next` the beat right after them. A paste that writes what is there is
- * a paste (the same song). Nothing pasted for an empty fragment, a missing beat, or drum beats into a track that is not
- * a drum track (and the other way round).
+ * a paste (the same song). Nothing pasted only for an empty fragment or a missing beat.
  */
 export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment): PastedBeats {
-  const unchanged: PastedBeats = { song, addedBars: 0, at, lastMeasureIndex: at.measureIndex, isPasted: false };
+  const unchanged: PastedBeats = { song, addedBars: 0, at, lastMeasureIndex: at.measureIndex, isPasted: false, mapping: 'asCopied', octaveShifted: 0, leftOut: 0 };
   const track = song.tracks[at.trackIndex];
   const position = hasVoiceSlot(song, at) ? beatPosition(song, at) : undefined;
-  if (track === undefined || position === undefined || fragment.items.length === 0 || fragment.isPercussion !== track.isPercussion) {
+  if (track === undefined || position === undefined || fragment.items.length === 0) {
     return unchanged;
   }
   const flow: VoiceFlow = { trackIndex: at.trackIndex, voiceIndex: at.voiceIndex, firstMeasureIndex: at.measureIndex };
-  const inserted = untieFirst(onTrackStrings(fragment.items, track.strings.length).map(itemEvent));
+  const { items, ...fit } = fitFragment(fragment, track);
+  const inserted = untieFirst(items.map(itemEvent));
   const written = writeEvents(song, flow, position.offset, inserted, (start) => pasteBarRoom(song, flow, start));
   if (written === undefined) {
     return unchanged;
@@ -218,7 +220,7 @@ export function pasteBeats(song: Song, at: BeatAddress, fragment: BeatFragment):
   const first = beatStartingAt(written.song, at, written.start);
   const next = beatAfter(written.song, flow, written.end);
   const addedBars = written.song.measureHeaders.length - song.measureHeaders.length;
-  return { song: written.song, addedBars, at: first, lastMeasureIndex: written.lastMeasureIndex, isPasted: true, ...(next === undefined ? {} : { next }) };
+  return { ...fit, song: written.song, addedBars, at: first, lastMeasureIndex: written.lastMeasureIndex, isPasted: true, ...(next === undefined ? {} : { next }) };
 }
 
 /**
