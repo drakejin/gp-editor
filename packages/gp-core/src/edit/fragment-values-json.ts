@@ -1,6 +1,6 @@
 import { BEND_MAX_POSITION, BEND_MAX_VALUE, TREMOLO_BAR_LIMIT } from '../formats/common/bend-units';
 import { MAX_VELOCITY } from '../formats/common/velocity';
-import { EMPTY_NOTE_EFFECT, isNoteValue, tupletOf } from '../model/defaults';
+import { EMPTY_NOTE_EFFECT, NORMAL_TUPLET, hasWholeTicks, isNoteValue } from '../model/defaults';
 import { MAX_DIAGRAM_STRINGS } from '../formats/gpif/gpif-read-track';
 import type { Bend, BendPoint, Chord, Duration, Grace, Harmonic, NoteEffect, SlideType, TremoloPicking, Trill, Tuplet } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
@@ -43,13 +43,23 @@ export function isIntegerIn(value: unknown, min: number, max: number): value is 
   return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
 }
 
-/** A tuplet Guitar Pro stores (tupletOf), or the normal 1:1. */
+/** Notes, or beats of time, a tuplet may count: far beyond any score's. */
+const MAX_TUPLET_COUNT = 128;
+
+/**
+ * Any tuplet a song holds — Guitar Pro's 3:2 … 12:8 and what Guitar Pro 7 writes besides, 5:2, a 2:3 duplet —, or the
+ * normal 1:1: whole counts of 2…MAX_TUPLET_COUNT notes in 1…MAX_TUPLET_COUNT beats of time, never as many as each other.
+ */
 function parseTuplet(value: unknown): Tuplet | undefined {
-  if (!isRawObject(value) || !isIntegerIn(value.enters, 1, Number.MAX_SAFE_INTEGER)) {
+  if (!isRawObject(value) || !isIntegerIn(value.enters, 1, MAX_TUPLET_COUNT) || !isIntegerIn(value.times, 1, MAX_TUPLET_COUNT)) {
     return undefined;
   }
-  const tuplet = tupletOf(value.enters);
-  return tuplet !== undefined && tuplet.times === value.times ? tuplet : undefined;
+  const { enters, times } = value;
+  if (enters === 1 || enters === times) {
+    // A tuplet of one note is no tuplet: the normal 1:1 only.
+    return enters === 1 && times === 1 ? NORMAL_TUPLET : undefined;
+  }
+  return { enters, times };
 }
 
 /** No inner tuplet (`{}`), or a known tuplet inside a known tuplet; `null` stands for invalid. */
@@ -62,7 +72,10 @@ function parseInnerTuplet(value: unknown, tuplet: Tuplet): { readonly innerTuple
   return isNested ? { innerTuplet } : null;
 }
 
-/** A note value with at most one kind of dot, in a known tuplet (and maybe a known tuplet inside it). */
+/**
+ * A note value with at most one kind of dot, in a tuplet (and maybe a tuplet inside it), lasting a whole number of
+ * ticks — what the timeline can hold.
+ */
 export function parseDuration(value: unknown): Duration | undefined {
   if (!isRawObject(value) || typeof value.value !== 'number' || !isNoteValue(value.value)) {
     return undefined;
@@ -73,7 +86,8 @@ export function parseDuration(value: unknown): Duration | undefined {
   if (typeof dotted !== 'boolean' || typeof doubleDotted !== 'boolean' || (dotted && doubleDotted) || tuplet === undefined || inner === null) {
     return undefined;
   }
-  return { value: value.value, dotted, doubleDotted, tuplet, ...inner };
+  const duration: Duration = { value: value.value, dotted, doubleDotted, tuplet, ...inner };
+  return hasWholeTicks(duration) ? duration : undefined;
 }
 
 function parseCurvePoint(value: unknown, min: number, max: number): BendPoint | undefined {

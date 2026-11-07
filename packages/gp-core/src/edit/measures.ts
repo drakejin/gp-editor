@@ -58,6 +58,24 @@ export function insertMeasure(song: Song, measureIndex: number, position: 'befor
 }
 
 /**
+ * New song with `count` measures at the end, each as insertMeasure adds one after the last (its time signature, tempo,
+ * triplet feel, clef and key; a whole-measure rest in every track) — laid out once, so a paste far past the end takes
+ * no longer for each bar it adds. Same song for no measures or a song without any.
+ */
+export function appendMeasures(song: Song, count: number): Song {
+  const lastIndex = song.measureHeaders.length - 1;
+  const last = song.measureHeaders[lastIndex];
+  if (last === undefined || count <= 0) {
+    return song;
+  }
+  const headers = Array.from({ length: count }, (_, i) => newHeader(last, last.start + (i + 1) * headerTicks(last)));
+  const measuresByTrack = song.tracks.map((track) => [...track.measures, ...headers.map((header, i) => restMeasure(track, lastIndex, header, lastIndex + 1 + i))]);
+  const appended = relayoutMeasures(song, [...song.measureHeaders, ...headers], measuresByTrack);
+  const { audioTrack } = appended;
+  return audioTrack === undefined ? appended : { ...appended, audioTrack: headers.reduce((track, _, i) => withMeasureInserted(track, lastIndex + 1 + i), audioTrack) };
+}
+
+/**
  * New song without the measure at `measureIndex` in every track; the following measures move back. Same song when the
  * measure does not exist or is the only one left.
  */

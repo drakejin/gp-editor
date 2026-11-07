@@ -5,10 +5,10 @@ import { NO_STROKE, STROKE_VALUES, isHairpin, isOttava } from '../model/defaults
 import { isRasgueadoPattern } from '../formats/common/rasgueado';
 import type { Annotation, Note, Stroke, StrokeDirection } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
-import { MAX_STRINGS } from '../write/gtp-song';
+import { MAX_DIAGRAM_STRINGS } from '../formats/gpif/gpif-read-track';
 import { STROKE_DIRECTIONS } from './beat-attributes';
-import { type BeatFragment, type BeatFragmentItem, settleFragmentTies } from './beat-fragment';
-import { MAX_FRET } from './edit-song';
+import { type BeatFragment, type BeatFragmentItem, type FragmentBar, type FragmentLayout, settleFragmentTies } from './beat-fragment';
+import { MAX_DRUM_KEY, MAX_FRET } from './edit-song';
 import { ACCIDENTAL_DISPLAYS } from './notation-marks';
 import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
 import { parseNoteAudio } from './note-audio';
@@ -17,16 +17,16 @@ import { sortByString } from './song-paths';
 /** What a serialized fragment says it is, so text from elsewhere on the clipboard is never taken for one. */
 const FRAGMENT_FORMAT = 'gp-editor.beats';
 const FRAGMENT_VERSION = 1;
-/** Beats a fragment may hold (a long song of sixteenths fits). */
-export const MAX_FRAGMENT_ITEMS = 8192;
-/** Characters a beat text may have. */
-const MAX_TEXT_LENGTH = 1024;
-/** A drum track's frets are MIDI percussion keys. */
-const MAX_PERCUSSION_KEY = 127;
+/** Strings a track may have (TuxGuitar's TGTrack.MAX_STRINGS): an 8-string guitar's notes paste too. */
+const MAX_TRACK_STRINGS = MAX_DIAGRAM_STRINGS;
+/** MIDI pitches: a tuning's open strings. */
+const MAX_PITCH = 127;
 
 /** The fragment as JSON, tagged with its format and version (parseBeatFragment reads it back). */
 export function serializeBeatFragment(fragment: BeatFragment): string {
-  return JSON.stringify({ format: FRAGMENT_FORMAT, version: FRAGMENT_VERSION, isPercussion: fragment.isPercussion, items: fragment.items });
+  const { isPercussion, items, tuning, capo, layout } = fragment;
+  const source = { ...(tuning === undefined ? {} : { tuning }), ...(capo === undefined ? {} : { capo }), ...(layout === undefined ? {} : { layout }) };
+  return JSON.stringify({ format: FRAGMENT_FORMAT, version: FRAGMENT_VERSION, isPercussion, ...source, items });
 }
 
 /** A note's optional marks, each absent or one of `allowed`; `null` when one holds anything else. */
@@ -50,7 +50,7 @@ function parseNoteMarks(value: Readonly<Record<string, unknown>>): Pick<Note, 'l
 }
 
 function parseNote(value: unknown, maxFret: number): Note | undefined {
-  if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_STRINGS) || !isIntegerIn(value.fret, 0, maxFret)) {
+  if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_TRACK_STRINGS) || !isIntegerIn(value.fret, 0, maxFret)) {
     return undefined;
   }
   const effect = parseNoteEffect(value.effect, maxFret);
@@ -68,7 +68,7 @@ function parseNote(value: unknown, maxFret: number): Note | undefined {
 
 /** Up to one note per string, ordered by string. */
 function parseNotes(value: unknown, maxFret: number): readonly Note[] | undefined {
-  if (!Array.isArray(value) || value.length > MAX_STRINGS) {
+  if (!Array.isArray(value) || value.length > MAX_TRACK_STRINGS) {
     return undefined;
   }
   const notes = value.map((note: unknown) => parseNote(note, maxFret));
@@ -94,12 +94,12 @@ function parseStroke(value: unknown): Stroke | undefined {
   return STROKE_VALUES.includes(value.value) ? { direction, value: value.value } : undefined;
 }
 
-/** No text, or 1…MAX_TEXT_LENGTH characters; `null` stands for invalid. */
+/** No text, or a text with something to show; `null` stands for invalid. */
 function parseText(value: unknown): { readonly text?: string } | null {
   if (value === undefined) {
     return {};
   }
-  return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_TEXT_LENGTH ? { text: value } : null;
+  return typeof value === 'string' && value.trim() !== '' ? { text: value } : null;
 }
 
 /** No annotation, or a placed text of 1…MAX_ANNOTATION_LENGTH characters with something to show (normalized); `null` stands for invalid. */
@@ -146,22 +146,69 @@ function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefine
   return { duration, notes, stroke, pickStroke, ...(chord === undefined ? {} : { chord }), ...text, ...marks, ...annotation };
 }
 
+/** No tuning, or 1…MAX_TRACK_STRINGS open strings, each a MIDI pitch; `null` stands for invalid. */
+function parseTuning(value: unknown): { readonly tuning?: readonly number[] } | null {
+  if (value === undefined) {
+    return {};
+  }
+  const opens: readonly unknown[] = Array.isArray(value) ? value : [];
+  const isPitch = (open: unknown): open is number => isIntegerIn(open, 0, MAX_PITCH);
+  const tuning = opens.filter(isPitch);
+  return tuning.length > 0 && tuning.length === opens.length && tuning.length <= MAX_TRACK_STRINGS ? { tuning } : null;
+}
+
+/** No capo, or a whole number of semitones within the MIDI range (a track's capo, or a transposition below it); `null` stands for invalid. */
+function parseCapo(value: unknown): { readonly capo?: number } | null {
+  if (value === undefined) {
+    return {};
+  }
+  return isIntegerIn(value, -MAX_PITCH, MAX_PITCH) ? { capo: value } : null;
+}
+
+function parseFragmentBar(value: unknown): FragmentBar | undefined {
+  if (!isRawObject(value) || !isIntegerIn(value.ticks, 1, Number.MAX_SAFE_INTEGER) || !isIntegerIn(value.length, value.ticks, Number.MAX_SAFE_INTEGER)) {
+    return undefined;
+  }
+  return { ticks: value.ticks, length: value.length };
+}
+
 /**
- * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, 1 to
- * MAX_FRAGMENT_ITEMS beats, durations of Guitar Pro's note values and tuplets, notes on strings 1…MAX_STRINGS (one per
- * string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and well-formed effects, strokes, chord
- * diagrams, texts up to 1024 characters, hairpins, rasgueado patterns, octave signs and annotations (annotations/annotation-text.ts).
- * Undefined when anything is off. Ties that do not start inside the fragment are removed.
+ * No layout, or one bar or more, each as long as its time signature or longer, and an offset inside the first; `null`
+ * stands for invalid.
+ */
+function parseLayout(value: unknown): { readonly layout?: FragmentLayout } | null {
+  if (value === undefined) {
+    return {};
+  }
+  const bars = isRawObject(value) && Array.isArray(value.bars) ? value.bars.map(parseFragmentBar) : [];
+  if (!isRawObject(value) || !bars.every((bar): bar is FragmentBar => bar !== undefined)) {
+    return null;
+  }
+  // The first beat lies inside the first bar, as a copy records it.
+  const [first] = bars;
+  return first !== undefined && isIntegerIn(value.offset, 0, first.length) ? { layout: { offset: value.offset, bars } } : null;
+}
+
+/**
+ * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, one beat
+ * or more — any number —, durations of note values in any tuplet a song holds (fragment-values-json), notes on strings
+ * 1…MAX_TRACK_STRINGS (one per string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and
+ * well-formed effects, strokes, chord diagrams, texts, hairpins, rasgueado patterns, octave signs and annotations
+ * (annotations/annotation-text.ts), and the copied track's tuning and capo and the run's bars (FragmentLayout) when it
+ * gives them. Undefined when anything is off. Ties that do not start inside the fragment are removed.
  */
 export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!isRawObject(value) || value.format !== FRAGMENT_FORMAT || value.version !== FRAGMENT_VERSION || typeof value.isPercussion !== 'boolean') {
     return undefined;
   }
   const { items, isPercussion } = value;
-  if (!Array.isArray(items) || items.length === 0 || items.length > MAX_FRAGMENT_ITEMS) {
+  const tuning = parseTuning(value.tuning);
+  const capo = parseCapo(value.capo);
+  const layout = parseLayout(value.layout);
+  if (!Array.isArray(items) || items.length === 0 || tuning === null || capo === null || layout === null) {
     return undefined;
   }
-  const maxFret = isPercussion ? MAX_PERCUSSION_KEY : MAX_FRET;
+  const maxFret = isPercussion ? MAX_DRUM_KEY : MAX_FRET;
   const parsed: BeatFragmentItem[] = [];
   for (const item of items) {
     const next = parseItem(item, maxFret);
@@ -170,5 +217,5 @@ export function parseBeatFragment(value: unknown): BeatFragment | undefined {
     }
     parsed.push(next);
   }
-  return { isPercussion, items: settleFragmentTies(parsed) };
+  return { isPercussion, items: settleFragmentTies(parsed), ...tuning, ...capo, ...layout };
 }

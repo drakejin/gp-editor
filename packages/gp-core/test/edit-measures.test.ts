@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildAudioTrack } from '../src/audio-track/audio-track';
 import { setAudioTrack } from '../src/edit/audio-track';
 import { setNoteFret } from '../src/edit/edit-song';
-import { deleteMeasure, deleteMeasures, fillEmptyMeasure, insertMeasure } from '../src/edit/measures';
+import { appendMeasures, deleteMeasure, deleteMeasures, fillEmptyMeasure, insertMeasure } from '../src/edit/measures';
 import type { Song } from '../src/model/song';
 import { SONG_START, assertEditInvariants, buildSong, deepFreeze, n, play, rest, voiceLayout } from './helpers/edit-songs';
 import { fromTux } from './helpers/ticks';
@@ -91,6 +91,34 @@ describe('insertMeasure', () => {
     const song = makeSong();
     expect(insertMeasure(song, 3, 'after')).toBe(song);
     expect(insertMeasure(song, -1, 'before')).toBe(song);
+  });
+});
+
+describe('appendMeasures', () => {
+  it('adds bars at the end in one edit, as many inserts after the last bar would', () => {
+    // Arrange
+    const song = deepFreeze(buildSong({ timeSignatures: [{ numerator: 3, denominator: 4 }], tracks: [[[[play(4, n(1, 0)), rest(2)]]], [[[rest(2), rest(4)]]]] }));
+
+    // Act
+    const appended = appendMeasures(song, 3);
+
+    // Assert
+    const oneByOne = [0, 1, 2].reduce((current) => insertMeasure(current, current.measureHeaders.length - 1, 'after'), song);
+    expect(appended).toEqual(oneByOne);
+    assertEditInvariants(appended);
+  });
+
+  it('appends ten thousand bars quickly (a paste far past the end)', () => {
+    const song = deepFreeze(buildSong({ tracks: [[[[play(1, n(1, 0))]]]] }));
+    const started = performance.now();
+    const appended = appendMeasures(song, 10_000);
+    expect(appended.measureHeaders).toHaveLength(10_001);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it('gives the song back for no bars', () => {
+    const song = buildSong({ tracks: [[[[play(1, n(1, 0))]]]] });
+    expect(appendMeasures(song, 0)).toBe(song);
   });
 });
 

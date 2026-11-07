@@ -189,6 +189,26 @@ function retuneMeasures(track: Track, context: RetuneContext): Omit<TuningChange
 }
 
 /**
+ * Beats of one voice's run, in order (a pasted fragment's), re-placed from the open strings `from` onto `to` with
+ * `neck` frets, as setTrackTuning re-places a track's: a tied note follows the note it continues in the beat before.
+ */
+export function retuneBeatRun(beats: readonly Beat[], from: readonly number[], to: readonly number[], neck: number): Omit<TuningChange, 'song'> & { readonly beats: readonly Beat[] } {
+  const context: RetuneContext = { from, to, homes: homeStrings(from, to), neck };
+  let memory: readonly (VoiceMemory | undefined)[] = [];
+  let octaveShifted = 0;
+  let removed = 0;
+  const retuned = beats.map((beat, index) => {
+    // Each beat is its own step: a tie reaches back one beat.
+    const result = retuneBeat(beat, index, context, memory);
+    memory = result.memory;
+    octaveShifted += result.octaveShifted;
+    removed += result.removed;
+    return result.beat;
+  });
+  return { beats: retuned, octaveShifted, removed };
+}
+
+/**
  * New song with the track on `tuning` (open-string MIDI pitches, string 1 first; the string count may change) and every
  * note re-placed so it sounds the same: on the same string when the new fret is on the neck (with different string
  * counts: the string of closest open pitch), else the nearest free string, as many notes on the 24-fret neck as fit;

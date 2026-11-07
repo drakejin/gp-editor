@@ -39,12 +39,16 @@ const CHANNEL_MAX = 255;
 /** Alpha (hex) of the selected track's row tint and of the playing bar's column tint. */
 const SELECTED_ROW_ALPHA = '33';
 const PLAYING_COLUMN_ALPHA = '4D';
+/** Alpha (hex) of the accent over the selected bars' cells. */
+const SELECTION_ALPHA = '99';
 const LETTER_COUNT = 26;
 const FIRST_LETTER = 65;
 
 export interface BarMapInput {
   readonly song: Song;
   readonly selectedTrackIndex: number;
+  /** The selected beats' bars, on the selected track. */
+  readonly selectedBars?: { readonly fromMeasureIndex: number; readonly toMeasureIndex: number };
   readonly cursorMeasureIndex?: number;
   readonly playingMeasureIndex?: number;
   readonly palette: Palette;
@@ -111,6 +115,7 @@ export function engraveBarMap(input: BarMapInput): DrawCommand[] {
     ...barNumbers(song, palette),
     ...song.tracks.flatMap((track, trackIndex) => trackCells(track.measures, visibleTrackColor(track.color), trackIndex, palette)),
     ...rowLines(song, width, palette),
+    ...selectionShade(input),
     ...cursorMarker(input),
     ...sections(song, palette),
   ];
@@ -177,6 +182,18 @@ function rowLines(song: Song, width: number, palette: Palette): DrawCommand[] {
     const y = rowTop(trackIndex + 1) - 0.5;
     return { kind: 'line', x1: 0, y1: y, x2: width, y2: y, width: 1, color: palette.chromeBorder };
   });
+}
+
+/** The accent laid over the selected bars' cells on the selected track, from the first to the last. */
+function selectionShade({ song, selectedTrackIndex, selectedBars, palette }: BarMapInput): DrawCommand[] {
+  const last = Math.min(selectedBars?.toMeasureIndex ?? -1, song.measureHeaders.length - 1);
+  if (selectedBars === undefined || song.tracks[selectedTrackIndex] === undefined || last < selectedBars.fromMeasureIndex) {
+    return [];
+  }
+  const x = barMapCellX(selectedBars.fromMeasureIndex);
+  const y = rowTop(selectedTrackIndex) + (BAR_MAP.rowHeight - BAR_MAP.cellHeight) / 2 - 1;
+  const width = barMapCellX(last) + BAR_MAP.cellWidth - x;
+  return [{ kind: 'rect', x, y, width, height: BAR_MAP.cellHeight + 2, color: `${palette.chromeAccent}${SELECTION_ALPHA}`, radius: 2 }];
 }
 
 function cursorMarker({ song, selectedTrackIndex, cursorMeasureIndex, palette }: BarMapInput): DrawCommand[] {

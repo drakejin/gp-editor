@@ -18,11 +18,35 @@ export interface BeatFragmentItem {
   readonly annotation?: Annotation;
 }
 
+/** A bar a fragment's beats came from: its time signature's length, and how long the voice ran in it (longer when over-full). */
+export interface FragmentBar {
+  readonly ticks: number;
+  readonly length: number;
+}
+
+/**
+ * Where a fragment's beats sat in their bars, kept when a bar of the run before its last is over-full: pasted at the
+ * same place in a bar, over bars of the same time signatures, that bar stays one bar and the next ones on their lines.
+ */
+export interface FragmentLayout {
+  /** Ticks from the first beat's bar start to the first beat. */
+  readonly offset: number;
+  /** Each bar the run spans, in order. */
+  readonly bars: readonly FragmentBar[];
+}
+
 /** A run of one voice's beats lifted out of their bars (copy, cut, paste). */
 export interface BeatFragment {
-  /** Lifted from a drum track, whose frets are MIDI percussion keys; it pastes into drum tracks only. */
+  /** Lifted from a drum track, whose frets are MIDI percussion keys (General MIDI's drum keys). */
   readonly isPercussion: boolean;
   readonly items: readonly BeatFragmentItem[];
+  /**
+   * The open strings of the track it was lifted from (MIDI pitches, string 1 first) and its capo: what a paste into
+   * another track places the notes by, pitch for pitch. Absent for drums, and in what an earlier version copied.
+   */
+  readonly tuning?: readonly number[];
+  readonly capo?: number;
+  readonly layout?: FragmentLayout;
 }
 
 /** The item for a voice's event; the marks come from its beat (none for a rest an edit added). */

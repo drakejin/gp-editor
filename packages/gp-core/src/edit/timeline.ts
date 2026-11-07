@@ -1,6 +1,6 @@
 import { type DurationTuplets, EMPTY_VOICE, MAX_VOICES, NO_STROKE, NO_TUPLETS, durationTicks, hasSameTuplets } from '../model/defaults';
 import type { Annotation, Beat, Chord, Duration, Hairpin, Measure, Ottava, RasgueadoPattern, Stroke, StrokeDirection, Voice } from '../model/song';
-import { restDurations } from './rests';
+import { restCandidates, restDurations } from './rests';
 
 /** The beat-level attributes an event keeps when it is the event that owns its beat. */
 export interface BeatAttributes {
@@ -138,6 +138,26 @@ export function gapRests(ticks: number, tuplets: readonly DurationTuplets[]): Vo
     const rests = restEvents(ticks, undefined, tuplet);
     if (rests !== undefined) {
       return rests;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Rests for `ticks` as gapRests writes them, else one rest of a tuplet of `tuplets` and the rest in one tuplet of them
+ * (a quintuplet ending inside a triplet leaves time only both write together); undefined when no two of them can.
+ */
+export function mixedGapRests(ticks: number, tuplets: readonly DurationTuplets[]): VoiceEvents | undefined {
+  const single = gapRests(ticks, tuplets);
+  if (single !== undefined) {
+    return single;
+  }
+  for (const tuplet of tuplets) {
+    for (const duration of restCandidates(tuplet)) {
+      const rest = durationTicks(duration) < ticks ? gapRests(ticks - durationTicks(duration), tuplets) : undefined;
+      if (rest !== undefined) {
+        return [restEvent(duration), ...rest];
+      }
     }
   }
   return undefined;

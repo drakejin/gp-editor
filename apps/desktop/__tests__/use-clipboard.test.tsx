@@ -1,6 +1,6 @@
 import ReactTestRenderer from 'react-test-renderer';
-import { parseBeatFragment, serializeBeatFragment } from '@gp-editor/core';
-import { type Clipboard, MAX_CLIPBOARD_TEXT_LENGTH, parseClipboardText, useClipboard } from '../src/hooks/use-clipboard';
+import { type BeatFragment, NO_STROKE, QUARTER, parseBeatFragment, serializeBeatFragment } from '@gp-editor/core';
+import { type Clipboard, parseClipboardText, useClipboard } from '../src/hooks/use-clipboard';
 import { type EditorAction, type EditorState, INITIAL_EDITOR_STATE, editorReducer } from '../src/state/editor';
 import { selectedFragment } from '../src/state/selection';
 import { beat, makeSong, note } from '../test-support/songs';
@@ -95,16 +95,22 @@ describe('useClipboard', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'pasteBeats', fragment });
   });
 
-  it.each([null, 'just text', '{"format":"gp-editor.beats","version":1,"isPercussion":false,"items":[{}]}'])(
-    'pastes nothing when the clipboard holds %j',
-    async (text) => {
-      mockReadBeats.mockResolvedValue(text);
-      const { clipboard, dispatch } = renderHook(loaded());
-      clipboard.paste();
-      await settle();
-      expect(dispatch).not.toHaveBeenCalled();
-    },
-  );
+  it('says there is nothing to paste when the clipboard holds no beats', async () => {
+    mockReadBeats.mockResolvedValue(null);
+    const { clipboard, dispatch } = renderHook(loaded());
+    clipboard.paste();
+    await settle();
+    expect(dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'Nothing to paste: copy beats first.' });
+  });
+
+  it.each(['just text', '{"format":"gp-editor.beats","version":1,"isPercussion":false,"items":[{}]}'])('says the beats could not be read when the clipboard holds %j', async (text) => {
+    mockReadBeats.mockResolvedValue(text);
+    const { clipboard, dispatch } = renderHook(loaded());
+    clipboard.paste();
+    await settle();
+    expect(dispatch).toHaveBeenCalledWith({ type: 'showHint', hint: 'The beats on the clipboard could not be read, so nothing was pasted.' });
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'pasteBeats' }));
+  });
 
   it('reports a clipboard that cannot be written or read', async () => {
     // Arrange
@@ -124,7 +130,16 @@ describe('useClipboard', () => {
 });
 
 describe('parseClipboardText', () => {
-  it('reads nothing from text too long to be beats', () => {
-    expect(parseClipboardText(' '.repeat(MAX_CLIPBOARD_TEXT_LENGTH + 1))).toBeUndefined();
+  it('reads beats however many there are: 30 000 beats, megabytes of text', () => {
+    // Arrange
+    const fragment: BeatFragment = { isPercussion: false, items: Array.from({ length: 30_000 }, (_, i) => ({ duration: QUARTER, notes: [note(1, i % 12)], stroke: NO_STROKE, pickStroke: 'none' })) };
+    const text = serializeBeatFragment(fragment);
+
+    // Act
+    const parsed = parseClipboardText(text);
+
+    // Assert
+    expect(text.length).toBeGreaterThan(4_000_000);
+    expect(parsed?.items).toHaveLength(30_000);
   });
 });

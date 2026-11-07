@@ -10,6 +10,10 @@ export interface TrackCommands {
   readonly onSelectTrack: (trackIndex: number) => void;
   /** A cell of the bar map: that track, the cursor at the bar's first beat. */
   readonly onSelectBar: (trackIndex: number, measureIndex: number) => void;
+  /** A drag across the bar map's cells: those whole bars of the track selected. */
+  readonly onSelectBars: (trackIndex: number, fromMeasureIndex: number, toMeasureIndex: number) => void;
+  /** A ⇧-click on a bar map cell: the selection grown to that bar, whole bars. */
+  readonly onExtendBars: (trackIndex: number, measureIndex: number) => void;
   readonly onSetTrackMute: (trackIndex: number, isMute: boolean) => void;
   readonly onSetTrackSolo: (trackIndex: number, isSolo: boolean) => void;
   readonly onSetTrackVolume: (trackIndex: number, volume: number) => void;
@@ -60,6 +64,8 @@ function useTrackCommands({ dispatch, state }: WindowBase): TrackCommands {
     () => ({
       onSelectTrack: (trackIndex: number) => dispatch({ type: 'selectTrack', trackIndex }),
       onSelectBar,
+      onSelectBars: (trackIndex: number, fromMeasureIndex: number, toMeasureIndex: number) => dispatch({ type: 'selectBars', trackIndex, fromMeasureIndex, toMeasureIndex }),
+      onExtendBars: (trackIndex: number, measureIndex: number) => dispatch({ type: 'selectBars', trackIndex, toMeasureIndex: measureIndex }),
       onSetTrackMute: (trackIndex: number, isMute: boolean) => dispatch({ type: 'setTrackMute', trackIndex, isMute }),
       onSetTrackSolo: (trackIndex: number, isSolo: boolean) => dispatch({ type: 'setTrackSolo', trackIndex, isSolo }),
       onSetTrackVolume: (trackIndex: number, volume: number) => dispatch({ type: 'setTrackVolume', trackIndex, volume }),

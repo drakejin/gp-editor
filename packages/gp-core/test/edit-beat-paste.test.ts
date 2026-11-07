@@ -213,17 +213,18 @@ describe('pasteBeats: longer than a bar, written over this track only', () => {
 });
 
 describe('pasteBeats: over-full bars, voices and the bars it names', () => {
-  it('writes over an over-full bar inside a longer paste, keeping it over-full and the next bars in place', () => {
+  it('writes an over-full bar inside a longer paste at its time signature’s length: the pasted beats keep their time', () => {
     // Arrange: five quarters in a 4/4 bar, then a full bar
     const song = bars([...FOUR_QUARTERS, play(4, n(1, 4))], NEXT_QUARTERS);
 
     // Act: six quarters from the start
     const pasted = pasteBeats(song, at(0, 0), fragment(...quarters(6, 0)));
 
-    // Assert
+    // Assert: the fifth pasted quarter starts bar 2, as the bar line says, not inside the over-full bar
     expect(pasted).toMatchObject({ addedBars: 0, lastMeasureIndex: 1 });
-    expect(layout(pasted.song, 0)).toEqual(['0:4:3/0', '960:4:3/1', '1920:4:3/2', '2880:4:3/3', '3840:4:3/4']);
-    expect(layout(pasted.song, 1)).toEqual(['0:4:3/5', '960:4:1/5', '1920:4:1/6', '2880:4:1/7']);
+    expect(layout(pasted.song, 0)).toEqual(['0:4:3/0', '960:4:3/1', '1920:4:3/2', '2880:4:3/3']);
+    expect(layout(pasted.song, 1)).toEqual(['0:4:3/4', '960:4:3/5', '1920:4:1/6', '2880:4:1/7']);
+    assertEditInvariants(pasted.song);
   });
 
   it('names the song’s last bar, not one past it, when the fragment ends in rests that run past the end', () => {
@@ -290,11 +291,11 @@ describe('pasteBeats: an over-full bar', () => {
 });
 
 describe('pasteBeats: what it leaves alone', () => {
-  it('changes nothing for an empty fragment, a missing beat, or drum beats into another track', () => {
+  it('changes nothing for an empty fragment or a missing beat, and pastes drum beats into a guitar (edit-paste-fit)', () => {
     const song = bars(FOUR_QUARTERS);
     expect(pasteBeats(song, at(0, 0), fragment()).song).toBe(song);
     expect(pasteBeats(song, at(0, 9), fragment(item(4, n(1, 1)))).song).toBe(song);
-    expect(pasteBeats(song, at(0, 0), { isPercussion: true, items: [item(4, n(1, 38))] }).song).toBe(song);
+    expect(pasteBeats(song, at(0, 0), { isPercussion: true, items: [item(4, n(1, 38))] })).toMatchObject({ isPasted: true, mapping: 'drumsToPitched' });
   });
 });
 

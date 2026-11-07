@@ -69,7 +69,7 @@ function cellAt(commands: readonly DrawCommand[], trackIndex: number, measureInd
   );
 }
 
-function engrave(song: Song, overrides: { selectedTrackIndex?: number; cursorMeasureIndex?: number; playingMeasureIndex?: number } = {}) {
+function engrave(song: Song, overrides: { selectedTrackIndex?: number; cursorMeasureIndex?: number; playingMeasureIndex?: number; selectedBars?: { fromMeasureIndex: number; toMeasureIndex: number } } = {}) {
   return engraveBarMap({ song, selectedTrackIndex: 0, palette: PALETTE, ...overrides });
 }
 
@@ -194,6 +194,26 @@ describe('engraveBarMap cursor', () => {
       rects(engrave(twoTrackSong(), { cursorMeasureIndex })).filter((rect) => rect.width === BAR_MAP.cursorSize);
     expect(marker(undefined)).toEqual([]);
     expect(marker(9)).toEqual([]);
+  });
+});
+
+describe('engraveBarMap selection', () => {
+  it('lays the accent over the selected bars of the selected track, above their cells', () => {
+    // Act
+    const commands = engrave(twoTrackSong(), { selectedTrackIndex: 1, selectedBars: { fromMeasureIndex: 1, toMeasureIndex: 2 } });
+
+    // Assert
+    const first = cellAt(commands, 1, 1)!;
+    const last = cellAt(commands, 1, 2)!;
+    const shade = rects(commands).find((rect) => rect.color.startsWith(PALETTE.chromeAccent) && rect.height < BAR_MAP.rowHeight && rect.x <= first.x && rect.x + rect.width >= last.x + last.width);
+    expect(shade).toBeDefined();
+    expect(shade!.x + shade!.width).toBeLessThan(barMapCellX(3));
+    expect(commands.indexOf(shade!)).toBeGreaterThan(commands.indexOf(last));
+  });
+
+  it('draws no selection without one', () => {
+    const shades = rects(engrave(twoTrackSong())).filter((rect) => rect.color.startsWith(PALETTE.chromeAccent) && rect.height < BAR_MAP.rowHeight);
+    expect(shades).toEqual([]);
   });
 });
 
