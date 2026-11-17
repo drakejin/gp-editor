@@ -3,9 +3,12 @@ import type { BeatAddress } from '../src/edit/addresses';
 import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
 import { pasteBeats } from '../src/edit/beat-paste';
 import { copyBeats } from '../src/edit/beat-ranges';
+import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
 import { fitFragment } from '../src/edit/paste-fit';
 import { EMPTY_NOTE_EFFECT, NO_STROKE, PERCUSSION_TUNING } from '../src/model/defaults';
 import type { Note, Song, Track } from '../src/model/song';
+import { readSong } from '../src/read-song';
+import { writeSong } from '../src/write';
 import { assertEditInvariants, buildSong, deepFreeze, dur, n, play, voiceLayout } from './helpers/edit-songs';
 
 const STANDARD = [64, 59, 55, 50, 45, 40];
@@ -77,6 +80,36 @@ describe('fitFragment: pitched beats onto a pitched track, pitch for pitch', () 
     expect(fitted.items[1]?.notes).toHaveLength(4);
     expect(fitted.items[1]?.notes.every((note) => note.string <= 4)).toBe(true);
     expect(fitted).toMatchObject({ mapping: 'byPitch', octaveShifted: 1, leftOut: 2 });
+  });
+
+  it('keeps a note past the 24th fret at its pitch on another tuning, rather than moving it by octaves', () => {
+    // Arrange: fret 26 above a capo at 2 is fret 28 without one, on the same string
+    const fragment = pitched(STANDARD, 2, item(n(1, 26)), item(n(1, 3)));
+
+    // Act
+    const fitted = fitFragment(fragment, trackOf(STANDARD));
+
+    // Assert
+    expect(fitted.items.map((each) => each.notes.map((note) => [note.string, note.fret]))).toEqual([[[1, 28]], [[1, 5]]]);
+    expect(fitted).toMatchObject({ mapping: 'byPitch', octaveShifted: 0, leftOut: 0 });
+  });
+
+  it('takes a beat past the 24th fret only when the neck cannot hold its pitch: the next beat stays on the neck', () => {
+    // Arrange: onto D standard, string 1 fret 24 needs fret 26; string 2 fret 24 fits string 1 at fret 21
+    const dStandard = trackOf([62, 57, 53, 48, 43, 38]);
+
+    // Act
+    const fitted = fitFragment(pitched(STANDARD, 0, item(n(1, 24)), item(n(2, 24))), dStandard);
+
+    // Assert
+    expect(fitted.items.map((each) => each.notes.map((note) => [note.string, note.fret]))).toEqual([[[1, 26]], [[1, 21]]]);
+    expect(fitted.octaveShifted).toBe(0);
+  });
+
+  it('moves a note past MAX_FRET by the fewest octaves onto frets up to MAX_FRET', () => {
+    const fitted = fitFragment(pitched(STANDARD, 0, item(n(1, 35))), trackOf([62, 57, 53, 48, 43, 38]));
+    expect(fitted.items[0]?.notes.map((note) => [note.string, note.fret])).toEqual([[1, 25]]);
+    expect(fitted.octaveShifted).toBe(1);
   });
 
   it('keeps a tie on the string of the note it continues', () => {
@@ -186,5 +219,21 @@ describe('pasteBeats into another track', () => {
     expect(intoGuitar.mapping).toBe('drumsToPitched');
     expect(copyBeats(intoGuitar.song, at(1, 0), at(1, 2)).items.map((each) => pitches(each, song.tracks[0] as Track))).toEqual([[45], [67], [60]]);
     assertEditInvariants(intoGuitar.song);
+  });
+});
+
+describe('pasting notes past the neck', () => {
+  it('pastes a Guitar Pro 5 file’s notes past fret 29 back as they were, through the clipboard', () => {
+    // Arrange: frets 30 and 35 read from a GP5 file, copied as the clipboard's JSON
+    const written = buildSong({ tracks: [[[[play(2, n(1, 30)), play(2, n(2, 35))]], [[play(1, n(3, 2))]]]] });
+    const song = deepFreeze(readSong(writeSong(written, 'gp5')));
+    const clipboard = parseBeatFragment(JSON.parse(serializeBeatFragment(copyBeats(song, at(0, 0), at(0, 1)))));
+
+    // Act
+    const pasted = clipboard === undefined ? undefined : pasteBeats(song, at(1, 0), clipboard);
+
+    // Assert
+    expect(pasted === undefined ? undefined : voiceLayout(pasted.song, 0, 1, 0)).toEqual(['0:2:1/30', '1920:2:2/35']);
+    expect(pasted).toMatchObject({ isPasted: true, mapping: 'asCopied', octaveShifted: 0, leftOut: 0 });
   });
 });

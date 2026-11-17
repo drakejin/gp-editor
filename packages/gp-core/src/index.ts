@@ -38,7 +38,7 @@ export { detectFormat, type DetectedFormat } from './formats/detect';
 export type { ReadOptions } from './formats/options';
 export type { Charset } from './io/text';
 export { CompositionError, GpFormatError, TranscriptionError, UnexpectedEndOfFileError, UnsupportedFormatError } from './errors';
-export { MAX_DRUM_KEY, MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteVelocity } from './edit/edit-song';
+export { MAX_DRUM_KEY, MAX_FILE_FRET, MAX_FRET, NECK_FRETS, type StringAddress, deleteNote, findNote, setNoteFret, setNoteVelocity } from './edit/edit-song';
 export { setNoteString } from './edit/note-string';
 export {
   type Instrument,

@@ -5,6 +5,7 @@ import { MAX_DIAGRAM_STRINGS } from '../formats/gpif/gpif-read-track';
 import type { Bend, BendPoint, Chord, Duration, Grace, Harmonic, NoteEffect, SlideType, TremoloPicking, Trill, Tuplet } from '../model/song';
 import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { type EffectValue, HARMONIC_TYPES, type OptionalEffect, SLIDE_ORDER, type ToggleableEffect } from './effects';
+import { MAX_FILE_FRET } from './edit-song';
 import { GRACE_TRANSITIONS, isGraceDuration } from './ornaments';
 
 /**
@@ -41,6 +42,15 @@ const EFFECT_FLAGS: readonly (ToggleableEffect | 'wideVibrato')[] = [
 
 export function isIntegerIn(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
+}
+
+/**
+ * A fret from the clipboard: any whole number from 0 is taken — past the 24-fret neck and MAX_FRET, as files store
+ * them —, one above `highest` (MAX_FILE_FRET; a drum's MAX_DRUM_KEY) brought down to it, never refused. Undefined for
+ * anything but a whole number from 0.
+ */
+export function parseFret(value: unknown, highest: number): number | undefined {
+  return isIntegerIn(value, 0, Number.POSITIVE_INFINITY) ? Math.min(value, highest) : undefined;
 }
 
 /** Notes, or beats of time, a tuplet may count: far beyond any score's. */
@@ -113,8 +123,9 @@ function parseHarmonic(value: unknown): Harmonic | undefined {
   return type === undefined ? undefined : { type, data: value.data };
 }
 
-function parseGrace(value: unknown, maxFret: number): Grace | undefined {
-  if (!isRawObject(value) || !isIntegerIn(value.fret, 0, maxFret) || !isIntegerIn(value.velocity, 0, MAX_VELOCITY)) {
+function parseGrace(value: unknown): Grace | undefined {
+  const fret = isRawObject(value) ? parseFret(value.fret, MAX_FILE_FRET) : undefined;
+  if (!isRawObject(value) || fret === undefined || !isIntegerIn(value.velocity, 0, MAX_VELOCITY)) {
     return undefined;
   }
   const { duration, onBeat, isDead } = value;
@@ -122,12 +133,13 @@ function parseGrace(value: unknown, maxFret: number): Grace | undefined {
   if (typeof duration !== 'number' || !isGraceDuration(duration) || typeof onBeat !== 'boolean' || typeof isDead !== 'boolean' || transition === undefined) {
     return undefined;
   }
-  return { fret: value.fret, duration, velocity: value.velocity, transition, onBeat, isDead };
+  return { fret, duration, velocity: value.velocity, transition, onBeat, isDead };
 }
 
-function parseTrill(value: unknown, maxFret: number): Trill | undefined {
+function parseTrill(value: unknown): Trill | undefined {
   const duration = isRawObject(value) ? parseDuration(value.duration) : undefined;
-  return isRawObject(value) && isIntegerIn(value.fret, 0, maxFret) && duration !== undefined ? { fret: value.fret, duration } : undefined;
+  const fret = isRawObject(value) ? parseFret(value.fret, MAX_FILE_FRET) : undefined;
+  return fret !== undefined && duration !== undefined ? { fret, duration } : undefined;
 }
 
 function parseTremoloPicking(value: unknown): TremoloPicking | undefined {
@@ -135,7 +147,7 @@ function parseTremoloPicking(value: unknown): TremoloPicking | undefined {
   return duration === undefined ? undefined : { duration };
 }
 
-const OPTIONAL_PARSERS: { readonly [K in OptionalEffect]: (value: unknown, maxFret: number) => EffectValue<K> | undefined } = {
+const OPTIONAL_PARSERS: { readonly [K in OptionalEffect]: (value: unknown) => EffectValue<K> | undefined } = {
   bend: (value) => parseCurve(value, 0, BEND_MAX_VALUE),
   tremoloBar: (value) => parseCurve(value, -TREMOLO_BAR_LIMIT, TREMOLO_BAR_LIMIT),
   harmonic: parseHarmonic,
@@ -199,11 +211,11 @@ function withFades(raw: RawObject, effect: NoteEffect): NoteEffect | undefined {
   return volumeSwell === true ? { ...effect, volumeSwell } : effect;
 }
 
-function withOptionalEffects(raw: RawObject, effect: NoteEffect, maxFret: number): NoteEffect | undefined {
+function withOptionalEffects(raw: RawObject, effect: NoteEffect): NoteEffect | undefined {
   let result = effect;
   for (const key of OPTIONAL_EFFECTS) {
     if (raw[key] !== undefined) {
-      const parsed = OPTIONAL_PARSERS[key](raw[key], maxFret);
+      const parsed = OPTIONAL_PARSERS[key](raw[key]);
       if (parsed === undefined) {
         return undefined;
       }
@@ -213,12 +225,12 @@ function withOptionalEffects(raw: RawObject, effect: NoteEffect, maxFret: number
   return result;
 }
 
-/** A note's effects: every on/off flag, the slides, and each optional effect absent or valid (frets 0…maxFret). */
-export function parseNoteEffect(value: unknown, maxFret: number): NoteEffect | undefined {
+/** A note's effects: every on/off flag, the slides, and each optional effect absent or valid (grace and trill frets: parseFret). */
+export function parseNoteEffect(value: unknown): NoteEffect | undefined {
   const slides = isRawObject(value) ? parseSlides(value.slides) : undefined;
   if (!isRawObject(value) || slides === undefined) {
     return undefined;
   }
   const flagged = withFlags(value, { ...EMPTY_NOTE_EFFECT, slides });
-  return flagged === undefined ? undefined : withOptionalEffects(value, flagged, maxFret);
+  return flagged === undefined ? undefined : withOptionalEffects(value, flagged);
 }

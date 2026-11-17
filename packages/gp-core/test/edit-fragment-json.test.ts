@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BeatFragment, BeatFragmentItem } from '../src/edit/beat-fragment';
+import { MAX_FILE_FRET } from '../src/edit/edit-song';
 import { parseBeatFragment, serializeBeatFragment } from '../src/edit/fragment-json';
 import { MAX_CURVE_POINTS } from '../src/edit/fragment-values-json';
 import { EMPTY_NOTE_EFFECT, NO_STROKE } from '../src/model/defaults';
@@ -104,11 +105,30 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     expect(parsed?.items.map((entry) => entry.notes.map((note) => note.isTied))).toEqual([[false], [true, false]]);
   });
 
-  it('accepts MIDI keys as frets in drum beats only', () => {
-    const drums = (fret: number) => parseBeatFragment(JSON.parse(serializeBeatFragment({ isPercussion: true, items: [item([n(1, fret)])] })));
-    expect(drums(127)?.items[0]?.notes[0]?.fret).toBe(127);
-    expect(drums(128)).toBeUndefined();
-    expect(parseBeatFragment(JSON.parse(serializeBeatFragment({ isPercussion: false, items: [item([n(1, 36)])] })))).toBeUndefined();
+  it('reads back any fret a song holds — past MAX_FRET, as Guitar Pro files store up to 99 — and drum keys', () => {
+    const fretOf = (isPercussion: boolean, fret: number) =>
+      parseBeatFragment(JSON.parse(serializeBeatFragment({ isPercussion, items: [item([n(1, fret)])] })))?.items[0]?.notes[0]?.fret;
+    expect([25, 30, 36, 99].map((fret) => fretOf(false, fret))).toEqual([25, 30, 36, 99]);
+    expect(fretOf(true, 127)).toBe(127);
+  });
+
+  it('brings a fret past what a file holds down to MAX_FILE_FRET, a drum key down to 127, rather than refusing the paste', () => {
+    const fretOf = (isPercussion: boolean, fret: number) =>
+      parseBeatFragment(JSON.parse(serializeBeatFragment({ isPercussion, items: [item([n(1, fret)])] })))?.items[0]?.notes[0]?.fret;
+    expect([100, 150, 1e9, 1e20].map((fret) => fretOf(false, fret))).toEqual([MAX_FILE_FRET, MAX_FILE_FRET, MAX_FILE_FRET, MAX_FILE_FRET]);
+    expect(fretOf(true, 200)).toBe(127);
+  });
+
+  it('reads back grace notes and trills past MAX_FRET', () => {
+    // Arrange
+    const grace = { fret: 33, duration: 2, velocity: 79, transition: 'slide', onBeat: false, isDead: false } as const;
+    const effect: NoteEffect = { ...EMPTY_NOTE_EFFECT, grace, trill: { fret: 1e9, duration: dur(16) } };
+
+    // Act
+    const parsed = parseBeatFragment(JSON.parse(serializeBeatFragment({ isPercussion: false, items: [item([{ ...n(1, 31), effect }])] })));
+
+    // Assert
+    expect(parsed?.items[0]?.notes[0]).toMatchObject({ fret: 31, effect: { grace: { fret: 33 }, trill: { fret: MAX_FILE_FRET } } });
   });
 
   it('keeps one vibrato, the wide one, when the clipboard says both', () => {
@@ -151,7 +171,7 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['string 0', (value) => (rawNote(value).string = 0)],
     ['string 26', (value) => (rawNote(value).string = 26)],
     ['a negative fret', (value) => (rawNote(value).fret = -1)],
-    ['a fret past MAX_FRET', (value) => (rawNote(value).fret = 30)],
+    ['a negative trill fret', (value) => ((rawEffect(value).trill as Raw).fret = -1)],
     ['a fractional fret', (value) => (rawNote(value).fret = 2.5)],
     ['a velocity past 127', (value) => (rawNote(value).velocity = 128)],
     ['a tie that is no flag', (value) => (rawNote(value).isTied = 'yes')],
@@ -171,7 +191,6 @@ describe('serializeBeatFragment and parseBeatFragment', () => {
     ['negative harmonic data', (value) => (rawEffect(value).harmonic = { type: 'tapped', data: -1 })],
     ['a grace note of an unknown length', (value) => ((rawEffect(value).grace as Raw).duration = 4)],
     ['a grace note with an unknown transition', (value) => ((rawEffect(value).grace as Raw).transition = 'slap')],
-    ['a trill off the neck', (value) => ((rawEffect(value).trill as Raw).fret = 30)],
     ['tremolo picking at no note value', (value) => (rawEffect(value).tremoloPicking = { duration: { value: 3 } })],
     ['an effect that is null', (value) => (rawEffect(value).grace = null)],
     ['a stroke of unknown direction', (value) => (rawItem(value).stroke = { direction: 'sideways', value: 16 })],

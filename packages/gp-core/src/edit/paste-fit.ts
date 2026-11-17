@@ -6,7 +6,7 @@
 // key; between pitched tracks every note keeps its pitch (another tuning, capo or number of strings), as a retune does.
 import type { Beat, Note, NoteEffect, Track } from '../model/song';
 import type { BeatFragment, BeatFragmentItem } from './beat-fragment';
-import { MAX_DRUM_KEY } from './edit-song';
+import { MAX_DRUM_KEY, MAX_FRET } from './edit-song';
 import { retuneBeatRun } from './retune';
 import { sortByString } from './song-paths';
 import { neckFrets, placeNotes, stringsNearHand } from './string-placement';
@@ -19,7 +19,7 @@ export type PasteMapping = 'asCopied' | 'byPitch' | 'pitchedToDrums' | 'drumsToP
 export interface FittedFragment {
   readonly items: readonly BeatFragmentItem[];
   readonly mapping: PasteMapping;
-  /** Notes moved by octaves: no free string of the track held their pitch on its neck. */
+  /** Notes moved by octaves: no free string of the track held their pitch on frets up to MAX_FRET. */
   readonly octaveShifted: number;
   /** Notes left out: their beat holds more notes than the track has strings, or their pitch is not known. */
   readonly leftOut: number;
@@ -90,14 +90,18 @@ function itemBeat(item: BeatFragmentItem, index: number): Beat {
   return { ...marks, start: index, voices: [{ duration, notes, isEmpty: false, direction: 'none' }] };
 }
 
-/** Pitched beats onto a pitched track, every note keeping its sounding pitch (`sounding`: the copied track's open strings with its capo). */
+/**
+ * Pitched beats onto a pitched track, every note keeping its sounding pitch (`sounding`: the copied track's open strings
+ * with its capo): placed on the 24-fret neck as a retune places them, a beat the neck cannot hold at its pitch on tab
+ * frets up to MAX_FRET (counted from the capo, as fret entry allows) before any note moves by octaves.
+ */
 function byPitch(items: readonly BeatFragmentItem[], sounding: readonly number[], track: Track): FittedFragment {
   const from = sounding.map((pitch) => pitch - track.offset);
   const to = trackTuning(track);
   if (isSameTuning(from, to)) {
     return asCopied(items, to.length, false);
   }
-  const retuned = retuneBeatRun(items.map(itemBeat), from, to, neckFrets(track.offset));
+  const retuned = retuneBeatRun(items.map(itemBeat), from, to, neckFrets(track.offset), MAX_FRET);
   const fitted = items.map((item, index): BeatFragmentItem => {
     const beat = retuned.beats[index];
     const { chord, ...rest } = item;
@@ -148,8 +152,8 @@ function rhythmOnly(items: readonly BeatFragmentItem[]): FittedFragment {
 
 /**
  * The fragment's beats as `track` takes them: onto the same tuning and capo as they are; onto another pitched track
- * pitch for pitch (retune's placement: the nearest string, octaves when no string holds a pitch, notes beyond the
- * strings left out); between drums and a pitched track by MIDI number (a pitch becomes its drum key, a key its pitch);
+ * pitch for pitch (retune's placement: the nearest string, past the 24th fret up to MAX_FRET before octaves when no
+ * string holds a pitch on the neck, notes beyond the strings left out); between drums and a pitched track by MIDI number (a pitch becomes its drum key, a key its pitch);
  * drums onto drums with notes on strings the kit lacks moved onto free ones. Counts what moved by octaves or was left out.
  */
 export function fitFragment(fragment: BeatFragment, track: Track): FittedFragment {

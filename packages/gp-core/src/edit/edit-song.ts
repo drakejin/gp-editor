@@ -15,6 +15,12 @@ export function isFret(fret: number): boolean {
   return Number.isInteger(fret) && fret >= 0 && fret <= MAX_FRET;
 }
 
+/**
+ * Highest fret a song file holds (Guitar Pro 3–5 store frets up to 99, gtp-song's MAX_GP_FRET): a pasted fret above it
+ * is brought down to it, so no fret makes the score draw thousands of ledger lines.
+ */
+export const MAX_FILE_FRET = 99;
+
 /** Highest "fret" of a drum note: on a percussion track the fret is the General MIDI percussion key (0–127). */
 export const MAX_DRUM_KEY = 127;
 

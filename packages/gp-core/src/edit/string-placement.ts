@@ -114,12 +114,12 @@ function placement(pitch: number, tuning: readonly number[], string: number, oct
   return { string, fret: fretOf(pitch + octaves * SEMITONES_PER_OCTAVE, tuning, string), octaves };
 }
 
-/** A note the neck could not hold: moved by the fewest octaves onto a free string's neck. */
-function placeLeftover(note: NoteToPlace, tuning: readonly number[], neck: number, free: ReadonlySet<number>): StringPlacement | undefined {
+/** A note the matching left without a string: moved by the fewest octaves onto frets 0…`reach` of a free string. */
+function placeLeftover(note: NoteToPlace, tuning: readonly number[], reach: number, free: ReadonlySet<number>): StringPlacement | undefined {
   const strings = stringsByPreference(note.preferredString, tuning.length).filter((string) => free.has(string));
   let best: StringPlacement | undefined;
   for (const string of strings) {
-    const octaves = octavesOnto(note.pitch, tuning[string - 1] ?? 0, neck);
+    const octaves = octavesOnto(note.pitch, tuning[string - 1] ?? 0, reach);
     if (octaves !== undefined && (best === undefined || Math.abs(octaves) < Math.abs(best.octaves))) {
       best = placement(note.pitch, tuning, string, octaves);
     }
@@ -145,20 +145,28 @@ function placeOnPreferred(notes: readonly NoteToPlace[], tuning: readonly number
   return placed;
 }
 
+function matchedCount(owners: readonly (number | undefined)[]): number {
+  return owners.filter((owner) => owner !== undefined).length;
+}
+
 /**
  * Puts the notes of one beat (all voices) on separate strings of `tuning`, keeping each pitch where it can:
  * 1. on the neck (frets 0…neck): each note on its preferred string, else the nearest free string — earlier notes keep
  *    their preferred string, and as many notes as possible fit;
- * 2. a note that does not fit is moved by the fewest octaves onto a free string's neck (never past the neck, so what a
- *    retune makes always fits the tuning it was made for).
+ * 2. when the neck cannot hold them all and `reach` goes past it (a paste: a note copied above the 24th fret), the same
+ *    on frets 0…reach if more notes keep their pitch so;
+ * 3. a note that still does not fit is moved by the fewest octaves onto frets 0…reach of a free string (by default
+ *    never past the neck, so what a retune makes always fits the tuning it was made for).
  * undefined for a note left without a string (more notes than strings).
  */
-export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number): readonly (StringPlacement | undefined)[] {
+export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly number[], neck: number, reach = neck): readonly (StringPlacement | undefined)[] {
   const onPreferred = placeOnPreferred(notes, tuning, neck);
   if (onPreferred !== undefined) {
     return onPreferred;
   }
-  const owners = matchOnNeck(notes, tuning, neck);
+  const onNeck = matchOnNeck(notes, tuning, neck);
+  const pastNeck = reach > neck && matchedCount(onNeck) < notes.length ? matchOnNeck(notes, tuning, reach) : onNeck;
+  const owners = matchedCount(pastNeck) > matchedCount(onNeck) ? pastNeck : onNeck;
   const placed = notes.map((note, noteIndex): StringPlacement | undefined => {
     const string = owners.indexOf(noteIndex) + 1;
     return string > 0 ? placement(note.pitch, tuning, string, 0) : undefined;
@@ -169,7 +177,7 @@ export function placeNotes(notes: readonly NoteToPlace[], tuning: readonly numbe
     if (existing !== undefined || note === undefined) {
       return existing;
     }
-    const leftover = placeLeftover(note, tuning, neck, free);
+    const leftover = placeLeftover(note, tuning, reach, free);
     if (leftover !== undefined) {
       free.delete(leftover.string);
     }

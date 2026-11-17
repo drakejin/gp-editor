@@ -70,6 +70,35 @@ describe('placeNotes', () => {
     expect(placed).toEqual([{ string: 1, fret: 15, octaves: -1 }]);
   });
 
+  it('with a reach past the neck, keeps every note of a beat at its pitch when the neck alone cannot', () => {
+    // Arrange: fret 27 only fits string 1; fret 21 of string 1 is fret 26 of string 2
+    const notes = [
+      { pitch: E4 + 27, preferredString: 1 },
+      { pitch: E4 + 21, preferredString: 1 },
+    ];
+
+    // Act
+    const placed = placeNotes(notes, STANDARD_TUNING, NECK_FRETS, 29);
+
+    // Assert
+    expect(placed).toEqual([
+      { string: 1, fret: 27, octaves: 0 },
+      { string: 2, fret: 26, octaves: 0 },
+    ]);
+  });
+
+  it('with a reach past the neck, keeps a beat the neck holds on the neck', () => {
+    const notes = [
+      { pitch: E4 + 21, preferredString: 2 },
+      { pitch: E4, preferredString: 3 },
+    ];
+    expect(placeNotes(notes, STANDARD_TUNING, NECK_FRETS, 29)).toEqual(placeNotes(notes, STANDARD_TUNING, NECK_FRETS));
+  });
+
+  it('with a reach past the neck, moves a note above it by the fewest octaves onto frets up to the reach', () => {
+    expect(placeNotes([{ pitch: E4 + 37, preferredString: 1 }], STANDARD_TUNING, NECK_FRETS, 29)).toEqual([{ string: 1, fret: 25, octaves: -1 }]);
+  });
+
   it('leaves a note out when every string is taken', () => {
     const notes = [E2, E2 + 5, E2 + 10].map((pitch) => ({ pitch, preferredString: 1 }));
     const placed = placeNotes(notes, [64, 59], NECK_FRETS);

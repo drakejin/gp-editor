@@ -1,7 +1,7 @@
 // Retuning after TuxGuitar's TGChangeTrackTuningAction and TGTrackManager.allocateNotesToStrings (LGPL-2.1). Unlike
 // TuxGuitar, which drops the notes it cannot place, every note keeps its pitch or moves by octaves and is counted.
 import type { Beat, Chord, Note, NoteEffect, Song, Track, Voice } from '../model/song';
-import { MAX_FRET } from './edit-song';
+import { MAX_FILE_FRET } from './edit-song';
 import { replaceAt, sortByString } from './song-paths';
 import { type NoteToPlace, type StringPlacement, homeStrings, neckFrets, placeNotes } from './string-placement';
 import { isSameTuning, trackTuning } from './tuning-presets';
@@ -36,6 +36,8 @@ interface RetuneContext {
   readonly homes: readonly number[];
   /** Last fret of the neck above the capo. */
   readonly neck: number;
+  /** Last fret a note the neck cannot hold may take before it moves by octaves (placeNotes' `reach`). */
+  readonly reach: number;
 }
 
 interface BeatEntry {
@@ -84,7 +86,7 @@ function beatEntries(beat: Beat, measureIndex: number, context: RetuneContext, m
 }
 
 function clampFret(fret: number): number {
-  return Math.min(MAX_FRET, Math.max(0, fret));
+  return Math.min(MAX_FILE_FRET, Math.max(0, fret));
 }
 
 /** Grace, trill and tapped-harmonic frets sit on the note's string, so they move with its fret. */
@@ -130,7 +132,7 @@ function retuneChord(chord: Chord, context: RetuneContext): Chord {
     const open = context.from[i];
     return fret >= 0 && open !== undefined ? [{ pitch: open + fret, preferredString: context.homes[i] ?? 1 }] : [];
   });
-  const placements = placeNotes(fretted, context.to, context.neck);
+  const placements = placeNotes(fretted, context.to, context.neck, context.reach);
   const frets = context.to.map((_, i) => placements.find((placement) => placement?.string === i + 1 && placement.octaves === 0)?.fret ?? -1);
   return { ...chord, frets, firstFret: diagramFirstFret(frets, chord.firstFret) };
 }
@@ -151,7 +153,7 @@ export function diagramFirstFret(frets: readonly number[], current: number): num
 
 function retuneBeat(beat: Beat, measureIndex: number, context: RetuneContext, memory: readonly (VoiceMemory | undefined)[]): BeatRetune {
   const entries = beatEntries(beat, measureIndex, context, memory);
-  const placements = placeNotes(entries.map((entry) => entry.toPlace), context.to, context.neck);
+  const placements = placeNotes(entries.map((entry) => entry.toPlace), context.to, context.neck, context.reach);
   const placed = entries.flatMap((entry, i): PlacedEntry[] => {
     const placement = placements[i];
     return placement === undefined ? [] : [{ entry, placement }];
@@ -190,10 +192,17 @@ function retuneMeasures(track: Track, context: RetuneContext): Omit<TuningChange
 
 /**
  * Beats of one voice's run, in order (a pasted fragment's), re-placed from the open strings `from` onto `to` with
- * `neck` frets, as setTrackTuning re-places a track's: a tied note follows the note it continues in the beat before.
+ * `neck` frets, as setTrackTuning re-places a track's: a tied note follows the note it continues in the beat before. A
+ * beat the neck cannot hold at its pitch may go up to `reach` frets (placeNotes).
  */
-export function retuneBeatRun(beats: readonly Beat[], from: readonly number[], to: readonly number[], neck: number): Omit<TuningChange, 'song'> & { readonly beats: readonly Beat[] } {
-  const context: RetuneContext = { from, to, homes: homeStrings(from, to), neck };
+export function retuneBeatRun(
+  beats: readonly Beat[],
+  from: readonly number[],
+  to: readonly number[],
+  neck: number,
+  reach = neck,
+): Omit<TuningChange, 'song'> & { readonly beats: readonly Beat[] } {
+  const context: RetuneContext = { from, to, homes: homeStrings(from, to), neck, reach };
   let memory: readonly (VoiceMemory | undefined)[] = [];
   let octaveShifted = 0;
   let removed = 0;
@@ -223,7 +232,8 @@ export function setTrackTuning(song: Song, trackIndex: number, tuning: readonly 
     return { song, octaveShifted: 0, removed: 0 };
   }
   const from = trackTuning(track);
-  const context: RetuneContext = { from, to: tuning, homes: homeStrings(from, tuning), neck: neckFrets(track.offset) };
+  const neck = neckFrets(track.offset);
+  const context: RetuneContext = { from, to: tuning, homes: homeStrings(from, tuning), neck, reach: neck };
   const { measures, octaveShifted, removed } = retuneMeasures(track, context);
   const strings = tuning.map((open, i) => ({ number: i + 1, tuning: open }));
   return { song: { ...song, tracks: replaceAt(song.tracks, trackIndex, { ...track, strings, measures }) }, octaveShifted, removed };

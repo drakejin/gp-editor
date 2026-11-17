@@ -8,9 +8,9 @@ import { type RawObject, isRawObject } from '../transcription/parse-values';
 import { MAX_DIAGRAM_STRINGS } from '../formats/gpif/gpif-read-track';
 import { STROKE_DIRECTIONS } from './beat-attributes';
 import { type BeatFragment, type BeatFragmentItem, type FragmentBar, type FragmentLayout, settleFragmentTies } from './beat-fragment';
-import { MAX_DRUM_KEY, MAX_FRET } from './edit-song';
 import { ACCIDENTAL_DISPLAYS } from './notation-marks';
-import { isIntegerIn, parseChord, parseDuration, parseNoteEffect } from './fragment-values-json';
+import { MAX_DRUM_KEY, MAX_FILE_FRET } from './edit-song';
+import { isIntegerIn, parseChord, parseDuration, parseFret, parseNoteEffect } from './fragment-values-json';
 import { parseNoteAudio } from './note-audio';
 import { sortByString } from './song-paths';
 
@@ -49,16 +49,17 @@ function parseNoteMarks(value: Readonly<Record<string, unknown>>): Pick<Note, 'l
   };
 }
 
-function parseNote(value: unknown, maxFret: number): Note | undefined {
-  if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_TRACK_STRINGS) || !isIntegerIn(value.fret, 0, maxFret)) {
+function parseNote(value: unknown, highestFret: number): Note | undefined {
+  const fret = isRawObject(value) ? parseFret(value.fret, highestFret) : undefined;
+  if (!isRawObject(value) || !isIntegerIn(value.string, 1, MAX_TRACK_STRINGS) || fret === undefined) {
     return undefined;
   }
-  const effect = parseNoteEffect(value.effect, maxFret);
+  const effect = parseNoteEffect(value.effect);
   const marks = parseNoteMarks(value);
   if (!isIntegerIn(value.velocity, 0, MAX_VELOCITY) || typeof value.isTied !== 'boolean' || effect === undefined || marks === null) {
     return undefined;
   }
-  const note: Note = { string: value.string, fret: value.fret, velocity: value.velocity, isTied: value.isTied, effect, ...marks };
+  const note: Note = { string: value.string, fret, velocity: value.velocity, isTied: value.isTied, effect, ...marks };
   if (value.audio === undefined) {
     return note;
   }
@@ -67,11 +68,11 @@ function parseNote(value: unknown, maxFret: number): Note | undefined {
 }
 
 /** Up to one note per string, ordered by string. */
-function parseNotes(value: unknown, maxFret: number): readonly Note[] | undefined {
+function parseNotes(value: unknown, highestFret: number): readonly Note[] | undefined {
   if (!Array.isArray(value) || value.length > MAX_TRACK_STRINGS) {
     return undefined;
   }
-  const notes = value.map((note: unknown) => parseNote(note, maxFret));
+  const notes = value.map((note: unknown) => parseNote(note, highestFret));
   if (!notes.every((note): note is Note => note !== undefined) || new Set(notes.map((note) => note.string)).size !== notes.length) {
     return undefined;
   }
@@ -127,13 +128,13 @@ function parseMarks(value: RawObject): Pick<BeatFragmentItem, 'hairpin' | 'rasgu
   return { ...(hairpin === undefined ? {} : { hairpin }), ...(rasgueado === undefined ? {} : { rasgueado }), ...(ottava === undefined ? {} : { ottava }) };
 }
 
-function parseItem(value: unknown, maxFret: number): BeatFragmentItem | undefined {
+function parseItem(value: unknown, highestFret: number): BeatFragmentItem | undefined {
   if (!isRawObject(value)) {
     return undefined;
   }
   const marks = parseMarks(value);
   const duration = parseDuration(value.duration);
-  const notes = parseNotes(value.notes, maxFret);
+  const notes = parseNotes(value.notes, highestFret);
   const stroke = parseStroke(value.stroke);
   const pickStroke = parseDirection(value.pickStroke);
   const text = parseText(value.text);
@@ -192,7 +193,8 @@ function parseLayout(value: unknown): { readonly layout?: FragmentLayout } | nul
 /**
  * A fragment from untrusted JSON (the system clipboard), checked field by field: the format tag and version, one beat
  * or more — any number —, durations of note values in any tuplet a song holds (fragment-values-json), notes on strings
- * 1…MAX_TRACK_STRINGS (one per string) at frets 0…MAX_FRET (MIDI keys 0…127 for drums) with velocities 0…127 and
+ * 1…MAX_TRACK_STRINGS (one per string) at any fret from 0 (parseFret: above MAX_FILE_FRET, or a drum's MIDI key above
+ * 127, brought down to it) with velocities 0…127 and
  * well-formed effects, strokes, chord diagrams, texts, hairpins, rasgueado patterns, octave signs and annotations
  * (annotations/annotation-text.ts), and the copied track's tuning and capo and the run's bars (FragmentLayout) when it
  * gives them. Undefined when anything is off. Ties that do not start inside the fragment are removed.
@@ -208,10 +210,10 @@ export function parseBeatFragment(value: unknown): BeatFragment | undefined {
   if (!Array.isArray(items) || items.length === 0 || tuning === null || capo === null || layout === null) {
     return undefined;
   }
-  const maxFret = isPercussion ? MAX_DRUM_KEY : MAX_FRET;
+  const highestFret = isPercussion ? MAX_DRUM_KEY : MAX_FILE_FRET;
   const parsed: BeatFragmentItem[] = [];
   for (const item of items) {
-    const next = parseItem(item, maxFret);
+    const next = parseItem(item, highestFret);
     if (next === undefined) {
       return undefined;
     }
